@@ -438,11 +438,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// Increases the asset `id` balance of `beneficiary` by `amount`.
-	///
-	/// This alters the registered supply of the asset and emits an event.
-	///
-	/// Will return an error or will increase the amount by exactly `amount`.
+	/// Creates a distribution in storage for asset `id`, which can be claimed via `do_claim_distribution`.
 	pub(super) fn do_mint_distribution(
 		id: T::AssetId,
 		merkle_root: T::Hash,
@@ -459,6 +455,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		MerklizedDistribution::<T, I>::insert(&distribution_count, (id.clone(), merkle_root.clone()));
 
 		Self::deposit_event(Event::DistributionIssued { asset_id: id, merkle_root: merkle_root });
+
+		Ok(())
+	}
+
+	/// A wrapper around `do_mint`, allowing a `merkle_proof` to control the amount minted and to whom.
+	pub(super) fn do_claim_distribution(
+		distribution_id: DistributionCounter,
+		merkle_proof: MerkleProof<T::Hash, (T::AccountId, T::Balance)>,
+	) -> DispatchResult {
+		let (asset_id, merkle_root) = MerklizedDistribution::<T, I>::get(distribution_id).ok_or(Error::<T, I>::Unknown)?;
 
 		Ok(())
 	}

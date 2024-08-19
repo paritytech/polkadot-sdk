@@ -194,6 +194,8 @@ use frame_support::{
 };
 use frame_system::Config as SystemConfig;
 
+use binary_merkle_tree::MerkleProof;
+
 pub use pallet::*;
 pub use weights::WeightInfo;
 
@@ -456,7 +458,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	type DistributionCounter = u32;
+	pub type DistributionCounter = u32;
 
 	#[pallet::storage]
 	/// Merklized distribution of an asset.
@@ -1830,7 +1832,7 @@ pub mod pallet {
 		/// The origin must be Signed and the sender must be the Issuer of the asset `id`.
 		///
 		/// - `id`: The identifier of the asset to have some amount minted.
-		/// - `merkle_root`: The merkle root of a binary trie used to authorize minting.
+		/// - `merkle_root`: The merkle root of a binary tree used to authorize minting.
 		///
 		/// Emits `DistributionIssued` event when successful.
 		///
@@ -1845,6 +1847,28 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
 			Self::do_mint_distribution(id, merkle_root, Some(origin))?;
+			Ok(())
+		}
+
+		/// Claim a distribution of assets of a particular class.
+		///
+		/// Any signed origin may call this function.
+		///
+		/// - `distribution_id`: The identifier of the distribution.
+		/// - `merkle_proof`: The merkle proof of the account and balance in a binary tree used to authorize minting.
+		///
+		/// Emits `Issued` event when successful.
+		///
+		/// Weight: `O(1)`
+		/// Modes: Pre-existing balance of `beneficiary`; Account pre-existence of `beneficiary`.
+		#[pallet::call_index(34)]
+		pub fn claim_distribution(
+			origin: OriginFor<T>,
+			distribution_id: DistributionCounter,
+			merkle_proof: MerkleProof<T::Hash, (T::AccountId, T::Balance)>,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			Self::do_claim_distribution(distribution_id, merkle_proof)?;
 			Ok(())
 		}
 	}

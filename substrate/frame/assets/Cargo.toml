@@ -20,6 +20,7 @@ codec = { workspace = true }
 impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+binary-merkle-tree = { workspace = true }
 # Needed for various traits. In our case, `OnFinalize`.
 sp-runtime = { workspace = true }
 # Needed for type-safe access to storage DB.

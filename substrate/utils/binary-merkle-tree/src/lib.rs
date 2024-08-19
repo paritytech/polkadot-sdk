@@ -38,6 +38,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use hash_db::Hasher;
+use codec::{Encode, Decode};
+use scale_info::TypeInfo;
 
 /// Construct a root hash of a Binary Merkle Tree created from given leaves.
 ///
@@ -87,7 +89,8 @@ where
 /// A generated merkle proof.
 ///
 /// The structure contains all necessary data to later on verify the proof and the leaf itself.
-#[derive(Debug, PartialEq, Eq)]
+// #[derive(Encode, Decode, Debug, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MerkleProof<H, L> {
 	/// Root hash of generated merkle tree.
 	pub root: H,
@@ -105,6 +108,36 @@ pub struct MerkleProof<H, L> {
 	pub leaf_index: usize,
 	/// Leaf content.
 	pub leaf: L,
+}
+
+// USIZE breaks these needed traits
+impl<H: 'static, L: 'static> TypeInfo for MerkleProof<H, L> {
+	type Identity = Self;
+
+	fn type_info() -> scale_info::Type {
+		scale_info::Type::builder()
+			.path(scale_info::Path::new("Dummy TODO", module_path!()))
+			.composite(
+				scale_info::build::Fields::unnamed()
+					.field(|f| f.ty::<u8>().docs(&["Dummy TODO"])),
+			)
+	}
+}
+
+impl<H, L> Encode for MerkleProof<H, L> {
+	fn size_hint(&self) -> usize {
+		true.size_hint()
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		true.using_encoded(f)
+	}
+}
+
+impl<H, L> Decode for MerkleProof<H, L> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		Err("DUMMY TODO".into())
+	}
 }
 
 /// A trait of object inspecting merkle root creation.
