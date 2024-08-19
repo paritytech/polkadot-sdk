@@ -14,4 +14,4 @@ doc:
 
 crates:
   - name: sc-network
-
+    bump: patch
