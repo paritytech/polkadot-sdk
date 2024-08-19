@@ -217,7 +217,7 @@ impl BlockImport<Block> for PeersClient {
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.client.import_block(block).await
@@ -607,7 +607,7 @@ where
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.import_block(block).await
