@@ -79,6 +79,11 @@ impl<B: BlockT> SyncingService<B> {
 		Self { tx, num_connected, is_major_syncing }
 	}
 
+	/// Get the number of peers known to `SyncingEngine` (both full and light).
+	pub fn num_connected_peers(&self) -> usize {
+		self.num_connected.load(Ordering::Relaxed)
+	}
+
 	/// Get the number of active peers.
 	pub async fn num_active_peers(&self) -> Result<usize, oneshot::Canceled> {
 		let (tx, rx) = oneshot::channel();

@@ -761,9 +761,7 @@ where
 				);
 			},
 			ToServiceCommand::Status(tx) => {
-				let mut status = self.strategy.status();
-				status.num_connected_peers = self.peers.len() as u32;
-				let _ = tx.send(status);
+				let _ = tx.send(self.strategy.status());
 			},
 			ToServiceCommand::NumActivePeers(tx) => {
 				let _ = tx.send(self.num_active_peers());

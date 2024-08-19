@@ -266,7 +266,7 @@ where
 
 	/// Returns the number of peers we're connected to.
 	pub async fn num_peers(&self) -> usize {
-		self.sync_service.status().await.unwrap().num_connected_peers as usize
+		self.sync_service.num_connected_peers()
 	}
 
 	/// Returns the number of downloaded blocks.
@@ -1094,9 +1094,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		'outer: loop {
 			for sync_service in &sync_services {
-				if sync_service.status().await.unwrap().num_connected_peers as usize !=
-					num_peers - 1
-				{
+				if sync_service.num_connected_peers() != num_peers - 1 {
 					futures::future::poll_fn::<(), _>(|cx| {
 						self.poll(cx);
 						Poll::Ready(())
