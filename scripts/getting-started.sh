@@ -115,14 +115,14 @@ if command -v rustc >/dev/null 2>&1; then
 else
     if prompt_default_yes "\n🦀 Rust is not installed. Install it?"; then
         version=`cat ../.github/env | grep IMAGE | cut -d'-' -f3`
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh 
 
         # If the version was empty, or did not contain dots, install the latest version
         if [ -z "${version}" ] || [ $(echo $version | grep -o "\." | wc -l) -lt 2 ]; then
             echo "❌ Required version of rust not found. Installing the latest version."
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh 
         else
-            echo "🦀 Installing via rustup: v$version"
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs/?version=$version | sh
+            echo "🦀 Installing rustup: v$version"
+            rustup default 1.77.0
         fi
     else
         echo "Aborting."
