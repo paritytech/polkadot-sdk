@@ -423,7 +423,7 @@ mod tests {
 
 	#[test]
 	fn returns_directly_for_available_block() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		block_on(client.import(BlockOrigin::Own, block)).expect("Imports the block");
@@ -439,7 +439,7 @@ mod tests {
 
 	#[test]
 	fn resolve_after_block_import_notification_was_received() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		block_on(async move {
@@ -468,7 +468,7 @@ mod tests {
 
 	#[test]
 	fn do_not_resolve_after_different_block_import_notification_was_received() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		let ext = construct_transfer_extrinsic(

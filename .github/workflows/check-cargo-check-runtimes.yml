@@ -1,0 +1,136 @@
+name: Check Cargo Check Runtimes
+
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened, ready_for_review, labeled ]
+
+
+# Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
+
+jobs:
+  # GitHub Actions allows using 'env' in a container context.
+  # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+  # This workaround sets the container image for each job using 'set-image' job output.
+  set-image:
+    if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+  check-runtime-assets:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    needs: [set-image]
+    timeout-minutes: 20
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run cargo check
+        uses: ./.github/actions/cargo-check-runtimes
+        with:
+          root: cumulus/parachains/runtimes/assets
+
+  check-runtime-collectives:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    needs: [check-runtime-assets, set-image]
+    timeout-minutes: 20
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run cargo check
+        uses: ./.github/actions/cargo-check-runtimes
+        with:
+          root: cumulus/parachains/runtimes/collectives
+
+  check-runtime-coretime:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    needs: [check-runtime-assets, set-image]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run cargo check
+        uses: ./.github/actions/cargo-check-runtimes
+        with:
+          root: cumulus/parachains/runtimes/coretime
+
+  check-runtime-bridge-hubs:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    needs: [set-image]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run cargo check
+        uses: ./.github/actions/cargo-check-runtimes
+        with:
+          root: cumulus/parachains/runtimes/bridge-hubs
+
+  check-runtime-contracts:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    needs: [check-runtime-collectives, set-image]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run cargo check
+        uses: ./.github/actions/cargo-check-runtimes
+        with:
+          root: cumulus/parachains/runtimes/contracts
+
+  check-runtime-starters:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    needs: [check-runtime-assets, set-image]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run cargo check
+        uses: ./.github/actions/cargo-check-runtimes
+        with:
+          root: cumulus/parachains/runtimes/starters
+
+  check-runtime-testing:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    needs: [check-runtime-starters, set-image]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run cargo check
+        uses: ./.github/actions/cargo-check-runtimes
+        with:
+          root: cumulus/parachains/runtimes/testing
+
+  confirm-required-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All check-runtime-* tests passed
+    # If any new job gets added, be sure to add it to this array
+    needs:
+      - check-runtime-assets
+      - check-runtime-collectives
+      - check-runtime-coretime
+      - check-runtime-bridge-hubs
+      - check-runtime-contracts
+      - check-runtime-starters
+      - check-runtime-testing
+    steps:
+      - run: echo '### Good job! All the tests passed 🚀' >> $GITHUB_STEP_SUMMARY

@@ -852,7 +852,7 @@ mod tests {
 			block
 		};
 
-		let import_and_maintain = |mut client: Arc<TestClient>, block: TestBlock| {
+		let import_and_maintain = |client: Arc<TestClient>, block: TestBlock| {
 			let hash = block.hash();
 			block_on(client.import(BlockOrigin::Own, block)).unwrap();
 			block_on(txpool.maintain(chain_event(

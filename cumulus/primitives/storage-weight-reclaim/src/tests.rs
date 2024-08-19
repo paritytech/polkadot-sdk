@@ -149,6 +149,97 @@ fn underestimating_refund() {
 }
 
 #[test]
+fn sets_to_node_storage_proof_if_higher() {
+	// The storage proof reported by the proof recorder is higher than what is stored on
+	// the runtime side.
+	{
+		let mut test_ext = setup_test_externalities(&[1000, 1005]);
+
+		test_ext.execute_with(|| {
+			// Stored in BlockWeight is 5
+			set_current_storage_weight(5);
+
+			// Benchmarked storage weight: 10
+			let info =
+				DispatchInfo { call_weight: Weight::from_parts(0, 10), ..Default::default() };
+			let post_info = PostDispatchInfo::default();
+
+			let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
+			assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+				.unwrap();
+			assert_eq!(pre, Some(1000));
+
+			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+				(),
+				&info,
+				&post_info,
+				0,
+				&Ok(())
+			));
+			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
+				pre,
+				&info,
+				&post_info,
+				LEN,
+				&Ok(())
+			));
+
+			// We expect that the storage weight was set to the node-side proof size (1005) +
+			// extrinsics length (150)
+			assert_eq!(get_storage_weight().total().proof_size(), 1155);
+		})
+	}
+
+	// In this second scenario the proof size on the node side is only lower
+	// after reclaim happened.
+	{
+		let mut test_ext = setup_test_externalities(&[175, 180]);
+		test_ext.execute_with(|| {
+			set_current_storage_weight(85);
+
+			// Benchmarked storage weight: 100
+			let info =
+				DispatchInfo { call_weight: Weight::from_parts(0, 100), ..Default::default() };
+			let post_info = PostDispatchInfo::default();
+
+			// After this pre_dispatch, the BlockWeight proof size will be
+			// 85 (initial) + 100 (benched) + 150 (tx length) = 335
+			let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
+			assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+
+			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+				.unwrap();
+			assert_eq!(pre, Some(175));
+
+			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+				(),
+				&info,
+				&post_info,
+				0,
+				&Ok(())
+			));
+
+			// First we will reclaim 95, which leaves us with 240 BlockWeight. This is lower
+			// than 180 (proof size hf) + 150 (length), so we expect it to be set to 330.
+			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
+				pre,
+				&info,
+				&post_info,
+				LEN,
+				&Ok(())
+			));
+
+			// We expect that the storage weight was set to the node-side proof weight
+			assert_eq!(get_storage_weight().total().proof_size(), 330);
+		})
+	}
+}
+
+#[test]
 fn does_nothing_without_extension() {
 	let mut test_ext = new_test_ext();
 

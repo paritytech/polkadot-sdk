@@ -57,11 +57,6 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(2))
 	}
 
-	// TODO: Calculate
-	fn report_fork_voting(_validator_count: u32, _max_nominators_per_validator: u32) -> Weight {
-		Weight::MAX
-	}
-
 	fn set_new_genesis() -> Weight {
 		DbWeight::get().writes(1)
 	}

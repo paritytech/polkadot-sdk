@@ -1351,6 +1351,12 @@ impl Initialized {
 				}
 			}
 			for validator_index in new_state.votes().invalid.keys() {
+				gum::debug!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?validator_index,
+					"Disabled offchain for voting invalid against a valid candidate",
+				);
 				self.offchain_disabled_validators
 					.insert_against_valid(session, *validator_index);
 			}
@@ -1375,6 +1381,13 @@ impl Initialized {
 			}
 			for (validator_index, (kind, _sig)) in new_state.votes().valid.raw() {
 				let is_backer = kind.is_backing();
+				gum::debug!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?validator_index,
+					?is_backer,
+					"Disabled offchain for voting valid for an invalid candidate",
+				);
 				self.offchain_disabled_validators.insert_for_invalid(
 					session,
 					*validator_index,
