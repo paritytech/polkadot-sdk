@@ -122,7 +122,7 @@ else
             echo "❌ Required version of rust not found. Installing the latest version."
         else
             echo "🦀 Installing rustup: v$version"
-            rustup default 1.77.0
+            rustup default $version
         fi
     else
         echo "Aborting."
