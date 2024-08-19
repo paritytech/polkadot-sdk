@@ -260,11 +260,27 @@ impl PeerStoreInner {
 
 	fn report_peer(&mut self, peer_id: PeerId, change: ReputationChange) {
 		let peer_info = self.peers.entry(peer_id).or_default();
+		let was_banned = peer_info.is_banned();
 		peer_info.add_reputation(change.value);
 
-		if peer_info.is_banned() {
-			self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id.into()));
+		log::trace!(
+			target: LOG_TARGET,
+			"Report {}: {:+} to {}. Reason: {}.",
+			peer_id,
+			change.value,
+			peer_info.reputation,
+			change.reason,
+		);
 
+		if !peer_info.is_banned() {
+			return;
+		}
+
+		// Peer is currently banned, disconnect it from all protocols.
+		self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id.into()));
+
+		// The peer is banned for the first time.
+		if !was_banned {
 			log::warn!(
 				target: LOG_TARGET,
 				"Report {}: {:+} to {}. Reason: {}. Banned, disconnecting.",
@@ -273,10 +289,15 @@ impl PeerStoreInner {
 				peer_info.reputation,
 				change.reason,
 			);
-		} else {
-			log::trace!(
+			return;
+		}
+
+		// The peer was already banned and it got another negative report.
+		// This may happen during a batch report.
+		if change.value < 0 {
+			log::warn!(
 				target: LOG_TARGET,
-				"Report {}: {:+} to {}. Reason: {}.",
+				"Report {}: {:+} to {}. Reason: {}. Misbehaved during the ban threshold.",
 				peer_id,
 				change.value,
 				peer_info.reputation,
