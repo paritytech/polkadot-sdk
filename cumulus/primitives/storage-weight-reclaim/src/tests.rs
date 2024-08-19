@@ -457,7 +457,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 
 #[test]
 fn test_nothing_relcaimed() {
-	let mut test_ext = setup_test_externalities(&[100, 200]);
+	let mut test_ext = setup_test_externalities(&[0, 100]);
 
 	test_ext.execute_with(|| {
 		set_current_storage_weight(0);
@@ -481,12 +481,12 @@ fn test_nothing_relcaimed() {
 			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
 			.unwrap();
 		// Should return `setup_test_externalities` proof recorder value: 100.
-		assert_eq!(pre, Some(100));
+		assert_eq!(pre, Some(0));
 
 		// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
 		// Nothing to refund, unspent is 0, total weight 250
-		assert_ok!(CheckWeight::<Test>::post_dispatch_details((), &info, &post_info, 0, &Ok(()),));
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details((), &info, &post_info, LEN, &Ok(())));
 		// `setup_test_externalities` proof recorder value: 200, so this means the extrinsic
 		// actually used 100 proof size.
 		// Nothing to refund or add, weight matches proof recorder
@@ -495,7 +495,7 @@ fn test_nothing_relcaimed() {
 			&info,
 			&post_info,
 			LEN,
-			&Ok(()),
+			&Ok(())
 		));
 
 		// Check block len weight was not reclaimed:
