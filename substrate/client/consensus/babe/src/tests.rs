@@ -150,7 +150,7 @@ where
 	type Error = BI::Error;
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<TestBlock>,
 	) -> Result<ImportResult, Self::Error> {
 		Ok(self.0.import_block(block).await.expect("importing block failed"))
