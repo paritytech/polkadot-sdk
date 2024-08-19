@@ -572,9 +572,6 @@ pub trait OriginTrait: Sized {
 /// It is usually implemented by the [`crate::pallet`] macro and used by the
 /// [`frame_system::AuthorizeCall`] transaction extension.
 pub trait Authorize {
-	/// The origin type of the runtime, (i.e. `frame_system::Config::RuntimeOrigin`).
-	type RuntimeOrigin;
-
 	// TODO TODO: probably return the accurate to refund here
 	/// The authorize function.
 	///
@@ -584,7 +581,7 @@ pub trait Authorize {
 	/// * `None` if the call doesn't provide any authorization.
 	fn authorize(
 		&self,
-	) -> Option<Result<(ValidTransaction, Self::RuntimeOrigin), TransactionValidityError>>;
+	) -> Option<Result<ValidTransaction, TransactionValidityError>>;
 
 	// TODO TODO: actually the weight could be included in the call weight itself, but people might
 	// forget about it.

@@ -26,8 +26,7 @@ use sp_runtime::transaction_validity::TransactionValidityError;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_runtime::DispatchError;
 
-
-// no origin + simple supertrait bound + instance
+// test for instance
 #[frame_support::pallet]
 pub mod pallet1 {
 	use frame_support::pallet_prelude::*;
@@ -72,7 +71,7 @@ pub mod pallet1 {
 		#[pallet::weight_of_authorize(CALL_1_AUTH_WEIGHT)]
 		#[pallet::call_index(0)]
 		pub fn call1(origin: OriginFor<T>) -> DispatchResult {
-			ensure_authorized_origin!(origin);
+			ensure_authorized(origin)?;
 
 			Ok(())
 		}
@@ -92,7 +91,7 @@ pub mod pallet1 {
 		)]
 		#[pallet::call_index(1)]
 		pub fn call2(origin: OriginFor<T>, a: bool, b: u64, c: u8, d: u8, e: u64, f: bool) -> DispatchResultWithPostInfo {
-			ensure_authorized_origin!(origin);
+			ensure_authorized(origin)?;
 
 			let _ = (a, b, c, d, e, f);
 
@@ -102,7 +101,7 @@ pub mod pallet1 {
 		#[pallet::authorize(Pallet::<T, I>::authorize_call3)]
 		#[pallet::call_index(2)]
 		pub fn call3(origin: OriginFor<T>, valid: bool) -> DispatchResultWithPostInfo {
-			ensure_authorized_origin!(origin);
+			ensure_authorized(origin)?;
 
 			let _ = valid;
 
@@ -124,7 +123,7 @@ pub mod pallet1 {
 	}
 }
 
-// dev mode + system supertrait bound with arg
+// test for dev mode.
 #[frame_support::pallet(dev_mode)]
 pub mod pallet2 {
 	use frame_support::pallet_prelude::*;
@@ -136,19 +135,19 @@ pub mod pallet2 {
 	pub trait SomeTrait {}
 
 	#[pallet::config]
-	pub trait Config: crate::pallet1::Config + frame_system::Config<RuntimeOrigin: SomeTrait> {}
+	pub trait Config: frame_system::Config {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::authorize(|| Ok(ValidTransaction::default()))]
 		pub fn call1(origin: OriginFor<T>) -> DispatchResult {
-			ensure_authorized_origin!(origin);
+			ensure_authorized(origin)?;
 			Ok(())
 		}
 	}
 }
 
-// explicit generic origin
+// test for no pallet info.
 #[frame_support::pallet]
 pub mod pallet3 {
 	use frame_support::pallet_prelude::*;
@@ -170,121 +169,9 @@ pub mod pallet3 {
 		#[pallet::weight(CALL_1_WEIGHT)]
 		#[pallet::call_index(0)]
 		pub fn call1(origin: OriginFor<T>) -> DispatchResult {
-			ensure_authorized_origin!(origin);
+			ensure_authorized(origin)?;
 			Ok(())
 		}
-	}
-
-	#[pallet::origin]
-	#[derive(
-		frame_support::CloneNoBound,
-		frame_support::PartialEqNoBound,
-		frame_support::EqNoBound,
-		frame_support::RuntimeDebugNoBound,
-		codec::Encode,
-		codec::MaxEncodedLen,
-		codec::Decode,
-		scale_info::TypeInfo,
-	)]
-	#[scale_info(skip_type_params(T))]
-	pub enum Origin<T> {
-		#[pallet::authorized_call]
-		AuthorizedCall(_),
-		// #[codec(skip)]
-		// __Ignore(PhantomData<T>, frame_support::Never),
-		__Ignore(PhantomData<T>),
-	}
-}
-
-// explicit generic origin + instance
-#[frame_support::pallet]
-pub mod pallet4 {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-
-	pub const CALL_1_AUTH_WEIGHT: Weight = Weight::from_all(1);
-	pub const CALL_1_WEIGHT: Weight = Weight::from_all(1);
-
-	#[pallet::pallet]
-	pub struct Pallet<T, I = ()>(_);
-
-	#[pallet::config]
-	pub trait Config<I: 'static = ()>: crate::pallet1::Config + frame_system::Config {}
-
-	#[pallet::call]
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		#[pallet::authorize(|| Ok(ValidTransaction::default()))]
-		#[pallet::weight_of_authorize(CALL_1_AUTH_WEIGHT)]
-		#[pallet::weight(CALL_1_WEIGHT)]
-		#[pallet::call_index(0)]
-		pub fn call1(origin: OriginFor<T>) -> DispatchResult {
-			ensure_authorized_origin!(origin);
-			Ok(())
-		}
-	}
-
-	#[pallet::origin]
-	#[derive(
-		frame_support::CloneNoBound,
-		frame_support::PartialEqNoBound,
-		frame_support::EqNoBound,
-		frame_support::RuntimeDebugNoBound,
-		codec::Encode,
-		codec::MaxEncodedLen,
-		codec::Decode,
-		scale_info::TypeInfo,
-	)]
-	#[scale_info(skip_type_params(T, I))]
-	pub enum Origin<T, I = ()> {
-		#[pallet::authorized_call]
-		AuthorizedCall(_),
-		// #[codec(skip)]
-		// __Ignore(PhantomData<(T, I)>, frame_support::Never),
-		__Ignore(PhantomData<(T, I)>),
-	}
-}
-
-// explicit not generic origin
-#[frame_support::pallet]
-pub mod pallet5 {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-
-	pub const CALL_1_AUTH_WEIGHT: Weight = Weight::from_all(1);
-	pub const CALL_1_WEIGHT: Weight = Weight::from_all(1);
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
-
-	#[pallet::config]
-	pub trait Config: crate::pallet1::Config + frame_system::Config {}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		#[pallet::authorize(|| Ok(ValidTransaction::default()))]
-		#[pallet::weight_of_authorize(CALL_1_AUTH_WEIGHT)]
-		#[pallet::weight(CALL_1_WEIGHT)]
-		#[pallet::call_index(0)]
-		pub fn call1(origin: OriginFor<T>) -> DispatchResult {
-			ensure_authorized_origin!(origin);
-			Ok(())
-		}
-	}
-
-	#[pallet::origin]
-	#[derive(
-		frame_support::CloneNoBound,
-		frame_support::PartialEqNoBound,
-		frame_support::EqNoBound,
-		frame_support::RuntimeDebugNoBound,
-		codec::Encode,
-		codec::MaxEncodedLen,
-		codec::Decode,
-		scale_info::TypeInfo,
-	)]
-	pub enum Origin {
-		#[pallet::authorized_call]
-		AuthorizedCall(_),
 	}
 }
 
@@ -306,12 +193,6 @@ impl pallet1::Config<frame_support::instances::Instance2> for Runtime {
 impl pallet2::Config for Runtime {}
 
 impl pallet3::Config for Runtime {}
-
-impl pallet4::Config for Runtime {}
-
-impl pallet4::Config<frame_support::instances::Instance2> for Runtime {}
-
-impl pallet5::Config for Runtime {}
 
 pub type TransactionExtension = (
 	frame_system::AuthorizeCall<Runtime>,
@@ -357,15 +238,6 @@ mod runtime {
 
 	#[runtime::pallet_index(3)]
 	pub type Pallet3 = pallet3::Pallet<Runtime>;
-
-	#[runtime::pallet_index(4)]
-	pub type Pallet4 = pallet4::Pallet<Runtime>;
-
-	#[runtime::pallet_index(42)]
-	pub type Pallet4Instance2 = pallet4::Pallet<Runtime, Instance2>;
-
-	#[runtime::pallet_index(5)]
-	pub type Pallet5 = pallet5::Pallet<Runtime>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -447,20 +319,6 @@ fn valid_call_weight_test() {
 			call_weight: pallet3::CALL_1_WEIGHT,
 			ext_weight: pallet1::CALL_1_AUTH_WEIGHT.max(pallet1::CALL_2_AUTH_WEIGHT).max(pallet1::CALL_3_AUTH_WEIGHT),
 			actual_weight: pallet3::CALL_1_WEIGHT + pallet3::CALL_1_AUTH_WEIGHT,
-		},
-		Test {
-			call: RuntimeCall::Pallet4(pallet4::Call::call1 {}),
-			dispatch_success: true,
-			call_weight: pallet4::CALL_1_WEIGHT,
-			ext_weight: pallet1::CALL_1_AUTH_WEIGHT.max(pallet1::CALL_2_AUTH_WEIGHT).max(pallet1::CALL_3_AUTH_WEIGHT),
-			actual_weight: pallet4::CALL_1_WEIGHT + pallet4::CALL_1_AUTH_WEIGHT,
-		},
-		Test {
-			call: RuntimeCall::Pallet5(pallet5::Call::call1 {}),
-			dispatch_success: true,
-			call_weight: pallet5::CALL_1_WEIGHT,
-			ext_weight: pallet1::CALL_1_AUTH_WEIGHT.max(pallet1::CALL_2_AUTH_WEIGHT).max(pallet1::CALL_3_AUTH_WEIGHT),
-			actual_weight: pallet5::CALL_1_WEIGHT + pallet5::CALL_1_AUTH_WEIGHT,
 		},
 	];
 

@@ -68,7 +68,7 @@ where
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if origin.as_system_ref().map_or(false, |system_origin| system_origin.is_none()) {
 			if let Some(authorize) = call.authorize() {
-				return authorize.map(|(validity, result_origin)| (validity, (), result_origin))
+				return authorize.map(|validity| (validity, (), crate::Origin::<T>::Authorized.into()))
 			}
 		}
 

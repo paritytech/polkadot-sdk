@@ -491,7 +491,7 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
 			+ From<Call<Self>>
-			+ Authorize<RuntimeOrigin = Self::RuntimeOrigin>;
+			+ Authorize;
 
 		/// The aggregated `RuntimeTask` type.
 		#[pallet::no_default_bounds]
@@ -1403,6 +1403,17 @@ where
 	}
 }
 
+/// Ensure that the origin `o` represents an extrinsic with authorized call. Returns `Ok` or an `Err` otherwise.
+pub fn ensure_authorized<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<(), BadOrigin>
+where
+	OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>>,
+{
+	match o.into() {
+		Ok(RawOrigin::Authorized) => Ok(()),
+		_ => Err(BadOrigin),
+	}
+}
+
 /// Reference status; can be either referenced or unreferenced.
 #[derive(RuntimeDebug)]
 pub enum RefStatus {
@@ -2274,7 +2285,7 @@ impl<T: Config> Lookup for ChainContext<T> {
 
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
-	pub use crate::{ensure_none, ensure_root, ensure_signed, ensure_signed_or_root};
+	pub use crate::{ensure_authorized, ensure_none, ensure_root, ensure_signed, ensure_signed_or_root};
 
 	/// Type alias for the `Origin` associated type of system config.
 	pub type OriginFor<T> = <T as crate::Config>::RuntimeOrigin;

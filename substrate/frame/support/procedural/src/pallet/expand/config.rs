@@ -16,17 +16,13 @@
 // limitations under the License.
 
 use crate::pallet::Def;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse_quote, Item};
 
 ///
 /// * Generate default rust doc
-/// * Add `Into<Result<Origin>>` and `From<Origin>` to `frame_system::Config::RuntimeOrigin` if
-///   needed for authorized call.
 pub fn expand_config(def: &mut Def) -> TokenStream {
-	add_authorize_constraint(def);
-
 	let config = &def.config;
 	let config_item = {
 		let item = &mut def.item.content.as_mut().expect("Checked by def parser").1[config.index];
@@ -97,84 +93,5 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 			)
 		},
 		_ => Default::default(),
-	}
-}
-
-/// Add `TryInfo<Origin>` to `frame_system::Config::RuntimeOrigin` if needed for authorized call.
-pub fn add_authorize_constraint(def: &mut Def) {
-	let Item::Trait(config_item) =
-		&mut def.item.content.as_mut().expect("Checked by parser").1[def.config.index]
-	else {
-		unreachable!("Checked by parser")
-	};
-
-	if def
-		.call
-		.as_ref()
-		.map_or(true, |call| call.methods.iter().all(|call| call.authorize.is_none()))
-	{
-		// No call or no call with authorize.
-		return
-	}
-
-	let frame_system = &def.frame_system;
-
-	let frame_system_supertrait_args = config_item
-		.supertraits
-		.iter_mut()
-		.find_map(|supertrait| {
-			if let syn::TypeParamBound::Trait(trait_bound) = supertrait {
-				let len = trait_bound.path.segments.len();
-				if len >= 2 &&
-					trait_bound.path.segments[len - 1].ident == "Config" &&
-					trait_bound.path.segments[len - 2].ident == "frame_system"
-				{
-					Some(&mut trait_bound.path.segments.last_mut().unwrap().arguments)
-				} else {
-					None
-				}
-			} else {
-				None
-			}
-		})
-		.expect("Checked by parser");
-
-	let origin_use_gen = def.origin_gen_kind.type_use_gen_within_config(Span::call_site());
-
-	let bound_1 = parse_quote!(::core::convert::Into<::core::result::Result<
-		Origin<#origin_use_gen>,
-		<Self as #frame_system::Config>::RuntimeOrigin
-		>>
-	);
-	let bound_2 = parse_quote!(
-		::core::convert::From<Origin<#origin_use_gen>>
-	);
-
-	match frame_system_supertrait_args {
-		syn::PathArguments::AngleBracketed(args) => {
-			let runtime_origin_bounds = args.args.iter_mut().find_map(|bound| {
-				if let syn::GenericArgument::Constraint(constraint) = bound {
-					if constraint.ident == "RuntimeOrigin" {
-						Some(&mut constraint.bounds)
-					} else {
-						None
-					}
-				} else {
-					None
-				}
-			});
-
-			if let Some(bounds) = runtime_origin_bounds {
-				bounds.push(bound_1);
-				bounds.push(bound_2);
-			} else {
-				args.args.push(parse_quote!(RuntimeOrigin: #bound_1 + #bound_2));
-			}
-		},
-		syn::PathArguments::None =>
-			*frame_system_supertrait_args = syn::PathArguments::AngleBracketed(parse_quote!(
-				<RuntimeOrigin: #bound_1 + #bound_2>
-			)),
-		syn::PathArguments::Parenthesized(_) => (), // This is invalid rust we do nothing.
 	}
 }

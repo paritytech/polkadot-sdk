@@ -109,9 +109,6 @@ pub struct CallVariantDef {
 	/// The information related to `authorize` attribute.
 	/// `(authorize expression, weight of authorize)`
 	pub authorize: Option<(syn::Expr, CallWeightDef)>,
-	/// The index of the function item in the implementation item.
-	/// To retrieve the variant from the fields `items` in `syn::ItemImpl`.
-	pub item_index: usize,
 }
 
 /// Attributes for functions in call impl block.
@@ -242,44 +239,6 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type, is_ref: bool) -> syn::R
 	}
 }
 
-#[derive(derive_syn_parse::Parse)]
-pub struct AuthorizeMacroCall {
-	_ident: keyword::ensure_authorized_origin,
-	_bang: syn::Token![!],
-	#[paren]
-	_paren: syn::token::Paren,
-	#[inside(_paren)]
-	inner_ident: syn::Ident,
-	_semi: syn::Token![;],
-}
-
-/// Check the fixed syntax `ensure_authorized_origin!(origin)` is used at first statement in block.
-fn check_authorize_call_first_item(origin_arg: &syn::Ident, block: &syn::Block) -> syn::Result<()> {
-	let main_msg = format!(
-		"Invalid pallet::call, usage of pallet::authorize requires to use \
-		`ensure_authorized_origin!({});` as first statement in the call function block.",
-		origin_arg
-	);
-
-	let Some(first_stmt) = block.stmts.first() else {
-		let msg = format!("{} Instead found no statements in the block.", main_msg);
-		return Err(syn::Error::new(block.span(), msg))
-	};
-
-	let macro_call =
-		syn::parse2::<AuthorizeMacroCall>(first_stmt.to_token_stream()).map_err(|e| {
-			let mut error = syn::Error::new(first_stmt.span(), &main_msg);
-			error.combine(e);
-			error
-		})?;
-
-	if macro_call.inner_ident != *origin_arg {
-		return Err(syn::Error::new(macro_call.inner_ident.span(), main_msg))
-	}
-
-	Ok(())
-}
-
 impl CallDef {
 	pub fn try_from(
 		attr_span: proc_macro2::Span,
@@ -308,7 +267,7 @@ impl CallDef {
 		let mut methods = vec![];
 		let mut indices = HashMap::new();
 		let mut last_index: Option<u8> = None;
-		for (item_index, item) in item_impl.items.iter_mut().enumerate() {
+		for item in &mut item_impl.items {
 			if let syn::ImplItem::Fn(method) = item {
 				if !matches!(method.vis, syn::Visibility::Public(_)) {
 					let msg = "Invalid pallet::call, dispatchable function must be public: \
@@ -322,7 +281,7 @@ impl CallDef {
 					return Err(syn::Error::new(span, msg))
 				}
 
-				let first_arg = match method.sig.inputs.first() {
+				match method.sig.inputs.first() {
 					None => {
 						let msg = "Invalid pallet::call, must have at least origin arg";
 						return Err(syn::Error::new(method.sig.span(), msg))
@@ -406,13 +365,6 @@ impl CallDef {
 				}
 
 				let authorize = if let Some(expr) = authorize {
-					let syn::Pat::Ident(first_arg_id) = &*first_arg.pat else {
-						let msg = "Invalid pallet::call, pallet::authorize requires first argument to be an ident";
-						return Err(syn::Error::new(first_arg.pat.span(), msg))
-					};
-
-					check_authorize_call_first_item(&first_arg_id.ident, &method.block)?;
-
 					let weight_of_authorize = CallWeightDef::try_from(
 						weight_of_authorize,
 						&inherited_call_weight,
@@ -420,8 +372,9 @@ impl CallDef {
 					).ok_or_else(|| {
 						syn::Error::new(
 							method.sig.span(),
-							"A pallet::call using authorize requires either a concrete `#[pallet::weight_of_authorize($expr)]` or an
-							inherited weight from the `#[pallet:call(weight($type))]` attribute, but
+							"A pallet::call using authorize requires either a concrete \
+							`#[pallet::weight_of_authorize($expr)]` or an inherited weight from \
+							the `#[pallet:call(weight($type))]` attribute, but \
 							none were given.",
 						)
 					})?;
@@ -434,9 +387,9 @@ impl CallDef {
 					.ok_or_else(|| {
 						syn::Error::new(
 							method.sig.span(),
-							"A pallet::call requires either a concrete `#[pallet::weight($expr)]` or an
-							inherited weight from the `#[pallet:call(weight($type))]` attribute, but
-							none were given.",
+							"A pallet::call requires either a concrete `#[pallet::weight($expr)]` \
+							or an inherited weight from the `#[pallet:call(weight($type))]` \
+							attribute, but none were given.",
 						)
 					})?;
 
@@ -558,7 +511,6 @@ impl CallDef {
 					cfg_attrs,
 					feeless_check,
 					authorize,
-					item_index,
 				});
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";

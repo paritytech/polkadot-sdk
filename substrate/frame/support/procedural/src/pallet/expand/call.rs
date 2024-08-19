@@ -23,7 +23,6 @@ use crate::{
 	},
 	COUNTER,
 };
-use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_warning::Warning;
 use quote::{quote, ToTokens};
@@ -57,64 +56,12 @@ fn expand_weight(
 	}
 }
 
-/// For calls using `pallet::authorize`, replace first statement `ensure_authorized_origin!(origin)`
-/// with actual check
-fn replace_first_statment_for_call_with_authorize(def: &mut Def) {
-	let Some(call) = &def.call else {
-		// No call, nothing to replace
-		return
-	};
-
-	let syn::Item::Impl(call_impl) =
-		&mut def.item.content.as_mut().expect("Checked by parser").1[call.index]
-	else {
-		unreachable!("Checked by parser")
-	};
-
-	let variant_item_indices = call
-		.methods
-		.iter()
-		.filter_map(|variant| variant.authorize.as_ref().map(|_| variant.item_index));
-
-	for variant_item_index in variant_item_indices {
-		let syn::ImplItem::Fn(variant_fn) = &mut call_impl.items[variant_item_index] else {
-			unreachable!("Checked by parser")
-		};
-
-		// We want the span to point to the `ensure_authorized_origin!(origin)` statement.
-		let span = variant_fn.block.stmts[0].span();
-
-		let frame_system = &def.frame_system;
-		let frame_support = &def.frame_support;
-		let origin_use_gen = def.origin_gen_kind.type_use_gen(span);
-
-		let variant_name =
-			syn::Ident::new(variant_fn.sig.ident.to_string().to_pascal_case().as_str(), span);
-
-		variant_fn.block.stmts[0] = syn::parse_quote_spanned!(span =>
-			match <
-				<T as #frame_system::Config>::RuntimeOrigin
-				as
-				::core::convert::Into<::core::result::Result<
-					Origin<#origin_use_gen>,
-					<T as #frame_system::Config>::RuntimeOrigin
-				>>
-			>::into(origin) {
-				Ok(Origin::<#origin_use_gen>::AuthorizedCall(AuthorizedCallOrigin:: #variant_name )) => (),
-				_ => return Err(#frame_support::pallet_prelude::DispatchError::BadOrigin.into()),
-			}
-		);
-	}
-}
-
 ///
 /// * Generate enum call and implement various trait on it.
 /// * Implement Callable and call_function on `Pallet`
 /// * For calls using `pallet::authorize`, replace first statement
 ///   `ensure_authorized_origin!(origin);` with actual check
 pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
-	replace_first_statment_for_call_with_authorize(def);
-
 	let (span, where_clause, methods, docs) = match def.call.as_ref() {
 		Some(call) => {
 			let span = call.attr_span;
@@ -317,12 +264,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let authorize_fn = methods.iter().zip(args_name.iter()).zip(args_type.iter()).map(
 		|((method, arg_name), arg_type)| {
 			if let Some((authorize_fn, _)) = &method.authorize {
-				let authorize_origin =
-					syn::Ident::new(method.name.to_string().to_pascal_case().as_str(), span);
 				let attr_fn_getter =
 					syn::Ident::new(&format!("pallet_authorize_call_for_{}", method.name), span);
-
-				let origin_use_gen = def.origin_gen_kind.type_use_gen(span);
 
 				quote::quote_spanned!(span =>
 
@@ -338,13 +281,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 
 					let authorize_fn = #attr_fn_getter(#authorize_fn);
 					let res = authorize_fn(#( #arg_name, )*);
-
-					let res = res.map(|valid| {
-						(
-							valid,
-							Origin::<#origin_use_gen>::AuthorizedCall(AuthorizedCallOrigin:: #authorize_origin).into()
-						)
-					});
 
 					Some(res)
 				)
@@ -580,12 +516,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		impl<#type_impl_gen> #frame_support::traits::Authorize for #call_ident<#type_use_gen>
 			#where_clause
 		{
-			type RuntimeOrigin = <T as #frame_system::Config>::RuntimeOrigin;
 			fn authorize(&self) -> ::core::option::Option<::core::result::Result<
-				(
-					#frame_support::pallet_prelude::ValidTransaction,
-					Self::RuntimeOrigin
-				),
+				#frame_support::pallet_prelude::ValidTransaction,
 				#frame_support::pallet_prelude::TransactionValidityError
 			>>
 			{

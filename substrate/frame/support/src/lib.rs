@@ -2409,7 +2409,7 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::storage;
 
 	pub use frame_support_procedural::{
-		task_condition, task_index, task_list, task_weight, tasks_experimental, authorize, weight_of_authorize, authorized_call, ensure_authorized_origin,
+		task_condition, task_index, task_list, task_weight, tasks_experimental, authorize, weight_of_authorize,
 	};
 
 	/// Allows a pallet to declare a type as an origin.

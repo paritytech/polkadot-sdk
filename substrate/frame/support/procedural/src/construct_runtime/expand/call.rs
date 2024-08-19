@@ -224,10 +224,9 @@ pub fn expand_outer_dispatch(
 		)*
 
 		impl #scrate::traits::Authorize for RuntimeCall {
-			type RuntimeOrigin = RuntimeOrigin;
 			fn authorize(&self) -> ::core::option::Option<
 				::core::result::Result<
-					(#scrate::pallet_prelude::ValidTransaction, RuntimeOrigin),
+					#scrate::pallet_prelude::ValidTransaction,
 					#scrate::pallet_prelude::TransactionValidityError
 				>
 			> {
