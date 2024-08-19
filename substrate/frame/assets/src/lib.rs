@@ -456,6 +456,30 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	type DistributionCounter = u32;
+
+	#[pallet::storage]
+	/// Merklized distribution of an asset.
+	pub(super) type MerklizedDistribution<T: Config<I>, I: 'static = ()> = CountedStorageMap<
+		_,
+		Blake2_128Concat,
+		DistributionCounter,
+		(T::AssetId, T::Hash),
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	/// Tracks the merklized distribution of an asset so that assets are only claimed once.
+	pub(super) type MerklizedDistributionTracker<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		DistributionCounter,
+		Blake2_128Concat,
+		T::AccountId,
+		(),
+		OptionQuery,
+	>;
+
 	/// The asset ID enforced for the next asset creation, if any present. Otherwise, this storage
 	/// item has no effect.
 	///
@@ -639,6 +663,8 @@ pub mod pallet {
 		Deposited { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 		/// Some assets were withdrawn from the account (e.g. for transaction fees).
 		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
+		/// A distribution of assets were issued.
+		DistributionIssued { asset_id: T::AssetId, merkle_root: T::Hash },
 	}
 
 	#[pallet::error]
@@ -1796,6 +1822,29 @@ pub mod pallet {
 				reducible_balance,
 				keep_alive,
 			)?;
+			Ok(())
+		}
+
+		/// Mint a distribution of assets of a particular class.
+		///
+		/// The origin must be Signed and the sender must be the Issuer of the asset `id`.
+		///
+		/// - `id`: The identifier of the asset to have some amount minted.
+		/// - `merkle_root`: The merkle root of a binary trie used to authorize minting.
+		///
+		/// Emits `DistributionIssued` event when successful.
+		///
+		/// Weight: `O(1)`
+		/// Modes: Pre-existing balance of `beneficiary`; Account pre-existence of `beneficiary`.
+		#[pallet::call_index(33)]
+		pub fn mint_distribution(
+			origin: OriginFor<T>,
+			id: T::AssetIdParameter,
+			merkle_root: T::Hash,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			let id: T::AssetId = id.into();
+			Self::do_mint_distribution(id, merkle_root, Some(origin))?;
 			Ok(())
 		}
 	}
