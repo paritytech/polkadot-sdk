@@ -1016,7 +1016,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		for peer in peers {
 			if peer.sync_service.is_major_syncing() ||
-				peer.sync_service.num_queued_blocks().await.unwrap() != 0
+				peer.sync_service.status().await.unwrap().queued_blocks != 0
 			{
 				return false
 			}
@@ -1036,7 +1036,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 	async fn is_idle(&mut self) -> bool {
 		let peers = self.peers_mut();
 		for peer in peers {
-			if peer.sync_service.num_queued_blocks().await.unwrap() != 0 {
+			if peer.sync_service.status().await.unwrap().queued_blocks != 0 {
 				return false
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {

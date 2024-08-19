@@ -768,15 +768,6 @@ where
 			ToServiceCommand::NumActivePeers(tx) => {
 				let _ = tx.send(self.num_active_peers());
 			},
-			ToServiceCommand::BestSeenBlock(tx) => {
-				let _ = tx.send(self.strategy.status().best_seen_block);
-			},
-			ToServiceCommand::NumSyncPeers(tx) => {
-				let _ = tx.send(self.strategy.status().num_peers);
-			},
-			ToServiceCommand::NumQueuedBlocks(tx) => {
-				let _ = tx.send(self.strategy.status().queued_blocks);
-			},
 			ToServiceCommand::NumDownloadedBlocks(tx) => {
 				let _ = tx.send(self.strategy.num_downloaded_blocks());
 			},
