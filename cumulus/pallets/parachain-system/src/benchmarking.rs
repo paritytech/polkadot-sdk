@@ -22,6 +22,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::Hash as RelayHash;
 use frame_benchmarking::v2::*;
+use frame_system::RawOrigin;
 use sp_runtime::traits::BlakeTwo256;
 
 #[benchmarks]
@@ -58,6 +59,12 @@ mod benchmarks {
 			head = BlakeTwo256::hash_of(&(head, msg.sent_at, msg_hash));
 		}
 		head
+	}
+
+	#[benchmark]
+	fn set_claim_queue_offset() {
+		#[extrinsic_call]
+		Pallet::<T>::set_claim_queue_offset(RawOrigin::Root, 2);
 	}
 
 	impl_benchmark_test_suite! {

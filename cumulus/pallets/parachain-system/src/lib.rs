@@ -702,8 +702,7 @@ pub mod pallet {
 
 		/// Set the claim queue offset.
 		#[pallet::call_index(4)]
-		// TODO: set a proper weight here.
-		#[pallet::weight((1_000, DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::set_claim_queue_offset(), DispatchClass::Operational))]
 		pub fn set_claim_queue_offset(origin: OriginFor<T>, value: u8) -> DispatchResult {
 			ensure_root(origin)?;
 			ClaimQueueOffset::<T>::set(Some(value));
