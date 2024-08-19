@@ -772,11 +772,8 @@ where
 				let _ = tx.send(self.strategy.num_sync_requests());
 			},
 			ToServiceCommand::PeersInfo(tx) => {
-				let peers_info = self
-					.peers
-					.iter()
-					.map(|(peer_id, peer)| (*peer_id, peer.info.clone()))
-					.collect();
+				let peers_info =
+					self.peers.iter().map(|(peer_id, peer)| (*peer_id, peer.info)).collect();
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::OnBlockFinalized(hash, header) =>

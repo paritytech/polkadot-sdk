@@ -39,7 +39,7 @@ pub struct PeerInfo<Block: BlockT> {
 }
 
 /// Info about a peer's known state (both full and light).
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ExtendedPeerInfo<B: BlockT> {
 	/// Roles
 	pub roles: Roles,
@@ -48,6 +48,17 @@ pub struct ExtendedPeerInfo<B: BlockT> {
 	/// Peer best block number
 	pub best_number: NumberFor<B>,
 }
+
+impl<B> Clone for ExtendedPeerInfo<B>
+where
+	B: BlockT,
+{
+	fn clone(&self) -> Self {
+		Self { roles: self.roles, best_hash: self.best_hash, best_number: self.best_number }
+	}
+}
+
+impl<B> Copy for ExtendedPeerInfo<B> where B: BlockT {}
 
 /// Reported sync state.
 #[derive(Clone, Eq, PartialEq, Debug)]
