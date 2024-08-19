@@ -117,11 +117,7 @@ else
         version=`cat ../.github/env | grep IMAGE | cut -d'-' -f3`
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh 
 
-        # If the version was empty, or did not contain dots, install the latest version
-        if [ -z "${version}" ] || [ $(echo $version | grep -o "\." | wc -l) -lt 2 ]; then
-            echo "❌ Required version of rust not found. Installing the latest version."
-        else
-            echo "🦀 Installing rustup: v$version"
+        if ! [ -z "${version}" ] || [ $(echo $version | grep -o "\." | wc -l) -lt 2 ]; then
             rustup default $version
         fi
     else
