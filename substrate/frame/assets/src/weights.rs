@@ -85,6 +85,7 @@ pub trait WeightInfo {
 	fn block() -> Weight;
 	fn transfer_all() -> Weight;
 	fn mint_distribution() -> Weight;
+	fn claim_distribution() -> Weight;
 }
 
 /// Weights for `pallet_assets` using the Substrate node and recommended hardware.
@@ -543,9 +544,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 
-		fn mint_distribution() -> Weight {
-			Weight::default()
-		}
+	fn mint_distribution() -> Weight {
+		Weight::default()
+	}
+
+	fn claim_distribution() -> Weight {
+		Weight::default()
+	}
 
 }
 
@@ -1004,7 +1009,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 
-			fn mint_distribution() -> Weight {
-			Weight::default()
-		}
+	fn mint_distribution() -> Weight {
+		Weight::default()
+	}
+
+	fn claim_distribution() -> Weight {
+		Weight::default()
+	}
 }
