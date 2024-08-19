@@ -260,6 +260,22 @@ impl<'a, H, T: AsRef<[u8]>> From<&'a T> for Leaf<'a, H> {
 	}
 }
 
+// pub fn verify_merkle_proof<'a, H, L>(
+// 	merkle_proof: &'a MerkleProof<H::Out, L>,
+// ) -> bool
+// where
+// 	H: Hasher,
+// 	L: Into<Leaf<'a, H::Out>>,
+// {
+// 	verify_proof::<H, Vec<H::Out>, L>(
+// 		&merkle_proof.root,
+// 		merkle_proof.proof,
+// 		merkle_proof.number_of_leaves,
+// 		merkle_proof.leaf_index,
+// 		merkle_proof.leaf,
+// 	)
+// }
+
 /// Verify Merkle Proof correctness versus given root hash.
 ///
 /// The proof is NOT expected to contain leaf hash as the first

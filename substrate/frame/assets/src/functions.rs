@@ -441,7 +441,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Creates a distribution in storage for asset `id`, which can be claimed via `do_claim_distribution`.
 	pub(super) fn do_mint_distribution(
 		id: T::AssetId,
-		merkle_root: T::Hash,
+		merkle_root: H256,
 		maybe_check_issuer: Option<T::AccountId>,
 	) -> DispatchResult {
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
@@ -462,10 +462,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// A wrapper around `do_mint`, allowing a `merkle_proof` to control the amount minted and to whom.
 	pub(super) fn do_claim_distribution(
 		distribution_id: DistributionCounter,
-		merkle_proof: MerkleProof<T::Hash, (T::AccountId, T::Balance)>,
+		merkle_proof: DistributionProof<T, I>,
 	) -> DispatchResult {
 		let (asset_id, merkle_root) = MerklizedDistribution::<T, I>::get(distribution_id).ok_or(Error::<T, I>::Unknown)?;
 
+		ensure!(merkle_root == merkle_proof.root, "TODO ERROR");
+
+		// binary_merkle_tree::verify_proof::<_, _, _>(
+		// 	&merkle_proof.root,
+		// 	merkle_proof.proof,
+		// 	merkle_proof.number_of_leaves,
+		// 	merkle_proof.leaf_index,
+		// 	merkle_proof.leaf,
+		// );
 		Ok(())
 	}
 
