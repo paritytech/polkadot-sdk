@@ -356,7 +356,6 @@ mod tests {
 	#[test]
 	fn should_generate_empty_root() {
 		// given
-		sp_tracing::init_for_tests();
 		let data: Vec<[u8; 1]> = Default::default();
 
 		// when
@@ -372,7 +371,6 @@ mod tests {
 	#[test]
 	fn should_generate_single_root() {
 		// given
-		sp_tracing::init_for_tests();
 		let data = vec![array_bytes::hex2array_unchecked::<_, 20>(
 			"E04CC55ebEE1cBCE552f250e85c57B70B2E2625b",
 		)];
@@ -390,7 +388,6 @@ mod tests {
 	#[test]
 	fn should_generate_root_pow_2() {
 		// given
-		sp_tracing::init_for_tests();
 		let data = vec![
 			array_bytes::hex2array_unchecked::<_, 20>("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b"),
 			array_bytes::hex2array_unchecked::<_, 20>("25451A4de12dcCc2D166922fA938E900fCc4ED24"),
@@ -408,7 +405,6 @@ mod tests {
 
 	#[test]
 	fn should_generate_root_complex() {
-		sp_tracing::init_for_tests();
 		let test = |root, data| {
 			assert_eq!(array_bytes::bytes2hex("", &merkle_root::<Keccak256, _>(data)), root);
 		};
@@ -437,7 +433,6 @@ mod tests {
 	#[test]
 	fn should_generate_and_verify_proof_simple() {
 		// given
-		sp_tracing::init_for_tests();
 		let data = vec!["a", "b", "c"];
 
 		// when
@@ -501,7 +496,6 @@ mod tests {
 	#[test]
 	fn should_generate_and_verify_proof_complex() {
 		// given
-		sp_tracing::init_for_tests();
 		let data = vec!["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
 		for l in 0..data.len() {
@@ -521,7 +515,6 @@ mod tests {
 	#[test]
 	fn should_generate_and_verify_proof_large() {
 		// given
-		sp_tracing::init_for_tests();
 		let mut data = vec![];
 		for i in 1..16 {
 			for c in 'a'..'z' {
@@ -548,7 +541,6 @@ mod tests {
 	#[test]
 	fn should_generate_and_verify_proof_large_tree() {
 		// given
-		sp_tracing::init_for_tests();
 		let mut data = vec![];
 		for i in 0..6000 {
 			data.push(format!("{}", i));
@@ -571,7 +563,6 @@ mod tests {
 	#[test]
 	#[should_panic]
 	fn should_panic_on_invalid_leaf_index() {
-		sp_tracing::init_for_tests();
 		merkle_proof::<Keccak256, _, _>(vec!["a"], 5);
 	}
 
