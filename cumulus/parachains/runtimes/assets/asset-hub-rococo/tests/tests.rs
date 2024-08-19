@@ -85,7 +85,7 @@ fn slot_durations() -> SlotDurations {
 fn setup_pool_for_paying_fees_with_foreign_assets(
 	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
 		AccountId,
-		xcm::v3::Location,
+		Location,
 		Balance,
 	),
 ) {
@@ -93,7 +93,7 @@ fn setup_pool_for_paying_fees_with_foreign_assets(
 
 	// setup a pool to pay fees with `foreign_asset_id_location` tokens
 	let pool_owner: AccountId = [14u8; 32].into();
-	let native_asset = xcm::v3::Location::parent();
+	let native_asset = Location::parent();
 	let pool_liquidity: Balance =
 		existential_deposit.max(foreign_asset_id_minimum_balance).mul(100_000);
 
@@ -105,15 +105,15 @@ fn setup_pool_for_paying_fees_with_foreign_assets(
 
 	assert_ok!(ForeignAssets::mint(
 		RuntimeOrigin::signed(foreign_asset_owner),
-		foreign_asset_id_location.into(),
+		foreign_asset_id_location.clone().into(),
 		pool_owner.clone().into(),
 		(foreign_asset_id_minimum_balance + pool_liquidity).mul(2).into(),
 	));
 
 	assert_ok!(AssetConversion::create_pool(
 		RuntimeOrigin::signed(pool_owner.clone()),
-		Box::new(native_asset.into()),
-		Box::new(foreign_asset_id_location.into())
+		Box::new(native_asset.clone().into()),
+		Box::new(foreign_asset_id_location.clone().into())
 	));
 
 	assert_ok!(AssetConversion::add_liquidity(
@@ -217,24 +217,14 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 
 			assert_ok!(AssetConversion::create_pool(
 				RuntimeHelper::origin_of(bob.clone()),
-				Box::new(
-					xcm::v3::Location::try_from(native_location.clone()).expect("conversion works")
-				),
-				Box::new(
-					xcm::v3::Location::try_from(asset_1_location.clone())
-						.expect("conversion works")
-				)
+				Box::new(Location::try_from(native_location.clone()).expect("conversion works")),
+				Box::new(Location::try_from(asset_1_location.clone()).expect("conversion works"))
 			));
 
 			assert_ok!(AssetConversion::add_liquidity(
 				RuntimeHelper::origin_of(bob.clone()),
-				Box::new(
-					xcm::v3::Location::try_from(native_location.clone()).expect("conversion works")
-				),
-				Box::new(
-					xcm::v3::Location::try_from(asset_1_location.clone())
-						.expect("conversion works")
-				),
+				Box::new(Location::try_from(native_location.clone()).expect("conversion works")),
+				Box::new(Location::try_from(asset_1_location.clone()).expect("conversion works")),
 				pool_liquidity,
 				pool_liquidity,
 				1,
@@ -270,8 +260,8 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			let refund_weight = Weight::from_parts(1_000_000_000, 0);
 			let refund = WeightToFee::weight_to_fee(&refund_weight);
 			let (reserve1, reserve2) = AssetConversion::get_reserves(
-				xcm::v3::Location::try_from(native_location).expect("conversion works"),
-				xcm::v3::Location::try_from(asset_1_location.clone()).expect("conversion works"),
+				Location::try_from(native_location).expect("conversion works"),
+				Location::try_from(asset_1_location.clone()).expect("conversion works"),
 			)
 			.unwrap();
 			let asset_refund =
@@ -309,14 +299,10 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
 			let staking_pot = CollatorSelection::account_id();
 			let native_location =
-				xcm::v3::Location::try_from(TokenLocation::get()).expect("conversion works");
-			let foreign_location = xcm::v3::Location {
+				Location::try_from(TokenLocation::get()).expect("conversion works");
+			let foreign_location = Location {
 				parents: 1,
-				interior: (
-					xcm::v3::Junction::Parachain(1234),
-					xcm::v3::Junction::GeneralIndex(12345),
-				)
-					.into(),
+				interior: (Junction::Parachain(1234), Junction::GeneralIndex(12345)).into(),
 			};
 			// bob's initial balance for native and `asset1` assets.
 			let initial_balance = 200 * UNITS;
@@ -325,26 +311,26 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 
 			// init asset, balances and pool.
 			assert_ok!(<ForeignAssets as Create<_>>::create(
-				foreign_location,
+				foreign_location.clone(),
 				bob.clone(),
 				true,
 				10
 			));
 
-			assert_ok!(ForeignAssets::mint_into(foreign_location, &bob, initial_balance));
+			assert_ok!(ForeignAssets::mint_into(foreign_location.clone(), &bob, initial_balance));
 			assert_ok!(Balances::mint_into(&bob, initial_balance));
 			assert_ok!(Balances::mint_into(&staking_pot, initial_balance));
 
 			assert_ok!(AssetConversion::create_pool(
 				RuntimeHelper::origin_of(bob.clone()),
-				Box::new(native_location),
-				Box::new(foreign_location)
+				Box::new(native_location.clone()),
+				Box::new(foreign_location.clone())
 			));
 
 			assert_ok!(AssetConversion::add_liquidity(
 				RuntimeHelper::origin_of(bob.clone()),
-				Box::new(native_location),
-				Box::new(foreign_location),
+				Box::new(native_location.clone()),
+				Box::new(foreign_location.clone()),
 				pool_liquidity,
 				pool_liquidity,
 				1,
@@ -353,10 +339,8 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			));
 
 			// keep initial total issuance to assert later.
-			let asset_total_issuance = ForeignAssets::total_issuance(foreign_location);
+			let asset_total_issuance = ForeignAssets::total_issuance(foreign_location.clone());
 			let native_total_issuance = Balances::total_issuance();
-
-			let foreign_location_latest: Location = foreign_location.try_into().unwrap();
 
 			// prepare input to buy weight.
 			let weight = Weight::from_parts(4_000_000_000, 0);
@@ -365,7 +349,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
 			let extra_amount = 100;
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
-			let payment: Asset = (foreign_location_latest.clone(), asset_fee + extra_amount).into();
+			let payment: Asset = (foreign_location.clone(), asset_fee + extra_amount).into();
 
 			// init trader and buy weight.
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
@@ -373,13 +357,11 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 				trader.buy_weight(weight, payment.into(), &ctx).expect("Expected Ok");
 
 			// assert.
-			let unused_amount = unused_asset
-				.fungible
-				.get(&foreign_location_latest.clone().into())
-				.map_or(0, |a| *a);
+			let unused_amount =
+				unused_asset.fungible.get(&foreign_location.clone().into()).map_or(0, |a| *a);
 			assert_eq!(unused_amount, extra_amount);
 			assert_eq!(
-				ForeignAssets::total_issuance(foreign_location),
+				ForeignAssets::total_issuance(foreign_location.clone()),
 				asset_total_issuance + asset_fee
 			);
 
@@ -387,13 +369,13 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let refund_weight = Weight::from_parts(1_000_000_000, 0);
 			let refund = WeightToFee::weight_to_fee(&refund_weight);
 			let (reserve1, reserve2) =
-				AssetConversion::get_reserves(native_location, foreign_location).unwrap();
+				AssetConversion::get_reserves(native_location, foreign_location.clone()).unwrap();
 			let asset_refund =
 				AssetConversion::get_amount_out(&refund, &reserve1, &reserve2).unwrap();
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
-			assert_eq!(actual_refund, (foreign_location_latest, asset_refund).into());
+			assert_eq!(actual_refund, (foreign_location.clone(), asset_refund).into());
 
 			// assert.
 			assert_eq!(Balances::balance(&staking_pot), initial_balance);
@@ -500,17 +482,13 @@ fn test_foreign_asset_xcm_take_first_trader() {
 		.execute_with(|| {
 			// We need root origin to create a sufficient asset
 			let minimum_asset_balance = 3333333_u128;
-			let foreign_location = xcm::v3::Location {
+			let foreign_location = Location {
 				parents: 1,
-				interior: (
-					xcm::v3::Junction::Parachain(1234),
-					xcm::v3::Junction::GeneralIndex(12345),
-				)
-					.into(),
+				interior: (Junction::Parachain(1234), Junction::GeneralIndex(12345)).into(),
 			};
 			assert_ok!(ForeignAssets::force_create(
 				RuntimeHelper::root_origin(),
-				foreign_location.into(),
+				foreign_location.clone().into(),
 				AccountId::from(ALICE).into(),
 				true,
 				minimum_asset_balance
@@ -519,12 +497,10 @@ fn test_foreign_asset_xcm_take_first_trader() {
 			// We first mint enough asset for the account to exist for assets
 			assert_ok!(ForeignAssets::mint(
 				RuntimeHelper::origin_of(AccountId::from(ALICE)),
-				foreign_location.into(),
+				foreign_location.clone().into(),
 				AccountId::from(ALICE).into(),
 				minimum_asset_balance
 			));
-
-			let asset_location_v4: Location = foreign_location.try_into().unwrap();
 
 			// Set Alice as block author, who will receive fees
 			RuntimeHelper::run_to_block(2, AccountId::from(ALICE));
@@ -535,7 +511,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 			// Lets calculate amount needed
 			let asset_amount_needed
 				= ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(
-					foreign_location,
+					foreign_location.clone(),
 					bought
 				)
 			.expect("failed to compute");
@@ -543,7 +519,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 			// Lets pay with: asset_amount_needed + asset_amount_extra
 			let asset_amount_extra = 100_u128;
 			let asset: Asset =
-				(asset_location_v4.clone(), asset_amount_needed + asset_amount_extra).into();
+				(foreign_location.clone(), asset_amount_needed + asset_amount_extra).into();
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
@@ -551,16 +527,15 @@ fn test_foreign_asset_xcm_take_first_trader() {
 			// Lets buy_weight and make sure buy_weight does not return an error
 			let unused_assets = trader.buy_weight(bought, asset.into(), &ctx).expect("Expected Ok");
 			// Check whether a correct amount of unused assets is returned
-			assert_ok!(
-				unused_assets.ensure_contains(&(asset_location_v4, asset_amount_extra).into())
-			);
+			assert_ok!(unused_assets
+				.ensure_contains(&(foreign_location.clone(), asset_amount_extra).into()));
 
 			// Drop trader
 			drop(trader);
 
 			// Make sure author(Alice) has received the amount
 			assert_eq!(
-				ForeignAssets::balance(foreign_location, AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_location.clone(), AccountId::from(ALICE)),
 				minimum_asset_balance + asset_amount_needed
 			);
 
@@ -841,15 +816,13 @@ fn test_assets_balances_api_works() {
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
-			let foreign_asset_id_location = xcm::v3::Location::new(
-				1,
-				[xcm::v3::Junction::Parachain(1234), xcm::v3::Junction::GeneralIndex(12345)],
-			);
+			let foreign_asset_id_location =
+				Location::new(1, [Junction::Parachain(1234), Junction::GeneralIndex(12345)]);
 
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_location, AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_asset_id_location.clone(), AccountId::from(ALICE)),
 				0
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
@@ -886,7 +859,7 @@ fn test_assets_balances_api_works() {
 			let foreign_asset_minimum_asset_balance = 3333333_u128;
 			assert_ok!(ForeignAssets::force_create(
 				RuntimeHelper::root_origin(),
-				foreign_asset_id_location,
+				foreign_asset_id_location.clone(),
 				AccountId::from(SOME_ASSET_ADMIN).into(),
 				false,
 				foreign_asset_minimum_asset_balance
@@ -895,7 +868,7 @@ fn test_assets_balances_api_works() {
 			// We first mint enough asset for the account to exist for assets
 			assert_ok!(ForeignAssets::mint(
 				RuntimeHelper::origin_of(AccountId::from(SOME_ASSET_ADMIN)),
-				foreign_asset_id_location,
+				foreign_asset_id_location.clone(),
 				AccountId::from(ALICE).into(),
 				6 * foreign_asset_minimum_asset_balance
 			));
@@ -906,7 +879,7 @@ fn test_assets_balances_api_works() {
 				minimum_asset_balance
 			);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_location, AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_asset_id_location.clone(), AccountId::from(ALICE)),
 				6 * minimum_asset_balance
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
@@ -932,10 +905,8 @@ fn test_assets_balances_api_works() {
 				.into())));
 			// check foreign asset
 			assert!(result.inner().iter().any(|asset| asset.eq(&(
-				WithLatestLocationConverter::<xcm::v3::Location>::convert_back(
-					&foreign_asset_id_location
-				)
-				.unwrap(),
+				WithLatestLocationConverter::<Location>::convert_back(&foreign_asset_id_location)
+					.unwrap(),
 				6 * foreign_asset_minimum_asset_balance
 			)
 				.into())));
@@ -1025,14 +996,11 @@ asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_
 	Runtime,
 	XcmConfig,
 	ForeignAssetsInstance,
-	xcm::v3::Location,
+	Location,
 	JustTry,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
-	xcm::v3::Location::new(
-		1,
-		[xcm::v3::Junction::Parachain(1313), xcm::v3::Junction::GeneralIndex(12345)]
-	),
+	Location::new(1, [Junction::Parachain(1313), Junction::GeneralIndex(12345)]),
 	Box::new(|| {
 		assert!(Assets::asset_ids().collect::<Vec<_>>().is_empty());
 	}),
@@ -1047,8 +1015,8 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 	WeightToFee,
 	ForeignCreatorsSovereignAccountOf,
 	ForeignAssetsInstance,
-	xcm::v3::Location,
-	WithLatestLocationConverter<xcm::v3::Location>,
+	Location,
+	WithLatestLocationConverter<Location>,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
 	AssetDeposit::get(),
@@ -1138,16 +1106,17 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location = xcm::v3::Location::new(
-			2,
-			[xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::Westend)],
-		);
+		let foreign_asset_id_location =
+			Location::new(2, [Junction::GlobalConsensus(NetworkId::Westend)]);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
 			LocationToAccountId::convert_location(&Location::parent()).unwrap();
-		let foreign_asset_create_params =
-			(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance);
+		let foreign_asset_create_params = (
+			foreign_asset_owner,
+			foreign_asset_id_location.clone(),
+			foreign_asset_id_minimum_balance,
+		);
 
 		asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
 			Runtime,
@@ -1181,7 +1150,7 @@ mod asset_hub_rococo_tests {
 				// check now foreign asset for staking pot
 				assert_eq!(
 					ForeignAssets::balance(
-						foreign_asset_id_location.into(),
+						foreign_asset_id_location.clone().into(),
 						&staking_pot
 					),
 					0
@@ -1195,7 +1164,7 @@ mod asset_hub_rococo_tests {
 				// staking pot receives no foreign assets
 				assert_eq!(
 					ForeignAssets::balance(
-						foreign_asset_id_location.into(),
+						foreign_asset_id_location.clone().into(),
 						&staking_pot
 					),
 					0
@@ -1211,16 +1180,17 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location = xcm::v3::Location::new(
-			2,
-			[xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::Westend)],
-		);
+		let foreign_asset_id_location =
+			Location::new(2, [Junction::GlobalConsensus(NetworkId::Westend)]);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
 			LocationToAccountId::convert_location(&Location::parent()).unwrap();
-		let foreign_asset_create_params =
-			(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance);
+		let foreign_asset_create_params = (
+			foreign_asset_owner,
+			foreign_asset_id_location.clone(),
+			foreign_asset_id_minimum_balance,
+		);
 
 		asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
 			Runtime,
@@ -1245,7 +1215,7 @@ mod asset_hub_rococo_tests {
 				// check block author before
 				assert_eq!(
 					ForeignAssets::balance(
-						foreign_asset_id_location.into(),
+						foreign_asset_id_location.clone().into(),
 						&block_author_account
 					),
 					0
@@ -1255,7 +1225,7 @@ mod asset_hub_rococo_tests {
 				// `TakeFirstAssetTrader` puts fees to the block author
 				assert!(
 					ForeignAssets::balance(
-						foreign_asset_id_location.into(),
+						foreign_asset_id_location.clone().into(),
 						&block_author_account
 					) > 0
 				);

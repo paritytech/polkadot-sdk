@@ -248,10 +248,7 @@ where
 				offchain_worker_enabled: config.offchain_worker.enabled,
 				offchain_indexing_api: config.offchain_worker.indexing_enabled,
 				wasm_runtime_overrides: config.wasm_runtime_overrides.clone(),
-				no_genesis: matches!(
-					config.network.sync_mode,
-					SyncMode::LightState { .. } | SyncMode::Warp { .. }
-				),
+				no_genesis: config.no_genesis(),
 				wasm_runtime_substitutes,
 				enable_import_proof_recording,
 			},

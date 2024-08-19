@@ -18,7 +18,9 @@ use sp_core::storage::Storage;
 
 // Cumulus
 use cumulus_primitives_core::ParaId;
-use emulated_integration_tests_common::{build_genesis_storage, collators, SAFE_XCM_VERSION};
+use emulated_integration_tests_common::{
+	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
+};
 use parachains_common::Balance;
 
 pub const PARA_ID: u32 = 1004;
@@ -27,6 +29,9 @@ pub const ED: Balance = testnet_parachains_constants::rococo::currency::EXISTENT
 pub fn genesis() -> Storage {
 	let genesis_config = people_rococo_runtime::RuntimeGenesisConfig {
 		system: people_rococo_runtime::SystemConfig::default(),
+		balances: people_rococo_runtime::BalancesConfig {
+			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+		},
 		parachain_info: people_rococo_runtime::ParachainInfoConfig {
 			parachain_id: ParaId::from(PARA_ID),
 			..Default::default()
