@@ -440,6 +440,31 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Increases the asset `id` balance of `beneficiary` by `amount`.
 	///
+	/// This alters the registered supply of the asset and emits an event.
+	///
+	/// Will return an error or will increase the amount by exactly `amount`.
+	pub(super) fn do_mint_distribution(
+		id: T::AssetId,
+		merkle_root: T::Hash,
+		maybe_check_issuer: Option<T::AccountId>,
+	) -> DispatchResult {
+		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+
+		if let Some(check_issuer) = maybe_check_issuer {
+			ensure!(check_issuer == details.issuer, Error::<T, I>::NoPermission);
+		}
+
+		let distribution_count: u32 = MerklizedDistribution::<T, I>::count();
+		MerklizedDistribution::<T, I>::insert(&distribution_count, (id.clone(), merkle_root.clone()));
+
+		Self::deposit_event(Event::DistributionIssued { asset_id: id, merkle_root: merkle_root });
+
+		Ok(())
+	}
+
+	/// Increases the asset `id` balance of `beneficiary` by `amount`.
+	///
 	/// LOW-LEVEL: Does not alter the supply of asset or emit an event. Use `do_mint` if you need
 	/// that. This is not intended to be used alone.
 	///
