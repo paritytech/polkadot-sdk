@@ -158,6 +158,22 @@ fn funds_are_locked() {
 }
 
 #[test]
+fn not_enough_funds_in_pot() {
+	new_test_ext().execute_with(|| {
+		// Add 3 projects
+		let amount1 = 50_000_000 * BSX;
+		let amount2 = 60_200_000 * BSX;
+		let amount3 = 70_000_000 * BSX;
+		create_project(ALICE, amount1);
+		create_project(BOB, amount2);
+		create_project(DAVE, amount3);
+
+		let total = amount1.saturating_add(amount2.saturating_add(amount3));
+		assert_noop!(Distribution::pot_check(total), Error::<Test>::InsufficientPotReserves);
+	})
+}
+
+#[test]
 fn funds_claim_works() {
 	new_test_ext().execute_with(|| {
 		// Add 3 projects

@@ -75,6 +75,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Helper function used to change the status of a failed Spend
+	/// As we reserve the funds in the pot before doing a transfer 
+	/// the probability of a transaction failing is very low.
+	/// However, an additionnal fail safe won't hurt.
 	pub fn process_failed_spend_result(
 		spend_index: u32,
 		result: Result<BalanceOf<T>, Error<T>>,
