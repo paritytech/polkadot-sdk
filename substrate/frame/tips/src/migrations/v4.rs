@@ -20,7 +20,6 @@ use sp_io::hashing::twox_128;
 
 use super::super::LOG_TARGET;
 use frame_support::{
-	storage::StoragePrefixedMap,
 	traits::{
 		Get, GetStorageVersion, PalletInfoAccess, StorageVersion,
 		STORAGE_VERSION_STORAGE_KEY_POSTFIX,
