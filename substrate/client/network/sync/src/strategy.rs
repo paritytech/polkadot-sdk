@@ -455,13 +455,6 @@ where
 		self.chain_sync.as_ref().map_or(0, |chain_sync| chain_sync.num_sync_requests())
 	}
 
-	/// Report Prometheus metrics
-	pub fn report_metrics(&self) {
-		if let Some(ref chain_sync) = self.chain_sync {
-			chain_sync.report_metrics();
-		}
-	}
-
 	/// Let `WarpSync` know about target block header
 	pub fn set_warp_sync_target_block_header(
 		&mut self,

@@ -54,7 +54,6 @@ use prometheus_endpoint::{
 };
 use prost::Message;
 use schnellru::{ByLength, LruMap};
-use tokio::time::{Interval, MissedTickBehavior};
 
 use sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
 use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
@@ -92,9 +91,6 @@ use std::{
 		Arc,
 	},
 };
-
-/// Interval at which we perform time based maintenance
-const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1100);
 
 /// Maximum number of known block hashes to keep for a peer.
 const MAX_KNOWN_BLOCKS: usize = 1024; // ~32kb per peer + LruHashSet overhead
@@ -218,9 +214,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 
 	/// Set of channels for other protocols that have subscribed to syncing events.
 	event_streams: Vec<TracingUnboundedSender<SyncEvent>>,
-
-	/// Interval at which we call `tick`.
-	tick_timeout: Interval,
 
 	/// All connected peers. Contains both full and light node peers.
 	peers: HashMap<PeerId, Peer<B>>,
@@ -436,12 +429,6 @@ where
 		let max_out_peers = net_config.network_config.default_peers_set.out_peers;
 		let max_in_peers = (max_full_peers - max_out_peers) as usize;
 
-		let tick_timeout = {
-			let mut interval = tokio::time::interval(TICK_TIMEOUT);
-			interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-			interval
-		};
-
 		Ok((
 			Self {
 				roles,
@@ -469,7 +456,6 @@ where
 				max_in_peers,
 				event_streams: Vec::new(),
 				notification_service,
-				tick_timeout,
 				peer_store_handle,
 				metrics: if let Some(r) = metrics_registry {
 					match Metrics::register(r, is_major_syncing.clone()) {
@@ -491,15 +477,6 @@ where
 			SyncingService::new(tx, num_connected, is_major_syncing),
 			block_announce_config,
 		))
-	}
-
-	/// Report Prometheus metrics.
-	pub fn report_metrics(&self) {
-		if let Some(metrics) = &self.metrics {
-			let n = u64::try_from(self.peers.len()).unwrap_or(std::u64::MAX);
-			metrics.peers.set(n);
-		}
-		self.strategy.report_metrics();
 	}
 
 	fn update_peer_info(
@@ -628,7 +605,6 @@ where
 	pub async fn run(mut self) {
 		loop {
 			tokio::select! {
-				_ = self.tick_timeout.tick() => self.perform_periodic_actions(),
 				command = self.service_rx.select_next_some() =>
 					self.process_service_command(command),
 				notification_event = self.notification_service.next_event() => match notification_event {
@@ -755,10 +731,6 @@ where
 		}
 
 		Ok(())
-	}
-
-	fn perform_periodic_actions(&mut self) {
-		self.report_metrics();
 	}
 
 	fn process_service_command(&mut self, command: ToServiceCommand<B>) {
@@ -922,6 +894,9 @@ where
 			log::debug!(target: LOG_TARGET, "{peer_id} does not exist in `SyncingEngine`");
 			return
 		};
+		if let Some(metrics) = &self.metrics {
+			metrics.peers.dec();
+		}
 
 		if self.important_peers.contains(&peer_id) {
 			log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
@@ -1097,7 +1072,11 @@ where
 
 		log::debug!(target: LOG_TARGET, "Connected {peer_id}");
 
-		self.peers.insert(peer_id, peer);
+		if self.peers.insert(peer_id, peer).is_none() {
+			if let Some(metrics) = &self.metrics {
+				metrics.peers.inc();
+			}
+		}
 		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
 		if self.default_peers_set_no_slot_peers.contains(&peer_id) {
