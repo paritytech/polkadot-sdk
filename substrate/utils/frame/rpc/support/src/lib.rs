@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Combines [sc_rpc_api::state::StateApiClient] with [frame_support::storage::generator] traits
+//! Combines [sc_rpc_api::state::StateApiClient] with [frame_support::storage] traits
 //! to provide strongly typed chain state queries over rpc.
 
 #![warn(missing_docs)]
