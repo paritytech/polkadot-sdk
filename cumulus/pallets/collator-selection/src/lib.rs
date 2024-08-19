@@ -243,6 +243,8 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			log::error!(target: "bencher::FAIL-CI", "\ninvulnerables: {:?}, \ncandidacy_bond: {:?}, \ndesired_candidates:{:?}", self.invulnerables, self.candidacy_bond, self.desired_candidates);
+
 			let duplicate_invulnerables = self
 				.invulnerables
 				.iter()
@@ -805,7 +807,7 @@ pub mod pallet {
 
 		/// Return the total number of accounts that are eligible collators (candidates and
 		/// invulnerables).
-		fn eligible_collators() -> u32 {
+		pub fn eligible_collators() -> u32 {
 			CandidateList::<T>::decode_len()
 				.unwrap_or_default()
 				.saturating_add(Invulnerables::<T>::decode_len().unwrap_or_default())

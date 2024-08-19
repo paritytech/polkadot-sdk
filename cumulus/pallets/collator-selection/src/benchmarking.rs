@@ -342,6 +342,8 @@ mod benchmarks {
 	// worse case is the last candidate leaving.
 	#[benchmark]
 	fn leave_intent(c: Linear<{ min_candidates::<T>() + 1 }, { T::MaxCandidates::get() }>) {
+		log::error!(target: "bencher::FAIL-CI", "leave_intent - eligible_collators {:?}", <CollatorSelection<T>>::eligible_collators());
+
 		CandidacyBond::<T>::put(T::Currency::minimum_balance());
 		DesiredCandidates::<T>::put(c);
 

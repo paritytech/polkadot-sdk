@@ -18,6 +18,10 @@ use crate::chain_spec::{
 	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
 	SAFE_XCM_VERSION,
 };
+use asset_hub_rococo_runtime::genesis_config_presets::{
+	asset_hub_rococo_development_genesis, asset_hub_rococo_genesis,
+	asset_hub_rococo_local_testnet_genesis,
+};
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId, Balance as AssetHubBalance};
@@ -26,13 +30,6 @@ use sp_core::{crypto::UncheckedInto, sr25519};
 
 const ASSET_HUB_WESTEND_ED: AssetHubBalance = asset_hub_westend_runtime::ExistentialDeposit::get();
 const ASSET_HUB_ROCOCO_ED: AssetHubBalance = asset_hub_rococo_runtime::ExistentialDeposit::get();
-
-/// Generate the session keys from individual elements.
-///
-/// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn asset_hub_rococo_session_keys(keys: AuraId) -> asset_hub_rococo_runtime::SessionKeys {
-	asset_hub_rococo_runtime::SessionKeys { aura: keys }
-}
 
 /// Generate the session keys from individual elements.
 ///
@@ -229,21 +226,7 @@ fn asset_hub_rococo_like_development_config(
 	.with_name(name)
 	.with_id(chain_id)
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(asset_hub_rococo_genesis(
-		// initial collators.
-		vec![(
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_collator_keys_from_seed::<AuraId>("Alice"),
-		)],
-		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-		],
-		testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
-		para_id.into(),
-	))
+	.with_genesis_config_patch(asset_hub_rococo_development_genesis(para_id.into()))
 	.with_properties(properties)
 	.build()
 }
@@ -274,35 +257,7 @@ fn asset_hub_rococo_like_local_config(
 	.with_name(name)
 	.with_id(chain_id)
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(asset_hub_rococo_genesis(
-		// initial collators.
-		vec![
-			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed::<AuraId>("Alice"),
-			),
-			(
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_collator_keys_from_seed::<AuraId>("Bob"),
-			),
-		],
-		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-		],
-		testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
-		para_id.into(),
-	))
+	.with_genesis_config_patch(asset_hub_rococo_local_testnet_genesis(para_id.into()))
 	.with_properties(properties)
 	.build()
 }
@@ -353,47 +308,4 @@ pub fn asset_hub_rococo_genesis_config() -> GenericChainSpec {
 	))
 	.with_properties(properties)
 	.build()
-}
-
-fn asset_hub_rococo_genesis(
-	invulnerables: Vec<(AccountId, AuraId)>,
-	endowed_accounts: Vec<AccountId>,
-	endowment: AssetHubBalance,
-	id: ParaId,
-) -> serde_json::Value {
-	serde_json::json!({
-		"balances": asset_hub_rococo_runtime::BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, endowment))
-				.collect(),
-		},
-		"parachainInfo": asset_hub_rococo_runtime::ParachainInfoConfig {
-			parachain_id: id,
-			..Default::default()
-		},
-		"collatorSelection": asset_hub_rococo_runtime::CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: ASSET_HUB_ROCOCO_ED * 16,
-			..Default::default()
-		},
-		"session": asset_hub_rococo_runtime::SessionConfig {
-			keys: invulnerables
-				.into_iter()
-				.map(|(acc, aura)| {
-					(
-						acc.clone(),                         // account id
-						acc,                                 // validator id
-						asset_hub_rococo_session_keys(aura), // session keys
-					)
-				})
-				.collect(),
-			..Default::default()
-		},
-		"polkadotXcm": asset_hub_rococo_runtime::PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			..Default::default()
-		}
-	})
 }

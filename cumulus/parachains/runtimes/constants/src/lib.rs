@@ -15,6 +15,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod genesis_presets;
+
 #[cfg(feature = "rococo")]
 pub mod rococo;
 #[cfg(feature = "westend")]
