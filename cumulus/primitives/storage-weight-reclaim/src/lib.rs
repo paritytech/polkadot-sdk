@@ -155,9 +155,9 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		let Some(pre_dispatch_proof_size) = pre else {
-			return Ok(None);
+			return Ok(Weight::zero());
 		};
 
 		let Some(post_dispatch_proof_size) = get_proof_size() else {
@@ -165,7 +165,7 @@ where
 				target: LOG_TARGET,
 				"Proof recording enabled during pre-dispatch, now disabled. This should not happen."
 			);
-			return Ok(None)
+			return Ok(Weight::zero())
 		};
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
 		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
@@ -209,7 +209,7 @@ where
 				current.accrue(Weight::from_parts(0, missing_from_node), info.class);
 			}
 		});
-		Ok(None)
+		Ok(Weight::zero())
 	}
 
 	impl_tx_ext_default!(T::RuntimeCall; validate);

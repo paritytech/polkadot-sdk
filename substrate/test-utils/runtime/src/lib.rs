@@ -260,12 +260,7 @@ impl sp_runtime::traits::RefundWeight for CheckSubstrateCall {
 impl sp_runtime::traits::ExtensionPostDispatchWeightHandler<CheckSubstrateCall>
 	for CheckSubstrateCall
 {
-	fn set_extension_weight(
-		&mut self,
-		_info: &CheckSubstrateCall,
-		_weight: frame_support::weights::Weight,
-	) {
-	}
+	fn set_extension_weight(&mut self, _info: &CheckSubstrateCall) {}
 }
 
 impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {

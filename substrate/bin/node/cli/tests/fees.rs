@@ -37,6 +37,14 @@ use sp_runtime::{
 pub mod common;
 use self::common::{sign, *};
 
+fn charge_asset_tx_unspent_weight() -> Weight {
+	use pallet_asset_conversion_tx_payment::{Config as ACConfig, WeightInfo as ACWeights};
+	<<Runtime as ACConfig>::WeightInfo as ACWeights>::charge_asset_tx_payment_asset()
+		.saturating_sub(
+			<<Runtime as ACConfig>::WeightInfo as ACWeights>::charge_asset_tx_payment_native(),
+		)
+}
+
 #[test]
 fn fee_multiplier_increases_and_decreases_on_big_weight() {
 	let mut t = new_test_ext(compact_code_unwrap());
@@ -178,9 +186,9 @@ fn transaction_fee_is_correct() {
 		balance_alice -= length_fee;
 
 		let mut info = default_transfer_call().get_dispatch_info();
-		info.extension_weight = TxExtension::weight();
+		info.extension_weight = xt.extension_weight();
 		let mut weight = info.total_weight();
-		let weight_refund = pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::weight().saturating_sub(<<Runtime as pallet_asset_conversion_tx_payment::Config>::WeightInfo as pallet_asset_conversion_tx_payment::WeightInfo>::charge_asset_tx_payment_native());
+		let weight_refund = charge_asset_tx_unspent_weight();
 		weight.saturating_reduce(weight_refund);
 		let weight_fee = IdentityFee::<Balance>::weight_to_fee(&weight);
 

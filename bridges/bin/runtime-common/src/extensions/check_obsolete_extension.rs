@@ -344,7 +344,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				post_info: &sp_runtime::traits::PostDispatchInfoOf<$call>,
 				len: usize,
 				result: &sp_runtime::DispatchResult,
-			) -> Result<Option<frame_support::pallet_prelude::Weight>, sp_runtime::transaction_validity::TransactionValidityError> {
+			) -> Result<frame_support::pallet_prelude::Weight, sp_runtime::transaction_validity::TransactionValidityError> {
 				use $crate::extensions::check_obsolete_extension::__private::tuplex::PopFront;
 				let Some((relayer, to_post_dispatch)) = to_post_dispatch else { return Ok(None) };
 				let has_failed = result.is_err();
@@ -357,7 +357,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 							$call,
 						>>::post_dispatch(&relayer, has_failed, item);
 				)*
-				Ok(None)
+				Ok(frame_support::pallet_prelude::Weight::zero())
 			}
 		}
 	};

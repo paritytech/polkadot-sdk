@@ -533,7 +533,7 @@ where
 		post_info: &PostDispatchInfoOf<CallOf<T::Runtime>>,
 		len: usize,
 		result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		let call_result = T::analyze_call_result(Some(pre), info, post_info, len, result);
 
 		match call_result {
@@ -561,7 +561,7 @@ where
 				),
 		}
 
-		Ok(None)
+		Ok(Weight::zero())
 	}
 }
 
@@ -1676,7 +1676,7 @@ pub(crate) mod tests {
 			1024,
 			&dispatch_result,
 		);
-		assert_eq!(post_dispatch_result, Ok(None));
+		assert_eq!(post_dispatch_result, Ok(Weight::zero()));
 	}
 
 	fn expected_delivery_reward() -> ThisChainBalance {

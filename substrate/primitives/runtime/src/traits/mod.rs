@@ -1498,7 +1498,7 @@ pub trait RefundWeight {
 /// after dispatch.
 pub trait ExtensionPostDispatchWeightHandler<DispatchInfo>: RefundWeight {
 	/// Accrue some weight pertaining to the extension.
-	fn set_extension_weight(&mut self, info: &DispatchInfo, weight: sp_weights::Weight);
+	fn set_extension_weight(&mut self, info: &DispatchInfo);
 }
 
 impl RefundWeight for () {
@@ -1506,7 +1506,7 @@ impl RefundWeight for () {
 }
 
 impl ExtensionPostDispatchWeightHandler<()> for () {
-	fn set_extension_weight(&mut self, _info: &(), _weight: sp_weights::Weight) {}
+	fn set_extension_weight(&mut self, _info: &()) {}
 }
 
 /// A lazy call (module function and argument values) that can be executed via its `dispatch`

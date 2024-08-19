@@ -453,7 +453,7 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	type SignedExtensions = Extension;
 }
 
-impl<Address, Call, Signature, Extension: TransactionExtensionBase>
+impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
 	UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
@@ -461,7 +461,8 @@ impl<Address, Call, Signature, Extension: TransactionExtensionBase>
 	pub fn extension_weight(&self) -> Weight {
 		match &self.preamble {
 			Preamble::Bare(_) => Weight::zero(),
-			Preamble::Signed(_, _, _, _, _) | Preamble::General(_, _) => Extension::weight(),
+			Preamble::Signed(_, _, _, ext, _) | Preamble::General(_, ext) =>
+				ext.weight(&self.function),
 		}
 	}
 }

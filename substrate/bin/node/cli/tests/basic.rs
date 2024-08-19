@@ -61,16 +61,16 @@ pub fn bloaty_code_unwrap() -> &'static [u8] {
 /// Note that reads the multiplier from storage directly, hence to get the fee of `extrinsic`
 /// at block `n`, it must be called prior to executing block `n` to do the calculation with the
 /// correct multiplier.
-fn transfer_fee<E: Encode>(extrinsic: &E) -> Balance {
+fn transfer_fee(extrinsic: &UncheckedExtrinsic) -> Balance {
 	let mut info = default_transfer_call().get_dispatch_info();
-	info.extension_weight = TxExtension::weight();
+	info.extension_weight = extrinsic.extension_weight();
 	TransactionPayment::compute_fee(extrinsic.encode().len() as u32, &info, 0)
 }
 
 /// Default transfer fee, same as `transfer_fee`, but with a weight refund factored in.
-fn transfer_fee_with_refund<E: Encode>(extrinsic: &E, weight_refund: Weight) -> Balance {
+fn transfer_fee_with_refund(extrinsic: &UncheckedExtrinsic, weight_refund: Weight) -> Balance {
 	let mut info = default_transfer_call().get_dispatch_info();
-	info.extension_weight = TxExtension::weight();
+	info.extension_weight = extrinsic.extension_weight();
 	let post_info = (Some(info.total_weight().saturating_sub(weight_refund)), info.pays_fee).into();
 	TransactionPayment::compute_actual_fee(extrinsic.encode().len() as u32, &info, &post_info, 0)
 }
