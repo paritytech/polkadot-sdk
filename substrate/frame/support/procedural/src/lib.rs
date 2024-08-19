@@ -1323,8 +1323,8 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 /// The call is authorized by a configurable "authorize" function, the weight of this "authorize"
 /// function must be small enough so that nodes transaction pool can't be spammed.
 ///
-/// Authorized calls are dispatched with a call-specific origin which is checked by
-/// `ensure_authorized_origin!` macro in the call dispatch logic.
+/// Authorized calls are dispatched with the [`frame_system::Origin::Authorized`] origin which must
+/// be ensured with [`frame_system::ensure_authorized`] in the call dispatch logic.
 ///
 /// # Usage in the runtime
 ///
@@ -1361,7 +1361,7 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///         #[pallet::weight_of_authorize(Weight::from_all(0))]
 ///         #[pallet::call_index(0)]
 ///         pub fn some_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
-///             ensure_authorized_origin(origin)?;
+///             ensure_authorized(origin)?;
 ///
 ///             Ok(())
 ///         }
@@ -1419,7 +1419,7 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 /// The "authorize" closure is used as the implementation of the trait
 /// [`Authorize`](frame_support::pallet_prelude::Authorize) for the call.
 /// To benchmark a call variant, use the function `Authorize::authorize` on a call value.
-/// See example in the first section.
+/// See the example in the first section.
 #[proc_macro_attribute]
 pub fn authorize(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

@@ -97,182 +97,243 @@ where
 	}
 }
 
-// #[cfg(test)]
-// mod tests {
-// 	use codec::Encode;
-// 	use frame_support::{derive_impl, dispatch::GetDispatchInfo, pallet_prelude::{TransactionSource,
-// Weight}, }; 	use sp_runtime::traits::Checkable;
-// 	use sp_runtime::traits::Applyable;
-// 	use sp_runtime::BuildStorage;
-// 	use sp_runtime::transaction_validity::TransactionValidity;
-// 	use sp_runtime::transaction_validity::ValidTransaction;
-// 	use sp_runtime::transaction_validity::TransactionValidityError;
-// 	use sp_runtime::transaction_validity::InvalidTransaction;
-// 	use sp_runtime::DispatchError;
-// 	use crate as frame_system;
+#[cfg(test)]
+mod tests {
+	use codec::Encode;
+	use frame_support::{derive_impl, dispatch::GetDispatchInfo, pallet_prelude::{TransactionSource}, };
+	use sp_runtime::traits::Checkable;
+	use sp_runtime::traits::Applyable;
+	use sp_runtime::BuildStorage;
+	use sp_runtime::transaction_validity::TransactionValidityError;
+	use sp_runtime::transaction_validity::InvalidTransaction;
+	use sp_runtime::DispatchError;
+	use crate as frame_system;
+	use frame_support::traits::OriginTrait;
+	use sp_runtime::traits::TransactionExtension as _;
 
-// 	#[frame_support::pallet]
-// 	pub mod pallet1 {
-// 		use crate as frame_system;
-// 		use frame_support::pallet_prelude::*;
-// 		use frame_system::pallet_prelude::*;
 
-// 		pub const AUTH_WEIGHT: Weight = Weight::from_all(5);
-// 		pub const AUTH_ACCURATE_WEIGHT: Weight = Weight::from_all(3);
+	#[frame_support::pallet]
+	pub mod pallet1 {
+		use crate as frame_system;
+		use frame_support::pallet_prelude::*;
+		use frame_system::pallet_prelude::*;
 
-// 		pub const VALID_TRANSACTION: ValidTransaction = ValidTransaction {
-// 			priority: 10,
-// 			provides: vec![10u8.encode()],
-// 			requires: vec![],
-// 			longevity: 1000,
-// 			propagate: true,
-// 		};
+		pub const CALL_WEIGHT: Weight = Weight::from_all(4);
+		pub const AUTH_WEIGHT: Weight = Weight::from_all(5);
 
-// 		#[pallet::pallet]
-// 		pub struct Pallet<T, I = ()>(_);
+		pub fn valid_transaction() -> ValidTransaction {
+			ValidTransaction {
+				priority: 10,
+				provides: vec![1u8.encode()],
+				requires: vec![],
+				longevity: 1000,
+				propagate: true,
+			}
+		}
 
-// 		#[pallet::config]
-// 		pub trait Config<I: 'static = ()>: frame_system::Config {}
+		#[pallet::pallet]
+		pub struct Pallet<T>(_);
 
-// 		#[pallet::call]
-// 		impl<T: Config<I>, I: 'static> Pallet<T, I> {
-// 			#[pallet::weight(Weight::from_all(1010))]
-// 			#[pallet::call_index(0)]
-// 			pub fn call1(origin: OriginFor<T>, valid: bool) -> DispatchResult {
-// 				Ok(())
-// 			}
-// 		}
+		#[pallet::config]
+		pub trait Config: frame_system::Config {}
 
-// 		impl<T: Config> Authorize for Call<T> {
-// 			type RuntimeOrigin = frame_system::OriginFor<T>;
+		#[pallet::call]
+		impl<T: Config> Pallet<T> {
+			#[pallet::weight(CALL_WEIGHT)]
+			#[pallet::call_index(0)]
+			#[pallet::authorize(|valid| if *valid {
+				Ok(valid_transaction())
+			} else {
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+			})]
+			#[pallet::weight_of_authorize(AUTH_WEIGHT)]
+			pub fn call1(origin: OriginFor<T>, valid: bool) -> DispatchResult {
+				crate::ensure_authorized(origin)?;
+				let _ = valid;
+				Ok(())
+			}
+		}
+	}
 
-// 			fn authorize(
-// 				&self,
-// 			) -> Option<Result<(ValidTransaction, Self::RuntimeOrigin), TransactionValidityError>> {
-// 				match Call {
-// 					Call::call1 { valid, .. } => {
-// 						if valid {
-// 							Some(Ok((VALID_TRANSACTION, crate::Origin::<T>::signed(42).into())))
-// 						} else {
-// 							Some(Err(TransactionValidityError::Invalid(InvalidTransaction::Call)))
-// 						}
-// 					}
-// 				}
-// 			}
+	#[frame_support::runtime]
+	mod runtime {
+		#[runtime::runtime]
+		#[runtime::derive(
+			RuntimeCall,
+			RuntimeEvent,
+			RuntimeError,
+			RuntimeOrigin,
+			RuntimeFreezeReason,
+			RuntimeHoldReason,
+			RuntimeSlashReason,
+			RuntimeLockId,
+			RuntimeTask
+		)]
+		pub struct Runtime;
 
-// 			fn weight_of_authorize() -> Weight {
-// 				AUTH_WEIGHT
-// 			}
+		#[runtime::pallet_index(0)]
+		pub type System = frame_system::Pallet<Runtime>;
 
-// 			fn accurate_weight_of_authorize(&self) -> Weight {
-// 				AUTH_ACCURATE_WEIGHT
-// 			}
-// 		}
-// 	}
+		#[runtime::pallet_index(1)]
+		pub type Pallet1 = pallet1::Pallet<Runtime>;
+	}
 
-// 	#[frame_support::runtime]
-// 	mod runtime {
-// 		#[runtime::runtime]
-// 		#[runtime::derive(
-// 			RuntimeCall,
-// 			RuntimeEvent,
-// 			RuntimeError,
-// 			RuntimeOrigin,
-// 			RuntimeFreezeReason,
-// 			RuntimeHoldReason,
-// 			RuntimeSlashReason,
-// 			RuntimeLockId,
-// 			RuntimeTask
-// 		)]
-// 		pub struct Runtime;
+	pub type TransactionExtension = (
+		frame_system::AuthorizeCall<Runtime>,
+	);
 
-// 		#[runtime::pallet_index(0)]
-// 		pub type System = frame_system::Pallet<Runtime>;
+	pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
+	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
+	pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+		u64,
+		RuntimeCall,
+		sp_runtime::testing::MockU64Signature,
+		TransactionExtension,
+	>;
 
-// 		#[runtime::pallet_index(1)]
-// 		pub type Pallet1 = pallet1::Pallet<Runtime>;
-// 	}
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for Runtime {
+		type Block = Block;
+	}
 
-// 	pub type TransactionExtension = (
-// 		frame_system::AuthorizeCall<Runtime>,
-// 	);
+	impl pallet1::Config for Runtime {}
 
-// 	pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
-// 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-// 	pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
-// 		u64,
-// 		RuntimeCall,
-// 		sp_runtime::testing::MockU64Signature,
-// 		TransactionExtension,
-// 	>;
+	pub fn new_test_ext() -> sp_io::TestExternalities {
+		let t = RuntimeGenesisConfig {
+			..Default::default()
+		}
+			.build_storage()
+			.unwrap();
+		t.into()
+	}
 
-// 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-// 	impl frame_system::Config for Runtime {
-// 		type BaseCallFilter = frame_support::traits::Everything;
-// 		type RuntimeOrigin = RuntimeOrigin;
-// 		type Nonce = u64;
-// 		type RuntimeCall = RuntimeCall;
-// 		type Hash = sp_runtime::testing::H256;
-// 		type Hashing = sp_runtime::traits::BlakeTwo256;
-// 		type AccountId = u64;
-// 		type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
-// 		type Block = Block;
-// 		type RuntimeEvent = RuntimeEvent;
-// 		type BlockWeights = ();
-// 		type BlockLength = ();
-// 		type DbWeight = ();
-// 		type Version = ();
-// 		type PalletInfo = PalletInfo;
-// 		type AccountData = ();
-// 		type OnNewAccount = ();
-// 		type OnKilledAccount = ();
-// 		type SystemWeightInfo = ();
-// 		type SS58Prefix = ();
-// 		type OnSetCode = ();
-// 		type MaxConsumers = frame_support::traits::ConstU32<16>;
-// 	}
+	#[test]
+	fn valid_transaction() {
+		let call = RuntimeCall::Pallet1(pallet1::Call::call1 {
+			valid: true,
+		});
 
-// 	impl pallet1::Config for Runtime {}
+		new_test_ext().execute_with(|| {
+			let tx_ext = (
+				frame_system::AuthorizeCall::<Runtime>::new(),
+			);
 
-// 	pub fn new_test_ext() -> sp_io::TestExternalities {
-// 		let t = RuntimeGenesisConfig {
-// 			..Default::default()
-// 		}
-// 			.build_storage()
-// 			.unwrap();
-// 		t.into()
-// 	}
+			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
-// 	#[test]
-// 	fn test() {
-// 		// TODO TODO
-// 		// new_test_ext().execute_with(|| {
-// 		// 	let tx_ext = (
-// 		// 		frame_system::AuthorizeCall::<Runtime>::new(),
-// 		// 	);
+			let info = tx.get_dispatch_info();
+			let len = tx.using_encoded(|e| e.len());
 
-// // 			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
+			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
+				.expect("Transaction is general so signature is good");
 
-// // 			let info = tx.get_dispatch_info();
-// // 			let len = tx.using_encoded(|e| e.len());
+			let valid_tx = checked.validate::<Runtime>(TransactionSource::External, &info, len)
+				.expect("call valid");
 
-// // 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
-// // 				.expect("Transaction is general so signature is good");
+			let dispatch_result = checked.apply::<Runtime>(&info, len)
+				.expect("Transaction is valid");
 
-// // 			checked.validate::<Runtime>(TransactionSource::External, &info, len)
-// // 				.expect("call1 is always valid");
+			assert!(dispatch_result.is_ok());
 
-// // 			let dispatch_result = checked.apply::<Runtime>(&info, len)
-// // 				.expect("Transaction is valid");
+			let post_info = dispatch_result
+				.unwrap_or_else(|e| e.post_info);
 
-// // 			assert_eq!(dispatch_result.is_ok(), dispatch_success);
+			assert_eq!(valid_tx, pallet1::valid_transaction());
+			assert_eq!(info.call_weight, pallet1::CALL_WEIGHT);
+			assert_eq!(info.extension_weight, pallet1::AUTH_WEIGHT);
+			assert_eq!(post_info.actual_weight, Some(pallet1::CALL_WEIGHT + pallet1::AUTH_WEIGHT));
+		});
+	}
 
-// // 			let post_info = dispatch_result
-// // 				.unwrap_or_else(|e| e.post_info);
+	#[test]
+	fn invalid_transaction_fail_authorization() {
+		let call = RuntimeCall::Pallet1(pallet1::Call::call1 {
+			valid: false,
+		});
 
-// // 			assert_eq!(info.call_weight, call_weight);
-// // 			assert_eq!(info.extension_weight, ext_weight);
-// // 			assert_eq!(post_info.actual_weight, Some(actual_weight));
-// 		// });
-// 	}
-// }
+		new_test_ext().execute_with(|| {
+			let tx_ext = (
+				frame_system::AuthorizeCall::<Runtime>::new(),
+			);
+
+			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
+
+			let info = tx.get_dispatch_info();
+			let len = tx.using_encoded(|e| e.len());
+
+			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
+				.expect("Transaction is general so signature is good");
+
+			let validate_err = checked.validate::<Runtime>(TransactionSource::External, &info, len)
+				.expect_err("call is invalid");
+
+			let apply_err = checked.apply::<Runtime>(&info, len)
+				.expect_err("Transaction is invalid");
+
+			assert_eq!(validate_err, TransactionValidityError::Invalid(InvalidTransaction::Call));
+			assert_eq!(apply_err, TransactionValidityError::Invalid(InvalidTransaction::Call));
+			assert_eq!(info.call_weight, pallet1::CALL_WEIGHT);
+			assert_eq!(info.extension_weight, pallet1::AUTH_WEIGHT);
+		});
+	}
+
+	#[test]
+	fn failing_transaction_invalid_origin() {
+		let call = RuntimeCall::Pallet1(pallet1::Call::call1 {
+			valid: true,
+		});
+
+		new_test_ext().execute_with(|| {
+			let tx_ext = (
+				frame_system::AuthorizeCall::<Runtime>::new(),
+			);
+
+			let tx = UncheckedExtrinsic::new_signed(call, 42, Default::default(), tx_ext);
+
+			let info = tx.get_dispatch_info();
+			let len = tx.using_encoded(|e| e.len());
+
+			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
+				.expect("Signature is good");
+
+			checked.validate::<Runtime>(TransactionSource::External, &info, len)
+				.expect("Transaction is valid, tx ext doesn't deny none");
+
+			let dispatch_res = checked.apply::<Runtime>(&info, len)
+				.expect("Transaction is valid")
+				.expect_err("Transaction is failing, because origin is wrong");
+
+			assert_eq!(dispatch_res.error, DispatchError::BadOrigin);
+			assert_eq!(info.call_weight, pallet1::CALL_WEIGHT);
+			assert_eq!(info.extension_weight, pallet1::AUTH_WEIGHT);
+		});
+	}
+
+	#[test]
+	fn call_filter_not_messed_up() {
+		new_test_ext().execute_with(|| {
+			let ext = frame_system::AuthorizeCall::<Runtime>::new();
+			let filtered_call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+
+			let origin = {
+				let mut o: RuntimeOrigin = crate::Origin::<Runtime>::Signed(42).into();
+				let filter_clone = filtered_call.clone();
+				o.add_filter(move |call| filter_clone != *call);
+				o
+			};
+
+			assert!(!origin.filter_call(&filtered_call));
+
+			let (_, (), new_origin) = ext.validate(
+				origin,
+				&RuntimeCall::Pallet1(pallet1::Call::call1 { valid: true }),
+				&crate::DispatchInfo::default(),
+				Default::default(),
+				(),
+				&(),
+			)
+				.expect("valid");
+
+			assert!(!new_origin.filter_call(&filtered_call));
+		});
+	}
+}

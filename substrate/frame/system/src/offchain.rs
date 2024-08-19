@@ -491,9 +491,6 @@ pub trait CreateSignedTransaction<LocalCall>:
 	) -> Option<Self::Extrinsic>;
 }
 
-// TODO TODO: allow offchain worker to sign the transaction (but not like an account with a nonce)
-// just a signature, then have the validate function allow accepting when signed from this signer.
-
 /// Interface for creating an inherent.
 pub trait CreateInherent<LocalCall>: CreateTransactionBase<LocalCall> {
 	/// Create an inherent.
