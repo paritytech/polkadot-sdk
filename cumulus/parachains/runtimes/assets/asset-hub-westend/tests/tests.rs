@@ -52,7 +52,10 @@ use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
 use std::{convert::Into, ops::Mul};
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
-use xcm::latest::prelude::{Assets as XcmAssets, *};
+use xcm::latest::{
+	prelude::{Assets as XcmAssets, *},
+	ROCOCO_GENESIS_HASH,
+};
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
 
@@ -1153,7 +1156,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 			},
 			(
 				[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
-				GlobalConsensus(Rococo),
+				GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 				[Parachain(1000)].into()
 			),
 			|| {
@@ -1215,7 +1218,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 		bridging_to_asset_hub_rococo,
 		(
 			[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
-			GlobalConsensus(Rococo),
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 			[Parachain(1000)].into()
 		),
 		|| {

@@ -22,11 +22,23 @@ mod snowbridge;
 mod teleport;
 
 pub(crate) fn asset_hub_rococo_location() -> Location {
-	Location::new(2, [GlobalConsensus(Rococo), Parachain(AssetHubRococo::para_id().into())])
+	Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+			Parachain(AssetHubRococo::para_id().into()),
+		],
+	)
 }
 
 pub(crate) fn bridge_hub_rococo_location() -> Location {
-	Location::new(2, [GlobalConsensus(Rococo), Parachain(BridgeHubRococo::para_id().into())])
+	Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+			Parachain(BridgeHubRococo::para_id().into()),
+		],
+	)
 }
 
 // WND and wWND
@@ -34,12 +46,12 @@ pub(crate) fn wnd_at_ah_westend() -> Location {
 	Parent.into()
 }
 pub(crate) fn bridged_wnd_at_ah_rococo() -> Location {
-	Location::new(2, [GlobalConsensus(Westend)])
+	Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))])
 }
 
 // wROC
 pub(crate) fn bridged_roc_at_ah_westend() -> Location {
-	Location::new(2, [GlobalConsensus(Rococo)])
+	Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))])
 }
 
 // USDT and wUSDT
@@ -50,7 +62,7 @@ pub(crate) fn bridged_usdt_at_ah_westend() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Rococo),
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 			Parachain(AssetHubRococo::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(USDT_ID.into()),

@@ -21,7 +21,7 @@ mod imports {
 
 	// Polkadot
 	pub use xcm::{
-		latest::ParentThen,
+		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v5,
 		v5::NetworkId::Westend as WestendId,

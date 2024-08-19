@@ -41,7 +41,7 @@ use frame_support::{
 	traits::{ConstU32, PalletInfoAccess},
 };
 use xcm::{
-	latest::prelude::*,
+	latest::{prelude::*, ROCOCO_GENESIS_HASH},
 	prelude::{InteriorLocation, NetworkId},
 };
 use xcm_builder::BridgeBlobDispatcher;
@@ -54,7 +54,7 @@ parameter_types! {
 	pub const MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 
 	pub BridgeWestendToRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8)].into();
-	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
+	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub RococoGlobalConsensusNetworkLocation: Location = Location::new(
 		2,
 		[GlobalConsensus(RococoGlobalConsensusNetwork::get())]

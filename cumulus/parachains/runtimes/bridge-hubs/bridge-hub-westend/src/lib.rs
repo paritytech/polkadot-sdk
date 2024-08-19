@@ -89,7 +89,10 @@ use bp_runtime::HeaderId;
 pub use sp_runtime::BuildStorage;
 
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-use xcm::prelude::*;
+use xcm::{
+	latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	prelude::*,
+};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -1104,7 +1107,7 @@ impl_runtime_apis! {
 					Ok(
 						(
 							bridge_to_rococo_config::FromAssetHubWestendToAssetHubRococoRoute::get().location,
-							NetworkId::Rococo,
+							NetworkId::ByGenesis(ROCOCO_GENESIS_HASH),
 							[Parachain(bridge_to_rococo_config::AssetHubRococoParaId::get().into())].into()
 						)
 					)
@@ -1158,7 +1161,7 @@ impl_runtime_apis! {
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Westend), Parachain(42)].into()))
+					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(42)].into()))
 				}
 
 				fn prepare_message_delivery_proof(

@@ -44,7 +44,7 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
@@ -62,7 +62,7 @@ use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
-	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Westend);
+	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
@@ -581,7 +581,7 @@ pub mod bridging {
 				]
 			);
 
-			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
+			pub const RococoNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 			pub RococoEcosystem: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
 			pub RocLocation: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);

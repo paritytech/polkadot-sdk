@@ -42,7 +42,7 @@ use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 use xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
@@ -61,7 +61,7 @@ use xcm_executor::{
 parameter_types! {
 	pub const TokenLocation: Location = Location::parent();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub RelayNetwork: NetworkId = NetworkId::Rococo;
+	pub RelayNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;

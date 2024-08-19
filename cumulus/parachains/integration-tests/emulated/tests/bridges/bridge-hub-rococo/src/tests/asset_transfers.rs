@@ -67,7 +67,7 @@ fn send_assets_from_penpal_rococo_through_rococo_ah_to_westend_ah(
 		);
 		let sov_ahw_on_ahr =
 			AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
-				Westend,
+				ByGenesis(WESTEND_GENESIS_HASH),
 				AssetHubWestend::para_id(),
 			);
 		// send message over bridge
@@ -131,7 +131,7 @@ fn send_roc_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	// Let's first send over just some ROCs as a simple example
 	////////////////////////////////////////////////////////////
 	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
-		Westend,
+		ByGenesis(WESTEND_GENESIS_HASH),
 		AssetHubWestend::para_id(),
 	);
 	let rocs_in_reserve_on_ahr_before =
@@ -268,7 +268,7 @@ fn send_back_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 
 	// fund the AHR's SA on AHW with the WND tokens held in reserve
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
-		Rococo,
+		ByGenesis(ROCOCO_GENESIS_HASH),
 		AssetHubRococo::para_id(),
 	);
 	AssetHubWestend::fund_accounts(vec![(sov_ahr_on_ahw.clone(), prefund_amount)]);
@@ -336,7 +336,7 @@ fn send_rocs_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_westend() 
 		set_up_rocs_for_penpal_rococo_through_ahr_to_ahw(&sender, amount);
 
 	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
-		Westend,
+		ByGenesis(WESTEND_GENESIS_HASH),
 		AssetHubWestend::para_id(),
 	);
 	let rocs_in_reserve_on_ahr_before =
@@ -432,7 +432,7 @@ fn send_back_wnds_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_weste
 
 	// fund the AHR's SA on AHW with the WND tokens held in reserve
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
-		NetworkId::Rococo,
+		NetworkId::ByGenesis(ROCOCO_GENESIS_HASH),
 		AssetHubRococo::para_id(),
 	);
 	AssetHubWestend::fund_accounts(vec![(sov_ahr_on_ahw.clone(), amount * 2)]);

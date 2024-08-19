@@ -91,7 +91,7 @@ use bridge_hub_common::{
 use pallet_xcm::EnsureXcm;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm::VersionedLocation;
+use xcm::{latest::WESTEND_GENESIS_HASH, VersionedLocation};
 use xcm_config::{TreasuryAccount, XcmOriginToTransactDispatchOrigin, XcmRouter};
 
 #[cfg(any(feature = "std", test))]
@@ -1382,7 +1382,7 @@ impl_runtime_apis! {
 					Ok(
 						(
 							bridge_to_westend_config::FromAssetHubRococoToAssetHubWestendRoute::get().location,
-							NetworkId::Westend,
+							NetworkId::ByGenesis(WESTEND_GENESIS_HASH),
 							[Parachain(bridge_to_westend_config::AssetHubWestendParaId::get().into())].into()
 						)
 					)

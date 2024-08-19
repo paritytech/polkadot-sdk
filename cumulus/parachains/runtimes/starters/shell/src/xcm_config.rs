@@ -22,7 +22,7 @@ use frame_support::{
 	traits::{Contains, Everything, Nothing},
 	weights::Weight,
 };
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 use xcm_builder::{
 	AllowExplicitUnpaidExecutionFrom, FixedWeightBounds, ParentAsSuperuser, ParentIsPreset,
 	SovereignSignedViaLocation,
@@ -30,7 +30,7 @@ use xcm_builder::{
 
 parameter_types! {
 	pub const RococoLocation: Location = Location::parent();
-	pub const RococoNetwork: NetworkId = NetworkId::Rococo;
+	pub const RococoNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RococoNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 }
 

@@ -40,14 +40,14 @@ use bridge_runtime_common::{
 use codec::Encode;
 use frame_support::{parameter_types, traits::PalletInfoAccess};
 use xcm::{
-	latest::prelude::*,
+	latest::{prelude::*, WESTEND_GENESIS_HASH},
 	prelude::{InteriorLocation, NetworkId},
 };
 use xcm_builder::BridgeBlobDispatcher;
 
 parameter_types! {
 	pub BridgeRococoToWestendMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8)].into();
-	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
+	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 	pub WestendGlobalConsensusNetworkLocation: Location = Location::new(
 		2,
 		[GlobalConsensus(WestendGlobalConsensusNetwork::get())]
