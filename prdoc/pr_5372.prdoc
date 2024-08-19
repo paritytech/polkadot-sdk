@@ -57,3 +57,9 @@ crates:
     bump: minor
   - name: cumulus-test-runtime
     bump: minor
+  - name: cumulus-client-consensus-common
+    bump: none
+  - name: cumulus-client-pov-recovery
+    bump: none
+  - name: cumulus-client-network
+    bump: none
