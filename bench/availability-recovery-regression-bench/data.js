@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724016903934,
+  "lastUpdate": 1724089209525,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -18143,6 +18143,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.076292258,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "946afaabd8244f1256f3aecff75e23c02937bd38",
+          "message": "Fix publishing  of the`chain-spec-builder` image (#5387)\n\nThis PR fixes the issue with the publishing flow of the\n`chain-speck-builder` image\nCloses: https://github.com/paritytech/release-engineering/issues/219",
+          "timestamp": "2024-08-19T15:47:50Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/946afaabd8244f1256f3aecff75e23c02937bd38"
+        },
+        "date": 1724089182583,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.15964011313333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.0289634898,
             "unit": "seconds"
           }
         ]
