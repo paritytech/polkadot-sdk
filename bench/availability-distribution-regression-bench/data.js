@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724016604364,
+  "lastUpdate": 1724088910284,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -22775,6 +22775,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010186664746666671,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "946afaabd8244f1256f3aecff75e23c02937bd38",
+          "message": "Fix publishing  of the`chain-spec-builder` image (#5387)\n\nThis PR fixes the issue with the publishing flow of the\n`chain-speck-builder` image\nCloses: https://github.com/paritytech/release-engineering/issues/219",
+          "timestamp": "2024-08-19T15:47:50Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/946afaabd8244f1256f3aecff75e23c02937bd38"
+        },
+        "date": 1724088883107,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011975392280000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022020109126666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16768485432000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009578770920000009,
             "unit": "seconds"
           }
         ]
