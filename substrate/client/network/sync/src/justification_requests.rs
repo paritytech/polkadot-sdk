@@ -378,7 +378,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 		}
 		if let Some(metrics) = &self.extras.metrics {
 			metrics
-				.active
+				.failed
 				.set(self.extras.failed_requests.len().try_into().unwrap_or(u64::MAX));
 		}
 
