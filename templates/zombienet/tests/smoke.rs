@@ -34,10 +34,10 @@ mod smoke {
 			config
 		};
 
-		Ok(config.build().map_err(|e| {
+		config.build().map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
 			anyhow!("config errs: {errs}")
-		})?)
+		})
 	}
 
 	#[tokio::test(flavor = "multi_thread")]
