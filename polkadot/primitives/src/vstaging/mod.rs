@@ -492,11 +492,11 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	}
 }
 
-impl CommittedCandidateReceiptV2 {
+impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Checks if descriptor core index is equal to the commited core index.
 	/// Input `assigned_cores` must contain the sorted cores assigned to the para at
 	/// the committed claim queue offset.
-	pub fn check(&self, assigned_cores: &Vec<CoreIndex>) -> Result<(), CandidateReceiptError> {
+	pub fn check(&self, assigned_cores: &[CoreIndex]) -> Result<(), CandidateReceiptError> {
 		// Don't check v1 descriptors.
 		if self.descriptor.version() == CandidateDescriptorVersion::V1 {
 			return Ok(())
