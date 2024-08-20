@@ -90,6 +90,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	/// Stores the current message's weight.
 	message_weight: Weight,
 	_config: PhantomData<Config>,
+	assetClaimer: Option<Location>,
 }
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -357,7 +358,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				original_origin = ?self.original_origin,
 				"Trapping assets in holding register",
 			);
-			let effective_origin = self.context.origin.as_ref().unwrap_or(&self.original_origin);
+			let effective_orgin = if let Some(assetClaimer) = self.assetClaimer {
+				assetClaimer.as_ref().unwrap_or(&self.original_origin)
+			} else {
+				self.context.origin.as_ref().unwrap_or(&self.original_origin)
+			};
 			let trap_weight =
 				Config::AssetTrap::drop_assets(effective_origin, self.holding, &self.context);
 			weight_used.saturating_accrue(trap_weight);
@@ -1063,6 +1068,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			ClearError => {
 				self.error = None;
+				Ok(())
+			},
+			SetAssetClaimer { location } => {
+				self.assetClaimer = Some(location);
 				Ok(())
 			},
 			ClaimAsset { assets, ticket } => {
