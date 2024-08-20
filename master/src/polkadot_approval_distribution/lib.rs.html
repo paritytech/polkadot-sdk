@@ -3177,7 +3177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self </span>{
 			validator_index: assignment.validator,
 			assignment,
-			approvals: HashMap::with_capacity(candidates.len()),
+			approvals: HashMap::new(),
 			assignment_claimed_candidates: candidates,
 			routing_info,
 		}
