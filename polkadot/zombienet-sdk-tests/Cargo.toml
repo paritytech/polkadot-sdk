@@ -1,0 +1,19 @@
+[package]
+name = "polkadot-zombienet-sdk-tests"
+version = "0.1.0"
+description = "Zomebienet-sdk tests."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+futures = { workspace = true }
+env_logger = "0.11.2"
+log = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+anyhow = { workspace = true }
+zombienet-sdk = "0.2.9"
+
+[features]
+zombienet = []
