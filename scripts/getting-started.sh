@@ -115,7 +115,7 @@ if command -v rustc >/dev/null 2>&1; then
 else
     if prompt_default_yes "\n🦀 Rust is not installed. Install it?"; then
         echo "🦀 Installing via rustup."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh 
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     else
         echo "Aborting."
         exit 1
