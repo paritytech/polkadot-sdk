@@ -10617,6 +10617,7 @@ name = "pallet-example-authorization-tx-extension"
 version = "4.0.0-dev"
 dependencies = [
  "docify",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",

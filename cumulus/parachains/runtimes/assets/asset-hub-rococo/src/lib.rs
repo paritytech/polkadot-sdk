@@ -1111,28 +1111,28 @@ pub struct AssetConversionTxHelper;
 impl
 	pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<
 		AccountId,
-		xcm::v3::MultiLocation,
-		xcm::v3::MultiLocation,
+		cumulus_primitives_core::Location,
+		cumulus_primitives_core::Location,
 	> for AssetConversionTxHelper
 {
-	fn create_asset_id_parameter(seed: u32) -> (xcm::v3::MultiLocation, xcm::v3::MultiLocation) {
+	fn create_asset_id_parameter(seed: u32) -> (Location, Location) {
 		// Use a different parachain' foreign assets pallet so that the asset is indeed foreign.
-		let asset_id = xcm::v3::MultiLocation::new(
+		let asset_id = Location::new(
 			1,
-			xcm::v3::Junctions::X3(
-				xcm::v3::Junction::Parachain(3000),
-				xcm::v3::Junction::PalletInstance(53),
-				xcm::v3::Junction::GeneralIndex(seed.into()),
-			),
+			[
+				cumulus_primitives_core::Junction::Parachain(3000),
+				cumulus_primitives_core::Junction::PalletInstance(53),
+				cumulus_primitives_core::Junction::GeneralIndex(seed.into()),
+			],
 		);
-		(asset_id, asset_id)
+		(asset_id.clone(), asset_id)
 	}
 
-	fn setup_balances_and_pool(asset_id: xcm::v3::MultiLocation, account: AccountId) {
+	fn setup_balances_and_pool(asset_id: cumulus_primitives_core::Location, account: AccountId) {
 		use frame_support::{assert_ok, traits::fungibles::Mutate};
 		assert_ok!(ForeignAssets::force_create(
 			RuntimeOrigin::root(),
-			asset_id.into(),
+			asset_id.clone().into(),
 			account.clone().into(), /* owner */
 			true,                   /* is_sufficient */
 			1,
@@ -1141,9 +1141,13 @@ impl
 		let lp_provider = account.clone();
 		use frame_support::traits::Currency;
 		let _ = Balances::deposit_creating(&lp_provider, u64::MAX.into());
-		assert_ok!(ForeignAssets::mint_into(asset_id.into(), &lp_provider, u64::MAX.into()));
+		assert_ok!(ForeignAssets::mint_into(
+			asset_id.clone().into(),
+			&lp_provider,
+			u64::MAX.into()
+		));
 
-		let token_native = alloc::boxed::Box::new(TokenLocationV3::get());
+		let token_native = alloc::boxed::Box::new(TokenLocation::get());
 		let token_second = alloc::boxed::Box::new(asset_id);
 
 		assert_ok!(AssetConversion::create_pool(

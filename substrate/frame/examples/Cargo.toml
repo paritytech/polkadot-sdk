@@ -44,6 +44,7 @@ std = [
 try-runtime = [
 	"pallet-default-config-example/try-runtime",
 	"pallet-dev-mode/try-runtime",
+	"pallet-example-authorization-tx-extension/try-runtime",
 	"pallet-example-basic/try-runtime",
 	"pallet-example-kitchensink/try-runtime",
 	"pallet-example-offchain-worker/try-runtime",
