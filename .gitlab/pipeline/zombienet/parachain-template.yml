@@ -2,12 +2,12 @@
 .zombienet-parachain-template-common:
   before_script:
     # add `./artifacts` to the PATH
-    - export PATH=./artifacts:$PATH
+    - export PATH=$(pwd)/artifacts:$PATH
   stage: zombienet
   needs:
     - job: build-linux-stable # polkadot binaries
       artifacts: true
-    - job: build-parachain-template-node # parachain-template-node
+    - job: build-templates-node # templates
       artifacts: true
   extends:
     - .docker-env
@@ -36,7 +36,7 @@ zombienet-parachain-template-smoke:
     - .zombienet-parachain-template-common
   script:
     - echo $PATH
-    - ls -ltr ./artifacts
+    - ls -ltr $(pwd)/artifacts
     - cargo test -p template-zombienet-tests  --features zombienet --tests  minimal_template_block_production_test
     - cargo test -p template-zombienet-tests  --features zombienet --tests  parachain_template_block_production_test
     # - cargo test -p template-zombienet-tests  --features zombienet --tests  solochain_template_block_production_test

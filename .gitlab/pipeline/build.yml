@@ -83,7 +83,7 @@ build-malus:
     - echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
     - cp -r ./docker/* ./artifacts
 
-build-parachain-template-node:
+build-templates-node:
   stage: build
   extends:
     - .docker-env
