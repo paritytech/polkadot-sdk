@@ -988,6 +988,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) -> Weight {
 		let bounded = upward_messages
 			.iter()
+			// Stop once we hit the `UMPSignal`` separator.
 			.take_while(|message| !message.is_empty())
 			.filter_map(|d| {
 				BoundedSlice::try_from(&d[..])
