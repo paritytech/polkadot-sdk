@@ -51,9 +51,9 @@ mod benchmarks {
 		);
 		let tip = <T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance();
 		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(tip);
-		let extension_weight = ChargeTransactionPayment::<T>::weight();
 		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
+		let extension_weight = ext.weight(&call);
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(100, 0),
 			extension_weight,

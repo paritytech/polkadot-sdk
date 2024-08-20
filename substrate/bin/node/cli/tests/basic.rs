@@ -25,15 +25,13 @@ use frame_system::{self, AccountInfo, EventRecord, Phase};
 use polkadot_sdk::*;
 use sp_core::{storage::well_known_keys, traits::Externalities};
 use sp_runtime::{
-	traits::{Hash as HashT, TransactionExtensionBase},
-	transaction_validity::InvalidTransaction,
-	ApplyExtrinsicResult,
+	traits::Hash as HashT, transaction_validity::InvalidTransaction, ApplyExtrinsicResult,
 };
 
 use kitchensink_runtime::{
 	constants::{currency::*, time::SLOT_DURATION},
 	Balances, CheckedExtrinsic, Header, Runtime, RuntimeCall, RuntimeEvent, System,
-	TransactionPayment, Treasury, TxExtension, UncheckedExtrinsic,
+	TransactionPayment, Treasury, UncheckedExtrinsic,
 };
 use node_primitives::{Balance, Hash};
 use node_testing::keyring::*;
@@ -265,7 +263,7 @@ fn successful_execution_with_native_equivalent_code_gives_ok() {
 	let r = executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32))).0;
 	assert!(r.is_ok());
 
-	let weight_refund = pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::weight().saturating_sub(<<Runtime as pallet_asset_conversion_tx_payment::Config>::WeightInfo as pallet_asset_conversion_tx_payment::WeightInfo>::charge_asset_tx_payment_native());
+	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt())).0;
@@ -306,7 +304,7 @@ fn successful_execution_with_foreign_code_gives_ok() {
 	let r = executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32))).0;
 	assert!(r.is_ok());
 
-	let weight_refund = pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::weight().saturating_sub(<<Runtime as pallet_asset_conversion_tx_payment::Config>::WeightInfo as pallet_asset_conversion_tx_payment::WeightInfo>::charge_asset_tx_payment_native());
+	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt())).0;
@@ -326,7 +324,8 @@ fn full_native_block_import_works() {
 
 	let mut alice_last_known_balance: Balance = Default::default();
 	let mut fees = t.execute_with(|| transfer_fee(&xt()));
-	let weight_refund = pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::weight().saturating_sub(<<Runtime as pallet_asset_conversion_tx_payment::Config>::WeightInfo as pallet_asset_conversion_tx_payment::WeightInfo>::charge_asset_tx_payment_native());
+	let extension_weight = xt().extension_weight();
+	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	let transfer_weight = default_transfer_call().get_dispatch_info().call_weight.saturating_add(
@@ -379,14 +378,6 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
-					who: alice().into(),
-					amount: fees - fees_after_refund,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
 					amount: fees_after_refund * 8 / 10,
 				}),
@@ -421,7 +412,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					weight: transfer_weight
-						.saturating_add(TxExtension::weight().saturating_sub(weight_refund)),
+						.saturating_add(extension_weight.saturating_sub(weight_refund)),
 					class: Default::default(),
 					pays: Default::default(),
 				}),
@@ -433,7 +424,8 @@ fn full_native_block_import_works() {
 
 	fees = t.execute_with(|| transfer_fee(&xt()));
 	let pot = t.execute_with(|| Treasury::pot());
-	let weight_refund = pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::weight().saturating_sub(<<Runtime as pallet_asset_conversion_tx_payment::Config>::WeightInfo as pallet_asset_conversion_tx_payment::WeightInfo>::charge_asset_tx_payment_native());
+	let extension_weight = xt().extension_weight();
+	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	executor_call(&mut t, "Core_execute_block", &block2.0).0.unwrap();
@@ -482,14 +474,6 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
-					who: bob().into(),
-					amount: fees - fees_after_refund,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(1),
-				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
 					amount: fees_after_refund * 8 / 10,
 				}),
@@ -524,7 +508,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					weight: transfer_weight
-						.saturating_add(TxExtension::weight().saturating_sub(weight_refund)),
+						.saturating_add(extension_weight.saturating_sub(weight_refund)),
 					class: Default::default(),
 					pays: Default::default(),
 				}),
@@ -544,14 +528,6 @@ fn full_native_block_import_works() {
 					from: alice().into(),
 					to: bob().into(),
 					amount: 15 * DOLLARS,
-				}),
-				topics: vec![],
-			},
-			EventRecord {
-				phase: Phase::ApplyExtrinsic(2),
-				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
-					who: alice().into(),
-					amount: fees - fees_after_refund,
 				}),
 				topics: vec![],
 			},
@@ -592,7 +568,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					weight: transfer_weight
-						.saturating_add(TxExtension::weight().saturating_sub(weight_refund)),
+						.saturating_add(extension_weight.saturating_sub(weight_refund)),
 					class: Default::default(),
 					pays: Default::default(),
 				}),
@@ -610,7 +586,7 @@ fn full_wasm_block_import_works() {
 	let (block1, block2) = blocks();
 
 	let mut alice_last_known_balance: Balance = Default::default();
-	let weight_refund = pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::weight().saturating_sub(<<Runtime as pallet_asset_conversion_tx_payment::Config>::WeightInfo as pallet_asset_conversion_tx_payment::WeightInfo>::charge_asset_tx_payment_native());
+	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	executor_call(&mut t, "Core_execute_block", &block1.0).0.unwrap();
@@ -621,7 +597,7 @@ fn full_wasm_block_import_works() {
 		alice_last_known_balance = Balances::total_balance(&alice());
 	});
 
-	let weight_refund = pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::weight().saturating_sub(<<Runtime as pallet_asset_conversion_tx_payment::Config>::WeightInfo as pallet_asset_conversion_tx_payment::WeightInfo>::charge_asset_tx_payment_native());
+	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	executor_call(&mut t, "Core_execute_block", &block2.0).0.unwrap();
@@ -873,7 +849,7 @@ fn successful_execution_gives_ok() {
 		assert_eq!(Balances::total_balance(&alice()), 111 * DOLLARS);
 	});
 
-	let weight_refund = pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::weight().saturating_sub(<<Runtime as pallet_asset_conversion_tx_payment::Config>::WeightInfo as pallet_asset_conversion_tx_payment::WeightInfo>::charge_asset_tx_payment_native());
+	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()))
