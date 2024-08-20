@@ -4,7 +4,7 @@ set -e
 
 prompt() {
     while true; do
-        echo "$1 [y/N]"
+        echo -e "$1 [y/N]"
         read yn
         case $yn in
             [Yy]* ) return 0;;  # Yes, return 0 (true)
@@ -17,7 +17,7 @@ prompt() {
 
 prompt_default_yes() {
     while true; do
-        echo "$1 [Y/n]"
+        echo -e "$1 [Y/n]"
         read yn
         case $yn in
             [Yy]* ) return 0;;  # Yes, return 0 (true)
@@ -49,7 +49,7 @@ if [ "$os_name" = "Darwin" ]; then
 
     # Check if brew is installed
     if command -v brew >/dev/null 2>&1; then
-        echo "\n✅︎🍺 Homebrew already installed."
+        echo -e "\n✅︎🍺 Homebrew already installed."
     else
         if prompt_default_yes "\n🍺 Homebrew is not installed. Install it?"; then
             echo "🍺 Installing Homebrew."
@@ -62,7 +62,7 @@ if [ "$os_name" = "Darwin" ]; then
 
     brew update
     if command -v git >/dev/null 2>&1; then
-        echo "\n✅︎🍺 git already installed."
+        echo -e "\n✅︎🍺 git already installed."
     else
         if prompt_default_yes "\n🍺 git seems to be missing but we will need it; install git?"; then
             brew install git
@@ -82,24 +82,24 @@ elif [ "$os_name" = "Linux" ]; then
     distro=$( cat /etc/*-release | tr '[:upper:]' '[:lower:]' | grep -Poi '(debian|ubuntu|arch|fedora|opensuse)' | uniq | head -n 1 )
 
     if [ "$distro" = "ubuntu" ]; then
-        echo "\n🐧 Detected Ubuntu. Using apt to install dependencies."
+        echo -e "\n🐧 Detected Ubuntu. Using apt to install dependencies."
         sudo apt install --assume-yes git clang curl libssl-dev protobuf-compiler
     elif [ "$distro" = "debian" ]; then
-        echo "\n🐧 Detected Debian. Using apt to install dependencies."
+        echo -e "\n🐧 Detected Debian. Using apt to install dependencies."
         sudo apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
     elif [ "$distro" = "arch" ]; then
-        echo "\n🐧 Detected Arch Linux. Using pacman to install dependencies."
+        echo -e "\n🐧 Detected Arch Linux. Using pacman to install dependencies."
         pacman -Syu --needed --noconfirm curl git clang make protobuf
     elif [ "$distro" = "fedora" ]; then
-        echo "\n🐧 Detected Fedora. Using dnf to install dependencies."
+        echo -e "\n🐧 Detected Fedora. Using dnf to install dependencies."
         sudo dnf update
         sudo dnf install clang curl git openssl-devel make protobuf-compiler
     elif [ "$distro" = "opensuse" ]; then
-        echo "\n🐧 Detected openSUSE. Using zypper to install dependencies."
+        echo -e "\n🐧 Detected openSUSE. Using zypper to install dependencies."
         sudo zypper install clang curl git openssl-devel llvm-devel libudev-devel make protobuf
     else
         if prompt "\n🐧 Unknown Linux distribution. Unable to install dependencies. Continue anyway?"; then
-            echo "\n🐧 Proceeding with unknown linux distribution..."
+            echo -e "\n🐧 Proceeding with unknown linux distribution..."
         else
             exit 1
         fi
@@ -111,7 +111,7 @@ fi
 
 # Check if rust is installed
 if command -v rustc >/dev/null 2>&1; then
-    echo "\n✅︎🦀 Rust already installed."
+    echo -e "\n✅︎🦀 Rust already installed."
 else
     if prompt_default_yes "\n🦀 Rust is not installed. Install it?"; then
         echo "🦀 Installing via rustup."
@@ -132,14 +132,14 @@ if prompt_default_yes "\n🦀 Setup the Rust environment (e.g. WASM support)?"; 
 fi
 
 if [ -d "minimal-template" ]; then
-    echo "\n✅︎ minimal-template directory already exists. -> Entering."
+    echo -e "\n✅︎ minimal-template directory already exists. -> Entering."
 else
-    echo "\n↓ Let's grab the minimal template from github."
+    echo -e "\n↓ Let's grab the minimal template from github."
     git clone https://github.com/paritytech/polkadot-sdk-minimal-template.git minimal-template
 fi
 cd minimal-template
 
-echo "\n⚙️ Let's compile the node."
+echo -e "\n⚙️ Let's compile the node."
 cargo build --release
 
 if prompt_default_yes "\n🚀 Everything ready to go, let's run the node?"; then
