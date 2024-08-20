@@ -59,6 +59,100 @@ fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 	}
 }
 
+/// Syncing strategy for syncing engine to use
+pub trait SyncingStrategy<B: BlockT>: Send
+where
+	B: BlockT,
+{
+	/// Notify that a new peer has connected.
+	fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>);
+
+	/// Notify that a peer has disconnected.
+	fn remove_peer(&mut self, peer_id: &PeerId);
+
+	/// Submit a validated block announcement.
+	///
+	/// Returns new best hash & best number of the peer if they are updated.
+	#[must_use]
+	fn on_validated_block_announce(
+		&mut self,
+		is_best: bool,
+		peer_id: PeerId,
+		announce: &BlockAnnounce<B::Header>,
+	) -> Option<(B::Hash, NumberFor<B>)>;
+
+	/// Configure an explicit fork sync request in case external code has detected that there is a
+	/// stale fork missing.
+	fn set_sync_fork_request(&mut self, peers: Vec<PeerId>, hash: &B::Hash, number: NumberFor<B>);
+
+	/// Request extra justification.
+	fn request_justification(&mut self, hash: &B::Hash, number: NumberFor<B>);
+
+	/// Clear extra justification requests.
+	fn clear_justification_requests(&mut self);
+
+	/// Report a justification import (successful or not).
+	fn on_justification_import(&mut self, hash: B::Hash, number: NumberFor<B>, success: bool);
+
+	/// Process block response.
+	fn on_block_response(
+		&mut self,
+		peer_id: PeerId,
+		key: StrategyKey,
+		request: BlockRequest<B>,
+		blocks: Vec<BlockData<B>>,
+	);
+
+	/// Process state response.
+	fn on_state_response(
+		&mut self,
+		peer_id: PeerId,
+		key: StrategyKey,
+		response: OpaqueStateResponse,
+	);
+
+	/// Process warp proof response.
+	fn on_warp_proof_response(
+		&mut self,
+		peer_id: &PeerId,
+		key: StrategyKey,
+		response: EncodedProof,
+	);
+
+	/// A batch of blocks have been processed, with or without errors.
+	fn on_blocks_processed(
+		&mut self,
+		imported: usize,
+		count: usize,
+		results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
+	);
+
+	/// Notify a syncing strategy that a block has been finalized.
+	fn on_block_finalized(&mut self, hash: &B::Hash, number: NumberFor<B>);
+
+	/// Inform sync about a new best imported block.
+	fn update_chain_info(&mut self, best_hash: &B::Hash, best_number: NumberFor<B>);
+
+	// Are we in major sync mode?
+	fn is_major_syncing(&self) -> bool;
+
+	/// Get the number of peers known to the syncing strategy.
+	fn num_peers(&self) -> usize;
+
+	/// Returns the current sync status.
+	fn status(&self) -> SyncStatus<B>;
+
+	/// Get the total number of downloaded blocks.
+	fn num_downloaded_blocks(&self) -> usize;
+
+	/// Get an estimate of the number of parallel sync requests.
+	fn num_sync_requests(&self) -> usize;
+
+	/// Get actions that should be performed by the owner on the strategy's behalf
+	#[must_use]
+	fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError>;
+}
+
 /// Syncing configuration containing data for all strategies.
 #[derive(Clone, Debug)]
 pub struct SyncingConfig {
@@ -171,11 +265,11 @@ pub struct PolkadotSyncingStrategy<B: BlockT, Client> {
 	/// `ChainSync` strategy.`
 	chain_sync: Option<ChainSync<B, Client>>,
 	/// Connected peers and their best blocks used to seed a new strategy when switching to it in
-	/// [`PolkadotSyncingStrategy::proceed_to_next`].
+	/// `PolkadotSyncingStrategy::proceed_to_next`.
 	peer_best_blocks: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
 }
 
-impl<B: BlockT, Client> PolkadotSyncingStrategy<B, Client>
+impl<B: BlockT, Client> SyncingStrategy<B> for PolkadotSyncingStrategy<B, Client>
 where
 	B: BlockT,
 	Client: HeaderBackend<B>
@@ -186,8 +280,7 @@ where
 		+ Sync
 		+ 'static,
 {
-	/// Notify that a new peer has connected.
-	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
+	fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
 		self.peer_best_blocks.insert(peer_id, (best_hash, best_number));
 
 		self.warp.as_mut().map(|s| s.add_peer(peer_id, best_hash, best_number));
@@ -195,8 +288,7 @@ where
 		self.chain_sync.as_mut().map(|s| s.add_peer(peer_id, best_hash, best_number));
 	}
 
-	/// Notify that a peer has disconnected.
-	pub fn remove_peer(&mut self, peer_id: &PeerId) {
+	fn remove_peer(&mut self, peer_id: &PeerId) {
 		self.warp.as_mut().map(|s| s.remove_peer(peer_id));
 		self.state.as_mut().map(|s| s.remove_peer(peer_id));
 		self.chain_sync.as_mut().map(|s| s.remove_peer(peer_id));
@@ -204,10 +296,7 @@ where
 		self.peer_best_blocks.remove(peer_id);
 	}
 
-	/// Submit a validated block announcement.
-	///
-	/// Returns new best hash & best number of the peer if they are updated.
-	pub fn on_validated_block_announce(
+	fn on_validated_block_announce(
 		&mut self,
 		is_best: bool,
 		peer_id: PeerId,
@@ -240,46 +329,35 @@ where
 		new_best
 	}
 
-	/// Configure an explicit fork sync request in case external code has detected that there is a
-	/// stale fork missing.
-	pub fn set_sync_fork_request(
-		&mut self,
-		peers: Vec<PeerId>,
-		hash: &B::Hash,
-		number: NumberFor<B>,
-	) {
+	fn set_sync_fork_request(&mut self, peers: Vec<PeerId>, hash: &B::Hash, number: NumberFor<B>) {
 		// Fork requests are only handled by `ChainSync`.
 		if let Some(ref mut chain_sync) = self.chain_sync {
 			chain_sync.set_sync_fork_request(peers.clone(), hash, number);
 		}
 	}
 
-	/// Request extra justification.
-	pub fn request_justification(&mut self, hash: &B::Hash, number: NumberFor<B>) {
+	fn request_justification(&mut self, hash: &B::Hash, number: NumberFor<B>) {
 		// Justifications can only be requested via `ChainSync`.
 		if let Some(ref mut chain_sync) = self.chain_sync {
 			chain_sync.request_justification(hash, number);
 		}
 	}
 
-	/// Clear extra justification requests.
-	pub fn clear_justification_requests(&mut self) {
+	fn clear_justification_requests(&mut self) {
 		// Justification requests can only be cleared by `ChainSync`.
 		if let Some(ref mut chain_sync) = self.chain_sync {
 			chain_sync.clear_justification_requests();
 		}
 	}
 
-	/// Report a justification import (successful or not).
-	pub fn on_justification_import(&mut self, hash: B::Hash, number: NumberFor<B>, success: bool) {
+	fn on_justification_import(&mut self, hash: B::Hash, number: NumberFor<B>, success: bool) {
 		// Only `ChainSync` is interested in justification import.
 		if let Some(ref mut chain_sync) = self.chain_sync {
 			chain_sync.on_justification_import(hash, number, success);
 		}
 	}
 
-	/// Process block response.
-	pub fn on_block_response(
+	fn on_block_response(
 		&mut self,
 		peer_id: PeerId,
 		key: StrategyKey,
@@ -302,8 +380,7 @@ where
 		}
 	}
 
-	/// Process state response.
-	pub fn on_state_response(
+	fn on_state_response(
 		&mut self,
 		peer_id: PeerId,
 		key: StrategyKey,
@@ -325,8 +402,7 @@ where
 		}
 	}
 
-	/// Process warp proof response.
-	pub fn on_warp_proof_response(
+	fn on_warp_proof_response(
 		&mut self,
 		peer_id: &PeerId,
 		key: StrategyKey,
@@ -344,8 +420,7 @@ where
 		}
 	}
 
-	/// A batch of blocks have been processed, with or without errors.
-	pub fn on_blocks_processed(
+	fn on_blocks_processed(
 		&mut self,
 		imported: usize,
 		count: usize,
@@ -359,24 +434,21 @@ where
 		}
 	}
 
-	/// Notify a syncing strategy that a block has been finalized.
-	pub fn on_block_finalized(&mut self, hash: &B::Hash, number: NumberFor<B>) {
+	fn on_block_finalized(&mut self, hash: &B::Hash, number: NumberFor<B>) {
 		// Only `ChainSync` is interested in block finalization notifications.
 		if let Some(ref mut chain_sync) = self.chain_sync {
 			chain_sync.on_block_finalized(hash, number);
 		}
 	}
 
-	/// Inform sync about a new best imported block.
-	pub fn update_chain_info(&mut self, best_hash: &B::Hash, best_number: NumberFor<B>) {
+	fn update_chain_info(&mut self, best_hash: &B::Hash, best_number: NumberFor<B>) {
 		// This is relevant to `ChainSync` only.
 		if let Some(ref mut chain_sync) = self.chain_sync {
 			chain_sync.update_chain_info(best_hash, best_number);
 		}
 	}
 
-	// Are we in major sync mode?
-	pub fn is_major_syncing(&self) -> bool {
+	fn is_major_syncing(&self) -> bool {
 		self.warp.is_some() ||
 			self.state.is_some() ||
 			match self.chain_sync {
@@ -385,13 +457,11 @@ where
 			}
 	}
 
-	/// Get the number of peers known to the syncing strategy.
-	pub fn num_peers(&self) -> usize {
+	fn num_peers(&self) -> usize {
 		self.peer_best_blocks.len()
 	}
 
-	/// Returns the current sync status.
-	pub fn status(&self) -> SyncStatus<B> {
+	fn status(&self) -> SyncStatus<B> {
 		// This function presumes that strategies are executed serially and must be refactored
 		// once we have parallel strategies.
 		if let Some(ref warp) = self.warp {
@@ -405,21 +475,17 @@ where
 		}
 	}
 
-	/// Get the total number of downloaded blocks.
-	pub fn num_downloaded_blocks(&self) -> usize {
+	fn num_downloaded_blocks(&self) -> usize {
 		self.chain_sync
 			.as_ref()
 			.map_or(0, |chain_sync| chain_sync.num_downloaded_blocks())
 	}
 
-	/// Get an estimate of the number of parallel sync requests.
-	pub fn num_sync_requests(&self) -> usize {
+	fn num_sync_requests(&self) -> usize {
 		self.chain_sync.as_ref().map_or(0, |chain_sync| chain_sync.num_sync_requests())
 	}
 
-	/// Get actions that should be performed by the owner on the strategy's behalf
-	#[must_use]
-	pub fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError> {
+	fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError> {
 		// This function presumes that strategies are executed serially and must be refactored once
 		// we have parallel strategies.
 		let actions: Vec<_> = if let Some(ref mut warp) = self.warp {
@@ -438,7 +504,19 @@ where
 
 		Ok(actions)
 	}
+}
 
+impl<B: BlockT, Client> PolkadotSyncingStrategy<B, Client>
+where
+	B: BlockT,
+	Client: HeaderBackend<B>
+		+ BlockBackend<B>
+		+ HeaderMetadata<B, Error = sp_blockchain::Error>
+		+ ProofProvider<B>
+		+ Send
+		+ Sync
+		+ 'static,
+{
 	/// Initialize a new syncing strategy.
 	pub fn new(
 		config: SyncingConfig,

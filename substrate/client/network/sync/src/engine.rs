@@ -33,7 +33,7 @@ use crate::{
 	},
 	strategy::{
 		warp::{EncodedProof, WarpProofRequest, WarpSyncConfig},
-		PolkadotSyncingStrategy, StrategyKey, SyncingAction, SyncingConfig,
+		PolkadotSyncingStrategy, StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
 	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
