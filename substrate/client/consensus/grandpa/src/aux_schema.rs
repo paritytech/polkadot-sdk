@@ -743,9 +743,7 @@ mod test {
 			substrate_test_runtime_client::runtime::Block,
 			_,
 			_,
-		>(
-			&client, H256::random(), 0, || unreachable!()
-		)
+		>(&client, H256::random(), 0, || unreachable!())
 		.unwrap();
 
 		assert_eq!(

@@ -114,14 +114,14 @@ fn build_overseer(
 		state.pvd.clone(),
 		state.own_backing_group.clone(),
 	);
-	let (statement_req_receiver, statement_req_cfg) =
-		IncomingRequest::get_config_receiver::<Block, sc_network::NetworkWorker<Block, Hash>>(
-			&ReqProtocolNames::new(GENESIS_HASH, None),
-		);
-	let (candidate_req_receiver, candidate_req_cfg) =
-		IncomingRequest::get_config_receiver::<Block, sc_network::NetworkWorker<Block, Hash>>(
-			&ReqProtocolNames::new(GENESIS_HASH, None),
-		);
+	let (statement_req_receiver, statement_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
+	let (candidate_req_receiver, candidate_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
 	let keystore = make_keystore();
 	let subsystem = StatementDistributionSubsystem::new(
 		keystore.clone(),

@@ -137,13 +137,7 @@ impl<
 		ConvertClassId: MaybeEquivalence<Location, ClassId>,
 		ConvertInstanceId: MaybeEquivalence<AssetInstance, InstanceId>,
 	> MatchesNonFungibles<ClassId, InstanceId>
-	for MatchedConvertedConcreteId<
-		ClassId,
-		InstanceId,
-		MatchClassId,
-		ConvertClassId,
-		ConvertInstanceId,
-	>
+	for MatchedConvertedConcreteId<ClassId, InstanceId, MatchClassId, ConvertClassId, ConvertInstanceId>
 {
 	fn matches_nonfungibles(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
 		let (instance, class) = match (&a.fun, &a.id) {

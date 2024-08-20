@@ -270,14 +270,7 @@ impl<
 		CheckAsset: AssetChecking<Assets::CollectionId>,
 		CheckingAccount: Get<Option<AccountId>>,
 	> TransactAsset
-	for NonFungiblesAdapter<
-		Assets,
-		Matcher,
-		AccountIdConverter,
-		AccountId,
-		CheckAsset,
-		CheckingAccount,
-	>
+	for NonFungiblesAdapter<Assets, Matcher, AccountIdConverter, AccountId, CheckAsset, CheckingAccount>
 {
 	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		NonFungiblesMutateAdapter::<
