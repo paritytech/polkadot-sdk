@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724165348108,
+  "lastUpdate": 1724173259355,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -22931,6 +22931,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.012042395233333341,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Javier Bullrich",
+            "username": "Bullrich",
+            "email": "javier@bullrich.dev"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "717bbb24c40717e70d2e3b648bcd372559c71bd2",
+          "message": "Migrated `docs` scripts to GitHub actions (#5345)\n\nMigrated the following scripts to GHA\n- test-doc\n- test-rustdoc\n- build-rustdoc\n- build-implementers-guide\n- publish-rustdoc (only runs when `master` is modified)\n\nResolves paritytech/ci_cd#1016\n\n---\n\nSome questions I have:\n- Should I remove the equivalent scripts from the `gitlab-ci` files?\n\n---------\n\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>",
+          "timestamp": "2024-08-20T15:16:57Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/717bbb24c40717e70d2e3b648bcd372559c71bd2"
+        },
+        "date": 1724173230525,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010594267333333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022559188226666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17199277797333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012438589693333335,
             "unit": "seconds"
           }
         ]
