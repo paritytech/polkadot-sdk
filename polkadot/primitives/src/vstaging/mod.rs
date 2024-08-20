@@ -809,6 +809,18 @@ mod tests {
 	}
 
 	#[test]
+	fn is_invalid_version_decodes_as_v1() {
+		let mut new_ccr = dummy_committed_candidate_receipt_v2();
+		new_ccr.descriptor.version = InternalVersion(100);
+
+		// Deserialize as V1.
+		let new_ccr: CommittedCandidateReceiptV2 =
+			Decode::decode(&mut new_ccr.encode().as_slice()).unwrap();
+
+		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+	}
+
+	#[test]
 	fn test_ump_commitment() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2();
 		new_ccr.descriptor.core_index = 123;
@@ -828,6 +840,34 @@ mod tests {
 			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
 
 		assert_eq!(new_ccr.check(&vec![CoreIndex(123)]), Ok(()));
+	}
+
+	#[test]
+	fn test_invalid_ump_commitment() {
+		let mut new_ccr = dummy_committed_candidate_receipt_v2();
+		new_ccr.descriptor.core_index = 0;
+		new_ccr.descriptor.para_id = ParaId::new(1000);
+
+		// separator
+		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+
+		// The check should fail because no `SelectCore` signal was sent.
+		assert_eq!(new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]), Err(CandidateReceiptError::NoCoreSelected));
+
+		new_ccr
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+		// Duplicate
+		new_ccr
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
+
+		// Duplicate doesn't override first signal.
+		assert_eq!(new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]), Ok(()));
+
 	}
 
 	#[test]
