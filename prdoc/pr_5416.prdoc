@@ -8,4 +8,7 @@ doc:
     description: |
       ...
 
-crates: [ ]
+crates:
+- name: staging-xcm-executor
+  bump: minor
+
