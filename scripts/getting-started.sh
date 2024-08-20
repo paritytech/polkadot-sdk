@@ -114,12 +114,9 @@ if command -v rustc >/dev/null 2>&1; then
     echo "\n✅︎🦀 Rust already installed."
 else
     if prompt_default_yes "\n🦀 Rust is not installed. Install it?"; then
-        version=`cat ../.github/env | grep IMAGE | cut -d'-' -f3`
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh 
-
-        if ! [ -z "${version}" ] || [ $(echo $version | grep -o "\." | wc -l) -lt 2 ]; then
-            rustup default $version
-        fi
+        echo "🦀 Installing via rustup."
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+        curl -s -H "Accept:application/vnd.github.v3.raw" https://api.github.com/repos/paritytech/polkadot-sdk/contents/rust-toolchain.toml > rust-toolchain.toml
     else
         echo "Aborting."
         exit 1
