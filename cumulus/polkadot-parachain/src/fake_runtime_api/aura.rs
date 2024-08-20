@@ -26,6 +26,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
+use sp_session::OpaqueGeneratedSessionKeys;
 
 pub struct Runtime;
 
@@ -106,7 +107,7 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
+		fn generate_session_keys(_: Vec<u8>, _: Option<Vec<u8>>) -> OpaqueGeneratedSessionKeys {
 			unimplemented!()
 		}
 
