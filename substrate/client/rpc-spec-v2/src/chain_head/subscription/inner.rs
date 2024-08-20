@@ -890,7 +890,7 @@ mod tests {
 	}
 
 	fn produce_blocks(
-		mut client: Arc<Client<sc_client_api::in_mem::Backend<Block>>>,
+		client: Arc<Client<sc_client_api::in_mem::Backend<Block>>>,
 		num_blocks: usize,
 	) -> Vec<<Block as BlockT>::Hash> {
 		let mut blocks = Vec::with_capacity(num_blocks);
