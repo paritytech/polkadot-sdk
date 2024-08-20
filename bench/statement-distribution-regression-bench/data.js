@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724160251601,
+  "lastUpdate": 1724165952593,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8945,6 +8945,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.037242634610000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Serban Iorga",
+            "username": "serban300",
+            "email": "serban@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "73e2316adad1582a2113301e4f2938d68ca10974",
+          "message": "Fix mmr zombienet test (#5417)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/4309\n\nIf a new block is generated between these 2 lines:\n\n```\n  const proof = await apis[nodeName].rpc.mmr.generateProof([1, 9, 20]);\n\n  const root = await apis[nodeName].rpc.mmr.root()\n```\n\nwe will try to verify a proof for the previous block with the mmr root\nat the current block. Which will fail.\n\nSo we generate the proof and get the mmr root at block 21 for\nconsistency.",
+          "timestamp": "2024-08-20T13:02:19Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/73e2316adad1582a2113301e4f2938d68ca10974"
+        },
+        "date": 1724165924154,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.94199999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.047068780549999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03854741795599999,
             "unit": "seconds"
           }
         ]
