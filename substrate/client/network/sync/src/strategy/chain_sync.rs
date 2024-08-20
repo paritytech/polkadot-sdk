@@ -233,50 +233,6 @@ pub enum ChainSyncMode {
 	},
 }
 
-/// The main data structure which contains all the state for a chains
-/// active syncing strategy.
-pub struct ChainSync<B: BlockT, Client> {
-	/// Chain client.
-	client: Arc<Client>,
-	/// The active peers that we are using to sync and their PeerSync status
-	peers: HashMap<PeerId, PeerSync<B>>,
-	disconnected_peers: DisconnectedPeers,
-	/// A `BlockCollection` of blocks that are being downloaded from peers
-	blocks: BlockCollection<B>,
-	/// The best block number in our queue of blocks to import
-	best_queued_number: NumberFor<B>,
-	/// The best block hash in our queue of blocks to import
-	best_queued_hash: B::Hash,
-	/// Current mode (full/light)
-	mode: ChainSyncMode,
-	/// Any extra justification requests.
-	extra_justifications: ExtraRequests<B>,
-	/// A set of hashes of blocks that are being downloaded or have been
-	/// downloaded and are queued for import.
-	queue_blocks: HashSet<B::Hash>,
-	/// Fork sync targets.
-	fork_targets: HashMap<B::Hash, ForkTarget<B>>,
-	/// A set of peers for which there might be potential block requests
-	allowed_requests: AllowedRequests,
-	/// Maximum number of peers to ask the same blocks in parallel.
-	max_parallel_downloads: u32,
-	/// Maximum blocks per request.
-	max_blocks_per_request: u32,
-	/// Total number of downloaded blocks.
-	downloaded_blocks: usize,
-	/// State sync in progress, if any.
-	state_sync: Option<StateSync<B, Client>>,
-	/// Enable importing existing blocks. This is used used after the state download to
-	/// catch up to the latest state while re-importing blocks.
-	import_existing: bool,
-	/// Gap download process.
-	gap_sync: Option<GapSync<B>>,
-	/// Pending actions.
-	actions: Vec<ChainSyncAction<B>>,
-	/// Prometheus metrics.
-	metrics: Option<Metrics>,
-}
-
 /// All the data we have about a Peer that we are trying to sync with
 #[derive(Debug, Clone)]
 pub(crate) struct PeerSync<B: BlockT> {
@@ -344,6 +300,50 @@ impl<B: BlockT> PeerSyncState<B> {
 	pub fn is_available(&self) -> bool {
 		matches!(self, Self::Available)
 	}
+}
+
+/// The main data structure which contains all the state for a chains
+/// active syncing strategy.
+pub struct ChainSync<B: BlockT, Client> {
+	/// Chain client.
+	client: Arc<Client>,
+	/// The active peers that we are using to sync and their PeerSync status
+	peers: HashMap<PeerId, PeerSync<B>>,
+	disconnected_peers: DisconnectedPeers,
+	/// A `BlockCollection` of blocks that are being downloaded from peers
+	blocks: BlockCollection<B>,
+	/// The best block number in our queue of blocks to import
+	best_queued_number: NumberFor<B>,
+	/// The best block hash in our queue of blocks to import
+	best_queued_hash: B::Hash,
+	/// Current mode (full/light)
+	mode: ChainSyncMode,
+	/// Any extra justification requests.
+	extra_justifications: ExtraRequests<B>,
+	/// A set of hashes of blocks that are being downloaded or have been
+	/// downloaded and are queued for import.
+	queue_blocks: HashSet<B::Hash>,
+	/// Fork sync targets.
+	fork_targets: HashMap<B::Hash, ForkTarget<B>>,
+	/// A set of peers for which there might be potential block requests
+	allowed_requests: AllowedRequests,
+	/// Maximum number of peers to ask the same blocks in parallel.
+	max_parallel_downloads: u32,
+	/// Maximum blocks per request.
+	max_blocks_per_request: u32,
+	/// Total number of downloaded blocks.
+	downloaded_blocks: usize,
+	/// State sync in progress, if any.
+	state_sync: Option<StateSync<B, Client>>,
+	/// Enable importing existing blocks. This is used used after the state download to
+	/// catch up to the latest state while re-importing blocks.
+	import_existing: bool,
+	/// Gap download process.
+	gap_sync: Option<GapSync<B>>,
+	/// Pending actions.
+	actions: Vec<ChainSyncAction<B>>,
+	/// Prometheus metrics.
+	metrics: Option<Metrics>,
 }
 
 impl<B, Client> ChainSync<B, Client>
