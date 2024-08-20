@@ -44,9 +44,6 @@ use xcm_builder::{
 };
 use xcm_executor::XcmExecutor;
 
-// const ROCOCO_GENESIS_HASH: [u8; 32] =
-// 	hex!["6408de7737c59c238890533af25896a2c20608d8b380bb01029acb392781063e"];
-
 pub type AccountId = AccountId32;
 pub type Balance = u64;
 

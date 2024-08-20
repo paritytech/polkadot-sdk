@@ -91,6 +91,8 @@ use bridge_hub_common::{
 use pallet_xcm::EnsureXcm;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
+
+#[allow(unused_imports)]
 use xcm::{
 	latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 	VersionedLocation,
