@@ -1,0 +1,71 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove NetworkIds for testnets Rococo and Westend
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Implemetation of https://github.com/polkadot-fellows/RFCs/pull/108, in the version 5 of XCM, 
+      Remove `Westend` and `Rococo` from the included `NetworkId`s to improve the stability of the language.
+
+      `NetworkId::Rococo` and `NetworkId::Westend` can just use `NetworkId::ByGenesis` by importing their genesis 
+      block hash
+
+crates:
+  - name: staging-xcm
+    bump: major
+  - name: pallet-xcm-bridge-hub
+    bump: minor
+  - name: snowbridge-pallet-system
+    bump: minor
+  - name: penpal-emulated-chain
+    bump: minor
+  - name: asset-hub-rococo-integration-tests
+    bump: minor
+  - name: asset-hub-westend-integration-tests
+    bump: minor
+  - name: bridge-hub-rococo-integration-tests
+    bump: minor
+  - name: bridge-hub-westend-integration-tests
+    bump: minor
+  - name: collectives-westend-integration-tests
+    bump: minor
+  - name: coretime-rococo-integration-tests
+    bump: minor
+  - name: coretime-westend-integration-tests
+    bump: minor
+  - name: people-rococo-integration-tests
+    bump: minor
+  - name: people-westend-integration-tests
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: contracts-rococo-runtime
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: glutton-westend-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
+  - name: glutton-westend-runtime
+    bump: minor
+  - name: shell-runtime
+    bump: minor
+  - name: penpal-runtime
+    bump: minor
+  - name: rococo-parachain-runtime
+    bump: minor
