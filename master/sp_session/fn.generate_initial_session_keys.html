@@ -154,10 +154,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     at: Block::Hash,
     seeds: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
     keystore: KeystorePtr
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, ApiError&gt;<div class="where">where
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="../sp_api/enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt;<div class="where">where
     Block: BlockT,
-    T: ProvideRuntimeApi&lt;Block&gt;,
-    T::Api: <a class="trait" href="runtime_api/trait.SessionKeys.html" title="trait sp_session::runtime_api::SessionKeys">SessionKeys</a>&lt;Block&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate the initial session keys with the given seeds, at the given block and store them in
+    T: <a class="trait" href="../sp_api/trait.ProvideRuntimeApi.html" title="trait sp_api::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;Block&gt;,
+    T::<a class="associatedtype" href="../sp_api/trait.ProvideRuntimeApi.html#associatedtype.Api" title="type sp_api::ProvideRuntimeApi::Api">Api</a>: <a class="trait" href="runtime_api/trait.SessionKeys.html" title="trait sp_session::runtime_api::SessionKeys">SessionKeys</a>&lt;Block&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate the initial session keys with the given seeds, at the given block and store them in
 the client’s keystore.</p>
 </div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

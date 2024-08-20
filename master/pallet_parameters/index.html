@@ -159,7 +159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <p>This pallet exposes two APIs; one <em>inbound</em> side to update parameters, and one <em>outbound</em> side
 to access said parameters. Parameters themselves are defined in the runtime config and will be
 aggregated into an enum. Each parameter is addressed by a <code>key</code> and can have a default value.
-This is not done by the pallet but through the [<code>frame_support::dynamic_params::dynamic_params</code>]
+This is not done by the pallet but through the <a href="../frame_support_procedural/attr.dynamic_params.html" title="attr frame_support_procedural::dynamic_params"><code>frame_support::dynamic_params::dynamic_params</code></a>
 macro or alternatives.</p>
 <p>Note that this is incurring one storage read per access. This should not be a problem in most
 cases but must be considered in weight-restrained code.</p>
