@@ -90,7 +90,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	/// Stores the current message's weight.
 	message_weight: Weight,
 	_config: PhantomData<Config>,
-	assetClaimer: Option<Location>,
+	asset_claimer: Option<Location>,
 }
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -1071,7 +1071,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			SetAssetClaimer { location } => {
-				self.assetClaimer = Some(location);
+				self.asset_claimer = Some(location);
 				Ok(())
 			},
 			ClaimAsset { assets, ticket } => {
