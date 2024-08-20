@@ -135,7 +135,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: brew install protobuf rustup-init
       - name: Install rust
-        run: rustup toolchain install nightly
+        run: rustup toolchain install nightly stable-aarch64-apple-darwin
       - run: rustup target add wasm32-unknown-unknown --toolchain stable-aarch64-apple-darwin
       - run: rustup component add rust-src --toolchain stable-aarch64-apple-darwin
       - run: time cargo check --workspace --locked
