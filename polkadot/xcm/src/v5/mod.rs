@@ -1103,6 +1103,7 @@ impl<Call> Instruction<Call> {
 			SetErrorHandler(xcm) => SetErrorHandler(xcm.into()),
 			SetAppendix(xcm) => SetAppendix(xcm.into()),
 			ClearError => ClearError,
+			SetAssetClaimer { location } => SetAssetClaimer { location },
 			ClaimAsset { assets, ticket } => ClaimAsset { assets, ticket },
 			Trap(code) => Trap(code),
 			SubscribeVersion { query_id, max_response_weight } =>
@@ -1173,6 +1174,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			SetErrorHandler(xcm) => W::set_error_handler(xcm),
 			SetAppendix(xcm) => W::set_appendix(xcm),
 			ClearError => W::clear_error(),
+			SetAssetClaimer { location } => W::set_asset_claimer(location),
 			ClaimAsset { assets, ticket } => W::claim_asset(assets, ticket),
 			Trap(code) => W::trap(code),
 			SubscribeVersion { query_id, max_response_weight } =>
