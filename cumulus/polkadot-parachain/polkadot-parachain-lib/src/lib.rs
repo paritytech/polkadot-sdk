@@ -32,6 +32,9 @@
 //! - a runtime resolver (an implementation of [`runtime::RuntimeResolver`]): this can be used for
 //!   providing the parameters of the runtime that is associated with each of the chain specs
 //!
+//! Apart from this, a [`CliConfig`] can also be provided, that can be used to customize some
+//! user-facing binary author, support url, etc.
+//!
 //! ## Examples
 //!
 //! For an example, see the `polkadot-parachain-bin` crate.
