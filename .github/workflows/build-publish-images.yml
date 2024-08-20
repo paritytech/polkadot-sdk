@@ -13,8 +13,11 @@ concurrency:
   cancel-in-progress: true
 env:
   BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+  BUILDAH_IMAGE: docker.io/paritytech/buildah:1.31
 
 jobs:
+
+### Build ########################    
 
   #
   #
@@ -251,8 +254,8 @@ jobs:
         run: |
           mv $CARGO_TARGET_DIR/release/substrate-node ./artifacts/substrate/substrate
           echo -n "Substrate version = "
-          if [ "${CI_COMMIT_TAG}" ]; then
-          echo "${CI_COMMIT_TAG}" | tee ./artifacts/substrate/VERSION;
+          if [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
+          echo "${{ github.ref_name }}" | tee ./artifacts/substrate/VERSION;
           else
           ./artifacts/substrate/substrate --version |
           cut -d ' ' -f 2 | tee ./artifacts/substrate/VERSION;
@@ -266,3 +269,193 @@ jobs:
           name: ${GITHUB_JOB}-${BRANCH_NAME/\//-}
           path: artifacts       
           retention-days: 1
+
+  #
+  #
+  #           
+  prepare-bridges-zombienet-artifacts:
+    needs: [set-image]
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}  
+    steps:
+       - name: Checkout
+         uses: actions/checkout@v4
+       - name: build
+         run: |
+           time cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
+       - name: pack artifacts
+         run: |
+           mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
+           cp -r bridges/testing ./artifacts/bridges-polkadot-sdk/bridges/testing    
+       - name: upload artifacts
+         uses: actions/upload-artifact@v4
+         with:
+           name: ${GITHUB_JOB}-${BRANCH_NAME/\//-}
+           path: artifacts       
+           retention-days: 1              
+
+### Publish ########################
+
+  #
+  #
+  #
+  build-push-image-test-parachain:
+    needs: [build-test-parachain]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ${BUILDAH_IMAGE}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: 
+          path: artifacts
+          name: build-test-parachain-${BRANCH_NAME/\//-}
+      
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "docker.io/paritypr/test-parachain"         
+          dockerfile: "docker/dockerfiles/test-parachain_injected.Dockerfile"
+
+  #
+  #
+  #
+  build-push-image-polkadot-debug:
+    needs: [build-linux-stable]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ${BUILDAH_IMAGE}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: 
+          path: artifacts
+          name: build-linux-stable-${BRANCH_NAME/\//-}
+      
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "docker.io/paritypr/polkadot-debug"         
+          dockerfile: "docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile"         
+
+
+  #
+  #
+  #
+  build-push-image-colander:
+    needs: [build-test-collators]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ${BUILDAH_IMAGE}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: 
+          path: artifacts
+          name: build-test-collators-${BRANCH_NAME/\//-}
+      
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "docker.io/paritypr/colander"         
+          dockerfile: "docker/dockerfiles/collator_injected.Dockerfile"          
+
+
+  #
+  #
+  #
+  build-push-image-malus:
+    needs: [build-malus]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ${BUILDAH_IMAGE}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: 
+          path: artifacts
+          name: build-malus-${BRANCH_NAME/\//-}
+      
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "docker.io/paritypr/malus"         
+          dockerfile: "docker/dockerfiles/malus_injected.Dockerfile"     
+
+
+  #
+  #
+  #
+  build-push-image-substrate-pr:
+    needs: [build-linux-substrate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ${BUILDAH_IMAGE}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: 
+          path: artifacts
+          name: build-linux-substrate-${BRANCH_NAME/\//-}
+      
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "docker.io/paritypr/substrate"         
+          dockerfile: "docker/dockerfiles/substrate_injected.Dockerfile"
+
+
+  #
+  #
+  #
+  # unlike other images, bridges+zombienet image is based on Zombienet image that pulls required binaries
+  # from other fresh images (polkadot and cumulus)
+  build-push-image-bridges-zombienet-tests:
+    needs: [build-linux-stable, build-linux-stable-cumulus, prepare-bridges-zombienet-artifacts]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ${BUILDAH_IMAGE}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: 
+          path: artifacts
+          name: build-linux-stable-${BRANCH_NAME/\//-}
+      - uses: actions/download-artifact@v4
+        with: 
+          path: artifacts
+          name: build-linux-stable-cumulus-${BRANCH_NAME/\//-}
+      - uses: actions/download-artifact@v4
+        with: 
+          path: artifacts
+          name: prepare-bridges-zombienet-artifacts-${BRANCH_NAME/\//-}            
+
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "docker.io/paritypr/bridges-zombienet-tests"         
+          dockerfile: "docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile"
+
+
+  #
+  #
+  #
+  build-push-image-polkadot-parachain-debug:
+    needs: [build-linux-stable-cumulus]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ${BUILDAH_IMAGE}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: 
+          path: artifacts
+          name: build-linux-stable-cumulus-${BRANCH_NAME/\//-}
+      
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "docker.io/paritypr/polkadot-parachain-debug"         
+          dockerfile: "docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"
