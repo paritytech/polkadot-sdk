@@ -137,7 +137,9 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	/// The hash of the relay-chain block this is executed in the context of.
 	relay_parent: H,
 	/// Version field. The raw value here is not exposed, instead it is used
-	/// to determine the `CandidateDescriptorVersion`, see `fn version()`
+	/// to determine the `CandidateDescriptorVersion`, see `fn version()`.
+	/// For the current version this field is set to `0` and will be incremented
+	/// by next versions.
 	version: InternalVersion,
 	/// The core index where the candidate is backed.
 	core_index: u16,
