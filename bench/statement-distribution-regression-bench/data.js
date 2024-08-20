@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724089507878,
+  "lastUpdate": 1724160251601,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8903,6 +8903,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.036483008308000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f239abac93b8354fec1441e39727b0706b489415",
+          "message": "approval-distribution: Fix preallocation of ApprovalEntries (#5411)\n\nWe preallocated the approvals field in the ApprovalEntry by up to a\nfactor of two in the worse conditions, since we can't have more than 6\napprovals and candidates.len() will return 20 if you have just the 20th\nbit set.\nThis adds to a lot of wasted memory because we have an ApprovalEntry for\neach assignment we received\n\nThis was discovered while running rust jemalloc-profiling with the steps\nfrom here: https://www.magiroux.com/rust-jemalloc-profiling/\n\nJust with this optimisation approvals subsystem-benchmark memory usage\non the worst case scenario is reduced from 6.1GiB to 2.4 GiB, even cpu\nusage of approval-distribution decreases by 4-5%.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-08-20T11:19:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f239abac93b8354fec1441e39727b0706b489415"
+        },
+        "date": 1724160224747,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.92999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045341186731999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037242634610000006,
             "unit": "seconds"
           }
         ]
