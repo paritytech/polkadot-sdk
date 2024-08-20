@@ -1,0 +1,27 @@
+name: checks MacOS
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  cargo-check-each-crate-macos:
+    runs-on: macOS
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rust
+        run: rustup toolchain install nightly
+      - run: brew install protobuf
+      - run: rustup target add wasm32-unknown-unknown --toolchain stable-aarch64-apple-darwin
+      - run: rustup component add rust-src --toolchain stable-aarch64-apple-darwin
+      - run: cargo check --workspace --locked
