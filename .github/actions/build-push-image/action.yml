@@ -6,12 +6,6 @@ inputs:
   image-name:
     description: ""
     required: true
-  pr-number:
-    description: "Number of the PR"
-    required: true
-  GH_TOKEN:
-    description: "GitHub token"
-    required: true
 outputs:
   branch:
     description: 'Branch name for the PR'
@@ -24,7 +18,7 @@ runs:
     - name: build
       env:
         BUILDAH_COMMAND: "buildah --storage-driver overlay2"
-        DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+        ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.105"
       run: |
         export BRANCH_NAME=${{ github.head_ref || github.ref_name }}
         export DOCKER_IMAGES_VERSION=${BRANCH_NAME/\//-}
