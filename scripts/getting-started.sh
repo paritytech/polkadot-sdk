@@ -125,7 +125,6 @@ fi
 # Ensure that we have wasm support
 if prompt_default_yes "\n🦀 Setup the Rust environment (e.g. WASM support)?"; then
     echo "🦀 Setting up Rust environment."
-    rustup default stable
     rustup update
     rustup target add wasm32-unknown-unknown
     rustup component add rust-src
