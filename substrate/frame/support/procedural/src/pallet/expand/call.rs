@@ -272,14 +272,17 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					// Closure don't have a writable type. So we fix the authorize token stream to
 					// be any implementation of this generic F.
 					// This also allows to have good type inference on the closure.
-					fn #attr_fn_getter<F: Fn( #( &#arg_type ),* )-> ::core::result::Result<
-						#frame_support::pallet_prelude::ValidTransaction,
-						#frame_support::pallet_prelude::TransactionValidityError,
-					>>(f: F) -> F {
+					fn #attr_fn_getter<
+						#type_impl_gen,
+						F: Fn( #( &#arg_type ),* )-> ::core::result::Result<
+							#frame_support::pallet_prelude::ValidTransaction,
+							#frame_support::pallet_prelude::TransactionValidityError,
+						>
+					>(f: F) -> F {
 						f
 					}
 
-					let authorize_fn = #attr_fn_getter(#authorize_fn);
+					let authorize_fn = #attr_fn_getter::<#type_use_gen, _>(#authorize_fn);
 					let res = authorize_fn(#( #arg_name, )*);
 
 					Some(res)

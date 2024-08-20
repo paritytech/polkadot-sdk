@@ -305,12 +305,17 @@ pub mod pallet {
 		/// </weight>
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim())]
+		#[pallet::authorize(|dest, ethereum_sig|
+			Pallet::<T>::validate_claim(dest, ethereum_sig, None)
+		)]
+		// weight is taken into account in the call itself
+		#[pallet::weight_of_authorize(Weight::from_all(0))]
 		pub fn claim(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
 			ethereum_signature: EcdsaSignature,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			ensure_none(origin.clone()).or_else(|_| ensure_authorized(origin))?;
 
 			let data = dest.using_encoded(to_ascii_hex);
 			let signer = Self::eth_recover(&ethereum_signature, &data, &[][..])
@@ -387,13 +392,18 @@ pub mod pallet {
 		/// </weight>
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::claim_attest())]
+		#[pallet::authorize(|dest, ethereum_sig, stmt|
+			Pallet::<T>::validate_claim(dest, ethereum_sig, Some(stmt))
+		)]
+		// weight is taken into account in the call itself
+		#[pallet::weight_of_authorize(Weight::from_all(0))]
 		pub fn claim_attest(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
 			ethereum_signature: EcdsaSignature,
 			statement: Vec<u8>,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			ensure_none(origin.clone()).or_else(|_| ensure_authorized(origin))?;
 
 			let data = dest.using_encoded(to_ascii_hex);
 			let signer = Self::eth_recover(&ethereum_signature, &data, &statement)
@@ -470,27 +480,36 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			const PRIORITY: u64 = 100;
-
-			let (maybe_signer, maybe_statement) = match call {
+			match call {
 				// <weight>
 				// The weight of this logic is included in the `claim` dispatchable.
 				// </weight>
-				Call::claim { dest: account, ethereum_signature } => {
-					let data = account.using_encoded(to_ascii_hex);
-					(Self::eth_recover(&ethereum_signature, &data, &[][..]), None)
-				},
+				Call::claim { dest: account, ethereum_signature } =>
+					Self::validate_claim(account, ethereum_signature, None),
 				// <weight>
 				// The weight of this logic is included in the `claim_attest` dispatchable.
 				// </weight>
-				Call::claim_attest { dest: account, ethereum_signature, statement } => {
-					let data = account.using_encoded(to_ascii_hex);
-					(
-						Self::eth_recover(&ethereum_signature, &data, &statement),
-						Some(statement.as_slice()),
-					)
-				},
+				Call::claim_attest { dest: account, ethereum_signature, statement } =>
+					Self::validate_claim(account, ethereum_signature, Some(statement)),
 				_ => return Err(InvalidTransaction::Call.into()),
+			}
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		fn validate_claim(
+			account: &T::AccountId,
+			ethereum_signature: &EcdsaSignature,
+			maybe_statement: Option<&Vec<u8>>
+		) -> TransactionValidity {
+			const PRIORITY: u64 = 100;
+
+			let maybe_signer = if let Some(statement) = &maybe_statement {
+				let data = account.using_encoded(to_ascii_hex);
+				Self::eth_recover(&ethereum_signature, &data, statement)
+			} else {
+				let data = account.using_encoded(to_ascii_hex);
+				Self::eth_recover(&ethereum_signature, &data, &[][..])
 			};
 
 			let signer = maybe_signer.ok_or(InvalidTransaction::Custom(
@@ -503,7 +522,7 @@ pub mod pallet {
 			let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
 			match Signing::<T>::get(signer) {
 				None => ensure!(maybe_statement.is_none(), e),
-				Some(s) => ensure!(Some(s.to_text()) == maybe_statement, e),
+				Some(s) => ensure!(Some(s.to_text()) == maybe_statement.map(|s| s.as_slice()), e),
 			}
 
 			Ok(ValidTransaction {

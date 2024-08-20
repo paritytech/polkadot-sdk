@@ -1055,41 +1055,27 @@ pub mod pallet {
 					.max(<T as Config>::WeightInfo::include_pvf_check_statement_finalize_onboarding_reject())
 				)
 		)]
+		#[pallet::authorize(Pallet::<T>::validate_include_pvf_check_statement)]
+		// Weight is taken into account in the dispatchable itself
+		#[pallet::weight_of_authorize(Weight::from_all(0))]
 		pub fn include_pvf_check_statement(
 			origin: OriginFor<T>,
 			stmt: PvfCheckStatement,
-			signature: ValidatorSignature,
+			_signature: ValidatorSignature,
 		) -> DispatchResultWithPostInfo {
-			ensure_none(origin)?;
+			ensure_none(origin.clone()).or_else(|_| ensure_authorized(origin))?;
+
+			// Transaction validation checks:
+			// * statement.session_index is not stale nor future.
+			// * signature is correct.
+			// * no double vote.
 
 			let validators = shared::ActiveValidatorKeys::<T>::get();
-			let current_session = shared::CurrentSessionIndex::<T>::get();
-			if stmt.session_index < current_session {
-				return Err(Error::<T>::PvfCheckStatementStale.into())
-			} else if stmt.session_index > current_session {
-				return Err(Error::<T>::PvfCheckStatementFuture.into())
-			}
 			let validator_index = stmt.validator_index.0 as usize;
-			let validator_public = validators
-				.get(validator_index)
-				.ok_or(Error::<T>::PvfCheckValidatorIndexOutOfBounds)?;
-
-			let signing_payload = stmt.signing_payload();
-			ensure!(
-				signature.verify(&signing_payload[..], &validator_public),
-				Error::<T>::PvfCheckInvalidSignature,
-			);
 
 			let mut active_vote = PvfActiveVoteMap::<T>::get(&stmt.subject)
+				// It must have been checked by transaction validation.
 				.ok_or(Error::<T>::PvfCheckSubjectInvalid)?;
-
-			// Ensure that the validator submitting this statement hasn't voted already.
-			ensure!(
-				!active_vote
-					.has_vote(validator_index)
-					.ok_or(Error::<T>::PvfCheckValidatorIndexOutOfBounds)?,
-				Error::<T>::PvfCheckDoubleVote,
-			);
 
 			// Finally, cast the vote and persist.
 			if stmt.accept {
@@ -1156,63 +1142,11 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			let (stmt, signature) = match call {
-				Call::include_pvf_check_statement { stmt, signature } => (stmt, signature),
+			match call {
+				Call::include_pvf_check_statement { stmt, signature } => 
+					Self::validate_include_pvf_check_statement(stmt, signature),
 				_ => return InvalidTransaction::Call.into(),
-			};
-
-			let current_session = shared::CurrentSessionIndex::<T>::get();
-			if stmt.session_index < current_session {
-				return InvalidTransaction::Stale.into()
-			} else if stmt.session_index > current_session {
-				return InvalidTransaction::Future.into()
 			}
-
-			let validator_index = stmt.validator_index.0 as usize;
-			let validators = shared::ActiveValidatorKeys::<T>::get();
-			let validator_public = match validators.get(validator_index) {
-				Some(pk) => pk,
-				None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
-			};
-
-			let signing_payload = stmt.signing_payload();
-			if !signature.verify(&signing_payload[..], &validator_public) {
-				return InvalidTransaction::BadProof.into()
-			}
-
-			let active_vote = match PvfActiveVoteMap::<T>::get(&stmt.subject) {
-				Some(v) => v,
-				None => return InvalidTransaction::Custom(INVALID_TX_BAD_SUBJECT).into(),
-			};
-
-			match active_vote.has_vote(validator_index) {
-				Some(false) => (),
-				Some(true) => return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into(),
-				None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
-			}
-
-			ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
-				.priority(T::UnsignedPriority::get())
-				.longevity(
-					TryInto::<u64>::try_into(
-						T::NextSessionRotation::average_session_length() / 2u32.into(),
-					)
-					.unwrap_or(64_u64),
-				)
-				.and_provides((stmt.session_index, stmt.validator_index, stmt.subject))
-				.propagate(true)
-				.build()
-		}
-
-		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
-			// Return `Ok` here meaning that as soon as the transaction got into the block, it will
-			// always dispatched. This is OK, since the `include_pvf_check_statement` dispatchable
-			// will perform the same checks anyway, so there is no point doing it here.
-			//
-			// On the other hand, if we did not provide the implementation, then the default
-			// implementation would be used. The default implementation just delegates the
-			// pre-dispatch validation to `validate_unsigned`.
-			Ok(())
 		}
 	}
 }
@@ -2337,6 +2271,57 @@ impl<T: Config> Pallet<T> {
 		code_hash: &ValidationCodeHash,
 	) -> Option<PvfCheckActiveVoteState<BlockNumberFor<T>>> {
 		PvfActiveVoteMap::<T>::get(code_hash)
+	}
+
+	/// Transaction validation checks:
+	/// * statement.session_index is not stale nor future.
+	/// * signature is correct.
+	/// * no double vote.
+	fn validate_include_pvf_check_statement(
+		stmt: &PvfCheckStatement,
+		signature: &ValidatorSignature,
+	) -> TransactionValidity {
+		let current_session = shared::CurrentSessionIndex::<T>::get();
+		if stmt.session_index < current_session {
+			return InvalidTransaction::Stale.into()
+		} else if stmt.session_index > current_session {
+			return InvalidTransaction::Future.into()
+		}
+
+		let validator_index = stmt.validator_index.0 as usize;
+		let validators = shared::ActiveValidatorKeys::<T>::get();
+		let validator_public = match validators.get(validator_index) {
+			Some(pk) => pk,
+			None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
+		};
+
+		let signing_payload = stmt.signing_payload();
+		if !signature.verify(&signing_payload[..], &validator_public) {
+			return InvalidTransaction::BadProof.into()
+		}
+
+		let active_vote = match PvfActiveVoteMap::<T>::get(&stmt.subject) {
+			Some(v) => v,
+			None => return InvalidTransaction::Custom(INVALID_TX_BAD_SUBJECT).into(),
+		};
+
+		match active_vote.has_vote(validator_index) {
+			Some(false) => (),
+			Some(true) => return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into(),
+			None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
+		}
+
+		ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
+			.priority(T::UnsignedPriority::get())
+			.longevity(
+				TryInto::<u64>::try_into(
+					T::NextSessionRotation::average_session_length() / 2u32.into(),
+				)
+				.unwrap_or(64_u64),
+			)
+			.and_provides((stmt.session_index, stmt.validator_index, stmt.subject))
+			.propagate(true)
+			.build()
 	}
 }
 

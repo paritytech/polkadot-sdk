@@ -249,6 +249,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
+// TODO TODO: test for generic args in call
+
 #[test]
 fn valid_call_weight_test() {
 	// Tests for valid successful calls and assert their weight
