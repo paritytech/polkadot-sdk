@@ -949,8 +949,14 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 	bitfields
 }
 
-/// Perform required checks for given version 2 candidate receipt.
-/// Returns `true` if candidate has passed all checks.
+/// Perform required checks for given candidate receipt.
+///
+/// Returns `true` if candidate descriptor is version 1.
+///
+/// For version 2 it returns `false` if:
+/// - version 2 descriptors are not allowed
+/// - the core index doesn't match the one computed from the commitments
+/// - the `SelectCore` signal does not refer to a core at the top of claim queue
 fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
@@ -964,7 +970,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	// Drop any v2 candidate receipts if nodes are not allowed to use them.
 	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
 	// any v1 descendants of v2 candidates are dropped.
-	if !allow_v2_receipts && candidate.descriptor().version() == CandidateDescriptorVersion::V2 {
+	if !allow_v2_receipts {
 		log::debug!(
 			target: LOG_TARGET,
 			"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
@@ -1027,7 +1033,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		})
 		.collect::<Vec<_>>();
 
-	// Check if core index in descriptoir matches the one in commitments
+	// Check if core index in descriptor matches the one in the commitments
 	if let Err(err) = candidate.candidate().check(&assigned_cores) {
 		log::debug!(
 			target: LOG_TARGET,
