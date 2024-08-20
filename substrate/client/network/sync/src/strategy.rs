@@ -29,7 +29,7 @@ use crate::{
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncStatus},
 	LOG_TARGET,
 };
-use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
+use chain_sync::{ChainSync, ChainSyncMode};
 use log::{debug, error, info};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
@@ -64,10 +64,10 @@ pub trait SyncingStrategy<B: BlockT>: Send
 where
 	B: BlockT,
 {
-	/// Notify that a new peer has connected.
+	/// Notify syncing state machine that a new sync peer has connected.
 	fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>);
 
-	/// Notify that a peer has disconnected.
+	/// Notify that a sync peer has disconnected.
 	fn remove_peer(&mut self, peer_id: &PeerId);
 
 	/// Submit a validated block announcement.
@@ -83,6 +83,11 @@ where
 
 	/// Configure an explicit fork sync request in case external code has detected that there is a
 	/// stale fork missing.
+	///
+	/// Note that this function should not be used for recent blocks.
+	/// Sync should be able to download all the recent forks normally.
+	///
+	/// Passing empty `peers` set effectively removes the sync request.
 	fn set_sync_fork_request(&mut self, peers: Vec<PeerId>, hash: &B::Hash, number: NumberFor<B>);
 
 	/// Request extra justification.
@@ -119,7 +124,10 @@ where
 		response: EncodedProof,
 	);
 
-	/// A batch of blocks have been processed, with or without errors.
+	/// A batch of blocks that have been processed, with or without errors.
+	///
+	/// Call this when a batch of blocks that have been processed by the import queue, with or
+	/// without errors.
 	fn on_blocks_processed(
 		&mut self,
 		imported: usize,
@@ -230,24 +238,6 @@ impl<B: BlockT> From<StateStrategyAction<B>> for SyncingAction<B> {
 			StateStrategyAction::ImportBlocks { origin, blocks } =>
 				SyncingAction::ImportBlocks { origin, blocks },
 			StateStrategyAction::Finished => SyncingAction::Finished,
-		}
-	}
-}
-
-impl<B: BlockT> From<ChainSyncAction<B>> for SyncingAction<B> {
-	fn from(action: ChainSyncAction<B>) -> Self {
-		match action {
-			ChainSyncAction::SendBlockRequest { peer_id, request } =>
-				SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::ChainSync, request },
-			ChainSyncAction::SendStateRequest { peer_id, request } =>
-				SyncingAction::SendStateRequest { peer_id, key: StrategyKey::ChainSync, request },
-			ChainSyncAction::CancelRequest { peer_id } =>
-				SyncingAction::CancelRequest { peer_id, key: StrategyKey::ChainSync },
-			ChainSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
-			ChainSyncAction::ImportBlocks { origin, blocks } =>
-				SyncingAction::ImportBlocks { origin, blocks },
-			ChainSyncAction::ImportJustifications { peer_id, hash, number, justifications } =>
-				SyncingAction::ImportJustifications { peer_id, hash, number, justifications },
 		}
 	}
 }
@@ -369,7 +359,7 @@ where
 		} else if let (StrategyKey::ChainSync, Some(ref mut chain_sync)) =
 			(key, &mut self.chain_sync)
 		{
-			chain_sync.on_block_response(peer_id, request, blocks);
+			chain_sync.on_block_response(peer_id, key, request, blocks);
 		} else {
 			error!(
 				target: LOG_TARGET,
@@ -391,7 +381,7 @@ where
 		} else if let (StrategyKey::ChainSync, Some(ref mut chain_sync)) =
 			(key, &mut self.chain_sync)
 		{
-			chain_sync.on_state_response(peer_id, response);
+			chain_sync.on_state_response(peer_id, key, response);
 		} else {
 			error!(
 				target: LOG_TARGET,
@@ -493,7 +483,7 @@ where
 		} else if let Some(ref mut state) = self.state {
 			state.actions().map(Into::into).collect()
 		} else if let Some(ref mut chain_sync) = self.chain_sync {
-			chain_sync.actions().map(Into::into).collect()
+			chain_sync.actions()?
 		} else {
 			unreachable!("At least one syncing strategy is always active; qed")
 		};

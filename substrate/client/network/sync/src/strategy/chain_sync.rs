@@ -35,7 +35,8 @@ use crate::{
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
-		warp::{WarpSyncPhase, WarpSyncProgress},
+		warp::{EncodedProof, WarpSyncPhase, WarpSyncProgress},
+		StrategyKey, SyncingAction, SyncingStrategy,
 	},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 	LOG_TARGET,
@@ -197,28 +198,6 @@ struct GapSync<B: BlockT> {
 	target: NumberFor<B>,
 }
 
-/// Action that the parent of [`ChainSync`] should perform after reporting a network or block event.
-#[derive(Debug)]
-pub enum ChainSyncAction<B: BlockT> {
-	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
-	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
-	/// Send state request to peer.
-	SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
-	/// Drop stale request.
-	CancelRequest { peer_id: PeerId },
-	/// Peer misbehaved. Disconnect, report it and cancel the block request to it.
-	DropPeer(BadPeer),
-	/// Import blocks.
-	ImportBlocks { origin: BlockOrigin, blocks: Vec<IncomingBlock<B>> },
-	/// Import justifications.
-	ImportJustifications {
-		peer_id: PeerId,
-		hash: B::Hash,
-		number: NumberFor<B>,
-		justifications: Justifications,
-	},
-}
-
 /// Sync operation mode.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ChainSyncMode {
@@ -341,12 +320,12 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
-	actions: Vec<ChainSyncAction<B>>,
+	actions: Vec<SyncingAction<B>>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
 }
 
-impl<B, Client> ChainSync<B, Client>
+impl<B, Client> SyncingStrategy<B> for ChainSync<B, Client>
 where
 	B: BlockT,
 	Client: HeaderBackend<B>
@@ -357,18 +336,19 @@ where
 		+ Sync
 		+ 'static,
 {
-	/// Notify syncing state machine that a new sync peer has connected.
-	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
+	fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
 		match self.add_peer_inner(peer_id, best_hash, best_number) {
-			Ok(Some(request)) =>
-				self.actions.push(ChainSyncAction::SendBlockRequest { peer_id, request }),
+			Ok(Some(request)) => self.actions.push(SyncingAction::SendBlockRequest {
+				peer_id,
+				key: StrategyKey::ChainSync,
+				request,
+			}),
 			Ok(None) => {},
-			Err(bad_peer) => self.actions.push(ChainSyncAction::DropPeer(bad_peer)),
+			Err(bad_peer) => self.actions.push(SyncingAction::DropPeer(bad_peer)),
 		}
 	}
 
-	/// Notify that a sync peer has disconnected.
-	pub fn remove_peer(&mut self, peer_id: &PeerId) {
+	fn remove_peer(&mut self, peer_id: &PeerId) {
 		self.blocks.clear_peer_download(peer_id);
 		if let Some(gap_sync) = &mut self.gap_sync {
 			gap_sync.blocks.clear_peer_download(peer_id)
@@ -379,7 +359,7 @@ where
 				if let Some(bad_peer) =
 					self.disconnected_peers.on_disconnect_during_request(*peer_id)
 				{
-					self.actions.push(ChainSyncAction::DropPeer(bad_peer));
+					self.actions.push(SyncingAction::DropPeer(bad_peer));
 				}
 			}
 		}
@@ -401,11 +381,7 @@ where
 		}
 	}
 
-	/// Submit a validated block announcement.
-	///
-	/// Returns new best hash & best number of the peer if they are updated.
-	#[must_use]
-	pub fn on_validated_block_announce(
+	fn on_validated_block_announce(
 		&mut self,
 		is_best: bool,
 		peer_id: PeerId,
@@ -500,15 +476,8 @@ where
 		peer_info
 	}
 
-	/// Configure an explicit fork sync request in case external code has detected that there is a
-	/// stale fork missing.
-	///
-	/// Note that this function should not be used for recent blocks.
-	/// Sync should be able to download all the recent forks normally.
-	///
-	/// Passing empty `peers` set effectively removes the sync request.
 	// The implementation is similar to `on_validated_block_announce` with unknown parent hash.
-	pub fn set_sync_fork_request(
+	fn set_sync_fork_request(
 		&mut self,
 		mut peers: Vec<PeerId>,
 		hash: &B::Hash,
@@ -568,33 +537,37 @@ where
 			.extend(peers);
 	}
 
-	/// Request extra justification.
-	pub fn request_justification(&mut self, hash: &B::Hash, number: NumberFor<B>) {
+	fn request_justification(&mut self, hash: &B::Hash, number: NumberFor<B>) {
 		let client = &self.client;
 		self.extra_justifications
 			.schedule((*hash, number), |base, block| is_descendent_of(&**client, base, block))
 	}
 
-	/// Clear extra justification requests.
-	pub fn clear_justification_requests(&mut self) {
+	fn clear_justification_requests(&mut self) {
 		self.extra_justifications.reset();
 	}
 
-	/// Report a justification import (successful or not).
-	pub fn on_justification_import(&mut self, hash: B::Hash, number: NumberFor<B>, success: bool) {
+	fn on_justification_import(&mut self, hash: B::Hash, number: NumberFor<B>, success: bool) {
 		let finalization_result = if success { Ok((hash, number)) } else { Err(()) };
 		self.extra_justifications
 			.try_finalize_root((hash, number), finalization_result, true);
 		self.allowed_requests.set_all();
 	}
 
-	/// Submit blocks received in a response.
-	pub fn on_block_response(
+	fn on_block_response(
 		&mut self,
 		peer_id: PeerId,
+		key: StrategyKey,
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
 	) {
+		if key != StrategyKey::ChainSync {
+			error!(
+				target: LOG_TARGET,
+				"`on_block_response()` called with unexpected key {key:?} for chain sync",
+			);
+			debug_assert!(false);
+		}
 		let block_response = BlockResponse::<B> { id: request.id, blocks };
 
 		let blocks_range = || match (
@@ -624,22 +597,42 @@ where
 		};
 
 		if let Err(bad_peer) = res {
-			self.actions.push(ChainSyncAction::DropPeer(bad_peer));
+			self.actions.push(SyncingAction::DropPeer(bad_peer));
 		}
 	}
 
-	/// Submit a state received in a response.
-	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
+	fn on_state_response(
+		&mut self,
+		peer_id: PeerId,
+		key: StrategyKey,
+		response: OpaqueStateResponse,
+	) {
+		if key != StrategyKey::ChainSync {
+			error!(
+				target: LOG_TARGET,
+				"`on_state_response()` called with unexpected key {key:?} for chain sync",
+			);
+			debug_assert!(false);
+		}
 		if let Err(bad_peer) = self.on_state_data(&peer_id, response) {
-			self.actions.push(ChainSyncAction::DropPeer(bad_peer));
+			self.actions.push(SyncingAction::DropPeer(bad_peer));
 		}
 	}
 
-	/// A batch of blocks have been processed, with or without errors.
-	///
-	/// Call this when a batch of blocks have been processed by the import
-	/// queue, with or without errors.
-	pub fn on_blocks_processed(
+	fn on_warp_proof_response(
+		&mut self,
+		_peer_id: &PeerId,
+		_key: StrategyKey,
+		_response: EncodedProof,
+	) {
+		error!(
+			target: LOG_TARGET,
+			"`on_warp_proof_response()` called for chain sync strategy",
+		);
+		debug_assert!(false);
+	}
+
+	fn on_blocks_processed(
 		&mut self,
 		imported: usize,
 		count: usize,
@@ -691,7 +684,7 @@ where
 					if aux.bad_justification {
 						if let Some(ref peer) = peer_id {
 							warn!("💔 Sent block with bad justification to import");
-							self.actions.push(ChainSyncAction::DropPeer(BadPeer(
+							self.actions.push(SyncingAction::DropPeer(BadPeer(
 								*peer,
 								rep::BAD_JUSTIFICATION,
 							)));
@@ -730,7 +723,7 @@ where
 							"💔 Peer sent block with incomplete header to import",
 						);
 						self.actions
-							.push(ChainSyncAction::DropPeer(BadPeer(peer, rep::INCOMPLETE_HEADER)));
+							.push(SyncingAction::DropPeer(BadPeer(peer, rep::INCOMPLETE_HEADER)));
 						self.restart();
 					},
 				Err(BlockImportError::VerificationFailed(peer_id, e)) => {
@@ -744,7 +737,7 @@ where
 
 					if let Some(peer) = peer_id {
 						self.actions
-							.push(ChainSyncAction::DropPeer(BadPeer(peer, rep::VERIFICATION_FAIL)));
+							.push(SyncingAction::DropPeer(BadPeer(peer, rep::VERIFICATION_FAIL)));
 					}
 
 					self.restart();
@@ -755,7 +748,7 @@ where
 							target: LOG_TARGET,
 							"💔 Block {hash:?} received from peer {peer} has been blacklisted",
 						);
-						self.actions.push(ChainSyncAction::DropPeer(BadPeer(peer, rep::BAD_BLOCK)));
+						self.actions.push(SyncingAction::DropPeer(BadPeer(peer, rep::BAD_BLOCK)));
 					},
 				Err(BlockImportError::MissingState) => {
 					// This may happen if the chain we were requesting upon has been discarded
@@ -775,8 +768,7 @@ where
 		self.allowed_requests.set_all();
 	}
 
-	/// Notify sync that a block has been finalized.
-	pub fn on_block_finalized(&mut self, hash: &B::Hash, number: NumberFor<B>) {
+	fn on_block_finalized(&mut self, hash: &B::Hash, number: NumberFor<B>) {
 		let client = &self.client;
 		let r = self.extra_justifications.on_block_finalized(hash, number, |base, block| {
 			is_descendent_of(&**client, base, block)
@@ -815,18 +807,19 @@ where
 		}
 	}
 
-	/// Inform sync about a new best imported block.
-	pub fn update_chain_info(&mut self, best_hash: &B::Hash, best_number: NumberFor<B>) {
+	fn update_chain_info(&mut self, best_hash: &B::Hash, best_number: NumberFor<B>) {
 		self.on_block_queued(best_hash, best_number);
 	}
 
-	/// Get the number of peers known to the syncing state machine.
-	pub fn num_peers(&self) -> usize {
+	fn is_major_syncing(&self) -> bool {
+		self.status().state.is_major_syncing()
+	}
+
+	fn num_peers(&self) -> usize {
 		self.peers.len()
 	}
 
-	/// Returns the current sync status.
-	pub fn status(&self) -> SyncStatus<B> {
+	fn status(&self) -> SyncStatus<B> {
 		let median_seen = self.median_seen();
 		let best_seen_block =
 			median_seen.and_then(|median| (median > self.best_queued_number).then_some(median));
@@ -864,43 +857,49 @@ where
 		}
 	}
 
-	/// Get the total number of downloaded blocks.
-	pub fn num_downloaded_blocks(&self) -> usize {
+	fn num_downloaded_blocks(&self) -> usize {
 		self.downloaded_blocks
 	}
 
-	/// Get an estimate of the number of parallel sync requests.
-	pub fn num_sync_requests(&self) -> usize {
+	fn num_sync_requests(&self) -> usize {
 		self.fork_targets
 			.values()
 			.filter(|f| f.number <= self.best_queued_number)
 			.count()
 	}
 
-	/// Get pending actions to perform.
-	#[must_use]
-	pub fn actions(&mut self) -> impl Iterator<Item = ChainSyncAction<B>> {
-		let block_requests = self
-			.block_requests()
-			.into_iter()
-			.map(|(peer_id, request)| ChainSyncAction::SendBlockRequest { peer_id, request });
+	fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError> {
+		let block_requests = self.block_requests().into_iter().map(|(peer_id, request)| {
+			SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::ChainSync, request }
+		});
 		self.actions.extend(block_requests);
 
-		let justification_requests = self
-			.justification_requests()
-			.into_iter()
-			.map(|(peer_id, request)| ChainSyncAction::SendBlockRequest { peer_id, request });
+		let justification_requests =
+			self.justification_requests().into_iter().map(|(peer_id, request)| {
+				SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::ChainSync, request }
+			});
 		self.actions.extend(justification_requests);
 
-		let state_request = self
-			.state_request()
-			.into_iter()
-			.map(|(peer_id, request)| ChainSyncAction::SendStateRequest { peer_id, request });
+		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
+			SyncingAction::SendStateRequest { peer_id, key: StrategyKey::ChainSync, request }
+		});
 		self.actions.extend(state_request);
 
-		std::mem::take(&mut self.actions).into_iter()
+		Ok(std::mem::take(&mut self.actions))
 	}
+}
 
+impl<B, Client> ChainSync<B, Client>
+where
+	B: BlockT,
+	Client: HeaderBackend<B>
+		+ BlockBackend<B>
+		+ HeaderMetadata<B, Error = sp_blockchain::Error>
+		+ ProofProvider<B>
+		+ Send
+		+ Sync
+		+ 'static,
+{
 	/// Create a new instance.
 	pub fn new(
 		mode: ChainSyncMode,
@@ -1240,8 +1239,9 @@ where
 								state: next_state,
 							};
 							let request = ancestry_request::<B>(next_num);
-							self.actions.push(ChainSyncAction::SendBlockRequest {
+							self.actions.push(SyncingAction::SendBlockRequest {
 								peer_id: *peer_id,
+								key: StrategyKey::ChainSync,
 								request,
 							});
 							return Ok(())
@@ -1376,7 +1376,7 @@ where
 			if let Some((peer_id, hash, number, justifications)) =
 				self.extra_justifications.on_response(peer_id, justification)
 			{
-				self.actions.push(ChainSyncAction::ImportJustifications {
+				self.actions.push(SyncingAction::ImportJustifications {
 					peer_id,
 					hash,
 					number,
@@ -1460,7 +1460,7 @@ where
 				.set(self.queue_blocks.len().try_into().unwrap_or(u64::MAX));
 		}
 
-		self.actions.push(ChainSyncAction::ImportBlocks { origin, blocks: new_blocks })
+		self.actions.push(SyncingAction::ImportBlocks { origin, blocks: new_blocks })
 	}
 
 	fn update_peer_common_number(&mut self, peer_id: &PeerId, new_common: NumberFor<B>) {
@@ -1539,7 +1539,10 @@ where
 				PeerSyncState::DownloadingGap(_) |
 				PeerSyncState::DownloadingState => {
 					// Cancel a request first, as `add_peer` may generate a new request.
-					self.actions.push(ChainSyncAction::CancelRequest { peer_id });
+					self.actions.push(SyncingAction::CancelRequest {
+						peer_id,
+						key: StrategyKey::ChainSync,
+					});
 					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
 				},
 				PeerSyncState::DownloadingJustification(_) => {
@@ -1892,7 +1895,7 @@ where
 					state: Some(state),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
-				self.actions.push(ChainSyncAction::ImportBlocks { origin, blocks: vec![block] });
+				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
 				Ok(())
 			},
 			ImportResult::Continue => Ok(()),
@@ -1906,7 +1909,7 @@ where
 	/// A version of `actions()` that doesn't schedule extra requests. For testing only.
 	#[cfg(test)]
 	#[must_use]
-	fn take_actions(&mut self) -> impl Iterator<Item = ChainSyncAction<B>> {
+	fn take_actions(&mut self) -> impl Iterator<Item = SyncingAction<B>> {
 		std::mem::take(&mut self.actions).into_iter()
 	}
 }
