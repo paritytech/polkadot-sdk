@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: script
         run: |
-          forklift cargo clippy --all-targets --locked --workspace
+          forklift cargo clippy --all-targets --locked --workspace --features experimental
           forklift cargo clippy --all-targets --all-features --locked --workspace
   check-try-runtime:
     runs-on: arc-runners-polkadot-sdk-beefy
