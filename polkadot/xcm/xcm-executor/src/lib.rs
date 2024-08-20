@@ -340,6 +340,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			asset_used_for_fees: None,
 			message_weight: Weight::zero(),
 			_config: PhantomData,
+			asset_claimer: None,
 		}
 	}
 
@@ -362,8 +363,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				original_origin = ?self.original_origin,
 				"Trapping assets in holding register",
 			);
-			let effective_orgin = if let Some(assetClaimer) = self.assetClaimer {
-				assetClaimer.as_ref().unwrap_or(&self.original_origin)
+			let effective_orgin = if let Some(asset_claimer) = self.asset_claimer {
+				asset_claimer.as_ref().unwrap_or(&self.original_origin)
 			} else {
 				self.context.origin.as_ref().unwrap_or(&self.original_origin)
 			};
