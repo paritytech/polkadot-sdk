@@ -124,9 +124,8 @@ fi
 
 # Ensure that we have wasm support
 if prompt_default_yes "\n🦀 Setup the Rust environment (e.g. WASM support)?"; then
-    version=`curl -s -H "Accept:application/vnd.github.v3.raw" https://api.github.com/repos/paritytech/polkadot-sdk/contents/rust-toolchain.toml | grep 'channel =' | awk -F'"' '{print $2}'`
     echo "🦀 Setting up Rust environment."
-    rustup default $version
+    rustup default stable
     rustup update
     rustup target add wasm32-unknown-unknown
     rustup component add rust-src
@@ -138,7 +137,12 @@ else
     echo "\n↓ Let's grab the minimal template from github."
     git clone https://github.com/paritytech/polkadot-sdk-minimal-template.git minimal-template
 fi
+
 cd minimal-template
+
+if ! [[ -f "rust-toolchain.toml" ]]; then
+    curl -s -H "Accept:application/vnd.github.v3.raw" https://api.github.com/repos/paritytech/polkadot-sdk/contents/rust-toolchain.toml > rust-toolchain.toml
+fi
 
 echo "\n⚙️ Let's compile the node."
 cargo build --release
