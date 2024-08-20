@@ -133,7 +133,7 @@ jobs:
     runs-on: macOS
     steps:
       - uses: actions/checkout@v4
-      - run: brew install protobuf
+      - run: brew install protobuf rustup-init
       - name: Install rust
         run: rustup toolchain install nightly
       - run: rustup target add wasm32-unknown-unknown --toolchain stable-aarch64-apple-darwin
