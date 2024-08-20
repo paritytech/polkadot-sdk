@@ -11,6 +11,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
+
 jobs:
   changes:
     permissions:
@@ -52,9 +54,9 @@ jobs:
       - name: script
         run: |
           cd substrate/primitives/core/
-          time forklift cargo build --locked --no-default-features --features full_crypto
+          forklift cargo build --locked --no-default-features --features full_crypto
           cd ../application-crypto
-          time forklift cargo build --locked --no-default-features --features full_crypto
+          forklift cargo build --locked --no-default-features --features full_crypto
 
   test-frame-examples-compile-to-wasm:
     timeout-minutes: 20
@@ -74,9 +76,9 @@ jobs:
       - name: script
         run: |
           cd substrate/frame/examples/offchain-worker/
-          time forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
+          forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
           cd ../basic
-          time forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
+          forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
 
   test-frame-ui:
     timeout-minutes: 60
@@ -98,13 +100,13 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: |
-          time forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
-          time forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental
-          time forklift cargo test --locked -q --profile testnet -p xcm-procedural
-          time forklift cargo test --locked -q --profile testnet -p frame-election-provider-solution-type
-          time forklift cargo test --locked -q --profile testnet -p sp-api-test
+          forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
+          forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental
+          forklift cargo test --locked -q --profile testnet -p xcm-procedural
+          forklift cargo test --locked -q --profile testnet -p frame-election-provider-solution-type
+          forklift cargo test --locked -q --profile testnet -p sp-api-test
           # There is multiple version of sp-runtime-interface in the repo. So we point to the manifest.
-          time forklift cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml
+          forklift cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml
 
   test-deterministic-wasm:
     timeout-minutes: 20
@@ -120,12 +122,12 @@ jobs:
       - name: script
         run: |
           # build runtime
-          time forklift cargo build -q --locked --release -p westend-runtime -p rococo-runtime
+          forklift cargo build -q --locked --release -p westend-runtime -p rococo-runtime
           # make checksum
           sha256sum target/release/wbuild/*-runtime/target/wasm32-unknown-unknown/release/*.wasm > checksum.sha256
           cargo clean
           # build again
-          time forklift cargo build -q --locked --release -p westend-runtime -p rococo-runtime
+          forklift cargo build -q --locked --release -p westend-runtime -p rococo-runtime
           # confirm checksum
           sha256sum -c checksum.sha256
 
@@ -164,7 +166,7 @@ jobs:
           BENCH_NODE_IMPORT=::node::import::sr25519::transfer_keep_alive::paritydb::small
           mkdir -p $ARTIFACTS_DIR
 
-          SKIP_WASM_BUILD=1 forklift time cargo check --locked --benches --all;
+          SKIP_WASM_BUILD=1 forklift cargo check --locked --benches --all;
           forklift cargo run --locked --release -p node-bench -- $BENCH_TRIE_READ --json | tee $ARTIFACTS_DIR/bench_trie_read_small.json;
           forklift cargo run --locked --release -p node-bench -- $BENCH_NODE_IMPORT --json | tee $ARTIFACTS_DIR/bench_transfer_keep_alive.json
 
@@ -183,11 +185,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.7
 
-      - name: Extract branch name
-        shell: bash
-        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-        id: extract_branch
-
       - name: Download artifact (master run)
         uses: actions/download-artifact@v4.1.8
         with:
@@ -201,15 +198,15 @@ jobs:
           path: ./artifacts/current
 
       - name: script
+        id: compare
         run: |
-          echo "------- IMPORTANT -------"
-          echo "node-bench-regression-guard depends on the results of a cargo-check-benches job"
-          echo "In case of this job failure, check your pipeline's cargo-check-benches"
+          FAILED_MSG='### node-bench-regression-guard failed ❌, check the regression in *cargo-check-benches* job'
           docker run --rm \
           -v $PWD/artifacts/master:/artifacts/master \
           -v $PWD/artifacts/current:/artifacts/current \
           paritytech/node-bench-regression-guard:latest \
-          node-bench-regression-guard --reference /artifacts/master --compare-with /artifacts/current
+          node-bench-regression-guard --reference /artifacts/master --compare-with /artifacts/current \
+          || echo $FAILED_MSG >> $GITHUB_STEP_SUMMARY && echo $FAILED_MSG && exit 1
 
   test-node-metrics:
     needs: [ set-image ]
@@ -270,7 +267,7 @@ jobs:
 
       - name: script
         run: |
-          time forklift cargo build --locked -p westend-runtime --features metadata-hash
+          forklift cargo build --locked -p westend-runtime --features metadata-hash
 
   cargo-hfuzz:
     timeout-minutes: 20
@@ -335,45 +332,62 @@ jobs:
 
       - name: script
         run: |
-          PYTHONUNBUFFERED=x time .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
+          PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
 
-# TODO: enable when we have a macos Self-Hosted runners
-#  cargo-check-each-crate-macos:
-#    timeout-minutes: 120
-#    needs: [ set-image ]
-#    runs-on: macos-latest
-#    env:
-#      RUSTFLAGS: "-D warnings"
-#      CI_JOB_NAME: cargo-check-each-crate
-#      IMAGE: ${{ needs.set-image.outputs.IMAGE }}
-#    strategy:
-#      fail-fast: false
-#      matrix:
-#        index: [ 1,2,3,4,5,6,7,8,9,10 ] # 10 parallel jobs
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4.1.7
-#
-#      - run: |
-#          VERSION=$(echo $IMAGE | sed -E 's/.*:bullseye-([^-]+)-.*/\1/')
-#          echo $VERSION
-#          echo "VERSION=$VERSION" >> $GITHUB_ENV
-#
-#      - run: |
-#          rustup install $VERSION
-#          rustup default $VERSION
-#
-#      - name: Check Rust
-#        run: |
-#          rustup show
-#          rustup +nightly show
-#
-#      - name: MacOS Deps
-#        run: |
-#          brew install protobuf openssl pkg-config zlib xz zstd llvm jq curl gcc make cmake
-#          rustup target add wasm32-unknown-unknown --toolchain $VERSION
-#          rustup component add rust-src rustfmt clippy --toolchain $VERSION
-#
-#      - name: script
-#        run: |
-#          PYTHONUNBUFFERED=x time .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }} True
+  # TODO: enable when we have a macos Self-Hosted runners
+  #  cargo-check-each-crate-macos:
+  #    timeout-minutes: 120
+  #    needs: [ set-image ]
+  #    runs-on: macos-latest
+  #    env:
+  #      RUSTFLAGS: "-D warnings"
+  #      CI_JOB_NAME: cargo-check-each-crate
+  #      IMAGE: ${{ needs.set-image.outputs.IMAGE }}
+  #    strategy:
+  #      fail-fast: false
+  #      matrix:
+  #        index: [ 1,2,3,4,5,6,7,8,9,10 ] # 10 parallel jobs
+  #    steps:
+  #      - name: Checkout
+  #        uses: actions/checkout@v4.1.7
+  #
+  #      - run: |
+  #          VERSION=$(echo $IMAGE | sed -E 's/.*:bullseye-([^-]+)-.*/\1/')
+  #          echo $VERSION
+  #          echo "VERSION=$VERSION" >> $GITHUB_ENV
+  #
+  #      - run: |
+  #          rustup install $VERSION
+  #          rustup default $VERSION
+  #
+  #      - name: Check Rust
+  #        run: |
+  #          rustup show
+  #          rustup +nightly show
+  #
+  #      - name: MacOS Deps
+  #        run: |
+  #          brew install protobuf openssl pkg-config zlib xz zstd llvm jq curl gcc make cmake
+  #          rustup target add wasm32-unknown-unknown --toolchain $VERSION
+  #          rustup component add rust-src rustfmt clippy --toolchain $VERSION
+  #
+  #      - name: script
+  #        run: |
+  #          PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }} True
+
+  confirm-required-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All test misc tests passed
+    # If any new job gets added, be sure to add it to this array
+    needs:
+      - test-full-crypto-feature
+      - test-frame-examples-compile-to-wasm
+      - test-frame-ui
+      - cargo-check-benches
+      - node-bench-regression-guard
+      - test-node-metrics
+      - check-tracing
+      - cargo-hfuzz
+      - cargo-check-each-crate
+    steps:
+      - run: echo '### Good job! All the required tests passed 🚀' >> $GITHUB_STEP_SUMMARY
