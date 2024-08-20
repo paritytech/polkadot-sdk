@@ -949,6 +949,99 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 	bitfields
 }
 
+/// Perform required checks for given version 2 candidate receipt.
+/// Returns `true` if candidate has passed all checks.
+fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
+	candidate: &BackedCandidate<T::Hash>,
+	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
+	scheduled_paras: &BTreeMap<CoreIndex, ParaId>,
+	allow_v2_receipts: bool,
+) -> bool {
+	// Drop any v2 candidate receipts if nodes are not allowed to use them.
+	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
+	// any v1 descendants of v2 candidates are dropped.
+	if !allow_v2_receipts && candidate.descriptor().version() == CandidateDescriptorVersion::V2 {
+		log::debug!(
+			target: LOG_TARGET,
+			"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id()
+		);
+		return false
+	}
+
+	if candidate.descriptor().version() == CandidateDescriptorVersion::V1 {
+		return true;
+	}
+
+	let current_block_num = frame_system::Pallet::<T>::block_number();
+	let Some((_core_selector, cq_offset)) = candidate.candidate().commitments.selected_core()
+	else {
+		log::debug!(
+			target: LOG_TARGET,
+			"Dropping candidate {:?} for paraid {:?}, no `CoreSelector` commitment.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id()
+		);
+
+		return false
+	};
+
+	// Get the relay parent number for the candidate:
+	let Some((_state_root, relay_parent_num)) =
+		allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
+	else {
+		log::debug!(
+			target: LOG_TARGET,
+			"Relay parent {:?} for candidate {:?} is not in the allowed relay parents.",
+			candidate.descriptor().relay_parent(),
+			candidate.candidate().hash(),
+		);
+		return false
+	};
+
+	let expected_cq_offset = current_block_num - relay_parent_num - One::one();
+	// Drop the v2 candidate receipt if the core claim has not reached the top of the
+	// claim queue.
+	if expected_cq_offset != (cq_offset.0 as u32).into() {
+		log::debug!(
+			target: LOG_TARGET,
+			"Dropped candidate {:?} of paraid {:?} because the claimed core is not at top  \
+			of the claim queue, cq_offset: {:?}, relay_parent_num: {:?}",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id(),
+			cq_offset,
+			relay_parent_num
+		);
+		return false
+	}
+
+	let assigned_cores = scheduled_paras
+		.iter()
+		.filter_map(|(core_index, para)| {
+			if *para == candidate.descriptor().para_id() {
+				Some(*core_index)
+			} else {
+				None
+			}
+		})
+		.collect::<Vec<_>>();
+
+	// Check if core index in descriptoir matches the one in commitments
+	if let Err(err) = candidate.candidate().check(&assigned_cores) {
+		log::debug!(
+			target: LOG_TARGET,
+			"Dropping candidate {:?} for paraid {:?}, {:?}",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id(),
+			err,
+		);
+
+		return false
+	}
+	true
+}
+
 /// Performs various filtering on the backed candidates inherent data.
 /// Must maintain the invariant that the returned candidate collection contains the candidates
 /// sorted in dependency order for each para. When doing any filtering, we must therefore drop any
@@ -982,80 +1075,13 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	// Get the paras scheduled next on each core.
 	let scheduled_paras = scheduler::Pallet::<T>::scheduled_paras().collect::<BTreeMap<_, _>>();
 	for candidate in backed_candidates {
-		// Drop any v2 candidate receipts if nodes are not allowed to use them.
-		// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
-		// any v1 descendants of v2 candidates are dropped.
-		if !allow_v2_receipts && candidate.descriptor().version() == CandidateDescriptorVersion::V2
-		{
-			log::debug!(
-				target: LOG_TARGET,
-				"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
-				candidate.candidate().hash(),
-				candidate.descriptor().para_id()
-			);
+		if !sanitize_backed_candidate_v2::<T>(
+			&candidate,
+			allowed_relay_parents,
+			&scheduled_paras,
+			allow_v2_receipts,
+		) {
 			continue
-		}
-
-		if candidate.descriptor().version() == CandidateDescriptorVersion::V2 {
-			let current_block_num = frame_system::Pallet::<T>::block_number();
-			let Some((_core_selector, cq_offset)) =
-				candidate.candidate().commitments.selected_core()
-			else {
-				log::debug!(
-					target: LOG_TARGET,
-					"Dropping candidate {:?} for paraid {:?}, no `CoreSelector` commitment.",
-					candidate.candidate().hash(),
-					candidate.descriptor().para_id()
-				);
-
-				continue
-			};
-
-			// Get the relay parent number for the candidate:
-			let Some((_state_root, relay_parent_num)) =
-				allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
-			else {
-				log::debug!(
-					target: LOG_TARGET,
-					"Relay parent {:?} for candidate {:?} is not in the allowed relay parents.",
-					candidate.descriptor().relay_parent(),
-					candidate.candidate().hash(),
-				);
-				continue
-			};
-
-			let expected_cq_offset = current_block_num - relay_parent_num - One::one();
-			// Drop the v2 candidate receipt if the core claim has not reached the top of the
-			// claim queue.
-			if expected_cq_offset == (cq_offset.0 as u32).into() {
-				log::debug!(
-					target: LOG_TARGET,
-					"Dropped candidate {:?} of paraid {:?} because the claimed core is not at top  \
-					of the claim queue, cq_offset: {:?}, relay_parent_num: {:?}",
-					candidate.candidate().hash(),
-					candidate.descriptor().para_id(),
-					cq_offset,
-					relay_parent_num
-				);
-			}
-
-			let assigned_cores = scheduled_paras
-				.iter()
-				.filter(|(core_index, para)| **para == candidate.descriptor().para_id())
-				.collect::<Vec<_>>();
-
-			// Check if core index in descriptoir matches the one in commitments
-			if let Err(err) = candidate.candidate().check(&assigned_cores) {
-				log::debug!(
-					target: LOG_TARGET,
-					"Dropping candidate {:?} for paraid {:?}, {:?}",
-					candidate.candidate().hash(),
-					candidate.descriptor().para_id(),
-					err,
-				);
-
-				continue
-			}
 		}
 
 		candidates_per_para
