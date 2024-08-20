@@ -957,6 +957,10 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	scheduled_paras: &BTreeMap<CoreIndex, ParaId>,
 	allow_v2_receipts: bool,
 ) -> bool {
+	if candidate.descriptor().version() == CandidateDescriptorVersion::V1 {
+		return true;
+	}
+
 	// Drop any v2 candidate receipts if nodes are not allowed to use them.
 	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
 	// any v1 descendants of v2 candidates are dropped.
@@ -968,10 +972,6 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 			candidate.descriptor().para_id()
 		);
 		return false
-	}
-
-	if candidate.descriptor().version() == CandidateDescriptorVersion::V1 {
-		return true;
 	}
 
 	let current_block_num = frame_system::Pallet::<T>::block_number();
@@ -1496,10 +1496,18 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 						);
 						break;
 					}
-					let maybe_injected_core_index: Option<CoreIndex> =
-						get_injected_core_index::<T>(allowed_relay_parents, &candidate);
 
-					if let Some(core_index) = maybe_injected_core_index {
+					// If candidate is v2, use the descriptor core index. We've already checked the
+					// core index is valid in `sanitize_backed_candidate_v2`. If candidate is v1,
+					// expect an injected core index.
+					let maybe_core_index =
+						if candidate.descriptor().version() == CandidateDescriptorVersion::V2 {
+							candidate.descriptor().core_index()
+						} else {
+							get_injected_core_index::<T>(allowed_relay_parents, &candidate)
+						};
+
+					if let Some(core_index) = maybe_core_index {
 						if scheduled_cores.remove(&core_index) {
 							temp_backed_candidates.push((candidate, core_index));
 						} else {
@@ -1508,7 +1516,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 							// temp_backed_candidates is still fine though.
 							log::debug!(
 								target: LOG_TARGET,
-								"Found a backed candidate {:?} with injected core index {}, which is not scheduled for paraid {:?}.",
+								"Found a backed candidate {:?} with core index {}, which is not scheduled for paraid {:?}.",
 								candidate.candidate().hash(),
 								core_index.0,
 								candidate.descriptor().para_id()
