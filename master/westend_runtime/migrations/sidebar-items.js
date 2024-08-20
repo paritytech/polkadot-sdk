@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["GetLegacyLeaseImpl"],"type":["Unreleased"]};
+window.SIDEBAR_ITEMS = {"type":["Unreleased"]};

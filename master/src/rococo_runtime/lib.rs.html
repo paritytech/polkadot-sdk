@@ -2772,6 +2772,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2620" id="2620">2620</a>
 <a href="#2621" id="2621">2621</a>
 <a href="#2622" id="2622">2622</a>
+<a href="#2623" id="2623">2623</a>
+<a href="#2624" id="2624">2624</a>
+<a href="#2625" id="2625">2625</a>
+<a href="#2626" id="2626">2626</a>
+<a href="#2627" id="2627">2627</a>
+<a href="#2628" id="2628">2628</a>
+<a href="#2629" id="2629">2629</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4354,6 +4361,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				&lt;slots::Pallet&lt;Runtime&gt; <span class="kw">as </span>Leaser&lt;BlockNumber&gt;&gt;::lease_period_index(now)<span class="question-mark">?</span>;
 			<span class="prelude-val">Some</span>(index.saturating_add(lease.len() <span class="kw">as </span>u32).saturating_mul(LeasePeriod::get()))
 		}
+
+		<span class="kw">fn </span>get_all_parachains_with_leases() -&gt; Vec&lt;ParaId&gt; {
+			slots::Leases::&lt;Runtime&gt;::iter()
+				.filter(|(<span class="kw">_</span>, lease)| !lease.is_empty())
+				.map(|(para, <span class="kw">_</span>)| para)
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+		}
 	}
 
 	<span class="macro">parameter_types! </span>{
@@ -4435,7 +4449,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         </span>pallet_identity::migration::versioned::V0ToV1&lt;Runtime, IDENTITY_MIGRATION_KEY_LIMIT&gt;,
         parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
         <span class="comment">// This needs to come after the `parachains_configuration` above as we are reading the configuration.
-        </span>coretime::migration::MigrateToCoretime&lt;Runtime, <span class="kw">crate</span>::xcm_config::XcmRouter, GetLegacyLeaseImpl&gt;,
+        </span>coretime::migration::MigrateToCoretime&lt;Runtime, <span class="kw">crate</span>::xcm_config::XcmRouter, GetLegacyLeaseImpl, TIMESLICE_PERIOD&gt;,
         parachains_configuration::migration::v12::MigrateToV12&lt;Runtime&gt;,
         parachains_on_demand::migration::MigrateV0ToV1&lt;Runtime&gt;,
 

@@ -442,6 +442,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -468,7 +488,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use crate</span>::{
 		assigner_coretime, configuration,
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
-		paras,
 	};
 	<span class="kw">use </span>alloc::{vec, vec::Vec};
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
@@ -495,18 +514,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub trait </span>GetLegacyLease&lt;N&gt; {
 		<span class="doccomment">/// If parachain is a lease holding parachain, return the block at which the lease expires.
 		</span><span class="kw">fn </span>get_parachain_lease_in_blocks(para: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;N&gt;;
+		<span class="comment">// All parachains holding a lease, no matter if there are gaps in the slots or not.
+		</span><span class="kw">fn </span>get_all_parachains_with_leases() -&gt; Vec&lt;ParaId&gt;;
 	}
 
 	<span class="doccomment">/// Migrate a chain to use coretime.
 	///
 	/// This assumes that the `Coretime` and the `AssignerCoretime` pallets are added at the same
 	/// time to a runtime.
-	</span><span class="kw">pub struct </span>MigrateToCoretime&lt;T, SendXcm, LegacyLease&gt;(
+	</span><span class="kw">pub struct </span>MigrateToCoretime&lt;T, SendXcm, LegacyLease, <span class="kw">const </span>TIMESLICE_PERIOD: u32&gt;(
 		core::marker::PhantomData&lt;(T, SendXcm, LegacyLease)&gt;,
 	);
 
-	<span class="kw">impl</span>&lt;T: Config, SendXcm: xcm::v4::SendXcm, LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;&gt;
-		MigrateToCoretime&lt;T, SendXcm, LegacyLease&gt;
+	<span class="kw">impl</span>&lt;
+			T: Config,
+			SendXcm: xcm::v4::SendXcm,
+			LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;,
+			<span class="kw">const </span>TIMESLICE_PERIOD: u32,
+		&gt; MigrateToCoretime&lt;T, SendXcm, LegacyLease, TIMESLICE_PERIOD&gt;
 	{
 		<span class="kw">fn </span>already_migrated() -&gt; bool {
 			<span class="comment">// We are using the assigner coretime because the coretime pallet doesn't has any
@@ -538,7 +563,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T: Config + <span class="kw">crate</span>::dmp::Config,
 			SendXcm: xcm::v4::SendXcm,
 			LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;,
-		&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToCoretime&lt;T, SendXcm, LegacyLease&gt;
+			<span class="kw">const </span>TIMESLICE_PERIOD: u32,
+		&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToCoretime&lt;T, SendXcm, LegacyLease, TIMESLICE_PERIOD&gt;
 	{
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">if </span><span class="self">Self</span>::already_migrated() {
@@ -546,7 +572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="macro">log::info!</span>(<span class="string">"Migrating existing parachains to coretime."</span>);
-			migrate_to_coretime::&lt;T, SendXcm, LegacyLease&gt;()
+			migrate_to_coretime::&lt;T, SendXcm, LegacyLease, TIMESLICE_PERIOD&gt;()
 		}
 
 		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
@@ -555,7 +581,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new())
 			}
 
-			<span class="kw">let </span>legacy_paras = paras::Parachains::&lt;T&gt;::get();
+			<span class="kw">let </span>legacy_paras = LegacyLease::get_all_parachains_with_leases();
 			<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 			<span class="kw">let </span>total_core_count = config.scheduler_params.num_cores + legacy_paras.len() <span class="kw">as </span>u32;
 
@@ -598,8 +624,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T: Config,
 		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;,
+		<span class="kw">const </span>TIMESLICE_PERIOD: u32,
 	&gt;() -&gt; Weight {
-		<span class="kw">let </span>legacy_paras = paras::Parachains::&lt;T&gt;::get();
+		<span class="kw">let </span>legacy_paras = LegacyLease::get_all_parachains_with_leases();
 		<span class="kw">let </span>legacy_count = legacy_paras.len() <span class="kw">as </span>u32;
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">for </span>(core, para_id) <span class="kw">in </span>legacy_paras.into_iter().enumerate() {
@@ -619,8 +646,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
-		<span class="comment">// num_cores was on_demand_cores until now:
-		</span><span class="kw">for </span>on_demand <span class="kw">in </span><span class="number">0</span>..config.scheduler_params.num_cores {
+		<span class="kw">for </span>on_demand <span class="kw">in </span><span class="number">0</span>..config.scheduler_params.num_cores {
 			<span class="kw">let </span>core = CoreIndex(legacy_count.saturating_add(on_demand <span class="kw">as _</span>));
 			<span class="kw">let </span>r = assigner_coretime::Pallet::&lt;T&gt;::assign_core(
 				core,
@@ -637,7 +663,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			c.scheduler_params.num_cores = total_cores;
 		});
 
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = migrate_send_assignments_to_coretime_chain::&lt;T, SendXcm, LegacyLease&gt;() {
+		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
+			migrate_send_assignments_to_coretime_chain::&lt;T, SendXcm, LegacyLease, TIMESLICE_PERIOD&gt;(
+			) {
 			<span class="macro">log::error!</span>(<span class="string">"Sending legacy chain data to coretime chain failed: {:?}"</span>, err);
 		}
 
@@ -654,8 +682,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T: Config,
 		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;,
+		<span class="kw">const </span>TIMESLICE_PERIOD: u32,
 	&gt;() -&gt; result::Result&lt;(), SendError&gt; {
-		<span class="kw">let </span>legacy_paras = paras::Parachains::&lt;T&gt;::get();
+		<span class="kw">let </span>legacy_paras = LegacyLease::get_all_parachains_with_leases();
 		<span class="kw">let </span>legacy_paras_count = legacy_paras.len();
 		<span class="kw">let </span>(system_chains, lease_holding): (Vec&lt;<span class="kw">_</span>&gt;, Vec&lt;<span class="kw">_</span>&gt;) =
 			legacy_paras.into_iter().partition(IsSystem::is_system);
@@ -668,7 +697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			mk_coretime_call::&lt;T&gt;(<span class="kw">crate</span>::coretime::CoretimeCalls::Reserve(schedule))
 		});
 
-		<span class="kw">let </span>leases = lease_holding.into_iter().filter_map(|p| {
+		<span class="kw">let </span><span class="kw-2">mut </span>leases = lease_holding.into_iter().filter_map(|p| {
 			<span class="macro">log::trace!</span>(target: <span class="string">"coretime-migration"</span>, <span class="string">"Preparing sending of lease holding para {:?}"</span>, p);
 			<span class="kw">let </span><span class="prelude-val">Some</span>(valid_until) = LegacyLease::get_parachain_lease_in_blocks(p) <span class="kw">else </span>{
 				<span class="macro">log::error!</span>(<span class="string">"Lease holding chain with no lease information?!"</span>);
@@ -681,10 +710,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">return </span><span class="prelude-val">None
 				</span>},
 			};
-			<span class="comment">// We assume the coretime chain set this parameter to the recommended value in RFC-1:
-			</span><span class="kw">const </span>TIME_SLICE_PERIOD: u32 = <span class="number">80</span>;
-			<span class="kw">let </span>round_up = <span class="kw">if </span>valid_until % TIME_SLICE_PERIOD &gt; <span class="number">0 </span>{ <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
-			<span class="kw">let </span>time_slice = valid_until / TIME_SLICE_PERIOD + TIME_SLICE_PERIOD * round_up;
+			<span class="kw">let </span>time_slice = (valid_until + TIMESLICE_PERIOD - <span class="number">1</span>) / TIMESLICE_PERIOD;
 			<span class="macro">log::trace!</span>(target: <span class="string">"coretime-migration"</span>, <span class="string">"Sending of lease holding para {:?}, valid_until: {:?}, time_slice: {:?}"</span>, p, valid_until, time_slice);
 			<span class="prelude-val">Some</span>(mk_coretime_call::&lt;T&gt;(<span class="kw">crate</span>::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
@@ -713,16 +739,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="kw">let </span>reservation_content = message_content.clone().chain(reservations).collect();
-		<span class="kw">let </span>pool_content = message_content.clone().chain(pool).collect();
-		<span class="kw">let </span>leases_content = message_content.clone().chain(leases).collect();
+		<span class="kw">let </span>leases_content_1 = message_content
+			.clone()
+			.chain(leases.by_ref().take(legacy_paras_count / <span class="number">2</span>)) <span class="comment">// split in two messages to avoid overweighted XCM
+			</span>.collect();
+		<span class="kw">let </span>leases_content_2 = message_content.clone().chain(leases).collect();
 		<span class="kw">let </span>set_core_count_content = message_content.clone().chain(set_core_count).collect();
-
-		<span class="kw">let </span>messages = <span class="macro">vec!</span>[
-			Xcm(reservation_content),
-			Xcm(pool_content),
-			Xcm(leases_content),
-			Xcm(set_core_count_content),
-		];
+		<span class="comment">// If `pool_content` is empty don't send a blank XCM message
+		</span><span class="kw">let </span>messages = <span class="kw">if </span>core_count <span class="kw">as </span>usize &gt; legacy_paras_count {
+			<span class="kw">let </span>pool_content = message_content.clone().chain(pool).collect();
+			<span class="macro">vec!</span>[
+				Xcm(reservation_content),
+				Xcm(pool_content),
+				Xcm(leases_content_1),
+				Xcm(leases_content_2),
+				Xcm(set_core_count_content),
+			]
+		} <span class="kw">else </span>{
+			<span class="macro">vec!</span>[
+				Xcm(reservation_content),
+				Xcm(leases_content_1),
+				Xcm(leases_content_2),
+				Xcm(set_core_count_content),
+			]
+		};
 
 		<span class="kw">for </span>message <span class="kw">in </span>messages {
 			send_xcm::&lt;SendXcm&gt;(

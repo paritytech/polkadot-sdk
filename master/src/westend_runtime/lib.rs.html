@@ -2958,24 +2958,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2806" id="2806">2806</a>
 <a href="#2807" id="2807">2807</a>
 <a href="#2808" id="2808">2808</a>
-<a href="#2809" id="2809">2809</a>
-<a href="#2810" id="2810">2810</a>
-<a href="#2811" id="2811">2811</a>
-<a href="#2812" id="2812">2812</a>
-<a href="#2813" id="2813">2813</a>
-<a href="#2814" id="2814">2814</a>
-<a href="#2815" id="2815">2815</a>
-<a href="#2816" id="2816">2816</a>
-<a href="#2817" id="2817">2817</a>
-<a href="#2818" id="2818">2818</a>
-<a href="#2819" id="2819">2819</a>
-<a href="#2820" id="2820">2820</a>
-<a href="#2821" id="2821">2821</a>
-<a href="#2822" id="2822">2822</a>
-<a href="#2823" id="2823">2823</a>
-<a href="#2824" id="2824">2824</a>
-<a href="#2825" id="2825">2825</a>
-<a href="#2826" id="2826">2826</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3043,7 +3025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		VersionedLocatableAsset, VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
-	traits::{Leaser, OnSwap},
+	traits::OnSwap,
 	BalanceToU256, BlockHashCount, BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate,
 	U256ToBalance,
 };
@@ -4752,24 +4734,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[allow(deprecated, missing_docs)]
 </span><span class="kw">pub mod </span>migrations {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-
-	<span class="kw">pub struct </span>GetLegacyLeaseImpl;
-	<span class="kw">impl </span>coretime::migration::GetLegacyLease&lt;BlockNumber&gt; <span class="kw">for </span>GetLegacyLeaseImpl {
-		<span class="kw">fn </span>get_parachain_lease_in_blocks(para: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
-			<span class="kw">let </span>now = frame_system::Pallet::&lt;Runtime&gt;::block_number();
-			<span class="kw">let </span>lease = slots::Leases::&lt;Runtime&gt;::get(para);
-			<span class="kw">if </span>lease.is_empty() {
-				<span class="kw">return </span><span class="prelude-val">None</span>;
-			}
-			<span class="comment">// Lease not yet started, ignore:
-			</span><span class="kw">if </span>lease.iter().any(Option::is_none) {
-				<span class="kw">return </span><span class="prelude-val">None</span>;
-			}
-			<span class="kw">let </span>(index, <span class="kw">_</span>) =
-				&lt;slots::Pallet&lt;Runtime&gt; <span class="kw">as </span>Leaser&lt;BlockNumber&gt;&gt;::lease_period_index(now)<span class="question-mark">?</span>;
-			<span class="prelude-val">Some</span>(index.saturating_add(lease.len() <span class="kw">as </span>u32).saturating_mul(LeasePeriod::get()))
-		}
-	}
 
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
 	</span><span class="kw">pub type </span>Unreleased = (
