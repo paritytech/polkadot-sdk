@@ -75,6 +75,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[cfg(feature = "experimental")]
 #[test]
 fn module_error_outer_enum_expand_explicit() {
 	// The Runtime has *all* parts explicitly defined.
@@ -90,9 +91,7 @@ fn module_error_outer_enum_expand_explicit() {
 			frame_system::Error::NonZeroRefCount => (),
 			frame_system::Error::CallFiltered => (),
 			frame_system::Error::MultiBlockMigrationsOngoing => (),
-			#[cfg(feature = "experimental")]
 			frame_system::Error::InvalidTask => (),
-			#[cfg(feature = "experimental")]
 			frame_system::Error::FailedTask => (),
 			frame_system::Error::NothingAuthorized => (),
 			frame_system::Error::Unauthorized => (),
