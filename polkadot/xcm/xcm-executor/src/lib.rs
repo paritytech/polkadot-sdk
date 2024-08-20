@@ -29,7 +29,7 @@ use frame_support::{
 use sp_core::defer;
 use sp_io::hashing::blake2_128;
 use sp_weights::Weight;
-use xcm::{latest::prelude::*, v3::MultiLocation};
+use xcm::latest::prelude::*;
 
 pub mod traits;
 use traits::{
