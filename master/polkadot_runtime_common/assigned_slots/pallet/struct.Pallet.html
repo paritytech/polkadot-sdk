@@ -153,18 +153,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 functions within the pallet.</p>
 </div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../../../src/polkadot_runtime_common/assigned_slots/mod.rs.html#253-472">source</a><a href="#impl-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait polkadot_runtime_common::assigned_slots::pallet::Config">Config</a>&gt; <a class="struct" href="struct.Pallet.html" title="struct polkadot_runtime_common::assigned_slots::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.assign_perm_parachain_slot" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_common/assigned_slots/mod.rs.html#106">source</a><h4 class="code-header">pub fn <a href="#method.assign_perm_parachain_slot" class="fn">assign_perm_parachain_slot</a>(
     origin: OriginFor&lt;T&gt;,
-    id: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>
+    id: ParaId
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Assign a permanent parachain slot and immediately create a lease for it.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.assign_temp_parachain_slot" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_common/assigned_slots/mod.rs.html#106">source</a><h4 class="code-header">pub fn <a href="#method.assign_temp_parachain_slot" class="fn">assign_temp_parachain_slot</a>(
     origin: OriginFor&lt;T&gt;,
-    id: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
+    id: ParaId,
     lease_period_start: <a class="enum" href="../enum.SlotLeasePeriodStart.html" title="enum polkadot_runtime_common::assigned_slots::SlotLeasePeriodStart">SlotLeasePeriodStart</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Assign a temporary parachain slot. The function tries to create a lease for it
 immediately if <code>SlotLeasePeriodStart::Current</code> is specified, and if the number
 of currently active temporary slots is below <code>MaxTemporarySlotPerLeasePeriod</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.unassign_parachain_slot" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_common/assigned_slots/mod.rs.html#106">source</a><h4 class="code-header">pub fn <a href="#method.unassign_parachain_slot" class="fn">unassign_parachain_slot</a>(
     origin: OriginFor&lt;T&gt;,
-    id: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>
+    id: ParaId
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Unassign a permanent or temporary parachain slot</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_max_permanent_slots" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_common/assigned_slots/mod.rs.html#106">source</a><h4 class="code-header">pub fn <a href="#method.set_max_permanent_slots" class="fn">set_max_permanent_slots</a>(
     origin: OriginFor&lt;T&gt;,
