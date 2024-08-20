@@ -1169,7 +1169,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			SetAssetClaimer { location } => {
 				self.assetClaimer = Some(location);
 				Ok(())
-			}
+			},
 			ClaimAsset { assets, ticket } => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				self.ensure_can_subsume_assets(assets.len())?;
