@@ -20,6 +20,7 @@ pub mod frame_system;
 pub mod pallet_asset_rate;
 pub mod pallet_bags_list;
 pub mod pallet_balances;
+pub mod pallet_beefy_mmr;
 pub mod pallet_conviction_voting;
 pub mod pallet_fast_unstake;
 pub mod pallet_identity;

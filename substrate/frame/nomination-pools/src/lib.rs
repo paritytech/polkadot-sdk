@@ -2010,6 +2010,8 @@ pub mod pallet {
 			pool_id: PoolId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 
 			ensure!(amount >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
 			// If a member already exists that means they already belong to a pool
@@ -2072,6 +2074,13 @@ pub mod pallet {
 		)]
 		pub fn bond_extra(origin: OriginFor<T>, extra: BondExtra<BalanceOf<T>>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
+			// ensure who is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(who.clone()),
+				Error::<T>::NotMigrated
+			);
+
 			Self::do_bond_extra(who.clone(), who, extra)
 		}
 
@@ -2087,6 +2096,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout(origin: OriginFor<T>) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
+			// ensure signer is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(signer.clone()),
+				Error::<T>::NotMigrated
+			);
+
 			Self::do_claim_payout(signer.clone(), signer)
 		}
 
@@ -2130,6 +2145,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let member_account = T::Lookup::lookup(member_account)?;
+			// ensure member is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(member_account.clone()),
+				Error::<T>::NotMigrated
+			);
+
 			let (mut member, mut bonded_pool, mut reward_pool) =
 				Self::get_member_with_pools(&member_account)?;
 
@@ -2213,6 +2234,9 @@ pub mod pallet {
 			num_slashing_spans: u32,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
 			let pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
 
 			// For now we only allow a pool to withdraw unbonded if its not destroying. If the pool
@@ -2259,6 +2283,12 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let caller = ensure_signed(origin)?;
 			let member_account = T::Lookup::lookup(member_account)?;
+			// ensure member is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(member_account.clone()),
+				Error::<T>::NotMigrated
+			);
+
 			let mut member =
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 			let current_era = T::StakeAdapter::current_era();
@@ -2493,6 +2523,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 			ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
 
 			let depositor_points = PoolMembers::<T>::get(&bonded_pool.roles.depositor)
@@ -2527,6 +2559,8 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let mut bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
 			ensure!(bonded_pool.state != PoolState::Destroying, Error::<T>::CanNotChangeState);
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 
 			if bonded_pool.can_toggle_state(&who) {
 				bonded_pool.set_state(state);
@@ -2562,6 +2596,8 @@ pub mod pallet {
 					.can_set_metadata(&who),
 				Error::<T>::DoesNotHavePermission
 			);
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 
 			Metadata::<T>::mutate(pool_id, |pool_meta| *pool_meta = metadata);
 
@@ -2638,6 +2674,9 @@ pub mod pallet {
 				},
 			};
 
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
 			match new_root {
 				ConfigOp::Noop => (),
 				ConfigOp::Remove => bonded_pool.roles.root = None,
@@ -2684,8 +2723,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::chill())]
 		pub fn chill(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 
 			let depositor_points = PoolMembers::<T>::get(&bonded_pool.roles.depositor)
 				.ok_or(Error::<T>::PoolMemberNotFound)?
@@ -2720,7 +2760,14 @@ pub mod pallet {
 			extra: BondExtra<BalanceOf<T>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_bond_extra(who, T::Lookup::lookup(member)?, extra)
+			let member_account = T::Lookup::lookup(member)?;
+			// ensure member is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(member_account.clone()),
+				Error::<T>::NotMigrated
+			);
+
+			Self::do_bond_extra(who, member_account, extra)
 		}
 
 		/// Allows a pool member to set a claim permission to allow or disallow permissionless
@@ -2737,8 +2784,13 @@ pub mod pallet {
 			permission: ClaimPermission,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
 			ensure!(PoolMembers::<T>::contains_key(&who), Error::<T>::PoolMemberNotFound);
+
+			// ensure member is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(who.clone()),
+				Error::<T>::NotMigrated
+			);
 
 			ClaimPermissions::<T>::mutate(who, |source| {
 				*source = permission;
@@ -2755,6 +2807,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout_other(origin: OriginFor<T>, other: T::AccountId) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
+			// ensure member is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(other.clone()),
+				Error::<T>::NotMigrated
+			);
+
 			Self::do_claim_payout(signer, other)
 		}
 
@@ -2773,6 +2831,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
 			ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
 
 			let mut reward_pool = RewardPools::<T>::get(pool_id)
@@ -2809,6 +2870,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
 			ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
 
 			bonded_pool.commission.try_update_max(pool_id, max_commission)?;
@@ -2831,6 +2895,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 			ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
 
 			bonded_pool.commission.try_update_change_rate(change_rate)?;
@@ -2852,6 +2918,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_commission())]
 		pub fn claim_commission(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
 			Self::do_claim_commission(who, pool_id)
 		}
 
@@ -2866,6 +2935,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::adjust_pool_deposit())]
 		pub fn adjust_pool_deposit(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
 			Self::do_adjust_pool_deposit(who, pool_id)
 		}
 
@@ -2882,6 +2954,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 			ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
 
 			bonded_pool.commission.claim_permission = permission.clone();
@@ -2956,9 +3030,12 @@ pub mod pallet {
 			);
 
 			let pool_contribution = member.total_balance();
-			ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
-			// the member must have some contribution to be migrated.
-			ensure!(pool_contribution > Zero::zero(), Error::<T>::AlreadyMigrated);
+			// ensure the pool contribution is greater than the existential deposit otherwise we
+			// cannot transfer funds to member account.
+			ensure!(
+				pool_contribution >= T::Currency::minimum_balance(),
+				Error::<T>::MinimumBondNotMet
+			);
 
 			let delegation =
 				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()));
@@ -3459,6 +3536,7 @@ impl<T: Config> Pallet<T> {
 
 	fn do_adjust_pool_deposit(who: T::AccountId, pool: PoolId) -> DispatchResult {
 		let bonded_pool = BondedPool::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+
 		let reward_acc = &bonded_pool.reward_account();
 		let pre_frozen_balance =
 			T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), reward_acc);
@@ -3880,7 +3958,13 @@ impl<T: Config> Pallet<T> {
 			return false
 		}
 
+		// if pool does not exist, return false.
+		if !BondedPools::<T>::contains_key(pool_id) {
+			return false
+		}
+
 		let pool_account = Self::generate_bonded_account(pool_id);
+
 		// true if pool is still not migrated to `DelegateStake`.
 		T::StakeAdapter::pool_strategy(Pool::from(pool_account)) !=
 			adapter::StakeStrategyType::Delegate
@@ -3912,6 +3996,22 @@ impl<T: Config> Pallet<T> {
 				// to be migrated.
 				delegated_balance.is_none() && !member_balance.is_zero()
 			})
+			.unwrap_or_default()
+	}
+
+	/// Contribution of the member in the pool.
+	///
+	/// Includes balance that is unbonded from staking but not claimed yet from the pool, therefore
+	/// this balance can be higher than the staked funds.
+	pub fn api_member_total_balance(who: T::AccountId) -> BalanceOf<T> {
+		PoolMembers::<T>::get(who.clone())
+			.map(|m| m.total_balance())
+			.unwrap_or_default()
+	}
+
+	/// Total balance contributed to the pool.
+	pub fn api_pool_balance(pool_id: PoolId) -> BalanceOf<T> {
+		T::StakeAdapter::total_balance(Pool::from(Self::generate_bonded_account(pool_id)))
 			.unwrap_or_default()
 	}
 }
