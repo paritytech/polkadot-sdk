@@ -103,7 +103,9 @@ where
 		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		let required = T::WeightInfo::v2_migrate_deposit(MaxDepositsOf::<T>::get());
+		let required = T::WeightInfo::v2_migrate_deposit(MaxDepositsOf::<T>::get())
+			.max(T::WeightInfo::v2_migrate_vote(1));
+
 		if meter.try_consume(required).is_err() {
 			return Err(SteppedMigrationError::InsufficientWeight { required })
 		}
