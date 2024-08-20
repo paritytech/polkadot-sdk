@@ -761,6 +761,16 @@ mod tests {
 		vstaging::{CandidateDescriptorV2, CommittedCandidateReceiptV2},
 	};
 
+	fn dummy_collator_signature() -> CollatorSignature {
+		CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
+			.expect("64 bytes; qed")
+	}
+
+	fn dummy_collator_id() -> CollatorId {
+		CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
+			.expect("32 bytes; qed")
+	}
+
 	pub fn dummy_committed_candidate_receipt_v2() -> CommittedCandidateReceiptV2 {
 		let zeros = Hash::zero();
 		let reserved64b = [0; 64];
@@ -811,6 +821,7 @@ mod tests {
 	#[test]
 	fn is_invalid_version_decodes_as_v1() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2();
+		// Put some unknown version.
 		new_ccr.descriptor.version = InternalVersion(100);
 
 		// Deserialize as V1.
@@ -848,17 +859,35 @@ mod tests {
 		new_ccr.descriptor.core_index = 0;
 		new_ccr.descriptor.para_id = ParaId::new(1000);
 
-		// separator
+		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
-
 		// The check should fail because no `SelectCore` signal was sent.
-		assert_eq!(new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]), Err(CandidateReceiptError::NoCoreSelected));
+		assert_eq!(
+			new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]),
+			Err(CandidateReceiptError::NoCoreSelected)
+		);
+
+		// Garbage message.
+		new_ccr.commitments.upward_messages.force_push(vec![0, 13, 200].encode());
+
+		// No `SelectCore` can be decoded.
+		assert_eq!(new_ccr.commitments.selected_core(), None);
+
+		// Failure is expected.
+		assert_eq!(
+			new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]),
+			Err(CandidateReceiptError::NoCoreSelected)
+		);
+
+		new_ccr.commitments.upward_messages.clear();
+		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
 		new_ccr
 			.commitments
 			.upward_messages
 			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+
 		// Duplicate
 		new_ccr
 			.commitments
@@ -867,7 +896,6 @@ mod tests {
 
 		// Duplicate doesn't override first signal.
 		assert_eq!(new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]), Ok(()));
-
 	}
 
 	#[test]
@@ -898,7 +926,7 @@ mod tests {
 
 		assert_eq!(new_ccr.hash(), decoded_ccr.hash());
 
-		// // // Encode v1 and decode as V2
+		// Encode v1 and decode as V2
 		let encoded_ccr = new_ccr.encode();
 		let v2_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
@@ -907,16 +935,6 @@ mod tests {
 		assert_eq!(new_ccr.check(&vec![CoreIndex(123)]), Ok(()));
 
 		assert_eq!(new_ccr.hash(), v2_ccr.hash());
-	}
-
-	fn dummy_collator_signature() -> CollatorSignature {
-		CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
-			.expect("64 bytes; qed")
-	}
-
-	fn dummy_collator_id() -> CollatorId {
-		CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
-			.expect("32 bytes; qed")
 	}
 
 	#[test]
