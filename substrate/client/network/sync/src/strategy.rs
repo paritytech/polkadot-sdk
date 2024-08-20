@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! [`SyncingStrategy`] is a proxy between [`crate::engine::SyncingEngine`]
+//! [`PolkadotSyncingStrategy`] is a proxy between [`crate::engine::SyncingEngine`]
 //! and specific syncing algorithms.
 
 pub mod chain_sync;
@@ -104,7 +104,7 @@ pub enum SyncingAction<B: BlockT> {
 		number: NumberFor<B>,
 		justifications: Justifications,
 	},
-	/// Strategy finished. Nothing to do, this is handled by `SyncingStrategy`.
+	/// Strategy finished. Nothing to do, this is handled by `PolkadotSyncingStrategy`.
 	Finished,
 }
 
@@ -158,8 +158,8 @@ impl<B: BlockT> From<ChainSyncAction<B>> for SyncingAction<B> {
 	}
 }
 
-/// Proxy to specific syncing strategies.
-pub struct SyncingStrategy<B: BlockT, Client> {
+/// Proxy to specific syncing strategies used in Polkadot.
+pub struct PolkadotSyncingStrategy<B: BlockT, Client> {
 	/// Initial syncing configuration.
 	config: SyncingConfig,
 	/// Client used by syncing strategies.
@@ -171,11 +171,11 @@ pub struct SyncingStrategy<B: BlockT, Client> {
 	/// `ChainSync` strategy.`
 	chain_sync: Option<ChainSync<B, Client>>,
 	/// Connected peers and their best blocks used to seed a new strategy when switching to it in
-	/// [`SyncingStrategy::proceed_to_next`].
+	/// [`PolkadotSyncingStrategy::proceed_to_next`].
 	peer_best_blocks: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
 }
 
-impl<B: BlockT, Client> SyncingStrategy<B, Client>
+impl<B: BlockT, Client> PolkadotSyncingStrategy<B, Client>
 where
 	B: BlockT,
 	Client: HeaderBackend<B>
