@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724165952593,
+  "lastUpdate": 1724173850083,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8987,6 +8987,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03854741795599999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Javier Bullrich",
+            "username": "Bullrich",
+            "email": "javier@bullrich.dev"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "717bbb24c40717e70d2e3b648bcd372559c71bd2",
+          "message": "Migrated `docs` scripts to GitHub actions (#5345)\n\nMigrated the following scripts to GHA\n- test-doc\n- test-rustdoc\n- build-rustdoc\n- build-implementers-guide\n- publish-rustdoc (only runs when `master` is modified)\n\nResolves paritytech/ci_cd#1016\n\n---\n\nSome questions I have:\n- Should I remove the equivalent scripts from the `gitlab-ci` files?\n\n---------\n\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>",
+          "timestamp": "2024-08-20T15:16:57Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/717bbb24c40717e70d2e3b648bcd372559c71bd2"
+        },
+        "date": 1724173821820,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.91999999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03773395667400001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04621429934400003,
             "unit": "seconds"
           }
         ]
