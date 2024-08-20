@@ -29,7 +29,7 @@ use frame_support::{
 use sp_core::defer;
 use sp_io::hashing::blake2_128;
 use sp_weights::Weight;
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, v3::MultiLocation};
 
 pub mod traits;
 use traits::{
@@ -90,6 +90,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	/// Stores the current message's weight.
 	message_weight: Weight,
 	_config: PhantomData<Config>,
+	assetClaimer: Option<Location>,
 }
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -357,7 +358,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				original_origin = ?self.original_origin,
 				"Trapping assets in holding register",
 			);
-			let effective_origin = self.context.origin.as_ref().unwrap_or(&self.original_origin);
+			let effective_orgin = if let Some(assetClaimer) = self.assetClaimer {
+				assetClaimer.as_ref().unwrap_or(&self.original_origin)
+			} else {
+				self.context.origin.as_ref().unwrap_or(&self.original_origin)
+			};
 			let trap_weight =
 				Config::AssetTrap::drop_assets(effective_origin, self.holding, &self.context);
 			weight_used.saturating_accrue(trap_weight);
@@ -1065,6 +1070,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.error = None;
 				Ok(())
 			},
+			SetAssetClaimer { location } => {
+				self.assetClaimer = Some(location);
+				Ok(())
+			}
 			ClaimAsset { assets, ticket } => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				self.ensure_can_subsume_assets(assets.len())?;

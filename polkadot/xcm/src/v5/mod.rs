@@ -738,6 +738,15 @@ pub enum Instruction<Call> {
 	/// Errors: None.
 	ClearError,
 
+	/// Set asset claimer for all the trapped assets during the execution.
+	///
+	/// - `location`: The claimer of the assets; it might be an arbitrary location, not necessarily the caller or origin.
+	///
+	/// Kind: *Command*
+	///
+	/// Errors: None.
+	SetAssetClaimer {location: Location},
+	
 	/// Create some assets which are being held on behalf of the origin.
 	///
 	/// - `assets`: The assets which are to be claimed. This must match exactly with the assets
