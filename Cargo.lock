@@ -11508,8 +11508,6 @@ dependencies = [
  "frame-system",
  "parity-wasm",
  "polkavm-linker 0.10.0",
- "sp-core",
- "sp-io",
  "sp-runtime",
  "tempfile",
  "toml 0.8.12",
