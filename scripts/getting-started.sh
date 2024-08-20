@@ -115,8 +115,7 @@ if command -v rustc >/dev/null 2>&1; then
 else
     if prompt_default_yes "\n🦀 Rust is not installed. Install it?"; then
         echo "🦀 Installing via rustup."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-        curl -s -H "Accept:application/vnd.github.v3.raw" https://api.github.com/repos/paritytech/polkadot-sdk/contents/rust-toolchain.toml > rust-toolchain.toml
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh 
     else
         echo "Aborting."
         exit 1
@@ -125,8 +124,9 @@ fi
 
 # Ensure that we have wasm support
 if prompt_default_yes "\n🦀 Setup the Rust environment (e.g. WASM support)?"; then
+    version=`curl -s -H "Accept:application/vnd.github.v3.raw" https://api.github.com/repos/paritytech/polkadot-sdk/contents/rust-toolchain.toml | grep 'channel =' | awk -F'"' '{print $2}'`
     echo "🦀 Setting up Rust environment."
-    rustup default stable
+    rustup default $version
     rustup update
     rustup target add wasm32-unknown-unknown
     rustup component add rust-src
