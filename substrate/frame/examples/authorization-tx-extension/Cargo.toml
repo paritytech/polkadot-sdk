@@ -36,6 +36,7 @@ sp-keyring = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -43,7 +44,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"frame-benchmarking?/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
