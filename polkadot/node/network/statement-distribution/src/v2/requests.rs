@@ -288,7 +288,7 @@ impl RequestManager {
 	/// Returns an instant at which the next request to be retried will be ready.
 	pub fn next_retry_time(&mut self) -> Option<Instant> {
 		let mut next = None;
-		for (_id, request) in &self.requests {
+		for (_id, request) in self.requests.iter().filter(|(_id, request)| !request.in_flight) {
 			if let Some(next_retry_time) = request.next_retry_time {
 				if next.map_or(true, |next| next_retry_time < next) {
 					next = Some(next_retry_time);
@@ -366,6 +366,7 @@ impl RequestManager {
 				id,
 				&props,
 				&peer_advertised,
+				&response_manager,
 			) {
 				None => continue,
 				Some(t) => t,
@@ -387,14 +388,17 @@ impl RequestManager {
 			);
 
 			let stored_id = id.clone();
-			response_manager.push(Box::pin(async move {
-				TaggedResponse {
-					identifier: stored_id,
-					requested_peer: target,
-					props,
-					response: response_fut.await,
-				}
-			}));
+			response_manager.push(
+				Box::pin(async move {
+					TaggedResponse {
+						identifier: stored_id,
+						requested_peer: target,
+						props,
+						response: response_fut.await,
+					}
+				}),
+				target,
+			);
 
 			entry.in_flight = true;
 
@@ -422,28 +426,35 @@ impl RequestManager {
 /// A manager for pending responses.
 pub struct ResponseManager {
 	pending_responses: FuturesUnordered<BoxFuture<'static, TaggedResponse>>,
+	active_peers: HashSet<PeerId>,
 }
 
 impl ResponseManager {
 	pub fn new() -> Self {
-		Self { pending_responses: FuturesUnordered::new() }
+		Self { pending_responses: FuturesUnordered::new(), active_peers: HashSet::new() }
 	}
 
 	/// Await the next incoming response to a sent request, or immediately
 	/// return `None` if there are no pending responses.
 	pub async fn incoming(&mut self) -> Option<UnhandledResponse> {
-		self.pending_responses
-			.next()
-			.await
-			.map(|response| UnhandledResponse { response })
+		self.pending_responses.next().await.map(|response| {
+			self.active_peers.remove(&response.requested_peer);
+			UnhandledResponse { response }
+		})
 	}
 
 	fn len(&self) -> usize {
 		self.pending_responses.len()
 	}
 
-	fn push(&mut self, response: BoxFuture<'static, TaggedResponse>) {
+	fn push(&mut self, response: BoxFuture<'static, TaggedResponse>, target: PeerId) {
 		self.pending_responses.push(response);
+		self.active_peers.insert(target);
+	}
+
+	/// Returns true if we are currently sending a request to the peer.
+	fn is_sending_to(&self, peer: &PeerId) -> bool {
+		self.active_peers.contains(peer)
 	}
 }
 
@@ -471,10 +482,16 @@ fn find_request_target_with_update(
 	candidate_identifier: &CandidateIdentifier,
 	props: &RequestProperties,
 	peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
+	response_manager: &ResponseManager,
 ) -> Option<PeerId> {
 	let mut prune = Vec::new();
 	let mut target = None;
 	for (i, p) in known_by.iter().enumerate() {
+		// If we are already sending to that peer, skip for now
+		if response_manager.is_sending_to(p) {
+			continue
+		}
+
 		let mut filter = match peer_advertised(candidate_identifier, p) {
 			None => {
 				prune.push(i);
@@ -1002,7 +1019,8 @@ mod tests {
 		candidate_receipt.descriptor.persisted_validation_data_hash =
 			persisted_validation_data.hash();
 		let candidate = candidate_receipt.hash();
-		let requested_peer = PeerId::random();
+		let requested_peer_1 = PeerId::random();
+		let requested_peer_2 = PeerId::random();
 
 		let identifier1 = request_manager
 			.get_or_insert(relay_parent, candidate, 1.into())
@@ -1010,14 +1028,14 @@ mod tests {
 			.clone();
 		request_manager
 			.get_or_insert(relay_parent, candidate, 1.into())
-			.add_peer(requested_peer);
+			.add_peer(requested_peer_1);
 		let identifier2 = request_manager
 			.get_or_insert(relay_parent, candidate, 2.into())
 			.identifier
 			.clone();
 		request_manager
 			.get_or_insert(relay_parent, candidate, 2.into())
-			.add_peer(requested_peer);
+			.add_peer(requested_peer_2);
 
 		assert_ne!(identifier1, identifier2);
 		assert_eq!(request_manager.requests.len(), 2);
@@ -1053,7 +1071,7 @@ mod tests {
 			let response = UnhandledResponse {
 				response: TaggedResponse {
 					identifier: identifier1,
-					requested_peer,
+					requested_peer: requested_peer_1,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
 						candidate_receipt: candidate_receipt.clone(),
@@ -1076,13 +1094,13 @@ mod tests {
 			assert_eq!(
 				output,
 				ResponseValidationOutput {
-					requested_peer,
+					requested_peer: requested_peer_1,
 					request_status: CandidateRequestStatus::Complete {
 						candidate: candidate_receipt.clone(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					},
-					reputation_changes: vec![(requested_peer, BENEFIT_VALID_RESPONSE)],
+					reputation_changes: vec![(requested_peer_1, BENEFIT_VALID_RESPONSE)],
 				}
 			);
 		}
@@ -1093,7 +1111,7 @@ mod tests {
 			let response = UnhandledResponse {
 				response: TaggedResponse {
 					identifier: identifier2,
-					requested_peer,
+					requested_peer: requested_peer_2,
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
 						candidate_receipt: candidate_receipt.clone(),
@@ -1115,12 +1133,14 @@ mod tests {
 			assert_eq!(
 				output,
 				ResponseValidationOutput {
-					requested_peer,
+					requested_peer: requested_peer_2,
 					request_status: CandidateRequestStatus::Outdated,
 					reputation_changes: vec![],
 				}
 			);
 		}
+
+		assert_eq!(request_manager.requests.len(), 0);
 	}
 
 	// Test case where we had a request in-flight and the request entry was garbage-collected on
@@ -1292,5 +1312,141 @@ mod tests {
 		// Ensure that cleanup occurred.
 		assert_eq!(request_manager.requests.len(), 0);
 		assert_eq!(request_manager.by_priority.len(), 0);
+	}
+
+	// Test case where we queue 2 requests to be sent to the same peer and 1 request to another
+	// peer. Same peer requests should be served one at a time but they should not block the other
+	// peer request.
+	#[test]
+	fn rate_limit_requests_to_same_peer() {
+		let mut request_manager = RequestManager::new();
+		let mut response_manager = ResponseManager::new();
+
+		let relay_parent = Hash::from_low_u64_le(1);
+
+		// Create 3 candidates
+		let mut candidate_receipt_1 = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let persisted_validation_data_1 = dummy_pvd();
+		candidate_receipt_1.descriptor.persisted_validation_data_hash =
+			persisted_validation_data_1.hash();
+		let candidate_1 = candidate_receipt_1.hash();
+
+		let mut candidate_receipt_2 = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let persisted_validation_data_2 = dummy_pvd();
+		candidate_receipt_2.descriptor.persisted_validation_data_hash =
+			persisted_validation_data_2.hash();
+		let candidate_2 = candidate_receipt_2.hash();
+
+		let mut candidate_receipt_3 = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let persisted_validation_data_3 = dummy_pvd();
+		candidate_receipt_3.descriptor.persisted_validation_data_hash =
+			persisted_validation_data_3.hash();
+		let candidate_3 = candidate_receipt_3.hash();
+
+		// Create 2 peers
+		let requested_peer_1 = PeerId::random();
+		let requested_peer_2 = PeerId::random();
+
+		let group_size = 3;
+		let group = &[ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)];
+		let unwanted_mask = StatementFilter::blank(group_size);
+		let disabled_mask: BitVec<u8, Lsb0> = Default::default();
+		let request_properties = RequestProperties { unwanted_mask, backing_threshold: None };
+		let request_props = |_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+		let peer_advertised =
+			|_identifier: &CandidateIdentifier, _peer: &_| Some(StatementFilter::full(group_size));
+
+		// Add request for candidate 1 from peer 1
+		let identifier1 = request_manager
+			.get_or_insert(relay_parent, candidate_1, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate_1, 1.into())
+			.add_peer(requested_peer_1);
+
+		// Add request for candidate 3 from peer 2 (this one can be served in parallel)
+		let _identifier3 = request_manager
+			.get_or_insert(relay_parent, candidate_3, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate_3, 1.into())
+			.add_peer(requested_peer_2);
+
+		// Successfully dispatch request for candidate 1 from peer 1 and candidate 3 from peer 2
+		for _ in 0..2 {
+			let outgoing =
+				request_manager.next_request(&mut response_manager, request_props, peer_advertised);
+			assert!(outgoing.is_some());
+		}
+		assert_eq!(response_manager.active_peers.len(), 2);
+		assert!(response_manager.is_sending_to(&requested_peer_1));
+		assert!(response_manager.is_sending_to(&requested_peer_2));
+		assert_eq!(request_manager.requests.len(), 2);
+
+		// Add request for candidate 2 from peer 1
+		let _identifier2 = request_manager
+			.get_or_insert(relay_parent, candidate_2, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate_2, 1.into())
+			.add_peer(requested_peer_1);
+
+		// Do not dispatch the request for the second candidate from peer 1 (already serving that
+		// peer)
+		let outgoing =
+			request_manager.next_request(&mut response_manager, request_props, peer_advertised);
+		assert!(outgoing.is_none());
+		assert_eq!(response_manager.active_peers.len(), 2);
+		assert!(response_manager.is_sending_to(&requested_peer_1));
+		assert!(response_manager.is_sending_to(&requested_peer_2));
+		assert_eq!(request_manager.requests.len(), 3);
+
+		// Manually mark response received (response future resolved)
+		response_manager.active_peers.remove(&requested_peer_1);
+		response_manager.pending_responses = FuturesUnordered::new();
+
+		// Validate first response (candidate 1 from peer 1)
+		{
+			let statements = vec![];
+			let response = UnhandledResponse {
+				response: TaggedResponse {
+					identifier: identifier1,
+					requested_peer: requested_peer_1,
+					props: request_properties.clone(),
+					response: Ok(AttestedCandidateResponse {
+						candidate_receipt: candidate_receipt_1.clone(),
+						persisted_validation_data: persisted_validation_data_1.clone(),
+						statements,
+					}),
+				},
+			};
+			let validator_key_lookup = |_v| None;
+			let allowed_para_lookup = |_para, _g_index| true;
+			let _output = response.validate_response(
+				&mut request_manager,
+				group,
+				0,
+				validator_key_lookup,
+				allowed_para_lookup,
+				disabled_mask.clone(),
+			);
+
+			// First request served successfully
+			assert_eq!(request_manager.requests.len(), 2);
+			assert_eq!(response_manager.active_peers.len(), 1);
+			assert!(response_manager.is_sending_to(&requested_peer_2));
+		}
+
+		// Check if the request that was ignored previously will be served now
+		let outgoing =
+			request_manager.next_request(&mut response_manager, request_props, peer_advertised);
+		assert!(outgoing.is_some());
+		assert_eq!(response_manager.active_peers.len(), 2);
+		assert!(response_manager.is_sending_to(&requested_peer_1));
+		assert!(response_manager.is_sending_to(&requested_peer_2));
+		assert_eq!(request_manager.requests.len(), 2);
 	}
 }

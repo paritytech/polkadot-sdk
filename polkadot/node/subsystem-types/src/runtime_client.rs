@@ -333,6 +333,14 @@ pub trait RuntimeApiSubsystemClient {
 	// == v11: Claim queue ==
 	/// Fetch the `ClaimQueue` from scheduler pallet
 	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError>;
+
+	// == v11: Elastic scaling support ==
+	/// Get the receipts of all candidates pending availability for a `ParaId`.
+	async fn candidates_pending_availability(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -426,6 +434,14 @@ where
 		para_id: Id,
 	) -> Result<Option<CommittedCandidateReceipt<Hash>>, ApiError> {
 		self.client.runtime_api().candidate_pending_availability(at, para_id)
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
+		self.client.runtime_api().candidates_pending_availability(at, para_id)
 	}
 
 	async fn candidate_events(&self, at: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {

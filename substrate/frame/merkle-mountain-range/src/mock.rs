@@ -44,7 +44,10 @@ impl Config for Test {
 	type Hashing = Keccak256;
 	type LeafData = Compact<Keccak256, (ParentNumberAndHash<Test>, LeafData)>;
 	type OnNewRoot = ();
+	type BlockHashProvider = DefaultBlockHashProvider<Test>;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 #[derive(Encode, Decode, Clone, Default, Eq, PartialEq, Debug)]

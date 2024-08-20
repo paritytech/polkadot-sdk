@@ -17,20 +17,21 @@
 
 use crate::{
 	defensive,
-	storage::transactional::with_transaction_opaque_err,
+	storage::{storage_prefix, transactional::with_transaction_opaque_err},
 	traits::{
 		Defensive, GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, SafeMode,
 		StorageVersion,
 	},
 	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 use sp_runtime::traits::Zero;
-use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Handles storage migration pallet versioning.
 ///
@@ -71,7 +72,7 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// /// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
 /// mod version_unchecked {
 /// 	use super::*;
-/// 	pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
+/// 	pub struct VersionUncheckedMigrateV5ToV6<T>(core::marker::PhantomData<T>);
 /// 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
 /// 		// `UncheckedOnRuntimeUpgrade` implementation...
 /// 	}
@@ -102,7 +103,7 @@ pub struct VersionedMigration<const FROM: u16, const TO: u16, Inner, Pallet, Wei
 #[derive(Encode, Decode)]
 pub enum VersionedPostUpgradeData {
 	/// The migration ran, inner vec contains pre_upgrade data.
-	MigrationExecuted(sp_std::vec::Vec<u8>),
+	MigrationExecuted(alloc::vec::Vec<u8>),
 	/// This migration is a noop, do not run post_upgrade checks.
 	Noop,
 }
@@ -125,7 +126,7 @@ impl<
 	/// [`VersionedPostUpgradeData`] before passing them to post_upgrade, so it knows whether the
 	/// migration ran or not.
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		let on_chain_version = Pallet::on_chain_storage_version();
 		if on_chain_version == FROM {
 			Ok(VersionedPostUpgradeData::MigrationExecuted(Inner::pre_upgrade()?).encode())
@@ -175,7 +176,7 @@ impl<
 	/// the migration ran, and [`VersionedPostUpgradeData::Noop`] otherwise.
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(
-		versioned_post_upgrade_data_bytes: sp_std::vec::Vec<u8>,
+		versioned_post_upgrade_data_bytes: alloc::vec::Vec<u8>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::DecodeAll;
 		match <VersionedPostUpgradeData>::decode_all(&mut &versioned_post_upgrade_data_bytes[..])
@@ -339,7 +340,7 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		use crate::storage::unhashed::contains_prefixed_key;
 
 		let hashed_prefix = twox_128(P::get().as_bytes());
@@ -350,11 +351,11 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 				P::get()
 			),
 		};
-		Ok(sp_std::vec::Vec::new())
+		Ok(alloc::vec::Vec::new())
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use crate::storage::unhashed::contains_prefixed_key;
 
 		let hashed_prefix = twox_128(P::get().as_bytes());
@@ -364,6 +365,118 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 				return Err("Keys remaining post-removal, this should never happen 🚨".into())
 			},
 			false => log::info!("No {} keys found post-removal 🎉", P::get()),
+		};
+		Ok(())
+	}
+}
+
+/// `RemoveStorage` is a utility struct used to remove a storage item from a specific pallet.
+///
+/// This struct is generic over three parameters:
+/// - `P` is a type that implements the [`Get`] trait for a static string, representing the pallet's
+///   name.
+/// - `S` is a type that implements the [`Get`] trait for a static string, representing the storage
+///   name.
+/// - `DbWeight` is a type that implements the [`Get`] trait for [`RuntimeDbWeight`], providing the
+///   weight for database operations.
+///
+/// On runtime upgrade, the `on_runtime_upgrade` function will clear the storage from the specified
+/// storage, logging the number of keys removed. If the `try-runtime` feature is enabled, the
+/// `pre_upgrade` and `post_upgrade` functions can be used to verify the storage removal before and
+/// after the upgrade.
+///
+/// # Examples:
+/// ```ignore
+/// construct_runtime! {
+/// 	pub enum Runtime
+/// 	{
+/// 		System: frame_system = 0,
+///
+/// 		SomePallet: pallet_something = 1,
+///
+/// 		YourOtherPallets...
+/// 	}
+/// };
+///
+/// parameter_types! {
+/// 		pub const SomePallet: &'static str = "SomePallet";
+/// 		pub const StorageAccounts: &'static str = "Accounts";
+/// 		pub const StorageAccountCount: &'static str = "AccountCount";
+/// }
+///
+/// pub type Migrations = (
+/// 	RemoveStorage<SomePallet, StorageAccounts, RocksDbWeight>,
+/// 	RemoveStorage<SomePallet, StorageAccountCount, RocksDbWeight>,
+/// 	AnyOtherMigrations...
+/// );
+///
+/// pub type Executive = frame_executive::Executive<
+/// 	Runtime,
+/// 	Block,
+/// 	frame_system::ChainContext<Runtime>,
+/// 	Runtime,
+/// 	Migrations
+/// >;
+/// ```
+///
+/// WARNING: `RemoveStorage` has no guard rails preventing it from bricking the chain if the
+/// operation of removing storage for the given pallet would exceed the block weight limit.
+///
+/// If your storage has too many keys to be removed in a single block, it is advised to wait for
+/// a multi-block scheduler currently under development which will allow for removal of storage
+/// items (and performing other heavy migrations) over multiple blocks
+/// (see <https://github.com/paritytech/substrate/issues/13690>).
+pub struct RemoveStorage<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>(
+	PhantomData<(P, S, DbWeight)>,
+);
+impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
+	frame_support::traits::OnRuntimeUpgrade for RemoveStorage<P, S, DbWeight>
+{
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		let keys_removed = match clear_prefix(&hashed_prefix, None) {
+			KillStorageResult::AllRemoved(value) => value,
+			KillStorageResult::SomeRemaining(value) => {
+				log::error!(
+					"`clear_prefix` failed to remove all keys for storage `{}` from pallet `{}`. THIS SHOULD NEVER HAPPEN! 🚨",
+					S::get(), P::get()
+				);
+				value
+			},
+		} as u64;
+
+		log::info!("Removed `{}` `{}` `{}` keys 🧹", keys_removed, P::get(), S::get());
+
+		DbWeight::get().reads_writes(keys_removed + 1, keys_removed)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		use crate::storage::unhashed::contains_prefixed_key;
+
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		match contains_prefixed_key(&hashed_prefix) {
+			true => log::info!("Found `{}` `{}` keys pre-removal 👀", P::get(), S::get()),
+			false => log::warn!(
+				"Migration RemoveStorage<{}, {}> can be removed (no keys found pre-removal).",
+				P::get(),
+				S::get()
+			),
+		};
+		Ok(Default::default())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use crate::storage::unhashed::contains_prefixed_key;
+
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		match contains_prefixed_key(&hashed_prefix) {
+			true => {
+				log::error!("`{}` `{}` has keys remaining post-removal ❗", P::get(), S::get());
+				return Err("Keys remaining post-removal, this should never happen 🚨".into())
+			},
+			false => log::info!("No `{}` `{}` keys found post-removal 🎉", P::get(), S::get()),
 		};
 		Ok(())
 	}
@@ -388,6 +501,15 @@ pub trait SteppedMigration {
 	/// migration that exceeds its max steps is treated as failed. `None` means that there is no
 	/// limit.
 	fn max_steps() -> Option<u32> {
+		None
+	}
+
+	/// The maximum number of blocks that this migration can take.
+	///
+	/// This can be used to enforce progress and prevent migrations becoming stuck forever. A
+	/// migration that exceeds its max blocks is treated as failed. `None` means that there is no
+	/// limit.
+	fn max_blocks() -> Option<u32> {
 		None
 	}
 
@@ -468,7 +590,7 @@ pub trait FailedMigrationHandler {
 	/// Infallibly handle a failed runtime migration.
 	///
 	/// Gets passed in the optional index of the migration in the batch that caused the failure.
-	/// Returning `None` means that no automatic handling should take place and the callee decides
+	/// Returning `Ignore` means that no automatic handling should take place and the callee decides
 	/// in the implementation what to do.
 	fn failed(migration: Option<u32>) -> FailedMigrationHandling;
 }
@@ -568,6 +690,11 @@ pub trait SteppedMigrations {
 	/// Is guaranteed to return `Some` if `n < Self::len()`.
 	fn nth_max_steps(n: u32) -> Option<Option<u32>>;
 
+	/// The [`SteppedMigration::max_blocks`] of the `n`th migration.
+	///
+	/// Is guaranteed to return `Some` if `n < Self::len()`.
+	fn nth_max_blocks(n: u32) -> Option<Option<u32>>;
+
 	/// Do a [`SteppedMigration::step`] on the `n`th migration.
 	///
 	/// Is guaranteed to return `Some` if `n < Self::len()`.
@@ -604,15 +731,16 @@ pub trait SteppedMigrations {
 		for n in 0..l {
 			ensure!(Self::nth_id(n).is_some(), "id is None");
 			ensure!(Self::nth_max_steps(n).is_some(), "steps is None");
+			ensure!(Self::nth_max_blocks(n).is_some(), "blocks is None");
 
 			// The cursor that we use does not matter. Hence use empty.
 			ensure!(
 				Self::nth_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(),
-				"steps is None"
+				"The migration as to advance when called with infinite weight",
 			);
 			ensure!(
 				Self::nth_transactional_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(),
-				"steps is None"
+				"The migration as to advance when called with infinite weight",
 			);
 		}
 
@@ -630,6 +758,10 @@ impl SteppedMigrations for () {
 	}
 
 	fn nth_max_steps(_n: u32) -> Option<Option<u32>> {
+		None
+	}
+
+	fn nth_max_blocks(_n: u32) -> Option<Option<u32>> {
 		None
 	}
 
@@ -673,6 +805,13 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 		n.is_zero()
 			.then_some(T::max_steps())
 			.defensive_proof("nth_max_steps should only be called with n==0")
+	}
+
+	fn nth_max_blocks(n: u32) -> Option<Option<u32>> {
+		// It should be generally fine to call with n>0, but the code should not attempt to.
+		n.is_zero()
+			.then_some(T::max_steps())
+			.defensive_proof("nth_max_blocks should only be called with n==0")
 	}
 
 	fn nth_step(
@@ -798,6 +937,20 @@ impl SteppedMigrations for Tuple {
 		None
 	}
 
+	fn nth_max_blocks(n: u32) -> Option<Option<u32>> {
+		let mut i = 0;
+
+		for_tuples!( #(
+			if (i + Tuple::len()) > n {
+				return Tuple::nth_max_blocks(n - i)
+			}
+
+			i += Tuple::len();
+		)* );
+
+		None
+	}
+
 	fn cursor_max_encoded_len() -> usize {
 		let mut max_len = 0;
 
@@ -870,6 +1023,10 @@ mod tests {
 		fn max_steps() -> Option<u32> {
 			Some(1)
 		}
+
+		fn max_blocks() -> Option<u32> {
+			Some(1)
+		}
 	}
 
 	pub struct M2;
@@ -891,6 +1048,10 @@ mod tests {
 		}
 
 		fn max_steps() -> Option<u32> {
+			Some(2)
+		}
+
+		fn max_blocks() -> Option<u32> {
 			Some(2)
 		}
 	}
@@ -923,7 +1084,7 @@ mod tests {
 	fn singular_migrations_work() {
 		assert_eq!(M0::max_steps(), None);
 		assert_eq!(M1::max_steps(), Some(1));
-		assert_eq!(M2::max_steps(), Some(2));
+		assert_eq!(M2::max_steps(), Some(2)); // TODO FAIL-CI
 
 		assert_eq!(<(M0, M1)>::nth_max_steps(0), Some(None));
 		assert_eq!(<(M0, M1)>::nth_max_steps(1), Some(Some(1)));

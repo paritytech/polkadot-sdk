@@ -368,7 +368,8 @@ where
 				{
 					self.on_transactions(peer, m);
 				} else {
-					warn!(target: "sub-libp2p", "Failed to decode transactions list");
+					warn!(target: "sub-libp2p", "Failed to decode transactions list from peer {peer}");
+					self.network.report_peer(peer, rep::BAD_TRANSACTION);
 				}
 			},
 		}

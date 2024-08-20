@@ -19,11 +19,13 @@
 //! [`PeerStore`] manages peer reputations and provides connection candidates to
 //! [`crate::protocol_controller::ProtocolController`].
 
-use crate::{service::traits::PeerStore as PeerStoreT, PeerId};
+use crate::service::{metrics::PeerStoreMetrics, traits::PeerStore as PeerStoreT};
 
+use libp2p::PeerId;
 use log::trace;
 use parking_lot::Mutex;
 use partial_sort::PartialSort;
+use prometheus_endpoint::Registry;
 use sc_network_common::{role::ObservedRole, types::ReputationChange};
 use std::{
 	cmp::{Ord, Ordering, PartialOrd},
@@ -38,15 +40,22 @@ use wasm_timer::Delay;
 pub const LOG_TARGET: &str = "peerset";
 
 /// We don't accept nodes whose reputation is under this value.
-pub const BANNED_THRESHOLD: i32 = 82 * (i32::MIN / 100);
+pub const BANNED_THRESHOLD: i32 = 71 * (i32::MIN / 100);
 /// Reputation change for a node when we get disconnected from it.
 const DISCONNECT_REPUTATION_CHANGE: i32 = -256;
 /// Relative decrement of a reputation value that is applied every second. I.e., for inverse
-/// decrement of 50 we decrease absolute value of the reputation by 1/50. This corresponds to a
-/// factor of `k = 0.98`. It takes ~ `ln(0.5) / ln(k)` seconds to reduce the reputation by half,
-/// or 34.3 seconds for the values above. In this setup the maximum allowed absolute value of
-/// `i32::MAX` becomes 0 in ~1100 seconds (actually less due to integer arithmetic).
-const INVERSE_DECREMENT: i32 = 50;
+/// decrement of 200 we decrease absolute value of the reputation by 1/200.
+///
+/// This corresponds to a factor of `k = 0.955`, where k = 1 - 1 / INVERSE_DECREMENT.
+///
+/// It takes ~ `ln(0.5) / ln(k)` seconds to reduce the reputation by half, or 138.63 seconds for the
+/// values above.
+///
+/// In this setup:
+/// - `i32::MAX` becomes 0 in exactly 3544 seconds, or approximately 59 minutes
+/// - `i32::MIN` becomes 0 in exactly 3544 seconds, or approximately 59 minutes
+/// - `i32::MIN` escapes the banned threshold in 69 seconds
+const INVERSE_DECREMENT: i32 = 200;
 /// Amount of time between the moment we last updated the [`PeerStore`] entry and the moment we
 /// remove it, once the reputation value reaches 0.
 const FORGET_AFTER: Duration = Duration::from_secs(3600);
@@ -86,12 +95,6 @@ pub trait PeerStoreProvider: Debug + Send + Sync {
 		count: usize,
 		ignored: HashSet<sc_network_types::PeerId>,
 	) -> Vec<sc_network_types::PeerId>;
-
-	/// Get the number of known peers.
-	///
-	/// This number might not include some connected peers in rare cases when their reputation
-	/// was not updated for one hour, because their entries in [`PeerStore`] were dropped.
-	fn num_known_peers(&self) -> usize;
 
 	/// Add known peer.
 	fn add_known_peer(&self, peer_id: sc_network_types::PeerId);
@@ -146,10 +149,6 @@ impl PeerStoreProvider for PeerStoreHandle {
 			.iter()
 			.map(|peer_id| peer_id.into())
 			.collect()
-	}
-
-	fn num_known_peers(&self) -> usize {
-		self.inner.lock().peers.len()
 	}
 
 	fn add_known_peer(&self, peer_id: sc_network_types::PeerId) {
@@ -234,6 +233,7 @@ impl PeerInfo {
 struct PeerStoreInner {
 	peers: HashMap<PeerId, PeerInfo>,
 	protocols: Vec<Arc<dyn ProtocolHandle>>,
+	metrics: Option<PeerStoreMetrics>,
 }
 
 impl PeerStoreInner {
@@ -262,7 +262,7 @@ impl PeerStoreInner {
 		let peer_info = self.peers.entry(peer_id).or_default();
 		peer_info.add_reputation(change.value);
 
-		if peer_info.reputation < BANNED_THRESHOLD {
+		if peer_info.is_banned() {
 			self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id.into()));
 
 			log::warn!(
@@ -333,8 +333,19 @@ impl PeerStoreInner {
 
 		// Retain only entries with non-zero reputation values or not expired ones.
 		let now = Instant::now();
-		self.peers
-			.retain(|_, info| info.reputation != 0 || info.last_updated + FORGET_AFTER > now);
+		let mut num_banned_peers: u64 = 0;
+		self.peers.retain(|_, info| {
+			if info.is_banned() {
+				num_banned_peers += 1;
+			}
+
+			info.reputation != 0 || info.last_updated + FORGET_AFTER > now
+		});
+
+		if let Some(metrics) = &self.metrics {
+			metrics.num_discovered.set(self.peers.len() as u64);
+			metrics.num_banned_peers.set(num_banned_peers);
+		}
 	}
 
 	fn add_known_peer(&mut self, peer_id: PeerId) {
@@ -362,7 +373,18 @@ pub struct PeerStore {
 
 impl PeerStore {
 	/// Create a new peer store from the list of bootnodes.
-	pub fn new(bootnodes: Vec<PeerId>) -> Self {
+	pub fn new(bootnodes: Vec<PeerId>, metrics_registry: Option<Registry>) -> Self {
+		let metrics = if let Some(registry) = &metrics_registry {
+			PeerStoreMetrics::register(registry)
+				.map_err(|err| {
+					log::error!(target: LOG_TARGET, "Failed to register peer set metrics: {}", err);
+					err
+				})
+				.ok()
+		} else {
+			None
+		};
+
 		PeerStore {
 			inner: Arc::new(Mutex::new(PeerStoreInner {
 				peers: bootnodes
@@ -370,6 +392,7 @@ impl PeerStore {
 					.map(|peer_id| (peer_id, PeerInfo::default()))
 					.collect(),
 				protocols: Vec::new(),
+				metrics,
 			})),
 		}
 	}
@@ -414,7 +437,7 @@ impl PeerStoreT for PeerStore {
 
 #[cfg(test)]
 mod tests {
-	use super::PeerInfo;
+	use super::{PeerInfo, PeerStore, PeerStoreProvider};
 
 	#[test]
 	fn decaying_zero_reputation_yields_zero() {
@@ -455,7 +478,7 @@ mod tests {
 	#[test]
 	fn decaying_max_reputation_finally_yields_zero() {
 		const INITIAL_REPUTATION: i32 = i32::MAX;
-		const SECONDS: u64 = 1000;
+		const SECONDS: u64 = 3544;
 
 		let mut peer_info = PeerInfo::default();
 		peer_info.reputation = INITIAL_REPUTATION;
@@ -470,7 +493,7 @@ mod tests {
 	#[test]
 	fn decaying_min_reputation_finally_yields_zero() {
 		const INITIAL_REPUTATION: i32 = i32::MIN;
-		const SECONDS: u64 = 1000;
+		const SECONDS: u64 = 3544;
 
 		let mut peer_info = PeerInfo::default();
 		peer_info.reputation = INITIAL_REPUTATION;
@@ -480,5 +503,40 @@ mod tests {
 
 		peer_info.decay_reputation(SECONDS / 2);
 		assert_eq!(peer_info.reputation, 0);
+	}
+
+	#[test]
+	fn report_banned_peers() {
+		let peer_a = sc_network_types::PeerId::random();
+		let peer_b = sc_network_types::PeerId::random();
+		let peer_c = sc_network_types::PeerId::random();
+
+		let metrics_registry = prometheus_endpoint::Registry::new();
+		let peerstore = PeerStore::new(
+			vec![peer_a, peer_b, peer_c].into_iter().map(Into::into).collect(),
+			Some(metrics_registry),
+		);
+		let metrics = peerstore.inner.lock().metrics.as_ref().unwrap().clone();
+		let handle = peerstore.handle();
+
+		// Check initial state. Advance time to propagate peers.
+		handle.inner.lock().progress_time(1);
+		assert_eq!(metrics.num_discovered.get(), 3);
+		assert_eq!(metrics.num_banned_peers.get(), 0);
+
+		// Report 2 peers with a negative reputation.
+		handle.report_peer(
+			peer_a,
+			sc_network_common::types::ReputationChange { value: i32::MIN, reason: "test".into() },
+		);
+		handle.report_peer(
+			peer_b,
+			sc_network_common::types::ReputationChange { value: i32::MIN, reason: "test".into() },
+		);
+
+		// Advance time to propagate banned peers.
+		handle.inner.lock().progress_time(1);
+		assert_eq!(metrics.num_discovered.get(), 3);
+		assert_eq!(metrics.num_banned_peers.get(), 2);
 	}
 }

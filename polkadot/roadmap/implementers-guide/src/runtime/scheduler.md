@@ -1,7 +1,7 @@
 # Scheduler Pallet
 
 > TODO: this section is still heavily under construction. key questions about availability cores and validator
-> assignment are still open and the flow of the the section may be contradictory or inconsistent
+> assignment are still open and the flow of the section may be contradictory or inconsistent
 
 The Scheduler module is responsible for two main tasks:
 
@@ -229,7 +229,7 @@ Actions:
    [`HostConfiguration`](../types/runtime.md#host-configuration))
 1. Fetch `Shared::ActiveValidators` as AV.
 1. Determine the number of cores & validator groups as `n_cores`. This is the maximum of
-   1. `Paras::parachains().len() + configuration.parathread_cores`
+   1. `paras::Parachains::<T>::get().len() + configuration.parathread_cores`
    1. `n_validators / max_validators_per_core` if `configuration.max_validators_per_core` is `Some` and non-zero.
 1. Resize `AvailabilityCores` to have length `n_cores` with all `None` entries.
 1. Compute new validator groups by shuffling using a secure randomness beacon
@@ -261,7 +261,7 @@ No finalization routine runs for this module.
   - Fails if any on-demand claim on the same parachain is currently indexed.
   - Fails if the queue length is >= `config.scheduling_lookahead * config.parathread_cores`.
   - The core used for the on-demand claim is the `next_core` field of the `ParathreadQueue` (on-demand queue) and adding
-    `Paras::parachains().len()` to it.
+    `paras::Parachains::<T>::get().len()` to it.
   - `next_core` is then updated by adding 1 and taking it modulo `config.parathread_cores`.
   - The claim is then added to the claim index.
 - `free_cores(Vec<(CoreIndex, FreedReason)>)`: indicate previously-occupied cores which are to be considered returned

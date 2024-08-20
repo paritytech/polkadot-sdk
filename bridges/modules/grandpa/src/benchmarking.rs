@@ -70,11 +70,12 @@ const MAX_VOTE_ANCESTRIES_RANGE_END: u32 =
 // the same with validators - if there are too much validators, let's run benchmarks on subrange
 fn precommits_range_end<T: Config<I>, I: 'static>() -> u32 {
 	let max_bridged_authorities = T::BridgedChain::MAX_AUTHORITIES_COUNT;
-	if max_bridged_authorities > 128 {
+	let max_bridged_authorities = if max_bridged_authorities > 128 {
 		sp_std::cmp::max(128, max_bridged_authorities / 5)
 	} else {
 		max_bridged_authorities
 	};
+
 	required_justification_precommits(max_bridged_authorities)
 }
 
@@ -136,6 +137,20 @@ benchmarks_instance_pallet! {
 
 		// check that the header#0 has been pruned
 		assert!(!<ImportedHeaders<T, I>>::contains_key(genesis_header.hash()));
+	}
+
+	force_set_pallet_state {
+		let set_id = 100;
+		let authorities = accounts(T::BridgedChain::MAX_AUTHORITIES_COUNT as u16)
+			.iter()
+			.map(|id| (AuthorityId::from(*id), 1))
+			.collect::<Vec<_>>();
+		let (header, _) = prepare_benchmark_data::<T, I>(1, 1);
+		let expected_hash = header.hash();
+	}: force_set_pallet_state(RawOrigin::Root, set_id, authorities, Box::new(header))
+	verify {
+		assert_eq!(<BestFinalized<T, I>>::get().unwrap().1, expected_hash);
+		assert_eq!(<CurrentAuthoritySet<T, I>>::get().set_id, set_id);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime)

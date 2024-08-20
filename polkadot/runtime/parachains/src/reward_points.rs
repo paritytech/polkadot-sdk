@@ -22,9 +22,9 @@
 //! for the time being, although we will build schemes to do so in the future.
 
 use crate::{session_info, shared};
+use alloc::collections::btree_set::BTreeSet;
 use frame_support::traits::{Defensive, ValidatorSet};
-use primitives::{SessionIndex, ValidatorIndex};
-use sp_std::collections::btree_set::BTreeSet;
+use polkadot_primitives::{SessionIndex, ValidatorIndex};
 
 /// The amount of era points given by backing a candidate that is included.
 pub const BACKING_POINTS: u32 = 20;
@@ -32,7 +32,7 @@ pub const BACKING_POINTS: u32 = 20;
 pub const DISPUTE_STATEMENT_POINTS: u32 = 20;
 
 /// Rewards validators for participating in parachains with era points in pallet-staking.
-pub struct RewardValidatorsWithEraPoints<C>(sp_std::marker::PhantomData<C>);
+pub struct RewardValidatorsWithEraPoints<C>(core::marker::PhantomData<C>);
 
 impl<C> RewardValidatorsWithEraPoints<C>
 where
@@ -45,7 +45,7 @@ where
 		indices: impl IntoIterator<Item = ValidatorIndex>,
 		points: u32,
 	) {
-		let validators = session_info::Pallet::<C>::account_keys(&session_index);
+		let validators = session_info::AccountKeys::<C>::get(&session_index);
 		let validators = match validators
 			.defensive_proof("account_keys are present for dispute_period sessions")
 		{
@@ -71,7 +71,7 @@ where
 	C::ValidatorSet: ValidatorSet<C::AccountId, ValidatorId = C::AccountId>,
 {
 	fn reward_backing(indices: impl IntoIterator<Item = ValidatorIndex>) {
-		let session_index = shared::Pallet::<C>::session_index();
+		let session_index = shared::CurrentSessionIndex::<C>::get();
 		Self::reward_only_active(session_index, indices, BACKING_POINTS);
 	}
 

@@ -19,7 +19,7 @@
 
 use crate::{KeyTypeId, RuntimePublic};
 
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 pub use sp_core::ecdsa::*;
 

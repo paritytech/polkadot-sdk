@@ -139,7 +139,7 @@
 //!
 //! ```sh
 //! SKIP_WASM_BUILD=1 \
-//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/header.html --extend-css $(pwd)/docs/sdk/headers/theme.css --default-theme=ayu" \
+//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/assets/header.html --extend-css $(pwd)/docs/sdk/assets/theme.css --default-theme=ayu" \
 //! cargo doc -p polkadot-sdk-docs --no-deps --open
 //! ```
 //!

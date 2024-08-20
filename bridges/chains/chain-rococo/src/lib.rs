@@ -23,7 +23,7 @@ pub use bp_polkadot_core::*;
 
 use bp_header_chain::ChainWithGrandpa;
 use bp_runtime::{decl_bridge_finality_runtime_apis, Chain, ChainId};
-use frame_support::weights::Weight;
+use frame_support::{sp_runtime::StateVersion, weights::Weight};
 
 /// Rococo Chain
 pub struct Rococo;
@@ -40,6 +40,8 @@ impl Chain for Rococo {
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		max_extrinsic_size()
@@ -67,6 +69,8 @@ pub const PARAS_PALLET_NAME: &str = "Paras";
 
 /// Name of the With-Rococo GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_ROCOCO_GRANDPA_PALLET_NAME: &str = "BridgeRococoGrandpa";
+/// Name of the With-Rococo parachains pallet instance that is deployed at bridged chains.
+pub const WITH_ROCOCO_BRIDGE_PARACHAINS_PALLET_NAME: &str = "BridgeRococoParachains";
 
 /// Maximal size of encoded `bp_parachains::ParaStoredHeaderData` structure among all Rococo
 /// parachains.

@@ -27,11 +27,12 @@ use crate::{
 		System,
 	},
 };
+use codec::Decode;
 use frame_support::traits::OnRuntimeUpgrade;
 use pallet_migrations::WeightInfo as _;
 
 #[test]
-fn lazy_migration_works() {
+fn mbm_works() {
 	new_test_ext().execute_with(|| {
 		frame_support::__private::sp_tracing::try_init_simple();
 		// Insert some values into the old storage map.
@@ -53,18 +54,25 @@ fn lazy_migration_works() {
 			run_to_block(block);
 			let mut decodable = 0;
 			for i in 0..1024 {
-				if crate::MyMap::<T>::get(i).is_some() {
+				if try_get(i).is_some() {
 					decodable += 1;
 				}
 			}
 
-			assert_eq!(decodable, last_decodable + 16);
+			assert_eq!((block, decodable), (block, last_decodable + 16));
 			last_decodable = decodable;
 		}
 
 		// Check that everything is decodable now:
 		for i in 0..1024 {
-			assert_eq!(crate::MyMap::<T>::get(i), Some(i as u64));
+			assert_eq!(try_get(i), Some(i as u64));
 		}
 	});
+
+	fn try_get(i: u32) -> Option<u64> {
+		// Directly calling `MyMap::get` will print a lot of `Corrupted state` errors:
+		let key = crate::MyMap::<T>::hashed_key_for(i);
+		frame_support::storage::unhashed::get_raw(&key)
+			.and_then(|v| Decode::decode(&mut &v[..]).ok())
+	}
 }

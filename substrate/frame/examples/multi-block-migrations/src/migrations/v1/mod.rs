@@ -72,47 +72,38 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 	/// step consumes as much weight as possible. However, this is simplified to perform one stored
 	/// value mutation per block.
 	fn step(
-		mut cursor: Option<Self::Cursor>,
+		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		let required = W::step();
 		// If there is not enough weight for a single step, return an error. This case can be
 		// problematic if it is the first migration that ran in this block. But there is nothing
 		// that we can do about it here.
-		if meter.remaining().any_lt(required) {
+		if meter.try_consume(required).is_err() {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
-		// We loop here to do as much progress as possible per step.
-		loop {
-			if meter.try_consume(required).is_err() {
-				break;
-			}
+		let mut iter = if let Some(last_key) = cursor {
+			// If a cursor is provided, start iterating from the stored value
+			// corresponding to the last key processed in the previous step.
+			// Note that this only works if the old and the new map use the same way to hash
+			// storage keys.
+			v0::MyMap::<T>::iter_from(v0::MyMap::<T>::hashed_key_for(last_key))
+		} else {
+			// If no cursor is provided, start iterating from the beginning.
+			v0::MyMap::<T>::iter()
+		};
 
-			let mut iter = if let Some(last_key) = cursor {
-				// If a cursor is provided, start iterating from the stored value
-				// corresponding to the last key processed in the previous step.
-				// Note that this only works if the old and the new map use the same way to hash
-				// storage keys.
-				v0::MyMap::<T>::iter_from(v0::MyMap::<T>::hashed_key_for(last_key))
-			} else {
-				// If no cursor is provided, start iterating from the beginning.
-				v0::MyMap::<T>::iter()
-			};
-
-			// If there's a next item in the iterator, perform the migration.
-			if let Some((last_key, value)) = iter.next() {
-				// Migrate the inner value: u32 -> u64.
-				let value = value as u64;
-				// We can just insert here since the old and the new map share the same key-space.
-				// Otherwise it would have to invert the concat hash function and re-hash it.
-				MyMap::<T>::insert(last_key, value);
-				cursor = Some(last_key) // Return the processed key as the new cursor.
-			} else {
-				cursor = None; // Signal that the migration is complete (no more items to process).
-				break
-			}
+		// If there's a next item in the iterator, perform the migration.
+		if let Some((last_key, value)) = iter.next() {
+			// Migrate the inner value: u32 -> u64.
+			let value = value as u64;
+			// We can just insert here since the old and the new map share the same key-space.
+			// Otherwise it would have to invert the concat hash function and re-hash it.
+			MyMap::<T>::insert(last_key, value);
+			Ok(Some(last_key)) // Return the processed key as the new cursor.
+		} else {
+			Ok(None) // Signal that the migration is complete (no more items to process).
 		}
-		Ok(cursor)
 	}
 }

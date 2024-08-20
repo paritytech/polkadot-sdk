@@ -15,4 +15,4 @@ workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
-zstd = { version = "0.12.4", default-features = false }
+zstd = { workspace = true }

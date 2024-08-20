@@ -64,7 +64,7 @@ where
 /// w3f validators and randomly selected validators from the latest session (at
 /// #1500988).
 #[cfg(feature = "full-node")]
-pub(crate) fn kusama_hard_forks() -> Vec<grandpa::AuthoritySetHardFork<Block>> {
+pub(crate) fn kusama_hard_forks() -> Vec<sc_consensus_grandpa::AuthoritySetHardFork<Block>> {
 	use sp_core::crypto::Ss58Codec;
 	use std::str::FromStr;
 
@@ -141,7 +141,7 @@ pub(crate) fn kusama_hard_forks() -> Vec<grandpa::AuthoritySetHardFork<Block>> {
 		.into_iter()
 		.map(|address| {
 			(
-				grandpa_primitives::AuthorityId::from_ss58check(address)
+				sp_consensus_grandpa::AuthorityId::from_ss58check(address)
 					.expect("hard fork authority addresses are static and they should be carefully defined; qed."),
 				1,
 			)
@@ -154,7 +154,7 @@ pub(crate) fn kusama_hard_forks() -> Vec<grandpa::AuthoritySetHardFork<Block>> {
 			let hash = Hash::from_str(hash)
 				.expect("hard fork hashes are static and they should be carefully defined; qed.");
 
-			grandpa::AuthoritySetHardFork {
+			sc_consensus_grandpa::AuthoritySetHardFork {
 				set_id,
 				block: (hash, number),
 				authorities: authorities.clone(),

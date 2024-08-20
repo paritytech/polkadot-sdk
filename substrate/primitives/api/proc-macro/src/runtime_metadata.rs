@@ -164,15 +164,17 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 	let (impl_generics, _, where_clause) = generics.split_for_impl();
 
 	quote!(
-		#( #attrs )*
-		#[inline(always)]
-		pub fn runtime_metadata #impl_generics () -> #crate_::metadata_ir::RuntimeApiMetadataIR
-		#where_clause
-		{
-			#crate_::metadata_ir::RuntimeApiMetadataIR {
-				name: #trait_name,
-				methods: #crate_::vec![ #( #methods, )* ],
-				docs: #docs,
+		#crate_::frame_metadata_enabled! {
+			#( #attrs )*
+			#[inline(always)]
+			pub fn runtime_metadata #impl_generics () -> #crate_::metadata_ir::RuntimeApiMetadataIR
+				#where_clause
+			{
+				#crate_::metadata_ir::RuntimeApiMetadataIR {
+					name: #trait_name,
+					methods: #crate_::vec![ #( #methods, )* ],
+					docs: #docs,
+				}
 			}
 		}
 	)
@@ -255,14 +257,16 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 	// `construct_runtime!` is called.
 
 	Ok(quote!(
-		#[doc(hidden)]
-		trait InternalImplRuntimeApis {
-			#[inline(always)]
-			fn runtime_metadata(&self) -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
-				#crate_::vec![ #( #metadata, )* ]
+		#crate_::frame_metadata_enabled! {
+			#[doc(hidden)]
+			trait InternalImplRuntimeApis {
+				#[inline(always)]
+				fn runtime_metadata(&self) -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
+					#crate_::vec![ #( #metadata, )* ]
+				}
 			}
+			#[doc(hidden)]
+			impl InternalImplRuntimeApis for #runtime_name {}
 		}
-		#[doc(hidden)]
-		impl InternalImplRuntimeApis for #runtime_name {}
 	))
 }

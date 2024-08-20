@@ -98,7 +98,7 @@ fn main() -> Result<(), sc_cli::Error> {
 					tracing::info!("Using null consensus.");
 					cumulus_test_service::Consensus::Null
 				})
-				.unwrap_or(cumulus_test_service::Consensus::RelayChain);
+				.unwrap_or(cumulus_test_service::Consensus::Aura);
 
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
@@ -118,6 +118,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
+								cli.experimental_use_slot_based,
 							)
 							.await,
 						sc_network::config::NetworkBackendType::Litep2p =>
@@ -135,6 +136,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
+								cli.experimental_use_slot_based,
 							)
 							.await,
 					}

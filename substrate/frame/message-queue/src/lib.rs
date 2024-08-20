@@ -203,7 +203,11 @@ pub mod mock_helpers;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use core::{fmt::Debug, ops::Deref};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -223,7 +227,6 @@ use sp_runtime::{
 	traits::{One, Zero},
 	SaturatedConversion, Saturating,
 };
-use sp_std::{fmt::Debug, ops::Deref, prelude::*, vec};
 use sp_weights::WeightMeter;
 pub use weights::WeightInfo;
 
@@ -307,7 +310,7 @@ impl<
 			return Err(())
 		}
 
-		let mut heap = sp_std::mem::take(&mut self.heap).into_inner();
+		let mut heap = core::mem::take(&mut self.heap).into_inner();
 		header.using_encoded(|h| heap.extend_from_slice(h));
 		heap.extend_from_slice(message.deref());
 		self.heap = BoundedVec::defensive_truncate_from(heap);
@@ -765,6 +768,13 @@ enum MessageExecutionStatus {
 	Processed,
 	/// The message was processed and resulted in a, possibly permanent, error.
 	Unprocessable { permanent: bool },
+	/// The stack depth limit was reached.
+	///
+	/// We cannot just return `Unprocessable` in this case, because the processability of the
+	/// message depends on how the function was called. This may be a permanent error if it was
+	/// called by a top-level function, or a transient error if it was already called in a nested
+	/// function.
+	StackLimitReached,
 }
 
 impl<T: Config> Pallet<T> {
@@ -984,7 +994,8 @@ impl<T: Config> Pallet<T> {
 			// additional overweight event being deposited.
 		) {
 			Overweight | InsufficientWeight => Err(Error::<T>::InsufficientWeight),
-			Unprocessable { permanent: false } => Err(Error::<T>::TemporarilyUnprocessable),
+			StackLimitReached | Unprocessable { permanent: false } =>
+				Err(Error::<T>::TemporarilyUnprocessable),
 			Unprocessable { permanent: true } | Processed => {
 				page.note_processed_at_pos(pos);
 				book_state.message_count.saturating_dec();
@@ -1250,7 +1261,7 @@ impl<T: Config> Pallet<T> {
 		let is_processed = match res {
 			InsufficientWeight => return ItemExecutionStatus::Bailed,
 			Unprocessable { permanent: false } => return ItemExecutionStatus::NoProgress,
-			Processed | Unprocessable { permanent: true } => true,
+			Processed | Unprocessable { permanent: true } | StackLimitReached => true,
 			Overweight => false,
 		};
 
@@ -1461,6 +1472,10 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
 				MessageExecutionStatus::Unprocessable { permanent: true }
 			},
+			Err(error @ StackLimitReached) => {
+				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
+				MessageExecutionStatus::StackLimitReached
+			},
 			Ok(success) => {
 				// Success
 				let weight_used = meter.consumed().saturating_sub(prev_consumed);
@@ -1497,7 +1512,7 @@ pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
 }
 
 /// Provides a [`sp_core::Get`] to access the `MEL` of a [`codec::MaxEncodedLen`] type.
-pub struct MaxEncodedLenOf<T>(sp_std::marker::PhantomData<T>);
+pub struct MaxEncodedLenOf<T>(core::marker::PhantomData<T>);
 impl<T: MaxEncodedLen> Get<u32> for MaxEncodedLenOf<T> {
 	fn get() -> u32 {
 		T::max_encoded_len() as u32
@@ -1506,7 +1521,7 @@ impl<T: MaxEncodedLen> Get<u32> for MaxEncodedLenOf<T> {
 
 /// Calculates the maximum message length and exposed it through the [`codec::MaxEncodedLen`] trait.
 pub struct MaxMessageLen<Origin, Size, HeapSize>(
-	sp_std::marker::PhantomData<(Origin, Size, HeapSize)>,
+	core::marker::PhantomData<(Origin, Size, HeapSize)>,
 );
 impl<Origin: MaxEncodedLen, Size: MaxEncodedLen + Into<u32>, HeapSize: Get<Size>> Get<u32>
 	for MaxMessageLen<Origin, Size, HeapSize>
@@ -1532,7 +1547,7 @@ pub type BookStateOf<T> = BookState<MessageOriginOf<T>>;
 
 /// Converts a [`sp_core::Get`] with returns a type that can be cast into an `u32` into a `Get`
 /// which returns an `u32`.
-pub struct IntoU32<T, O>(sp_std::marker::PhantomData<(T, O)>);
+pub struct IntoU32<T, O>(core::marker::PhantomData<(T, O)>);
 impl<T: Get<O>, O: Into<u32>> Get<u32> for IntoU32<T, O> {
 	fn get() -> u32 {
 		T::get().into()

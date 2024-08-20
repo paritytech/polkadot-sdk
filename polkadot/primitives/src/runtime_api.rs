@@ -121,12 +121,12 @@ use crate::{
 	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec::Vec,
+};
 use polkadot_core_primitives as pcp;
 use polkadot_parachain_primitives::primitives as ppp;
-use sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::*,
-};
 
 sp_api::decl_runtime_apis! {
 	/// The API for querying the state of parachains on-chain.
@@ -288,5 +288,10 @@ sp_api::decl_runtime_apis! {
 		/// Claim queue
 		#[api_version(11)]
 		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ppp::Id>>;
+
+		/***** Added in v11 *****/
+		/// Elastic scaling support
+		#[api_version(11)]
+		fn candidates_pending_availability(para_id: ppp::Id) -> Vec<CommittedCandidateReceipt<Hash>>;
 	}
 }
