@@ -19,7 +19,7 @@ use codec::{Encode, Joiner};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::Currency,
-	weights::{constants::ExtrinsicBaseWeight, IdentityFee, Weight, WeightToFee},
+	weights::{constants::ExtrinsicBaseWeight, IdentityFee, WeightToFee},
 };
 use kitchensink_runtime::{
 	constants::{currency::*, time::SLOT_DURATION},
@@ -33,14 +33,6 @@ use sp_runtime::{traits::One, Perbill};
 
 pub mod common;
 use self::common::{sign, *};
-
-fn charge_asset_tx_unspent_weight() -> Weight {
-	use pallet_asset_conversion_tx_payment::{Config as ACConfig, WeightInfo as ACWeights};
-	<<Runtime as ACConfig>::WeightInfo as ACWeights>::charge_asset_tx_payment_asset()
-		.saturating_sub(
-			<<Runtime as ACConfig>::WeightInfo as ACWeights>::charge_asset_tx_payment_native(),
-		)
-}
 
 #[test]
 fn fee_multiplier_increases_and_decreases_on_big_weight() {
@@ -184,9 +176,7 @@ fn transaction_fee_is_correct() {
 
 		let mut info = default_transfer_call().get_dispatch_info();
 		info.extension_weight = xt.extension_weight();
-		let mut weight = info.total_weight();
-		let weight_refund = charge_asset_tx_unspent_weight();
-		weight.saturating_reduce(weight_refund);
+		let weight = info.total_weight();
 		let weight_fee = IdentityFee::<Balance>::weight_to_fee(&weight);
 
 		// we know that weight to fee multiplier is effect-less in block 1.
