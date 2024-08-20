@@ -138,12 +138,7 @@ impl<BlockNumber: Copy + AtLeast32BitUnsigned> OnIdle<BlockNumber> for Tuple {
 		let on_idle_functions: &[fn(BlockNumber, Weight) -> Weight] =
 			&[for_tuples!( #( Tuple::on_idle ),* )];
 		let mut weight = Weight::zero();
-		let len = on_idle_functions.len();
-		let start_index = n % (len as u32).into();
-		let start_index = start_index.try_into().ok().expect(
-			"`start_index % len` always fits into `usize`, because `len` can be in maximum `usize::MAX`; qed"
-		);
-		for on_idle_fn in on_idle_functions.iter().cycle().skip(start_index).take(len) {
+		for on_idle_fn in on_idle_functions.iter() {
 			let adjusted_remaining_weight = remaining_weight.saturating_sub(weight);
 			weight = weight.saturating_add(on_idle_fn(n, adjusted_remaining_weight));
 		}
