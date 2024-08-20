@@ -122,14 +122,6 @@ else
     fi
 fi
 
-# Ensure that we have wasm support
-if prompt_default_yes "\n🦀 Setup the Rust environment (e.g. WASM support)?"; then
-    echo "🦀 Setting up Rust environment."
-    rustup update
-    rustup target add wasm32-unknown-unknown
-    rustup component add rust-src
-fi
-
 if [ -d "minimal-template" ]; then
     echo "\n✅︎ minimal-template directory already exists. -> Entering."
 else
