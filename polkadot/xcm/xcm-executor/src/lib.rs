@@ -47,6 +47,9 @@ pub use assets::AssetsInHolding;
 mod config;
 pub use config::Config;
 
+#[cfg(test)]
+mod tests;
+
 /// A struct to specify how fees are being paid.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct FeesMode {
@@ -83,6 +86,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	appendix_weight: Weight,
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
+	fees: AssetsInHolding,
 	_config: PhantomData<Config>,
 }
 
@@ -171,6 +175,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 	pub fn set_fees_mode(&mut self, v: FeesMode) {
 		self.fees_mode = v
+	}
+	pub fn fees(&self) -> &AssetsInHolding {
+		self.fees
+	}
+	pub fn set_fees(&self, value: AssetsInHolding) {
+		self.fees = value;
 	}
 	pub fn topic(&self) -> &Option<[u8; 32]> {
 		&self.context.topic
@@ -319,6 +329,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			appendix_weight: Weight::zero(),
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
+			fees: AssetsInHolding::new(),
 			_config: PhantomData,
 		}
 	}
@@ -981,6 +992,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					self.holding = old_holding;
 				}
 				result
+			},
+			PayFees { asset } => {
+				tracing::trace!(target: "xcm::process_instruction::pay_fees", "PayFees was encountered");
+				Ok(())
 			},
 			RefundSurplus => self.refund_surplus(),
 			SetErrorHandler(mut handler) => {

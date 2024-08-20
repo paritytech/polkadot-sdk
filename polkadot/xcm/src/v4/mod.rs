@@ -1411,6 +1411,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 				weight_limit,
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
 			},
+			PayFees { asset } => Self::BuyExecution { fees: asset.try_into()?, weight_limit: WeightLimit::Unlimited },
 		})
 	}
 }
