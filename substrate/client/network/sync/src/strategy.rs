@@ -186,44 +186,6 @@ where
 		+ Sync
 		+ 'static,
 {
-	/// Initialize a new syncing strategy.
-	pub fn new(
-		config: SyncingConfig,
-		client: Arc<Client>,
-		warp_sync_config: Option<WarpSyncConfig<B>>,
-	) -> Result<Self, ClientError> {
-		if let SyncMode::Warp = config.mode {
-			let warp_sync_config = warp_sync_config
-				.expect("Warp sync configuration must be supplied in warp sync mode.");
-			let warp_sync = WarpSync::new(client.clone(), warp_sync_config);
-			Ok(Self {
-				config,
-				client,
-				warp: Some(warp_sync),
-				state: None,
-				chain_sync: None,
-				peer_best_blocks: Default::default(),
-			})
-		} else {
-			let chain_sync = ChainSync::new(
-				chain_sync_mode(config.mode),
-				client.clone(),
-				config.max_parallel_downloads,
-				config.max_blocks_per_request,
-				config.metrics_registry.as_ref(),
-				std::iter::empty(),
-			)?;
-			Ok(Self {
-				config,
-				client,
-				warp: None,
-				state: None,
-				chain_sync: Some(chain_sync),
-				peer_best_blocks: Default::default(),
-			})
-		}
-	}
-
 	/// Notify that a new peer has connected.
 	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
 		self.peer_best_blocks.insert(peer_id, (best_hash, best_number));
@@ -475,6 +437,44 @@ where
 		}
 
 		Ok(actions)
+	}
+
+	/// Initialize a new syncing strategy.
+	pub fn new(
+		config: SyncingConfig,
+		client: Arc<Client>,
+		warp_sync_config: Option<WarpSyncConfig<B>>,
+	) -> Result<Self, ClientError> {
+		if let SyncMode::Warp = config.mode {
+			let warp_sync_config = warp_sync_config
+				.expect("Warp sync configuration must be supplied in warp sync mode.");
+			let warp_sync = WarpSync::new(client.clone(), warp_sync_config);
+			Ok(Self {
+				config,
+				client,
+				warp: Some(warp_sync),
+				state: None,
+				chain_sync: None,
+				peer_best_blocks: Default::default(),
+			})
+		} else {
+			let chain_sync = ChainSync::new(
+				chain_sync_mode(config.mode),
+				client.clone(),
+				config.max_parallel_downloads,
+				config.max_blocks_per_request,
+				config.metrics_registry.as_ref(),
+				std::iter::empty(),
+			)?;
+			Ok(Self {
+				config,
+				client,
+				warp: None,
+				state: None,
+				chain_sync: Some(chain_sync),
+				peer_best_blocks: Default::default(),
+			})
+		}
 	}
 
 	/// Proceed with the next strategy if the active one finished.
