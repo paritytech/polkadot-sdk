@@ -740,8 +740,8 @@ pub enum Instruction<Call> {
 
 	/// Set asset claimer for all the trapped assets during the execution.
 	///
-	/// - `location`: The claimer of any assets potentially trapped during the execution of current XCM.
-	///   It can be an arbitrary location, not necessarily the caller or origin.
+	/// - `location`: The claimer of any assets potentially trapped during the execution of current
+	///   XCM. It can be an arbitrary location, not necessarily the caller or origin.
 	///
 	/// Kind: *Command*
 	///
