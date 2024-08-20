@@ -173,8 +173,6 @@ use sp_runtime::{
 	ArithmeticError, DispatchError, DispatchResult,
 };
 
-use sp_std::prelude::*;
-
 mod conviction;
 mod types;
 mod vote;
@@ -667,13 +665,8 @@ pub mod pallet {
 
 			let seconds = Self::len_of_deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(seconds < T::MaxDeposits::get(), Error::<T>::TooMany);
-<<<<<<< HEAD
-			let mut deposit = Self::deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
-			T::Fungible::hold(&HoldReason::Proposal.into(), &who, deposit.1)?;
-=======
 			let mut deposit = DepositOf::<T>::get(proposal).ok_or(Error::<T>::ProposalMissing)?;
-			T::Currency::reserve(&who, deposit.1)?;
->>>>>>> oty-mbm-mini-steps
+			T::Fungible::hold(&HoldReason::Proposal.into(), &who, deposit.1)?;
 			let ok = deposit.0.try_push(who.clone()).is_ok();
 			debug_assert!(ok, "`seconds` is below static limit; `try_insert` should succeed; qed");
 			DepositOf::<T>::insert(proposal, deposit);
