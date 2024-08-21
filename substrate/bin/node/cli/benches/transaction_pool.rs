@@ -24,7 +24,7 @@ use futures::{future, StreamExt};
 use kitchensink_runtime::{constants::currency::*, BalancesCall, SudoCall};
 use node_cli::service::{create_extrinsic, fetch_nonce, FullClient, TransactionPool};
 use node_primitives::AccountId;
-use polkadot_sdk::sc_service::config::RpcConfiguration;
+use polkadot_sdk::sc_service::config::{ExecutorConfiguration, RpcConfiguration};
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, NetworkConfiguration, OffchainWorkerConfig,
@@ -71,7 +71,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
-		wasm_method: Default::default(),
+		executor: ExecutorConfiguration::default(),
 		rpc: RpcConfiguration {
 			addr: None,
 			max_connections: Default::default(),
@@ -90,15 +90,12 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
-		default_heap_pages: None,
 		offchain_worker: OffchainWorkerConfig { enabled: true, indexing_enabled: false },
 		force_authoring: false,
 		disable_grandpa: false,
 		dev_key_seed: Some(Sr25519Keyring::Alice.to_seed()),
 		tracing_targets: None,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: 8,
-		runtime_cache_size: 2,
 		announce_block: true,
 		data_path: base_path.path().into(),
 		base_path,

@@ -78,9 +78,9 @@ use sc_network::{
 };
 use sc_service::{
 	config::{
-		BlocksPruning, DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, RpcConfiguration,
-		WasmExecutionMethod,
+		BlocksPruning, DatabaseSource, ExecutorConfiguration, KeystoreConfig, MultiaddrWithPeerId,
+		NetworkConfiguration, OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig,
+		RpcConfiguration, WasmExecutionMethod,
 	},
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
@@ -195,15 +195,16 @@ pub fn new_partial(
 	enable_import_proof_record: bool,
 ) -> Result<Service, sc_service::Error> {
 	let heap_pages = config
+		.executor
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
 	let executor = WasmExecutor::builder()
-		.with_execution_method(config.wasm_method)
+		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
-		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
@@ -864,8 +865,12 @@ pub fn node_config(
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
-		wasm_method: WasmExecutionMethod::Compiled {
-			instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
+		executor: ExecutorConfiguration {
+			wasm_method: WasmExecutionMethod::Compiled {
+				instantiation_strategy:
+					sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
+			},
+			..ExecutorConfiguration::default()
 		},
 		rpc: RpcConfiguration {
 			addr: None,
@@ -885,19 +890,16 @@ pub fn node_config(
 		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
-		default_heap_pages: None,
 		offchain_worker: OffchainWorkerConfig { enabled: true, indexing_enabled: false },
 		force_authoring: false,
 		disable_grandpa: false,
 		dev_key_seed: Some(key_seed),
 		tracing_targets: None,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: 8,
 		announce_block: true,
 		data_path: root,
 		base_path,
 		wasm_runtime_overrides: None,
-		runtime_cache_size: 2,
 	})
 }
 

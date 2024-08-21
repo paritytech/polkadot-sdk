@@ -357,7 +357,7 @@ pub struct ExecutorConfiguration {
 impl Default for ExecutorConfiguration {
 	fn default() -> Self {
 		Self {
-			wasm_method: Default::default(),
+			wasm_method: WasmExecutionMethod::default(),
 			max_runtime_instances: 8,
 			default_heap_pages: None,
 			runtime_cache_size: 2,
