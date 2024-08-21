@@ -9,5 +9,5 @@ doc:
       - Fixes an incorrect usage of the `WeightInfo` trait for `new_session`.
 
 crates:
-    - name: pallet-collator-selection
-      bump: minor
+  - name: pallet-collator-selection
+    bump: minor
