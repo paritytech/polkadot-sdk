@@ -158,7 +158,7 @@ impl<'a, T: Config> Memory<T> for [u8] {
 	}
 }
 
-impl<'a, T: Config> Memory<T> for polkavm::RawInstance {
+impl<T: Config> Memory<T> for polkavm::RawInstance {
 	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
 		self.read_memory_into(ptr, buf)
 			.map(|_| ())
@@ -170,7 +170,7 @@ impl<'a, T: Config> Memory<T> for polkavm::RawInstance {
 	}
 }
 
-impl<'a, T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
+impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
 	fn gas(&self) -> polkavm::Gas {
 		self.gas()
 	}
