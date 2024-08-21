@@ -41,11 +41,11 @@ mod imports {
 	pub use parachains_common::AccountId;
 	pub use rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
-			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
-			AssetHubRococoParaPallet as AssetHubRococoPallet,
+			genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		asset_hub_westend_emulated_chain::{
-			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
+			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
+			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_westend_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendExistentialDeposit,
