@@ -17,8 +17,9 @@
 //! Various implementations of `ContainsPair<Asset, Location>` or
 //! `Contains<(Location, Vec<Asset>)>`.
 
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 use frame_support::traits::{Contains, ContainsPair, Get};
-use sp_std::{marker::PhantomData, vec::Vec};
 use xcm::latest::{Asset, AssetFilter, AssetId, Location, WildAsset};
 
 /// Accepts an asset iff it is a native asset.
@@ -44,7 +45,7 @@ impl<T: Get<(AssetFilter, Location)>> ContainsPair<Asset, Location> for Case<T> 
 /// implementation of the given `Location` and if every asset from `assets` matches at least one of
 /// the `AssetFilter` instances provided by the `Get` implementation of `AssetFilters`.
 pub struct LocationWithAssetFilters<LocationFilter, AssetFilters>(
-	sp_std::marker::PhantomData<(LocationFilter, AssetFilters)>,
+	core::marker::PhantomData<(LocationFilter, AssetFilters)>,
 );
 impl<LocationFilter: Contains<Location>, AssetFilters: Get<Vec<AssetFilter>>>
 	Contains<(Location, Vec<Asset>)> for LocationWithAssetFilters<LocationFilter, AssetFilters>
@@ -75,7 +76,7 @@ impl<LocationFilter: Contains<Location>, AssetFilters: Get<Vec<AssetFilter>>>
 pub struct AllAssets;
 impl Get<Vec<AssetFilter>> for AllAssets {
 	fn get() -> Vec<AssetFilter> {
-		sp_std::vec![AssetFilter::Wild(WildAsset::All)]
+		alloc::vec![AssetFilter::Wild(WildAsset::All)]
 	}
 }
 
@@ -96,11 +97,11 @@ mod tests {
 			pub AssetYLocation: Location = Location::new(1, [GeneralIndex(2222)]);
 			pub AssetZLocation: Location = Location::new(1, [GeneralIndex(3333)]);
 
-			pub OnlyAssetXOrAssetY: sp_std::vec::Vec<AssetFilter> = sp_std::vec![
+			pub OnlyAssetXOrAssetY: alloc::vec::Vec<AssetFilter> = alloc::vec![
 				Wild(AllOf { fun: WildFungible, id: AssetId(AssetXLocation::get()) }),
 				Wild(AllOf { fun: WildFungible, id: AssetId(AssetYLocation::get()) }),
 			];
-			pub OnlyAssetZ: sp_std::vec::Vec<AssetFilter> = sp_std::vec![
+			pub OnlyAssetZ: alloc::vec::Vec<AssetFilter> = alloc::vec![
 				Wild(AllOf { fun: WildFungible, id: AssetId(AssetZLocation::get()) })
 			];
 		}

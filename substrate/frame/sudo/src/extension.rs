@@ -17,6 +17,7 @@
 
 use crate::{Config, Key};
 use codec::{Decode, Encode};
+use core::{fmt, marker::PhantomData};
 use frame_support::{dispatch::DispatchInfo, ensure};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -26,7 +27,6 @@ use sp_runtime::{
 		UnknownTransaction, ValidTransaction,
 	},
 };
-use sp_std::{fmt, marker::PhantomData};
 
 /// Ensure that signed transactions are only valid if they are signed by sudo account.
 ///

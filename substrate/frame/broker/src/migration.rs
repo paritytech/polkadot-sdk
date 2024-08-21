@@ -23,9 +23,9 @@ use frame_support::traits::{Get, UncheckedOnRuntimeUpgrade};
 use sp_runtime::Saturating;
 
 #[cfg(feature = "try-runtime")]
-use frame_support::ensure;
+use alloc::vec::Vec;
 #[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
+use frame_support::ensure;
 
 mod v1 {
 	use super::*;
@@ -128,6 +128,36 @@ mod v2 {
 	}
 }
 
+mod v3 {
+	use super::*;
+	use frame_system::Pallet as System;
+
+	pub struct MigrateToV3Impl<T>(PhantomData<T>);
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV3Impl<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			let acc = Pallet::<T>::account_id();
+			System::<T>::inc_providers(&acc);
+			// calculate and return migration weights
+			T::DbWeight::get().writes(1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			Ok(System::<T>::providers(&Pallet::<T>::account_id()).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let old_providers = u32::decode(&mut &state[..]).expect("Known good");
+			let new_providers = System::<T>::providers(&Pallet::<T>::account_id()) as u32;
+
+			ensure!(new_providers == old_providers + 1, "Providers count should increase by one");
+			Ok(())
+		}
+	}
+}
+
 /// Migrate the pallet storage from `0` to `1`.
 pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
 	0,
@@ -141,6 +171,14 @@ pub type MigrateV1ToV2<T> = frame_support::migrations::VersionedMigration<
 	1,
 	2,
 	v2::MigrateToV2Impl<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+pub type MigrateV2ToV3<T> = frame_support::migrations::VersionedMigration<
+	2,
+	3,
+	v3::MigrateToV3Impl<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;

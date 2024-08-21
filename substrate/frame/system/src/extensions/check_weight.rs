@@ -37,7 +37,7 @@ use sp_weights::Weight;
 /// transaction is valid.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct CheckWeight<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);
+pub struct CheckWeight<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
 impl<T: Config + Send + Sync> CheckWeight<T>
 where
@@ -211,7 +211,7 @@ where
 	type Pre = ();
 	const IDENTIFIER: &'static str = "CheckWeight";
 
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 		Ok(())
 	}
 
@@ -281,14 +281,14 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckWeight<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckWeight<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckWeight")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -300,8 +300,8 @@ mod tests {
 		mock::{new_test_ext, System, Test, CALL},
 		AllExtrinsicsLen, BlockWeight, DispatchClass,
 	};
+	use core::marker::PhantomData;
 	use frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
-	use sp_std::marker::PhantomData;
 
 	fn block_weights() -> crate::limits::BlockWeights {
 		<Test as crate::Config>::BlockWeights::get()

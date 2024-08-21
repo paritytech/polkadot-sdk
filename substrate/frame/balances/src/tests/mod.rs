@@ -107,6 +107,10 @@ impl pallet_transaction_payment::Config for Test {
 	type FeeMultiplierUpdate = ();
 }
 
+parameter_types! {
+	pub FooReason: TestId = TestId::Foo;
+}
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type DustRemoval = DustTrap;

@@ -48,7 +48,7 @@ pub trait TransactionBroadcastApi {
 	///
 	/// This method is unstable and subject to change in the future.
 
-	#[method(name = "transaction_v1_broadcast", raw_method)]
+	#[method(name = "transaction_v1_broadcast", with_extensions)]
 	async fn broadcast(&self, bytes: Bytes) -> RpcResult<Option<String>>;
 
 	/// Broadcast an extrinsic to the chain.
@@ -56,6 +56,6 @@ pub trait TransactionBroadcastApi {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "transaction_v1_stop", raw_method)]
+	#[method(name = "transaction_v1_stop", with_extensions)]
 	async fn stop_broadcast(&self, operation_id: String) -> Result<(), ErrorBroadcast>;
 }

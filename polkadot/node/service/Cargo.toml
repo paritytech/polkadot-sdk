@@ -12,147 +12,147 @@ workspace = true
 
 [dependencies]
 # Substrate Client
-sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }
-sc-consensus-babe = { path = "../../../substrate/client/consensus/babe" }
-sc-consensus-beefy = { path = "../../../substrate/client/consensus/beefy" }
-sc-consensus-grandpa = { path = "../../../substrate/client/consensus/grandpa" }
-mmr-gadget = { path = "../../../substrate/client/merkle-mountain-range" }
-sp-mmr-primitives = { path = "../../../substrate/primitives/merkle-mountain-range" }
-sc-block-builder = { path = "../../../substrate/client/block-builder" }
-sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-client-db = { path = "../../../substrate/client/db" }
-sc-consensus = { path = "../../../substrate/client/consensus/common" }
-sc-consensus-slots = { path = "../../../substrate/client/consensus/slots" }
-sc-executor = { path = "../../../substrate/client/executor" }
-sc-network = { path = "../../../substrate/client/network" }
-sc-network-common = { path = "../../../substrate/client/network/common" }
-sc-network-sync = { path = "../../../substrate/client/network/sync" }
-sc-transaction-pool = { path = "../../../substrate/client/transaction-pool" }
-sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
-sc-sync-state-rpc = { path = "../../../substrate/client/sync-state-rpc" }
-sc-keystore = { path = "../../../substrate/client/keystore" }
-sc-basic-authorship = { path = "../../../substrate/client/basic-authorship" }
-sc-offchain = { path = "../../../substrate/client/offchain" }
-sc-sysinfo = { path = "../../../substrate/client/sysinfo" }
-sc-service = { path = "../../../substrate/client/service", default-features = false }
-sc-telemetry = { path = "../../../substrate/client/telemetry" }
+sc-authority-discovery = { workspace = true, default-features = true }
+sc-consensus-babe = { workspace = true, default-features = true }
+sc-consensus-beefy = { workspace = true, default-features = true }
+sc-consensus-grandpa = { workspace = true, default-features = true }
+mmr-gadget = { workspace = true, default-features = true }
+sp-mmr-primitives = { workspace = true, default-features = true }
+sc-block-builder = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-client-db = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-consensus-slots = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
+sc-transaction-pool = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sc-sync-state-rpc = { workspace = true, default-features = true }
+sc-keystore = { workspace = true, default-features = true }
+sc-basic-authorship = { workspace = true, default-features = true }
+sc-offchain = { workspace = true, default-features = true }
+sc-sysinfo = { workspace = true, default-features = true }
+sc-service = { workspace = true }
+sc-telemetry = { workspace = true, default-features = true }
 
 # Substrate Primitives
-sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
-sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
-sp-consensus-beefy = { path = "../../../substrate/primitives/consensus/beefy" }
-sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
-sp-inherents = { path = "../../../substrate/primitives/inherents" }
-sp-keyring = { path = "../../../substrate/primitives/keyring" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-block-builder = { path = "../../../substrate/primitives/block-builder" }
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-io = { path = "../../../substrate/primitives/io" }
-sp-keystore = { path = "../../../substrate/primitives/keystore" }
-sp-offchain = { package = "sp-offchain", path = "../../../substrate/primitives/offchain" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-session = { path = "../../../substrate/primitives/session" }
-sp-storage = { path = "../../../substrate/primitives/storage" }
-sp-transaction-pool = { path = "../../../substrate/primitives/transaction-pool" }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment" }
-sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
-sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-sp-weights = { path = "../../../substrate/primitives/weights" }
-sp-version = { path = "../../../substrate/primitives/version" }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-consensus-beefy = { workspace = true, default-features = true }
+sp-consensus-grandpa = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-block-builder = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-offchain = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-session = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
+sp-transaction-pool = { workspace = true, default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-weights = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
 
 # Substrate Pallets
-pallet-babe = { path = "../../../substrate/frame/babe" }
-pallet-staking = { path = "../../../substrate/frame/staking" }
-pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api" }
-frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", optional = true }
-frame-system = { path = "../../../substrate/frame/system" }
+pallet-babe = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
+frame-metadata-hash-extension = { optional = true, workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
 
 # Substrate Other
-frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
-frame-support = { path = "../../../substrate/frame/support" }
-frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-cli" }
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
+frame-system-rpc-runtime-api = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+frame-support = { workspace = true, default-features = true }
+frame-benchmarking-cli = { workspace = true, default-features = true }
+frame-benchmarking = { workspace = true, default-features = true }
 
 # External Crates
-async-trait = "0.1.79"
-futures = "0.3.30"
-hex-literal = "0.4.1"
-is_executable = "1.0.1"
-gum = { package = "tracing-gum", path = "../gum" }
+async-trait = { workspace = true }
+futures = { workspace = true }
+hex-literal = { workspace = true, default-features = true }
+is_executable = { workspace = true }
+gum = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-schnellru = "0.2.1"
+schnellru = { workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-kvdb = "0.13.0"
-kvdb-rocksdb = { version = "0.19.0", optional = true }
-parity-db = { version = "0.4.12", optional = true }
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-parking_lot = "0.12.1"
-bitvec = { version = "1.0.1", optional = true }
+kvdb = { workspace = true }
+kvdb-rocksdb = { optional = true, workspace = true }
+parity-db = { optional = true, workspace = true }
+codec = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+bitvec = { optional = true, workspace = true, default-features = true }
 
 # Polkadot
-polkadot-core-primitives = { path = "../../core-primitives" }
-polkadot-node-core-parachains-inherent = { path = "../core/parachains-inherent" }
-polkadot-overseer = { path = "../overseer" }
-polkadot-parachain-primitives = { path = "../../parachain" }
-polkadot-primitives = { path = "../../primitives" }
-polkadot-node-primitives = { path = "../primitives" }
-polkadot-rpc = { path = "../../rpc" }
-polkadot-node-subsystem = { path = "../subsystem" }
-polkadot-node-subsystem-util = { path = "../subsystem-util" }
-polkadot-node-subsystem-types = { path = "../subsystem-types" }
-polkadot-runtime-parachains = { path = "../../runtime/parachains" }
-polkadot-node-network-protocol = { path = "../network/protocol" }
+polkadot-core-primitives = { workspace = true, default-features = true }
+polkadot-node-core-parachains-inherent = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-rpc = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-node-subsystem-types = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
 
 # Polkadot Runtime Constants
-rococo-runtime-constants = { path = "../../runtime/rococo/constants", optional = true }
-westend-runtime-constants = { path = "../../runtime/westend/constants", optional = true }
+rococo-runtime-constants = { optional = true, workspace = true, default-features = true }
+westend-runtime-constants = { optional = true, workspace = true, default-features = true }
 
 # Polkadot Runtimes
-westend-runtime = { path = "../../runtime/westend", optional = true }
-rococo-runtime = { path = "../../runtime/rococo", optional = true }
+westend-runtime = { optional = true, workspace = true }
+rococo-runtime = { optional = true, workspace = true }
 
 # Polkadot Subsystems
-polkadot-approval-distribution = { path = "../network/approval-distribution", optional = true }
-polkadot-availability-bitfield-distribution = { path = "../network/bitfield-distribution", optional = true }
-polkadot-availability-distribution = { path = "../network/availability-distribution", optional = true }
-polkadot-availability-recovery = { path = "../network/availability-recovery", optional = true }
-polkadot-collator-protocol = { path = "../network/collator-protocol", optional = true }
-polkadot-dispute-distribution = { path = "../network/dispute-distribution", optional = true }
-polkadot-gossip-support = { path = "../network/gossip-support", optional = true }
-polkadot-network-bridge = { path = "../network/bridge", optional = true }
-polkadot-node-collation-generation = { path = "../collation-generation", optional = true }
-polkadot-node-core-approval-voting = { path = "../core/approval-voting", optional = true }
-polkadot-node-core-av-store = { path = "../core/av-store", optional = true }
-polkadot-node-core-backing = { path = "../core/backing", optional = true }
-polkadot-node-core-bitfield-signing = { path = "../core/bitfield-signing", optional = true }
-polkadot-node-core-candidate-validation = { path = "../core/candidate-validation", optional = true }
-polkadot-node-core-chain-api = { path = "../core/chain-api", optional = true }
-polkadot-node-core-chain-selection = { path = "../core/chain-selection", optional = true }
-polkadot-node-core-dispute-coordinator = { path = "../core/dispute-coordinator", optional = true }
-polkadot-node-core-prospective-parachains = { path = "../core/prospective-parachains", optional = true }
-polkadot-node-core-provisioner = { path = "../core/provisioner", optional = true }
-polkadot-node-core-pvf = { path = "../core/pvf", optional = true }
-polkadot-node-core-pvf-checker = { path = "../core/pvf-checker", optional = true }
-polkadot-node-core-runtime-api = { path = "../core/runtime-api", optional = true }
-polkadot-statement-distribution = { path = "../network/statement-distribution", optional = true }
+polkadot-approval-distribution = { optional = true, workspace = true, default-features = true }
+polkadot-availability-bitfield-distribution = { optional = true, workspace = true, default-features = true }
+polkadot-availability-distribution = { optional = true, workspace = true, default-features = true }
+polkadot-availability-recovery = { optional = true, workspace = true, default-features = true }
+polkadot-collator-protocol = { optional = true, workspace = true, default-features = true }
+polkadot-dispute-distribution = { optional = true, workspace = true, default-features = true }
+polkadot-gossip-support = { optional = true, workspace = true, default-features = true }
+polkadot-network-bridge = { optional = true, workspace = true, default-features = true }
+polkadot-node-collation-generation = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-approval-voting = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-av-store = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-backing = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-bitfield-signing = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-candidate-validation = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-chain-api = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-chain-selection = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-dispute-coordinator = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-prospective-parachains = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-provisioner = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-pvf = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-pvf-checker = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-runtime-api = { optional = true, workspace = true, default-features = true }
+polkadot-statement-distribution = { optional = true, workspace = true, default-features = true }
 
-xcm = { package = "staging-xcm", path = "../../xcm" }
-xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api" }
+xcm = { workspace = true, default-features = true }
+xcm-runtime-apis = { workspace = true, default-features = true }
 
 [dev-dependencies]
-polkadot-test-client = { path = "../test/client" }
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
-env_logger = "0.11"
-assert_matches = "1.5.0"
-serial_test = "2.0.0"
-tempfile = "3.2"
+polkadot-test-client = { workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+sp-tracing = { workspace = true }
+assert_matches = { workspace = true }
+serial_test = { workspace = true }
+tempfile = { workspace = true }
 
 [features]
 default = ["db", "full-node"]
@@ -201,6 +201,13 @@ rococo-native = [
 	"rococo-runtime-constants",
 ]
 
+# Generate the metadata hash needed for CheckMetadataHash
+# in the test runtimes.
+metadata-hash = [
+	"rococo-runtime?/metadata-hash",
+	"westend-runtime?/metadata-hash",
+]
+
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
@@ -217,7 +224,7 @@ runtime-benchmarks = [
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
-	"xcm-fee-payment-runtime-api/runtime-benchmarks",
+	"xcm-runtime-apis/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

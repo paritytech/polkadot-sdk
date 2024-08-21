@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add `health/readiness endpoint` to the rpc server
+
+doc:
+  - audience: Node Operator
+    description: |
+      Add `/health/readiness endpoint` to the rpc server which returns HTTP status code 200 if the chain is synced
+      and can connect to the rest of the network otherwise status code 500 is returned.
+      The endpoint can be reached by performing a HTTP GET request to the
+      endpoint such as `$ curl <endpoint>/health/readiness`
+
+crates:
+  - name: sc-rpc-server
+    bump: patch
