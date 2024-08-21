@@ -102,28 +102,48 @@ impl<
 pub struct RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>(
 	core::marker::PhantomData<(AssetsAllowedNetworks, OriginLocation)>,
 );
-impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
-	ContainsPair<Asset, Location> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
+impl<
+		L: TryInto<Location> + Clone,
+		AssetsAllowedNetworks: Contains<Location>,
+		OriginLocation: Get<Location>,
+	> ContainsPair<L, L> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
 {
-	fn contains(asset: &Asset, origin: &Location) -> bool {
+	fn contains(asset: &L, origin: &L) -> bool {
+		let latest_asset: Location = if let Ok(location) = asset.clone().try_into() {
+			location
+		} else {
+			return false;
+		};
+		let latest_origin: Location = if let Ok(location) = origin.clone().try_into() {
+			location
+		} else {
+			return false;
+		};
 		let expected_origin = OriginLocation::get();
 		// ensure `origin` is expected `OriginLocation`
-		if !expected_origin.eq(origin) {
+		if !expected_origin.eq(&latest_origin) {
 			log::trace!(
 				target: "xcm::contains",
 				"RemoteAssetFromLocation asset: {:?}, origin: {:?} is not from expected {:?}",
-				asset, origin, expected_origin,
+				latest_asset, latest_origin, expected_origin,
 			);
-			return false
+			return false;
 		} else {
 			log::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?}",
+				"RemoteAssetFromLocation asset: {latest_asset:?}, origin: {latest_origin:?}",
 			);
 		}
 
 		// ensure `asset` is from remote consensus listed in `AssetsAllowedNetworks`
-		AssetsAllowedNetworks::contains(&asset.id.0)
+		AssetsAllowedNetworks::contains(&latest_asset)
+	}
+}
+impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
+	ContainsPair<Asset, Location> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
+{
+	fn contains(asset: &Asset, origin: &Location) -> bool {
+		<Self as ContainsPair<Location, Location>>::contains(&asset.id.0, origin)
 	}
 }
 
