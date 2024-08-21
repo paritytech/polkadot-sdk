@@ -528,7 +528,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 			},
 			Ok(Finished) =>
 				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
-			Ok(Trap(_)) => Some(Err(Error::<E::T>::ContractTrapped.into())),
+			Ok(Trap) => Some(Err(Error::<E::T>::ContractTrapped.into())),
 			Ok(Segfault(_)) => Some(Err(Error::<E::T>::ExecutionFailed.into())),
 			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
 			Ok(Step) => None,

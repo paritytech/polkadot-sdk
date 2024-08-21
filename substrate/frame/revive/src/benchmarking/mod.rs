@@ -1808,7 +1808,7 @@ mod benchmarks {
 	}
 
 	impl_benchmark_test_suite!(
-		Revive,
+		Contracts,
 		crate::tests::ExtBuilder::default().build(),
 		crate::tests::Test,
 	);

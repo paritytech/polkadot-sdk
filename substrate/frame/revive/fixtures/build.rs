@@ -83,11 +83,9 @@ mod build {
 	/// Create a `Cargo.toml` to compile the given contract entries.
 	fn create_cargo_toml<'a>(
 		fixtures_dir: &Path,
-		root_cargo_toml: &Path,
 		entries: impl Iterator<Item = &'a Entry>,
 		output_dir: &Path,
 	) -> Result<()> {
-		let root_toml: toml::Value = toml::from_str(&fs::read_to_string(root_cargo_toml)?)?;
 		let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/Cargo.toml"))?;
 		let mut set_dep = |name, path| -> Result<()> {
 			cargo_toml["dependencies"][name]["path"] = toml::Value::String(
@@ -97,8 +95,6 @@ mod build {
 		};
 		set_dep("uapi", "../uapi")?;
 		set_dep("common", "./contracts/common")?;
-		cargo_toml["dependencies"]["polkavm-derive"]["version"] =
-			root_toml["workspace"]["dependencies"]["polkavm-derive"].clone();
 
 		cargo_toml["bin"] = toml::Value::Array(
 			entries
@@ -115,45 +111,6 @@ mod build {
 
 		let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
 		fs::write(output_dir.join("Cargo.toml"), cargo_toml).map_err(Into::into)
-	}
-
-	/// Invoke `cargo fmt` to check that fixtures files are formatted.
-	fn invoke_cargo_fmt<'a>(
-		config_path: &Path,
-		files: impl Iterator<Item = &'a Path>,
-		contract_dir: &Path,
-	) -> Result<()> {
-		// If rustfmt is not installed, skip the check.
-		if !Command::new("rustup")
-			.args(["nightly-2024-04-10", "run", "rustfmt", "--version"])
-			.output()
-			.map_or(false, |o| o.status.success())
-		{
-			return Ok(())
-		}
-
-		let fmt_res = Command::new("rustup")
-			.args(["nightly-2024-04-10", "run", "rustfmt", "--check", "--config-path"])
-			.arg(config_path)
-			.args(files)
-			.output()
-			.expect("failed to execute process");
-
-		if fmt_res.status.success() {
-			return Ok(())
-		}
-
-		let stdout = String::from_utf8_lossy(&fmt_res.stdout);
-		let stderr = String::from_utf8_lossy(&fmt_res.stderr);
-		eprintln!("{}\n{}", stdout, stderr);
-		eprintln!(
-			"Fixtures files are not formatted.\n
-		Please run `rustup nightly-2024-04-10 run rustfmt --config-path {} {}/*.rs`",
-			config_path.display(),
-			contract_dir.display()
-		);
-
-		anyhow::bail!("Fixtures files are not formatted")
 	}
 
 	fn invoke_build(current_dir: &Path) -> Result<()> {
@@ -221,33 +178,11 @@ mod build {
 		Ok(())
 	}
 
-	/// Returns the root path of the polkadot-sdk workspace.
-	fn find_workspace_root(current_dir: &Path) -> Option<PathBuf> {
-		let mut current_dir = current_dir.to_path_buf();
-
-		while current_dir.parent().is_some() {
-			if current_dir.join("Cargo.toml").exists() {
-				let cargo_toml_contents =
-					std::fs::read_to_string(current_dir.join("Cargo.toml")).ok()?;
-				if cargo_toml_contents.contains("[workspace]") {
-					return Some(current_dir);
-				}
-			}
-
-			current_dir.pop();
-		}
-
-		None
-	}
-
 	pub fn run() -> Result<()> {
 		let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
 		let contracts_dir = fixtures_dir.join("contracts");
 		let uapi_dir = fixtures_dir.parent().expect("uapi dir exits; qed").join("uapi");
 		let out_dir: PathBuf = env::var("OUT_DIR")?.into();
-		let workspace_root =
-			find_workspace_root(&fixtures_dir).expect("workspace root exists; qed");
-		let root_cargo_toml = workspace_root.join("Cargo.toml");
 
 		// the fixtures have a dependency on the uapi crate
 		println!("cargo::rerun-if-changed={}", fixtures_dir.display());
@@ -261,13 +196,7 @@ mod build {
 		let tmp_dir = tempfile::tempdir()?;
 		let tmp_dir_path = tmp_dir.path();
 
-		create_cargo_toml(&fixtures_dir, &root_cargo_toml, entries.iter(), tmp_dir.path())?;
-		invoke_cargo_fmt(
-			&workspace_root.join(".rustfmt.toml"),
-			entries.iter().map(|entry| &entry.path as _),
-			&contracts_dir,
-		)?;
-
+		create_cargo_toml(&fixtures_dir, entries.iter(), tmp_dir.path())?;
 		invoke_build(tmp_dir_path)?;
 
 		write_output(tmp_dir_path, &out_dir, entries)?;
