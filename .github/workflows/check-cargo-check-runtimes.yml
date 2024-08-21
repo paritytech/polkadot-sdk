@@ -133,7 +133,8 @@ jobs:
     runs-on: macOS
     steps:
       - uses: actions/checkout@v4
-      - run: brew install protobuf rustup rust
+      - run: brew install protobuf rustup
+      - run: rustup-init -y
       # - name: Install rust
       #   run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       # - run: source $HOME/.cargo/env
