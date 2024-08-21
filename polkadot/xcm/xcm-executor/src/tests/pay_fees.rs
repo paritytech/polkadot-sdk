@@ -82,7 +82,7 @@ fn works_for_delivery_fees() {
 		.deposit_asset(All, RECIPIENT.clone())
 		.build();
 
-	let mut vm = instantiate_executor(SENDER, xcm.clone());
+	let mut vm = instantiate_executor(SENDER.clone(), xcm.clone());
 
 	// Program runs successfully.
 	assert!(vm.bench_process(xcm).is_ok());
@@ -95,6 +95,28 @@ fn works_for_delivery_fees() {
 	// The recipient received all the assets in the holding register, so `100` that
 	// were withdrawn, minus the `10` that were destinated for fee payment.
 	assert_eq!(asset_list(RECIPIENT), [(Here, 90u128).into()]);
+
+	let querier: Location = (
+		UniversalLocation::get().take_first().unwrap(),
+		AccountId32 { id: SENDER.into(), network: None },
+	)
+		.into();
+	let sent_message = Xcm(vec![QueryResponse {
+		query_id: 0,
+		response: Response::ExecutionResult(None),
+		max_weight: Weight::zero(),
+		querier: Some(querier),
+	}]);
+
+	// The messages were "sent" successfully.
+	assert_eq!(
+		sent_xcm(),
+		vec![
+			(Parent.into(), sent_message.clone()),
+			(Parent.into(), sent_message.clone()),
+			(Parent.into(), sent_message.clone())
+		]
+	);
 }
 
 // Tests the support for `BuyExecution` while the ecosystem transitions to `PayFees`.
@@ -159,4 +181,76 @@ fn fees_can_be_refunded() {
 
 	// The sender got back `6` from unused assets.
 	assert_eq!(asset_list(SENDER), [(Here, 6u128).into()]);
+}
+
+// ===== Unhappy path =====
+
+#[test]
+fn putting_all_assets_in_pay_fees() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER.clone(), (Here, 100u128));
+
+	// Build xcm.
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 100u128)) // 100% destined for fees, this is not going to end well...
+		.deposit_asset(All, RECIPIENT.clone())
+		.build();
+
+	let mut vm = instantiate_executor(SENDER.clone(), xcm.clone());
+
+	// Program runs successfully.
+	assert!(vm.bench_process(xcm).is_ok());
+
+	// Nothing is left in the `holding` register.
+	assert_eq!(get_first_fungible(vm.holding()), None);
+	// We destined `100` for fee payment, after `4` for execution fees, we are left with `96`.
+	assert_eq!(get_first_fungible(vm.fees()).unwrap(), (Here, 96u128).into());
+
+	// The recipient received no assets since they were all destined for fee payment.
+	assert_eq!(asset_list(RECIPIENT), []);
+}
+
+#[test]
+fn refunding_too_early() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER.clone(), (Here, 100u128));
+
+	// Information to send messages.
+	// We don't care about the specifics since we're not actually sending them.
+	let query_response_info =
+		QueryResponseInfo { destination: Parent.into(), query_id: 0, max_weight: Weight::zero() };
+
+	// Build xcm.
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 10u128)) // 10% destined for fees, not more.
+		.deposit_asset(All, RECIPIENT.clone())
+		.refund_surplus()
+		.deposit_asset(All, SENDER.clone())
+		// `refund_surplus` cleared the `fees` register.
+		// `holding` is used as a fallback, but we also cleared that.
+		// The instruction will error and the message won't be sent :(.
+		.report_error(query_response_info)
+		.build();
+
+	let mut vm = instantiate_executor(SENDER.clone(), xcm.clone());
+
+	// Program fails to run.
+	assert!(vm.bench_process(xcm).is_err());
+
+	// Nothing is left in the `holding` register.
+	assert_eq!(get_first_fungible(vm.holding()), None);
+	// Nothing was left in the `fees` register since it was refunded.
+	assert_eq!(get_first_fungible(vm.fees()), None);
+
+	// The recipient received all the assets in the holding register, so `100` that
+	// were withdrawn, minus the `10` that were destinated for fee payment.
+	assert_eq!(asset_list(RECIPIENT), [(Here, 90u128).into()]);
+
+	// The sender got back `6` from unused assets.
+	assert_eq!(asset_list(SENDER), [(Here, 6u128).into()]);
+
+	// No messages were "sent".
+	assert_eq!(sent_xcm(), Vec::new());
 }

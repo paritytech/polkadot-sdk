@@ -92,6 +92,7 @@ impl<C> WeightBounds<C> for TestWeigher {
 
 thread_local! {
 	pub static ASSETS: RefCell<BTreeMap<Location, AssetsInHolding>> = RefCell::new(BTreeMap::new());
+	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
 }
 
 pub fn add_asset(who: impl Into<Location>, what: impl Into<Asset>) {
@@ -215,25 +216,31 @@ impl DropAssets for TestAssetTrap {
 	}
 }
 
-/// Test sender that always succeeds but doesn't actually send anything.
+/// Test sender that always succeeds and puts messages in a dummy queue.
 ///
-/// It does charge `1` for the delivery fee.
+/// It charges `1` for the delivery fee.
 pub struct TestSender;
 impl SendXcm for TestSender {
-	type Ticket = ();
+	type Ticket = (Location, Xcm<()>);
 
 	fn validate(
-		_destination: &mut Option<Location>,
-		_message: &mut Option<Xcm<()>>,
+		destination: &mut Option<Location>,
+		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		let ticket = ();
+		let ticket = (destination.take().unwrap(), message.take().unwrap());
 		let delivery_fee: Asset = (Here, 1u128).into();
 		Ok((ticket, delivery_fee.into()))
 	}
 
-	fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		SENT_XCM.with(|q| q.borrow_mut().push(ticket));
 		Ok([0; 32])
 	}
+}
+
+/// Gets queued test messages.
+pub fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
+	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
 
 /// Test XcmConfig that uses all the test implementations in this file.
