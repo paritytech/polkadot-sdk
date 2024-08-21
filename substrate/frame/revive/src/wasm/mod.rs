@@ -276,8 +276,10 @@ impl<T: Config> WasmBlob<T> {
 	) -> Result<PreparedCall<E>, ExecError> {
 		let code = self.code.as_slice();
 
-		let config = polkavm::Config::default();
-		let engine = polkavm::Engine::new(&config).expect("default config always valid; qed");
+		let mut config = polkavm::Config::default();
+		config.set_backend(Some(polkavm::BackendKind::Interpreter));
+		let engine =
+			polkavm::Engine::new(&config).expect("interpreter is available on all plattforms; qed");
 
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
