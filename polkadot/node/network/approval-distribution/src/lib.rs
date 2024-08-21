@@ -161,7 +161,7 @@ impl ApprovalEntry {
 		Self {
 			validator_index: assignment.validator,
 			assignment,
-			approvals: HashMap::with_capacity(candidates.len()),
+			approvals: HashMap::new(),
 			assignment_claimed_candidates: candidates,
 			routing_info,
 		}
