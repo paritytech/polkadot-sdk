@@ -82,10 +82,10 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, Contains, EitherOf,
-		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EverythingBut, InstanceFilter,
-		KeyOwnerProofSystem, AtLeastOneLinearStoragePrice, LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError,
-		StorageMapShim, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AtLeastOneLinearStoragePrice,
+		Contains, EitherOf, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EverythingBut,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
+		ProcessMessageError, StorageMapShim, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -937,21 +937,13 @@ impl pallet_proxy::Config for Runtime {
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<
-			ProxyDepositBase,
-			ProxyDepositFactor,
-			Balance,
-		>,
+		AtLeastOneLinearStoragePrice<ProxyDepositBase, ProxyDepositFactor, Balance>,
 	>;
 	type AnnouncementConsideration = HoldConsideration<
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<
-			AnnouncementDepositBase,
-			AnnouncementDepositFactor,
-			Balance,
-		>,
+		AtLeastOneLinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositFactor, Balance>,
 	>;
 }
 

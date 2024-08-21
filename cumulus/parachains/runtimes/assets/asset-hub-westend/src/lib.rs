@@ -45,8 +45,8 @@ use frame_support::{
 	traits::{
 		fungible, fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
-		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Equals,
-		InstanceFilter, TransformOrigin, AtLeastOneLinearStoragePrice,
+		AsEnsureOriginWithArg, AtLeastOneLinearStoragePrice, ConstBool, ConstU128, ConstU32,
+		ConstU64, ConstU8, Equals, InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -545,7 +545,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } |
+						RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -647,21 +648,13 @@ impl pallet_proxy::Config for Runtime {
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<
-			ProxyDepositBase,
-			ProxyDepositFactor,
-			Balance,
-		>,
+		AtLeastOneLinearStoragePrice<ProxyDepositBase, ProxyDepositFactor, Balance>,
 	>;
 	type AnnouncementConsideration = fungible::HoldConsideration<
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<
-			AnnouncementDepositBase,
-			AnnouncementDepositFactor,
-			Balance,
-		>,
+		AtLeastOneLinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositFactor, Balance>,
 	>;
 }
 

@@ -203,7 +203,8 @@ where
 /// A storage price that increases linearly with the number of elements and their size,
 /// but there must be at least one element in footprint or the price is zero
 pub struct AtLeastOneLinearStoragePrice<Base, Slope, Balance>(PhantomData<(Base, Slope, Balance)>);
-impl<Base, Slope, Balance> Convert<Footprint, Balance> for AtLeastOneLinearStoragePrice<Base, Slope, Balance>
+impl<Base, Slope, Balance> Convert<Footprint, Balance>
+	for AtLeastOneLinearStoragePrice<Base, Slope, Balance>
 where
 	Base: Get<Balance>,
 	Slope: Get<Balance>,

@@ -35,7 +35,10 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AtLeastOneLinearStoragePrice, ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AtLeastOneLinearStoragePrice,
+		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, EverythingBut,
+		FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
+		ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -1108,7 +1111,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
@@ -1168,21 +1172,13 @@ impl pallet_proxy::Config for Runtime {
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<
-			ProxyDepositBase,
-			ProxyDepositFactor,
-			Balance,
-		>,
+		AtLeastOneLinearStoragePrice<ProxyDepositBase, ProxyDepositFactor, Balance>,
 	>;
 	type AnnouncementConsideration = HoldConsideration<
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<
-			AnnouncementDepositBase,
-			AnnouncementDepositFactor,
-			Balance,
-		>,
+		AtLeastOneLinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositFactor, Balance>,
 	>;
 	type MaxProxies = MaxProxies;
 	type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;

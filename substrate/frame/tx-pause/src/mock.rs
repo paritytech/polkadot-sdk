@@ -24,7 +24,10 @@ use crate as pallet_tx_pause;
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{fungible::HoldConsideration, AtLeastOneLinearStoragePrice, ConstU64, Everything, InsideBoth, InstanceFilter},
+	traits::{
+		fungible::HoldConsideration, AtLeastOneLinearStoragePrice, ConstU64, Everything,
+		InsideBoth, InstanceFilter,
+	},
 };
 use frame_system::EnsureSignedBy;
 use sp_runtime::{traits::BlakeTwo256, BuildStorage};
@@ -105,21 +108,13 @@ impl pallet_proxy::Config for Test {
 		u64,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<
-			ConstU64<1>,
-			ConstU64<1>,
-			u64,
-		>,
+		AtLeastOneLinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>,
 	>;
 	type AnnouncementConsideration = HoldConsideration<
 		u64,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<
-			ConstU64<1>,
-			ConstU64<1>,
-			u64,
-		>,
+		AtLeastOneLinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>,
 	>;
 }
 
