@@ -552,7 +552,7 @@ impl parachains_paras::Config for Runtime {
 	type OnNewHead = ();
 	type AssignCoretime = ();
 	type UnbrickOrigin = EnsureRoot<AccountId>;
-	type MinTimeToAllowUnbrick = ConstU64<{ 2 * HOUR }>;
+	type MinTimeToAllowUnbrick = ConstU64<{ 2 * HOURS }>;
 }
 
 parameter_types! {

@@ -35,10 +35,10 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, ConstU64, Contains,
+		EitherOf, EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
+		ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -1211,7 +1211,7 @@ impl parachains_paras::Config for Runtime {
 	type OnNewHead = ();
 	type AssignCoretime = CoretimeAssignmentProvider;
 	type UnbrickOrigin = EnsureRoot<AccountId>;
-	type MinTimeToAllowUnbrick = ConstU64<{ 2 * HOUR }>;
+	type MinTimeToAllowUnbrick = ConstU64<{ 2 * HOURS }>;
 }
 
 parameter_types! {
