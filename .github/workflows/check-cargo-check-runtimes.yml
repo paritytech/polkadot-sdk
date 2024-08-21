@@ -140,7 +140,9 @@ jobs:
       - run: rustup toolchain install nightly
       - run: rustup target add wasm32-unknown-unknown
       - run: rustup component add rust-src
-      - run: cargo check --workspace --locked
+      - run: |
+          source $HOME/.cargo/env
+          cargo check --workspace --locked
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
