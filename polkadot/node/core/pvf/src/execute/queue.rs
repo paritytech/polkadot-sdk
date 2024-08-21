@@ -34,12 +34,14 @@ use polkadot_node_core_pvf_common::{
 	execute::{JobResponse, WorkerError, WorkerResponse},
 	SecurityStatus,
 };
-use polkadot_primitives::{ExecutorParams, ExecutorParamsHash};
+use polkadot_node_primitives::PoV;
+use polkadot_primitives::{ExecutorParams, ExecutorParamsHash, PersistedValidationData};
 use slotmap::HopSlotMap;
 use std::{
 	collections::VecDeque,
 	fmt,
 	path::PathBuf,
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -68,7 +70,8 @@ pub enum FromQueue {
 #[derive(Debug)]
 pub struct PendingExecutionRequest {
 	pub exec_timeout: Duration,
-	pub params: Vec<u8>,
+	pub pvd: Arc<PersistedValidationData>,
+	pub pov: Arc<PoV>,
 	pub executor_params: ExecutorParams,
 	pub result_tx: ResultSender,
 }
@@ -76,7 +79,8 @@ pub struct PendingExecutionRequest {
 struct ExecuteJob {
 	artifact: ArtifactPathId,
 	exec_timeout: Duration,
-	params: Vec<u8>,
+	pvd: Arc<PersistedValidationData>,
+	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
 	result_tx: ResultSender,
 	waiting_since: Instant,
@@ -293,18 +297,20 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 
 fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	let ToQueue::Enqueue { artifact, pending_execution_request } = to_queue;
-	let PendingExecutionRequest { exec_timeout, params, executor_params, result_tx } =
+	let PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx } =
 		pending_execution_request;
 	gum::debug!(
 		target: LOG_TARGET,
 		validation_code_hash = ?artifact.id.code_hash,
 		"enqueueing an artifact for execution",
 	);
+	queue.metrics.observe_pov_size(pov.block_data.0.len(), true);
 	queue.metrics.execute_enqueued();
 	let job = ExecuteJob {
 		artifact,
 		exec_timeout,
-		params,
+		pvd,
+		pov,
 		executor_params,
 		result_tx,
 		waiting_since: Instant::now(),
@@ -352,15 +358,19 @@ async fn handle_job_finish(
 	artifact_id: ArtifactId,
 	result_tx: ResultSender,
 ) {
-	let (idle_worker, result, duration, sync_channel) = match worker_result {
+	let (idle_worker, result, duration, sync_channel, pov_size) = match worker_result {
 		Ok(WorkerInterfaceResponse {
 			worker_response:
-				WorkerResponse { job_response: JobResponse::Ok { result_descriptor }, duration },
+				WorkerResponse {
+					job_response: JobResponse::Ok { result_descriptor },
+					duration,
+					pov_size,
+				},
 			idle_worker,
 		}) => {
 			// TODO: propagate the soft timeout
 
-			(Some(idle_worker), Ok(result_descriptor), Some(duration), None)
+			(Some(idle_worker), Ok(result_descriptor), Some(duration), None, Some(pov_size))
 		},
 		Ok(WorkerInterfaceResponse {
 			worker_response: WorkerResponse { job_response: JobResponse::InvalidCandidate(err), .. },
@@ -368,6 +378,18 @@ async fn handle_job_finish(
 		}) => (
 			Some(idle_worker),
 			Err(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
+			None,
+			None,
+			None,
+		),
+		Ok(WorkerInterfaceResponse {
+			worker_response:
+				WorkerResponse { job_response: JobResponse::PoVDecompressionFailure, .. },
+			idle_worker,
+		}) => (
+			Some(idle_worker),
+			Err(ValidationError::Invalid(InvalidCandidate::PoVDecompressionFailure)),
+			None,
 			None,
 			None,
 		),
@@ -393,21 +415,23 @@ async fn handle_job_finish(
 				))),
 				None,
 				Some(result_rx),
+				None,
 			)
 		},
 
 		Err(WorkerInterfaceError::InternalError(err)) |
 		Err(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) =>
-			(None, Err(ValidationError::Internal(err)), None, None),
+			(None, Err(ValidationError::Internal(err)), None, None, None),
 		// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there's no time left for a retry.
 		Err(WorkerInterfaceError::HardTimeout) |
 		Err(WorkerInterfaceError::WorkerError(WorkerError::JobTimedOut)) =>
-			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None, None),
+			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None, None, None),
 		// "Maybe invalid" errors (will retry).
 		Err(WorkerInterfaceError::CommunicationErr(_err)) => (
 			None,
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
+			None,
 			None,
 			None,
 		),
@@ -416,16 +440,21 @@ async fn handle_job_finish(
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
 			None,
 			None,
+			None,
 		),
 		Err(WorkerInterfaceError::WorkerError(WorkerError::JobError(err))) => (
 			None,
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err.to_string()))),
 			None,
 			None,
+			None,
 		),
 	};
 
 	queue.metrics.execute_finished();
+	if let Some(pov_size) = pov_size {
+		queue.metrics.observe_pov_size(pov_size as usize, false)
+	}
 	if let Err(ref err) = result {
 		gum::warn!(
 			target: LOG_TARGET,
@@ -573,7 +602,8 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 				idle,
 				job.artifact.clone(),
 				job.exec_timeout,
-				job.params,
+				job.pvd,
+				job.pov,
 			)
 			.await;
 			QueueEvent::StartWork(worker, result, job.artifact.id, job.result_tx)
