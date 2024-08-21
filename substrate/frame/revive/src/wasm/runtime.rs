@@ -140,7 +140,7 @@ pub trait PolkaVmInstance<T: Config>: Memory<T> {
 // of those functions: A `read_as` with a `len` larger than the actual type can succeed
 // in the streaming implementation while it could fail with a segfault in the copy implementation.
 #[cfg(feature = "runtime-benchmarks")]
-impl<'a, T: Config> Memory<T> for [u8] {
+impl<T: Config> Memory<T> for [u8] {
 	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
 		let ptr = ptr as usize;
 		let bound_checked =
