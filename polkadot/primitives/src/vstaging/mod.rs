@@ -357,9 +357,6 @@ pub struct CoreSelector(pub u8);
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct ClaimQueueOffset(pub u8);
 
-/// Default claim queue offset
-pub const DEFAULT_CLAIM_QUEUE_OFFSET: ClaimQueueOffset = ClaimQueueOffset(1);
-
 /// Signals that a parachain can send to the relay chain via the UMP queue.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum UMPSignal {
