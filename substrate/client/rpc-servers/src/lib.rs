@@ -38,10 +38,7 @@ use utils::{
 
 pub use ip_network::IpNetwork;
 pub use jsonrpsee::{
-	core::{
-		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
-		traits::IdProvider,
-	},
+	core::id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
 pub use middleware::{Metrics, MiddlewareLayer, RpcMetrics};
@@ -51,6 +48,14 @@ const MEGABYTE: u32 = 1024 * 1024;
 
 /// Type alias for the JSON-RPC server.
 pub type Server = jsonrpsee::server::ServerHandle;
+
+/// Trait for providing subscription IDs that can be cloned.
+pub trait SubscriptionIdProvider:
+	jsonrpsee::core::traits::IdProvider + dyn_clone::DynClone
+{
+}
+
+dyn_clone::clone_trait_object!(SubscriptionIdProvider);
 
 /// RPC server configuration.
 #[derive(Debug)]
@@ -62,7 +67,7 @@ pub struct Config<M: Send + Sync + 'static> {
 	/// RPC API.
 	pub rpc_api: RpcModule<M>,
 	/// Subscription ID provider.
-	pub id_provider: Option<Box<dyn IdProvider>>,
+	pub id_provider: Option<Box<dyn SubscriptionIdProvider>>,
 	/// Tokio runtime handle.
 	pub tokio_handle: tokio::runtime::Handle,
 }
@@ -80,7 +85,7 @@ pub async fn start_server<M>(config: Config<M>) -> Result<Server, Box<dyn StdErr
 where
 	M: Send + Sync,
 {
-	let Config { endpoints, metrics, tokio_handle, rpc_api, .. } = config;
+	let Config { endpoints, metrics, tokio_handle, rpc_api, id_provider } = config;
 
 	let (stop_handle, server_handle) = stop_channel();
 	let cfg = PerConnection {
@@ -107,6 +112,8 @@ where
 		let local_addr = listener.local_addr();
 		local_addrs.push(local_addr);
 		let cfg = cfg.clone();
+
+		let mut id_provider2 = id_provider.clone();
 
 		tokio_handle.spawn(async move {
 			loop {
@@ -145,7 +152,7 @@ where
 					.layer(NodeHealthProxyLayer::default())
 					.layer(cors);
 
-				let builder = jsonrpsee::server::Server::builder()
+				let mut builder = jsonrpsee::server::Server::builder()
 					.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
 					.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
 					.max_connections(max_connections)
@@ -162,12 +169,11 @@ where
 					.custom_tokio_runtime(cfg.tokio_handle.clone())
 					.set_id_provider(RandomStringIdProvider::new(16));
 
-				// TODO: not cloneable which is required.
-				/*if let Some(provider) = id_provider {
+				if let Some(provider) = id_provider2.take() {
 					builder = builder.set_id_provider(provider);
 				} else {
 					builder = builder.set_id_provider(RandomStringIdProvider::new(16));
-				};*/
+				};
 
 				let service_builder = builder.to_service_builder();
 				let deny_unsafe = deny_unsafe(&local_addr, &rpc_methods);

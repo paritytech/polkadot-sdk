@@ -88,9 +88,7 @@ pub use sc_executor::NativeExecutionDispatch;
 pub use sc_network_sync::WarpSyncParams;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
-pub use sc_rpc::{
-	RandomIntegerSubscriptionId, RandomStringSubscriptionId, RpcSubscriptionIdProvider,
-};
+pub use sc_rpc::{RandomIntegerSubscriptionId, RandomStringSubscriptionId};
 pub use sc_tracing::TracingReceiver;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
@@ -380,7 +378,7 @@ mod waiting {
 pub fn start_rpc_servers<R>(
 	config: &Configuration,
 	gen_rpc_module: R,
-	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
+	rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
 ) -> Result<Box<dyn std::any::Any + Send + Sync>, error::Error>
 where
 	R: Fn() -> Result<RpcModule<()>, Error>,
@@ -388,7 +386,7 @@ where
 	let endpoints: Vec<sc_rpc_server::RpcEndpoint> = if let Some(endpoints) =
 		config.rpc_addr.as_ref()
 	{
-		endpoints.clone().into_iter().map(Into::into).collect()
+		endpoints.clone()
 	} else {
 		let ipv6 = SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, config.rpc_port, 0, 0));
 		let ipv4 = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, config.rpc_port));

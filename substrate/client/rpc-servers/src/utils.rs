@@ -59,6 +59,12 @@ pub enum RpcMethods {
 	Auto,
 }
 
+impl Default for RpcMethods {
+	fn default() -> Self {
+		RpcMethods::Auto
+	}
+}
+
 impl FromStr for RpcMethods {
 	type Err = String;
 

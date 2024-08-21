@@ -33,7 +33,7 @@ pub use sc_network::{
 	},
 	Multiaddr,
 };
-pub use sc_rpc_server::IpNetwork;
+pub use sc_rpc_server::{IpNetwork, RpcEndpoint, RpcMethods};
 pub use sc_telemetry::TelemetryEndpoints;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 use sp_core::crypto::SecretString;
@@ -83,7 +83,7 @@ pub struct Configuration {
 	/// disable overrides (default).
 	pub wasm_runtime_overrides: Option<PathBuf>,
 	/// JSON-RPC server endpoints.
-	pub rpc_addr: Option<Vec<RpcEndpoint>>,
+	pub rpc_addr: Option<Vec<sc_rpc_server::RpcEndpoint>>,
 	/// Maximum number of connections for JSON-RPC server.
 	pub rpc_max_connections: u32,
 	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
@@ -97,7 +97,7 @@ pub struct Configuration {
 	/// Custom JSON-RPC subscription ID provider.
 	///
 	/// Default: [`crate::RandomStringSubscriptionId`].
-	pub rpc_id_provider: Option<Box<dyn crate::RpcSubscriptionIdProvider>>,
+	pub rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
 	/// Maximum allowed subscriptions per rpc connection
 	pub rpc_max_subs_per_conn: u32,
 	/// JSON-RPC server default port.
@@ -255,24 +255,6 @@ impl Configuration {
 	}
 }
 
-/// Available RPC methods.
-#[derive(Debug, Copy, Clone)]
-pub enum RpcMethods {
-	/// Expose every RPC method only when RPC is listening on `localhost`,
-	/// otherwise serve only safe RPC methods.
-	Auto,
-	/// Allow only a safe subset of RPC methods.
-	Safe,
-	/// Expose every RPC method (even potentially unsafe ones).
-	Unsafe,
-}
-
-impl Default for RpcMethods {
-	fn default() -> RpcMethods {
-		RpcMethods::Auto
-	}
-}
-
 #[static_init::dynamic(drop, lazy)]
 static mut BASE_PATH_TEMP: Option<TempDir> = None;
 
@@ -337,71 +319,5 @@ impl BasePath {
 impl From<PathBuf> for BasePath {
 	fn from(path: PathBuf) -> Self {
 		BasePath::new(path)
-	}
-}
-
-/// Represent a single RPC endpoint with its configuration.
-#[derive(Debug, Clone)]
-pub struct RpcEndpoint {
-	/// Listen address.
-	pub listen_addr: SocketAddr,
-	/// Batch request configuration.
-	pub batch_config: RpcBatchRequestConfig,
-	/// Maximum number of connections.
-	pub max_connections: u32,
-	/// Maximum inbound payload size in MB.
-	pub max_payload_in_mb: u32,
-	/// Maximum outbound payload size in MB.
-	pub max_payload_out_mb: u32,
-	/// Maximum number of subscriptions per connection.
-	pub max_subscriptions_per_connection: u32,
-	/// Maximum buffer capacity per connection.
-	pub max_buffer_capacity_per_connection: u32,
-	/// Rate limit per minute.
-	pub rate_limit: Option<NonZeroU32>,
-	/// Whether to trust proxy headers for rate limiting.
-	pub rate_limit_trust_proxy_headers: bool,
-	/// Whitelisted IPs for rate limiting.
-	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
-	/// CORS.
-	pub cors: Option<Vec<String>>,
-	/// RPC methods to expose.
-	pub rpc_methods: RpcMethods,
-	/// Whether it's an optional listening address i.e, it's ignored if it fails to bind.
-	/// For example substrate tries to bind both ipv4 and ipv6 addresses but some platforms
-	/// may not support ipv6.
-	pub is_optional: bool,
-	/// Whether to retry with a random port if the provided port is already in use.
-	pub retry_random_port: bool,
-}
-
-impl Into<sc_rpc_server::RpcEndpoint> for RpcEndpoint {
-	fn into(self) -> sc_rpc_server::RpcEndpoint {
-		sc_rpc_server::RpcEndpoint {
-			batch_config: self.batch_config,
-			listen_addr: self.listen_addr,
-			max_connections: self.max_connections,
-			max_payload_in_mb: self.max_payload_in_mb,
-			max_payload_out_mb: self.max_payload_out_mb,
-			max_subscriptions_per_connection: self.max_subscriptions_per_connection,
-			max_buffer_capacity_per_connection: self.max_buffer_capacity_per_connection,
-			rpc_methods: self.rpc_methods.into(),
-			rate_limit: self.rate_limit,
-			rate_limit_trust_proxy_headers: self.rate_limit_trust_proxy_headers,
-			rate_limit_whitelisted_ips: self.rate_limit_whitelisted_ips,
-			cors: self.cors,
-			retry_random_port: self.retry_random_port,
-			is_optional: self.is_optional,
-		}
-	}
-}
-
-impl Into<sc_rpc_server::RpcMethods> for RpcMethods {
-	fn into(self) -> sc_rpc_server::RpcMethods {
-		match self {
-			RpcMethods::Auto => sc_rpc_server::RpcMethods::Auto,
-			RpcMethods::Safe => sc_rpc_server::RpcMethods::Safe,
-			RpcMethods::Unsafe => sc_rpc_server::RpcMethods::Unsafe,
-		}
 	}
 }
