@@ -19,8 +19,6 @@ use frame_support::derive_impl;
 
 mod common;
 
-use common::outer_enums::pallet;
-
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
@@ -78,7 +76,7 @@ frame_support::construct_runtime!(
 #[cfg(feature = "experimental")]
 #[test]
 fn module_error_outer_enum_expand_implicit() {
-	use common::outer_enums::pallet2;
+	use common::outer_enums::{pallet, pallet2};
 	// The Runtime has *all* parts implicitly defined.
 
 	// Check that all error types are propagated
