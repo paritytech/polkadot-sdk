@@ -36,6 +36,7 @@ mod imports {
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
+		xcm_helpers::xcm_transact_paid_execution,
 		ASSETS_PALLET_ID, USDT_ID,
 	};
 	pub use parachains_common::AccountId;
@@ -70,6 +71,7 @@ mod imports {
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
+	pub const ASSET_ID: u32 = 1;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
 }
 

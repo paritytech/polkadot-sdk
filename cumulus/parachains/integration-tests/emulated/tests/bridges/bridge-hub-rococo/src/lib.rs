@@ -23,8 +23,7 @@ mod imports {
 	pub use xcm::{
 		latest::ParentThen,
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v4,
-		v4::NetworkId::Westend as WestendId,
+		v4::{self, NetworkId::Westend as WestendId},
 	};
 	pub use xcm_executor::traits::TransferType;
 
@@ -37,6 +36,7 @@ mod imports {
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
+		xcm_helpers::xcm_transact_paid_execution,
 		ASSETS_PALLET_ID, USDT_ID,
 	};
 	pub use parachains_common::AccountId;
@@ -77,6 +77,7 @@ mod imports {
 		RococoRelaySender as RococoSender,
 	};
 
+	pub const ASSET_ID: u32 = 1;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
 }
 
