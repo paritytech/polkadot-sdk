@@ -523,6 +523,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -539,9 +542,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed, GenericChainSpec};
+</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>parachains_common::Balance <span class="kw">as </span>BridgeHubBalance;
+<span class="kw">use </span>polkadot_parachain_lib::chain_spec::GenericChainSpec;
 <span class="kw">use </span>sc_chain_spec::ChainSpec;
 <span class="kw">use </span>sp_core::sr25519;
 <span class="kw">use </span>std::str::FromStr;
@@ -654,8 +658,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Sub-module for Rococo setup
 </span><span class="kw">pub mod </span>rococo {
 	<span class="kw">use super</span>::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::{Extensions, GenericChainSpec, SAFE_XCM_VERSION};
+	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::SAFE_XCM_VERSION;
 	<span class="kw">use </span>parachains_common::{AccountId, AuraId};
+	<span class="kw">use </span>polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	<span class="kw">use </span>sc_chain_spec::ChainType;
 
 	<span class="kw">use </span><span class="kw">super</span>::BridgeHubBalance;
@@ -779,8 +784,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Sub-module for Westend setup.
 </span><span class="kw">pub mod </span>westend {
 	<span class="kw">use super</span>::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::{Extensions, GenericChainSpec, SAFE_XCM_VERSION};
+	<span class="kw">use </span><span class="kw">crate</span>::chain_spec::SAFE_XCM_VERSION;
 	<span class="kw">use </span>parachains_common::{AccountId, AuraId};
+	<span class="kw">use </span>polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	<span class="kw">use </span>sc_chain_spec::ChainType;
 
 	<span class="kw">use </span><span class="kw">super</span>::BridgeHubBalance;

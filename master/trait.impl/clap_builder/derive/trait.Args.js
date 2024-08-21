@@ -11,7 +11,6 @@
 "parachain_template_node":[["impl Args for <a class=\"struct\" href=\"parachain_template_node/cli/struct.Cli.html\" title=\"struct parachain_template_node::cli::Cli\">Cli</a>"]],
 "phragmen_pjr":[["impl Args for <a class=\"struct\" href=\"phragmen_pjr/struct.Opt.html\" title=\"struct phragmen_pjr::Opt\">Opt</a>"]],
 "polkadot_cli":[["impl Args for <a class=\"struct\" href=\"polkadot_cli/struct.RunCmd.html\" title=\"struct polkadot_cli::RunCmd\">RunCmd</a>"],["impl Args for <a class=\"struct\" href=\"polkadot_cli/struct.Cli.html\" title=\"struct polkadot_cli::Cli\">Cli</a>"]],
-"polkadot_parachain":[["impl Args for <a class=\"struct\" href=\"polkadot_parachain/cli/struct.Cli.html\" title=\"struct polkadot_parachain::cli::Cli\">Cli</a>"]],
 "polkadot_subsystem_bench":[["impl Args for <a class=\"struct\" href=\"polkadot_subsystem_bench/approval/struct.ApprovalsOptions.html\" title=\"struct polkadot_subsystem_bench::approval::ApprovalsOptions\">ApprovalsOptions</a>"],["impl Args for <a class=\"struct\" href=\"polkadot_subsystem_bench/availability/struct.DataAvailabilityReadOptions.html\" title=\"struct polkadot_subsystem_bench::availability::DataAvailabilityReadOptions\">DataAvailabilityReadOptions</a>"]],
 "polkadot_voter_bags":[["impl Args for <a class=\"struct\" href=\"polkadot_voter_bags/struct.Opt.html\" title=\"struct polkadot_voter_bags::Opt\">Opt</a>"]],
 "remote_ext_tests_bags_list":[["impl Args for <a class=\"struct\" href=\"remote_ext_tests_bags_list/struct.Cli.html\" title=\"struct remote_ext_tests_bags_list::Cli\">Cli</a>"]],

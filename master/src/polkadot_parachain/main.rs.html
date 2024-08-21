@@ -204,8 +204,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
-<a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -227,40 +225,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>examples(executable_name: String) -&gt; String {
-	<span class="macro">color_print::cformat!</span>(
-		<span class="string">r#"&lt;bold&gt;&lt;underline&gt;Examples:&lt;/&gt;&lt;/&gt;
+</span><span class="kw">mod </span>chain_spec;
 
-   &lt;bold&gt;{0} --chain para.json --sync warp -- --chain relay.json --sync warp&lt;/&gt;
-        Launch a warp-syncing full node of a given para's chain-spec, and a given relay's chain-spec.
+<span class="kw">use </span>polkadot_parachain_lib::{run, CliConfig <span class="kw">as </span>CliConfigT, RunConfig};
 
-	&lt;green&gt;&lt;italic&gt;The above approach is the most flexible, and the most forward-compatible way to spawn an omni-node.&lt;/&gt;&lt;/&gt;
+<span class="kw">struct </span>CliConfig;
 
-	You can find the chain-spec of some networks in:
-	https://paritytech.github.io/chainspecs
+<span class="kw">impl </span>CliConfigT <span class="kw">for </span>CliConfig {
+	<span class="kw">fn </span>impl_version() -&gt; String {
+		<span class="macro">env!</span>(<span class="string">"SUBSTRATE_CLI_IMPL_VERSION"</span>).into()
+	}
 
-   &lt;bold&gt;{0} --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp&lt;/&gt;
-        Launch a warp-syncing full node of the &lt;italic&gt;Asset Hub&lt;/&gt; parachain on the &lt;italic&gt;Polkadot&lt;/&gt; Relay Chain.
+	<span class="kw">fn </span>author() -&gt; String {
+		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_AUTHORS"</span>).into()
+	}
 
-   &lt;bold&gt;{0} --chain asset-hub-kusama --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain kusama&lt;/&gt;
-        Launch a warp-syncing full node of the &lt;italic&gt;Asset Hub&lt;/&gt; parachain on the &lt;italic&gt;Kusama&lt;/&gt; Relay Chain.
-        Uses &lt;italic&gt;ws://rpc.example.com&lt;/&gt; as remote relay chain node.
- "#</span>,
-		executable_name,
-	)
+	<span class="kw">fn </span>support_url() -&gt; String {
+		<span class="string">"https://github.com/paritytech/polkadot-sdk/issues/new"</span>.into()
+	}
+
+	<span class="kw">fn </span>copyright_start_year() -&gt; u16 {
+		<span class="number">2017
+	</span>}
 }
-
-<span class="kw">mod </span>chain_spec;
-<span class="kw">mod </span>cli;
-<span class="kw">mod </span>command;
-<span class="kw">mod </span>common;
-<span class="kw">mod </span>fake_runtime_api;
-<span class="kw">mod </span>rpc;
-<span class="kw">mod </span>service;
 
 <span class="kw">fn </span>main() -&gt; color_eyre::eyre::Result&lt;()&gt; {
 	color_eyre::install()<span class="question-mark">?</span>;
-	<span class="prelude-val">Ok</span>(command::run()<span class="question-mark">?</span>)
+
+	<span class="kw">let </span>config = RunConfig {
+		chain_spec_loader: Box::new(chain_spec::ChainSpecLoader),
+		runtime_resolver: Box::new(chain_spec::RuntimeResolver),
+	};
+	<span class="prelude-val">Ok</span>(run::&lt;CliConfig&gt;(config)<span class="question-mark">?</span>)
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

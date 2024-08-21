@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BuildEmptyRpcExtensions","BuildParachainRpcExtensions"],"trait":["BuildRpcExtensions"],"type":["RpcExtension"]};

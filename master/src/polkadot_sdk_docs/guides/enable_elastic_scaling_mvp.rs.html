@@ -380,7 +380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! This phase consists of plugging in the new slot-based collator.
 //!
 //! 1. In `node/src/service.rs` import the slot based collator instead of the lookahead collator.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"../../cumulus/polkadot-parachain/src/service.rs"</span>, slot_based_colator_import)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"../../cumulus/polkadot-parachain/polkadot-parachain-lib/src/service.rs"</span>, slot_based_colator_import)]
 </span><span class="doccomment">//!
 //! 2. In `start_consensus()`
 //!     - Remove the `overseer_handle` param (also remove the
@@ -389,7 +389,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!     `slot_drift` field with a   value of `Duration::from_secs(1)`.
 //!     - Replace the single future returned by `aura::run` with the two futures returned by it and
 //!     spawn them as separate tasks:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"../../cumulus/polkadot-parachain/src/service.rs"</span>, launch_slot_based_collator)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"../../cumulus/polkadot-parachain/polkadot-parachain-lib/src/service.rs"</span>, launch_slot_based_collator)]
 </span><span class="doccomment">//!
 //! 3. In `start_parachain_node()` remove the `overseer_handle` param passed to `start_consensus`.
 //!

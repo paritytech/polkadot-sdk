@@ -252,6 +252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -270,10 +271,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! ChainSpecs dedicated to Rococo parachain setups (for testing and example purposes)
 
-</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_from_seed, Extensions, GenericChainSpec, SAFE_XCM_VERSION};
+</span><span class="kw">use </span><span class="kw">crate</span>::chain_spec::{get_from_seed, SAFE_XCM_VERSION};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>hex_literal::hex;
 <span class="kw">use </span>parachains_common::AccountId;
+<span class="kw">use </span>polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 <span class="kw">use </span>polkadot_service::chain_spec::get_account_id_from_seed;
 <span class="kw">use </span>rococo_parachain_runtime::AuraId;
 <span class="kw">use </span>sc_chain_spec::ChainType;

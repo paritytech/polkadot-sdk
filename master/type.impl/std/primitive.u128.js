@@ -22,7 +22,7 @@
 "parachains_common":[],
 "penpal_runtime":[],
 "polkadot_core_primitives":[],
-"polkadot_parachain":[],
+"polkadot_parachain_lib":[],
 "polkadot_primitives":[],
 "polkadot_sdk_docs":[],
 "reduce":[],

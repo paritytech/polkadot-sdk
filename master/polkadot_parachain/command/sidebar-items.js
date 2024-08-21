@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Consensus","Runtime"],"fn":["extract_parachain_id","load_spec","new_node_spec","run","runtime","start_node"],"trait":["RuntimeResolver"]};

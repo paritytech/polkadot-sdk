@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["examples","main"],"mod":["chain_spec","cli","command","common","fake_runtime_api","rpc","service"]};
+window.SIDEBAR_ITEMS = {"fn":["main"],"mod":["chain_spec"],"struct":["CliConfig"]};

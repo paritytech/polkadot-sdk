@@ -1671,6 +1671,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1519" id="1519">1519</a>
 <a href="#1520" id="1520">1520</a>
 <a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2554,6 +2558,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// System overseer of the Polkadot node.
 </span><span class="attr">#[cfg(feature = <span class="string">"polkadot-overseer"</span>)]
 </span><span class="kw">pub use </span>polkadot_overseer;
+
+<span class="doccomment">/// Helper library that can be used to build a parachain node.
+</span><span class="attr">#[cfg(feature = <span class="string">"polkadot-parachain-lib"</span>)]
+</span><span class="kw">pub use </span>polkadot_parachain_lib;
 
 <span class="doccomment">/// Types and utilities for creating and working with parachains.
 </span><span class="attr">#[cfg(feature = <span class="string">"polkadot-parachain-primitives"</span>)]
