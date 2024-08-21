@@ -134,13 +134,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: brew install protobuf rustup
-      - run: rustup-init -y
-      # - name: Install rust
-      #   run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      # - run: source $HOME/.cargo/env
-      - run: rustup toolchain install nightly stable-aarch64-apple-darwin
+      - name: Install rust
+        run: rustup-init -y
+      - run: source $HOME/.cargo/env
+      - run: rustup toolchain install nightly
       - run: rustup target add wasm32-unknown-unknown
-      - run: rustup component add rust-src --toolchain stable-aarch64-apple-darwin
+      - run: rustup component add rust-src
       - run: time cargo check --workspace --locked
 
   confirm-required-jobs-passed:
