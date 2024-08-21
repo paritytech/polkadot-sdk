@@ -303,7 +303,7 @@ pub mod pallet {
 		///
 		/// This value hugely affects the memory requirements of this pallet since all the code of
 		/// all contracts on the call stack will need to be held in memory. Setting of a correct
-		/// value will be enforced in `integrity_test`.
+		/// value will be enforced in [`Pallet::integrity_test`].
 		#[pallet::constant]
 		type MaxCodeLen: Get<u32>;
 
@@ -375,13 +375,13 @@ pub mod pallet {
 
 		/// The amount of memory in bytes that parachain nodes alot to the runtime.
 		///
-		/// This is used in [`integrity_check`] to make sure that the runtime has enough
+		/// This is used in [`Pallet::integrity_test`] to make sure that the runtime has enough
 		/// memory to support this pallet if set to the correct value.
 		type RuntimeMemory: Get<u32>;
 
 		/// The amount of memory in bytes that relay chain validators alot to the PoV.
 		///
-		/// This is used in [`integrity_check`] to make sure that the runtime has enough
+		/// This is used in [`Pallet::integrity_test`] to make sure that the runtime has enough
 		/// memory to support this pallet if set to the correct value.
 		///
 		/// This value is usually higher than [`Self::RuntimeMemory`] to account for the fact
