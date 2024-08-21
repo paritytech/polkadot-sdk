@@ -15,74 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Contracts Pallet
-//!
-//! The Contracts module provides functionality for the runtime to deploy and execute WebAssembly
-//! smart-contracts.
-//!
-//! - [`Config`]
-//! - [`Call`]
-//!
-//! ## Overview
-//!
-//! This module extends accounts based on the [`frame_support::traits::fungible`] traits to have
-//! smart-contract functionality. It can be used with other modules that implement accounts based on
-//! the [`frame_support::traits::fungible`] traits. These "smart-contract accounts" have the ability
-//! to instantiate smart-contracts and make calls to other contract and non-contract accounts.
-//!
-//! The smart-contract code is stored once, and later retrievable via its hash.
-//! This means that multiple smart-contracts can be instantiated from the same hash, without
-//! replicating the code each time.
-//!
-//! When a smart-contract is called, its associated code is retrieved via the code hash and gets
-//! executed. This call can alter the storage entries of the smart-contract account, instantiate new
-//! smart-contracts, or call other smart-contracts.
-//!
-//! Finally, when an account is reaped, its associated code and storage of the smart-contract
-//! account will also be deleted.
-//!
-//! ### Weight
-//!
-//! Senders must specify a [`Weight`] limit with every call, as all instructions invoked by the
-//! smart-contract require weight. Unused weight is refunded after the call, regardless of the
-//! execution outcome.
-//!
-//! If the weight limit is reached, then all calls and state changes (including balance transfers)
-//! are only reverted at the current call's contract level. For example, if contract A calls B and B
-//! runs out of gas mid-call, then all of B's calls are reverted. Assuming correct error handling by
-//! contract A, A's other calls and state changes still persist.
-//!
-//! ### Notable Scenarios
-//!
-//! Contract call failures are not always cascading. When failures occur in a sub-call, they do not
-//! "bubble up", and the call will only revert at the specific contract level. For example, if
-//! contract A calls contract B, and B fails, A can decide how to handle that failure, either
-//! proceeding or reverting A's changes.
-//!
-//! ## Interface
-//!
-//! ### Dispatchable functions
-//!
-//! * [`Pallet::instantiate_with_code`] - Deploys a new contract from the supplied Wasm binary,
-//! optionally transferring
-//! some balance. This instantiates a new smart contract account with the supplied code and
-//! calls its constructor to initialize the contract.
-//! * [`Pallet::instantiate`] - The same as `instantiate_with_code` but instead of uploading new
-//! code an existing `code_hash` is supplied.
-//! * [`Pallet::call`] - Makes a call to an account, optionally transferring some balance.
-//! * [`Pallet::upload_code`] - Uploads new code without instantiating a contract from it.
-//! * [`Pallet::remove_code`] - Removes the stored code and refunds the deposit to its owner. Only
-//!   allowed to code owner.
-//! * [`Pallet::set_code`] - Changes the code of an existing contract. Only allowed to `Root`
-//!   origin.
-//! * [`Pallet::migrate`] - Runs migration steps of current multi-block migration in priority,
-//!   before [`Hooks::on_idle`][frame_support::traits::Hooks::on_idle] activates.
-//!
-//! ## Usage
-//!
-//! * [`ink!`](https://use.ink) is language that enables writing Wasm-based smart contracts in plain
-//!   Rust.
-
+#![doc = include_str!("../README.md")]
 #![allow(rustdoc::private_intra_doc_links)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]

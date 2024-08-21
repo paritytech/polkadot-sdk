@@ -1,6 +1,7 @@
-# Revive Module
+# Revive Pallet
 
-This module provides functionality for the runtime to deploy and execute PolkaVM smart-contracts.
+This is an **experimental** module that provides functionality for the runtime to deploy and execute PolkaVM
+smart-contracts. It is a heavily modified `pallet_contracts` fork.
 
 ## Overview
 
