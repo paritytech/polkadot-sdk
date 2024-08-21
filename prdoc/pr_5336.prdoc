@@ -7,8 +7,34 @@ doc:
   - audience: Runtime Dev
     description: |
       Before this pallet would reserve its storage value manually, `Consideration`
-      trait simplifies the implementation.
+      trait simplifies the implementation, although users now need to refactor their
+      configuration of proxy pallet.
+
+      Adds new AtLeastOneLinearStoragePrice storage trait that implements `proxy-pallet`
+      balance reservation of reserving no balance if there are no items and reserving
+      `base + size * factor` balance if there's at least one item.
+
+      Refactors the rest of the dependent crates to use the new proxy pallet with
+      Consideration.
 
 crates:
   - name: pallet-proxy
+    bump: major
+  - name: frame-support
+    bump: patch
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: pallet-contracts
+    bump: patch
+  - name: pallet-safe-mode
+    bump: patch
+  - name: pallet-tx-pause
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: collectives-westend-runtime
     bump: major
