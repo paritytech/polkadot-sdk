@@ -312,7 +312,7 @@ impl<H: Clone> CommittedCandidateReceiptV2<H> {
 		self.to_plain().hash()
 	}
 
-	/// Does this committed candidate receipt corresponds to the given [`CandidateReceipt`]?
+	/// Does this committed candidate receipt corresponds to the given [`CandidateReceiptV2`]?
 	pub fn corresponds_to(&self, receipt: &CandidateReceiptV2<H>) -> bool
 	where
 		H: PartialEq,

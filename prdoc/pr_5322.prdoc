@@ -1,4 +1,4 @@
-title: Elastic scaling: introduce new candidate receipt primitive
+title: Elastic scaling - introduce new candidate receipt primitive
 
 doc:
   - audience: [Runtime Dev, Node Dev]
