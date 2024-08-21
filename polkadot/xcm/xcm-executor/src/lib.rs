@@ -503,7 +503,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			}
 			fee
 		} else {
-			self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
+			// This condition exists to support `BuyExecution` while the ecosystem
+			// transitions to `PayFees`.
+			if self.fees.is_empty() {
+				// Means `BuyExecution` was used, we'll find the fees in the `holding` register.
+				self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
+			} else {
+				// Means `PayFees` was used, we'll find the fees in the `fees` register.
+				self.fees.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
+			}
 		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())

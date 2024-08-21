@@ -19,41 +19,109 @@
 //! See [Fellowship RFC 105](https://github.com/polkadot-fellows/rfCs/pull/105)
 //! and the [specification](https://github.com/polkadot-fellows/xcm-format) for more information.
 
-use codec::Encode;
 use xcm::prelude::*;
 
 use super::mock::*;
-use crate::XcmExecutor;
 
+// The sender and recipient we use across these tests.
+const SENDER: [u8; 32] = [0; 32];
+const RECIPIENT: [u8; 32] = [1; 32];
+
+// This is a sort of backwards compatibility test.
+// Since `PayFees` is a replacement for `BuyExecution`, we need to make sure it at least
+// manages to do the same thing, paying for execution fees.
 #[test]
 fn works_for_execution_fees() {
-	let sender = Location::new(0, [AccountId32 { id: [0; 32], network: None }]);
-	let recipient = Location::new(0, [AccountId32 { id: [1; 32], network: None }]);
-
-	// Make sure the user has enough funds to withdraw.
-	add_asset(sender.clone(), (Here, 100u128));
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER.clone(), (Here, 100u128));
 
 	// Build xcm.
 	let xcm = Xcm::<TestCall>::builder()
 		.withdraw_asset((Here, 100u128))
 		.pay_fees((Here, 10u128)) // 10% destined for fees, not more.
-		.deposit_asset(All, recipient.clone())
+		.deposit_asset(All, RECIPIENT.clone())
 		.build();
 
-	// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
-	// can inspect its fields.
-	let mut vm =
-		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing::blake2_256));
-	vm.message_weight = XcmExecutor::<XcmConfig>::prepare(xcm.clone()).unwrap().weight_of();
+	let mut vm = instantiate_executor(SENDER, xcm.clone());
 
-	let result = vm.bench_process(xcm);
-	assert!(result.is_ok());
+	// Program runs successfully.
+	assert!(vm.bench_process(xcm).is_ok());
 
+	// Nothing is left in the `holding` register.
 	assert_eq!(get_first_fungible(vm.holding()), None);
 	// Execution fees were 4, so we still have 6 left in the `fees` register.
 	assert_eq!(get_first_fungible(vm.fees()).unwrap(), (Here, 6u128).into());
 
 	// The recipient received all the assets in the holding register, so `100` that
-	// were withdrawn minus the `10` that were destinated for fee payment.
-	assert_eq!(asset_list(recipient), [(Here, 90u128).into()]);
+	// were withdrawn, minus the `10` that were destinated for fee payment.
+	assert_eq!(asset_list(RECIPIENT), [(Here, 90u128).into()]);
+}
+
+// This tests the new functionality provided by `PayFees`, being able to pay for
+// delivery fees from the `fees` register.
+#[test]
+fn works_for_delivery_fees() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER.clone(), (Here, 100u128));
+
+	// Information to send messages.
+	// We don't care about the specifics since we're not actually sending them.
+	let query_response_info =
+		QueryResponseInfo { destination: Parent.into(), query_id: 0, max_weight: Weight::zero() };
+
+	// Build xcm.
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 10u128))
+		// Send a bunch of messages, each charging delivery fees.
+		.report_error(query_response_info.clone())
+		.report_error(query_response_info.clone())
+		.report_error(query_response_info)
+		.deposit_asset(All, RECIPIENT.clone())
+		.build();
+
+	let mut vm = instantiate_executor(SENDER, xcm.clone());
+
+	// Program runs successfully.
+	assert!(vm.bench_process(xcm).is_ok());
+
+	// Nothing is left in the `holding` register.
+	assert_eq!(get_first_fungible(vm.holding()), None);
+	// Execution fees were 4, delivery were 3, so we are left with only 3 in the `fees` register.
+	assert_eq!(get_first_fungible(vm.fees()).unwrap(), (Here, 3u128).into());
+
+	// The recipient received all the assets in the holding register, so `100` that
+	// were withdrawn, minus the `10` that were destinated for fee payment.
+	assert_eq!(asset_list(RECIPIENT), [(Here, 90u128).into()]);
+}
+
+// Tests the support for `BuyExecution` while the ecosystem transitions to `PayFees`.
+#[test]
+fn buy_execution_works_as_before() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER.clone(), (Here, 100u128));
+
+	// Build xcm.
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		// We can put everything here, since excess will be returned to holding.
+		// We have to specify `Limited` here to actually work, it's normally
+		// set in the `AllowTopLevelPaidExecutionFrom` barrier.
+		.buy_execution((Here, 100u128), Limited(Weight::from_parts(2, 2)))
+		.deposit_asset(All, RECIPIENT.clone())
+		.build();
+
+	let mut vm = instantiate_executor(SENDER, xcm.clone());
+
+	// Program runs successfully.
+	assert!(vm.bench_process(xcm).is_ok());
+
+	// Nothing is left in the `holding` register.
+	assert_eq!(get_first_fungible(vm.holding()), None);
+	// `BuyExecution` does not interact with the `fees` register.
+	assert_eq!(get_first_fungible(vm.fees()), None);
+
+	// The recipient received all the assets in the holding register, so `100` that
+	// were withdrawn, minus the `4` from paying the execution fees.
+	assert_eq!(asset_list(RECIPIENT), [(Here, 96u128).into()]);
 }

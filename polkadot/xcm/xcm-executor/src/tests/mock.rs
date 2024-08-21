@@ -30,8 +30,20 @@ use xcm::prelude::*;
 
 use crate::{
 	traits::{DropAssets, Properties, ShouldExecute, TransactAsset, WeightBounds, WeightTrader},
-	AssetsInHolding,
+	AssetsInHolding, Config, XcmExecutor,
 };
+
+/// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
+/// can inspect its fields.
+pub fn instantiate_executor(
+	origin: impl Into<Location>,
+	message: Xcm<<XcmConfig as Config>::RuntimeCall>,
+) -> XcmExecutor<XcmConfig> {
+	let mut vm =
+		XcmExecutor::<XcmConfig>::new(origin, message.using_encoded(sp_io::hashing::blake2_256));
+	vm.message_weight = XcmExecutor::<XcmConfig>::prepare(message.clone()).unwrap().weight_of();
+	vm
+}
 
 parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 10;
@@ -203,11 +215,32 @@ impl DropAssets for TestAssetTrap {
 	}
 }
 
+/// Test sender that always succeeds but doesn't actually send anything.
+///
+/// It does charge `1` for the delivery fee.
+pub struct TestSender;
+impl SendXcm for TestSender {
+	type Ticket = ();
+
+	fn validate(
+		_destination: &mut Option<Location>,
+		_message: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		let ticket = ();
+		let delivery_fee: Asset = (Here, 1u128).into();
+		Ok((ticket, delivery_fee.into()))
+	}
+
+	fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		Ok([0; 32])
+	}
+}
+
 /// Test XcmConfig that uses all the test implementations in this file.
 pub struct XcmConfig;
-impl crate::Config for XcmConfig {
+impl Config for XcmConfig {
 	type RuntimeCall = TestCall;
-	type XcmSender = ();
+	type XcmSender = TestSender;
 	type AssetTransactor = TestAssetTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();
