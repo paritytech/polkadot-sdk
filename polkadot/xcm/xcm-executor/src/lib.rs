@@ -87,10 +87,12 @@ pub struct XcmExecutor<Config: config::Config> {
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
 	fees: AssetsInHolding,
+	/// Stores the current message's weight.
+	message_weight: Weight,
 	_config: PhantomData<Config>,
 }
 
-#[cfg(feature = "runtime-benchmarks")]
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 impl<Config: config::Config> XcmExecutor<Config> {
 	pub fn holding(&self) -> &AssetsInHolding {
 		&self.holding
@@ -177,9 +179,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		self.fees_mode = v
 	}
 	pub fn fees(&self) -> &AssetsInHolding {
-		self.fees
+		&self.fees
 	}
-	pub fn set_fees(&self, value: AssetsInHolding) {
+	pub fn set_fees(&mut self, value: AssetsInHolding) {
 		self.fees = value;
 	}
 	pub fn topic(&self) -> &Option<[u8; 32]> {
@@ -256,6 +258,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		*id = properties.message_id.unwrap_or(*id);
 
 		let mut vm = Self::new(origin, *id);
+		vm.message_weight = xcm_weight;
 
 		while !message.0.is_empty() {
 			let result = vm.process(message);
@@ -330,6 +333,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
 			fees: AssetsInHolding::new(),
+			message_weight: Weight::zero(),
 			_config: PhantomData,
 		}
 	}
@@ -560,7 +564,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		assets.into_assets_iter().collect::<Vec<_>>().into()
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn bench_process(&mut self, xcm: Xcm<Config::RuntimeCall>) -> Result<(), ExecutorError> {
 		self.process(xcm)
 	}
@@ -994,8 +998,24 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				result
 			},
 			PayFees { asset } => {
-				tracing::trace!(target: "xcm::process_instruction::pay_fees", "PayFees was encountered");
-				Ok(())
+				// Record old holding in case we need to rollback.
+				let old_holding = self.holding.clone();
+				// The max we're willing to pay for fees is decided by the `asset` operand.
+				let max_fee =
+					self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
+				// Pay for execution fees.
+				let result = || -> Result<(), XcmError> {
+					let unspent =
+						self.trader.buy_weight(self.message_weight, max_fee, &self.context)?;
+					// Move unspent to the `fees` register.
+					self.fees.subsume_assets(unspent);
+					Ok(())
+				}();
+				if result.is_err() {
+					// Rollback.
+					self.holding = old_holding;
+				}
+				result
 			},
 			RefundSurplus => self.refund_surplus(),
 			SetErrorHandler(mut handler) => {

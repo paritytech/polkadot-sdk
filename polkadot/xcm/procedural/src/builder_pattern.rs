@@ -160,7 +160,10 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 			};
 			let Meta::List(ref list) = builder_attr.meta else { unreachable!("We checked before") };
 			let inner_ident: Ident = syn::parse2(list.tokens.clone()).map_err(|_| {
-				Error::new_spanned(&builder_attr, "Expected `builder(loads_holding)` or `builder(pays_fees)`")
+				Error::new_spanned(
+					&builder_attr,
+					"Expected `builder(loads_holding)` or `builder(pays_fees)`",
+				)
 			})?;
 			let ident_to_match: Ident = syn::parse_quote!(loads_holding);
 			if inner_ident == ident_to_match {
@@ -274,7 +277,10 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 			};
 			let Meta::List(ref list) = builder_attr.meta else { unreachable!("We checked before") };
 			let inner_ident: Ident = syn::parse2(list.tokens.clone()).map_err(|_| {
-				Error::new_spanned(&builder_attr, "Expected `builder(loads_holding)` or `builder(pays_fees)`")
+				Error::new_spanned(
+					&builder_attr,
+					"Expected `builder(loads_holding)` or `builder(pays_fees)`",
+				)
 			})?;
 			let ident_to_match: Ident = syn::parse_quote!(pays_fees);
 			if inner_ident == ident_to_match {

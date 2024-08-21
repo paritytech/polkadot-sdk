@@ -20,4 +20,5 @@
 //! `xcm-emulator` based tests in the cumulus folder.
 //! These tests deal with internal state changes of the XCVM.
 
+mod mock;
 mod pay_fees;

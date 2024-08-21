@@ -19,138 +19,41 @@
 //! See [Fellowship RFC 105](https://github.com/polkadot-fellows/rfCs/pull/105)
 //! and the [specification](https://github.com/polkadot-fellows/xcm-format) for more information.
 
-use alloc::collections::btree_map::BTreeMap;
-use codec::{Encode, Decode};
-use core::cell::RefCell;
-use frame_support::{parameter_types, traits::{Everything, Nothing}, weights::Weight, dispatch::{DispatchResultWithPostInfo, PostDispatchInfo, GetDispatchInfo, DispatchInfo}};
-use sp_runtime::traits::Dispatchable;
+use codec::Encode;
 use xcm::prelude::*;
 
-use crate::{AssetsInHolding, traits::{TransactAsset, WeightBounds}, XcmExecutor};
+use super::mock::*;
+use crate::XcmExecutor;
 
 #[test]
 fn works_for_execution_fees() {
-    let xcm = Xcm::<TestCall>::builder()
-        .withdraw_asset((Here, 100u128))
-        .pay_fees((Here, 10u128)) // 10% destined for fees, not more.
-        .deposit_asset(All, [1; 32])
-        .build();
+	let sender = Location::new(0, [AccountId32 { id: [0; 32], network: None }]);
+	let recipient = Location::new(0, [AccountId32 { id: [1; 32], network: None }]);
 
-    let who = Location::new(0, [AccountId32 { id: [0; 32], network: None }]);
+	// Make sure the user has enough funds to withdraw.
+	add_asset(sender.clone(), (Here, 100u128));
 
-    let result = XcmExecutor::<XcmConfig>::prepare_and_execute(who, xcm.clone(), &mut xcm.using_encoded(sp_io::hashing::blake2_256), Weight::MAX, Weight::zero());
+	// Build xcm.
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 10u128)) // 10% destined for fees, not more.
+		.deposit_asset(All, recipient.clone())
+		.build();
 
-    dbg!(&result);
-}
+	// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
+	// can inspect its fields.
+	let mut vm =
+		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing::blake2_256));
+	vm.message_weight = XcmExecutor::<XcmConfig>::prepare(xcm.clone()).unwrap().weight_of();
 
-parameter_types! {
-    pub const MaxAssetsIntoHolding: u32 = 10;
-    pub const BaseXcmWeight: Weight = Weight::from_parts(1, 1);
-    pub const MaxInstructions: u32 = 10;
-    pub UniversalLocation: InteriorLocation = GlobalConsensus(ByGenesis([0; 32])).into();
-}
+	let result = vm.bench_process(xcm);
+	assert!(result.is_ok());
 
-/// Dummy origin.
-#[derive(Debug)]
-pub struct TestOrigin;
+	assert_eq!(get_first_fungible(vm.holding()), None);
+	// Execution fees were 4, so we still have 6 left in the `fees` register.
+	assert_eq!(get_first_fungible(vm.fees()).unwrap(), (Here, 6u128).into());
 
-/// Dummy call.
-///
-/// Doesn't dispatch anything, has an empty implementation of [`Dispatchable`] that
-/// just returns `Ok` with an empty [`PostDispatchInfo`].
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo)]
-pub struct TestCall;
-impl Dispatchable for TestCall {
-    type RuntimeOrigin = TestOrigin;
-    type Config = ();
-    type Info = ();
-    type PostInfo = PostDispatchInfo;
-
-    fn dispatch(self, _origin: Self::RuntimeOrigin) -> DispatchResultWithPostInfo {
-        Ok(PostDispatchInfo::default())
-    }
-}
-impl GetDispatchInfo for TestCall {
-    fn get_dispatch_info(&self) -> DispatchInfo {
-        DispatchInfo::default()
-    }
-}
-
-pub struct TestWeigher;
-impl<C> WeightBounds<C> for TestWeigher {
-    fn weight(_message: &mut Xcm<C>) -> Result<Weight, ()> {
-        Ok(Weight::from_parts(1, 1))
-    }
-
-    fn instr_weight(_instruction: &Instruction<C>) -> Result<Weight, ()> {
-        Ok(Weight::from_parts(1, 1))
-    }
-}
-
-thread_local! {
-	pub static ASSETS: RefCell<BTreeMap<Location, AssetsInHolding>> = RefCell::new(BTreeMap::new());
-}
-
-pub struct TestAssetTransactor;
-impl TransactAsset for TestAssetTransactor {
-    fn deposit_asset(
-        what: &Asset,
-        who: &Location,
-        _context: Option<&XcmContext>,
-    ) -> Result<(), XcmError> {
-    	ASSETS.with(|a| {
-    		a.borrow_mut()
-    			.entry(who.clone().into())
-    			.or_insert(AssetsInHolding::new())
-    			.subsume(what.clone().into())
-    	});
-    	Ok(())
-    }
-
-    fn withdraw_asset(
-        what: &Asset,
-        who: &Location,
-        _context: Option<&XcmContext>,
-    ) -> Result<AssetsInHolding, XcmError> {
-		ASSETS.with(|a| {
-			a.borrow_mut()
-				.get_mut(who)
-				.ok_or(XcmError::NotWithdrawable)?
-				.try_take(what.clone().into())
-				.map_err(|_| XcmError::NotWithdrawable)
-		})
-    }
-}
-
-pub struct XcmConfig;
-impl crate::Config for XcmConfig {
-	type RuntimeCall = TestCall;
-	type XcmSender = ();
-	type AssetTransactor = TestAssetTransactor;
-	type OriginConverter = ();
-	type IsReserve = ();
-	type IsTeleporter = ();
-	type UniversalLocation = UniversalLocation;
-	type Barrier = ();
-	type Weigher = TestWeigher;
-	type Trader = ();
-	type ResponseHandler = ();
-	type AssetTrap = ();
-	type AssetLocker = ();
-	type AssetExchanger = ();
-	type AssetClaims = ();
-	type SubscriptionService = ();
-	type PalletInstancesInfo = ();
-	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = ();
-	type MessageExporter = ();
-	type UniversalAliases = Nothing;
-	type CallDispatcher = Self::RuntimeCall;
-	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
-	type TransactionalProcessor = ();
-	type HrmpNewChannelOpenRequestHandler = ();
-	type HrmpChannelAcceptedHandler = ();
-	type HrmpChannelClosingHandler = ();
-	type XcmRecorder = ();
+	// The recipient received all the assets in the holding register, so `100` that
+	// were withdrawn minus the `10` that were destinated for fee payment.
+	assert_eq!(asset_list(recipient), [(Here, 90u128).into()]);
 }
