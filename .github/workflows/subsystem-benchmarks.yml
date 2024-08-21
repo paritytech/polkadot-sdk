@@ -1,0 +1,82 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [ opened, synchronize, reopened, closed, labeled ]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  set-image:
+    # TODO: remove once migration is complete or this workflow is fully stable
+    if: contains(github.event.label.name, 'GHA-migration')
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+  build:
+    needs: [ set-image ]
+    runs-on: arc-runners-polkadot-sdk-benchmark
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      BENCH_DIR: ./charts/bench/${{ matrix.features.bench }}
+      BENCH_FILE_NAME: ${{ matrix.features.bench }}
+    strategy:
+      fail-fast: false
+      matrix:
+        features: [
+          { name: "polkadot-availability-recovery", bench: "availability-recovery-regression-bench" },
+          { name: "polkadot-availability-distribution", bench: "availability-distribution-regression-bench" },
+          { name: "polkadot-node-core-approval-voting", bench: "approval-voting-regression-bench" },
+          { name: "polkadot-statement-distribution", bench: "statement-distribution-regression-bench" }
+        ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Rust
+        run: |
+          rustup show
+          rustup +nightly show
+
+      - name: Run Benchmarks
+        continue-on-error: true
+        id: run-benchmarks
+        run: |
+          cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
+          ls -lsa ./charts
+          mkdir -p $BENCH_DIR || echo "Directory exists"
+          cp charts/${BENCH_FILE_NAME}.json $BENCH_DIR
+          ls -lsa $BENCH_DIR
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+
+      - name: Publish result to GH Pages
+        if: ${{ steps.run-benchmarks.outcome == 'success' }}
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH_FILE_NAME }}
+          output-file-path: ${{ env.BENCH_DIR }}/${{ env.BENCH_FILE_NAME }}.json
+          benchmark-data-dir-path: ${{ env.BENCH_DIR }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-on-alert: ${{ github.event_name == 'pull_request' }} # will comment on PRs if regression is detected
+          auto-push: false # TODO: enable when gitlab part is removed  ${{ github.ref == 'refs/heads/master' }}
+
