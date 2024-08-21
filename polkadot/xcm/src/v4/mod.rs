@@ -750,6 +750,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(pays_fees)]
 	BuyExecution { fees: Asset, weight_limit: WeightLimit },
 
 	/// Refund any surplus weight previously bought with `BuyExecution`.
