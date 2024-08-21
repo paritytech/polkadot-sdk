@@ -27,6 +27,8 @@ use super::mock::*;
 const SENDER: [u8; 32] = [0; 32];
 const RECIPIENT: [u8; 32] = [1; 32];
 
+// ===== Happy path =====
+
 // This is a sort of backwards compatibility test.
 // Since `PayFees` is a replacement for `BuyExecution`, we need to make sure it at least
 // manages to do the same thing, paying for execution fees.
@@ -124,4 +126,37 @@ fn buy_execution_works_as_before() {
 	// The recipient received all the assets in the holding register, so `100` that
 	// were withdrawn, minus the `4` from paying the execution fees.
 	assert_eq!(asset_list(RECIPIENT), [(Here, 96u128).into()]);
+}
+
+// Tests the interaction between `PayFees` and `RefundSurplus`.
+#[test]
+fn fees_can_be_refunded() {
+	// Make sure the sender has enough funds to withdraw.
+	add_asset(SENDER.clone(), (Here, 100u128));
+
+	// Build xcm.
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 10u128)) // 10% destined for fees, not more.
+		.deposit_asset(All, RECIPIENT.clone())
+		.refund_surplus()
+		.deposit_asset(All, SENDER.clone())
+		.build();
+
+	let mut vm = instantiate_executor(SENDER.clone(), xcm.clone());
+
+	// Program runs successfully.
+	assert!(vm.bench_process(xcm).is_ok());
+
+	// Nothing is left in the `holding` register.
+	assert_eq!(get_first_fungible(vm.holding()), None);
+	// Nothing was left in the `fees` register since it was refunded.
+	assert_eq!(get_first_fungible(vm.fees()), None);
+
+	// The recipient received all the assets in the holding register, so `100` that
+	// were withdrawn, minus the `10` that were destinated for fee payment.
+	assert_eq!(asset_list(RECIPIENT), [(Here, 90u128).into()]);
+
+	// The sender got back `6` from unused assets.
+	assert_eq!(asset_list(SENDER), [(Here, 6u128).into()]);
 }

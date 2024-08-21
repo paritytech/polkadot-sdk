@@ -477,6 +477,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.holding.subsume_assets(w.into());
 			}
 		}
+		// If there are any leftover `fees`, merge them with `holding`.
+		if !self.fees.is_empty() {
+			let leftover_fees = self.fees.saturating_take(Wild(All));
+			self.holding.subsume_assets(leftover_fees);
+		}
 		tracing::trace!(
 			target: "xcm::refund_surplus",
 			total_refunded = ?self.total_refunded,
