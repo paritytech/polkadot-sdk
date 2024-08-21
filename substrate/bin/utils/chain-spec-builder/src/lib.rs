@@ -165,7 +165,7 @@ pub struct CreateCmd {
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
 	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.
-	#[arg(long, value_enum, short = 'c')]
+	#[arg(long, value_enum, short = 'c', requires = "para_id")]
 	pub relay_chain: Option<String>,
 	/// The path to runtime wasm blob.
 	#[arg(long, short)]
