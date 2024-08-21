@@ -45,7 +45,8 @@ documentation](https://paritytech.github.io/substrate/master/pallet_revive/index
 ## Usage
 
 This module executes PolkaVM smart contracts. These can potentially be written in any language that compiles to
-Wasm. However, using a language that specifically targets this module will make things a lot easier. Curren
+RISC-V. For now, the only officially supported languages are Solidity (via [`revive`](https://github.com/xermicus/revive))
+and Rust (check the `fixtures` directory for Rust examples).
 
 ## Debugging
 
