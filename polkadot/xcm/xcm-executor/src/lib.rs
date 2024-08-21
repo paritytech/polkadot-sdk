@@ -359,8 +359,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				original_origin = ?self.original_origin,
 				"Trapping assets in holding register",
 			);
-			let effective_orgin = if let Some(asset_claimer) = self.asset_claimer {
-				asset_claimer.as_ref().unwrap_or(&self.original_origin)
+			let effective_origin = if let Some(asset_claimer) = self.asset_claimer.as_ref() {
+				asset_claimer
 			} else {
 				self.context.origin.as_ref().unwrap_or(&self.original_origin)
 			};
@@ -958,6 +958,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						&reserve,
 						Some(&mut self.holding),
 					);
+					// TODO: modify the message by adding setAssetClaimer. 
+					// replicate for teleport and regular withdraw functions.
+					// add e2e tests. 
 					let mut message = vec![WithdrawAsset(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
 					self.send(reserve, Xcm(message), FeeReason::InitiateReserveWithdraw)?;
