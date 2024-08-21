@@ -1,16 +1,23 @@
 [
   {
+    "name": "dev",
+    "package": "kitchensink-runtime",
+    "path": "substrate/frame",
+    "uri": null,
+    "is_relay": false
+  },
+  {
     "name": "westend",
     "package": "westend-runtime",
     "path": "polkadot/runtime/westend",
-    "uri": "wss://westend-try-runtime-node.parity-chains.parity.io:443",
+    "uri": "wss://try-runtime-westend.polkadot.io:443",
     "is_relay": true
   },
   {
     "name": "rococo",
     "package": "rococo-runtime",
     "path": "polkadot/runtime/rococo",
-    "uri": "wss://rococo-try-runtime-node.parity-chains.parity.io:443",
+    "uri": "wss://try-runtime-rococo.polkadot.io:443",
     "is_relay": true
   },
   {
@@ -45,7 +52,7 @@
     "name": "collectives-westend",
     "package": "collectives-westend-runtime",
     "path": "cumulus/parachains/runtimes/collectives/collectives-westend",
-    "uri": "wss://westend-collectives-rpc.polkadot.io:443",
+    "uri": "wss://westend-collectives-rpc.polkadot.io:443"
   },
   {
     "name": "contracts-rococo",

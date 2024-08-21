@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -15,16 +15,16 @@ runtimesMatrix = json.load(f)
 runtimeNames = list(map(lambda x: x['name'], runtimesMatrix))
 
 common_args = {
-    '--continue-on-fail': {"action": "store_true", "help": "Won't exit(1) on failed command and continue with next "
-                                                           "steps. Helpful when you want to push at least successful "
-                                                           "pallets, and then run failed ones separately"},
-    '--quiet': {"action": "store_true", "help": "Won't print start/end/failed messages in Pull Request"},
-    '--clean': {"action": "store_true", "help": "Clean up the previous bot's & author's comments in Pull Request "
-                                                "which triggered /cmd"},
+    '--continue-on-fail': {"action": "store_true", "help": "Won't exit(1) on failed command and continue with next steps. "},
+    '--quiet': {"action": "store_true", "help": "Won't print start/end/failed messages in PR"},
+    '--clean': {"action": "store_true", "help": "Clean up the previous bot's & author's comments in PR"},
+    '--image': {"help": "Override docker image '--image docker.io/paritytech/ci-unified:latest'"},
 }
 
-parser = argparse.ArgumentParser(prog="/cmd ", description='A command runner for polkadot runtimes repo', add_help=False)
+parser = argparse.ArgumentParser(prog="/cmd ", description='A command runner for polkadot-sdk repo', add_help=False)
 parser.add_argument('--help', action=_HelpAction, help='help for help if you need some help')  # help for help
+for arg, config in common_args.items():
+    parser.add_argument(arg, **config)
 
 subparsers = parser.add_subparsers(help='a command to run', dest='command')
 
@@ -33,25 +33,18 @@ BENCH
 """
 
 bench_example = '''**Examples**:
-
- > runs all benchmarks
- 
+ Runs all benchmarks 
  %(prog)s
- 
- > runs benchmarks for pallet_balances and pallet_multisig for all runtimes which have these pallets
- > --quiet makes it to output nothing to PR but reactions
- 
+
+ Runs benchmarks for pallet_balances and pallet_multisig for all runtimes which have these pallets. **--quiet** makes it to output nothing to PR but reactions
  %(prog)s --pallet pallet_balances pallet_xcm_benchmarks::generic --quiet
  
- > runs bench for all pallets for polkadot runtime and continues even if some benchmarks fail
+ Runs bench for all pallets for westend runtime and continues even if some benchmarks fail
+ %(prog)s --runtime westend --continue-on-fail
  
- %(prog)s --runtime polkadot --continue-on-fail 
- 
- > does not output anything and cleans up the previous bot's & author command triggering comments in PR 
- 
- %(prog)s --runtime polkadot kusama --pallet pallet_balances pallet_multisig --quiet --clean 
-
- '''
+ Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
+ %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
+'''
 
 parser_bench = subparsers.add_parser('bench', help='Runs benchmarks', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
 
@@ -64,9 +57,17 @@ parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*
 """
 FMT 
 """
-parser_fmt = subparsers.add_parser('fmt', help='Formats code')
+parser_fmt = subparsers.add_parser('fmt', help='Formats code (cargo +nightly-VERSION fmt) and configs (taplo format)')
 for arg, config in common_args.items():
     parser_fmt.add_argument(arg, **config)
+
+"""
+Update UI 
+"""
+parser_ui = subparsers.add_parser('update-ui', help='Updates UI tests')
+for arg, config in common_args.items():
+    parser_ui.add_argument(arg, **config)
+
 
 args, unknown = parser.parse_known_args()
 
@@ -89,7 +90,7 @@ if args.command == 'bench':
 
     # loop over remaining runtimes to collect available pallets
     for runtime in runtimesMatrix.values():
-        os.system(f"cargo build -p {runtime['package']} --profile {profile} --features runtime-benchmarks")
+        os.system(f"forklift cargo build -p {runtime['package']} --profile {profile} --features runtime-benchmarks")
         print(f'-- listing pallets for benchmark for {runtime["name"]}')
         wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
         output = os.popen(
@@ -135,22 +136,23 @@ if args.command == 'bench':
         for pallet in runtime_pallets_map[runtime]:
             config = runtimesMatrix[runtime]
             print(f'-- config: {config}')
-            default_path = f"./{config['path']}/src/weights"
-            xcm_path = f"./{config['path']}/src/weights/xcm"
-            output_path = default_path if not pallet.startswith("pallet_xcm_benchmarks") else xcm_path
+            if runtime == 'dev':
+                # to support sub-modules (https://github.com/paritytech/command-bot/issues/275)
+                search_manifest_path = f"cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == \"{pallet.replace('_', '-')}\") | .manifest_path'"
+                print(f'-- running: {search_manifest_path}')
+                manifest_path = os.popen(search_manifest_path).read()
+                package_dir = os.path.dirname(manifest_path)
+                print(f'-- package_dir: {package_dir}')
+                print(f'-- manifest_path: {manifest_path}')
+                output_path = os.path.join(package_dir, "src", "weights.rs")
+            else:
+                default_path = f"./{config['path']}/src/weights"
+                xcm_path = f"./{config['path']}/src/weights/xcm"
+                output_path = default_path if not pallet.startswith("pallet_xcm_benchmarks") else xcm_path
             print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
-
-            status = os.system(f"frame-omni-bencher v1 benchmark pallet "
-                               f"--extrinsic=* "
-                               f"--runtime=target/{profile}/wbuild/{config['package']}/{config['package'].replace('-', '_')}.wasm "
-                               f"--pallet={pallet} "
-                               f"--header={header_path} "
-                               f"--output={output_path} "
-                               f"--wasm-execution=compiled  "
-                               f"--steps=50 "
-                               f"--repeat=20 "
-                               f"--heap-pages=4096 "
-                               )
+            cmd = f"frame-omni-bencher v1 benchmark pallet --extrinsic=* --runtime=target/{profile}/wbuild/{config['package']}/{config['package'].replace('-', '_')}.wasm --pallet={pallet} --header={header_path} --output={output_path} --wasm-execution=compiled --steps=50 --repeat=20 --heap-pages=4096"
+            print(f'-- Running: {cmd}')
+            status = os.system(cmd)
             if status != 0 and not args.continue_on_fail:
                 print(f'Failed to benchmark {pallet} in {runtime}')
                 sys.exit(1)
@@ -175,13 +177,27 @@ if args.command == 'bench':
     tempdir.cleanup()
 
 elif args.command == 'fmt':
-    nightly_version = os.getenv('RUST_NIGHTLY_VERSION')
-    command = f"cargo +nightly-{nightly_version} fmt"
-    print('Formatting with `{command}`')
+    command = f"cargo +nightly fmt"
+    print(f'Formatting with `{command}`')
     nightly_status = os.system(f'{command}')
     taplo_status = os.system('taplo format --config .config/taplo.toml')
 
     if (nightly_status != 0 or taplo_status != 0) and not args.continue_on_fail:
+        print('❌ Failed to format code')
+        sys.exit(1)
+
+elif args.command == 'update-ui':
+    command = '''
+        cargo test --manifest-path substrate/primitives/runtime-interface/Cargo.toml ui
+        cargo test -p sp-api-test ui
+        cargo test -p frame-election-provider-solution-type ui
+        cargo test -p frame-support-test --features=no-metadata-docs,try-runtime,experimental ui
+        cargo test -p xcm-procedural ui
+    '''
+    print(f'Updating ui with `{command}`')
+    status = os.system(f'{command}')
+
+    if status != 0 and not args.continue_on_fail:
         print('❌ Failed to format code')
         sys.exit(1)
 
