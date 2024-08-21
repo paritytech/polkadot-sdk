@@ -28,6 +28,3 @@ crates:
   bump: major
 - name: cumulus-relay-chain-inprocess-interface
   bump: patch
-
-
-
