@@ -55,6 +55,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-proxy/std",
 	"pallet-revive/std",
+	"pallet-revive-fixtures/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
 	"pallet-xcm/std",
