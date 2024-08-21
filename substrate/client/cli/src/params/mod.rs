@@ -226,31 +226,29 @@ impl std::str::FromStr for RpcEndpoint {
 
 		for val in s.split(',') {
 			let val = val.trim();
-			let (key, val) = val.split_once('=').ok_or("invalid key-value pair")?;
+			let (key, val) =
+				val.split_once('=').ok_or_else(|| format!("invalid key-value pair: {val}"))?;
 			let key = key.trim();
 			let val = val.trim();
 
 			match key {
 				"listen-addr" => {
 					if listen_addr.is_some() {
-						return Err(exactly_once_err("addr"));
+						return Err(exactly_once_err("listen-addr"));
 					}
-					let val: SocketAddr =
-						val.parse().map_err(|e| format!("Invalid addr: {}", e))?;
+					let val: SocketAddr = val.parse().map_err(|e| format!("Invalid addr: {e}"))?;
 					listen_addr = Some(val);
 				},
 				"cors" => {
 					// It's possible to have multiple cors values.
-					for val in val.split(',') {
-						if val.is_empty() {
-							return Err("Empty cors value is not allowed".to_string());
-						}
+					if val.is_empty() {
+						return Err("Empty cors value is not allowed".to_string());
+					}
 
-						if let Some(cors) = cors.as_mut() {
-							cors.push(val.to_string());
-						} else {
-							cors = Some(vec![val.to_string()]);
-						}
+					if let Some(cors) = cors.as_mut() {
+						cors.push(val.to_string());
+					} else {
+						cors = Some(vec![val.to_string()]);
 					}
 				},
 				"max-connections" => {
@@ -258,7 +256,7 @@ impl std::str::FromStr for RpcEndpoint {
 						return Err(exactly_once_err("max-connections"));
 					}
 
-					let val = val.parse().map_err(|e| format!("Invalid max_connections: {}", e))?;
+					let val = val.parse().map_err(|e| format!("Invalid max_connections: {e}"))?;
 					max_connections = Some(val);
 				},
 				"max-request-size" => {
@@ -267,15 +265,15 @@ impl std::str::FromStr for RpcEndpoint {
 					}
 
 					max_payload_in_mb =
-						Some(val.parse().map_err(|e| format!("Invalid max-request-size: {}", e))?);
+						Some(val.parse().map_err(|e| format!("Invalid max-request-size: {e}"))?);
 				},
 				"max-response-size" => {
 					if max_payload_out_mb.is_some() {
-						return Err(exactly_once_err("max_response_size"));
+						return Err(exactly_once_err("max-response-size"));
 					}
 
 					max_payload_out_mb =
-						Some(val.parse().map_err(|e| format!("Invalid max-request-size: {}", e))?);
+						Some(val.parse().map_err(|e| format!("Invalid max-request-size: {e}"))?);
 				},
 				"max-subscriptions-per-connection" => {
 					if max_subscriptions_per_connection.is_some() {
@@ -284,7 +282,7 @@ impl std::str::FromStr for RpcEndpoint {
 
 					let val = val
 						.parse()
-						.map_err(|e| format!("Invalid max-subscriptions-per-connection: {}", e))?;
+						.map_err(|e| format!("Invalid max-subscriptions-per-connection: {e}"))?;
 					max_subscriptions_per_connection = Some(val);
 				},
 				"max-buffer-capacity-per-connection" => {
@@ -292,17 +290,17 @@ impl std::str::FromStr for RpcEndpoint {
 						return Err(exactly_once_err("max-buffer-capacity-per-connection"));
 					}
 
-					let val = val.parse().map_err(|e| {
-						format!("Invalid max-buffer-capacity-per-connection: {}", e)
-					})?;
+					let val = val
+						.parse()
+						.map_err(|e| format!("Invalid max-buffer-capacity-per-connection: {e}"))?;
 					max_buffer_capacity_per_connection = Some(val);
 				},
 				"rate-limit" => {
 					if rate_limit.is_some() {
-						return Err(exactly_once_err("rate_limit"));
+						return Err(exactly_once_err("rate-limit"));
 					}
 
-					let val = val.parse().map_err(|e| format!("Invalid rate-limit: {}", e))?;
+					let val = val.parse().map_err(|e| format!("Invalid rate-limit: {e}"))?;
 					rate_limit = Some(val);
 				},
 				"rate-limit-trust-proxy-headers" => {
@@ -312,46 +310,44 @@ impl std::str::FromStr for RpcEndpoint {
 
 					let val = val
 						.parse()
-						.map_err(|e| format!("Invalid rate-limit-trust-proxy-headers: {}", e))?;
+						.map_err(|e| format!("Invalid rate-limit-trust-proxy-headers: {e}"))?;
 					rate_limit_trust_proxy_headers = Some(val);
 				},
-				"rate-limit-whitelisted-ips" =>
-					for val in val.split(',') {
-						let ip: IpNetwork = val
-							.parse()
-							.map_err(|e| format!("Invalid rate-limit-whitelisted-ips: {}", e))?;
-						rate_limit_whitelisted_ips.push(ip);
-					},
+				"rate-limit-whitelisted-ips" => {
+					let ip: IpNetwork = val
+						.parse()
+						.map_err(|e| format!("Invalid rate-limit-whitelisted-ips: {e}"))?;
+					rate_limit_whitelisted_ips.push(ip);
+				},
 				"retry-random-port" => {
 					if retry_random_port.is_some() {
-						return Err(exactly_once_err("retry_random_port"));
+						return Err(exactly_once_err("retry-random-port"));
 					}
 					retry_random_port =
-						Some(val.parse().map_err(|e| format!("Invalid retry_random_port: {}", e))?);
+						Some(val.parse().map_err(|e| format!("Invalid retry-random-port: {e}"))?);
 				},
-				"rpc-methods" => {
+				"methods" => {
 					if rpc_methods.is_some() {
-						return Err(exactly_once_err("rpc_methods"));
+						return Err(exactly_once_err("methods"));
 					}
-					rpc_methods =
-						Some(val.parse().map_err(|e| format!("Invalid rpc_methods: {}", e))?);
+					rpc_methods = Some(val.parse().map_err(|e| format!("Invalid methods: {e}"))?);
 				},
 				"optional" => {
 					if is_optional.is_some() {
 						return Err(exactly_once_err("optional"));
 					}
 
-					let val = val.parse().map_err(|e| format!("Invalid optional value: {}", e))?;
+					let val = val.parse().map_err(|e| format!("Invalid optional value: {e}"))?;
 					is_optional = Some(val);
 				},
 				"disable-batch-requests" => {
 					if disable_batch_requests.is_some() {
-						return Err(exactly_once_err("disable_batch_requests"));
+						return Err(exactly_once_err("disable-batch-requests"));
 					}
 
 					let val = val
 						.parse()
-						.map_err(|e| format!("Invalid disable_batch_requests value: {}", e))?;
+						.map_err(|e| format!("Invalid disable-batch-requests value: {e}"))?;
 					disable_batch_requests = Some(val);
 				},
 				"max-batch-request-len" => {
@@ -360,10 +356,10 @@ impl std::str::FromStr for RpcEndpoint {
 					}
 
 					let val =
-						val.parse().map_err(|e| format!("Invalid batch_request_limit: {}", e))?;
+						val.parse().map_err(|e| format!("Invalid batch_request_limit: {e}"))?;
 					max_batch_request_len = Some(val);
 				},
-				_ => return Err(format!("Unknown key: {}", key)),
+				_ => return Err(format!("Unknown key: {key}")),
 			}
 		}
 
@@ -423,6 +419,7 @@ impl Into<sc_service::config::RpcEndpoint> for RpcEndpoint {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use std::num::NonZeroU32;
 
 	type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 	type Block = sp_runtime::generic::Block<Header, sp_runtime::OpaqueExtrinsic>;
@@ -460,21 +457,54 @@ mod tests {
 	}
 
 	#[test]
-	fn parse_rpc_listen_addr_works() {
-		assert!(RpcListenAddr::from_str("127.0.0.1:9944").is_ok());
-		assert!(RpcListenAddr::from_str("[::1]:9944").is_ok());
-		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?rpc-methods=auto").is_ok());
-		assert!(RpcListenAddr::from_str("[::1]:9944/?rpc-methods=auto").is_ok());
-		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?rpc-methods=auto&cors=*&optional=true")
-			.is_ok());
-		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?foo=*").is_err());
-		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?cors=").is_err());
+	fn parse_rpc_endpoint_works() {
+		assert!(RpcEndpoint::from_str("listen-addr=127.0.0.1:9944").is_ok());
+		assert!(RpcEndpoint::from_str("listen-addr=[::1]:9944").is_ok());
+		assert!(RpcEndpoint::from_str("listen-addr=127.0.0.1:9944,methods=auto").is_ok());
+		assert!(RpcEndpoint::from_str("listen-addr=[::1]:9944,methods=auto").is_ok());
+		assert!(RpcEndpoint::from_str(
+			"listen-addr=127.0.0.1:9944,methods=auto,cors=*,optional=true"
+		)
+		.is_ok());
+
+		assert!(RpcEndpoint::from_str("listen-addrs=127.0.0.1:9944,foo=*").is_err());
+		assert!(RpcEndpoint::from_str("listen-addrs=127.0.0.1:9944,cors=").is_err());
 	}
 
 	#[test]
-	fn parse_rpc_listen_addr_multiple_cors() {
-		let addr = RpcListenAddr::from_str(
-			"127.0.0.1:9944/?rpc-methods=auto&cors=https://polkadot.js.org,*&cors=localhost:*",
+	fn parse_rpc_endpoint_all() {
+		let endpoint = RpcEndpoint::from_str(
+			"listen-addr=127.0.0.1:9944,methods=unsafe,cors=*,optional=true,retry-random-port=true,rate-limit=99,\
+			max-batch-request-len=100,rate-limit-trust-proxy-headers=true,max-connections=33,max-request-size=4,\
+			max-response-size=3,max-subscriptions-per-connection=7,max-buffer-capacity-per-connection=8,\
+			rate-limit-whitelisted-ips=192.168.1.0/24,rate-limit-whitelisted-ips=ff01::0/32"
+		).unwrap();
+		assert_eq!(endpoint.listen_addr, ([127, 0, 0, 1], 9944).into());
+		assert_eq!(endpoint.rpc_methods, RpcMethods::Unsafe);
+		assert_eq!(endpoint.cors, Some(vec!["*".to_string()]));
+		assert_eq!(endpoint.is_optional, true);
+		assert_eq!(endpoint.retry_random_port, true);
+		assert_eq!(endpoint.rate_limit, Some(NonZeroU32::new(99).unwrap()));
+		assert!(matches!(endpoint.batch_config, RpcBatchRequestConfig::Limit(l) if l == 100));
+		assert_eq!(endpoint.rate_limit_trust_proxy_headers, true);
+		assert_eq!(
+			endpoint.rate_limit_whitelisted_ips,
+			vec![
+				IpNetwork::V4("192.168.1.0/24".parse().unwrap()),
+				IpNetwork::V6("ff01::0/32".parse().unwrap())
+			]
+		);
+		assert_eq!(endpoint.max_connections, 33);
+		assert_eq!(endpoint.max_payload_in_mb, 4);
+		assert_eq!(endpoint.max_payload_out_mb, 3);
+		assert_eq!(endpoint.max_subscriptions_per_connection, 7);
+		assert_eq!(endpoint.max_buffer_capacity_per_connection, 8);
+	}
+
+	#[test]
+	fn parse_rpc_endpoint_multiple_cors() {
+		let addr = RpcEndpoint::from_str(
+			"listen-addr=127.0.0.1:9944,methods=auto,cors=https://polkadot.js.org,cors=*,cors=localhost:*",
 		)
 		.unwrap();
 
@@ -489,18 +519,12 @@ mod tests {
 	}
 
 	#[test]
-	fn parse_rpc_listen_addr_whitespaces() {
-		let addr = RpcListenAddr::from_str(
-			"   127.0.0.1:9944/?       rpc-methods    =   auto  & optional    =     true   ",
+	fn parse_rpc_endpoint_whitespaces() {
+		let addr = RpcEndpoint::from_str(
+			"   listen-addr = 127.0.0.1:9944,       methods    =   auto,  optional    =     true   ",
 		)
 		.unwrap();
 		assert_eq!(addr.rpc_methods, RpcMethods::Auto);
 		assert_eq!(addr.is_optional, true);
-	}
-
-	#[test]
-	fn parse_rpc_listen_addr_one_params() {
-		let addr = RpcListenAddr::from_str("127.0.0.1:9944/?rpc-methods    =   auto").unwrap();
-		assert_eq!(addr.rpc_methods, RpcMethods::Auto);
 	}
 }

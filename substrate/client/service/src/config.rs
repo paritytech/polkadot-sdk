@@ -33,7 +33,9 @@ pub use sc_network::{
 	},
 	Multiaddr,
 };
-pub use sc_rpc_server::{IpNetwork, RpcEndpoint, RpcMethods};
+pub use sc_rpc_server::{
+	IpNetwork, RpcEndpoint, RpcMethods, SubscriptionIdProvider as RpcSubscriptionIdProvider,
+};
 pub use sc_telemetry::TelemetryEndpoints;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 use sp_core::crypto::SecretString;
@@ -83,7 +85,7 @@ pub struct Configuration {
 	/// disable overrides (default).
 	pub wasm_runtime_overrides: Option<PathBuf>,
 	/// JSON-RPC server endpoints.
-	pub rpc_addr: Option<Vec<sc_rpc_server::RpcEndpoint>>,
+	pub rpc_addr: Option<Vec<RpcEndpoint>>,
 	/// Maximum number of connections for JSON-RPC server.
 	pub rpc_max_connections: u32,
 	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
@@ -97,7 +99,7 @@ pub struct Configuration {
 	/// Custom JSON-RPC subscription ID provider.
 	///
 	/// Default: [`crate::RandomStringSubscriptionId`].
-	pub rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
+	pub rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
 	/// Maximum allowed subscriptions per rpc connection
 	pub rpc_max_subs_per_conn: u32,
 	/// JSON-RPC server default port.
