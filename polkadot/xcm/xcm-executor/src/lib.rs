@@ -363,13 +363,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				original_origin = ?self.original_origin,
 				"Trapping assets in holding register",
 			);
-			let effective_origin = if let Some(asset_claimer) = self.asset_claimer.as_ref() {
+			let claimer = if let Some(asset_claimer) = self.asset_claimer.as_ref() {
 				asset_claimer
 			} else {
 				self.context.origin.as_ref().unwrap_or(&self.original_origin)
 			};
 			let trap_weight =
-				Config::AssetTrap::drop_assets(effective_origin, self.holding, &self.context);
+				Config::AssetTrap::drop_assets(claimer, self.holding, &self.context);
 			weight_used.saturating_accrue(trap_weight);
 		};
 
