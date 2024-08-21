@@ -19,7 +19,7 @@
 use crate::{
 	build_network_future, build_system_rpc_future,
 	client::{Client, ClientConfig},
-	config::{Configuration, KeystoreConfig, PrometheusConfig},
+	config::{Configuration, ExecutorConfiguration, KeystoreConfig, PrometheusConfig},
 	error::Error,
 	metrics::MetricsService,
 	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers, SpawnTaskHandle,
@@ -268,11 +268,11 @@ pub fn new_native_or_wasm_executor<D: NativeExecutionDispatch>(
 	config: &Configuration,
 ) -> sc_executor::NativeElseWasmExecutor<D> {
 	#[allow(deprecated)]
-	sc_executor::NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(config))
+	sc_executor::NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(&config.executor))
 }
 
-/// Creates a [`WasmExecutor`] according to [`Configuration`].
-pub fn new_wasm_executor<H: HostFunctions>(config: &Configuration) -> WasmExecutor<H> {
+/// Creates a [`WasmExecutor`] according to [`ExecutorConfiguration`].
+pub fn new_wasm_executor<H: HostFunctions>(config: &ExecutorConfiguration) -> WasmExecutor<H> {
 	let strategy = config
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static { extra_pages: p as _ });

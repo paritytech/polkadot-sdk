@@ -76,8 +76,8 @@ pub struct Configuration {
 	pub blocks_pruning: BlocksPruning,
 	/// Chain configuration.
 	pub chain_spec: Box<dyn ChainSpec>,
-	/// Wasm execution method.
-	pub wasm_method: WasmExecutionMethod,
+	/// Runtime executor configuration.
+	pub executor: ExecutorConfiguration,
 	/// Directory where local WASM runtimes live. These runtimes take precedence
 	/// over on-chain runtimes when the spec version matches. Set to `None` to
 	/// disable overrides (default).
@@ -88,8 +88,6 @@ pub struct Configuration {
 	pub prometheus_config: Option<PrometheusConfig>,
 	/// Telemetry service URL. `None` if disabled.
 	pub telemetry_endpoints: Option<TelemetryEndpoints>,
-	/// The default number of 64KB pages to allocate for Wasm execution
-	pub default_heap_pages: Option<u64>,
 	/// Should offchain workers be executed.
 	pub offchain_worker: OffchainWorkerConfig,
 	/// Enable authoring even when offline.
@@ -107,18 +105,12 @@ pub struct Configuration {
 	pub tracing_targets: Option<String>,
 	/// Tracing receiver
 	pub tracing_receiver: sc_tracing::TracingReceiver,
-	/// The size of the instances cache.
-	///
-	/// The default value is 8.
-	pub max_runtime_instances: usize,
 	/// Announce block automatically after they have been imported
 	pub announce_block: bool,
 	/// Data path root for the configured chain.
 	pub data_path: PathBuf,
 	/// Base path of the configuration. This is shared between chains.
 	pub base_path: BasePath,
-	/// Maximum number of different runtime versions that can be cached.
-	pub runtime_cache_size: u8,
 }
 
 /// Type for tasks spawned by the executor.
@@ -345,4 +337,30 @@ pub struct RpcConfiguration {
 	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
 	/// RPC rate limit trust proxy headers.
 	pub rate_limit_trust_proxy_headers: bool,
+}
+
+/// Runtime executor configuration.
+#[derive(Debug, Clone)]
+pub struct ExecutorConfiguration {
+	/// Wasm execution method.
+	pub wasm_method: WasmExecutionMethod,
+	/// The size of the instances cache.
+	///
+	/// The default value is 8.
+	pub max_runtime_instances: usize,
+	/// The default number of 64KB pages to allocate for Wasm execution
+	pub default_heap_pages: Option<u64>,
+	/// Maximum number of different runtime versions that can be cached.
+	pub runtime_cache_size: u8,
+}
+
+impl Default for ExecutorConfiguration {
+	fn default() -> Self {
+		Self {
+			wasm_method: Default::default(),
+			max_runtime_instances: 8,
+			default_heap_pages: None,
+			runtime_cache_size: 2,
+		}
+	}
 }

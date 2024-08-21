@@ -68,7 +68,7 @@ use substrate_test_client::{
 pub type Client = FullClient;
 
 pub use polkadot_service::{FullBackend, GetLastTimestamp};
-use sc_service::config::RpcConfiguration;
+use sc_service::config::{ExecutorConfiguration, RpcConfiguration};
 
 /// Create a new full node.
 #[sc_tracing::logging::prefix_logs_with(config.network.node_name.as_str())]
@@ -201,8 +201,11 @@ pub fn node_config(
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
 		chain_spec: Box::new(spec),
-		wasm_method: WasmExecutionMethod::Compiled {
-			instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
+		executor: ExecutorConfiguration {
+			wasm_method: WasmExecutionMethod::Compiled {
+				instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
+			},
+			..ExecutorConfiguration::default()
 		},
 		wasm_runtime_overrides: Default::default(),
 		rpc: RpcConfiguration {
@@ -223,15 +226,12 @@ pub fn node_config(
 		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
-		default_heap_pages: None,
 		offchain_worker: Default::default(),
 		force_authoring: false,
 		disable_grandpa: false,
 		dev_key_seed: Some(key_seed),
 		tracing_targets: None,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: 8,
-		runtime_cache_size: 2,
 		announce_block: true,
 		data_path: root,
 		base_path,

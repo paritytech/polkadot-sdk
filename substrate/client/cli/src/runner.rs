@@ -193,7 +193,10 @@ pub fn print_node_infos<C: SubstrateCli>(config: &Configuration) {
 mod tests {
 	use super::*;
 	use sc_network::config::NetworkConfiguration;
-	use sc_service::{config::RpcConfiguration, Arc, ChainType, GenericChainSpec, NoExtension};
+	use sc_service::{
+		config::{ExecutorConfiguration, RpcConfiguration},
+		Arc, ChainType, GenericChainSpec, NoExtension,
+	};
 	use std::{
 		path::PathBuf,
 		sync::atomic::{AtomicU64, Ordering},
@@ -262,7 +265,7 @@ mod tests {
 					.with_genesis_config_patch(Default::default())
 					.build(),
 				),
-				wasm_method: Default::default(),
+				executor: ExecutorConfiguration::default(),
 				wasm_runtime_overrides: None,
 				rpc: RpcConfiguration {
 					addr: None,
@@ -282,18 +285,15 @@ mod tests {
 				},
 				prometheus_config: None,
 				telemetry_endpoints: None,
-				default_heap_pages: None,
 				offchain_worker: Default::default(),
 				force_authoring: false,
 				disable_grandpa: false,
 				dev_key_seed: None,
 				tracing_targets: None,
 				tracing_receiver: Default::default(),
-				max_runtime_instances: 8,
 				announce_block: true,
 				base_path: sc_service::BasePath::new(root.clone()),
 				data_path: root,
-				runtime_cache_size: 2,
 			},
 			runtime,
 			Signals::dummy(),

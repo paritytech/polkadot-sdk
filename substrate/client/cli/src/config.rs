@@ -26,9 +26,9 @@ use log::warn;
 use names::{Generator, Name};
 use sc_service::{
 	config::{
-		BasePath, Configuration, DatabaseSource, IpNetwork, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role,
-		RpcBatchRequestConfig, RpcConfiguration, RpcMethods, TelemetryEndpoints,
+		BasePath, Configuration, DatabaseSource, ExecutorConfiguration, IpNetwork, KeystoreConfig,
+		NetworkConfiguration, NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode,
+		Role, RpcBatchRequestConfig, RpcConfiguration, RpcMethods, TelemetryEndpoints,
 		TransactionPoolOptions, WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
@@ -525,7 +525,12 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
-			wasm_method: self.wasm_method()?,
+			executor: ExecutorConfiguration {
+				wasm_method: self.wasm_method()?,
+				default_heap_pages: self.default_heap_pages()?,
+				max_runtime_instances,
+				runtime_cache_size,
+			},
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
 			rpc: RpcConfiguration {
 				addr: self.rpc_addr(DCV::rpc_listen_port())?,
@@ -546,7 +551,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
 			telemetry_endpoints,
-			default_heap_pages: self.default_heap_pages()?,
 			offchain_worker: self.offchain_worker(&role)?,
 			force_authoring: self.force_authoring()?,
 			disable_grandpa: self.disable_grandpa()?,
@@ -554,11 +558,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			tracing_targets: self.tracing_targets()?,
 			tracing_receiver: self.tracing_receiver()?,
 			chain_spec,
-			max_runtime_instances,
 			announce_block: self.announce_block()?,
 			role,
 			base_path,
-			runtime_cache_size,
 		})
 	}
 

@@ -29,7 +29,10 @@ use sc_network::{
 use sc_network_sync::SyncingService;
 use sc_service::{
 	client::Client,
-	config::{BasePath, DatabaseSource, KeystoreConfig, RpcBatchRequestConfig, RpcConfiguration},
+	config::{
+		BasePath, DatabaseSource, ExecutorConfiguration, KeystoreConfig, RpcBatchRequestConfig,
+		RpcConfiguration,
+	},
 	BlocksPruning, ChainSpecExtension, Configuration, Error, GenericChainSpec, Role,
 	SpawnTaskHandle, TaskManager,
 };
@@ -235,7 +238,7 @@ fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
 		chain_spec: Box::new((*spec).clone()),
-		wasm_method: Default::default(),
+		executor: ExecutorConfiguration::default(),
 		wasm_runtime_overrides: Default::default(),
 		rpc: RpcConfiguration {
 			addr: Default::default(),
@@ -255,18 +258,15 @@ fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
-		default_heap_pages: None,
 		offchain_worker: Default::default(),
 		force_authoring: false,
 		disable_grandpa: false,
 		dev_key_seed: key_seed,
 		tracing_targets: None,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: 8,
 		announce_block: true,
 		base_path: BasePath::new(root.clone()),
 		data_path: root,
-		runtime_cache_size: 2,
 	}
 }
 
