@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::GenericChainSpec;
 use cumulus_primitives_core::ParaId;
+use polkadot_parachain_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::{ChainSpec, ChainType};
 use std::{borrow::Cow, str::FromStr};
 
@@ -144,11 +144,12 @@ pub fn chain_type_name(chain_type: &ChainType) -> Cow<str> {
 
 /// Sub-module for Rococo setup.
 pub mod rococo {
-	use super::{chain_type_name, CoretimeRuntimeType, GenericChainSpec, ParaId};
+	use super::{chain_type_name, CoretimeRuntimeType, ParaId};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId, Balance};
+	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
@@ -243,9 +244,10 @@ pub mod rococo {
 pub mod westend {
 	use super::{chain_type_name, CoretimeRuntimeType, GenericChainSpec, ParaId};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId, Balance};
+	use polkadot_parachain_lib::chain_spec::Extensions;
 	use sp_core::sr25519;
 
 	pub(crate) const CORETIME_WESTEND: &str = "coretime-westend";
