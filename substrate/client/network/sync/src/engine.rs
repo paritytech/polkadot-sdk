@@ -381,16 +381,16 @@ where
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) as usize
 		};
 
-		let genesis_hash = client.info().genesis_hash;
+		let info = client.info();
 
 		let (block_announce_config, notification_service) =
 			Self::get_block_announce_proto_config::<N>(
 				protocol_id,
 				fork_id,
 				roles,
-				client.info().best_number,
-				client.info().best_hash,
-				genesis_hash,
+				info.best_number,
+				info.best_hash,
+				info.genesis_hash,
 				&net_config.network_config.default_peers_set,
 				network_metrics,
 				Arc::clone(&peer_store_handle),
@@ -444,7 +444,7 @@ where
 				num_connected: num_connected.clone(),
 				is_major_syncing: is_major_syncing.clone(),
 				service_rx,
-				genesis_hash,
+				genesis_hash: info.genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
 				warp_sync_target_block_header_rx_fused,
