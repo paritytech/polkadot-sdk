@@ -20,7 +20,7 @@ use crate::{
 	arg_enums::{Cors, RpcMethods},
 	error::{Error, Result},
 	params::{
-		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, RpcListenAddr,
+		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, RpcEndpoint,
 		SharedParams, TransactionPoolParams,
 	},
 	CliConfiguration, PrometheusParams, RuntimeParams, TelemetryParams,
@@ -128,18 +128,42 @@ pub struct RunCmd {
 	#[arg(long, value_name = "PORT")]
 	pub rpc_port: Option<u16>,
 
-	/// Specify the JSON-RPC server listen address.
+	/// Specify the JSON-RPC server interface and this option which can be enabled several times if
+	/// you want expose several RPC interfaces with different configurations.
 	///
-	/// The format of the listen addr is `"<ip:port>/?<query params>"`
+	/// The format for this option is: `--rpc-endpoint"listen-addr=<ip:port>,<key=value>,..."`
+	/// where each option is separated by a comma and `listen-addr` is the only required param.
 	///
-	/// For example: if you want to listen on `127.0.0.1:9944` and enable the `rpc-methods=unsafe
-	/// query parameter, you can use:
-	///  `--rpc_listen_addrs 127.0.0.1:9933/?rpc-methods=unsafe&cors=*"`.
-	//
-	// Dev Note: This is a `String` because `Url` does not work for socket addresses without scheme
-	// such as `127.0.0.1:9933/?rpc-methods=unsafe` is not a valid URL.
-	#[arg(long, conflicts_with_all = &["rpc_external", "unsafe_rpc_external", "rpc_port", "rpc_cors", "rpc_rate_limit_trust_proxy_headers", "rpc_rate_limit", "rpc_rate_limit_whitelisted_ips"])]
-	pub rpc_listen_addrs: Vec<RpcListenAddr>,
+	/// The following options are available:
+	///  • listen-addr: The socket address (ip:port) to listen on. Be careful to not expose the
+	///    server to the public internet unless you know what you're doing. (required)
+	///  • disable_batch_requests: Disable batch requests (optional)
+	///  • max_connections: The maximum number of concurrent connections that the server will
+	///    accept (optional)
+	///  • max_request_size: The maximum size of a request body in megabytes (optional)
+	///  • max_response_size: The maximum size of a response body in megabytes (optional)
+	///  • max_subscriptions_per_connection: The maximum number of subscriptions per connection
+	///    (optional)
+	///  • max_buffer_capacity_per_connection: The maximum buffer capacity per connection
+	///    (optional)
+	///  • max_batch_request_len: The maximum number of requests in a batch (optional)
+	///  • cors: The CORS allowed origins, this can enabled more than once (optional)
+	///  • rpc-methods: Which RPC methods to allow, valid values are "safe", "unsafe" and "auto"
+	///    (default)
+	///  • optional: If the listen address is optional i.e the interface is not required to be
+	///    available For example this may be useful if some platforms doesn't support ipv6
+	///    (optional)
+	///  • rate-limit: The rate limit in calls per minute for each connection (optional)
+	///  • rate-limit-trust-proxy-headers: Trust proxy headers for disable rate limiting (optional)
+	///  • rate-limit-whitelisted-ips: Disable rate limiting for certain ip addresses (optional)
+	///  • retry-random-port: If the port is already in use, retry with a random port (optional)
+	#[arg(
+		long,
+		num_args = 1..,
+		verbatim_doc_comment,
+		conflicts_with_all = &["rpc_external", "unsafe_rpc_external", "rpc_port", "rpc_cors", "rpc_rate_limit_trust_proxy_headers", "rpc_rate_limit", "rpc_rate_limit_whitelisted_ips", "rpc_message_buffer_capacity_per_connection", "rpc_disable_batch_requests", "rpc_max_subscriptions_per_connection", "rpc_max_request_size", "rpc_max_response_size"]
+	)]
+	pub rpc_endpoint: Vec<RpcEndpoint>,
 
 	/// Maximum number of RPC server connections.
 	#[arg(long, value_name = "COUNT", default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
@@ -423,15 +447,15 @@ impl CliConfiguration for RunCmd {
 			.into())
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<RpcListenAddr>>> {
-		if !self.rpc_listen_addrs.is_empty() {
-			for endpoint in &self.rpc_listen_addrs {
-				if self.rpc_external && self.validator && endpoint.rpc_methods != RpcMethods::Unsafe
+	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<RpcEndpoint>>> {
+		if !self.rpc_endpoint.is_empty() {
+			for endpoint in &self.rpc_endpoint {
+				if endpoint.listen_addr.ip().is_unspecified() &&
+					self.validator && endpoint.rpc_methods != RpcMethods::Unsafe
 				{
 					return Err(Error::Input(
-						"--rpc-external option shouldn't be used if the node is running as \
-						 a validator. Use `--unsafe-rpc-external` or `--rpc-methods=unsafe` if you understand \
-						 the risks. See the options description for more information."
+						"RPC shouldn't be used publicly exposed if the node is running as \
+						 a validator"
 							.to_owned(),
 					))
 				}
@@ -444,7 +468,7 @@ impl CliConfiguration for RunCmd {
 				}
 			}
 
-			return Ok(Some(self.rpc_listen_addrs.clone()));
+			return Ok(Some(self.rpc_endpoint.clone()));
 		}
 
 		let (ipv4, ipv6) = rpc_interface(
@@ -457,23 +481,35 @@ impl CliConfiguration for RunCmd {
 		let cors = self.rpc_cors(self.is_dev()?)?;
 
 		Ok(Some(vec![
-			RpcListenAddr {
+			RpcEndpoint {
+				batch_config: self.rpc_batch_config()?,
+				max_connections: self.rpc_max_connections,
 				listen_addr: SocketAddr::new(std::net::IpAddr::V4(ipv4), default_listen_port),
 				rpc_methods: self.rpc_methods,
 				rate_limit: self.rpc_rate_limit,
 				rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers,
 				rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips.clone(),
+				max_payload_in_mb: self.rpc_max_request_size,
+				max_payload_out_mb: self.rpc_max_response_size,
+				max_subscriptions_per_connection: self.rpc_max_subscriptions_per_connection,
+				max_buffer_capacity_per_connection: self.rpc_message_buffer_capacity_per_connection,
 				cors: cors.clone(),
 				retry_random_port: true,
 				is_optional: false,
 			},
-			RpcListenAddr {
+			RpcEndpoint {
+				batch_config: self.rpc_batch_config()?,
+				max_connections: self.rpc_max_connections,
 				listen_addr: SocketAddr::new(std::net::IpAddr::V6(ipv6), default_listen_port),
 				rpc_methods: self.rpc_methods,
 				rate_limit: self.rpc_rate_limit,
 				rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers,
 				rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips.clone(),
-				cors,
+				max_payload_in_mb: self.rpc_max_request_size,
+				max_payload_out_mb: self.rpc_max_response_size,
+				max_subscriptions_per_connection: self.rpc_max_subscriptions_per_connection,
+				max_buffer_capacity_per_connection: self.rpc_message_buffer_capacity_per_connection,
+				cors: cors.clone(),
 				retry_random_port: true,
 				is_optional: true,
 			},

@@ -30,9 +30,13 @@ mod shared_params;
 mod telemetry_params;
 mod transaction_pool_params;
 
-use crate::arg_enums::{CryptoScheme, OutputType, RpcMethods};
+use crate::{
+	arg_enums::{CryptoScheme, OutputType, RpcMethods},
+	RPC_DEFAULT_MAX_CONNECTIONS, RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB,
+	RPC_DEFAULT_MAX_SUBS_PER_CONN, RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN,
+};
 use clap::Args;
-use sc_service::config::IpNetwork;
+use sc_service::config::{IpNetwork, RpcBatchRequestConfig};
 use sp_core::crypto::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 use sp_runtime::{
 	generic::BlockId,
@@ -161,16 +165,24 @@ pub struct NetworkSchemeFlag {
 	pub network: Option<Ss58AddressFormat>,
 }
 
-/// RPC Listen address.
-///
-/// <ip:port>/?setting=value&setting=value...,
+/// Represent a single RPC endpoint with its configuration.
 #[derive(Debug, Clone)]
-pub struct RpcListenAddr {
+pub struct RpcEndpoint {
 	/// Listen address.
 	pub listen_addr: SocketAddr,
-	/// RPC methods to expose.
-	pub rpc_methods: RpcMethods,
-	/// Rate limit for RPC requests.
+	/// Batch request configuration.
+	pub batch_config: RpcBatchRequestConfig,
+	/// Maximum number of connections.
+	pub max_connections: u32,
+	/// Maximum inbound payload size in MB.
+	pub max_payload_in_mb: u32,
+	/// Maximum outbound payload size in MB.
+	pub max_payload_out_mb: u32,
+	/// Maximum number of subscriptions per connection.
+	pub max_subscriptions_per_connection: u32,
+	/// Maximum buffer capacity per connection.
+	pub max_buffer_capacity_per_connection: u32,
+	/// Rate limit per minute.
 	pub rate_limit: Option<NonZeroU32>,
 	/// Whether to trust proxy headers for rate limiting.
 	pub rate_limit_trust_proxy_headers: bool,
@@ -178,112 +190,225 @@ pub struct RpcListenAddr {
 	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
 	/// CORS.
 	pub cors: Option<Vec<String>>,
-	/// Whether to retry with a random port if the provided port is already in use.
-	pub retry_random_port: bool,
+	/// RPC methods to expose.
+	pub rpc_methods: RpcMethods,
 	/// Whether it's an optional listening address i.e, it's ignored if it fails to bind.
 	/// For example substrate tries to bind both ipv4 and ipv6 addresses but some platforms
 	/// may not support ipv6.
 	pub is_optional: bool,
+	/// Whether to retry with a random port if the provided port is already in use.
+	pub retry_random_port: bool,
 }
 
-impl FromStr for RpcListenAddr {
+fn exactly_once_err(reason: &str) -> String {
+	format!("`{reason}` must be specified exactly one time")
+}
+
+impl std::str::FromStr for RpcEndpoint {
 	type Err = String;
 
-	fn from_str(s: &str) -> Result<Self, String> {
-		let mut iter = s.split("/?");
-
-		let maybe_listen_addr = iter.next().map(|v| v.trim());
-		let maybe_query_params = iter.next();
-
-		let listen_addr: SocketAddr = maybe_listen_addr
-			.ok_or_else(|| "Missing RPC listen address")?
-			.parse()
-			.map_err(|e| format!("Invalid RPC listen address `{:?}`: {}", maybe_listen_addr, e))?;
-
-		let mut rpc_methods = None;
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let mut listen_addr = None;
+		let mut max_connections = None;
+		let mut max_payload_in_mb = None;
+		let mut max_payload_out_mb = None;
+		let mut max_subscriptions_per_connection = None;
+		let mut max_buffer_capacity_per_connection = None;
 		let mut cors: Option<Vec<String>> = None;
+		let mut rpc_methods = None;
+		let mut is_optional = None;
+		let mut disable_batch_requests = None;
+		let mut max_batch_request_len = None;
 		let mut rate_limit = None;
-		let mut rate_limit_trust_proxy_headers = false;
-		let mut is_optional = false;
+		let mut rate_limit_trust_proxy_headers = None;
 		let mut rate_limit_whitelisted_ips = Vec::new();
+		let mut retry_random_port = None;
 
-		if let Some(query_params) = maybe_query_params {
-			for val in query_params.split('&') {
-				let (key, value) = val
-					.split_once('=')
-					.ok_or_else(|| format!("Invalid RPC query param `{val}`"))?;
-				let key = key.trim();
-				let value = value.trim();
+		for val in s.split(',') {
+			let val = val.trim();
+			let (key, val) = val.split_once('=').ok_or("invalid key-value pair")?;
+			let key = key.trim();
+			let val = val.trim();
 
-				match key {
-					"rpc-methods" => {
-						rpc_methods =
-							Some(value.parse().map_err(|e| format!("Invalid RPC methods: {}", e))?);
-					},
-					"cors" => {
-						// It's possible to have multiple cors values.
-						for val in value.split(',') {
-							if val.is_empty() {
-								return Err("Empty cors value is not allowed".to_string());
-							}
-
-							if let Some(cors) = cors.as_mut() {
-								cors.push(val.to_string());
-							} else {
-								cors = Some(vec![val.to_string()]);
-							}
+			match key {
+				"listen-addr" => {
+					if listen_addr.is_some() {
+						return Err(exactly_once_err("addr"));
+					}
+					let val: SocketAddr =
+						val.parse().map_err(|e| format!("Invalid addr: {}", e))?;
+					listen_addr = Some(val);
+				},
+				"cors" => {
+					// It's possible to have multiple cors values.
+					for val in val.split(',') {
+						if val.is_empty() {
+							return Err("Empty cors value is not allowed".to_string());
 						}
-					},
-					"rate-limit" => {
-						rate_limit =
-							Some(value.parse().map_err(|e| format!("Invalid rate limit: {}", e))?);
-					},
-					"rate-limit-trust-proxy-headers" =>
-						if value == "true" {
-							rate_limit_trust_proxy_headers = true;
-						} else if value == "false" {
-							rate_limit_trust_proxy_headers = false;
+
+						if let Some(cors) = cors.as_mut() {
+							cors.push(val.to_string());
 						} else {
-							return Err(
-								"Invalid `rate-limit-trust-proxy-headers` must be true/false"
-									.to_string(),
-							);
-						},
-					"rate-limit-whitelisted-ips" => {
-						rate_limit_whitelisted_ips.push(
-							value.parse().map_err(|e| format!("Invalid rate limit IP: {}", e))?,
-						);
+							cors = Some(vec![val.to_string()]);
+						}
+					}
+				},
+				"max-connections" => {
+					if max_connections.is_some() {
+						return Err(exactly_once_err("max-connections"));
+					}
+
+					let val = val.parse().map_err(|e| format!("Invalid max_connections: {}", e))?;
+					max_connections = Some(val);
+				},
+				"max-request-size" => {
+					if max_payload_in_mb.is_some() {
+						return Err(exactly_once_err("max-request-size"));
+					}
+
+					max_payload_in_mb =
+						Some(val.parse().map_err(|e| format!("Invalid max-request-size: {}", e))?);
+				},
+				"max-response-size" => {
+					if max_payload_out_mb.is_some() {
+						return Err(exactly_once_err("max_response_size"));
+					}
+
+					max_payload_out_mb =
+						Some(val.parse().map_err(|e| format!("Invalid max-request-size: {}", e))?);
+				},
+				"max-subscriptions-per-connection" => {
+					if max_subscriptions_per_connection.is_some() {
+						return Err(exactly_once_err("max-subscriptions-per-connection"));
+					}
+
+					let val = val
+						.parse()
+						.map_err(|e| format!("Invalid max-subscriptions-per-connection: {}", e))?;
+					max_subscriptions_per_connection = Some(val);
+				},
+				"max-buffer-capacity-per-connection" => {
+					if max_buffer_capacity_per_connection.is_some() {
+						return Err(exactly_once_err("max-buffer-capacity-per-connection"));
+					}
+
+					let val = val.parse().map_err(|e| {
+						format!("Invalid max-buffer-capacity-per-connection: {}", e)
+					})?;
+					max_buffer_capacity_per_connection = Some(val);
+				},
+				"rate-limit" => {
+					if rate_limit.is_some() {
+						return Err(exactly_once_err("rate_limit"));
+					}
+
+					let val = val.parse().map_err(|e| format!("Invalid rate-limit: {}", e))?;
+					rate_limit = Some(val);
+				},
+				"rate-limit-trust-proxy-headers" => {
+					if rate_limit_trust_proxy_headers.is_some() {
+						return Err(exactly_once_err("rate-limit-trust-proxy-headers"));
+					}
+
+					let val = val
+						.parse()
+						.map_err(|e| format!("Invalid rate-limit-trust-proxy-headers: {}", e))?;
+					rate_limit_trust_proxy_headers = Some(val);
+				},
+				"rate-limit-whitelisted-ips" =>
+					for val in val.split(',') {
+						let ip: IpNetwork = val
+							.parse()
+							.map_err(|e| format!("Invalid rate-limit-whitelisted-ips: {}", e))?;
+						rate_limit_whitelisted_ips.push(ip);
 					},
-					"optional" =>
-						if value == "true" {
-							is_optional = true;
-						} else if value == "false" {
-							is_optional = false;
-						} else {
-							return Err("Invalid `optional` must be true/false".to_string());
-						},
-					other => return Err(format!("Invalid query param: {}", other)),
-				}
+				"retry-random-port" => {
+					if retry_random_port.is_some() {
+						return Err(exactly_once_err("retry_random_port"));
+					}
+					retry_random_port =
+						Some(val.parse().map_err(|e| format!("Invalid retry_random_port: {}", e))?);
+				},
+				"rpc-methods" => {
+					if rpc_methods.is_some() {
+						return Err(exactly_once_err("rpc_methods"));
+					}
+					rpc_methods =
+						Some(val.parse().map_err(|e| format!("Invalid rpc_methods: {}", e))?);
+				},
+				"optional" => {
+					if is_optional.is_some() {
+						return Err(exactly_once_err("optional"));
+					}
+
+					let val = val.parse().map_err(|e| format!("Invalid optional value: {}", e))?;
+					is_optional = Some(val);
+				},
+				"disable-batch-requests" => {
+					if disable_batch_requests.is_some() {
+						return Err(exactly_once_err("disable_batch_requests"));
+					}
+
+					let val = val
+						.parse()
+						.map_err(|e| format!("Invalid disable_batch_requests value: {}", e))?;
+					disable_batch_requests = Some(val);
+				},
+				"max-batch-request-len" => {
+					if max_batch_request_len.is_some() {
+						return Err(exactly_once_err("batch_request_limit"));
+					}
+
+					let val =
+						val.parse().map_err(|e| format!("Invalid batch_request_limit: {}", e))?;
+					max_batch_request_len = Some(val);
+				},
+				_ => return Err(format!("Unknown key: {}", key)),
 			}
 		}
 
+		let listen_addr = listen_addr.ok_or("Listen addr is required")?;
+
+		let batch_config = match (disable_batch_requests, max_batch_request_len) {
+			(Some(false), Some(_)) => {
+				return Err("`max-batch-request-len` cannot be specified when `disable-batch-requests` is false".to_string());
+			},
+			(Some(true), None) => RpcBatchRequestConfig::Disabled,
+			(None, Some(len)) => RpcBatchRequestConfig::Limit(len),
+			_ => RpcBatchRequestConfig::Unlimited,
+		};
+
 		Ok(Self {
 			listen_addr,
+			batch_config,
+			max_connections: max_connections.unwrap_or(RPC_DEFAULT_MAX_CONNECTIONS),
+			max_payload_in_mb: max_payload_in_mb.unwrap_or(RPC_DEFAULT_MAX_REQUEST_SIZE_MB),
+			max_payload_out_mb: max_payload_out_mb.unwrap_or(RPC_DEFAULT_MAX_RESPONSE_SIZE_MB),
+			cors,
+			max_buffer_capacity_per_connection: max_buffer_capacity_per_connection
+				.unwrap_or(RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN),
+			max_subscriptions_per_connection: max_subscriptions_per_connection
+				.unwrap_or(RPC_DEFAULT_MAX_SUBS_PER_CONN),
 			rpc_methods: rpc_methods.unwrap_or(RpcMethods::Auto),
 			rate_limit,
-			rate_limit_trust_proxy_headers,
+			rate_limit_trust_proxy_headers: rate_limit_trust_proxy_headers.unwrap_or(false),
 			rate_limit_whitelisted_ips,
-			cors,
-			retry_random_port: false,
-			is_optional,
+			is_optional: is_optional.unwrap_or(false),
+			retry_random_port: retry_random_port.unwrap_or(false),
 		})
 	}
 }
 
-impl Into<sc_service::config::RpcListenAddr> for RpcListenAddr {
-	fn into(self) -> sc_service::config::RpcListenAddr {
-		sc_service::config::RpcListenAddr {
+impl Into<sc_service::config::RpcEndpoint> for RpcEndpoint {
+	fn into(self) -> sc_service::config::RpcEndpoint {
+		sc_service::config::RpcEndpoint {
+			batch_config: self.batch_config,
 			listen_addr: self.listen_addr,
+			max_buffer_capacity_per_connection: self.max_buffer_capacity_per_connection,
+			max_connections: self.max_connections,
+			max_payload_in_mb: self.max_payload_in_mb,
+			max_payload_out_mb: self.max_payload_out_mb,
+			max_subscriptions_per_connection: self.max_subscriptions_per_connection,
 			rpc_methods: self.rpc_methods.into(),
 			rate_limit: self.rate_limit,
 			rate_limit_trust_proxy_headers: self.rate_limit_trust_proxy_headers,

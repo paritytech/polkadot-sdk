@@ -27,9 +27,7 @@ use std::{error::Error as StdError, time::Duration};
 
 use jsonrpsee::{
 	core::BoxError,
-	server::{
-		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
-	},
+	server::{serve_with_graceful_shutdown, stop_channel, ws, PingConfig, StopHandle},
 	Methods, RpcModule,
 };
 use middleware::NodeHealthProxyLayer;
@@ -47,7 +45,7 @@ pub use jsonrpsee::{
 	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
 pub use middleware::{Metrics, MiddlewareLayer, RpcMetrics};
-pub use utils::{ListenAddr, RpcMethods};
+pub use utils::{RpcEndpoint, RpcMethods};
 
 const MEGABYTE: u32 = 1024 * 1024;
 
@@ -57,37 +55,24 @@ pub type Server = jsonrpsee::server::ServerHandle;
 /// RPC server configuration.
 #[derive(Debug)]
 pub struct Config<M: Send + Sync + 'static> {
-	/// Listen addresses.
-	pub listen_addrs: Vec<ListenAddr>,
-	/// Maximum connections.
-	pub max_connections: u32,
-	/// Maximum subscriptions per connection.
-	pub max_subs_per_conn: u32,
-	/// Maximum rpc request payload size.
-	pub max_payload_in_mb: u32,
-	/// Maximum rpc response payload size.
-	pub max_payload_out_mb: u32,
+	/// RPC interfaces to start.
+	pub endpoints: Vec<RpcEndpoint>,
 	/// Metrics.
 	pub metrics: Option<RpcMetrics>,
-	/// Message buffer size
-	pub message_buffer_capacity: u32,
 	/// RPC API.
 	pub rpc_api: RpcModule<M>,
 	/// Subscription ID provider.
 	pub id_provider: Option<Box<dyn IdProvider>>,
 	/// Tokio runtime handle.
 	pub tokio_handle: tokio::runtime::Handle,
-	/// Batch request config.
-	pub batch_config: BatchRequestConfig,
 }
 
 #[derive(Debug, Clone)]
-struct PerConnection<RpcMiddleware, HttpMiddleware> {
+struct PerConnection {
 	methods: Methods,
 	stop_handle: StopHandle,
 	metrics: Option<RpcMetrics>,
 	tokio_handle: tokio::runtime::Handle,
-	service_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
 }
 
 /// Start RPC server listening on given address.
@@ -95,46 +80,11 @@ pub async fn start_server<M>(config: Config<M>) -> Result<Server, Box<dyn StdErr
 where
 	M: Send + Sync,
 {
-	let Config {
-		listen_addrs,
-		batch_config,
-		max_payload_in_mb,
-		max_payload_out_mb,
-		max_connections,
-		max_subs_per_conn,
-		metrics,
-		message_buffer_capacity,
-		id_provider,
-		tokio_handle,
-		rpc_api,
-		..
-	} = config;
-
-	let mut builder = jsonrpsee::server::Server::builder()
-		.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
-		.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
-		.max_connections(max_connections)
-		.max_subscriptions_per_connection(max_subs_per_conn)
-		.enable_ws_ping(
-			PingConfig::new()
-				.ping_interval(Duration::from_secs(30))
-				.inactive_limit(Duration::from_secs(60))
-				.max_failures(3),
-		)
-		.set_message_buffer_capacity(message_buffer_capacity)
-		.set_batch_request_config(batch_config)
-		.custom_tokio_runtime(tokio_handle.clone());
-
-	if let Some(provider) = id_provider {
-		builder = builder.set_id_provider(provider);
-	} else {
-		builder = builder.set_id_provider(RandomStringIdProvider::new(16));
-	};
+	let Config { endpoints, metrics, tokio_handle, rpc_api, .. } = config;
 
 	let (stop_handle, server_handle) = stop_channel();
 	let cfg = PerConnection {
 		methods: build_rpc_api(rpc_api).into(),
-		service_builder: builder.to_service_builder(),
 		metrics,
 		tokio_handle: tokio_handle.clone(),
 		stop_handle,
@@ -142,11 +92,11 @@ where
 
 	let mut local_addrs = Vec::new();
 
-	for addr in listen_addrs {
-		let allowed_to_fail = addr.is_optional;
-		let local_addr = addr.listen_addr;
+	for endpoint in endpoints {
+		let allowed_to_fail = endpoint.is_optional;
+		let local_addr = endpoint.listen_addr;
 
-		let mut listener = match addr.bind().await {
+		let mut listener = match endpoint.bind().await {
 			Ok(l) => l,
 			Err(e) if allowed_to_fail => {
 				log::debug!(target: "rpc", "JSON-RPC server failed to bind optional address: {:?}, error: {:?}", local_addr, e);
@@ -174,6 +124,12 @@ where
 				};
 
 				let RpcSettings {
+					batch_config,
+					max_connections,
+					max_payload_in_mb,
+					max_payload_out_mb,
+					max_buffer_capacity_per_connection,
+					max_subscriptions_per_connection,
 					rpc_methods,
 					rate_limit_trust_proxy_headers,
 					rate_limit_whitelisted_ips,
@@ -182,26 +138,51 @@ where
 					rate_limit,
 				} = rpc_cfg;
 
+				let http_middleware = tower::ServiceBuilder::new()
+					.option_layer(host_filter)
+					// Proxy `GET /health, /health/readiness` requests to the internal
+					// `system_health` method.
+					.layer(NodeHealthProxyLayer::default())
+					.layer(cors);
+
+				let builder = jsonrpsee::server::Server::builder()
+					.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
+					.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
+					.max_connections(max_connections)
+					.max_subscriptions_per_connection(max_subscriptions_per_connection)
+					.enable_ws_ping(
+						PingConfig::new()
+							.ping_interval(Duration::from_secs(30))
+							.inactive_limit(Duration::from_secs(60))
+							.max_failures(3),
+					)
+					.set_http_middleware(http_middleware)
+					.set_message_buffer_capacity(max_buffer_capacity_per_connection)
+					.set_batch_request_config(batch_config)
+					.custom_tokio_runtime(cfg.tokio_handle.clone())
+					.set_id_provider(RandomStringIdProvider::new(16));
+
+				// TODO: not cloneable which is required.
+				/*if let Some(provider) = id_provider {
+					builder = builder.set_id_provider(provider);
+				} else {
+					builder = builder.set_id_provider(RandomStringIdProvider::new(16));
+				};*/
+
+				let service_builder = builder.to_service_builder();
 				let deny_unsafe = deny_unsafe(&local_addr, &rpc_methods);
 
 				let ip = remote_addr.ip();
 				let cfg2 = cfg.clone();
-				let cors2 = cors.clone();
-				let host_filter2 = host_filter.clone();
+				let service_builder2 = service_builder.clone();
 
 				let svc =
 					tower::service_fn(move |mut req: http::Request<hyper::body::Incoming>| {
 						req.extensions_mut().insert(deny_unsafe);
 
-						let PerConnection {
-							methods,
-							service_builder,
-							metrics,
-							tokio_handle,
-							stop_handle,
-						} = cfg2.clone();
-						let cors = cors2.clone();
-						let host_filter = host_filter2.clone();
+						let PerConnection { methods, metrics, tokio_handle, stop_handle } =
+							cfg2.clone();
+						let service_builder = service_builder2.clone();
 
 						let proxy_ip =
 							if rate_limit_trust_proxy_headers { get_proxy_ip(&req) } else { None };
@@ -237,18 +218,10 @@ where
 							),
 						};
 
-						let http_middleware = tower::ServiceBuilder::new()
-							.option_layer(host_filter)
-							// Proxy `GET /health, /health/readiness` requests to the internal
-							// `system_health` method.
-							.layer(NodeHealthProxyLayer::default())
-							.layer(cors);
-
 						let rpc_middleware =
 							RpcServiceBuilder::new().option_layer(middleware_layer.clone());
 						let mut svc = service_builder
 							.set_rpc_middleware(rpc_middleware)
-							.set_http_middleware(http_middleware)
 							.build(methods, stop_handle);
 
 						async move {

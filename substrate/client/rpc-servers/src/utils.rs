@@ -18,6 +18,7 @@
 
 //! Substrate RPC server utils.
 
+use crate::BatchRequestConfig;
 use std::{
 	error::Error as StdError,
 	net::{IpAddr, SocketAddr},
@@ -73,6 +74,12 @@ impl FromStr for RpcMethods {
 
 #[derive(Debug, Clone)]
 pub(crate) struct RpcSettings {
+	pub(crate) batch_config: BatchRequestConfig,
+	pub(crate) max_connections: u32,
+	pub(crate) max_payload_in_mb: u32,
+	pub(crate) max_payload_out_mb: u32,
+	pub(crate) max_subscriptions_per_connection: u32,
+	pub(crate) max_buffer_capacity_per_connection: u32,
 	pub(crate) rpc_methods: RpcMethods,
 	pub(crate) rate_limit: Option<NonZeroU32>,
 	pub(crate) rate_limit_trust_proxy_headers: bool,
@@ -81,32 +88,42 @@ pub(crate) struct RpcSettings {
 	pub(crate) host_filter: Option<HostFilterLayer>,
 }
 
-/// Listen address.
-///
-/// <ip:port>/?setting=value&setting=value...,
+/// Represent a single RPC endpoint with its configuration.
 #[derive(Debug, Clone)]
-pub struct ListenAddr {
+pub struct RpcEndpoint {
 	/// Listen address.
 	pub listen_addr: SocketAddr,
-	/// RPC methods policy.
-	pub rpc_methods: RpcMethods,
-	/// Enable rate limiting.
+	/// Batch request configuration.
+	pub batch_config: BatchRequestConfig,
+	/// Maximum number of connections.
+	pub max_connections: u32,
+	/// Maximum inbound payload size in MB.
+	pub max_payload_in_mb: u32,
+	/// Maximum outbound payload size in MB.
+	pub max_payload_out_mb: u32,
+	/// Maximum number of subscriptions per connection.
+	pub max_subscriptions_per_connection: u32,
+	/// Maximum buffer capacity per connection.
+	pub max_buffer_capacity_per_connection: u32,
+	/// Rate limit per minute.
 	pub rate_limit: Option<NonZeroU32>,
 	/// Whether to trust proxy headers for rate limiting.
 	pub rate_limit_trust_proxy_headers: bool,
 	/// Whitelisted IPs for rate limiting.
 	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
-	/// CORS settings.
+	/// CORS.
 	pub cors: Option<Vec<String>>,
-	/// Whether to retry with a random port if the provided port is already in use.
-	pub retry_random_port: bool,
+	/// RPC methods to expose.
+	pub rpc_methods: RpcMethods,
 	/// Whether it's an optional listening address i.e, it's ignored if it fails to bind.
 	/// For example substrate tries to bind both ipv4 and ipv6 addresses but some platforms
 	/// may not support ipv6.
 	pub is_optional: bool,
+	/// Whether to retry with a random port if the provided port is already in use.
+	pub retry_random_port: bool,
 }
 
-impl ListenAddr {
+impl RpcEndpoint {
 	/// Binds to the listen address.
 	pub(crate) async fn bind(self) -> Result<Listener, Box<dyn StdError + Send + Sync>> {
 		let listener = match tokio::net::TcpListener::bind(self.listen_addr).await {
@@ -127,6 +144,12 @@ impl ListenAddr {
 			listener,
 			local_addr,
 			cfg: RpcSettings {
+				batch_config: self.batch_config,
+				max_connections: self.max_connections,
+				max_payload_in_mb: self.max_payload_in_mb,
+				max_payload_out_mb: self.max_payload_out_mb,
+				max_subscriptions_per_connection: self.max_subscriptions_per_connection,
+				max_buffer_capacity_per_connection: self.max_buffer_capacity_per_connection,
 				rpc_methods: self.rpc_methods,
 				rate_limit: self.rate_limit,
 				rate_limit_trust_proxy_headers: self.rate_limit_trust_proxy_headers,

@@ -385,18 +385,24 @@ pub fn start_rpc_servers<R>(
 where
 	R: Fn() -> Result<RpcModule<()>, Error>,
 {
-	let listen_addrs: Vec<sc_rpc_server::ListenAddr> = if let Some(listen_addrs) =
+	let endpoints: Vec<sc_rpc_server::RpcEndpoint> = if let Some(endpoints) =
 		config.rpc_addr.as_ref()
 	{
-		listen_addrs.clone().into_iter().map(Into::into).collect()
+		endpoints.clone().into_iter().map(Into::into).collect()
 	} else {
 		let ipv6 = SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, config.rpc_port, 0, 0));
 		let ipv4 = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, config.rpc_port));
 
 		vec![
-			sc_rpc_server::ListenAddr {
+			sc_rpc_server::RpcEndpoint {
+				batch_config: config.rpc_batch_config,
 				cors: config.rpc_cors.clone(),
 				listen_addr: ipv4,
+				max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
+				max_connections: config.rpc_max_connections,
+				max_payload_in_mb: config.rpc_max_request_size,
+				max_payload_out_mb: config.rpc_max_response_size,
+				max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
 				rpc_methods: config.rpc_methods.into(),
 				rate_limit: config.rpc_rate_limit,
 				rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
@@ -404,9 +410,15 @@ where
 				retry_random_port: true,
 				is_optional: false,
 			},
-			sc_rpc_server::ListenAddr {
+			sc_rpc_server::RpcEndpoint {
+				batch_config: config.rpc_batch_config,
 				cors: config.rpc_cors.clone(),
 				listen_addr: ipv6,
+				max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
+				max_connections: config.rpc_max_connections,
+				max_payload_in_mb: config.rpc_max_request_size,
+				max_payload_out_mb: config.rpc_max_response_size,
+				max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
 				rpc_methods: config.rpc_methods.into(),
 				rate_limit: config.rpc_rate_limit,
 				rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
@@ -421,13 +433,7 @@ where
 	let rpc_api = gen_rpc_module()?;
 
 	let server_config = sc_rpc_server::Config {
-		listen_addrs,
-		batch_config: config.rpc_batch_config,
-		max_connections: config.rpc_max_connections,
-		max_payload_in_mb: config.rpc_max_request_size,
-		max_payload_out_mb: config.rpc_max_response_size,
-		max_subs_per_conn: config.rpc_max_subs_per_conn,
-		message_buffer_capacity: config.rpc_message_buffer_capacity,
+		endpoints,
 		rpc_api,
 		metrics,
 		id_provider: rpc_id_provider,

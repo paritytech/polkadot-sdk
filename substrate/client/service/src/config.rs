@@ -82,8 +82,8 @@ pub struct Configuration {
 	/// over on-chain runtimes when the spec version matches. Set to `None` to
 	/// disable overrides (default).
 	pub wasm_runtime_overrides: Option<PathBuf>,
-	/// JSON-RPC server binding address.
-	pub rpc_addr: Option<Vec<RpcListenAddr>>,
+	/// JSON-RPC server endpoints.
+	pub rpc_addr: Option<Vec<RpcEndpoint>>,
 	/// Maximum number of connections for JSON-RPC server.
 	pub rpc_max_connections: u32,
 	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
@@ -340,16 +340,24 @@ impl From<PathBuf> for BasePath {
 	}
 }
 
-/// RPC Listen address.
-///
-/// <ip:port>/?setting=value&setting=value...,
+/// Represent a single RPC endpoint with its configuration.
 #[derive(Debug, Clone)]
-pub struct RpcListenAddr {
+pub struct RpcEndpoint {
 	/// Listen address.
 	pub listen_addr: SocketAddr,
-	/// RPC methods to expose.
-	pub rpc_methods: RpcMethods,
-	/// Rate limit for RPC requests.
+	/// Batch request configuration.
+	pub batch_config: RpcBatchRequestConfig,
+	/// Maximum number of connections.
+	pub max_connections: u32,
+	/// Maximum inbound payload size in MB.
+	pub max_payload_in_mb: u32,
+	/// Maximum outbound payload size in MB.
+	pub max_payload_out_mb: u32,
+	/// Maximum number of subscriptions per connection.
+	pub max_subscriptions_per_connection: u32,
+	/// Maximum buffer capacity per connection.
+	pub max_buffer_capacity_per_connection: u32,
+	/// Rate limit per minute.
 	pub rate_limit: Option<NonZeroU32>,
 	/// Whether to trust proxy headers for rate limiting.
 	pub rate_limit_trust_proxy_headers: bool,
@@ -357,18 +365,26 @@ pub struct RpcListenAddr {
 	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
 	/// CORS.
 	pub cors: Option<Vec<String>>,
-	/// Whether to retry with a random port if the provided port is already in use.
-	pub retry_random_port: bool,
+	/// RPC methods to expose.
+	pub rpc_methods: RpcMethods,
 	/// Whether it's an optional listening address i.e, it's ignored if it fails to bind.
 	/// For example substrate tries to bind both ipv4 and ipv6 addresses but some platforms
 	/// may not support ipv6.
 	pub is_optional: bool,
+	/// Whether to retry with a random port if the provided port is already in use.
+	pub retry_random_port: bool,
 }
 
-impl Into<sc_rpc_server::ListenAddr> for RpcListenAddr {
-	fn into(self) -> sc_rpc_server::ListenAddr {
-		sc_rpc_server::ListenAddr {
+impl Into<sc_rpc_server::RpcEndpoint> for RpcEndpoint {
+	fn into(self) -> sc_rpc_server::RpcEndpoint {
+		sc_rpc_server::RpcEndpoint {
+			batch_config: self.batch_config,
 			listen_addr: self.listen_addr,
+			max_connections: self.max_connections,
+			max_payload_in_mb: self.max_payload_in_mb,
+			max_payload_out_mb: self.max_payload_out_mb,
+			max_subscriptions_per_connection: self.max_subscriptions_per_connection,
+			max_buffer_capacity_per_connection: self.max_buffer_capacity_per_connection,
 			rpc_methods: self.rpc_methods.into(),
 			rate_limit: self.rate_limit,
 			rate_limit_trust_proxy_headers: self.rate_limit_trust_proxy_headers,

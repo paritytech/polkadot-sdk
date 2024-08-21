@@ -20,7 +20,7 @@
 
 use crate::{
 	arg_enums::Database, error::Result, DatabaseParams, ImportParams, KeystoreParams,
-	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, RpcListenAddr, SharedParams,
+	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, RpcEndpoint, SharedParams,
 	SubstrateCli,
 };
 use log::warn;
@@ -302,7 +302,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	}
 
 	/// Get the RPC address.
-	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<Vec<RpcListenAddr>>> {
+	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<Vec<RpcEndpoint>>> {
 		Ok(None)
 	}
 
@@ -505,7 +505,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let telemetry_endpoints = self.telemetry_endpoints(&chain_spec)?;
 		let runtime_cache_size = self.runtime_cache_size()?;
 
-		let rpc_addrs: Option<Vec<sc_service::config::RpcListenAddr>> = self
+		let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = self
 			.rpc_addr(DCV::rpc_listen_port())?
 			.map(|addrs| addrs.into_iter().map(Into::into).collect());
 
