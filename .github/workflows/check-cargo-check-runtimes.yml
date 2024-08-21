@@ -138,7 +138,7 @@ jobs:
       #   run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       # - run: source $HOME/.cargo/env
       - run: rustup toolchain install nightly stable-aarch64-apple-darwin
-      - run: rustup target add wasm32-unknown-unknown --toolchain stable-aarch64-apple-darwin
+      - run: rustup target add wasm32-unknown-unknown
       - run: rustup component add rust-src --toolchain stable-aarch64-apple-darwin
       - run: time cargo check --workspace --locked
 
