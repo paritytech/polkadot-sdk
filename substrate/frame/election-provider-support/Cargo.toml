@@ -24,6 +24,7 @@ sp-arithmetic = { workspace = true }
 sp-npos-elections = { workspace = true }
 sp-runtime = { workspace = true }
 sp-core = { workspace = true }
+sp-std = { workspace = true }
 
 [dev-dependencies]
 rand = { features = ["small_rng"], workspace = true, default-features = true }
@@ -40,6 +41,7 @@ std = [
 	"scale-info/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
+	"sp-std/std",
 	"sp-io/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",

@@ -432,6 +432,44 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	}
 }
 
+impl<A, B: HasCompact + Default + sp_std::ops::AddAssign + sp_std::ops::SubAssign + Clone>
+	From<Vec<IndividualExposure<A, B>>> for ExposurePage<A, B>
+{
+	fn from(exposures: Vec<IndividualExposure<A, B>>) -> Self {
+		let mut page: Self = Default::default();
+
+		let _ = exposures
+			.into_iter()
+			.map(|e| {
+				page.page_total += e.value.clone();
+				page.others.push(e)
+			})
+			.collect::<Vec<_>>();
+
+		page
+	}
+}
+
+impl<
+		A,
+		B: Default
+			+ HasCompact
+			+ core::fmt::Debug
+			+ sp_std::ops::AddAssign
+			+ sp_std::ops::SubAssign
+			+ Clone,
+	> ExposurePage<A, B>
+{
+	/// Split the current exposure page into two pages where the new page takes up to `num`
+	/// individual exposures. The remaining individual exposures are left in `self`.
+	pub fn from_split_others(&mut self, num: usize) -> Self {
+		let new: ExposurePage<_, _> = self.others.split_off(num).into();
+		self.page_total -= new.page_total.clone();
+
+		new
+	}
+}
+
 /// Metadata for Paged Exposure of a validator such as total stake across pages and page count.
 ///
 /// In combination with the associated `ExposurePage`s, it can be used to reconstruct a full

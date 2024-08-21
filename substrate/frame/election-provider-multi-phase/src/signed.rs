@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Infallible
 	pub fn finalize_signed_phase_accept_solution(
-		ready_solution: ReadySolution<T::AccountId, T::MaxWinners>,
+		ready_solution: ReadySolution<T::AccountId, T::MaxWinnersPerPage, T::MaxBackersPerWinner>,
 		who: &T::AccountId,
 		deposit: BalanceOf<T>,
 		call_fee: BalanceOf<T>,
