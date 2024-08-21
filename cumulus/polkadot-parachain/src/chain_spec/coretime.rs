@@ -107,8 +107,9 @@ impl CoretimeRuntimeType {
 			CoretimeRuntimeType::Kusama => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/coretime-kusama.json")[..],
 			)?)),
-			CoretimeRuntimeType::Polkadot =>
-				todo!("Generate chain-spec: ../../chain-specs/coretime-polkadot.json"),
+			CoretimeRuntimeType::Polkadot => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/coretime-polkadot.json")[..],
+			)?)),
 			CoretimeRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/coretime-rococo.json")[..],
 			)?)),
