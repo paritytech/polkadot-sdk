@@ -545,6 +545,7 @@ pub trait WeightInfo {
 	fn force_queue_action() -> Weight;
 	fn add_trusted_validation_code(c: u32) -> Weight;
 	fn poke_unused_validation_code() -> Weight;
+	fn unbrick() -> Weight;
 
 	fn include_pvf_check_statement_finalize_upgrade_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_upgrade_reject() -> Weight;
@@ -596,6 +597,10 @@ impl WeightInfo for TestWeightInfo {
 		// This special value is to distinguish from the finalizing variants above in tests.
 		Weight::MAX - Weight::from_parts(1, 1)
 	}
+	fn unbrick() -> Weight {
+		// This special value is to distinguish from the finalizing variants above in tests.
+		Weight::MAX - Weight::from_parts(1, 1)
+	}
 }
 
 #[frame_support::pallet]
@@ -642,6 +647,13 @@ pub mod pallet {
 		///
 		/// TODO: Remove once coretime is the standard across all chains.
 		type AssignCoretime: AssignCoretime;
+
+		/// A valid origin able to call the `unbrick` method.
+		type UnbrickOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// The minimum time (in blocks) that needs to have passed since the
+		/// last head update to allow unbricking a parachain.
+		type MinTimeToAllowUnbrick: Get<BlockNumberFor<Self>>;
 	}
 
 	#[pallet::event]
@@ -696,6 +708,8 @@ pub mod pallet {
 		CannotUpgradeCode,
 		/// Invalid validation code size.
 		InvalidCode,
+		/// Para cannot be considered as bricked
+		ParaNotBricked,
 	}
 
 	/// All currently active PVF pre-checking votes.
@@ -1147,6 +1161,43 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			MostRecentContext::<T>::insert(&para, context);
+			Ok(())
+		}
+
+		/// Allows a given origin to update the head and validation code for a para
+		/// if certain time has elapsed since last noted head.
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::force_set_most_recent_context())]
+		pub fn unbrick(
+			origin: OriginFor<T>,
+			para: ParaId,
+			maybe_new_code: Option<ValidationCode>,
+			maybe_new_head: Option<HeadData>,
+		) -> DispatchResult {
+			T::UnbrickOrigin::ensure_origin(origin)?;
+			ensure!(
+				frame_system::Pallet::<T>::block_number() -
+					MostRecentContext::<T>::get(para)
+						.unwrap_or(frame_system::Pallet::<T>::block_number()) >
+					T::MinTimeToAllowUnbrick::get(),
+				Error::<T>::ParaNotBricked
+			);
+
+			if let Some(new_code) = maybe_new_code {
+				let new_code_hash = new_code.hash();
+				Self::increase_code_ref(&new_code_hash, &new_code);
+				Self::set_current_code(
+					para,
+					new_code_hash,
+					frame_system::Pallet::<T>::block_number(),
+				);
+				Self::deposit_event(Event::CurrentCodeUpdated(para));
+			}
+
+			if let Some(new_head) = maybe_new_head {
+				Self::set_current_head(para, new_head);
+			}
+
 			Ok(())
 		}
 	}
