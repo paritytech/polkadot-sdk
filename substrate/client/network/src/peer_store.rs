@@ -273,6 +273,16 @@ impl PeerStoreInner {
 		);
 
 		if !peer_info.is_banned() {
+			if was_banned {
+				log::info!(
+					target: LOG_TARGET,
+					"Peer {} is now unbanned: {:+} to {}. Reason: {}.",
+					peer_id,
+					change.value,
+					peer_info.reputation,
+					change.reason,
+				);
+			}
 			return;
 		}
 
