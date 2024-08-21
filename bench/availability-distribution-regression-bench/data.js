@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724173259355,
+  "lastUpdate": 1724261850747,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -22983,6 +22983,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012438589693333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8b17f0f4c697793e0080836f175596a5ac2a0b3a",
+          "message": "peerstore: Clarify peer report warnings (#5407)\n\nThis PR aims to make the logging from the peer store a bit more clear.\n\nIn the past, we aggressively produced warning logs from the peer store\ncomponent, even in cases where the reputation change was not malicious.\nThis has led to an extensive number of logs, as well to node operator\nconfusion.\n\nIn this PR, we produce a warning message if:\n- The peer crosses the banned threshold for the first time. This is the\nactual reason of a ban\n- The peer misbehaves again while being banned. This may happen during a\nbatch peer report\n\ncc @paritytech/networking \n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/5379.\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>",
+          "timestamp": "2024-08-21T15:50:50Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8b17f0f4c697793e0080836f175596a5ac2a0b3a"
+        },
+        "date": 1724261821090,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17043217797333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012293294653333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022240550786666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010401389933333343,
             "unit": "seconds"
           }
         ]
