@@ -222,6 +222,11 @@ pub mod pallet {
 
 	pub type ParamsOf<T, I> =
 		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, <T as Config<I>>::MaxRank>;
+	pub type PartialParamsOf<T, I> = ParamsType<
+		Option<<T as Config<I>>::Balance>,
+		Option<BlockNumberFor<T>>,
+		<T as Config<I>>::MaxRank,
+	>;
 	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
 	pub type RankOf<T, I> = <<T as Config<I>>::Members as RankedMembers>::Rank;
 
@@ -558,9 +563,59 @@ pub mod pallet {
 
 			Ok(Pays::No.into())
 		}
+
+		/// Set the parameters partially.
+		///
+		/// - `origin`: An origin complying with `ParamsOrigin` or root.
+		/// - `partial_params`: The new parameters for the pallet.
+		///
+		/// This update config with multiple arguments without duplicating
+		/// the fields that does not need to update (set to None).
+		#[pallet::weight(T::WeightInfo::set_partial_params())]
+		#[pallet::call_index(9)]
+		pub fn set_partial_params(
+			origin: OriginFor<T>,
+			partial_params: Box<PartialParamsOf<T, I>>,
+		) -> DispatchResult {
+			T::ParamsOrigin::ensure_origin_or_root(origin)?;
+			let params = Params::<T, I>::mutate(|p| {
+				Self::set_partial_params_slice(&mut p.active_salary, partial_params.active_salary);
+				Self::set_partial_params_slice(
+					&mut p.passive_salary,
+					partial_params.passive_salary,
+				);
+				Self::set_partial_params_slice(
+					&mut p.demotion_period,
+					partial_params.demotion_period,
+				);
+				Self::set_partial_params_slice(
+					&mut p.min_promotion_period,
+					partial_params.min_promotion_period,
+				);
+				if let Some(new_offboard_timeout) = partial_params.offboard_timeout {
+					p.offboard_timeout = new_offboard_timeout;
+				}
+				p.clone()
+			});
+			Self::deposit_event(Event::<T, I>::ParamsChanged { params });
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Partially update the base slice with a new slice
+		///
+		/// Only elements in the base slice which has a new value in the new slice will be updated.
+		pub(crate) fn set_partial_params_slice<S>(
+			base_slice: &mut BoundedVec<S, <T as Config<I>>::MaxRank>,
+			new_slice: BoundedVec<Option<S>, <T as Config<I>>::MaxRank>,
+		) {
+			for (base_element, new_element) in base_slice.iter_mut().zip(new_slice) {
+				if let Some(element) = new_element {
+					*base_element = element;
+				}
+			}
+		}
 		/// Convert a rank into a `0..RANK_COUNT` index suitable for the arrays in Params.
 		///
 		/// Rank 1 becomes index 0, rank `RANK_COUNT` becomes index `RANK_COUNT - 1`. Any rank not

@@ -26,6 +26,14 @@ and use the funds to pay developers.
 ### Dispatchable Functions
 
 General spending/proposal protocol:
-- `propose_spend` - Make a spending proposal and stake the required deposit.
-- `reject_proposal` - Reject a proposal, slashing the deposit.
-- `approve_proposal` - Accept the proposal, returning the deposit.
+- `spend_local` - Propose and approve a spend of treasury funds, enables the
+  creation of spends using the native currency of the chain, utilizing the funds
+  stored in the pot
+- `spend` - Propose and approve a spend of treasury funds, allows spending any
+  asset kind managed by the treasury
+- `remove_approval` - Force a previously approved proposal to be removed from
+  the approval queue
+- `payout` - Claim a spend
+- `check_status` - Check the status of the spend and remove it from the storage
+  if processed
+- `void_spend` - Void previously approved spend

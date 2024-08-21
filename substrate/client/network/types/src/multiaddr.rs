@@ -22,6 +22,7 @@ use litep2p::types::multiaddr::{
 };
 use std::{
 	fmt::{self, Debug, Display},
+	net::{IpAddr, Ipv4Addr, Ipv6Addr},
 	str::FromStr,
 };
 
@@ -99,6 +100,27 @@ impl From<LiteP2pMultiaddr> for Multiaddr {
 impl From<Multiaddr> for LiteP2pMultiaddr {
 	fn from(multiaddr: Multiaddr) -> Self {
 		multiaddr.multiaddr
+	}
+}
+
+impl From<IpAddr> for Multiaddr {
+	fn from(v: IpAddr) -> Multiaddr {
+		match v {
+			IpAddr::V4(a) => a.into(),
+			IpAddr::V6(a) => a.into(),
+		}
+	}
+}
+
+impl From<Ipv4Addr> for Multiaddr {
+	fn from(v: Ipv4Addr) -> Multiaddr {
+		Protocol::Ip4(v).into()
+	}
+}
+
+impl From<Ipv6Addr> for Multiaddr {
+	fn from(v: Ipv6Addr) -> Multiaddr {
+		Protocol::Ip6(v).into()
 	}
 }
 

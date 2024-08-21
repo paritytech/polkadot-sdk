@@ -491,7 +491,7 @@ impl<T: Config> Pallet<T> {
 		let channel_info =
 			T::ChannelInfo::get_channel_info(recipient).ok_or(MessageSendError::NoChannel)?;
 		// Max message size refers to aggregates, or pages. Not to individual fragments.
-		let max_message_size = channel_info.max_message_size as usize;
+		let max_message_size = channel_info.max_message_size.min(T::MaxPageSize::get()) as usize;
 		let format_size = format.encoded_size();
 		// We check the encoded fragment length plus the format size against the max message size
 		// because the format is concatenated if a new page is needed.
@@ -522,7 +522,7 @@ impl<T: Config> Pallet<T> {
 		// We return the size of the last page inside of the option, to not calculate it again.
 		let appended_to_last_page = have_active
 			.then(|| {
-				<OutboundXcmpMessages<T>>::mutate(
+				<OutboundXcmpMessages<T>>::try_mutate(
 					recipient,
 					channel_details.last_index - 1,
 					|page| {
@@ -532,17 +532,18 @@ impl<T: Config> Pallet<T> {
 						) != Ok(format)
 						{
 							defensive!("Bad format in outbound queue; dropping message");
-							return None
+							return Err(())
 						}
 						if page.len() + encoded_fragment.len() > max_message_size {
-							return None
+							return Err(())
 						}
 						for frag in encoded_fragment.iter() {
-							page.try_push(*frag).ok()?;
+							page.try_push(*frag)?;
 						}
-						Some(page.len())
+						Ok(page.len())
 					},
 				)
+				.ok()
 			})
 			.flatten();
 

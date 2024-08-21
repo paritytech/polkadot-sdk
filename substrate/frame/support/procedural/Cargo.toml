@@ -18,21 +18,21 @@ targets = ["x86_64-unknown-linux-gnu"]
 proc-macro = true
 
 [dependencies]
-derive-syn-parse = "0.2.0"
-Inflector = "0.11.4"
-cfg-expr = "0.15.5"
-itertools = "0.11"
-proc-macro2 = "1.0.56"
+derive-syn-parse = { workspace = true }
+Inflector = { workspace = true }
+cfg-expr = { workspace = true }
+itertools = { workspace = true }
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { features = ["full", "visit-mut"], workspace = true }
-frame-support-procedural-tools = { path = "tools" }
-macro_magic = { version = "0.5.0", features = ["proc_support"] }
-proc-macro-warning = { version = "1.0.0", default-features = false }
-expander = "2.0.0"
-sp-crypto-hashing = { path = "../../../primitives/crypto/hashing", default-features = false }
+frame-support-procedural-tools = { workspace = true, default-features = true }
+macro_magic = { features = ["proc_support"], workspace = true }
+proc-macro-warning = { workspace = true }
+expander = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 
 [dev-dependencies]
-regex = "1"
+regex = { workspace = true }
 
 [features]
 default = ["std"]

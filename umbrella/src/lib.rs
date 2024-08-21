@@ -360,6 +360,10 @@ pub use pallet_asset_tx_payment;
 #[cfg(feature = "pallet-assets")]
 pub use pallet_assets;
 
+/// Provides freezing features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-freezer")]
+pub use pallet_assets_freezer;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;

@@ -17,27 +17,27 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
+codec = { workspace = true }
 log = { workspace = true }
-parking_lot = { version = "0.12.1", optional = true }
-rand = { version = "0.8.5", optional = true }
-smallvec = "1.11.0"
+parking_lot = { optional = true, workspace = true, default-features = true }
+rand = { optional = true, workspace = true, default-features = true }
+smallvec = { workspace = true, default-features = true }
 thiserror = { optional = true, workspace = true }
-tracing = { version = "0.1.29", optional = true }
-sp-core = { path = "../core", default-features = false }
-sp-externalities = { path = "../externalities", default-features = false }
-sp-panic-handler = { path = "../panic-handler", optional = true }
-sp-trie = { path = "../trie", default-features = false }
+tracing = { optional = true, workspace = true, default-features = true }
+sp-core = { workspace = true }
+sp-externalities = { workspace = true }
+sp-panic-handler = { optional = true, workspace = true, default-features = true }
+sp-trie = { workspace = true }
 trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
-arbitrary = { version = "1", features = ["derive"], optional = true }
+arbitrary = { features = ["derive"], optional = true, workspace = true }
 
 [dev-dependencies]
-array-bytes = "6.2.2"
-pretty_assertions = "1.2.1"
-rand = "0.8.5"
-sp-runtime = { path = "../runtime" }
-assert_matches = "1.5"
-arbitrary = { version = "1", features = ["derive"] }
+array-bytes = { workspace = true, default-features = true }
+pretty_assertions = { workspace = true }
+rand = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+assert_matches = { workspace = true }
+arbitrary = { features = ["derive"], workspace = true }
 
 [features]
 default = ["std"]

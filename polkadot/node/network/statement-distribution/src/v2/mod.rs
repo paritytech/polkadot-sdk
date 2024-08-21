@@ -195,8 +195,8 @@ struct ActiveValidatorState {
 	index: ValidatorIndex,
 	// our validator group
 	group: GroupIndex,
-	// the assignment of our validator group, if any.
-	assignment: Option<ParaId>,
+	// the assignments of our validator group, if any.
+	assignments: Vec<ParaId>,
 	// the 'direct-in-group' communication at this relay-parent.
 	cluster_tracker: ClusterTracker,
 }
@@ -740,8 +740,8 @@ fn find_active_validator_state(
 	let our_group = groups.by_validator_index(validator_index)?;
 
 	let core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
-	let para_assigned_to_core = if let Some(claim_queue) = maybe_claim_queue {
-		claim_queue.get_claim_for(core_index, 0)
+	let paras_assigned_to_core = if let Some(claim_queue) = maybe_claim_queue {
+		claim_queue.iter_claims_for_core(&core_index).copied().collect()
 	} else {
 		availability_cores
 			.get(core_index.0 as usize)
@@ -753,6 +753,8 @@ fn find_active_validator_state(
 					.map(|scheduled_core| scheduled_core.para_id),
 				CoreState::Free | CoreState::Occupied(_) => None,
 			})
+			.into_iter()
+			.collect()
 	};
 	let group_validators = groups.get(our_group)?.to_owned();
 
@@ -760,7 +762,7 @@ fn find_active_validator_state(
 		active: Some(ActiveValidatorState {
 			index: validator_index,
 			group: our_group,
-			assignment: para_assigned_to_core,
+			assignments: paras_assigned_to_core,
 			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
 				.expect("group is non-empty because we are in it; qed"),
 		}),
@@ -1162,10 +1164,10 @@ pub(crate) async fn share_local_statement<Context>(
 		None => return Ok(()),
 	};
 
-	let (local_index, local_assignment, local_group) =
+	let (local_index, local_assignments, local_group) =
 		match per_relay_parent.active_validator_state() {
 			None => return Err(JfyiError::InvalidShare),
-			Some(l) => (l.index, l.assignment, l.group),
+			Some(l) => (l.index, &l.assignments, l.group),
 		};
 
 	// Two possibilities: either the statement is `Seconded` or we already
@@ -1203,7 +1205,7 @@ pub(crate) async fn share_local_statement<Context>(
 		return Err(JfyiError::InvalidShare)
 	}
 
-	if local_assignment != Some(expected_para) || relay_parent != expected_relay_parent {
+	if !local_assignments.contains(&expected_para) || relay_parent != expected_relay_parent {
 		return Err(JfyiError::InvalidShare)
 	}
 
@@ -2144,12 +2146,11 @@ async fn determine_groups_per_para(
 	let n_cores = availability_cores.len();
 
 	// Determine the core indices occupied by each para at the current relay parent. To support
-	// on-demand parachains we also consider the core indices at next block if core has a candidate
-	// pending availability.
-	let para_core_indices: Vec<_> = if let Some(claim_queue) = maybe_claim_queue {
+	// on-demand parachains we also consider the core indices at next blocks.
+	let schedule: HashMap<CoreIndex, Vec<ParaId>> = if let Some(claim_queue) = maybe_claim_queue {
 		claim_queue
-			.iter_claims_at_depth(0)
-			.map(|(core_index, para)| (para, core_index))
+			.iter_all_claims()
+			.map(|(core_index, paras)| (*core_index, paras.iter().copied().collect()))
 			.collect()
 	} else {
 		availability_cores
@@ -2157,12 +2158,12 @@ async fn determine_groups_per_para(
 			.enumerate()
 			.filter_map(|(index, core)| match core {
 				CoreState::Scheduled(scheduled_core) =>
-					Some((scheduled_core.para_id, CoreIndex(index as u32))),
+					Some((CoreIndex(index as u32), vec![scheduled_core.para_id])),
 				CoreState::Occupied(occupied_core) =>
 					if max_candidate_depth >= 1 {
-						occupied_core
-							.next_up_on_available
-							.map(|scheduled_core| (scheduled_core.para_id, CoreIndex(index as u32)))
+						occupied_core.next_up_on_available.map(|scheduled_core| {
+							(CoreIndex(index as u32), vec![scheduled_core.para_id])
+						})
 					} else {
 						None
 					},
@@ -2173,9 +2174,12 @@ async fn determine_groups_per_para(
 
 	let mut groups_per_para = HashMap::new();
 	// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
-	for (para, core_index) in para_core_indices {
+	for (core_index, paras) in schedule {
 		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
-		groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index)
+
+		for para in paras {
+			groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index);
+		}
 	}
 
 	groups_per_para

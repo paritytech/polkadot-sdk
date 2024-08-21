@@ -64,7 +64,7 @@ async fn check_validation_code_or_log(
 					?relay_parent,
 					?local_validation_code_hash,
 					relay_validation_code_hash = ?state,
-					"Parachain code doesn't match validation code stored in the relay chain state",
+					"Parachain code doesn't match validation code stored in the relay chain state.",
 				);
 			},
 		None => {

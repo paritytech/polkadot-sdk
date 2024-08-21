@@ -16,39 +16,39 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", features = [
+codec = { features = [
 	"derive",
-] }
+], workspace = true, default-features = true }
 trie-db = { package = "subtrie", version = "0.0.1" }
-kvdb = "0.13.0"
-kvdb-memorydb = "0.13.0"
-kvdb-rocksdb = { version = "0.19.0", optional = true }
-linked-hash-map = "0.5.4"
+kvdb = { workspace = true }
+kvdb-memorydb = { workspace = true }
+kvdb-rocksdb = { optional = true, workspace = true }
+linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
-parity-db = "0.4.13"
-parking_lot = "0.12.1"
-sc-client-api = { path = "../api" }
-sc-state-db = { path = "../state-db" }
-schnellru = "0.2.1"
-sp-arithmetic = { path = "../../primitives/arithmetic" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-database = { path = "../../primitives/database" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-state-machine = { path = "../../primitives/state-machine" }
-sp-trie = { path = "../../primitives/trie" }
+parity-db = { workspace = true }
+parking_lot = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-state-db = { workspace = true, default-features = true }
+schnellru = { workspace = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-database = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 
 [dev-dependencies]
-array-bytes = "6.2.2"
-criterion = "0.5.1"
+array-bytes = { workspace = true, default-features = true }
+criterion = { workspace = true, default-features = true }
 fs_extra = "1"
-kitchensink-runtime = { path = "../../bin/node/runtime" }
-kvdb-rocksdb = "0.19.0"
-quickcheck = { version = "1.0.3", default-features = false }
-rand = "0.8.5"
-sp-tracing = { path = "../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
-tempfile = "3.1.0"
+kitchensink-runtime = { workspace = true }
+kvdb-rocksdb = { workspace = true }
+quickcheck = { workspace = true }
+rand = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
+tempfile = { workspace = true }
 
 [features]
 default = []

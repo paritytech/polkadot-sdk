@@ -10,20 +10,20 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-scale-info = { version = "2.6.0", default-features = false }
-paste = "1.0.7"
+codec = { workspace = true, default-features = true }
+scale-info = { workspace = true }
+paste = { workspace = true, default-features = true }
 
-frame-support = { path = "../../../substrate/frame/support" }
-frame-system = { path = "../../../substrate/frame/system" }
-sp-io = { path = "../../../substrate/primitives/io" }
-sp-std = { path = "../../../substrate/primitives/std" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
+frame-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-std = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
-xcm = { package = "staging-xcm", path = ".." }
-xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor" }
-xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
-polkadot-primitives = { path = "../../primitives" }
-polkadot-core-primitives = { path = "../../core-primitives" }
-polkadot-parachain-primitives = { path = "../../parachain" }
-polkadot-runtime-parachains = { path = "../../runtime/parachains" }
+xcm = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-core-primitives = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }

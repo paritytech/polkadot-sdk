@@ -50,6 +50,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_core_fellowship`.
 pub trait WeightInfo {
 	fn set_params() -> Weight;
+	fn set_partial_params() -> Weight;
 	fn bump_offboard() -> Weight;
 	fn bump_demote() -> Weight;
 	fn set_active() -> Weight;
@@ -72,6 +73,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 7_633_000 picoseconds.
 		Weight::from_parts(8_018_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: CoreFellowship Params (r:0 w:1)
+	/// Proof: CoreFellowship Params (max_values: Some(1), max_size: Some(364), added: 859, mode: MaxEncodedLen)
+	fn set_partial_params() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 9_454_000 picoseconds.
+		Weight::from_parts(9_804_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `CoreFellowship::Member` (r:1 w:1)
@@ -243,6 +254,16 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 7_633_000 picoseconds.
 		Weight::from_parts(8_018_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: CoreFellowship Params (r:0 w:1)
+	/// Proof: CoreFellowship Params (max_values: Some(1), max_size: Some(364), added: 859, mode: MaxEncodedLen)
+	fn set_partial_params() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 9_454_000 picoseconds.
+		Weight::from_parts(9_804_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `CoreFellowship::Member` (r:1 w:1)

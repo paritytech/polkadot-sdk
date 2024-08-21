@@ -24,7 +24,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-	traits::{ChangeMembers, Contains, Get, InitializeMembers, SortedMembers},
+	traits::{ChangeMembers, Contains, ContainsLengthBound, Get, InitializeMembers, SortedMembers},
 	BoundedVec,
 };
 use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
@@ -358,6 +358,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 impl<T: Config<I>, I: 'static> Contains<T::AccountId> for Pallet<T, I> {
 	fn contains(t: &T::AccountId) -> bool {
 		Self::members().binary_search(t).is_ok()
+	}
+}
+
+impl<T: Config> ContainsLengthBound for Pallet<T> {
+	fn min_len() -> usize {
+		0
+	}
+
+	/// Implementation uses a parameter type so calling is cost-free.
+	fn max_len() -> usize {
+		T::MaxMembers::get() as usize
 	}
 }
 

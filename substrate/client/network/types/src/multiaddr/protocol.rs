@@ -20,7 +20,7 @@ use crate::multihash::Multihash;
 use litep2p::types::multiaddr::Protocol as LiteP2pProtocol;
 use std::{
 	borrow::Cow,
-	net::{Ipv4Addr, Ipv6Addr},
+	net::{IpAddr, Ipv4Addr, Ipv6Addr},
 };
 
 /// [`Protocol`] describes all possible multiaddress protocols.
@@ -58,6 +58,30 @@ pub enum Protocol<'a> {
 	Utp,
 	Ws(Cow<'a, str>),
 	Wss(Cow<'a, str>),
+}
+
+impl<'a> From<IpAddr> for Protocol<'a> {
+	#[inline]
+	fn from(addr: IpAddr) -> Self {
+		match addr {
+			IpAddr::V4(addr) => Protocol::Ip4(addr),
+			IpAddr::V6(addr) => Protocol::Ip6(addr),
+		}
+	}
+}
+
+impl<'a> From<Ipv4Addr> for Protocol<'a> {
+	#[inline]
+	fn from(addr: Ipv4Addr) -> Self {
+		Protocol::Ip4(addr)
+	}
+}
+
+impl<'a> From<Ipv6Addr> for Protocol<'a> {
+	#[inline]
+	fn from(addr: Ipv6Addr) -> Self {
+		Protocol::Ip6(addr)
+	}
 }
 
 impl<'a> From<LiteP2pProtocol<'a>> for Protocol<'a> {

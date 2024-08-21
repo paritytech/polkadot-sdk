@@ -123,7 +123,8 @@ impl core::Benchmark for ImportBenchmark {
 				match self.block_type {
 					BlockType::RandomTransfersKeepAlive => {
 						// should be 8 per signed extrinsic + 1 per unsigned
-						// we have 1 unsigned and the rest are signed in the block
+						// we have 2 unsigned (timestamp and glutton bloat) while the rest are
+						// signed in the block.
 						// those 8 events per signed are:
 						//    - transaction paid for the transaction payment
 						//    - withdraw (Balances::Withdraw) for charging the transaction fee
@@ -136,18 +137,18 @@ impl core::Benchmark for ImportBenchmark {
 						//    - extrinsic success
 						assert_eq!(
 							kitchensink_runtime::System::events().len(),
-							(self.block.extrinsics.len() - 1) * 8 + 1,
+							(self.block.extrinsics.len() - 2) * 8 + 2,
 						);
 					},
 					BlockType::Noop => {
 						assert_eq!(
 							kitchensink_runtime::System::events().len(),
 							// should be 2 per signed extrinsic + 1 per unsigned
-							// we have 1 unsigned and the rest are signed in the block
+							// we have 2 unsigned and the rest are signed in the block
 							// those 2 events per signed are:
 							//    - deposit event for charging transaction fee
 							//    - extrinsic success
-							(self.block.extrinsics.len() - 1) * 2 + 1,
+							(self.block.extrinsics.len() - 2) * 2 + 2,
 						);
 					},
 					_ => {},

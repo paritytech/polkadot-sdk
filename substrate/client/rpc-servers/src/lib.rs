@@ -32,12 +32,10 @@ use hyper::{
 	service::{make_service_fn, service_fn},
 };
 use jsonrpsee::{
-	server::{
-		middleware::http::ProxyGetRequestLayer, stop_channel, ws, PingConfig, StopHandle,
-		TowerServiceBuilder,
-	},
+	server::{stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder},
 	Methods, RpcModule,
 };
+use middleware::NodeHealthProxyLayer;
 use tokio::net::TcpListener;
 use tower::Service;
 use utils::{build_rpc_api, format_cors, get_proxy_ip, host_filtering, try_into_cors};
@@ -132,8 +130,8 @@ where
 
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
-		// Proxy `GET /health` requests to internal `system_health` method.
-		.layer(ProxyGetRequestLayer::new("/health", "system_health")?)
+		// Proxy `GET /health, /health/readiness` requests to the internal `system_health` method.
+		.layer(NodeHealthProxyLayer::default())
 		.layer(try_into_cors(cors)?);
 
 	let mut builder = jsonrpsee::server::Server::builder()

@@ -74,6 +74,7 @@
   "glutton": {
     "compute": "0",
     "storage": "0",
+    "blockLength": "0",
     "trashDataCount": 0
   },
   "assets": {
