@@ -43,23 +43,21 @@ use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
 
-#[derive(Debug, Default)]
+/// Structure that can be used in order to provide customizers for different functionalities of the
+/// node binary that is being built using this library.
 pub struct RunConfig {
-	pub chain_spec_loader: Option<Box<dyn LoadSpec>>,
-	pub runtime_resolver: Option<Box<dyn RuntimeResolver>>,
+	pub chain_spec_loader: Box<dyn LoadSpec>,
+	pub runtime_resolver: Box<dyn RuntimeResolver>,
 }
 
 fn new_node_spec(
 	config: &sc_service::Configuration,
-	maybe_runtime_resolver: Option<&Box<dyn RuntimeResolverT>>,
+	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	extra_args: &NodeExtraArgs,
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
-	let runtime_resolver = match maybe_runtime_resolver {
-		Some(runtime_resolver) => runtime_resolver,
-		None => return Ok(new_aura_node_spec::<AuraRuntimeApi, AuraId>(extra_args)),
-	};
+	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
 
-	Ok(match runtime_resolver.runtime(config.chain_spec.as_ref())? {
+	Ok(match runtime {
 		Runtime::Shell => Box::new(ShellNode),
 		Runtime::Omni(consensus) => match consensus {
 			Consensus::Aura(AuraConsensusId::Sr25519) =>
@@ -73,7 +71,7 @@ fn new_node_spec(
 /// Parse command line arguments into service configuration.
 pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
 	let mut cli = Cli::<CliConfig>::from_args();
-	cli.chain_spec_loader = cmd_config.chain_spec_loader;
+	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
 	match &cli.subcommand {
 		Some(Subcommand::BuildSpec(cmd)) => {
@@ -83,55 +81,40 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(
-					&config,
-					cmd_config.runtime_resolver.as_ref(),
-					&cli.node_extra_args(),
-				)?;
+				let node =
+					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 				node.prepare_check_block_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(
-					&config,
-					cmd_config.runtime_resolver.as_ref(),
-					&cli.node_extra_args(),
-				)?;
+				let node =
+					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 				node.prepare_export_blocks_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(
-					&config,
-					cmd_config.runtime_resolver.as_ref(),
-					&cli.node_extra_args(),
-				)?;
+				let node =
+					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 				node.prepare_export_state_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(
-					&config,
-					cmd_config.runtime_resolver.as_ref(),
-					&cli.node_extra_args(),
-				)?;
+				let node =
+					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 				node.prepare_import_blocks_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(
-					&config,
-					cmd_config.runtime_resolver.as_ref(),
-					&cli.node_extra_args(),
-				)?;
+				let node =
+					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
@@ -154,11 +137,8 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
-				let node = new_node_spec(
-					&config,
-					cmd_config.runtime_resolver.as_ref(),
-					&cli.node_extra_args(),
-				)?;
+				let node =
+					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 				node.run_export_genesis_head_cmd(config, cmd)
 			})
 		},
@@ -183,7 +163,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
 					let node = new_node_spec(
 						&config,
-						cmd_config.runtime_resolver.as_ref(),
+						&cmd_config.runtime_resolver,
 						&cli.node_extra_args(),
 					)?;
 					node.run_benchmark_block_cmd(config, cmd)
@@ -192,7 +172,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
 					let node = new_node_spec(
 						&config,
-						cmd_config.runtime_resolver.as_ref(),
+						&cmd_config.runtime_resolver,
 						&cli.node_extra_args(),
 					)?;
 					node.run_benchmark_storage_cmd(config, cmd)
@@ -282,7 +262,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 
 				start_node(
 					config,
-					cmd_config.runtime_resolver.as_ref(),
+					&cmd_config.runtime_resolver,
 					polkadot_config,
 					collator_options,
 					id,
@@ -298,7 +278,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
 async fn start_node(
 	config: sc_service::Configuration,
-	runtime_resolver: Option<&Box<dyn RuntimeResolverT>>,
+	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	polkadot_config: sc_service::Configuration,
 	collator_options: cumulus_client_cli::CollatorOptions,
 	id: ParaId,

@@ -47,8 +47,8 @@ fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
 
 	let config = RunConfig {
-		chain_spec_loader: Some(Box::new(chain_spec::ChainSpecLoader)),
-		runtime_resolver: Some(Box::new(chain_spec::RuntimeResolver)),
+		chain_spec_loader: Box::new(chain_spec::ChainSpecLoader),
+		runtime_resolver: Box::new(chain_spec::RuntimeResolver),
 	};
 	Ok(run::<CliConfig>(config)?)
 }

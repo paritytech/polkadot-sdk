@@ -309,9 +309,9 @@ impl RuntimeResolverT for RuntimeResolver {
 			LegacyRuntime::People(_) |
 			LegacyRuntime::ContractsRococo |
 			LegacyRuntime::Glutton |
-			LegacyRuntime::Penpal => Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519)),
-			LegacyRuntime::Shell | LegacyRuntime::Seedling => Runtime::Shell,
+			LegacyRuntime::Penpal |
 			LegacyRuntime::Omni => Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519)),
+			LegacyRuntime::Shell | LegacyRuntime::Seedling => Runtime::Shell,
 		})
 	}
 }

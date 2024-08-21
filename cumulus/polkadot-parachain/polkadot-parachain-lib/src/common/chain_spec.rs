@@ -22,9 +22,18 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 /// Helper trait used for loading/building a chain spec starting from the chain ID.
-pub trait LoadSpec: Debug {
+pub trait LoadSpec {
 	/// Load/Build a chain spec starting from the chain ID.
 	fn load_spec(&self, id: &str) -> Result<Box<dyn ChainSpec>, String>;
+}
+
+/// Default implementation for `LoadSpec` that just reads a chain spec from the disk.
+pub struct DiskChainSpecLoader;
+
+impl LoadSpec for DiskChainSpecLoader {
+	fn load_spec(&self, path: &str) -> Result<Box<dyn ChainSpec>, String> {
+		Ok(Box::new(GenericChainSpec::from_json_file(path.into())?))
+	}
 }
 
 /// Generic extensions for Parachain ChainSpecs.

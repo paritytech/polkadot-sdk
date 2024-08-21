@@ -14,9 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::common::{
-	chain_spec::{Extensions, GenericChainSpec, LoadSpec},
-	NodeExtraArgs,
+use crate::{
+	chain_spec::DiskChainSpecLoader,
+	common::{
+		chain_spec::{Extensions, LoadSpec},
+		NodeExtraArgs,
+	},
 };
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_chain_spec::ChainSpec;
@@ -27,6 +30,11 @@ use sc_cli::{
 use sc_service::{config::PrometheusConfig, BasePath};
 use std::{fmt::Debug, marker::PhantomData, net::SocketAddr, path::PathBuf};
 
+/// Trait that can be used to customize some of the customer-facing info related to the node binary
+/// that is being built using this library.
+///
+/// The related info is shown to the customer as part of logs or help messages.
+/// It does not impact functionality.
 pub trait CliConfig {
 	fn impl_version() -> String;
 
@@ -90,7 +98,7 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
-#[derive(Debug, clap::Parser)]
+#[derive(clap::Parser)]
 #[command(
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
@@ -171,12 +179,11 @@ impl<Config: CliConfig> SubstrateCli for Cli<Config> {
 		Config::copyright_start_year() as i32
 	}
 
-	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
-		if let Some(chain_spec_loader) = &self.chain_spec_loader {
-			return chain_spec_loader.load_spec(id);
+	fn load_spec(&self, id: &str) -> Result<Box<dyn ChainSpec>, String> {
+		match &self.chain_spec_loader {
+			Some(chain_spec_loader) => chain_spec_loader.load_spec(id),
+			None => DiskChainSpecLoader.load_spec(id),
 		}
-
-		Ok(Box::new(GenericChainSpec::from_json_file(id.into())?))
 	}
 }
 

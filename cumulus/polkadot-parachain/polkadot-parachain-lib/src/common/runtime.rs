@@ -17,10 +17,9 @@
 //! Runtime parameters.
 
 use sc_chain_spec::ChainSpec;
-use std::fmt::Debug;
 
 /// The Aura ID used by the Aura consensus
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum AuraConsensusId {
 	/// Ed25519
 	Ed25519,
@@ -29,14 +28,14 @@ pub enum AuraConsensusId {
 }
 
 /// The choice of consensus for the parachain omni-node.
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum Consensus {
 	/// Aura consensus.
 	Aura(AuraConsensusId),
 }
 
 /// Helper enum listing the supported Runtime types
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum Runtime {
 	/// None of the system-chain runtimes, rather the node will act agnostic to the runtime ie. be
 	/// an omni-node, and simply run a node with the given consensus algorithm.
@@ -46,7 +45,17 @@ pub enum Runtime {
 }
 
 /// Helper trait used for extracting the Runtime variant from the chain spec ID.
-pub trait RuntimeResolver: Debug {
+pub trait RuntimeResolver {
 	/// Extract the Runtime variant from the chain spec ID.
 	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime>;
+}
+
+/// Default implementation for `RuntimeResolver` that just returns
+/// `Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519))`.
+pub struct DefaultRuntimeResolver;
+
+impl RuntimeResolver for DefaultRuntimeResolver {
+	fn runtime(&self, _chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
+		Ok(Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519)))
+	}
 }
