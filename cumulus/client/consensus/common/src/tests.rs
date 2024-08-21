@@ -321,7 +321,7 @@ fn build_block<B: InitBlockBuilder>(
 }
 
 async fn import_block<I: BlockImport<Block>>(
-	importer: &mut I,
+	importer: &I,
 	block: Block,
 	origin: BlockOrigin,
 	import_as_best: bool,
@@ -568,7 +568,7 @@ fn follow_finalized_does_not_stop_on_unknown_block() {
 fn follow_new_best_sets_best_after_it_is_imported() {
 	sp_tracing::try_init_simple();
 
-	let mut client = Arc::new(TestClientBuilder::default().build());
+	let client = Arc::new(TestClientBuilder::default().build());
 
 	let block = build_and_import_block(client.clone(), false);
 
