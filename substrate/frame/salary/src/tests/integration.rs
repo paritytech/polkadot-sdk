@@ -26,8 +26,7 @@ use frame_support::{
 use pallet_ranked_collective::{EnsureRanked, Geometric, TallyOf, Votes};
 use sp_core::{ConstU16, Get};
 use sp_runtime::{
-	traits::{Convert, ReduceBy, ReplaceWithDefault},
-	BuildStorage, DispatchError,
+	testing::TestXt, traits::{Convert, ReduceBy, ReplaceWithDefault}, BuildStorage, DispatchError
 };
 
 use crate as pallet_salary;
@@ -35,6 +34,8 @@ use crate::*;
 
 type Rank = u16;
 type Block = frame_system::mocking::MockBlock<Test>;
+
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -55,6 +56,13 @@ impl frame_system::Config for Test {
 	type Block = Block;
 }
 
+impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type OverarchingCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
+}
 pub struct TestPolls;
 impl Polling<TallyOf<Test>> for TestPolls {
 	type Index = u8;
@@ -132,6 +140,7 @@ parameter_types! {
 }
 
 impl Config for Test {
+	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Paymaster = TestPay;

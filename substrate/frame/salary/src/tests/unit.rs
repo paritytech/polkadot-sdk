@@ -26,12 +26,14 @@ use frame_support::{
 	parameter_types,
 	traits::{tokens::ConvertRank, ConstU64},
 };
-use sp_runtime::{traits::Identity, BuildStorage, DispatchResult};
+use sp_runtime::{testing::TestXt, traits::Identity, BuildStorage, DispatchResult};
 
 use crate as pallet_salary;
 use crate::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
+
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -40,6 +42,15 @@ frame_support::construct_runtime!(
 		Salary: pallet_salary,
 	}
 );
+
+impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type OverarchingCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
+}
+
 
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
@@ -146,6 +157,7 @@ parameter_types! {
 }
 
 impl Config for Test {
+	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Paymaster = TestPay;
