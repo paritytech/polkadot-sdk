@@ -32,7 +32,7 @@ use crate::{
 	metrics::register_metrics,
 };
 use futures::{stream::Fuse, FutureExt, StreamExt};
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotification, Finalizer};
@@ -451,7 +451,8 @@ where
 			state.set_best_grandpa(best_grandpa.clone());
 			// Overwrite persisted data with newly provided `min_block_delta`.
 			state.set_min_block_delta(min_block_delta);
-			debug!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
+			debug!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db.");
+			trace!(target: LOG_TARGET, "🥩 Loaded state: {:?}.", state);
 
 			// Make sure that all the headers that we need have been synced.
 			let mut new_sessions = vec![];
