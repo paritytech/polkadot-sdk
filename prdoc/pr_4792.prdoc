@@ -17,7 +17,7 @@ doc:
          such one may enable unsafe on local interface and safe on only the external interface.
       5. This new `--rpc-endpoint` has several options and in the help menu all possible parameters are documented.
 
-      So for instance in this PR it's now possible to start up three RPC endpoints as follows:
+      So for instance it's now possible to start up three RPC endpoints as follows:
       ```
       $ polkadot --rpc-endpoint "listen-addr=127.0.0.1:9944,methods=unsafe" --rpc-endpoint "listen-addr=0.0.0.0:9945,methods=safe,rate-limit=100" --rpc-endpoint "listen-addr=[::1]:9944,optional=true"
       ```
@@ -28,4 +28,4 @@ crates:
   - name: sc-rpc
     bump: major
   - name: sc-cli
-    bump: minor
+    bump: major
