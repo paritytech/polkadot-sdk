@@ -124,7 +124,7 @@ jobs:
         with:
           root: cumulus/parachains/runtimes/testing
 
-  cargo-check-each-crate-macos:
+  cargo-check-all-crate-macos:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
