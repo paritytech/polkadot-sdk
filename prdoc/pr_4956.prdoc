@@ -1,0 +1,34 @@
+crates:
+- name: people-rococo-runtime
+  validate: false
+- name: people-westend-runtime
+  validate: false
+- name: rococo-parachain-runtime
+  validate: false
+- name: asset-hub-rococo-runtime
+  validate: false
+- name: asset-hub-westend-runtime
+  validate: false
+- name: bridge-hub-rococo-runtime
+  validate: false
+- name: bridge-hub-westend-runtime
+  validate: false
+- name: collectives-westend-runtime
+  validate: false
+- name: contracts-rococo-runtime
+  validate: false
+- name: coretime-rococo-runtime
+  validate: false
+- name: coretime-westend-runtime
+  validate: false
+- name: glutton-westend-runtime
+  validate: false
+- name: rococo-runtime
+  validate: false
+- name: westend-runtime
+  validate: false
+doc:
+- audience: TODO
+  description: "This PR adds possibility to set BUILD_OPTIONS to the \"Srtool Build\"\
+    \  step in the release pipeline while building runtimes.\r\n\r\nColses: https://github.com/paritytech/release-engineering/issues/213"
+title: Add build options to the srtool build step
