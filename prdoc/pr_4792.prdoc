@@ -32,19 +32,24 @@ crates:
   - name: sc-service
     bump: major
   - name: cumulus-client-cli
-    bump: major
+    bump: patch
   - name: polkadot-rpc
-    bump: minor
+    bump: major
   - name: sc-consensus-babe-rpc
-    bump: minor
+    bump: major
   - name: sc-consensus-grandpa-rpc
-    bump: minor
+    bump: patch
   - name: sc-rpc-api
-    bump: minor
+    bump: patch
   - name: polkadot-service
     bump: major
   - name: polkadot-dispute-distribution
     bump: minor
   - name: polkadot-parachain-lib
+    bump: patch
+  - name: sc-consensus-beefy-rpc
     bump: major
-
+  - name: substrate-frame-rpc-system
+    bump: major
+  - name: substrate-state-trie-migration-rpc
+    bump: major
