@@ -20,3 +20,7 @@ crates:
     bump: none
   - name: polkadot-parachain-bin
     bump: major
+  - name: polkadot-parachain-lib
+    bump: major
+  - name: staging-node-inspect
+    bump: major
