@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724334889854,
+  "lastUpdate": 1724343496818,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9155,6 +9155,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.045653777903999986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "eskimor",
+            "username": "eskimor",
+            "email": "eskimor@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b2ec017c0e5e49f3cbf782a5255bb0f9e88bd6c1",
+          "message": "Don't disconnect on invalid imports. (#5392)\n\nThere are numerous reasons for invalid imports, most of them would\nlikely be caused by bugs. On the other side, dispute distribution\nhandles all connections fairly, thus there is little harm in keeping a\nproblematic connection open.\n\n---------\n\nCo-authored-by: eskimor <eskimor@no-such-url.com>\nCo-authored-by: ordian <write@reusable.software>",
+          "timestamp": "2024-08-22T14:15:18Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b2ec017c0e5e49f3cbf782a5255bb0f9e88bd6c1"
+        },
+        "date": 1724343468763,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.93999999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045450697662,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036876070192,
             "unit": "seconds"
           }
         ]
