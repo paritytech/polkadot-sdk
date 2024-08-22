@@ -157,6 +157,6 @@ jobs:
       - check-runtime-contracts
       - check-runtime-starters
       - check-runtime-testing
-      - cargo-check-each-crate-macos
+      - cargo-check-all-crate-macos
     steps:
       - run: echo '### Good job! All the tests passed 🚀' >> $GITHUB_STEP_SUMMARY
