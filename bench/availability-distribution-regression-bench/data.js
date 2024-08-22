@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724334283285,
+  "lastUpdate": 1724342895909,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23139,6 +23139,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.011968913440000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "eskimor",
+            "username": "eskimor",
+            "email": "eskimor@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b2ec017c0e5e49f3cbf782a5255bb0f9e88bd6c1",
+          "message": "Don't disconnect on invalid imports. (#5392)\n\nThere are numerous reasons for invalid imports, most of them would\nlikely be caused by bugs. On the other side, dispute distribution\nhandles all connections fairly, thus there is little harm in keeping a\nproblematic connection open.\n\n---------\n\nCo-authored-by: eskimor <eskimor@no-such-url.com>\nCo-authored-by: ordian <write@reusable.software>",
+          "timestamp": "2024-08-22T14:15:18Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b2ec017c0e5e49f3cbf782a5255bb0f9e88bd6c1"
+        },
+        "date": 1724342867289,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012231557426666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00983225472666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02210383798,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16776898215333338,
             "unit": "seconds"
           }
         ]
