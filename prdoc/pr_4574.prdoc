@@ -1,0 +1,36 @@
+title: Remove staking controller account logic from codebase.
+
+doc:
+  - audience: Runtime Dev
+    description:
+       Removes controller account logic from the pallets and runtimes.
+
+crates:
+  - name: pallet-staking
+    bump: minor
+  - name: pallet-babe
+    bump: patch
+  - name: pallet-fast-unstake
+    bump: minor
+  - name: pallet-grandpa
+    bump: patch
+  - name: pallet-beefy 
+    bump: patch
+  - name: pallet-delegated-staking
+    bump: patch
+  - name: pallet-nomination-pools-benchmarking
+    bump: patch
+  - name: pallet-offences-benchmarking
+    bump: patch
+  - name: pallet-session-benchmarking
+    bump: patch
+  - name: pallet-root-offences
+    bump: patch
+  - name: pallet-nomination-pools
+    bump: patch
+  - name: sp-staking
+    bump: patch
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: westend-runtime
+    bump: patch

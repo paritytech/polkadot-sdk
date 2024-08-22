@@ -34,7 +34,7 @@ where
 	let mut unstaked_err = 0;
 	let mut unstaked_slashed = 0;
 
-	let all_stakers = Ledger::<T>::iter().map(|(ctrl, l)| (ctrl, l.stash)).collect::<BTreeSet<_>>();
+	let all_stakers = Ledger::<T>::iter().map(|(_, l)| l.stash).collect::<BTreeSet<_>>();
 	let mut all_exposed = BTreeSet::new();
 	ErasStakers::<T>::iter().for_each(|(_, val, expo)| {
 		all_exposed.insert(val);
@@ -43,7 +43,7 @@ where
 
 	let eligible = all_stakers
 		.iter()
-		.filter_map(|(ctrl, stash)| all_exposed.contains(stash).then_some(ctrl))
+		.filter(|stash| all_exposed.contains(stash))
 		.collect::<Vec<_>>();
 
 	log::info!(

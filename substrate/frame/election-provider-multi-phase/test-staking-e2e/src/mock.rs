@@ -381,27 +381,27 @@ pub struct StakingExtBuilder {
 	min_validator_bond: Balance,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
-	stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
+	stakers: Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
 }
 
 impl Default for StakingExtBuilder {
 	fn default() -> Self {
 		let stakers = vec![
-			// (stash, ctrl, stake, status)
+			// (stash, stake, status)
 			// these two will be elected in the default test where we elect 2.
-			(11, 11, 1000, StakerStatus::<AccountId>::Validator),
-			(21, 21, 1000, StakerStatus::<AccountId>::Validator),
+			(11, 1000, StakerStatus::<AccountId>::Validator),
+			(21, 1000, StakerStatus::<AccountId>::Validator),
 			// loser validators if validator_count() is default.
-			(31, 31, 500, StakerStatus::<AccountId>::Validator),
-			(41, 41, 1500, StakerStatus::<AccountId>::Validator),
-			(51, 51, 1500, StakerStatus::<AccountId>::Validator),
-			(61, 61, 1500, StakerStatus::<AccountId>::Validator),
-			(71, 71, 1500, StakerStatus::<AccountId>::Validator),
-			(81, 81, 1500, StakerStatus::<AccountId>::Validator),
-			(91, 91, 1500, StakerStatus::<AccountId>::Validator),
-			(101, 101, 500, StakerStatus::<AccountId>::Validator),
+			(31, 500, StakerStatus::<AccountId>::Validator),
+			(41, 1500, StakerStatus::<AccountId>::Validator),
+			(51, 1500, StakerStatus::<AccountId>::Validator),
+			(61, 1500, StakerStatus::<AccountId>::Validator),
+			(71, 1500, StakerStatus::<AccountId>::Validator),
+			(81, 1500, StakerStatus::<AccountId>::Validator),
+			(91, 1500, StakerStatus::<AccountId>::Validator),
+			(101, 500, StakerStatus::<AccountId>::Validator),
 			// an idle validator
-			(201, 201, 1000, StakerStatus::<AccountId>::Idle),
+			(201, 1000, StakerStatus::<AccountId>::Idle),
 		];
 
 		Self {
@@ -479,18 +479,6 @@ impl Default for BalancesExtBuilder {
 			(2, 20),
 			(3, 300),
 			(4, 400),
-			// controllers (still used in some tests. Soon to be deprecated).
-			(10, 100),
-			(20, 100),
-			(30, 100),
-			(40, 100),
-			(50, 100),
-			(60, 100),
-			(70, 100),
-			(80, 100),
-			(90, 100),
-			(100, 100),
-			(200, 100),
 			// stashes
 			(11, 1000),
 			(21, 2000),
@@ -541,7 +529,7 @@ impl ExtBuilder {
 
 		let mut stakers = self.staking_builder.stakers.clone();
 		self.staking_builder.status.clone().into_iter().for_each(|(stash, status)| {
-			let (_, _, _, ref mut prev_status) = stakers
+			let (_, _, ref mut prev_status) = stakers
 				.iter_mut()
 				.find(|s| s.0 == stash)
 				.expect("set_status staker should exist; qed");
@@ -549,7 +537,7 @@ impl ExtBuilder {
 		});
 		// replaced any of the stakes if needed.
 		self.staking_builder.stakes.clone().into_iter().for_each(|(stash, stake)| {
-			let (_, _, ref mut prev_stake, _) = stakers
+			let (_, ref mut prev_stake, _) = stakers
 				.iter_mut()
 				.find(|s| s.0 == stash)
 				.expect("set_stake staker should exits; qed.");

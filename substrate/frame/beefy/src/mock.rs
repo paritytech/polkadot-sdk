@@ -284,9 +284,8 @@ impl ExtBuilder {
 			.assimilate_storage(&mut t)
 			.unwrap();
 
-		// controllers are same as stash
 		let stakers: Vec<_> = (0..self.authorities.len())
-			.map(|i| (i as u64, i as u64, 10_000, pallet_staking::StakerStatus::<u64>::Validator))
+			.map(|i| (i as u64, 10_000, pallet_staking::StakerStatus::<u64>::Validator))
 			.collect();
 
 		let staking_config = pallet_staking::GenesisConfig::<Test> {

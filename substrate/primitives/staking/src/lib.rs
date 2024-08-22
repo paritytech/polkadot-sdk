@@ -189,13 +189,9 @@ pub trait StakingInterface {
 	/// The minimum amount required to bond in order to set validation intentions.
 	fn minimum_validator_bond() -> Self::Balance;
 
-	/// Return a stash account that is controlled by a `controller`.
-	///
-	/// ## Note
-	///
-	/// The controller abstraction is not permanent and might go away. Avoid using this as much as
-	/// possible.
-	fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError>;
+	/// Return a stash account of a ledger associated with the provided account, `Err` if not a
+	/// staker.
+	fn stash(who: &Self::AccountId) -> Result<Self::AccountId, DispatchError>;
 
 	/// Number of eras that staked funds must remain bonded for.
 	fn bonding_duration() -> EraIndex;

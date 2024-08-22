@@ -318,36 +318,6 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `Staking::Ledger` (r:1 w:0)
-	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Bonded` (r:1 w:0)
-	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Payee` (r:1 w:1)
-	/// Proof: `Staking::Payee` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
-	fn update_payee() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `932`
-		//  Estimated: `4556`
-		// Minimum execution time: 23_428_000 picoseconds.
-		Weight::from_parts(24_080_000, 0)
-			.saturating_add(Weight::from_parts(0, 4556))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: `Staking::Bonded` (r:1 w:1)
-	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Ledger` (r:2 w:2)
-	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
-	fn set_controller() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `865`
-		//  Estimated: `8122`
-		// Minimum execution time: 21_159_000 picoseconds.
-		Weight::from_parts(21_706_000, 0)
-			.saturating_add(Weight::from_parts(0, 8122))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(3))
-	}
 	/// Storage: `Staking::ValidatorCount` (r:0 w:1)
 	/// Proof: `Staking::ValidatorCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn set_validator_count() -> Weight {
@@ -405,26 +375,6 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			// Standard Error: 67
 			.saturating_add(Weight::from_parts(11_785, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: `Staking::Ledger` (r:1502 w:1502)
-	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Bonded` (r:751 w:751)
-	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Payee` (r:751 w:0)
-	/// Proof: `Staking::Payee` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
-	/// The range of component `i` is `[0, 751]`.
-	fn deprecate_controller_batch(i: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `680 + i * (227 ±0)`
-		//  Estimated: `990 + i * (7132 ±0)`
-		// Minimum execution time: 4_321_000 picoseconds.
-		Weight::from_parts(4_407_000, 0)
-			.saturating_add(Weight::from_parts(0, 990))
-			// Standard Error: 37_239
-			.saturating_add(Weight::from_parts(21_300_598, 0).saturating_mul(i.into()))
-			.saturating_add(T::DbWeight::get().reads((4_u64).saturating_mul(i.into())))
-			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(i.into())))
-			.saturating_add(Weight::from_parts(0, 7132).saturating_mul(i.into()))
 	}
 	/// Storage: `Staking::SlashingSpans` (r:1 w:1)
 	/// Proof: `Staking::SlashingSpans` (`max_values`: None, `max_size`: None, mode: `Measured`)

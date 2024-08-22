@@ -160,19 +160,13 @@ pub(crate) fn fast_unstake_events_since_last_call() -> Vec<super::Event<Runtime>
 }
 
 pub struct ExtBuilder {
-	unexposed: Vec<(AccountId, AccountId, Balance)>,
+	unexposed: Vec<(AccountId, Balance)>,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
-			unexposed: vec![
-				(1, 1, 7 + 100),
-				(3, 3, 7 + 100),
-				(5, 5, 7 + 100),
-				(7, 7, 7 + 100),
-				(9, 9, 7 + 100),
-			],
+			unexposed: vec![(1, 7 + 100), (3, 7 + 100), (5, 7 + 100), (7, 7 + 100), (9, 7 + 100)],
 		}
 	}
 }
@@ -222,7 +216,7 @@ impl ExtBuilder {
 				.unexposed
 				.clone()
 				.into_iter()
-				.map(|(stash, _, balance)| (stash, balance * 2))
+				.map(|(stash, balance)| (stash, balance * 2))
 				.chain(validators_range.clone().map(|x| (x, 7 + 100)))
 				.chain(nominators_range.clone().map(|x| (x, 7 + 100)))
 				.collect::<Vec<_>>(),
@@ -233,9 +227,11 @@ impl ExtBuilder {
 			stakers: self
 				.unexposed
 				.into_iter()
-				.map(|(x, y, z)| (x, y, z, pallet_staking::StakerStatus::Nominator(vec![42])))
-				.chain(validators_range.map(|x| (x, x, 100, StakerStatus::Validator)))
-				.chain(nominators_range.map(|x| (x, x, 100, StakerStatus::Nominator(vec![x]))))
+				.map(|(stash, balance)| {
+					(stash, balance, pallet_staking::StakerStatus::Nominator(vec![42]))
+				})
+				.chain(validators_range.map(|x| (x, 100, StakerStatus::Validator)))
+				.chain(nominators_range.map(|x| (x, 100, StakerStatus::Nominator(vec![x]))))
 				.collect::<Vec<_>>(),
 			..Default::default()
 		}

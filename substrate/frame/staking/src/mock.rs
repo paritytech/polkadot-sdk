@@ -115,7 +115,6 @@ parameter_types! {
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
-	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -282,7 +281,6 @@ impl crate::pallet::pallet::Config for Test {
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
-	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 }
@@ -326,7 +324,7 @@ pub struct ExtBuilder {
 	balance_factor: Balance,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
-	stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
+	stakers: Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
 }
 
 impl Default for ExtBuilder {
@@ -412,11 +410,10 @@ impl ExtBuilder {
 	pub fn add_staker(
 		mut self,
 		stash: AccountId,
-		ctrl: AccountId,
 		stake: Balance,
 		status: StakerStatus<AccountId>,
 	) -> Self {
-		self.stakers.push((stash, ctrl, stake, status));
+		self.stakers.push((stash, stake, status));
 		self
 	}
 	pub fn balance_factor(mut self, factor: Balance) -> Self {
@@ -437,12 +434,6 @@ impl ExtBuilder {
 				(2, 20 * self.balance_factor),
 				(3, 300 * self.balance_factor),
 				(4, 400 * self.balance_factor),
-				// controllers (still used in some tests. Soon to be deprecated).
-				(10, self.balance_factor),
-				(20, self.balance_factor),
-				(30, self.balance_factor),
-				(40, self.balance_factor),
-				(50, self.balance_factor),
 				// stashes
 				(11, self.balance_factor * 1000),
 				(21, self.balance_factor * 2000),
@@ -455,6 +446,9 @@ impl ExtBuilder {
 				(100, self.balance_factor * 2000),
 				(101, self.balance_factor * 2000),
 				// aux accounts
+				(10, self.balance_factor),
+				(30, self.balance_factor),
+				(50, self.balance_factor),
 				(60, self.balance_factor),
 				(61, self.balance_factor * 2000),
 				(70, self.balance_factor),
@@ -470,21 +464,20 @@ impl ExtBuilder {
 		let mut stakers = vec![];
 		if self.has_stakers {
 			stakers = vec![
-				// (stash, ctrl, stake, status)
+				// (stash, stake, status)
 				// these two will be elected in the default test where we elect 2.
-				(11, 11, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
-				(21, 21, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
+				(11, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
+				(21, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
 				// a loser validator
-				(31, 31, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
+				(31, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
 				// an idle validator
-				(41, 41, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
-				(51, 51, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
-				(201, 201, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
-				(202, 202, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(41, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(51, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(201, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(202, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
 			]; // optionally add a nominator
 			if self.nominate {
 				stakers.push((
-					101,
 					101,
 					self.balance_factor * 500,
 					StakerStatus::<AccountId>::Nominator(vec![11, 21]),
@@ -492,7 +485,7 @@ impl ExtBuilder {
 			}
 			// replace any of the status if needed.
 			self.status.into_iter().for_each(|(stash, status)| {
-				let (_, _, _, ref mut prev_status) = stakers
+				let (_, _, ref mut prev_status) = stakers
 					.iter_mut()
 					.find(|s| s.0 == stash)
 					.expect("set_status staker should exist; qed");
@@ -500,7 +493,7 @@ impl ExtBuilder {
 			});
 			// replaced any of the stakes if needed.
 			self.stakes.into_iter().for_each(|(stash, stake)| {
-				let (_, _, ref mut prev_stake, _) = stakers
+				let (_, ref mut prev_stake, _) = stakers
 					.iter_mut()
 					.find(|s| s.0 == stash)
 					.expect("set_stake staker should exits; qed.");
@@ -707,7 +700,7 @@ pub(crate) fn reward_all_elected() {
 	<Pallet<Test>>::reward_by_ids(rewards)
 }
 
-pub(crate) fn validator_controllers() -> Vec<AccountId> {
+pub(crate) fn validator_stashes() -> Vec<AccountId> {
 	Session::validators()
 		.into_iter()
 		.map(|s| Staking::bonded(&s).expect("no controller for validator"))

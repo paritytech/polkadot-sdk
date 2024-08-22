@@ -194,18 +194,15 @@ impl ExtBuilder {
 		let stakers = vec![
 			(
 				GENESIS_VALIDATOR,
-				GENESIS_VALIDATOR,
 				1000,
 				sp_staking::StakerStatus::<AccountId>::Validator,
 			),
 			(
 				GENESIS_NOMINATOR_ONE,
-				GENESIS_NOMINATOR_ONE,
 				100,
 				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
 			),
 			(
-				GENESIS_NOMINATOR_TWO,
 				GENESIS_NOMINATOR_TWO,
 				200,
 				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
