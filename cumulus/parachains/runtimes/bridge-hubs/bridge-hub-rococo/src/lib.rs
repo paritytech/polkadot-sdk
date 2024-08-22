@@ -92,11 +92,9 @@ use pallet_xcm::EnsureXcm;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 
-#[allow(unused_imports)]
-use xcm::{
-	latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
-	VersionedLocation,
-};
+#[cfg(feature = "runtime-benchmarks")]
+use xcm::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::VersionedLocation;
 use xcm_config::{TreasuryAccount, XcmOriginToTransactDispatchOrigin, XcmRouter};
 
 #[cfg(any(feature = "std", test))]
