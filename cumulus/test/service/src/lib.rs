@@ -79,8 +79,7 @@ use sc_network::{
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, RpcListenAddr,
-		WasmExecutionMethod,
+		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, RpcEndpoint, WasmExecutionMethod,
 	},
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
@@ -1007,10 +1006,16 @@ pub fn run_relay_chain_validator_node(
 	);
 
 	if let Some(port) = port {
-		config.rpc_addr = Some(vec![RpcListenAddr {
+		config.rpc_addr = Some(vec![RpcEndpoint {
+			batch_config: config.rpc_batch_config,
 			cors: config.rpc_cors.clone(),
 			listen_addr: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)),
-			rpc_methods: config.rpc_methods.into(),
+			max_connections: config.rpc_max_connections,
+			max_payload_in_mb: config.rpc_max_request_size,
+			max_payload_out_mb: config.rpc_max_response_size,
+			max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
+			max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
+			rpc_methods: config.rpc_methods,
 			rate_limit: config.rpc_rate_limit,
 			rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
 			rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
