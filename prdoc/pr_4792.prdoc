@@ -10,7 +10,7 @@ doc:
 
       1. The default setting is that substrate starts a rpc server that listens to localhost both ipv4 and ipv6 on the same port. 
          ipv6 is allowed to fail because some platforms may not support it
-      2. A new RPC CLI option `--rpc-endpoint` is introduced which allow to configure arbitrary listen addresses including the port, 
+      2. A new RPC CLI option `--rpc-endpoint` is introduced which allows to configure arbitrary listen addresses including the port, 
          if this is enabled no other interfaces are enabled.
       3. If the local addr is not found for any of the sockets the server is not started and throws an error.
       4. Remove the deny_unsafe from the RPC implementations instead this is an extension to allow different polices for different interfaces/sockets 
