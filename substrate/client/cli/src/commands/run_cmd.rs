@@ -149,7 +149,7 @@ pub struct RunCmd {
 	///  • max-batch-request-len: The maximum number of requests in a batch (optional)
 	///  • cors: The CORS allowed origins, this can enabled more than once (optional)
 	///  • methods: Which RPC methods to allow, valid values are "safe", "unsafe" and "auto"
-	///    (default)
+	///    (optional)
 	///  • optional: If the listen address is optional i.e the interface is not required to be
 	///    available For example this may be useful if some platforms doesn't support ipv6
 	///    (optional)
