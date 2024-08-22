@@ -34,7 +34,6 @@ use sp_arithmetic::Perbill;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
-
 /// Async backing primitives
 pub mod async_backing;
 
@@ -179,6 +178,13 @@ impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
 	}
 }
 
+#[cfg(any(feature = "runtime-benchmarks", feature = "test"))]
+impl<H: Encode + Decode + Copy> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
+	fn from(value: CandidateDescriptor<H>) -> Self {
+		Decode::decode(&mut value.encode().as_slice()).unwrap()
+	}
+}
+
 impl<H> CandidateDescriptorV2<H> {
 	/// Constructor
 	pub fn new(
@@ -212,6 +218,12 @@ impl<H> CandidateDescriptorV2<H> {
 	#[cfg(feature = "test")]
 	pub fn set_pov_hash(&mut self, pov_hash: Hash) {
 		self.pov_hash = pov_hash;
+	}
+
+	/// Set the version in the descriptor. Only for tests.
+	#[cfg(feature = "test")]
+	pub fn set_version(&mut self, version: InternalVersion) {
+		self.version = version;
 	}
 }
 
@@ -571,6 +583,12 @@ impl<H> BackedCandidate<H> {
 	/// Get a reference to the descriptor of the candidate.
 	pub fn descriptor(&self) -> &CandidateDescriptorV2<H> {
 		&self.candidate.descriptor
+	}
+
+	/// Get a mutable reference to the descriptor of the candidate. Only for testing.
+	#[cfg(feature = "test")]
+	pub fn descriptor_mut(&mut self) -> &mut CandidateDescriptorV2<H> {
+		&mut self.candidate.descriptor
 	}
 
 	/// Get a reference to the validity votes of the candidate.
