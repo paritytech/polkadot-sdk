@@ -149,7 +149,7 @@ jobs:
       - name: Run cargo check
         run: |
           source $HOME/.cargo/env
-          PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
+          PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }} --disable_forklift
           # time cargo check --workspace --locked
 
   confirm-required-jobs-passed:
