@@ -6,7 +6,7 @@ title: Simplify `SyncingEngine::new()`
 doc:
   - audience: Node Dev
     description: |
-      Tiny changes to simplify the internal implemenation of API `SyncingEngine::new()`.
+      Tiny changes to simplify the internal implemenation of API `SyncingEngine::new()` to prevent panics while fetching the genesis hash and to eliminate unnecessary allocation for reserved peers.
 
 crates:
 - name: sc-network-sync
