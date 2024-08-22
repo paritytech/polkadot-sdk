@@ -675,6 +675,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -743,9 +746,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">const </span>COST_INVALID_REQUEST: Rep = Rep::CostMajor(<span class="string">"Received message could not be decoded."</span>);
 <span class="kw">const </span>COST_INVALID_SIGNATURE: Rep = Rep::Malicious(<span class="string">"Signatures were invalid."</span>);
-<span class="kw">const </span>COST_INVALID_IMPORT: Rep =
-	Rep::Malicious(<span class="string">"Import was deemed invalid by dispute-coordinator."</span>);
 <span class="kw">const </span>COST_NOT_A_VALIDATOR: Rep = Rep::CostMajor(<span class="string">"Reporting peer was not a validator."</span>);
+
+<span class="doccomment">/// Invalid imports can be caused by flooding, e.g. by a disabled validator.
+</span><span class="kw">const </span>COST_INVALID_IMPORT: Rep =
+	Rep::CostMinor(<span class="string">"Import was deemed invalid by dispute-coordinator."</span>);
+
 <span class="doccomment">/// Mildly punish peers exceeding their rate limit.
 ///
 /// For honest peers this should rarely happen, but if it happens we would not want to disconnect
