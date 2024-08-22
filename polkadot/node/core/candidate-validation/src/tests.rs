@@ -21,6 +21,7 @@ use crate::PvfExecPriority;
 use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
+use polkadot_node_primitives::{BlockData, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::AllMessages;
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
@@ -386,7 +387,8 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_encoded_params: Vec<u8>,
+		_pvd: Arc<PersistedValidationData>,
+		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
 		_execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError> {
@@ -1077,7 +1079,8 @@ impl ValidationBackend for MockPreCheckBackend {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_encoded_params: Vec<u8>,
+		_pvd: Arc<PersistedValidationData>,
+		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
 		_execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError> {
@@ -1146,70 +1149,6 @@ fn precheck_works() {
 			}
 		);
 		assert_matches!(check_result.await, PreCheckOutcome::Valid);
-	};
-
-	let test_fut = future::join(test_fut, check_fut);
-	executor::block_on(test_fut);
-}
-
-#[test]
-fn precheck_invalid_pvf_blob_compression() {
-	let relay_parent = [3; 32].into();
-
-	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT + 1];
-	let validation_code =
-		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT + 1)
-			.map(ValidationCode)
-			.unwrap();
-	let validation_code_hash = validation_code.hash();
-
-	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
-		AllMessages,
-		_,
-	>(pool.clone());
-
-	let (check_fut, check_result) = precheck_pvf(
-		ctx.sender(),
-		MockPreCheckBackend::with_hardcoded_result(Ok(())),
-		relay_parent,
-		validation_code_hash,
-	)
-	.remote_handle();
-
-	let test_fut = async move {
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				rp,
-				RuntimeApiRequest::ValidationCodeByHash(
-					vch,
-					tx
-				),
-			)) => {
-				assert_eq!(vch, validation_code_hash);
-				assert_eq!(rp, relay_parent);
-
-				let _ = tx.send(Ok(Some(validation_code.clone())));
-			}
-		);
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(_, tx))
-			) => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
-		assert_matches!(check_result.await, PreCheckOutcome::Invalid);
 	};
 
 	let test_fut = future::join(test_fut, check_fut);
@@ -1295,7 +1234,8 @@ impl ValidationBackend for MockHeadsUp {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_encoded_params: Vec<u8>,
+		_pvd: Arc<PersistedValidationData>,
+		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
 		_execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError> {

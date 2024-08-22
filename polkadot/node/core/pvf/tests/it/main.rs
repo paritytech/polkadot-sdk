@@ -17,7 +17,6 @@
 //! General PVF host integration tests checking the functionality of the PVF host itself.
 
 use assert_matches::assert_matches;
-use codec::Encode as _;
 #[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
 use polkadot_node_core_pvf::SecurityStatus;
 use polkadot_node_core_pvf::{
@@ -25,11 +24,15 @@ use polkadot_node_core_pvf::{
 	PossiblyInvalidError, PrepareError, PrepareJobKind, PvfPrepData, ValidationError,
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
-use polkadot_node_subsystem::messages::PvfExecPriority;
+use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
-use polkadot_primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
+use polkadot_primitives::{
+	ExecutorParam, ExecutorParams, PersistedValidationData, PvfExecKind, PvfPrepKind,
+};
+use polkadot_node_subsystem::messages::PvfExecPriority;
+use sp_core::H256;
 
-use std::{io::Write, time::Duration};
+use std::{io::Write, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
 mod adder;
@@ -81,9 +84,6 @@ impl TestHost {
 	) -> Result<(), PrepareError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
-		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)
-			.expect("Compression works");
-
 		self.host
 			.lock()
 			.await
@@ -104,13 +104,11 @@ impl TestHost {
 	async fn validate_candidate(
 		&self,
 		code: &[u8],
-		params: ValidationParams,
+		pvd: PersistedValidationData,
+		pov: PoV,
 		executor_params: ExecutorParams,
 	) -> Result<ValidationResult, ValidationError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
-
-		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)
-			.expect("Compression works");
 
 		self.host
 			.lock()
@@ -123,7 +121,8 @@ impl TestHost {
 					PrepareJobKind::Compilation,
 				),
 				TEST_EXECUTION_TIMEOUT,
-				params.encode(),
+				Arc::new(pvd),
+				Arc::new(pov),
 				polkadot_node_core_pvf::Priority::Normal,
 				PvfExecPriority::Backing,
 				result_tx,
@@ -161,19 +160,17 @@ async fn prepare_job_terminates_on_timeout() {
 #[tokio::test]
 async fn execute_job_terminates_on_timeout() {
 	let host = TestHost::new().await;
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let pov = PoV { block_data: BlockData(Vec::new()) };
 
 	let start = std::time::Instant::now();
 	let result = host
-		.validate_candidate(
-			test_parachain_halt::wasm_binary_unwrap(),
-			ValidationParams {
-				block_data: BlockData(Vec::new()),
-				parent_head: Default::default(),
-				relay_parent_number: 1,
-				relay_parent_storage_root: Default::default(),
-			},
-			Default::default(),
-		)
+		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
 		.await;
 
 	match result {
@@ -191,24 +188,23 @@ async fn execute_job_terminates_on_timeout() {
 async fn ensure_parallel_execution() {
 	// Run some jobs that do not complete, thus timing out.
 	let host = TestHost::new().await;
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let pov = PoV { block_data: BlockData(Vec::new()) };
 	let execute_pvf_future_1 = host.validate_candidate(
 		test_parachain_halt::wasm_binary_unwrap(),
-		ValidationParams {
-			block_data: BlockData(Vec::new()),
-			parent_head: Default::default(),
-			relay_parent_number: 1,
-			relay_parent_storage_root: Default::default(),
-		},
+		pvd.clone(),
+		pov.clone(),
 		Default::default(),
 	);
 	let execute_pvf_future_2 = host.validate_candidate(
 		test_parachain_halt::wasm_binary_unwrap(),
-		ValidationParams {
-			block_data: BlockData(Vec::new()),
-			parent_head: Default::default(),
-			relay_parent_number: 1,
-			relay_parent_storage_root: Default::default(),
-		},
+		pvd,
+		pov,
 		Default::default(),
 	);
 
@@ -239,6 +235,13 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 		cfg.execute_workers_max_num = 5;
 	})
 	.await;
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let pov = PoV { block_data: BlockData(Vec::new()) };
 
 	// Here we spawn 8 validation jobs for the `halt` PVF and share those between 5 workers. The
 	// first five jobs should timeout and the workers killed. For the next 3 jobs a new batch of
@@ -247,12 +250,8 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 	futures::future::join_all((0u8..=8).map(|_| {
 		host.validate_candidate(
 			test_parachain_halt::wasm_binary_unwrap(),
-			ValidationParams {
-				block_data: BlockData(Vec::new()),
-				parent_head: Default::default(),
-				relay_parent_number: 1,
-				relay_parent_storage_root: Default::default(),
-			},
+			pvd.clone(),
+			pov.clone(),
 			Default::default(),
 		)
 	}))
@@ -277,6 +276,13 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 		cfg.execute_workers_max_num = 2;
 	})
 	.await;
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let pov = PoV { block_data: BlockData(Vec::new()) };
 
 	let executor_params_1 = ExecutorParams::default();
 	let executor_params_2 = ExecutorParams::from(&[ExecutorParam::StackLogicalMax(1024)][..]);
@@ -290,12 +296,8 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 	futures::future::join_all((0u8..6).map(|i| {
 		host.validate_candidate(
 			test_parachain_halt::wasm_binary_unwrap(),
-			ValidationParams {
-				block_data: BlockData(Vec::new()),
-				parent_head: Default::default(),
-				relay_parent_number: 1,
-				relay_parent_storage_root: Default::default(),
-			},
+			pvd.clone(),
+			pov.clone(),
 			match i % 3 {
 				0 => executor_params_1.clone(),
 				_ => executor_params_2.clone(),
@@ -326,6 +328,13 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 async fn deleting_prepared_artifact_does_not_dispute() {
 	let host = TestHost::new().await;
 	let cache_dir = host.cache_dir.path();
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let pov = PoV { block_data: BlockData(Vec::new()) };
 
 	let _stats = host
 		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
@@ -349,16 +358,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 
 	// Try to validate, artifact should get recreated.
 	let result = host
-		.validate_candidate(
-			test_parachain_halt::wasm_binary_unwrap(),
-			ValidationParams {
-				block_data: BlockData(Vec::new()),
-				parent_head: Default::default(),
-				relay_parent_number: 1,
-				relay_parent_storage_root: Default::default(),
-			},
-			Default::default(),
-		)
+		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
 		.await;
 
 	assert_matches!(result, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)));
@@ -369,6 +369,13 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 async fn corrupted_prepared_artifact_does_not_dispute() {
 	let host = TestHost::new().await;
 	let cache_dir = host.cache_dir.path();
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let pov = PoV { block_data: BlockData(Vec::new()) };
 
 	let _stats = host
 		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
@@ -402,16 +409,7 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 
 	// Try to validate, artifact should get removed because of the corruption.
 	let result = host
-		.validate_candidate(
-			test_parachain_halt::wasm_binary_unwrap(),
-			ValidationParams {
-				block_data: BlockData(Vec::new()),
-				parent_head: Default::default(),
-				relay_parent_number: 1,
-				relay_parent_storage_root: Default::default(),
-			},
-			Default::default(),
-		)
+		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
 		.await;
 
 	assert_matches!(
@@ -653,4 +651,66 @@ async fn artifact_does_reprepare_on_meaningful_exec_parameter_change() {
 	let cache_dir_contents: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
 
 	assert_eq!(cache_dir_contents.len(), 3); // new artifact has been added
+}
+
+// Checks that we cannot prepare oversized compressed code
+#[tokio::test]
+async fn invalid_compressed_code_fails_prechecking() {
+	let host = TestHost::new().await;
+	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT + 1];
+	let validation_code =
+		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT + 1).unwrap();
+
+	let res = host.precheck_pvf(&validation_code, Default::default()).await;
+
+	assert_matches!(res, Err(PrepareError::CouldNotDecompressCodeBlob(_)));
+}
+
+// Checks that we cannot validate with oversized compressed code
+#[tokio::test]
+async fn invalid_compressed_code_fails_validation() {
+	let host = TestHost::new().await;
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let pov = PoV { block_data: BlockData(Vec::new()) };
+
+	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT + 1];
+	let validation_code =
+		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT + 1).unwrap();
+
+	let result = host.validate_candidate(&validation_code, pvd, pov, Default::default()).await;
+
+	assert_matches!(
+		result,
+		Err(ValidationError::Preparation(PrepareError::CouldNotDecompressCodeBlob(_)))
+	);
+}
+
+// Checks that we cannot validate with an oversized PoV
+#[tokio::test]
+async fn invalid_compressed_pov_fails_validation() {
+	let host = TestHost::new().await;
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let raw_block_data = vec![1u8; POV_BOMB_LIMIT + 1];
+	let block_data =
+		sp_maybe_compressed_blob::compress(&raw_block_data, POV_BOMB_LIMIT + 1).unwrap();
+	let pov = PoV { block_data: BlockData(block_data) };
+
+	let result = host
+		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
+		.await;
+
+	assert_matches!(
+		result,
+		Err(ValidationError::Invalid(InvalidCandidate::PoVDecompressionFailure))
+	);
 }

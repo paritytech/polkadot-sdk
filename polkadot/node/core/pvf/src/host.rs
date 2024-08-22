@@ -36,11 +36,15 @@ use polkadot_node_core_pvf_common::{
 	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 };
+use polkadot_node_primitives::PoV;
+use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 use polkadot_node_subsystem::{messages::PvfExecPriority, SubsystemError, SubsystemResult};
 use polkadot_parachain_primitives::primitives::ValidationResult;
+use polkadot_primitives::PersistedValidationData;
 use std::{
 	collections::HashMap,
 	path::PathBuf,
+	sync::Arc,
 	time::{Duration, SystemTime},
 };
 
@@ -108,7 +112,8 @@ impl ValidationHost {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		params: Vec<u8>,
+		pvd: Arc<PersistedValidationData>,
+		pov: Arc<PoV>,
 		priority: Priority,
 		execute_priority: PvfExecPriority,
 		result_tx: ResultSender,
@@ -117,7 +122,8 @@ impl ValidationHost {
 			.send(ToHost::ExecutePvf(ExecutePvfInputs {
 				pvf,
 				exec_timeout,
-				params,
+				pvd,
+				pov,
 				priority,
 				execute_priority,
 				result_tx,
@@ -149,7 +155,8 @@ enum ToHost {
 struct ExecutePvfInputs {
 	pvf: PvfPrepData,
 	exec_timeout: Duration,
-	params: Vec<u8>,
+	pvd: Arc<PersistedValidationData>,
+	pov: Arc<PoV>,
 	priority: Priority,
 	execute_priority: PvfExecPriority,
 	result_tx: ResultSender,
@@ -542,7 +549,7 @@ async fn handle_execute_pvf(
 	awaiting_prepare: &mut AwaitingPrepare,
 	inputs: ExecutePvfInputs,
 ) -> Result<(), Fatal> {
-	let ExecutePvfInputs { pvf, exec_timeout, params, priority, execute_priority, result_tx } =
+	let ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, execute_priority, result_tx } =
 		inputs;
 	let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
 	let executor_params = (*pvf.executor_params()).clone();
@@ -562,7 +569,8 @@ async fn handle_execute_pvf(
 							artifact: ArtifactPathId::new(artifact_id, path),
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
-								params,
+								pvd,
+								pov,
 								executor_params,
 								execute_priority,
 								result_tx,
@@ -592,7 +600,8 @@ async fn handle_execute_pvf(
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
-							params,
+							pvd,
+							pov,
 							executor_params,
 							execute_priority,
 							result_tx,
@@ -606,7 +615,8 @@ async fn handle_execute_pvf(
 					artifact_id,
 					PendingExecutionRequest {
 						exec_timeout,
-						params,
+						pvd,
+						pov,
 						executor_params,
 						result_tx,
 						execute_priority,
@@ -639,7 +649,8 @@ async fn handle_execute_pvf(
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
-							params,
+							pvd,
+							pov,
 							executor_params,
 							execute_priority,
 							result_tx,
@@ -663,7 +674,8 @@ async fn handle_execute_pvf(
 			artifact_id,
 			PendingExecutionRequest {
 				exec_timeout,
-				params,
+				pvd,
+				pov,
 				executor_params,
 				result_tx,
 				execute_priority,
@@ -791,7 +803,8 @@ async fn handle_prepare_done(
 	let pending_requests = awaiting_prepare.take(&artifact_id);
 	for PendingExecutionRequest {
 		exec_timeout,
-		params,
+		pvd,
+		pov,
 		executor_params,
 		result_tx,
 		execute_priority,
@@ -817,7 +830,8 @@ async fn handle_prepare_done(
 				artifact: ArtifactPathId::new(artifact_id.clone(), &path),
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
-					params,
+					pvd,
+					pov,
 					executor_params,
 					execute_priority,
 					result_tx,
@@ -992,6 +1006,8 @@ pub(crate) mod tests {
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
 	use polkadot_node_core_pvf_common::prepare::PrepareStats;
+	use polkadot_node_primitives::BlockData;
+	use sp_core::H256;
 
 	const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub(crate) const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -1248,12 +1264,21 @@ pub(crate) mod tests {
 	async fn execute_pvf_requests() {
 		let mut test = Builder::default().build();
 		let mut host = test.host_handle();
+		let pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: 1u32,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: 4096 * 1024,
+		});
+		let pov1 = Arc::new(PoV { block_data: BlockData(b"pov1".to_vec()) });
+		let pov2 = Arc::new(PoV { block_data: BlockData(b"pov2".to_vec()) });
 
 		let (result_tx, result_rx_pvf_1_1) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf1".to_vec(),
+			pvd.clone(),
+			pov1.clone(),
 			Priority::Normal,
 			PvfExecPriority::Backing,
 			result_tx,
@@ -1265,7 +1290,8 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf1".to_vec(),
+			pvd.clone(),
+			pov1,
 			Priority::Critical,
 			PvfExecPriority::Backing,
 			result_tx,
@@ -1277,7 +1303,8 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(2),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf2".to_vec(),
+			pvd,
+			pov2,
 			Priority::Normal,
 			PvfExecPriority::Backing,
 			result_tx,
@@ -1410,6 +1437,13 @@ pub(crate) mod tests {
 	async fn test_prepare_done() {
 		let mut test = Builder::default().build();
 		let mut host = test.host_handle();
+		let pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: 1u32,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: 4096 * 1024,
+		});
+		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 
 		// Test mixed cases of receiving execute and precheck requests
 		// for the same PVF.
@@ -1419,7 +1453,8 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf2".to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			PvfExecPriority::Backing,
 			result_tx,
@@ -1467,7 +1502,8 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(2),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf2".to_vec(),
+			pvd,
+			pov,
 			Priority::Critical,
 			PvfExecPriority::Backing,
 			result_tx,
@@ -1564,13 +1600,21 @@ pub(crate) mod tests {
 	async fn test_execute_prepare_retry() {
 		let mut test = Builder::default().build();
 		let mut host = test.host_handle();
+		let pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: 1u32,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: 4096 * 1024,
+		});
+		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 
 		// Submit a execute request that fails.
 		let (result_tx, result_rx) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf".to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			PvfExecPriority::Backing,
 			result_tx,
@@ -1601,7 +1645,8 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf".to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			PvfExecPriority::Backing,
 			result_tx_2,
@@ -1624,7 +1669,8 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf".to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			PvfExecPriority::Backing,
 			result_tx_3,
@@ -1669,13 +1715,21 @@ pub(crate) mod tests {
 	async fn test_execute_prepare_no_retry() {
 		let mut test = Builder::default().build();
 		let mut host = test.host_handle();
+		let pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: 1u32,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: 4096 * 1024,
+		});
+		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 
 		// Submit an execute request that fails.
 		let (result_tx, result_rx) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf".to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			PvfExecPriority::Backing,
 			result_tx,
@@ -1706,7 +1760,8 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf".to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			PvfExecPriority::Backing,
 			result_tx_2,
@@ -1729,7 +1784,8 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf".to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			PvfExecPriority::Backing,
 			result_tx_3,
@@ -1791,12 +1847,20 @@ pub(crate) mod tests {
 	async fn cancellation() {
 		let mut test = Builder::default().build();
 		let mut host = test.host_handle();
+		let pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: 1u32,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: 4096 * 1024,
+		});
+		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 
 		let (result_tx, result_rx) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			b"pvf1".to_vec(),
+			pvd,
+			pov,
 			Priority::Normal,
 			PvfExecPriority::Backing,
 			result_tx,

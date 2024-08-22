@@ -27,9 +27,7 @@ use polkadot_node_core_pvf::{
 	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PossiblyInvalidError,
 	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
-use polkadot_node_primitives::{
-	BlockData, InvalidCandidate, PoV, ValidationResult, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT,
-};
+use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
@@ -41,9 +39,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util as util;
 use polkadot_overseer::ActiveLeavesUpdate;
-use polkadot_parachain_primitives::primitives::{
-	ValidationParams, ValidationResult as WasmValidationResult,
-};
+use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
 	executor_params::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
@@ -504,21 +500,12 @@ where
 			continue;
 		};
 
-		let pvf = match sp_maybe_compressed_blob::decompress(
-			&validation_code.0,
-			VALIDATION_CODE_BOMB_LIMIT,
-		) {
-			Ok(code) => PvfPrepData::from_code(
-				code.into_owned(),
-				executor_params.clone(),
-				timeout,
-				PrepareJobKind::Prechecking,
-			),
-			Err(e) => {
-				gum::debug!(target: LOG_TARGET, err=?e, "cannot decompress validation code");
-				continue
-			},
-		};
+		let pvf = PvfPrepData::from_code(
+			validation_code.0,
+			executor_params.clone(),
+			timeout,
+			PrepareJobKind::Prechecking,
+		);
 
 		active_pvfs.push(pvf);
 		processed_code_hashes.push(code_hash);
@@ -651,21 +638,12 @@ where
 
 	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Precheck);
 
-	let pvf = match sp_maybe_compressed_blob::decompress(
-		&validation_code.0,
-		VALIDATION_CODE_BOMB_LIMIT,
-	) {
-		Ok(code) => PvfPrepData::from_code(
-			code.into_owned(),
-			executor_params,
-			timeout,
-			PrepareJobKind::Prechecking,
-		),
-		Err(e) => {
-			gum::debug!(target: LOG_TARGET, err=?e, "precheck: cannot decompress validation code");
-			return PreCheckOutcome::Invalid
-		},
-	};
+	let pvf = PvfPrepData::from_code(
+		validation_code.0,
+		executor_params,
+		timeout,
+		PrepareJobKind::Prechecking,
+	);
 
 	match validation_backend.precheck_pvf(pvf).await {
 		Ok(_) => PreCheckOutcome::Valid,
@@ -873,41 +851,7 @@ async fn validate_candidate_exhaustive(
 		return Ok(ValidationResult::Invalid(e))
 	}
 
-	let raw_validation_code = match sp_maybe_compressed_blob::decompress(
-		&validation_code.0,
-		VALIDATION_CODE_BOMB_LIMIT,
-	) {
-		Ok(code) => code,
-		Err(e) => {
-			gum::info!(target: LOG_TARGET, ?para_id, err=?e, "Invalid candidate (validation code)");
-
-			// Code already passed pre-checking, if decompression fails now this most likely means
-			// some local corruption happened.
-			return Err(ValidationFailed("Code decompression failed".to_string()))
-		},
-	};
-	metrics.observe_code_size(raw_validation_code.len());
-
-	metrics.observe_pov_size(pov.block_data.0.len(), true);
-	let raw_block_data =
-		match sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT) {
-			Ok(block_data) => BlockData(block_data.to_vec()),
-			Err(e) => {
-				gum::info!(target: LOG_TARGET, ?para_id, err=?e, "Invalid candidate (PoV code)");
-
-				// If the PoV is invalid, the candidate certainly is.
-				return Ok(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure))
-			},
-		};
-	metrics.observe_pov_size(raw_block_data.0.len(), false);
-
-	let params = ValidationParams {
-		parent_head: persisted_validation_data.parent_head.clone(),
-		block_data: raw_block_data,
-		relay_parent_number: persisted_validation_data.relay_parent_number,
-		relay_parent_storage_root: persisted_validation_data.relay_parent_storage_root,
-	};
-
+	let persisted_validation_data = Arc::new(persisted_validation_data);
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
@@ -915,22 +859,30 @@ async fn validate_candidate_exhaustive(
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
-				raw_validation_code.to_vec(),
+				validation_code.0,
 				executor_params,
 				prep_timeout,
 				PrepareJobKind::Compilation,
 			);
 
 			validation_backend
-				.validate_candidate(pvf, exec_timeout, params.encode(), exec_kind.into(), exec_kind)
+				.validate_candidate(
+					pvf,
+					exec_timeout,
+					persisted_validation_data.clone(),
+					pov,
+					exec_kind.into(), 
+					exec_kind,
+				)
 				.await
 		},
 		PvfExecPriority::Approval | PvfExecPriority::Dispute =>
 			validation_backend
 				.validate_candidate_with_retry(
-					raw_validation_code.to_vec(),
-					pvf_exec_timeout(&executor_params, exec_kind.into()),
-					params,
+					validation_code.0,
+					pvf_exec_timeout(&executor_params, exec_kind),
+					persisted_validation_data.clone(),
+					pov,
 					executor_params,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
 					exec_kind.into(),
@@ -957,6 +909,8 @@ async fn validate_candidate_exhaustive(
 			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)),
 		Err(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedInvalid(e))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
+		Err(ValidationError::Invalid(WasmInvalidCandidate::PoVDecompressionFailure)) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure)),
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				"ambiguous worker death".to_string(),
@@ -1003,7 +957,7 @@ async fn validate_candidate_exhaustive(
 					// invalid.
 					Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))
 				} else {
-					Ok(ValidationResult::Valid(outputs, persisted_validation_data))
+					Ok(ValidationResult::Valid(outputs, (*persisted_validation_data).clone()))
 				}
 			},
 	}
@@ -1016,7 +970,8 @@ trait ValidationBackend {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		encoded_params: Vec<u8>,
+		pvd: Arc<PersistedValidationData>,
+		pov: Arc<PoV>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
 		// The priority for the execution job.
@@ -1033,9 +988,10 @@ trait ValidationBackend {
 	/// preparation.
 	async fn validate_candidate_with_retry(
 		&mut self,
-		raw_validation_code: Vec<u8>,
+		code: Vec<u8>,
 		exec_timeout: Duration,
-		params: ValidationParams,
+		pvd: Arc<PersistedValidationData>,
+		pov: Arc<PoV>,
 		executor_params: ExecutorParams,
 		retry_delay: Duration,
 		// The priority for the preparation job.
@@ -1046,7 +1002,7 @@ trait ValidationBackend {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
 		let pvf = PvfPrepData::from_code(
-			raw_validation_code,
+			code,
 			executor_params,
 			prep_timeout,
 			PrepareJobKind::Compilation,
@@ -1060,7 +1016,8 @@ trait ValidationBackend {
 			.validate_candidate(
 				pvf.clone(),
 				exec_timeout,
-				params.encode(),
+				pvd.clone(),
+				pov.clone(),
 				prepare_priority,
 				execute_priority,
 			)
@@ -1136,13 +1093,12 @@ trait ValidationBackend {
 					validation_result
 				);
 
-				// Encode the params again when re-trying. We expect the retry case to be relatively
-				// rare, and we want to avoid unconditionally cloning data.
 				validation_result = self
 					.validate_candidate(
 						pvf.clone(),
 						new_timeout,
-						params.encode(),
+						pvd.clone(),
+						pov.clone(),
 						prepare_priority,
 						execute_priority,
 					)
@@ -1165,7 +1121,8 @@ impl ValidationBackend for ValidationHost {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		encoded_params: Vec<u8>,
+		pvd: Arc<PersistedValidationData>,
+		pov: Arc<PoV>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
 		// The priority for the execution job.
@@ -1173,7 +1130,7 @@ impl ValidationBackend for ValidationHost {
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
 		if let Err(err) = self
-			.execute_pvf(pvf, exec_timeout, encoded_params, prepare_priority, execute_priority, tx)
+			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, execute_priority, tx)
 			.await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(
