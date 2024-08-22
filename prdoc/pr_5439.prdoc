@@ -1,7 +1,7 @@
 title: "Deprecated calls removed in cumulus parachain system pallet"
 
 doc:
-  - audience: Runtime Dev, Runtime User
+  - audience: [Runtime Dev, Runtime User]
     description: |
       Call `authorize_upgrade` in parachain system pallet `cumulus-pallet-parachain-system` has
       been removed, use `authorize_upgrade` or `authorize_upgrade_without_checks` calls in system
