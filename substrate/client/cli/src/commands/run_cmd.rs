@@ -479,12 +479,13 @@ impl CliConfiguration for RunCmd {
 		)?;
 
 		let cors = self.rpc_cors(self.is_dev()?)?;
+		let port = self.rpc_port.unwrap_or(default_listen_port);
 
 		Ok(Some(vec![
 			RpcEndpoint {
 				batch_config: self.rpc_batch_config()?,
 				max_connections: self.rpc_max_connections,
-				listen_addr: SocketAddr::new(std::net::IpAddr::V4(ipv4), default_listen_port),
+				listen_addr: SocketAddr::new(std::net::IpAddr::V4(ipv4), port),
 				rpc_methods: self.rpc_methods,
 				rate_limit: self.rpc_rate_limit,
 				rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers,
@@ -500,7 +501,7 @@ impl CliConfiguration for RunCmd {
 			RpcEndpoint {
 				batch_config: self.rpc_batch_config()?,
 				max_connections: self.rpc_max_connections,
-				listen_addr: SocketAddr::new(std::net::IpAddr::V6(ipv6), default_listen_port),
+				listen_addr: SocketAddr::new(std::net::IpAddr::V6(ipv6), port),
 				rpc_methods: self.rpc_methods,
 				rate_limit: self.rpc_rate_limit,
 				rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers,
