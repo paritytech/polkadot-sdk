@@ -106,7 +106,7 @@ benchmarks! {
 	// Variant over `v`, the amount of validity votes for a backed candidate. This gives the weight
 	// of a single backed candidate.
 	enter_backed_candidates_variable {
-		let v in (BenchBuilder::<T>::fallback_min_validity_votes())
+		let v in (BenchBuilder::<T>::fallback_min_backing_votes())
 			..(BenchBuilder::<T>::fallback_max_validators_per_core());
 
 		let cores_with_backed: BTreeMap<_, _>
@@ -160,7 +160,7 @@ benchmarks! {
 		let v = crate::configuration::ActiveConfig::<T>::get().max_code_size;
 
 		let cores_with_backed: BTreeMap<_, _>
-			= vec![(0, BenchBuilder::<T>::fallback_min_validity_votes())]
+			= vec![(0, BenchBuilder::<T>::fallback_min_backing_votes())]
 				.into_iter()
 				.collect();
 
@@ -171,8 +171,10 @@ benchmarks! {
 
 		let mut benchmark = scenario.data.clone();
 
-		// let votes = BenchBuilder::<T>::fallback_min_validity_votes() as usize;
-		let votes = min(scheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).unwrap().len(), BenchBuilder::<T>::fallback_min_validity_votes() as usize);
+		let votes = min(
+			sscheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).unwrap().len(),
+			BenchBuilder::<T>::fallback_min_backing_votes() as usize
+		);
 
 		// There is 1 backed
 		assert_eq!(benchmark.backed_candidates.len(), 1);

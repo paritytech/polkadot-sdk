@@ -286,7 +286,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 	/// Get the minimum number of validity votes in order for a backed candidate to be included.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn fallback_min_validity_votes() -> u32 {
+	pub(crate) fn fallback_min_backing_votes() -> u32 {
 		2
 	}
 
