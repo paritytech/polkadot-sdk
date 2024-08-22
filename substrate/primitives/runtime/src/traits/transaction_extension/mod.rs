@@ -82,8 +82,7 @@ pub trait TransactionExtensionBase:
 		sp_std::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
-			// TODO: Metadata-v16: Rename to "implicit"
-			additional_signed: scale_info::meta_type::<Self::Implicit>()
+			implicit: scale_info::meta_type::<Self::Implicit>()
 		}]
 	}
 }
@@ -463,8 +462,7 @@ pub struct TransactionExtensionMetadata {
 	/// The type of the [`TransactionExtension`].
 	pub ty: MetaType,
 	/// The type of the [`TransactionExtension`] additional signed data for the payload.
-	// TODO: Rename "implicit"
-	pub additional_signed: MetaType,
+	pub implicit: MetaType,
 }
 
 #[impl_for_tuples(1, 12)]

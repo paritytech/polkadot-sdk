@@ -29,8 +29,8 @@ use frame_support::{
 	storage::{unhashed, unhashed::contains_prefixed_key},
 	traits::{
 		ConstU32, GetCallIndex, GetCallName, GetStorageVersion, OnFinalize, OnGenesis,
-		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, StorageVersion,
-		UnfilteredDispatchable,
+		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, SignedTransactionBuilder,
+		StorageVersion, UnfilteredDispatchable,
 	},
 	weights::{RuntimeDbWeight, Weight},
 	OrdNoBound, PartialOrdNoBound,
@@ -42,7 +42,7 @@ use sp_io::{
 	TestExternalities,
 };
 use sp_runtime::{
-	traits::{Dispatchable, SignaturePayload as SignaturePayloadT},
+	traits::{Block as BlockT, Dispatchable},
 	DispatchError, ModuleError,
 };
 
@@ -783,8 +783,6 @@ impl<LocalCall> CreateSignedTransaction<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type SignaturePayload = UncheckedSignaturePayload;
-
 	fn create_signed_transaction<
 		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
 	>(
@@ -1880,12 +1878,16 @@ fn metadata() {
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],
-		address_ty: meta_type::<<<Runtime as CreateSignedTransaction<RuntimeCall>>::SignaturePayload as SignaturePayloadT>::SignatureAddress>(),
+		address_ty: meta_type::<
+			<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Address
+		>(),
 		call_ty: meta_type::<<Runtime as CreateTransactionBase<RuntimeCall>>::RuntimeCall>(),
 		signature_ty: meta_type::<
-			<<Runtime as CreateSignedTransaction<RuntimeCall>>::SignaturePayload as SignaturePayloadT>::Signature
+			<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Signature
 		>(),
-		extra_ty: meta_type::<<<Runtime as CreateSignedTransaction<RuntimeCall>>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(),
+		extra_ty: meta_type::<
+			<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Extension
+		>(),
 	};
 
 	let outer_enums = OuterEnums {
@@ -1965,7 +1967,10 @@ fn metadata_ir_pallet_runtime_docs() {
 fn extrinsic_metadata_ir_types() {
 	let ir = Runtime::metadata_ir().extrinsic;
 
-	assert_eq!(meta_type::<<<Runtime as CreateSignedTransaction<RuntimeCall>>::SignaturePayload as SignaturePayloadT>::SignatureAddress>(), ir.address_ty);
+	assert_eq!(
+		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Address>(),
+		ir.address_ty
+	);
 	assert_eq!(meta_type::<u64>(), ir.address_ty);
 
 	assert_eq!(
@@ -1975,14 +1980,15 @@ fn extrinsic_metadata_ir_types() {
 	assert_eq!(meta_type::<RuntimeCall>(), ir.call_ty);
 
 	assert_eq!(
-		meta_type::<
-		<<Runtime as CreateSignedTransaction<RuntimeCall>>::SignaturePayload as SignaturePayloadT>::Signature
-	>(),
+		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Signature>(),
 		ir.signature_ty
 	);
 	assert_eq!(meta_type::<AccountU64>(), ir.signature_ty);
 
-	assert_eq!(meta_type::<<<Runtime as CreateSignedTransaction<RuntimeCall>>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(), ir.extra_ty);
+	assert_eq!(
+		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Extension>(),
+		ir.extra_ty
+	);
 	assert_eq!(meta_type::<frame_system::CheckNonZeroSender<Runtime>>(), ir.extra_ty);
 }
 

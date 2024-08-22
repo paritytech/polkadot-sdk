@@ -129,7 +129,7 @@ pub fn expand_runtime_metadata(
 								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {
 									identifier: meta.identifier,
 									ty: meta.ty,
-									implicit: meta.additional_signed,
+									implicit: meta.implicit,
 								})
 								.collect(),
 					},
