@@ -26,7 +26,7 @@
 // If you have more pallets in your runtime, or for any other reason need more, enabled `tuples-96`
 // or the `tuples-128` complication flag. Note that these features *will increase* the compilation
 // of this crate.
-// FAIL-CI hey
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 /// Export ourself as `frame_support` to make tests happy.

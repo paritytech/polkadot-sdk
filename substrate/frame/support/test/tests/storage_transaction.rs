@@ -31,7 +31,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Verify},
 	TransactionOutcome,
 };
-//  FAIL-CI dummy change
+
 pub use self::pallet::*;
 
 #[frame_support::pallet]
