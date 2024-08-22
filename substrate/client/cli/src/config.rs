@@ -172,7 +172,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		node_key: NodeKeyConfig,
 		default_listen_port: u16,
 	) -> Result<NetworkConfiguration> {
-		Ok(if let Some(network_params) = self.network_params() {
+		let network_config = if let Some(network_params) = self.network_params() {
 			network_params.network_config(
 				chain_spec,
 				is_dev,
@@ -185,7 +185,13 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			)
 		} else {
 			NetworkConfiguration::new(node_name, client_id, node_key, Some(net_config_dir))
-		})
+		};
+
+		// TODO: Return error here in the next release:
+		// https://github.com/paritytech/polkadot-sdk/issues/5266
+		// if is_validator && network_config.public_addresses.is_empty() {}
+
+		Ok(network_config)
 	}
 
 	/// Get the keystore configuration.
@@ -637,6 +643,14 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		logger_hook(&mut logger, config);
 
 		logger.init()?;
+
+		if config.role.is_authority() && config.network.public_addresses.is_empty() {
+			warn!(
+				"WARNING: No public address specified, validator node may not be reachable.
+				Consider setting `--public-addr` to the public IP address of this node.
+				This will become a hard requirement in future versions."
+			);
+		}
 
 		match fdlimit::raise_fd_limit() {
 			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>

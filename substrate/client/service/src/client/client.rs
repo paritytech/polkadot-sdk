@@ -1754,7 +1754,7 @@ where
 	/// If you are not sure that there are no BlockImport objects provided by the consensus
 	/// algorithm, don't use this function.
 	async fn import_block(
-		&mut self,
+		&self,
 		mut import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let span = tracing::span!(tracing::Level::DEBUG, "import_block");
@@ -1854,18 +1854,18 @@ where
 {
 	type Error = ConsensusError;
 
-	async fn import_block(
-		&mut self,
-		import_block: BlockImportParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		(&*self).import_block(import_block).await
-	}
-
 	async fn check_block(
 		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		(&self).check_block(block).await
+	}
+
+	async fn import_block(
+		&self,
+		import_block: BlockImportParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		(&self).import_block(import_block).await
 	}
 }
 

@@ -18,9 +18,11 @@
 
 #![warn(missing_docs)]
 
-pub mod aura;
+pub(crate) mod aura;
+pub mod chain_spec;
 pub mod command;
 pub mod rpc;
+pub mod runtime;
 pub mod spec;
 pub mod types;
 
