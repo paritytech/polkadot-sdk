@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724262419322,
+  "lastUpdate": 1724315513081,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9071,6 +9071,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04584928843800001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "dce789ddd28ea179e42a00f2817b3e5d713bf6f6",
+          "message": "Add the Polkadot Coretime chain-spec (#5436)\n\nAdd the Polkadot Coretime chain-spec to the directory with the other\nsystem chain-specs.\n\nThis is the chain-spec used at genesis and for which the genesis head\ndata was generated.\n\nIt is also included in the assets for fellowship [release\nv1.3.0](https://github.com/polkadot-fellows/runtimes/releases/tag/v1.3.0)",
+          "timestamp": "2024-08-22T06:37:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dce789ddd28ea179e42a00f2817b3e5d713bf6f6"
+        },
+        "date": 1724315484079,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.93599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.047794641311999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03817367199,
             "unit": "seconds"
           }
         ]
