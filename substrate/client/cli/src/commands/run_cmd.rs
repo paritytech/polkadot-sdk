@@ -137,16 +137,16 @@ pub struct RunCmd {
 	/// The following options are available:
 	///  • listen-addr: The socket address (ip:port) to listen on. Be careful to not expose the
 	///    server to the public internet unless you know what you're doing. (required)
-	///  • disable_batch_requests: Disable batch requests (optional)
-	///  • max_connections: The maximum number of concurrent connections that the server will
+	///  • disable-batch-requests: Disable batch requests (optional)
+	///  • max-connections: The maximum number of concurrent connections that the server will
 	///    accept (optional)
-	///  • max_request_size: The maximum size of a request body in megabytes (optional)
-	///  • max_response_size: The maximum size of a response body in megabytes (optional)
-	///  • max_subscriptions_per_connection: The maximum number of subscriptions per connection
+	///  • max-request-size: The maximum size of a request body in megabytes (optional)
+	///  • max-response-size: The maximum size of a response body in megabytes (optional)
+	///  • max-subscriptions_per_connection: The maximum number of subscriptions per connection
 	///    (optional)
-	///  • max_buffer_capacity_per_connection: The maximum buffer capacity per connection
+	///  • max-buffer-capacity-per-connection: The maximum buffer capacity per connection
 	///    (optional)
-	///  • max_batch_request_len: The maximum number of requests in a batch (optional)
+	///  • max-batch-request-len: The maximum number of requests in a batch (optional)
 	///  • cors: The CORS allowed origins, this can enabled more than once (optional)
 	///  • methods: Which RPC methods to allow, valid values are "safe", "unsafe" and "auto"
 	///    (default)

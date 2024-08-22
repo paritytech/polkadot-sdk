@@ -165,6 +165,22 @@ pub struct NetworkSchemeFlag {
 	pub network: Option<Ss58AddressFormat>,
 }
 
+const RPC_LISTEN_ADDR: &str = "listen-addr";
+const RPC_CORS: &str = "cors";
+const RPC_MAX_CONNS: &str = "max-connections";
+const RPC_MAX_REQUEST_SIZE: &str = "max-request-size";
+const RPC_MAX_RESPONSE_SIZE: &str = "max-response-size";
+const RPC_MAX_SUBS_PER_CONN: &str = "max-subscriptions-per-connection";
+const RPC_MAX_BUF_CAP_PER_CONN: &str = "max-buffer-capacity-per-connection";
+const RPC_RATE_LIMIT: &str = "rate-limit";
+const RPC_RATE_LIMIT_TRUST_PROXY_HEADERS: &str = "rate-limit-trust-proxy-headers";
+const RPC_RATE_LIMIT_WHITELISTED_IPS: &str = "rate-limit-whitelisted-ips";
+const RPC_RETRY_RANDOM_PORT: &str = "retry-random-port";
+const RPC_METHODS: &str = "methods";
+const RPC_OPTIONAL: &str = "optional";
+const RPC_DISABLE_BATCH: &str = "disable-batch-requests";
+const RPC_BATCH_LIMIT: &str = "max-batch-request-len";
+
 /// Represent a single RPC endpoint with its configuration.
 #[derive(Debug, Clone)]
 pub struct RpcEndpoint {
@@ -201,7 +217,15 @@ pub struct RpcEndpoint {
 }
 
 fn exactly_once_err(reason: &str) -> String {
-	format!("`{reason}` must be specified exactly one time")
+	format!("rpc param input `{reason}` is not allowed be specified once")
+}
+
+fn invalid_input(input: &str) -> String {
+	format!("Invalid rpc param input `{input}`")
+}
+
+fn invalid_value(key: &str, value: &str) -> String {
+	format!("Invalid value={value} for rpc param={key}")
 }
 
 impl std::str::FromStr for RpcEndpoint {
@@ -224,25 +248,23 @@ impl std::str::FromStr for RpcEndpoint {
 		let mut rate_limit_whitelisted_ips = Vec::new();
 		let mut retry_random_port = None;
 
-		for val in s.split(',') {
-			let val = val.trim();
-			let (key, val) =
-				val.split_once('=').ok_or_else(|| format!("invalid key-value pair: {val}"))?;
+		for input in s.split(',') {
+			let (key, val) = input.trim().split_once('=').ok_or_else(|| invalid_input(input))?;
 			let key = key.trim();
 			let val = val.trim();
 
 			match key {
-				"listen-addr" => {
+				RPC_LISTEN_ADDR => {
 					if listen_addr.is_some() {
-						return Err(exactly_once_err("listen-addr"));
+						return Err(exactly_once_err(RPC_LISTEN_ADDR));
 					}
-					let val: SocketAddr = val.parse().map_err(|e| format!("Invalid addr: {e}"))?;
+					let val: SocketAddr =
+						val.parse().map_err(|_| invalid_value(RPC_LISTEN_ADDR, &val))?;
 					listen_addr = Some(val);
 				},
-				"cors" => {
-					// It's possible to have multiple cors values.
+				RPC_CORS => {
 					if val.is_empty() {
-						return Err("Empty cors value is not allowed".to_string());
+						return Err(invalid_value(RPC_CORS, &val));
 					}
 
 					if let Some(cors) = cors.as_mut() {
@@ -251,125 +273,125 @@ impl std::str::FromStr for RpcEndpoint {
 						cors = Some(vec![val.to_string()]);
 					}
 				},
-				"max-connections" => {
+				RPC_MAX_CONNS => {
 					if max_connections.is_some() {
-						return Err(exactly_once_err("max-connections"));
+						return Err(exactly_once_err(RPC_MAX_CONNS));
 					}
 
-					let val = val.parse().map_err(|e| format!("Invalid max_connections: {e}"))?;
+					let val = val.parse().map_err(|_| invalid_value(RPC_MAX_CONNS, &val))?;
 					max_connections = Some(val);
 				},
-				"max-request-size" => {
+				RPC_MAX_REQUEST_SIZE => {
 					if max_payload_in_mb.is_some() {
-						return Err(exactly_once_err("max-request-size"));
+						return Err(exactly_once_err(RPC_MAX_REQUEST_SIZE));
 					}
 
-					max_payload_in_mb =
-						Some(val.parse().map_err(|e| format!("Invalid max-request-size: {e}"))?);
+					let val =
+						val.parse().map_err(|_| invalid_value(RPC_MAX_RESPONSE_SIZE, &val))?;
+					max_payload_in_mb = Some(val);
 				},
-				"max-response-size" => {
+				RPC_MAX_RESPONSE_SIZE => {
 					if max_payload_out_mb.is_some() {
-						return Err(exactly_once_err("max-response-size"));
+						return Err(exactly_once_err(RPC_MAX_RESPONSE_SIZE));
 					}
 
-					max_payload_out_mb =
-						Some(val.parse().map_err(|e| format!("Invalid max-request-size: {e}"))?);
+					let val =
+						val.parse().map_err(|_| invalid_value(RPC_MAX_RESPONSE_SIZE, &val))?;
+					max_payload_out_mb = Some(val);
 				},
-				"max-subscriptions-per-connection" => {
+				RPC_MAX_SUBS_PER_CONN => {
 					if max_subscriptions_per_connection.is_some() {
-						return Err(exactly_once_err("max-subscriptions-per-connection"));
+						return Err(exactly_once_err(RPC_MAX_SUBS_PER_CONN));
 					}
 
-					let val = val
-						.parse()
-						.map_err(|e| format!("Invalid max-subscriptions-per-connection: {e}"))?;
+					let val =
+						val.parse().map_err(|_| invalid_value(RPC_MAX_SUBS_PER_CONN, &val))?;
 					max_subscriptions_per_connection = Some(val);
 				},
-				"max-buffer-capacity-per-connection" => {
+				RPC_MAX_BUF_CAP_PER_CONN => {
 					if max_buffer_capacity_per_connection.is_some() {
-						return Err(exactly_once_err("max-buffer-capacity-per-connection"));
+						return Err(exactly_once_err(RPC_MAX_BUF_CAP_PER_CONN));
 					}
 
-					let val = val
-						.parse()
-						.map_err(|e| format!("Invalid max-buffer-capacity-per-connection: {e}"))?;
+					let val =
+						val.parse().map_err(|_| invalid_value(RPC_MAX_BUF_CAP_PER_CONN, &val))?;
 					max_buffer_capacity_per_connection = Some(val);
 				},
-				"rate-limit" => {
+				RPC_RATE_LIMIT => {
 					if rate_limit.is_some() {
 						return Err(exactly_once_err("rate-limit"));
 					}
 
-					let val = val.parse().map_err(|e| format!("Invalid rate-limit: {e}"))?;
+					let val = val.parse().map_err(|_| invalid_value(RPC_RATE_LIMIT, &val))?;
 					rate_limit = Some(val);
 				},
-				"rate-limit-trust-proxy-headers" => {
+				RPC_RATE_LIMIT_TRUST_PROXY_HEADERS => {
 					if rate_limit_trust_proxy_headers.is_some() {
-						return Err(exactly_once_err("rate-limit-trust-proxy-headers"));
+						return Err(exactly_once_err(RPC_RATE_LIMIT_TRUST_PROXY_HEADERS));
 					}
 
 					let val = val
 						.parse()
-						.map_err(|e| format!("Invalid rate-limit-trust-proxy-headers: {e}"))?;
+						.map_err(|_| invalid_value(RPC_RATE_LIMIT_TRUST_PROXY_HEADERS, &val))?;
 					rate_limit_trust_proxy_headers = Some(val);
 				},
-				"rate-limit-whitelisted-ips" => {
+				RPC_RATE_LIMIT_WHITELISTED_IPS => {
 					let ip: IpNetwork = val
 						.parse()
-						.map_err(|e| format!("Invalid rate-limit-whitelisted-ips: {e}"))?;
+						.map_err(|_| invalid_value(RPC_RATE_LIMIT_WHITELISTED_IPS, &val))?;
 					rate_limit_whitelisted_ips.push(ip);
 				},
-				"retry-random-port" => {
+				RPC_RETRY_RANDOM_PORT => {
 					if retry_random_port.is_some() {
-						return Err(exactly_once_err("retry-random-port"));
+						return Err(exactly_once_err(RPC_RETRY_RANDOM_PORT));
 					}
-					retry_random_port =
-						Some(val.parse().map_err(|e| format!("Invalid retry-random-port: {e}"))?);
+					let val =
+						val.parse().map_err(|_| invalid_value(RPC_RETRY_RANDOM_PORT, &val))?;
+					retry_random_port = Some(val);
 				},
-				"methods" => {
+				RPC_METHODS => {
 					if rpc_methods.is_some() {
 						return Err(exactly_once_err("methods"));
 					}
-					rpc_methods = Some(val.parse().map_err(|e| format!("Invalid methods: {e}"))?);
+					let val = val.parse().map_err(|_| invalid_value(RPC_METHODS, &val))?;
+					rpc_methods = Some(val);
 				},
-				"optional" => {
+				RPC_OPTIONAL => {
 					if is_optional.is_some() {
-						return Err(exactly_once_err("optional"));
+						return Err(exactly_once_err(RPC_OPTIONAL));
 					}
 
-					let val = val.parse().map_err(|e| format!("Invalid optional value: {e}"))?;
+					let val = val.parse().map_err(|_| invalid_value(RPC_OPTIONAL, &val))?;
 					is_optional = Some(val);
 				},
-				"disable-batch-requests" => {
+				RPC_DISABLE_BATCH => {
 					if disable_batch_requests.is_some() {
-						return Err(exactly_once_err("disable-batch-requests"));
+						return Err(exactly_once_err(RPC_DISABLE_BATCH));
 					}
 
-					let val = val
-						.parse()
-						.map_err(|e| format!("Invalid disable-batch-requests value: {e}"))?;
+					let val = val.parse().map_err(|_| invalid_value(RPC_DISABLE_BATCH, &val))?;
 					disable_batch_requests = Some(val);
 				},
-				"max-batch-request-len" => {
+				RPC_BATCH_LIMIT => {
 					if max_batch_request_len.is_some() {
-						return Err(exactly_once_err("batch_request_limit"));
+						return Err(exactly_once_err(RPC_BATCH_LIMIT));
 					}
 
-					let val =
-						val.parse().map_err(|e| format!("Invalid batch_request_limit: {e}"))?;
+					let val = val.parse().map_err(|_| invalid_value(RPC_BATCH_LIMIT, &val))?;
 					max_batch_request_len = Some(val);
 				},
-				_ => return Err(format!("Unknown key: {key}")),
+				_ => return Err(invalid_input(input)),
 			}
 		}
 
-		let listen_addr = listen_addr.ok_or("Listen addr is required")?;
+		let listen_addr =
+			listen_addr.ok_or("rpc params: requires `listen-addr` to be specified exactly once")?;
 
 		let batch_config = match (disable_batch_requests, max_batch_request_len) {
-			(Some(false), Some(_)) => {
-				return Err("`max-batch-request-len` cannot be specified when `disable-batch-requests` is false".to_string());
+			(Some(true), Some(_)) => {
+				return Err(format!("rpc params: `{RPC_BATCH_LIMIT}` and `{RPC_DISABLE_BATCH}` are mutually exclusive and can't be used together"));
 			},
-			(Some(true), None) => RpcBatchRequestConfig::Disabled,
+			(Some(false), None) => RpcBatchRequestConfig::Disabled,
 			(None, Some(len)) => RpcBatchRequestConfig::Limit(len),
 			_ => RpcBatchRequestConfig::Unlimited,
 		};
@@ -526,5 +548,13 @@ mod tests {
 		.unwrap();
 		assert_eq!(addr.rpc_methods, RpcMethods::Auto);
 		assert_eq!(addr.is_optional, true);
+	}
+
+	#[test]
+	fn parse_rpc_endpoint_batch_options_mutually_exclusive() {
+		assert!(RpcEndpoint::from_str(
+			"listen-addr = 127.0.0.1:9944,disable-batch-requests=true,max-batch-request-len=100",
+		)
+		.is_err());
 	}
 }
