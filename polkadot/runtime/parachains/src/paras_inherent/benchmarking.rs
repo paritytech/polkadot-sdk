@@ -172,7 +172,7 @@ benchmarks! {
 		let mut benchmark = scenario.data.clone();
 
 		let votes = min(
-			sscheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).unwrap().len(),
+			scheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).unwrap().len(),
 			BenchBuilder::<T>::fallback_min_backing_votes() as usize
 		);
 
