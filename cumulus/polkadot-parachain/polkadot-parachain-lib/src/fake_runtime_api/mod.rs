@@ -19,33 +19,48 @@
 
 mod utils;
 
-use parachains_common::Block;
-use utils::impl_node_runtime_apis;
+use crate::common::types::CustomBlock;
+use utils::{impl_node_runtime_apis, imports::*};
 
 pub mod asset_hub_polkadot {
 	use super::{utils::imports::*, *};
 	use parachains_common::AssetHubPolkadotAuraId;
 
+	type Block = CustomBlock<u32>;
 	pub struct FakeRuntime;
 	impl_node_runtime_apis!(FakeRuntime, Block, AssetHubPolkadotAuraId);
 }
 
-pub mod aura {
-	use super::{utils::imports::*, *};
-	use parachains_common::AuraId;
+pub mod u32_block {
+	use super::*;
 
-	pub mod default {
+	type Block = CustomBlock<u32>;
+	pub mod aura_sr25519 {
 		use super::*;
-		pub struct FakeRuntime;
-		impl_node_runtime_apis!(FakeRuntime, Block, AuraId);
+		struct FakeRuntime;
+		impl_node_runtime_apis!(FakeRuntime, Block, sp_consensus_aura::sr25519::AuthorityId);
 	}
 
-	pub mod u64_block {
+	pub mod aura_ed25519 {
 		use super::*;
-		use crate::common::types::CustomBlock;
+		struct FakeRuntime;
+		impl_node_runtime_apis!(FakeRuntime, Block, sp_consensus_aura::ed25519::AuthorityId);
+	}
+}
 
-		type Block = CustomBlock<u64>;
-		pub struct FakeRuntime;
-		impl_node_runtime_apis!(FakeRuntime, Block, AuraId);
+pub mod u64_block {
+	use super::*;
+
+	type Block = CustomBlock<u64>;
+	pub mod aura_sr25519 {
+		use super::*;
+		struct FakeRuntime;
+		impl_node_runtime_apis!(FakeRuntime, Block, sp_consensus_aura::sr25519::AuthorityId);
+	}
+
+	pub mod aura_ed25519 {
+		use super::*;
+		struct FakeRuntime;
+		impl_node_runtime_apis!(FakeRuntime, Block, sp_consensus_aura::ed25519::AuthorityId);
 	}
 }

@@ -25,7 +25,7 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	fake_runtime_api::aura::default::RuntimeApi as FakeRuntimeApi,
+	fake_runtime_api::u32_block::aura_sr25519::RuntimeApi as FakeRuntimeApi,
 };
 use cumulus_client_collator::service::{
 	CollatorService, ServiceInterface as CollatorServiceInterface,
@@ -145,31 +145,33 @@ where
 	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
 		let verifier_client = client.clone();
 
-		let aura_verifier =
-			cumulus_client_consensus_aura::build_verifier::<<AuraId as AppCrypto>::Pair, _, _, _>(
-				cumulus_client_consensus_aura::BuildVerifierParams {
-					client: verifier_client.clone(),
-					create_inherent_data_providers: move |parent_hash, _| {
-						let cidp_client = verifier_client.clone();
-						async move {
-							let slot_duration = cumulus_client_consensus_aura::slot_duration_at(
-								&*cidp_client,
-								parent_hash,
-							)?;
-							let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+		let aura_verifier = cumulus_client_consensus_aura::build_verifier::<
+			<AuraId as AppCrypto>::Pair,
+			_,
+			_,
+			_,
+		>(cumulus_client_consensus_aura::BuildVerifierParams {
+			client: verifier_client.clone(),
+			create_inherent_data_providers: move |parent_hash, _| {
+				let cidp_client = verifier_client.clone();
+				async move {
+					let slot_duration = cumulus_client_consensus_aura::slot_duration_at(
+						&*cidp_client,
+						parent_hash,
+					)?;
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-							let slot =
-						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-							*timestamp,
-							slot_duration,
-						);
+					let slot =
+                        sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+                            *timestamp,
+                            slot_duration,
+                        );
 
-							Ok((slot, timestamp))
-						}
-					},
-					telemetry: telemetry_handle,
-				},
-			);
+					Ok((slot, timestamp))
+				}
+			},
+			telemetry: telemetry_handle,
+		});
 
 		let relay_chain_verifier =
 			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
@@ -290,12 +292,12 @@ impl StartConsensus<Block, FakeRuntimeApi> for StartRelayChainConsensus {
 					let relay_chain_interface = relay_chain_interface.clone();
 					async move {
 						let parachain_inherent =
-							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
-								relay_parent,
-								&relay_chain_interface,
-								&validation_data,
-								para_id,
-							).await;
+                            cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
+                                relay_parent,
+                                &relay_chain_interface,
+                                &validation_data,
+                                para_id,
+                            ).await;
 						let parachain_inherent = parachain_inherent.ok_or_else(|| {
 							Box::<dyn std::error::Error + Send + Sync>::from(
 								"Failed to create parachain inherent",

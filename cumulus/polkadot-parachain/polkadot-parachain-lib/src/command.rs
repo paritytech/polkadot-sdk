@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "runtime-benchmarks")]
-use crate::common::types::Block;
 use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
@@ -25,12 +23,11 @@ use crate::{
 			RuntimeResolver,
 		},
 		spec::DynNodeSpec,
+		types::{Block, CustomBlock},
 		NodeExtraArgs,
 	},
-	fake_runtime_api::{
-		asset_hub_polkadot::RuntimeApi as AssetHubPolkadotRuntimeApi,
-		aura::default::RuntimeApi as AuraRuntimeApi,
-	},
+	fake_runtime_api,
+	runtime::BlockNumber,
 	service::{new_aura_node_spec, ShellNode},
 };
 #[cfg(feature = "runtime-benchmarks")]
@@ -38,7 +35,6 @@ use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunc
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use parachains_common::{AssetHubPolkadotAuraId, AuraId};
 use sc_cli::{Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
@@ -60,13 +56,27 @@ fn new_node_spec(
 
 	Ok(match runtime {
 		Runtime::Shell => Box::new(ShellNode),
-		Runtime::Omni(consensus) => match consensus {
-			Consensus::Aura(AuraConsensusId::Sr25519) =>
-				new_aura_node_spec::<Block, AuraRuntimeApi, AuraId>(extra_args),
-			Consensus::Aura(AuraConsensusId::Ed25519) =>
-				new_aura_node_spec::<Block, AssetHubPolkadotRuntimeApi, AssetHubPolkadotAuraId>(
-					extra_args,
-				),
+		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
+			(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)) => new_aura_node_spec::<
+				Block,
+				fake_runtime_api::u32_block::aura_sr25519::RuntimeApi,
+				sp_consensus_aura::sr25519::AuthorityId,
+			>(extra_args),
+			(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Ed25519)) => new_aura_node_spec::<
+				Block,
+				fake_runtime_api::u32_block::aura_ed25519::RuntimeApi,
+				sp_consensus_aura::ed25519::AuthorityId,
+			>(extra_args),
+			(BlockNumber::U64, Consensus::Aura(AuraConsensusId::Sr25519)) => new_aura_node_spec::<
+				CustomBlock<u64>,
+				fake_runtime_api::u64_block::aura_sr25519::RuntimeApi,
+				sp_consensus_aura::sr25519::AuthorityId,
+			>(extra_args),
+			(BlockNumber::U64, Consensus::Aura(AuraConsensusId::Ed25519)) => new_aura_node_spec::<
+				CustomBlock<u64>,
+				fake_runtime_api::u64_block::aura_ed25519::RuntimeApi,
+				sp_consensus_aura::ed25519::AuthorityId,
+			>(extra_args),
 		},
 	})
 }

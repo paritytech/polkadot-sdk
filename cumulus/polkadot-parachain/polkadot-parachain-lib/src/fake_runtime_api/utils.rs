@@ -15,7 +15,6 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 pub(crate) mod imports {
-	pub use frame_support::weights::Weight;
 	pub use parachains_common::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
@@ -23,6 +22,7 @@ pub(crate) mod imports {
 		transaction_validity::{TransactionSource, TransactionValidity},
 		ApplyExtrinsicResult,
 	};
+	pub use sp_weights::Weight;
 }
 
 macro_rules! impl_node_runtime_apis {
