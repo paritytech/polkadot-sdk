@@ -18,7 +18,9 @@
 
 #![warn(missing_docs)]
 
-pub mod aura;
+pub(crate) mod aura;
+pub mod chain_spec;
+pub mod runtime;
 
 use cumulus_primitives_core::CollectCollationInfo;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};

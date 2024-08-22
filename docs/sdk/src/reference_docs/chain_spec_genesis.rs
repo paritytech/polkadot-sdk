@@ -178,7 +178,6 @@
 //! [`pallet::genesis_build`]: frame_support::pallet_macros::genesis_build
 //! [`pallet::genesis_config`]: frame_support::pallet_macros::genesis_config
 //! [`BuildGenesisConfig`]: frame_support::traits::BuildGenesisConfig
-//! [`chain_spec_builder`]: ../../../staging_chain_spec_builder/index.html
 //! [`serde`]: https://serde.rs/field-attrs.html
 //! [`get_storage_for_patch`]: sc_chain_spec::GenesisConfigBuilderRuntimeCaller::get_storage_for_patch
 //! [`GenesisBuilder::get_preset`]: sp_genesis_builder::GenesisBuilder::get_preset

@@ -136,6 +136,7 @@ members = [
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
 	"cumulus/polkadot-parachain",
+	"cumulus/polkadot-parachain/polkadot-parachain-lib",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
@@ -522,7 +523,6 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
-	"templates/minimal",
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
@@ -536,6 +536,7 @@ members = [
 ]
 
 default-members = [
+	"cumulus/polkadot-parachain",
 	"polkadot",
 	"substrate/bin/node/cli",
 ]
@@ -1042,6 +1043,7 @@ polkadot-node-subsystem-test-helpers = { path = "polkadot/node/subsystem-test-he
 polkadot-node-subsystem-types = { path = "polkadot/node/subsystem-types", default-features = false }
 polkadot-node-subsystem-util = { path = "polkadot/node/subsystem-util", default-features = false }
 polkadot-overseer = { path = "polkadot/node/overseer", default-features = false }
+polkadot-parachain-lib = { path = "cumulus/polkadot-parachain/polkadot-parachain-lib", default-features = false }
 polkadot-parachain-primitives = { path = "polkadot/parachain", default-features = false }
 polkadot-primitives = { path = "polkadot/primitives", default-features = false }
 polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers" }
@@ -1319,7 +1321,7 @@ tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
 trie-bench = { version = "0.39.0" }
-trie-db = { version = "0.29.0", default-features = false }
+trie-db = { version = "0.29.1", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.89" }
