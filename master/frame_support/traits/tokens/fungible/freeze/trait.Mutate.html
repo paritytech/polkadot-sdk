@@ -155,13 +155,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-    ) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
+    ) -&gt; DispatchResult;
 <span class="item-spacer"></span>    fn <a href="#tymethod.extend_freeze" class="fn">extend_freeze</a>(
         id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-    ) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
-<span class="item-spacer"></span>    fn <a href="#tymethod.thaw" class="fn">thaw</a>(id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>, who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
+    ) -&gt; DispatchResult;
+<span class="item-spacer"></span>    fn <a href="#tymethod.thaw" class="fn">thaw</a>(id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>, who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; DispatchResult;
 
     // Provided methods
     fn <a href="#method.set_frozen" class="fn">set_frozen</a>(
@@ -169,30 +169,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>,
         fortitude: <a class="enum" href="../../enum.Fortitude.html" title="enum frame_support::traits::tokens::Fortitude">Fortitude</a>
-    ) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a> { ... }
+    ) -&gt; DispatchResult { ... }
 <span class="item-spacer"></span>    fn <a href="#method.ensure_frozen" class="fn">ensure_frozen</a>(
         id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>,
         fortitude: <a class="enum" href="../../enum.Fortitude.html" title="enum frame_support::traits::tokens::Fortitude">Fortitude</a>
-    ) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a> { ... }
+    ) -&gt; DispatchResult { ... }
 <span class="item-spacer"></span>    fn <a href="#method.decrease_frozen" class="fn">decrease_frozen</a>(
         id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-    ) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a> { ... }
+    ) -&gt; DispatchResult { ... }
 <span class="item-spacer"></span>    fn <a href="#method.increase_frozen" class="fn">increase_frozen</a>(
         id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-    ) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a> { ... }
+    ) -&gt; DispatchResult { ... }
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait for introducing, altering and removing freezes for an account for its funds never
 go below a set minimum.</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.set_freeze" class="method"><a class="src rightside" href="../../../../../src/frame_support/traits/tokens/fungible/freeze.rs.html#65">source</a><h4 class="code-header">fn <a href="#tymethod.set_freeze" class="fn">set_freeze</a>(
     id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>,
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Prevent actions which would reduce the balance of the account of <code>who</code> below the given
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Prevent actions which would reduce the balance of the account of <code>who</code> below the given
 <code>amount</code> and identify this restriction though the given <code>id</code>. Unlike <code>extend_freeze</code>, any
 outstanding freeze in place for <code>who</code> under the <code>id</code> are dropped.</p>
 <p>If <code>amount</code> is zero, it is equivalent to using <code>thaw</code>.</p>
@@ -201,18 +201,18 @@ outstanding freeze in place for <code>who</code> under the <code>id</code> are d
     id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>,
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Prevent the balance of the account of <code>who</code> from being reduced below the given <code>amount</code> and
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Prevent the balance of the account of <code>who</code> from being reduced below the given <code>amount</code> and
 identify this restriction though the given <code>id</code>. Unlike <code>set_freeze</code>, this does not
 counteract any pre-existing freezes in place for <code>who</code> under the <code>id</code>. Also unlike
 <code>set_freeze</code>, in the case that <code>amount</code> is zero, this is no-op and never fails.</p>
 <p>Note that more funds can be frozen than the total balance, if desired.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.thaw" class="method"><a class="src rightside" href="../../../../../src/frame_support/traits/tokens/fungible/freeze.rs.html#76">source</a><h4 class="code-header">fn <a href="#tymethod.thaw" class="fn">thaw</a>(id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>, who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Remove an existing freeze.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.thaw" class="method"><a class="src rightside" href="../../../../../src/frame_support/traits/tokens/fungible/freeze.rs.html#76">source</a><h4 class="code-header">fn <a href="#tymethod.thaw" class="fn">thaw</a>(id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>, who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Remove an existing freeze.</p>
 </div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.set_frozen" class="method"><a class="src rightside" href="../../../../../src/frame_support/traits/tokens/fungible/freeze.rs.html#82-91">source</a><h4 class="code-header">fn <a href="#method.set_frozen" class="fn">set_frozen</a>(
     id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>,
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>,
     fortitude: <a class="enum" href="../../enum.Fortitude.html" title="enum frame_support::traits::tokens::Fortitude">Fortitude</a>
-) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Attempt to alter the amount frozen under the given <code>id</code> to <code>amount</code>.</p>
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Attempt to alter the amount frozen under the given <code>id</code> to <code>amount</code>.</p>
 <p>Fail if the account of <code>who</code> has fewer freezable funds than <code>amount</code>, unless <code>fortitude</code> is
 <a href="../../enum.Fortitude.html#variant.Force" title="variant frame_support::traits::tokens::Fortitude::Force"><code>Fortitude::Force</code></a>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.ensure_frozen" class="method"><a class="src rightside" href="../../../../../src/frame_support/traits/tokens/fungible/freeze.rs.html#98-107">source</a><h4 class="code-header">fn <a href="#method.ensure_frozen" class="fn">ensure_frozen</a>(
@@ -220,7 +220,7 @@ counteract any pre-existing freezes in place for <code>who</code> under the <cod
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>,
     fortitude: <a class="enum" href="../../enum.Fortitude.html" title="enum frame_support::traits::tokens::Fortitude">Fortitude</a>
-) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Attempt to set the amount frozen under the given <code>id</code> to <code>amount</code>, iff this would increase
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Attempt to set the amount frozen under the given <code>id</code> to <code>amount</code>, iff this would increase
 the amount frozen under <code>id</code>. Do nothing otherwise.</p>
 <p>Fail if the account of <code>who</code> has fewer freezable funds than <code>amount</code>, unless <code>fortitude</code> is
 <a href="../../enum.Fortitude.html#variant.Force" title="variant frame_support::traits::tokens::Fortitude::Force"><code>Fortitude::Force</code></a>.</p>
@@ -228,13 +228,13 @@ the amount frozen under <code>id</code>. Do nothing otherwise.</p>
     id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>,
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Decrease the amount which is being frozen for a particular freeze, failing in the case of
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Decrease the amount which is being frozen for a particular freeze, failing in the case of
 underflow.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.increase_frozen" class="method"><a class="src rightside" href="../../../../../src/frame_support/traits/tokens/fungible/freeze.rs.html#120-125">source</a><h4 class="code-header">fn <a href="#method.increase_frozen" class="fn">increase_frozen</a>(
     id: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Id" title="type frame_support::traits::tokens::fungible::freeze::Inspect::Id">Id</a>,
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Increase the amount which is being frozen for a particular freeze, failing in the case that
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Increase the amount which is being frozen for a particular freeze, failing in the case that
 too little balance is available for being frozen.</p>
 </div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-Mutate%3CAccountId%3E-for-ItemOf%3CF,+A,+AccountId%3E" class="impl"><a class="src rightside" href="../../../../../src/frame_support/traits/tokens/fungible/item_of.rs.html#346-361">source</a><a href="#impl-Mutate%3CAccountId%3E-for-ItemOf%3CF,+A,+AccountId%3E" class="anchor">§</a><h3 class="code-header">impl&lt;F: <a class="trait" href="../../fungibles/freeze/trait.Mutate.html" title="trait frame_support::traits::tokens::fungibles::freeze::Mutate">MutateFreeze</a>&lt;AccountId&gt;, A: <a class="trait" href="../../../../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;&lt;F as <a class="trait" href="../../fungibles/trait.Inspect.html" title="trait frame_support::traits::tokens::fungibles::Inspect">Inspect</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="../../fungibles/trait.Inspect.html#associatedtype.AssetId" title="type frame_support::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>&gt;, AccountId&gt; <a class="trait" href="trait.Mutate.html" title="trait frame_support::traits::tokens::fungible::freeze::Mutate">Mutate</a>&lt;AccountId&gt; for <a class="struct" href="../struct.ItemOf.html" title="struct frame_support::traits::tokens::fungible::ItemOf">ItemOf</a>&lt;F, A, AccountId&gt;</h3></section></div><script src="../../../../../trait.impl/frame_support/traits/tokens/fungible/freeze/trait.Mutate.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
