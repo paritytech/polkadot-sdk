@@ -135,7 +135,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 					)),
 					occupied_since: backed_in_number,
 					time_out_at: time_out_for(backed_in_number).live_until,
-					next_up_on_time_out: scheduler::Pallet::<T>::next_up_on_time_out(CoreIndex(
+					next_up_on_time_out: scheduler::Pallet::<T>::next_up_on_available(CoreIndex(
 						i as u32,
 					)),
 					availability: pending_availability.availability_votes.clone(),

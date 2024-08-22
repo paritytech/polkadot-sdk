@@ -27,8 +27,7 @@ use crate::{
 	inclusion::{self, CandidateCheckContext},
 	initializer,
 	metrics::METRICS,
-	paras,
-	scheduler::{self, FreedReason},
+	paras, scheduler,
 	shared::{self, AllowedRelayParentsTracker},
 	ParaId,
 };
@@ -554,30 +553,25 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// We'll schedule paras again, given freed cores, and reasons for freeing.
-		let freed = freed_concluded
-			.into_iter()
-			.map(|(c, _hash)| (c, FreedReason::Concluded))
-			.chain(freed_disputed.into_iter().map(|core| (core, FreedReason::Concluded)))
-			.chain(freed_timeout.into_iter().map(|c| (c, FreedReason::TimedOut)))
-			.collect::<BTreeMap<CoreIndex, FreedReason>>();
-		scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(freed, now);
+		let occupied_cores = inclusion::Pallet::<T>::get_occupied_cores().collect();
+		scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
+
+		let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
+		let mut total_eligible_cores = 0;
+
+		for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras(&occupied_cores) {
+			total_eligible_cores += 1;
+			log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
+			eligible.entry(para_id).or_default().insert(core_idx);
+		}
 
 		let core_index_enabled = configuration::ActiveConfig::<T>::get()
 			.node_features
 			.get(FeatureIndex::ElasticScalingMVP as usize)
 			.map(|b| *b)
 			.unwrap_or(false);
-
-		let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-		let mut total_eligible_cores = 0;
-
-		for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras() {
-			total_eligible_cores += 1;
-			log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
-			eligible.entry(para_id).or_default().insert(core_idx);
-		}
 
 		let initial_candidate_count = backed_candidates.len();
 		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
@@ -613,8 +607,6 @@ impl<T: Config> Pallet<T> {
 			scheduler::Pallet::<T>::group_validators,
 			core_index_enabled,
 		)?;
-		// Note which of the scheduled cores were actually occupied by a backed candidate.
-		scheduler::Pallet::<T>::occupied(occupied.into_iter().map(|e| (e.0, e.1)).collect());
 
 		set_scrapable_on_chain_backings::<T>(
 			current_session,

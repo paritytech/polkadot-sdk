@@ -496,6 +496,12 @@ impl<T: Config> Pallet<T> {
 		T::MessageQueue::sweep_queue(AggregateMessageOrigin::Ump(UmpQueueId::Para(para)));
 	}
 
+	pub(crate) fn get_occupied_cores() -> impl Iterator<Item = CoreIndex> {
+		PendingAvailability::<T>::iter_values()
+			.map(|pending_candidates| pending_candidates.iter().map(|c| c.core.clone()))
+			.flatten()
+	}
+
 	/// Extract the freed cores based on cores that became available.
 	///
 	/// Bitfields are expected to have been sanitized already. E.g. via `sanitize_bitfields`!
