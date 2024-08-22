@@ -2062,7 +2062,10 @@ pub mod pallet {
 		/// ledger associated with the stash. If the input parameters are not set, the ledger will
 		/// be reset values from on-chain state.
 		#[pallet::call_index(29)]
-		#[pallet::weight(T::WeightInfo::restore_ledger())]
+		#[pallet::weight(
+            T::WeightInfo::restore_ledger() +
+            <T::WeightInfo>::force_unstake(maybe_slashing_spans.unwrap_or_default())
+        )]
 		pub fn restore_ledger(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
@@ -2158,11 +2161,8 @@ pub mod pallet {
 			// restore, force unstake the ledger and clear all the data associated with the ledger.
 			let stash_free_balance = T::Currency::free_balance(&stash);
 			if stash_free_balance < new_total {
-				Self::force_unstake(
-					RawOrigin::Root.into(),
-					stash,
-					maybe_slashing_spans.unwrap_or_default(),
-				)?;
+				let slashing_spans = maybe_slashing_spans.unwrap_or_default();
+				Self::force_unstake(RawOrigin::Root.into(), stash, slashing_spans)?;
 
 				Self::deposit_event(Event::<T>::RestoreLedgerKill {
 					new_locked: new_total,
