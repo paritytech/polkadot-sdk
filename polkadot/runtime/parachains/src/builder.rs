@@ -32,9 +32,9 @@ use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{
-		BackedCandidate, CandidateDescriptorV2,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-		InherentData as ParachainsInherentData,
+		BackedCandidate, CandidateDescriptorV2, ClaimQueueOffset,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreSelector,
+		InherentData as ParachainsInherentData, UMPSignal, UMP_SEPARATOR,
 	},
 	AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
 	CollatorSignature, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,
@@ -309,20 +309,34 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		HeadData(vec![0xFF; max_head_size as usize])
 	}
 
-	fn candidate_descriptor_mock() -> CandidateDescriptorV2<T::Hash> {
-		// Use a v1 descriptor.
-		CandidateDescriptor::<T::Hash> {
-			para_id: 0.into(),
-			relay_parent: Default::default(),
-			collator: junk_collator(),
-			persisted_validation_data_hash: Default::default(),
-			pov_hash: Default::default(),
-			erasure_root: Default::default(),
-			signature: junk_collator_signature(),
-			para_head: Default::default(),
-			validation_code_hash: mock_validation_code().hash(),
+	fn candidate_descriptor_mock(candidate_descriptor_v2: bool) -> CandidateDescriptorV2<T::Hash> {
+		if candidate_descriptor_v2 {
+			CandidateDescriptorV2::new(
+				0.into(),
+				Default::default(),
+				CoreIndex(200),
+				1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				mock_validation_code().hash(),
+			)
+		} else {
+			// Convert v1 to v2.
+			CandidateDescriptor::<T::Hash> {
+				para_id: 0.into(),
+				relay_parent: Default::default(),
+				collator: junk_collator(),
+				persisted_validation_data_hash: Default::default(),
+				pov_hash: Default::default(),
+				erasure_root: Default::default(),
+				signature: junk_collator_signature(),
+				para_head: Default::default(),
+				validation_code_hash: mock_validation_code().hash(),
+			}
+			.into()
 		}
-		.into()
 	}
 
 	/// Create a mock of `CandidatePendingAvailability`.
@@ -332,17 +346,19 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		candidate_hash: CandidateHash,
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		commitments: CandidateCommitments,
+		candidate_descriptor_v2: bool,
 	) -> inclusion::CandidatePendingAvailability<T::Hash, BlockNumberFor<T>> {
 		inclusion::CandidatePendingAvailability::<T::Hash, BlockNumberFor<T>>::new(
-			core_idx,                          // core
-			candidate_hash,                    // hash
-			Self::candidate_descriptor_mock(), // candidate descriptor
-			commitments,                       // commitments
-			availability_votes,                // availability votes
-			Default::default(),                // backers
-			Zero::zero(),                      // relay parent
-			One::one(),                        // relay chain block this was backed in
-			group_idx,                         // backing group
+			core_idx,                                                 // core
+			candidate_hash,                                           // hash
+			Self::candidate_descriptor_mock(candidate_descriptor_v2), // candidate descriptor
+			commitments,                                              // commitments
+			availability_votes,                                       // availability votes
+			Default::default(),                                       // backers
+			Zero::zero(),                                             // relay parent
+			One::one(),                                               /* relay chain block this
+			                                                           * was backed in */
+			group_idx, // backing group
 		)
 	}
 
@@ -357,6 +373,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		group_idx: GroupIndex,
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		candidate_hash: CandidateHash,
+		candidate_descriptor_v2: bool,
 	) {
 		let commitments = CandidateCommitments::<u32> {
 			upward_messages: Default::default(),
@@ -372,6 +389,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			candidate_hash,
 			availability_votes,
 			commitments,
+			candidate_descriptor_v2,
 		);
 		inclusion::PendingAvailability::<T>::mutate(para_id, |maybe_andidates| {
 			if let Some(candidates) = maybe_andidates {
@@ -545,6 +563,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					// No validators have made this candidate available yet.
 					bitvec::bitvec![u8, bitvec::order::Lsb0; 0; validators.len()],
 					CandidateHash(H256::from(byte32_slice_from(current_core_idx))),
+					self.candidate_descriptor_v2,
 				);
 				if !self.unavailable_cores.contains(&current_core_idx) {
 					concluding_cores.insert(current_core_idx);
@@ -674,7 +693,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							.into()
 						};
 
-						let candidate = CommittedCandidateReceipt::<T::Hash> {
+						let mut candidate = CommittedCandidateReceipt::<T::Hash> {
 							descriptor,
 							commitments: CandidateCommitments::<u32> {
 								upward_messages: Default::default(),
@@ -686,6 +705,22 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								hrmp_watermark: self.relay_parent_number(),
 							},
 						};
+
+						if self.candidate_descriptor_v2 {
+							// `UMPSignal` separator.
+							candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+							// `SelectCore` commitment.
+							// Claim queue offset must be `0` so this candidate is for the very
+							// next block.
+							candidate.commitments.upward_messages.force_push(
+								UMPSignal::SelectCore(
+									CoreSelector(chain_idx as u8),
+									ClaimQueueOffset(0),
+								)
+								.encode(),
+							);
+						}
 
 						let candidate_hash = candidate.hash();
 
@@ -706,12 +741,14 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							})
 							.collect();
 
-						// Check if the elastic scaling bit is set, if so we need to supply the core
-						// index in the generated candidate.
-						let core_idx = configuration::ActiveConfig::<T>::get()
-							.node_features
-							.get(FeatureIndex::ElasticScalingMVP as usize)
-							.map(|_the_bit| core_idx);
+						let core_idx = if self.candidate_descriptor_v2 {
+							None
+						} else {
+							configuration::ActiveConfig::<T>::get()
+								.node_features
+								.get(FeatureIndex::ElasticScalingMVP as usize)
+								.and_then(|the_bit| if *the_bit { Some(core_idx) } else { None })
+						};
 
 						BackedCandidate::<T::Hash>::new(
 							candidate,
@@ -764,6 +801,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					group_idx,
 					Self::validator_availability_votes_yes(validators.len()),
 					candidate_hash,
+					self.candidate_descriptor_v2,
 				);
 
 				let statements_len =

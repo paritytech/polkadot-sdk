@@ -15,12 +15,15 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use rstest::rstest;
 
 use crate::{
 	configuration::{self, HostConfiguration},
 	mock::MockGenesisConfig,
 };
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::vstaging::{
+	ClaimQueueOffset, CoreSelector, SchedulerParams, UMPSignal, UMP_SEPARATOR,
+};
 
 fn default_config() -> MockGenesisConfig {
 	MockGenesisConfig {
@@ -127,15 +130,25 @@ mod enter {
 		}
 	}
 
-	#[test]
+	#[rstest]
+	#[case(true)]
+	#[case(false)]
 	// Validate that if we create 2 backed candidates which are assigned to 2 cores that will be
 	// freed via becoming fully available, the backed candidates will not be filtered out in
 	// `create_inherent` and will not cause `enter` to early.
-	fn include_backed_candidates() {
+	fn include_backed_candidates(#[case] v2_descriptor: bool) {
 		let config = MockGenesisConfig::default();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 
 		new_test_ext(config).execute_with(|| {
+			// Enable the v2 receipts.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				v2_descriptor,
+			)
+			.unwrap();
+
 			let dispute_statements = BTreeMap::new();
 
 			let mut backed_and_concluding = BTreeMap::new();
@@ -151,7 +164,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				v2_descriptor,
 			});
 
 			// We expect the scenario to have cores 0 & 1 with pending availability. The backed
@@ -213,8 +226,10 @@ mod enter {
 		});
 	}
 
-	#[test]
-	fn include_backed_candidates_elastic_scaling() {
+	#[rstest]
+	#[case(true)]
+	#[case(false)]
+	fn include_backed_candidates_elastic_scaling(#[case] v2_descriptor: bool) {
 		// ParaId 0 has one pending candidate on core 0.
 		// ParaId 1 has one pending candidate on core 1.
 		// ParaId 2 has three pending candidates on cores 2, 3 and 4.
@@ -228,6 +243,14 @@ mod enter {
 				RuntimeOrigin::root(),
 				FeatureIndex::ElasticScalingMVP as u8,
 				true,
+			)
+			.unwrap();
+
+			// Enable the v2 receipts.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				v2_descriptor,
 			)
 			.unwrap();
 
@@ -247,7 +270,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				v2_descriptor,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1329,6 +1352,15 @@ mod enter {
 				ccr.commitments.processed_downward_messages = idx as u32;
 				let core_index = start_core_index + idx;
 
+				// `UMPSignal` separator.
+				ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+				// `SelectCore` commitment.
+				// Claim queue offset must be `0`` so this candidate is for the very next block.
+				ccr.commitments.upward_messages.force_push(
+					UMPSignal::SelectCore(CoreSelector(idx as u8), ClaimQueueOffset(0)).encode(),
+				);
+
 				BackedCandidate::new(
 					ccr.into(),
 					Default::default(),
@@ -1341,8 +1373,10 @@ mod enter {
 
 	// Ensure that overweight parachain inherents are always rejected by the runtime.
 	// Runtime should panic and return `InherentOverweight` error.
-	#[test]
-	fn test_backed_candidates_apply_weight_works_for_elastic_scaling() {
+	#[rstest]
+	#[case(true)]
+	#[case(false)]
+	fn test_backed_candidates_apply_weight_works_for_elastic_scaling(#[case] v2_descriptor: bool) {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			let seed = [
 				1, 0, 52, 0, 0, 0, 0, 0, 1, 0, 10, 0, 22, 32, 0, 0, 2, 0, 55, 49, 0, 11, 0, 0, 3,
@@ -1352,6 +1386,14 @@ mod enter {
 
 			// Create an overweight inherent and oversized block
 			let mut backed_and_concluding = BTreeMap::new();
+
+			// Enable the v2 receipts.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				v2_descriptor,
+			)
+			.unwrap();
 
 			for i in 0..30 {
 				backed_and_concluding.insert(i, i);
@@ -1366,7 +1408,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				v2_descriptor,
 			});
 
 			let mut para_inherent_data = scenario.data.clone();
@@ -1553,6 +1595,59 @@ mod enter {
 			// We expect `enter` to fail because the inherent data contains backed candidates with
 			// v2 descriptors.
 			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
+		});
+	}
+
+	#[test]
+	fn v2_descriptors_are_accepted() {
+		let config = default_config();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+		new_test_ext(config).execute_with(|| {
+			// Set the elastic scaling MVP feature.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::ElasticScalingMVP as u8,
+				true,
+			)
+			.unwrap();
+
+			// Enable the v2 receipts.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let unavailable_cores = vec![];
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				fill_claimqueue: true,
+				// 8 cores !
+				elastic_paras: [(2, 3)].into_iter().collect(),
+				unavailable_cores: unavailable_cores.clone(),
+				v2_descriptor: false,
+			});
+
+			let inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (2 validators per core, 5 backed candidates)
+			assert_eq!(inherent_data.bitfields.len(), 5);
+			// * 5 v2 candidate descriptors.
+			assert_eq!(inherent_data.backed_candidates.len(), 5);
+
+			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data).unwrap();
 		});
 	}
 }
