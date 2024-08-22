@@ -59,6 +59,7 @@ use self::{block_builder_task::run_block_builder, collation_task::run_collation_
 
 mod block_builder_task;
 mod collation_task;
+mod slot_signal_task;
 
 /// Parameters for [`run`].
 pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
@@ -100,7 +101,7 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 /// Run aura-based block building and collation task.
 pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
 	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
-) -> (impl futures::Future<Output = ()>, impl futures::Future<Output = ()>)
+) -> (impl futures::Future<Output = ()>, impl futures::Future<Output = ()>, impl futures::Future<Output = ()>)
 where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
@@ -127,6 +128,7 @@ where
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
+	let (signal_sender, signal_receiver) = tracing_unbounded("mpsc_signal_to_builder", 100);
 	let collator_task_params = collation_task::Params {
 		relay_client: params.relay_client.clone(),
 		collator_key: params.collator_key,
@@ -141,7 +143,7 @@ where
 	let block_builder_params = block_builder_task::BuilderTaskParams {
 		create_inherent_data_providers: params.create_inherent_data_providers,
 		block_import: params.block_import,
-		para_client: params.para_client,
+		para_client: params.para_client.clone(),
 		para_backend: params.para_backend,
 		relay_client: params.relay_client,
 		code_hash_provider: params.code_hash_provider,
@@ -152,13 +154,21 @@ where
 		authoring_duration: params.authoring_duration,
 		collator_sender: tx,
 		relay_chain_slot_duration: params.relay_chain_slot_duration,
-		slot_drift: params.slot_drift,
+		signal_receiver: signal_receiver
 	};
 
 	let block_builder_fut =
 		run_block_builder::<Block, P, _, _, _, _, _, _, _, _>(block_builder_params);
 
-	(collation_task_fut, block_builder_fut)
+	let signal_params = slot_signal_task::Params {
+		signal_sender: signal_sender,
+		slot_drift: params.slot_drift,
+		para_client: params.para_client.clone()
+	};
+	let slot_signal_task_fut = slot_signal_task::run_signal_task::<_, _, P>(signal_params);
+
+
+	(collation_task_fut, block_builder_fut, slot_signal_task_fut)
 }
 
 /// Message to be sent from the block builder to the collation task.

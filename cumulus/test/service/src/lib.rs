@@ -492,7 +492,7 @@ where
 					slot_drift: Duration::from_secs(1),
 				};
 
-				let (collation_future, block_builer_future) =
+				let (collation_future, block_builer_future, signal_task_fut) =
 					slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
 				task_manager.spawn_essential_handle().spawn(
 					"collation-task",
@@ -503,6 +503,11 @@ where
 					"block-builder-task",
 					None,
 					block_builer_future,
+				);
+				task_manager.spawn_essential_handle().spawn(
+					"slot-signal-task",
+					None,
+					signal_task_fut,
 				);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");

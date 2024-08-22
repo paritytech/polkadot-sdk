@@ -128,7 +128,17 @@ impl V1SubCommand {
 	pub fn run(self) -> Result<()> {
 		let pallet = match self {
 			V1SubCommand::Benchmark(V1BenchmarkCommand { sub }) => match sub {
-				BenchmarkCmd::Pallet(pallet) => pallet,
+				BenchmarkCmd::Pallet(pallet) => {
+					if let Some(spec) = pallet.shared_params.chain {
+						return Err(format!(
+							"Chain specs are not supported. Please remove `--chain={spec}` and use \
+				`--runtime=<PATH>` instead"
+						)
+							.into())
+					}
+
+					pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
+				},
 				_ =>
 					return Err(
 						"Only the `v1 benchmark pallet` command is currently supported".into()
@@ -136,14 +146,5 @@ impl V1SubCommand {
 			},
 		};
 
-		if let Some(spec) = pallet.shared_params.chain {
-			return Err(format!(
-				"Chain specs are not supported. Please remove `--chain={spec}` and use \
-				`--runtime=<PATH>` instead"
-			)
-			.into())
-		}
-
-		pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
 	}
 }
