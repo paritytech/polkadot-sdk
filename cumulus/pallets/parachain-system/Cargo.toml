@@ -15,7 +15,7 @@ codec = { features = ["derive"], workspace = true }
 environmental = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
-trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
+trie-db = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 # Substrate

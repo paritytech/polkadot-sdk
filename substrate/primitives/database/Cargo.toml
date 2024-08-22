@@ -16,5 +16,5 @@ workspace = true
 [dependencies]
 kvdb = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
+trie-db = { workspace = true }
 parity-db = { workspace = true }

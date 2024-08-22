@@ -17,7 +17,7 @@ log = { workspace = true }
 num-traits = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
+trie-db = { workspace = true }
 
 # Substrate Dependencies
 

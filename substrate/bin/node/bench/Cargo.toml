@@ -22,7 +22,7 @@ node-primitives = { workspace = true, default-features = true }
 node-testing = { workspace = true }
 kitchensink-runtime = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
-sc-client-db = { path = "../../../client/db" }
+sc-client-db = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
@@ -37,7 +37,7 @@ sc-basic-authorship = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
-trie-db = { package = "subtrie", version = "0.0.1" }
+trie-db = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 fs_extra = { workspace = true }
 rand = { features = ["small_rng"], workspace = true, default-features = true }

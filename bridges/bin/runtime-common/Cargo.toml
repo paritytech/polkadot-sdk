@@ -11,7 +11,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
+trie-db = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }

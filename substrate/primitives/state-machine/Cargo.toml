@@ -28,7 +28,7 @@ sp-core = { workspace = true }
 sp-externalities = { workspace = true }
 sp-panic-handler = { optional = true, workspace = true, default-features = true }
 sp-trie = { workspace = true }
-trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
+trie-db = { workspace = true }
 arbitrary = { features = ["derive"], optional = true, workspace = true }
 
 [dev-dependencies]

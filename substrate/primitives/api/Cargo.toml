@@ -26,7 +26,7 @@ sp-externalities = { optional = true, workspace = true }
 sp-version = { workspace = true }
 sp-state-machine = { optional = true, workspace = true }
 sp-trie = { optional = true, workspace = true }
-trie-db = { package = "subtrie", version = "0.0.1", optional = true }
+trie-db = { optional = true, workspace = true, default-features = true }
 thiserror = { optional = true, workspace = true }
 scale-info = { features = [
 	"derive",

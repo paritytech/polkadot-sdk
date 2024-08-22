@@ -23,7 +23,7 @@ serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 bounded-collections = { workspace = true }
 primitive-types = { features = ["codec", "scale-info"], workspace = true }
 impl-serde = { optional = true, workspace = true }
-trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
+trie-db = { workspace = true }
 hash256-std-hasher = { workspace = true }
 bs58 = { optional = true, workspace = true }
 rand = { features = ["small_rng"], optional = true, workspace = true, default-features = true }

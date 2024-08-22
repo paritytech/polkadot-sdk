@@ -22,7 +22,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
-trie-db = { package = "subtrie", version = "0.0.1" }
+trie-db = { workspace = true, default-features = true }
 
 jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
 
