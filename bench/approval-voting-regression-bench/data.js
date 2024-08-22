@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724314610870,
+  "lastUpdate": 1724333989698,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -15697,6 +15697,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 5.915110222400024,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e600b74ce586c462c36074856f62008e1c145318",
+          "message": "[Backport] Version bumps and prdoc reorgs from stable2407-1 (#5374)\n\nThis PR backports regular version bumps and `prdoc` reorganisation from\nthe `stable2407` release branch to master",
+          "timestamp": "2024-08-22T11:57:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e600b74ce586c462c36074856f62008e1c145318"
+        },
+        "date": 1724333962056,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63971.9,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.76835633437003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1054330154900818,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 5.916512165220051,
             "unit": "seconds"
           }
         ]
