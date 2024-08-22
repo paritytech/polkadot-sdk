@@ -270,7 +270,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::remove_proxies(T::MaxProxies::get()))]
 		pub fn remove_proxies(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::remove_all_proxy_delegates(&who)?;
+			Self::remove_all_proxy_delegates(&who);
 			Ok(())
 		}
 
@@ -853,7 +853,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Parameters:
 	/// - `delegator`: The delegator account.
-	pub fn remove_all_proxy_delegates(delegator: &T::AccountId) -> DispatchResult {
+	pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
 		if let Some((_, ticket)) = Proxies::<T>::take(&delegator) {
 			if let Err(e) = ticket.drop(&delegator) {
 				log::error!(
@@ -863,6 +863,5 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 		}
-		Ok(())
 	}
 }
