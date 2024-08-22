@@ -69,7 +69,7 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 }
 
 pub(crate) fn create_foreign_on_ah_rococo(
-	id: v3::Location,
+	id: v4::Location,
 	sufficient: bool,
 	prefund_accounts: Vec<(AccountId, u128)>,
 ) {
@@ -78,18 +78,18 @@ pub(crate) fn create_foreign_on_ah_rococo(
 	AssetHubRococo::force_create_foreign_asset(id, owner, sufficient, min, prefund_accounts);
 }
 
-pub(crate) fn create_foreign_on_ah_westend(id: v3::Location, sufficient: bool) {
+pub(crate) fn create_foreign_on_ah_westend(id: v4::Location, sufficient: bool) {
 	let owner = AssetHubWestend::account_id_of(ALICE);
 	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
 }
 
-pub(crate) fn foreign_balance_on_ah_rococo(id: v3::Location, who: &AccountId) -> u128 {
+pub(crate) fn foreign_balance_on_ah_rococo(id: v4::Location, who: &AccountId) -> u128 {
 	AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(id, who)
 	})
 }
-pub(crate) fn foreign_balance_on_ah_westend(id: v3::Location, who: &AccountId) -> u128 {
+pub(crate) fn foreign_balance_on_ah_westend(id: v4::Location, who: &AccountId) -> u128 {
 	AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(id, who)
@@ -97,8 +97,8 @@ pub(crate) fn foreign_balance_on_ah_westend(id: v3::Location, who: &AccountId) -
 }
 
 // set up pool
-pub(crate) fn set_up_pool_with_wnd_on_ah_westend(foreign_asset: v3::Location) {
-	let wnd: v3::Location = v3::Parent.into();
+pub(crate) fn set_up_pool_with_wnd_on_ah_westend(foreign_asset: v4::Location) {
+	let wnd: v4::Location = v4::Parent.into();
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		let owner = AssetHubWestendSender::get();
@@ -106,14 +106,14 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(foreign_asset: v3::Location) {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
 			signed_owner.clone(),
-			foreign_asset.into(),
+			foreign_asset.clone().into(),
 			owner.clone().into(),
 			3_000_000_000_000,
 		));
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			signed_owner.clone(),
-			Box::new(wnd),
-			Box::new(foreign_asset),
+			Box::new(wnd.clone()),
+			Box::new(foreign_asset.clone()),
 		));
 		assert_expected_events!(
 			AssetHubWestend,

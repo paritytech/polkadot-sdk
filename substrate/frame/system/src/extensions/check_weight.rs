@@ -211,18 +211,17 @@ where
 impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
 	const IDENTIFIER: &'static str = "CheckWeight";
 	type Implicit = ();
-
-	fn weight() -> Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()
-	}
 }
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall>
-	for CheckWeight<T>
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckWeight<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
 	type Pre = ();
 	type Val = u32; /* next block length */
+
+	fn weight(&self, _: &T::RuntimeCall) -> Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()
+	}
 
 	fn validate(
 		&self,
@@ -254,7 +253,7 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		let unspent = post_info.calc_unspent(info);
 		if unspent.any_gt(Weight::zero()) {
 			crate::BlockWeight::<T>::mutate(|current_weight| {
@@ -274,7 +273,7 @@ where
 			Pallet::<T>::all_extrinsics_len(),
 		);
 
-		Ok(None)
+		Ok(Weight::zero())
 	}
 }
 

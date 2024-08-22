@@ -31,7 +31,10 @@ use frame_support::{
 	traits::{DefensiveResult, Get},
 	BoundedVec,
 };
-use frame_system::{offchain::SubmitTransaction, pallet_prelude::BlockNumberFor};
+use frame_system::{
+	offchain::{CreateInherent, SubmitTransaction},
+	pallet_prelude::BlockNumberFor,
+};
 use scale_info::TypeInfo;
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, assignment_staked_to_ratio_normalized, ElectionResult,
@@ -179,7 +182,7 @@ fn ocw_solution_exists<T: Config>() -> bool {
 	matches!(StorageValueRef::persistent(OFFCHAIN_CACHED_CALL).get::<Call<T>>(), Ok(Some(_)))
 }
 
-impl<T: Config> Pallet<T> {
+impl<T: Config + CreateInherent<Call<T>>> Pallet<T> {
 	/// Mine a new npos solution.
 	///
 	/// The Npos Solver type, `S`, must have the same AccountId and Error type as the
@@ -277,7 +280,8 @@ impl<T: Config> Pallet<T> {
 	fn submit_call(call: Call<T>) -> Result<(), MinerError> {
 		log!(debug, "miner submitting a solution as an unsigned transaction");
 
-		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+		let xt = T::create_inherent(call.into());
+		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map_err(|_| MinerError::PoolSubmissionFailed)
 	}
 

@@ -653,7 +653,7 @@ impl<I, R, L> Default for SlashingReportHandler<I, R, L> {
 
 impl<T, R, L> HandleReports<T> for SlashingReportHandler<T::KeyOwnerIdentification, R, L>
 where
-	T: Config + frame_system::offchain::SendTransactionTypes<Call<T>>,
+	T: Config + frame_system::offchain::CreateInherent<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		T::KeyOwnerIdentification,
@@ -685,7 +685,7 @@ where
 		dispute_proof: DisputeProof,
 		key_owner_proof: <T as Config>::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
-		use frame_system::offchain::SubmitTransaction;
+		use frame_system::offchain::{CreateInherent, SubmitTransaction};
 
 		let session_index = dispute_proof.time_slot.session_index;
 		let validator_index = dispute_proof.validator_index.0;
@@ -696,7 +696,8 @@ where
 			key_owner_proof,
 		};
 
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+		let xt = <T as CreateInherent<Call<T>>>::create_inherent(call.into());
+		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => {
 				log::info!(
 					target: LOG_TARGET,

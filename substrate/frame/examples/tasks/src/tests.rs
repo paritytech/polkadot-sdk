@@ -157,7 +157,7 @@ fn task_with_offchain_worker() {
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		use sp_runtime::traits::Extrinsic as ExtrinsicT;
+		use sp_runtime::traits::ExtrinsicLike;
 		assert!(tx.is_bare());
 	});
 }

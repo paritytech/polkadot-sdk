@@ -232,8 +232,14 @@ pub trait StaticLookup {
 }
 
 /// A lookup implementation returning the input value.
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct IdentityLookup<T>(PhantomData<T>);
+impl<T> Default for IdentityLookup<T> {
+	fn default() -> Self {
+		Self(PhantomData::<T>::default())
+	}
+}
+
 impl<T: Codec + Clone + PartialEq + Debug + TypeInfo> StaticLookup for IdentityLookup<T> {
 	type Source = T;
 	type Target = T;
@@ -1292,7 +1298,7 @@ pub trait Block:
 	+ 'static
 {
 	/// Type for extrinsics.
-	type Extrinsic: Member + Codec + Extrinsic + MaybeSerialize;
+	type Extrinsic: Member + Codec + ExtrinsicLike + MaybeSerialize;
 	/// Header type.
 	type Header: Header<Hash = Self::Hash> + MaybeSerializeDeserialize;
 	/// Block hash type.
@@ -1316,6 +1322,7 @@ pub trait Block:
 }
 
 /// Something that acts like an `Extrinsic`.
+#[deprecated = "Use `ExtrinsicLike` along with the `CreateTransaction` trait family instead"]
 pub trait Extrinsic: Sized {
 	/// The function call.
 	type Call: TypeInfo;
@@ -1329,6 +1336,34 @@ pub trait Extrinsic: Sized {
 
 	/// Is this `Extrinsic` signed?
 	/// If no information are available about signed/unsigned, `None` should be returned.
+	fn is_signed(&self) -> Option<bool> {
+		None
+	}
+
+	/// Returns `true` if this `Extrinsic` is bare.
+	fn is_bare(&self) -> bool {
+		!self
+			.is_signed()
+			.expect("`is_signed` must return `Some` on production extrinsics; qed")
+	}
+
+	/// Create a new old-school extrinsic, either a bare extrinsic if `_signed_data` is `None` or
+	/// a signed transaction is it is `Some`.
+	fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
+		None
+	}
+
+	/// Create a new inherent extrinsic.
+	fn new_inherent(function: Self::Call) -> Self {
+		#[allow(deprecated)]
+		Self::new(function, None).expect("Extrinsic must provide inherents; qed")
+	}
+}
+
+/// Something that acts like an `Extrinsic`.
+pub trait ExtrinsicLike: Sized {
+	/// Is this `Extrinsic` signed?
+	/// If no information are available about signed/unsigned, `None` should be returned.
 	#[deprecated = "Use and implement `!is_bare()` instead"]
 	fn is_signed(&self) -> Option<bool> {
 		None
@@ -1339,18 +1374,20 @@ pub trait Extrinsic: Sized {
 		#[allow(deprecated)]
 		!self.is_signed().unwrap_or(true)
 	}
+}
 
-	/// Create a new old-school extrinsic, either a bare extrinsic if `_signed_data` is `None` or
-	/// a signed transaction is it is `Some`.
-	#[deprecated = "Use `new_inherent` or the `CreateTransaction` trait instead"]
-	fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
-		None
+#[allow(deprecated)]
+impl<T> ExtrinsicLike for T
+where
+	T: Extrinsic,
+{
+	fn is_signed(&self) -> Option<bool> {
+		#[allow(deprecated)]
+		<Self as Extrinsic>::is_signed(&self)
 	}
 
-	/// Create a new inherent extrinsic.
-	fn new_inherent(function: Self::Call) -> Self {
-		#[allow(deprecated)]
-		Self::new(function, None).expect("Extrinsic must provide inherents; qed")
+	fn is_bare(&self) -> bool {
+		<Self as Extrinsic>::is_bare(&self)
 	}
 }
 
@@ -1461,7 +1498,7 @@ pub trait RefundWeight {
 /// after dispatch.
 pub trait ExtensionPostDispatchWeightHandler<DispatchInfo>: RefundWeight {
 	/// Accrue some weight pertaining to the extension.
-	fn set_extension_weight(&mut self, info: &DispatchInfo, weight: sp_weights::Weight);
+	fn set_extension_weight(&mut self, info: &DispatchInfo);
 }
 
 impl RefundWeight for () {
@@ -1469,7 +1506,7 @@ impl RefundWeight for () {
 }
 
 impl ExtensionPostDispatchWeightHandler<()> for () {
-	fn set_extension_weight(&mut self, _info: &(), _weight: sp_weights::Weight) {}
+	fn set_extension_weight(&mut self, _info: &()) {}
 }
 
 /// A lazy call (module function and argument values) that can be executed via its `dispatch`

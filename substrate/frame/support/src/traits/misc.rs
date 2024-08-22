@@ -48,6 +48,10 @@ impl VariantCount for () {
 	const VARIANT_COUNT: u32 = 0;
 }
 
+impl VariantCount for u8 {
+	const VARIANT_COUNT: u32 = 256;
+}
+
 /// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
 pub struct VariantCountOf<T: VariantCount>(core::marker::PhantomData<T>);
 impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
@@ -915,7 +919,9 @@ pub trait IsInherent<Extrinsic> {
 }
 
 /// An extrinsic on which we can get access to call.
-pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
+pub trait ExtrinsicCall: sp_runtime::traits::ExtrinsicLike {
+	type Call;
+
 	/// Get the call of the extrinsic.
 	fn call(&self) -> &Self::Call;
 }
@@ -928,8 +934,62 @@ where
 	Signature: TypeInfo,
 	Extra: TypeInfo,
 {
-	fn call(&self) -> &Self::Call {
+	type Call = Call;
+
+	fn call(&self) -> &Call {
 		&self.function
+	}
+}
+
+pub trait InherentBuilder: ExtrinsicCall {
+	fn new_inherent(call: Self::Call) -> Self;
+}
+
+impl<Address, Call, Signature, Extra> InherentBuilder
+	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
+where
+	Address: TypeInfo,
+	Call: TypeInfo,
+	Signature: TypeInfo,
+	Extra: TypeInfo,
+{
+	fn new_inherent(call: Self::Call) -> Self {
+		Self::new_bare(call)
+	}
+}
+
+pub trait SignedTransactionBuilder: ExtrinsicCall {
+	type Address;
+	type Signature;
+	type Extension;
+
+	fn new_signed_transaction(
+		call: Self::Call,
+		signed: Self::Address,
+		signature: Self::Signature,
+		tx_ext: Self::Extension,
+	) -> Self;
+}
+
+impl<Address, Call, Signature, Extension> SignedTransactionBuilder
+	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extension>
+where
+	Address: TypeInfo,
+	Call: TypeInfo,
+	Signature: TypeInfo,
+	Extension: TypeInfo,
+{
+	type Address = Address;
+	type Signature = Signature;
+	type Extension = Extension;
+
+	fn new_signed_transaction(
+		call: Self::Call,
+		signed: Address,
+		signature: Signature,
+		tx_ext: Extension,
+	) -> Self {
+		Self::new_signed(call, signed, signature, tx_ext)
 	}
 }
 

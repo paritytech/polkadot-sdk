@@ -69,9 +69,6 @@ impl<T: Config> core::fmt::Debug for CheckNonce<T> {
 impl<T: Config> TransactionExtensionBase for CheckNonce<T> {
 	const IDENTIFIER: &'static str = "CheckNonce";
 	type Implicit = ();
-	fn weight() -> sp_weights::Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_nonce()
-	}
 }
 impl<T: Config> TransactionExtension<T::RuntimeCall> for CheckNonce<T>
 where
@@ -80,6 +77,10 @@ where
 {
 	type Val = Option<(T::AccountId, T::Nonce)>;
 	type Pre = ();
+
+	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_nonce()
+	}
 
 	fn validate(
 		&self,

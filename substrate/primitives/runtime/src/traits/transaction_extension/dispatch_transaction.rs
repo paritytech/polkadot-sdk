@@ -116,7 +116,7 @@ impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransac
 			Ok(info) => info,
 			Err(err) => &mut err.post_info,
 		};
-		post_info.set_extension_weight(info, Self::weight());
+		post_info.set_extension_weight(info);
 		T::post_dispatch(pre, info, post_info, len, &pd_res)?;
 		Ok(res)
 	}
@@ -137,7 +137,7 @@ impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransac
 			Ok(info) => info,
 			Err(err) => &mut err.post_info,
 		};
-		post_info.set_extension_weight(info, Self::weight());
+		post_info.set_extension_weight(info);
 		T::post_dispatch(pre, info, post_info, len, &pd_res)?;
 		Ok(res)
 	}

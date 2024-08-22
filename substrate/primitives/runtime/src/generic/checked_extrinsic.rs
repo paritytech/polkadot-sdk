@@ -24,8 +24,7 @@ use sp_weights::Weight;
 use crate::{
 	traits::{
 		self, transaction_extension::TransactionExtension, DispatchInfoOf, DispatchTransaction,
-		Dispatchable, MaybeDisplay, Member, PostDispatchInfoOf, TransactionExtensionBase,
-		ValidateUnsigned,
+		Dispatchable, MaybeDisplay, Member, PostDispatchInfoOf, ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
@@ -133,7 +132,7 @@ where
 	}
 }
 
-impl<AccountId, Call, Extension: TransactionExtensionBase>
+impl<AccountId, Call: Dispatchable, Extension: TransactionExtension<Call>>
 	CheckedExtrinsic<AccountId, Call, Extension>
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
@@ -141,7 +140,8 @@ impl<AccountId, Call, Extension: TransactionExtensionBase>
 	pub fn extension_weight(&self) -> Weight {
 		match &self.format {
 			ExtrinsicFormat::Bare => Weight::zero(),
-			ExtrinsicFormat::Signed(_, _) | ExtrinsicFormat::General(_) => Extension::weight(),
+			ExtrinsicFormat::Signed(_, ext) | ExtrinsicFormat::General(ext) =>
+				ext.weight(&self.function),
 		}
 	}
 }

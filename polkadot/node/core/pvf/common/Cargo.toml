@@ -43,6 +43,9 @@ seccompiler = "0.4.0"
 [dev-dependencies]
 assert_matches = { workspace = true }
 
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+tempfile = { workspace = true }
+
 [features]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = []

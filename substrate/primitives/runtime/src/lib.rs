@@ -26,7 +26,7 @@
 //! communication between the client and the runtime. This includes:
 //!
 //! - A set of traits to declare what any block/header/extrinsic type should provide.
-//! 	- [`traits::Block`], [`traits::Header`], [`traits::Extrinsic`]
+//! 	- [`traits::Block`], [`traits::Header`], [`traits::ExtrinsicLike`]
 //! - A set of types that implement these traits, whilst still providing a high degree of
 //!   configurability via generics.
 //! 	- [`generic::Block`], [`generic::Header`], [`generic::UncheckedExtrinsic`] and
@@ -438,10 +438,10 @@ impl TryFrom<MultiSigner> for ecdsa::Public {
 #[cfg(feature = "std")]
 impl std::fmt::Display for MultiSigner {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match *self {
-			Self::Ed25519(ref who) => write!(fmt, "ed25519: {}", who),
-			Self::Sr25519(ref who) => write!(fmt, "sr25519: {}", who),
-			Self::Ecdsa(ref who) => write!(fmt, "ecdsa: {}", who),
+		match self {
+			Self::Ed25519(who) => write!(fmt, "ed25519: {}", who),
+			Self::Sr25519(who) => write!(fmt, "sr25519: {}", who),
+			Self::Ecdsa(who) => write!(fmt, "ecdsa: {}", who),
 		}
 	}
 }
@@ -449,23 +449,14 @@ impl std::fmt::Display for MultiSigner {
 impl Verify for MultiSignature {
 	type Signer = MultiSigner;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId32) -> bool {
+		let who: [u8; 32] = *signer.as_ref();
 		match self {
-			Self::Ed25519(ref sig) => match ed25519::Public::from_slice(signer.as_ref()) {
-				Ok(signer) => sig.verify(msg, &signer),
-				Err(()) => false,
-			},
-			Self::Sr25519(ref sig) => match sr25519::Public::from_slice(signer.as_ref()) {
-				Ok(signer) => sig.verify(msg, &signer),
-				Err(()) => false,
-			},
-			Self::Ecdsa(ref sig) => {
+			Self::Ed25519(sig) => sig.verify(msg, &who.into()),
+			Self::Sr25519(sig) => sig.verify(msg, &who.into()),
+			Self::Ecdsa(sig) => {
 				let m = sp_io::hashing::blake2_256(msg.get());
-				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m) {
-					Ok(pubkey) =>
-						&sp_io::hashing::blake2_256(pubkey.as_ref()) ==
-							<dyn AsRef<[u8; 32]>>::as_ref(signer),
-					_ => false,
-				}
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
+					.map_or(false, |pubkey| sp_io::hashing::blake2_256(&pubkey) == who)
 			},
 		}
 	}
@@ -950,10 +941,7 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	}
 }
 
-// TODO: OpaqueExtrinsics cannot act like regular extrinsics, right?!
-impl traits::Extrinsic for OpaqueExtrinsic {
-	type Call = ();
-	type SignaturePayload = ();
+impl traits::ExtrinsicLike for OpaqueExtrinsic {
 	fn is_bare(&self) -> bool {
 		false
 	}

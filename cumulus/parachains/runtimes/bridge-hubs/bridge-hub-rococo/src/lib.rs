@@ -138,13 +138,13 @@ pub type TxExtension = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
 	(
 		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
 		bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
 	),
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 );
 
@@ -219,7 +219,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-rococo"),
 	impl_name: create_runtime_str!("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_016_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -1600,46 +1600,46 @@ mod tests {
 	};
 
 	#[test]
-	fn ensure_signed_extension_definition_is_compatible_with_relay() {
+	fn ensure_transaction_extension_definition_is_compatible_with_relay() {
 		use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 
 		sp_io::TestExternalities::default().execute_with(|| {
-			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
-			let payload: TxExtension = (
-				frame_system::CheckNonZeroSender::new(),
-				frame_system::CheckSpecVersion::new(),
-				frame_system::CheckTxVersion::new(),
-				frame_system::CheckGenesis::new(),
-				frame_system::CheckEra::from(Era::Immortal),
-				frame_system::CheckNonce::from(10),
-				frame_system::CheckWeight::new(),
-				frame_metadata_hash_extension::CheckMetadataHash::new(false),
-				pallet_transaction_payment::ChargeTransactionPayment::from(10),
-				BridgeRejectObsoleteHeadersAndMessages,
-				(
-					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
-				),
+            frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
+            let payload: TxExtension = (
+                frame_system::CheckNonZeroSender::new(),
+                frame_system::CheckSpecVersion::new(),
+                frame_system::CheckTxVersion::new(),
+                frame_system::CheckGenesis::new(),
+                frame_system::CheckEra::from(Era::Immortal),
+                frame_system::CheckNonce::from(10),
+                frame_system::CheckWeight::new(),
+                pallet_transaction_payment::ChargeTransactionPayment::from(10),
+                BridgeRejectObsoleteHeadersAndMessages,
+                (
+                    bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
+                    bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
+                ),
+                frame_metadata_hash_extension::CheckMetadataHash::new(false),
 				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
-			).into();
+            );
 
-			// for BridgeHubRococo
-			{
-				let bhr_indirect_payload = bp_bridge_hub_rococo::TransactionExtension::from_params(
-					VERSION.spec_version,
-					VERSION.transaction_version,
-					bp_runtime::TransactionEra::Immortal,
-					System::block_hash(BlockNumber::zero()),
-					10,
-					10,
-					(((), ()), ((), ())),
-				);
-				assert_eq!(payload.encode().split_last().unwrap().1, bhr_indirect_payload.encode());
-				assert_eq!(
-					payload.implicit().unwrap().encode().split_last().unwrap().1,
-					bhr_indirect_payload.implicit().unwrap().encode()
-				)
-			}
-		});
+            // for BridgeHubRococo
+            {
+                let bhr_indirect_payload = bp_bridge_hub_rococo::TransactionExtension::from_params(
+                    VERSION.spec_version,
+                    VERSION.transaction_version,
+                    bp_runtime::TransactionEra::Immortal,
+                    System::block_hash(BlockNumber::zero()),
+                    10,
+                    10,
+                    (((), ()), ((), ())),
+                );
+                assert_eq!(payload.encode().split_last().unwrap().1, bhr_indirect_payload.encode());
+                assert_eq!(
+                    payload.implicit().unwrap().encode().split_last().unwrap().1,
+                    bhr_indirect_payload.implicit().unwrap().encode()
+                )
+            }
+        });
 	}
 }

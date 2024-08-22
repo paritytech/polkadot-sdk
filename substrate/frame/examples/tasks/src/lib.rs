@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::dispatch::DispatchResult;
-use frame_system::offchain::SendTransactionTypes;
+use frame_system::offchain::CreateInherent;
 #[cfg(feature = "experimental")]
 use frame_system::offchain::SubmitTransaction;
 // Re-export pallet items so that they can be accessed from the crate namespace.
@@ -77,22 +77,21 @@ pub mod pallet {
 				let call = frame_system::Call::<T>::do_task { task: runtime_task.into() };
 
 				// Submit the task as an unsigned transaction
-				let res =
-					SubmitTransaction::<T, frame_system::Call<T>>::submit_unsigned_transaction(
-						call.into(),
-					);
+				let xt = <T as CreateInherent<frame_system::Call<T>>>::create_inherent(call.into());
+				let res = SubmitTransaction::<T, frame_system::Call<T>>::submit_transaction(xt);
 				match res {
 					Ok(_) => log::info!(target: LOG_TARGET, "Submitted the task."),
 					Err(e) => log::error!(target: LOG_TARGET, "Error submitting task: {:?}", e),
 				}
 			}
 		}
+
+		#[cfg(not(feature = "experimental"))]
+		fn offchain_worker(_block_number: BlockNumberFor<T>) {}
 	}
 
 	#[pallet::config]
-	pub trait Config:
-		SendTransactionTypes<frame_system::Call<Self>> + frame_system::Config
-	{
+	pub trait Config: CreateInherent<frame_system::Call<Self>> + frame_system::Config {
 		type RuntimeTask: frame_support::traits::Task
 			+ IsType<<Self as frame_system::Config>::RuntimeTask>
 			+ From<Task<Self>>;

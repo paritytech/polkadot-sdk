@@ -346,6 +346,7 @@ members = [
 	"substrate/frame/election-provider-support/solution-type/fuzzer",
 	"substrate/frame/elections-phragmen",
 	"substrate/frame/examples",
+	"substrate/frame/examples/authorization-tx-extension",
 	"substrate/frame/examples/basic",
 	"substrate/frame/examples/default-config",
 	"substrate/frame/examples/dev-mode",
@@ -522,7 +523,6 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
-	"templates/minimal",
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
@@ -820,7 +820,7 @@ lazy_static = { version = "1.4.0" }
 libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }
 libp2p = { version = "0.52.4" }
-libp2p-identity = { version = "0.2.3" }
+libp2p-identity = { version = "0.2.9" }
 libsecp256k1 = { version = "0.7.0", default-features = false }
 linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
@@ -907,6 +907,7 @@ pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features
 pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
 pallet-elections-phragmen = { path = "substrate/frame/elections-phragmen", default-features = false }
+pallet-example-authorization-tx-extension = { path = "substrate/frame/examples/authorization-tx-extension", default-features = false }
 pallet-example-basic = { path = "substrate/frame/examples/basic", default-features = false }
 pallet-example-frame-crate = { path = "substrate/frame/examples/frame-crate", default-features = false }
 pallet-example-kitchensink = { path = "substrate/frame/examples/kitchensink", default-features = false }
@@ -1173,10 +1174,10 @@ secp256k1 = { version = "0.28.0", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
 seedling-runtime = { path = "cumulus/parachains/runtimes/starters/seedling" }
 separator = { version = "0.4.1" }
-serde = { version = "1.0.204", default-features = false }
+serde = { version = "1.0.206", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
-serde_json = { version = "1.0.121", default-features = false }
+serde_json = { version = "1.0.124", default-features = false }
 serde_yaml = { version = "0.9" }
 serial_test = { version = "2.0.0" }
 sha1 = { version = "0.10.6" }
@@ -1320,7 +1321,7 @@ tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
 trie-bench = { version = "0.39.0" }
-trie-db = { version = "0.29.0", default-features = false }
+trie-db = { version = "0.29.1", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.89" }

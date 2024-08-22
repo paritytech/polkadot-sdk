@@ -58,13 +58,13 @@ fn construct_extrinsic(
 			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
 		),
 		frame_system::CheckWeight::<Runtime>::new(),
-		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(
 			bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 			bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 		),
+		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 	)
 		.into();

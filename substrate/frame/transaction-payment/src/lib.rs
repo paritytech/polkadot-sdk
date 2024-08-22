@@ -505,7 +505,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// All dispatchables must be annotated with weight and will have some fee info. This function
 	/// always returns.
-	pub fn query_info<Extrinsic: sp_runtime::traits::Extrinsic + GetDispatchInfo>(
+	pub fn query_info<Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo>(
 		unchecked_extrinsic: Extrinsic,
 		len: u32,
 	) -> RuntimeDispatchInfo<BalanceOf<T>>
@@ -532,7 +532,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Query the detailed fee of a given `call`.
-	pub fn query_fee_details<Extrinsic: sp_runtime::traits::Extrinsic + GetDispatchInfo>(
+	pub fn query_fee_details<Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo>(
 		unchecked_extrinsic: Extrinsic,
 		len: u32,
 	) -> FeeDetails<BalanceOf<T>>
@@ -853,10 +853,6 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
 	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
 	type Implicit = ();
-
-	fn weight() -> Weight {
-		T::WeightInfo::charge_transaction_payment()
-	}
 }
 
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
@@ -880,6 +876,10 @@ where
 		// imbalance resulting from withdrawing the fee
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
 	);
+
+	fn weight(&self, _: &T::RuntimeCall) -> Weight {
+		T::WeightInfo::charge_transaction_payment()
+	}
 
 	fn validate(
 		&self,
@@ -927,13 +927,13 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(
 			&who, info, &post_info, actual_fee, tip, imbalance,
 		)?;
 		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
-		Ok(Some(<T as Config>::WeightInfo::charge_transaction_payment()))
+		Ok(Weight::zero())
 	}
 }
 

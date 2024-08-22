@@ -129,10 +129,6 @@ impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionB
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		self.0.implicit()
 	}
-
-	fn weight() -> frame_support::weights::Weight {
-		S::weight()
-	}
 }
 
 impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
@@ -142,6 +138,10 @@ where
 {
 	type Val = Intermediate<S::Val, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
 	type Pre = Intermediate<S::Pre, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
+
+	fn weight(&self, call: &T::RuntimeCall) -> frame_support::weights::Weight {
+		self.0.weight(call)
+	}
 
 	fn validate(
 		&self,
@@ -181,12 +181,12 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		match pre {
 			Apply(pre) => S::post_dispatch_details(pre, info, post_info, len, result),
 			Skip(origin) => {
 				Pallet::<T>::deposit_event(Event::<T>::FeeSkipped { origin });
-				Ok(None)
+				Ok(Weight::zero())
 			},
 		}
 	}
