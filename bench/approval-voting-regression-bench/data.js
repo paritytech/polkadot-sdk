@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724261513352,
+  "lastUpdate": 1724314610870,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -15650,6 +15650,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 5.943248398629958,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "dce789ddd28ea179e42a00f2817b3e5d713bf6f6",
+          "message": "Add the Polkadot Coretime chain-spec (#5436)\n\nAdd the Polkadot Coretime chain-spec to the directory with the other\nsystem chain-specs.\n\nThis is the chain-spec used at genesis and for which the genesis head\ndata was generated.\n\nIt is also included in the assets for fellowship [release\nv1.3.0](https://github.com/polkadot-fellows/runtimes/releases/tag/v1.3.0)",
+          "timestamp": "2024-08-22T06:37:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dce789ddd28ea179e42a00f2817b3e5d713bf6f6"
+        },
+        "date": 1724314581644,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63950.43000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1101807369000873,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.902915404830065,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 5.915110222400024,
             "unit": "seconds"
           }
         ]
