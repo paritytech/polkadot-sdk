@@ -131,6 +131,10 @@ jobs:
     # TODO: remove once migration is complete or this workflow is fully stable
     if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
     runs-on: macOS
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v4
       - run: brew install protobuf rustup
@@ -143,7 +147,10 @@ jobs:
       - name: Free space
         run: brew cleanup
       - name: Run cargo check
-        run: source $HOME/.cargo/env && time cargo check --workspace --locked
+        run: |
+          source $HOME/.cargo/env
+          PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
+          # time cargo check --workspace --locked
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
