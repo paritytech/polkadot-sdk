@@ -29,3 +29,4 @@ crates:
     bump: major
   - name: sc-cli
     bump: minor
+    
