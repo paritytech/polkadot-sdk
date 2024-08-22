@@ -766,6 +766,16 @@ pub fn update_code_in_json_chain_spec(chain_spec: &mut json::Value, code: &[u8])
 	}
 }
 
+/// This function sets a codeSubstitute in the chain spec.
+pub fn set_code_substitute_in_json_chain_spec(
+	chain_spec: &mut json::Value,
+	code: &[u8],
+	block_height: u64,
+) {
+	let substitutes = json::json!({"codeSubstitutes":{ &block_height.to_string(): sp_core::bytes::to_hex(code, false) }});
+	crate::json_patch::merge(chain_spec, substitutes);
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

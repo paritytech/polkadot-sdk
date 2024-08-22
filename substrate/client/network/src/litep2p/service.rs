@@ -264,8 +264,20 @@ impl NetworkStatusProvider for Litep2pNetworkService {
 	async fn network_state(&self) -> Result<NetworkState, ()> {
 		Ok(NetworkState {
 			peer_id: self.local_peer_id.to_base58(),
-			listened_addresses: self.listen_addresses.read().iter().cloned().collect(),
-			external_addresses: self.external_addresses.read().iter().cloned().collect(),
+			listened_addresses: self
+				.listen_addresses
+				.read()
+				.iter()
+				.cloned()
+				.map(|a| Multiaddr::from(a).into())
+				.collect(),
+			external_addresses: self
+				.external_addresses
+				.read()
+				.iter()
+				.cloned()
+				.map(|a| Multiaddr::from(a).into())
+				.collect(),
 			connected_peers: HashMap::new(),
 			not_connected_peers: HashMap::new(),
 			// TODO: Check what info we can include here.

@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 array-bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
-libp2p = { workspace = true }
 log = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }

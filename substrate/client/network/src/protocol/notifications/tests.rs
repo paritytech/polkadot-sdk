@@ -33,9 +33,8 @@ use libp2p::{
 	core::{transport::MemoryTransport, upgrade, Endpoint},
 	identity, noise,
 	swarm::{
-		behaviour::FromSwarm, ConnectionDenied, ConnectionId, Executor, NetworkBehaviour,
-		PollParameters, Swarm, SwarmBuilder, SwarmEvent, THandler, THandlerInEvent,
-		THandlerOutEvent, ToSwarm,
+		self, behaviour::FromSwarm, ConnectionDenied, ConnectionId, Executor, NetworkBehaviour,
+		PollParameters, Swarm, SwarmEvent, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
 	yamux, Multiaddr, PeerId, Transport,
 };
@@ -141,13 +140,12 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 			}
 		});
 
-		let mut swarm = SwarmBuilder::with_executor(
+		let mut swarm = Swarm::new(
 			transport,
 			behaviour,
 			keypairs[index].public().to_peer_id(),
-			TokioExecutor(runtime),
-		)
-		.build();
+			swarm::Config::with_executor(TokioExecutor(runtime)),
+		);
 		swarm.listen_on(addrs[index].clone()).unwrap();
 		out.push(swarm);
 	}
@@ -183,7 +181,7 @@ impl std::ops::DerefMut for CustomProtoWithAddr {
 
 impl NetworkBehaviour for CustomProtoWithAddr {
 	type ConnectionHandler = <Notifications as NetworkBehaviour>::ConnectionHandler;
-	type OutEvent = <Notifications as NetworkBehaviour>::OutEvent;
+	type ToSwarm = <Notifications as NetworkBehaviour>::ToSwarm;
 
 	fn handle_pending_inbound_connection(
 		&mut self,
@@ -261,7 +259,7 @@ impl NetworkBehaviour for CustomProtoWithAddr {
 		&mut self,
 		cx: &mut Context,
 		params: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
+	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		let _ = self.peer_store_future.poll_unpin(cx);
 		let _ = self.protocol_controller_future.poll_unpin(cx);
 		self.inner.poll(cx, params)

@@ -24,7 +24,6 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 hyper = { features = ["http2", "stream"], workspace = true, default-features = true }
 hyper-rustls = { features = ["http2"], workspace = true }
-libp2p = { workspace = true }
 num_cpus = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true, default-features = true }

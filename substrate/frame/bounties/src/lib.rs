@@ -245,6 +245,9 @@ pub mod pallet {
 
 		/// The child bounty manager.
 		type ChildBountyManager: ChildBountyManager<BalanceOf<Self, I>>;
+
+		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
+		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
 	}
 
 	#[pallet::error]

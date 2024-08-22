@@ -30,7 +30,6 @@ snowbridge-core = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 
 [dev-dependencies]
-rustc-hex = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

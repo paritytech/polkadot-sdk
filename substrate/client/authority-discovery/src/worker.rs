@@ -45,10 +45,7 @@ use sc_network::{
 	event::DhtEvent, multiaddr, KademliaKey, Multiaddr, NetworkDHTProvider, NetworkSigner,
 	NetworkStateInfo,
 };
-use sc_network_types::{
-	multihash::{Code, Multihash},
-	PeerId,
-};
+use sc_network_types::{multihash::Code, PeerId};
 use schema::PeerSignature;
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_authority_discovery::{
@@ -247,14 +244,14 @@ where
 		};
 
 		let public_addresses = {
-			let local_peer_id: Multihash = network.local_peer_id().into();
+			let local_peer_id = network.local_peer_id();
 
 			config
 				.public_addresses
 				.into_iter()
 				.map(|mut address| {
 					if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
-						if peer_id != local_peer_id {
+						if peer_id != *local_peer_id.as_ref() {
 							error!(
 								target: LOG_TARGET,
 								"Discarding invalid local peer ID in public address {address}.",
@@ -401,10 +398,9 @@ where
 		);
 
 		// The address must include the local peer id.
-		let local_peer_id: Multihash = local_peer_id.into();
 		addresses
 			.into_iter()
-			.map(move |a| a.with(multiaddr::Protocol::P2p(local_peer_id)))
+			.map(move |a| a.with(multiaddr::Protocol::P2p(*local_peer_id.as_ref())))
 	}
 
 	/// Publish own public addresses.

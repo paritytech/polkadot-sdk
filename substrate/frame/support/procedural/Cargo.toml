@@ -24,7 +24,7 @@ cfg-expr = { workspace = true }
 itertools = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-syn = { features = ["full", "visit-mut"], workspace = true }
+syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 frame-support-procedural-tools = { workspace = true, default-features = true }
 macro_magic = { features = ["proc_support"], workspace = true }
 proc-macro-warning = { workspace = true }

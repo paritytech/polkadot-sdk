@@ -134,7 +134,7 @@ impl TestNetworkBuilder {
 		#[async_trait::async_trait]
 		impl<B: BlockT> sc_consensus::Verifier<B> for PassThroughVerifier {
 			async fn verify(
-				&mut self,
+				&self,
 				mut block: sc_consensus::BlockImportParams<B>,
 			) -> Result<sc_consensus::BlockImportParams<B>, String> {
 				block.finalized = self.0;

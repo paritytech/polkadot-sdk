@@ -328,10 +328,8 @@ mod tests {
 
 	impl pallet_treasury::Config for Test {
 		type Currency = pallet_balances::Pallet<Test>;
-		type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
 		type RejectOrigin = frame_system::EnsureRoot<AccountId>;
 		type RuntimeEvent = RuntimeEvent;
-		type OnSlash = ();
 		type SpendPeriod = ();
 		type Burn = ();
 		type BurnDestination = ();

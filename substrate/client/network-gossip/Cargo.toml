@@ -20,7 +20,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 ahash = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-libp2p = { workspace = true }
 log = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 tracing = { workspace = true, default-features = true }
