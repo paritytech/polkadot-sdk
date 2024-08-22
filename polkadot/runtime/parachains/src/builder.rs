@@ -221,9 +221,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.expect("self.block_number is u32")
 	}
 
-	/// Maximum number of validators that may be part of a validator group.
+	/// Fallback for the maximum number of validators participating in parachains consensus (a.k.a.
+	/// active validators).
 	pub(crate) fn fallback_max_validators() -> u32 {
-		configuration::ActiveConfig::<T>::get().max_validators.unwrap_or(200)
+		configuration::ActiveConfig::<T>::get().max_validators.unwrap_or(1024)
 	}
 
 	/// Maximum number of validators participating in parachains consensus (a.k.a. active
@@ -286,7 +287,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Get the minimum number of validity votes in order for a backed candidate to be included.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn fallback_min_validity_votes() -> u32 {
-		(Self::fallback_max_validators() / 2) + 1
+		2
 	}
 
 	fn mock_head_data() -> HeadData {
