@@ -16,9 +16,9 @@ crates:
   - name: staging-xcm
     bump: major
   - name: pallet-xcm-bridge-hub
-    bump: minor
+    bump: patch
   - name: snowbridge-pallet-system
-    bump: minor
+    bump: patch
   - name: penpal-emulated-chain
     bump: minor
   - name: asset-hub-rococo-integration-tests
@@ -40,32 +40,38 @@ crates:
   - name: people-westend-integration-tests
     bump: minor
   - name: asset-hub-rococo-runtime
-    bump: minor
+    bump: patch
   - name: asset-hub-westend-runtime
-    bump: minor
+    bump: patch
   - name: bridge-hub-rococo-runtime
-    bump: minor
+    bump: patch
   - name: bridge-hub-westend-runtime
-    bump: minor
+    bump: patch
   - name: collectives-westend-runtime
-    bump: minor
+    bump: patch
   - name: contracts-rococo-runtime
-    bump: minor
+    bump: patch
   - name: coretime-rococo-runtime
-    bump: minor
+    bump: patch
   - name: coretime-westend-runtime
-    bump: minor
+    bump: patch
   - name: glutton-westend-runtime
-    bump: minor
+    bump: patch
   - name: people-rococo-runtime
-    bump: minor
+    bump: patch
   - name: people-westend-runtime
-    bump: minor
-  - name: glutton-westend-runtime
-    bump: minor
+    bump: patch
   - name: shell-runtime
-    bump: minor
+    bump: patch
   - name: penpal-runtime
-    bump: minor
+    bump: patch
   - name: rococo-parachain-runtime
-    bump: minor
+    bump: patch
+  - name: xcm-runtime-apis
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: assets-common
+    bump: patch
