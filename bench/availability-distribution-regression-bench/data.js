@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724314911275,
+  "lastUpdate": 1724334283285,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23087,6 +23087,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011831713933333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e600b74ce586c462c36074856f62008e1c145318",
+          "message": "[Backport] Version bumps and prdoc reorgs from stable2407-1 (#5374)\n\nThis PR backports regular version bumps and `prdoc` reorganisation from\nthe `stable2407` release branch to master",
+          "timestamp": "2024-08-22T11:57:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e600b74ce586c462c36074856f62008e1c145318"
+        },
+        "date": 1724334255334,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.021939151360000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1657766578,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009000823186666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011968913440000005,
             "unit": "seconds"
           }
         ]
