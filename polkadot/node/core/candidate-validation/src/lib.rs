@@ -871,7 +871,7 @@ async fn validate_candidate_exhaustive(
 					exec_timeout,
 					persisted_validation_data.clone(),
 					pov,
-					exec_kind.into(), 
+					exec_kind.into(),
 					exec_kind,
 				)
 				.await
@@ -880,7 +880,7 @@ async fn validate_candidate_exhaustive(
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
-					pvf_exec_timeout(&executor_params, exec_kind),
+					pvf_exec_timeout(&executor_params, exec_kind.into()),
 					persisted_validation_data.clone(),
 					pov,
 					executor_params,

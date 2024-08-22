@@ -37,7 +37,6 @@ use polkadot_node_core_pvf_common::{
 	pvf::PvfPrepData,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 use polkadot_node_subsystem::{messages::PvfExecPriority, SubsystemError, SubsystemResult};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::PersistedValidationData;
