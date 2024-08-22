@@ -438,6 +438,14 @@ impl Into<sc_service::config::RpcEndpoint> for RpcEndpoint {
 	}
 }
 
+impl RpcEndpoint {
+	/// Returns whether the endpoint is globally exposed.
+	pub fn is_global(&self) -> bool {
+		let ip = IpNetwork::from(self.listen_addr.ip());
+		ip.is_global()
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

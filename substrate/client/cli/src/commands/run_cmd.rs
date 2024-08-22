@@ -450,17 +450,11 @@ impl CliConfiguration for RunCmd {
 	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<RpcEndpoint>>> {
 		if !self.rpc_endpoint.is_empty() {
 			for endpoint in &self.rpc_endpoint {
-				if endpoint.listen_addr.ip().is_unspecified() &&
-					self.validator && endpoint.rpc_methods != RpcMethods::Unsafe
+				// Technically, `0.0.0.0` isn't a public IP address, but it's a way to listen on
+				// all interfaces. Thus, we consider it as a public endpoint and warn about it.
+				if endpoint.rpc_methods == RpcMethods::Unsafe && endpoint.is_global() ||
+					endpoint.listen_addr.ip().is_unspecified()
 				{
-					return Err(Error::Input(
-						"RPC shouldn't be used publicly exposed if the node is running as \
-						 a validator"
-							.to_owned(),
-					))
-				}
-
-				if endpoint.rpc_methods == RpcMethods::Unsafe {
 					log::warn!(
 						"It isn't safe to expose RPC publicly without a proxy server that filters \
 						 available set of RPC methods."
