@@ -27,7 +27,7 @@ jobs:
         run: |
           git config --global --add safe.directory '*'
           git fetch --no-tags --no-recurse-submodules origin ${{ github.event.pull_request.base.ref }}
-          git fetch --no-tags --no-recurse-submodules origin ${{ github.event.pull_request.head.sha }}}}
+          git fetch --no-tags --no-recurse-submodules origin ${{ github.event.pull_request.head.sha }}
           BASE="$(git show-branch --merge-base origin/${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.head.sha }})"
 
           git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
