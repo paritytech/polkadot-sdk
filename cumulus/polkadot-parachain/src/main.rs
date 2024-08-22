@@ -19,37 +19,36 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
-pub(crate) fn examples(executable_name: String) -> String {
-	color_print::cformat!(
-		r#"<bold><underline>Examples:</></>
+mod chain_spec;
 
-   <bold>{0} --chain para.json --sync warp -- --chain relay.json --sync warp</>
-        Launch a warp-syncing full node of a given para's chain-spec, and a given relay's chain-spec.
+use polkadot_parachain_lib::{run, CliConfig as CliConfigT, RunConfig};
 
-	<green><italic>The above approach is the most flexible, and the most forward-compatible way to spawn an omni-node.</></>
+struct CliConfig;
 
-	You can find the chain-spec of some networks in:
-	https://paritytech.github.io/chainspecs
+impl CliConfigT for CliConfig {
+	fn impl_version() -> String {
+		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+	}
 
-   <bold>{0} --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp</>
-        Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
+	fn author() -> String {
+		env!("CARGO_PKG_AUTHORS").into()
+	}
 
-   <bold>{0} --chain asset-hub-kusama --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain kusama</>
-        Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Kusama</> Relay Chain.
-        Uses <italic>ws://rpc.example.com</> as remote relay chain node.
- "#,
-		executable_name,
-	)
+	fn support_url() -> String {
+		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+	}
+
+	fn copyright_start_year() -> u16 {
+		2017
+	}
 }
 
-mod chain_spec;
-mod cli;
-mod command;
-mod common;
-mod fake_runtime_api;
-mod rpc;
-mod service;
+fn main() -> color_eyre::eyre::Result<()> {
+	color_eyre::install()?;
 
-fn main() -> sc_cli::Result<()> {
-	command::run()
+	let config = RunConfig {
+		chain_spec_loader: Box::new(chain_spec::ChainSpecLoader),
+		runtime_resolver: Box::new(chain_spec::RuntimeResolver),
+	};
+	Ok(run::<CliConfig>(config)?)
 }

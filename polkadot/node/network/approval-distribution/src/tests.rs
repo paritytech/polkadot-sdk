@@ -50,10 +50,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	mut state: State,
 	test_fn: impl FnOnce(VirtualOverseer) -> T,
 ) -> State {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (context, virtual_overseer) =
@@ -62,9 +59,13 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let subsystem = ApprovalDistribution::new(Default::default());
 	{
 		let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(12345);
-
-		let subsystem =
-			subsystem.run_inner(context, &mut state, REPUTATION_CHANGE_TEST_INTERVAL, &mut rng);
+		let (tx, rx) = oneshot::channel();
+		let subsystem = async {
+			subsystem
+				.run_inner(context, &mut state, REPUTATION_CHANGE_TEST_INTERVAL, &mut rng)
+				.await;
+			tx.send(()).expect("Fail to notify subystem is done");
+		};
 
 		let test_fut = test_fn(virtual_overseer);
 
@@ -79,6 +80,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 					.timeout(TIMEOUT)
 					.await
 					.expect("Conclude send timeout");
+				let _ =
+					rx.timeout(Duration::from_secs(2)).await.expect("Subsystem did not conclude");
 			},
 			subsystem,
 		));
