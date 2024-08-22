@@ -17,15 +17,14 @@
 //! These are used to provide a type that implements these runtime APIs without requiring to import
 //! the native runtimes.
 
-use frame_support::weights::Weight;
-use parachains_common::{AccountId, AssetHubPolkadotAuraId, Balance, Nonce};
-use polkadot_primitives::Block;
+use parachains_common::{AccountId, AuraId, Balance, Block, Nonce};
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
+use sp_weights::Weight;
 
 pub struct Runtime;
 
@@ -58,12 +57,12 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl sp_consensus_aura::AuraApi<Block, AssetHubPolkadotAuraId> for Runtime {
+	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
 			unimplemented!()
 		}
 
-		fn authorities() -> Vec<AssetHubPolkadotAuraId> {
+		fn authorities() -> Vec<AuraId> {
 			unimplemented!()
 		}
 	}
