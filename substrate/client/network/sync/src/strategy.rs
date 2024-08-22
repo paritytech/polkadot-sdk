@@ -617,7 +617,7 @@ mod test {
 	#[test]
 	fn set_target_block_finished_warp_sync() {
 		// Populate database with finalized state.
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = Arc::new(TestClientBuilder::new().build());
 		let block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)

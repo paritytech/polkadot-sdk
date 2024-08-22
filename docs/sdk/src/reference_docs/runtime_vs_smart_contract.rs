@@ -20,8 +20,8 @@
 //! #### Smart Contracts in Substrate
 //! Smart Contracts are autonomous, programmable constructs deployed on the blockchain.
 //! In [FRAME](frame), Smart Contracts infrastructure is implemented by the
-//! [`pallet_contracts`](../../../pallet_contracts/index.html) for WASM-based contracts or the
-//! [`pallet_evm`](../../../pallet_evm/index.html) for EVM-compatible contracts. These pallets
+//! [`pallet_contracts`] for WASM-based contracts or the
+//! [`pallet_evm`](https://github.com/polkadot-evm/frontier/tree/master/frame/evm) for EVM-compatible contracts. These pallets
 //! enable Smart Contract developers to build applications and systems on top of a Substrate-based
 //! blockchain.
 //!
@@ -108,7 +108,7 @@
 //! - **Deployment and Iteration**: Smart Contracts, by nature, are designed for more
 //!   straightforward deployment and iteration. Developers can quickly deploy contracts.
 //! - **Contract Code Updates**: Once deployed, although typically immutable, Smart Contracts can be
-//!   upgraded, but lack of migration logic. The [pallet_contracts](../../../pallet_contracts/index.html)
+//!   upgraded, but lack of migration logic. The [`pallet_contracts`]
 //!   allows for contracts to be upgraded by exposing the `set_code` dispatchable. More details on this
 //!   can be found in [Ink! documentation on upgradeable contracts](https://use.ink/basics/upgradeable-contracts).
 //! - **Isolated Impact**: Upgrades or changes to a smart contract generally impact only that
