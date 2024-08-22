@@ -142,7 +142,7 @@ pub struct RunCmd {
 	///    accept (optional)
 	///  • max-request-size: The maximum size of a request body in megabytes (optional)
 	///  • max-response-size: The maximum size of a response body in megabytes (optional)
-	///  • max-subscriptions_per_connection: The maximum number of subscriptions per connection
+	///  • max-subscriptions-per-connection: The maximum number of subscriptions per connection
 	///    (optional)
 	///  • max-buffer-capacity-per-connection: The maximum buffer capacity per connection
 	///    (optional)
