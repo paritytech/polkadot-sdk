@@ -850,7 +850,7 @@ fn should_import_block_with_test_client() {
 		sp_consensus::BlockOrigin, ClientBlockImportExt, TestClientBuilder, TestClientBuilderExt,
 	};
 
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 	let block1 = changes_trie_block();
 	let block_data = block1.0;
 	let block = node_primitives::Block::decode(&mut &block_data[..]).unwrap();

@@ -65,7 +65,7 @@ use polkadot_runtime_common::{
 		VersionedLocatableAsset, VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
-	traits::{Leaser, OnSwap},
+	traits::OnSwap,
 	BalanceToU256, BlockHashCount, BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate,
 	U256ToBalance,
 };
@@ -1774,24 +1774,6 @@ pub type Migrations = migrations::Unreleased;
 #[allow(deprecated, missing_docs)]
 pub mod migrations {
 	use super::*;
-
-	pub struct GetLegacyLeaseImpl;
-	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
-		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
-			let now = frame_system::Pallet::<Runtime>::block_number();
-			let lease = slots::Leases::<Runtime>::get(para);
-			if lease.is_empty() {
-				return None;
-			}
-			// Lease not yet started, ignore:
-			if lease.iter().any(Option::is_none) {
-				return None;
-			}
-			let (index, _) =
-				<slots::Pallet<Runtime> as Leaser<BlockNumber>>::lease_period_index(now)?;
-			Some(index.saturating_add(lease.len() as u32).saturating_mul(LeasePeriod::get()))
-		}
-	}
 
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
