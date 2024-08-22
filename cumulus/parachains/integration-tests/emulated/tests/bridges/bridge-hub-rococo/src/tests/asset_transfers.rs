@@ -134,8 +134,7 @@ fn send_roc_from_asset_hub_rococo_to_asset_hub_westend() {
 	// send ROCs, use them for fees
 	send_assets_over_bridge(|| {
 		let destination = asset_hub_westend_location();
-		let assets: Assets =
-			(Location::try_from(roc_at_asset_hub_rococo.clone()).unwrap(), amount).into();
+		let assets: Assets = (roc_at_asset_hub_rococo.clone(), amount).into();
 		let fee_idx = 0;
 		assert_ok!(send_assets_from_asset_hub_rococo(destination, assets, fee_idx));
 	});
@@ -181,7 +180,7 @@ fn send_roc_from_asset_hub_rococo_to_asset_hub_westend() {
 /// - bridged trust-based assets: USDT (exists only on Westend, Rococo gets it from Westend over
 ///   bridge),
 /// - bridged foreign asset / double-bridged asset (other bridge / Snowfork): wETH (bridged from
-///   Ethereum to Rococo over Snowbridge, then bridged over to Westend through this bridge).
+///   Ethereum to Westend over Snowbridge, then bridged over to Rococo through this bridge).
 fn send_back_wnds_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	let prefund_amount = 10_000_000_000_000u128;
 	let amount_to_send = ASSET_HUB_WESTEND_ED * 1_000;
@@ -192,7 +191,7 @@ fn send_back_wnds_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	create_foreign_on_ah_rococo(wnd_at_asset_hub_rococo.clone(), true, prefund_accounts);
 
 	////////////////////////////////////////////////////////////
-	// Let's first send back just some ROCs as a simple example
+	// Let's first send back just some WNDs as a simple example
 	////////////////////////////////////////////////////////////
 
 	// fund the AHR's SA on AHW with the WND tokens held in reserve

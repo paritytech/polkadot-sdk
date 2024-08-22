@@ -160,7 +160,7 @@ pub(crate) fn send_assets_from_asset_hub_rococo(
 	fee_idx: u32,
 ) -> DispatchResult {
 	let signed_origin =
-		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get());
 	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
 
