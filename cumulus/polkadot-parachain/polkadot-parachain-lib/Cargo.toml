@@ -106,8 +106,8 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
-	"sc-service/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
