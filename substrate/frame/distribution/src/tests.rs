@@ -204,7 +204,7 @@ fn funds_claim_works() {
 
 		// Spend is in storage
 		assert!(Spends::<Test>::get(0).is_some());
-		
+
 		assert_ok!(Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_account,));
 		let balance_1 =
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);

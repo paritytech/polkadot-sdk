@@ -96,7 +96,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// The total reward to be distributed is a portion or inflation, determined in another pallet
-	// Reward calculation is executed within VotingLocked period --> "VotingLockBlock == EpochBeginningBlock" ???
+	// Reward calculation is executed within VotingLocked period --> "VotingLockBlock ==
+	// EpochBeginningBlock" ???
 	pub fn calculate_rewards(total_reward: BalanceOf<T>) -> DispatchResult {
 		let projects = WhiteListedProjectAccounts::<T>::get();
 		let votes = Votes::<T>::iter();

@@ -56,7 +56,6 @@ pub mod pallet {
 		type MaxWhitelistedProjects: Get<u32>;
 
 		/// Time during which it is possible to cast a vote or change an existing vote.
-		///
 		#[pallet::constant]
 		type VotingPeriod: Get<BlockNumberFor<Self>>;
 
@@ -189,17 +188,20 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// This extrinsic allows users to [vote for/nominate] a whitelisted project using their funds.
-		/// As a first implementation, the `conviction` parameter was not included for simplicity, but /// should be in the next iteration of the pallet.
-		/// The amount defined by the user is locked and released only when the project reward is /// sent for distribution, or when the project is not dimmed fundable.
-		/// Users can edit an existing vote within the vote-casting period.
-		/// Then, during the vote-locked period, rewards are calculated based on the total user amount
-		/// attributed to each project by the user’s votes.
+		/// This extrinsic allows users to [vote for/nominate] a whitelisted project using their
+		/// funds. As a first implementation, the `conviction` parameter was not included for
+		/// simplicity, but /// should be in the next iteration of the pallet. The amount defined
+		/// by the user is locked and released only when the project reward is /// sent for
+		/// distribution, or when the project is not dimmed fundable. Users can edit an existing
+		/// vote within the vote-casting period. Then, during the vote-locked period, rewards are
+		/// calculated based on the total user amount attributed to each project by the user’s
+		/// votes.
 		///
 		/// ### Parameters
 		/// - `project_account`: The account that will receive the reward.
 		/// - `amount`: Amount that will be locked in user’s balance to nominate a project.
-		/// - `is_fund`: Parameter that defines if user’s vote is in favor (*true*), or against (*false*)
+		/// - `is_fund`: Parameter that defines if user’s vote is in favor (*true*), or against
+		///   (*false*)
 		/// the project funding.
 
 		/// ### Errors
@@ -258,7 +260,8 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// This extrinsic allows users to remove a casted vote, as long as it is within the vote-casting period.
+		/// This extrinsic allows users to remove a casted vote, as long as it is within the
+		/// vote-casting period.
 		///
 		/// ### Parameters
 		/// - `project_account`: The account that will receive the reward.

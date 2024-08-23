@@ -19,8 +19,7 @@
 
 pub use super::*;
 use crate::mock::*;
-use frame_support::traits::OnIdle;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, traits::OnIdle};
 
 pub fn next_block() {
 	System::set_block_number(
@@ -158,7 +157,8 @@ fn rewards_calculation_works() {
 		create_project_list();
 		next_block();
 
-		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to 3000*BSX locked
+		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to
+		// 3000*BSX locked
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(BOB).into(),
 			101,
@@ -167,7 +167,8 @@ fn rewards_calculation_works() {
 			Conviction::Locked2x
 		));
 
-		// Alice nominate project_101 with an amount of 5000*BSX with conviction 1x => equivalent to 10000*BSX locked
+		// Alice nominate project_101 with an amount of 5000*BSX with conviction 1x => equivalent to
+		// 10000*BSX locked
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(ALICE).into(),
 			101,
@@ -176,7 +177,8 @@ fn rewards_calculation_works() {
 			Conviction::Locked1x
 		));
 
-		// DAVE vote against project_102 with an amount of 3000*BSX with conviction 1x => equivalent to 6000*BSX locked
+		// DAVE vote against project_102 with an amount of 3000*BSX with conviction 1x => equivalent
+		// to 6000*BSX locked
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(DAVE).into(),
 			102,
@@ -184,7 +186,8 @@ fn rewards_calculation_works() {
 			false,
 			Conviction::Locked1x
 		));
-		// Eve nominate project_102 with an amount of 5000*BSX with conviction 1x => equivalent to 10000*BSX locked
+		// Eve nominate project_102 with an amount of 5000*BSX with conviction 1x => equivalent to
+		// 10000*BSX locked
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(BOB).into(),
 			102,

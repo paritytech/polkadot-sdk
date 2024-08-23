@@ -19,11 +19,14 @@
 
 pub use super::*;
 
-pub use frame_support::traits::tokens::{Precision, Preservation};
-pub use frame_support::weights::WeightMeter;
 pub use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible, fungibles, DefensiveOption, EnsureOrigin},
+	traits::{
+		fungible, fungibles,
+		tokens::{Precision, Preservation},
+		DefensiveOption, EnsureOrigin,
+	},
+	weights::WeightMeter,
 	PalletId, Serialize,
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
@@ -33,11 +36,13 @@ pub use pallet_distribution::{
 	ProjectId, ProjectInfo,
 };
 pub use scale_info::prelude::vec::Vec;
-pub use sp_runtime::traits::{
-	AccountIdConversion, BlockNumberProvider, CheckedAdd, Convert, StaticLookup, Zero,
+pub use sp_runtime::{
+	traits::{
+		AccountIdConversion, BlockNumberProvider, CheckedAdd, CheckedSub, Convert, Saturating,
+		StaticLookup, Zero,
+	},
+	Percent,
 };
-pub use sp_runtime::traits::{CheckedSub, Saturating};
-pub use sp_runtime::Percent;
 pub use weights::WeightInfo;
 
 pub type RoundIndex = u32;
