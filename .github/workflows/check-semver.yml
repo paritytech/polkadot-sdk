@@ -20,19 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
+          fetch-depth: 2
 
       - name: extra git setup
         run: |
           git config --global --add safe.directory '*'
-          git fetch --no-tags --no-recurse-submodules origin ${{ github.event.pull_request.base.ref }}
-          git fetch --no-tags --no-recurse-submodules origin ${{ github.event.pull_request.head.sha }}
-          BASE="$(git show-branch --merge-base origin/${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.head.sha }})"
 
-          git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
-          git branch old $BASE
-          git checkout "${{ github.event.pull_request.head.sha }}"
+          git branch old HEAD^1
 
       - name: Comment If Backport
         if: ${{ startsWith(github.event.pull_request.base.ref, 'stable') }}
