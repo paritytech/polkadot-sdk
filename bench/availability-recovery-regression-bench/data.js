@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724407607762,
+  "lastUpdate": 1724428626315,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -18521,6 +18521,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.18340079546666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Yuri Volkov",
+            "username": "mutantcornholio",
+            "email": "0@mcornholio.ru"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b3c2a25b73bb4854f26204068f0aec3e8577196c",
+          "message": "Moving `Find FAIL-CI` check to GHA (#5377)",
+          "timestamp": "2024-08-23T14:03:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b3c2a25b73bb4854f26204068f0aec3e8577196c"
+        },
+        "date": 1724428598508,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2014917175,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 18.358037784166672,
             "unit": "seconds"
           }
         ]
