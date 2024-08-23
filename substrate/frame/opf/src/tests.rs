@@ -19,8 +19,8 @@
 
 pub use super::*;
 use crate::mock::*;
-use frame_support::{assert_ok, assert_noop};
 use frame_support::traits::OnIdle;
+use frame_support::{assert_noop, assert_ok};
 
 pub fn next_block() {
 	System::set_block_number(
@@ -102,7 +102,13 @@ fn voting_action_works() {
 		next_block();
 
 		// Bob nominate project_102 with an amount of 1000*BSX
-		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 102, 1000 * BSX, true,));
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			102,
+			1000 * BSX,
+			true,
+			Conviction::Locked1x
+		));
 
 		// expected event is emitted
 		let voting_period = <Test as Config>::VotingPeriod::get();
@@ -125,9 +131,15 @@ fn voting_action_works() {
 			project_id: 102,
 		})]);
 
+		let funds_unlock_block = round_ending_block.saturating_add(voting_lock_period.into());
 		// The storage infos are correct
-		let first_vote_info: VoteInfo<Test> =
-			VoteInfo { amount: 1000 * BSX, round: first_round_info, is_fund: true };
+		let first_vote_info: VoteInfo<Test> = VoteInfo {
+			amount: 1000 * BSX,
+			round: first_round_info,
+			is_fund: true,
+			conviction: Conviction::Locked1x,
+			funds_unlock_block,
+		};
 		let vote_info = Votes::<Test>::get(102, BOB).unwrap();
 		assert_eq!(first_vote_info, vote_info);
 
@@ -146,16 +158,40 @@ fn rewards_calculation_works() {
 		create_project_list();
 		next_block();
 
-		// Bob nominate project_101 with an amount of 1000*BSX
-		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000 * BSX, true,));
+		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to 3000*BSX locked
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			101,
+			1000 * BSX,
+			true,
+			Conviction::Locked2x
+		));
 
-		// Alice nominate project_101 with an amount of 5000*BSX
-		assert_ok!(Opf::vote(RawOrigin::Signed(ALICE).into(), 101, 5000 * BSX, true,));
+		// Alice nominate project_101 with an amount of 5000*BSX with conviction 1x => equivalent to 10000*BSX locked
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(ALICE).into(),
+			101,
+			5000 * BSX,
+			true,
+			Conviction::Locked1x
+		));
 
-		// DAVE vote against project_102 with an amount of 3000*BSX
-		assert_ok!(Opf::vote(RawOrigin::Signed(DAVE).into(), 102, 3000 * BSX, false,));
-		// Eve nominate project_102 with an amount of 50000*BSX
-		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 102, 5000 * BSX, true,));
+		// DAVE vote against project_102 with an amount of 3000*BSX with conviction 1x => equivalent to 6000*BSX locked
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(DAVE).into(),
+			102,
+			3000 * BSX,
+			false,
+			Conviction::Locked1x
+		));
+		// Eve nominate project_102 with an amount of 5000*BSX with conviction 1x => equivalent to 10000*BSX locked
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			102,
+			5000 * BSX,
+			true,
+			Conviction::Locked1x
+		));
 
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
 		let mut now =
@@ -174,17 +210,18 @@ fn rewards_calculation_works() {
 			round_number: 0,
 		})]);
 
-		// The total amount locked through votes is 8000
-		// Project 101: 6000 -> ~11.3%; Project 102: 2000 -> ~88.6%
-		// Distributed to project 101 -> 75%*100_000; Distributed to project 102 -> 25%*100_000
+		// The total equivalent amount voted is 17000
+		// Project 101: 13000 -> ~76.5%; Project 102: 4000 -> ~23.5%
+		// Distributed to project 101 -> 44%*100_000; Distributed to project 102 -> 55%*100_000
 
 		assert_eq!(pallet_distribution::Projects::<Test>::get().len() == 2, true);
 		let rewards = pallet_distribution::Projects::<Test>::get();
 		assert_eq!(rewards[0].project_account, 101);
 		assert_eq!(rewards[1].project_account, 102);
 		assert_eq!(rewards[0].amount > rewards[1].amount, true);
-		assert_eq!(rewards[0].amount, 75000);
-		assert_eq!(rewards[1].amount, 25000);
+		assert_eq!(rewards[0].amount, 76000);
+		println!("the reward is: {:?}", rewards[0].amount);
+		assert_eq!(rewards[1].amount, 23000);
 
 		// New round is properly started
 		run_to_block(round_info.round_ending_block);
@@ -193,11 +230,15 @@ fn rewards_calculation_works() {
 			when: now,
 			round_number: 0,
 		})]);
-		let new_round_number = VotingRoundNumber::<Test>::get()-1;
-		assert_eq!(new_round_number,1); 
+		let new_round_number = VotingRoundNumber::<Test>::get() - 1;
+		assert_eq!(new_round_number, 1);
 		let next_round = VotingRounds::<Test>::get(1);
-		assert_eq!(next_round.is_some(),true);
+		assert_eq!(next_round.is_some(), true);
 
+		now = now.saturating_add(<Test as Config>::VoteLockingPeriod::get().into());
+		// Unlock funds
+		run_to_block(now);
+		assert_ok!(Opf::unlock_funds(RawOrigin::Signed(ALICE).into(), 101));
 	})
 }
 
@@ -208,7 +249,7 @@ fn vote_removal_works() {
 		next_block();
 
 		// Bob nominate project_102 with an amount of 1000
-		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true, Conviction::Locked1x));
 
 		// Voter's funds are locked
 		let locked_balance0 =
@@ -234,20 +275,23 @@ fn vote_removal_works() {
 }
 
 #[test]
-fn not_enough_funds_to_vote(){
+fn not_enough_funds_to_vote() {
 	new_test_ext().execute_with(|| {
 		create_project_list();
 		next_block();
-		let bob_balance_plus = <<Test as pallet_distribution::Config>::NativeBalance as fungible::Inspect<u64>>::balance(&BOB)+100;
-		
-		// Bob vote with wrong amount
-		assert_noop!(Opf::vote( RawOrigin::Signed(BOB).into(), 101, bob_balance_plus, true), Error::<Test>::NotEnoughFunds);
+		let balance_plus = <<Test as pallet_distribution::Config>
+			::NativeBalance as fungible::Inspect<u64>>::balance(&BOB)+100;
 
+		// Bob vote with wrong amount
+		assert_noop!(
+			Opf::vote(RawOrigin::Signed(BOB).into(), 101, balance_plus, true, Conviction::Locked1x),
+			Error::<Test>::NotEnoughFunds
+		);
 	})
 }
 
 #[test]
-fn voting_action_locked(){
+fn voting_action_locked() {
 	new_test_ext().execute_with(|| {
 		create_project_list();
 		next_block();
@@ -255,8 +299,8 @@ fn voting_action_locked(){
 		let now =
 			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
 
-		// Bob nominate project_101 with an amount of 1000
-		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true));
+		// Bob nominate project_101 with an amount of 1000 and conviction 3 => 3000 locked
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true, Conviction::Locked3x));
 
 		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted {
 			who: BOB,
@@ -265,7 +309,7 @@ fn voting_action_locked(){
 		})]);
 
 		// Bob nominate project_103 with an amount of 5000
-		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 5000, true));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 5000, true, Conviction::Locked1x));
 
 		// Voter's funds are locked
 		let locked_balance0 =
@@ -276,10 +320,12 @@ fn voting_action_locked(){
 
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
 		run_to_block(round_info.voting_locked_block);
-		
-		// Bob cannot edit his vote for project 101 
-		assert_noop!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 2000, true), Error::<Test>::VotePeriodClosed);
-	
+
+		// Bob cannot edit his vote for project 101
+		assert_noop!(
+			Opf::vote(RawOrigin::Signed(BOB).into(), 101, 2000, true, Conviction::Locked2x),
+			Error::<Test>::VotePeriodClosed
+		);
 	})
 }
 
@@ -293,7 +339,7 @@ fn vote_move_works() {
 			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
 
 		// Bob nominate project_101 with an amount of 1000
-		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true, Conviction::Locked2x));
 
 		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted {
 			who: BOB,
@@ -302,20 +348,30 @@ fn vote_move_works() {
 		})]);
 
 		// Bob nominate project_103 with an amount of 5000
-		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 5000, true));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 5000, true, Conviction::Locked1x));
 
 		// Voter's funds are locked
-		let locked_balance0 =
+		let mut locked_balance0 =
 			<<Test as pallet_distribution::Config>::NativeBalance as fungible::hold::Inspect<
 				u64,
 			>>::balance_on_hold(&pallet_distribution::HoldReason::FundsReserved.into(), &BOB);
 		assert!(locked_balance0 > Zero::zero());
+		assert_eq!(locked_balance0, 6000);
+		println!("locked: {:?}", locked_balance0);
 
 		// Bob changes amount in project_103 to 4500
-		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 4500, true));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 4500, true, Conviction::Locked2x));
 
 		// Storage was correctly updated
 		let vote_info = Votes::<Test>::get(103, BOB).unwrap();
+
+		locked_balance0 =
+			<<Test as pallet_distribution::Config>::NativeBalance as fungible::hold::Inspect<
+				u64,
+			>>::balance_on_hold(&pallet_distribution::HoldReason::FundsReserved.into(), &BOB);
+
 		assert_eq!(4500, vote_info.amount);
+		assert_eq!(Conviction::Locked2x, vote_info.conviction);
+		assert_eq!(locked_balance0, 5500);
 	})
 }

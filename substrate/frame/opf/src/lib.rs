@@ -128,6 +128,9 @@ pub mod pallet {
 
 		/// The voting round ended
 		VotingRoundEnded { when: BlockNumberFor<T>, round_number: u32 },
+
+		/// User's funds unlocked
+		FundsUnlocked { when: BlockNumberFor<T>, amount: BalanceOf<T>, project_id: AccountIdOf<T> },
 	}
 
 	#[pallet::error]
@@ -164,6 +167,9 @@ pub mod pallet {
 
 		/// Voting round is over
 		VotingRoundOver,
+
+		/// User's funds still cannot be unlocked
+		FundsUnlockNotPermitted,
 	}
 
 	#[pallet::hooks]
@@ -208,6 +214,7 @@ pub mod pallet {
 			project_account: ProjectId<T>,
 			amount: BalanceOf<T>,
 			is_fund: bool,
+			conviction: Conviction,
 		) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
 			// Get current voting round & check if we are in voting period or not
@@ -215,12 +222,15 @@ pub mod pallet {
 			// Check that voter has enough funds to vote
 			let voter_balance = T::NativeBalance::total_balance(&voter);
 			ensure!(voter_balance > amount, Error::<T>::NotEnoughFunds);
+
+			// Check the total amount locked in other projects
 			let voter_holds = BalanceOf::<T>::zero();
 
 			let all_votes = Votes::<T>::iter();
-			for vote in all_votes {
-				if vote.0 != project_account.clone() && vote.1 == voter.clone() {
-					voter_holds.saturating_add(vote.2.amount);
+			for (project, voter_id, infos) in all_votes {
+				if project != project_account.clone() && voter_id == voter.clone() {
+					let this_amount = infos.amount;
+					voter_holds.saturating_add(this_amount);
 				}
 			}
 			let available_funds = voter_balance.saturating_sub(voter_holds);
@@ -228,7 +238,7 @@ pub mod pallet {
 
 			// Vote action executed
 
-			Self::try_vote(voter.clone(), project_account.clone(), amount, is_fund)?;
+			Self::try_vote(voter.clone(), project_account.clone(), amount, is_fund, conviction)?;
 
 			let when = T::BlockNumberProvider::current_block_number();
 
@@ -274,6 +284,49 @@ pub mod pallet {
 				project_id: project_account,
 			});
 
+			Ok(())
+		}
+
+		/// User's funds unlock
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be signed
+		///
+		/// ## Details
+		///
+		/// This extrinsic allows users to unlock funds related to a specific project,
+		/// provided the locking period (which is dependant of the conviction) has ended.
+		///
+		/// ### Parameters
+		/// - `project_account`: The account that will receive the reward.
+		///
+		/// ### Errors
+		/// - [`Error::<T>::NotEnoughFunds`]: The user does not have enough balance to cast a vote
+		///  
+		/// ## Events
+		#[pallet::call_index(2)]
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
+		pub fn unlock_funds(origin: OriginFor<T>, project: AccountIdOf<T>) -> DispatchResult {
+			let voter = ensure_signed(origin)?;
+			let infos =
+				Votes::<T>::get(project.clone(), voter.clone()).ok_or(Error::<T>::NoVoteData)?;
+			let amount = infos.amount;
+			let now = T::BlockNumberProvider::current_block_number();
+			ensure!(now >= infos.funds_unlock_block, Error::<T>::FundsUnlockNotPermitted);
+			// release voter's funds
+			T::NativeBalance::release(
+				&HoldReason::FundsReserved.into(),
+				&voter,
+				amount,
+				Precision::Exact,
+			)?;
+
+			Self::deposit_event(Event::<T>::FundsUnlocked {
+				when: now,
+				amount,
+				project_id: project,
+			});
 			Ok(())
 		}
 	}

@@ -9,7 +9,6 @@ doc:
       the combination of the OPF pallet and the DISTRIBUTION pallet handles the Optimistic Project Funding. 
       It allows users to nominate projects (whitelisted in OpenGov) with their DOT. This mechanism will be funded with a constant stream of DOT taken directly from inflation and distributed to projects based on the proportion of DOT that has nominated them.
       The project rewards distribution is handled by the **Distribution Pallet**
-      The user’s conviction has not been implemented in this first pallet iteration.
 
 crates:
   - name: pallet-distribution

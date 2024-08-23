@@ -87,7 +87,7 @@ mod benchmarks {
 		let account = WhiteListedProjectAccounts::<T>::get()[(r - 1) as usize].clone();
 		let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 100u32.into() * (r).into();
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account, value, true);
+		_(RawOrigin::Signed(caller.clone()), account, value, true, Conviction::Locked1x);
 
 		Ok(())
 	}
@@ -112,13 +112,56 @@ mod benchmarks {
 		let _ = T::NativeBalance::mint_into(&caller, caller_balance);
 		let account = WhiteListedProjectAccounts::<T>::get()[(r - 1) as usize].clone();
 		let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 100u32.into() * (r).into();
-		Opf::<T>::vote(RawOrigin::Signed(caller.clone()).into(), account.clone(), value, true)?;
+		Opf::<T>::vote(
+			RawOrigin::Signed(caller.clone()).into(),
+			account.clone(),
+			value,
+			true,
+			Conviction::Locked1x,
+		)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account);
 
 		Ok(())
 	}
+
+	/*#[benchmark]
+	fn unlock_funds(
+		r: Linear<1, { T::MaxWhitelistedProjects::get() }>,
+	) -> Result<(), BenchmarkError> {
+		add_whitelisted_project::<T>(r)?;
+		ensure!(
+			WhiteListedProjectAccounts::<T>::get().len() as u32 == r,
+			"Project_id not set up correctly."
+		);
+
+		on_idle_full_block::<T>();
+		let mut when = T::BlockNumberProvider::current_block_number() + One::one();
+		run_to_block::<T>(when);
+
+		ensure!(VotingRounds::<T>::get(0).is_some(), "Round not created!");
+		let caller_balance = T::NativeBalance::minimum_balance() * 1000000u32.into();
+		let caller: T::AccountId = whitelisted_caller();
+		let _ = T::NativeBalance::mint_into(&caller, caller_balance);
+		let account = WhiteListedProjectAccounts::<T>::get()[(r - 1) as usize].clone();
+		let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 100u32.into() * (r).into();
+		Opf::<T>::vote(
+			RawOrigin::Signed(caller.clone()).into(),
+			account.clone(),
+			value,
+			true,
+			Conviction::Locked1x,
+		)?;
+		when = Votes::<T>::get(account.clone(), caller.clone()).unwrap().funds_unlock_block;
+
+		run_to_block::<T>(when);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account);
+
+		Ok(())
+	}*/
 
 	impl_benchmark_test_suite!(Opf, crate::mock::new_test_ext(), crate::mock::Test);
 }

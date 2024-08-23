@@ -33,6 +33,7 @@ pallet-timestamp = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-conviction-voting = { workspace = true, default-features = false }
 pallet-distribution = { workspace = true, default-features = false }
 
 [features]
@@ -45,6 +46,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"pallet-conviction-voting/std",
 	"pallet-timestamp/std",
 	"pallet-sudo/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",

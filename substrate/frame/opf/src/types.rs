@@ -27,8 +27,10 @@ pub use frame_support::{
 	PalletId, Serialize,
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
+pub use pallet_conviction_voting::Conviction;
 pub use pallet_distribution::{
-	AccountIdOf, BalanceOf, HoldReason, Inspect, Mutate, MutateHold, ProjectId, ProjectInfo,
+	fungible::InspectHold, AccountIdOf, BalanceOf, HoldReason, Inspect, Mutate, MutateHold,
+	ProjectId, ProjectInfo,
 };
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::traits::{
@@ -51,6 +53,22 @@ pub struct VoteInfo<T: Config> {
 
 	/// Whether the vote is "fund" / "not fund"
 	pub is_fund: bool,
+
+	pub conviction: Conviction,
+
+	pub funds_unlock_block: BlockNumberFor<T>,
+}
+
+// If no conviction, user's funds are released at the end of the voting round
+impl<T: Config> VoteInfo<T> {
+	pub fn funds_unlock(&mut self) {
+		let conviction_coeff = <u8 as From<Conviction>>::from(self.conviction);
+		let funds_unlock_block = self
+			.round
+			.round_ending_block
+			.saturating_add(T::VoteLockingPeriod::get().saturating_mul(conviction_coeff.into()));
+		self.funds_unlock_block = funds_unlock_block;
+	}
 }
 
 /// Voting rounds are periodically created inside a hook on_initialize (use poll in the future)
@@ -73,6 +91,7 @@ impl<T: Config> VotingRoundInfo<T> {
 		let voting_locked_block = round_ending_block
 			.checked_sub(&T::VoteLockingPeriod::get())
 			.expect("Invalid Result");
+
 		let round_number = VotingRoundNumber::<T>::get();
 		let new_number = round_number.checked_add(1).expect("Invalid Result");
 		VotingRoundNumber::<T>::put(new_number);

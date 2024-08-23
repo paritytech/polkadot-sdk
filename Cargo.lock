@@ -11283,6 +11283,7 @@ dependencies = [
  "log",
  "pallet-assets",
  "pallet-balances",
+ "pallet-conviction-voting",
  "pallet-distribution",
  "pallet-sudo",
  "pallet-timestamp",
