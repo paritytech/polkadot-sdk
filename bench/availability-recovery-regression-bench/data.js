@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724343195426,
+  "lastUpdate": 1724407607762,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -18479,6 +18479,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.112429285999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Gustavo Gonzalez",
+            "username": "ggonzalez94",
+            "email": "ggonzalezsomer@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4ffccac4fe4d2294dfa63b20155f9c6052c69574",
+          "message": "Update OpenZeppelin template documentation (#5398)\n\n# Description\nUpdates `template.rs` to reflect the two OZ templates available and a\nshort description\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T`\n  required)\n* External contributors: ask maintainers to put the right label on your\nPR.\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>",
+          "timestamp": "2024-08-23T08:17:28Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ffccac4fe4d2294dfa63b20155f9c6052c69574"
+        },
+        "date": 1724407579856,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.289085413066667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18340079546666668,
             "unit": "seconds"
           }
         ]
