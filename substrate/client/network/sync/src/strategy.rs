@@ -30,7 +30,7 @@ use crate::{
 	LOG_TARGET,
 };
 use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
@@ -462,39 +462,6 @@ where
 		}
 	}
 
-	/// Let `WarpSync` know about target block header
-	pub fn set_warp_sync_target_block_header(
-		&mut self,
-		target_header: B::Header,
-	) -> Result<(), ()> {
-		match self.config.mode {
-			SyncMode::Warp => match self.warp {
-				Some(ref mut warp) => {
-					warp.set_target_block(target_header);
-					Ok(())
-				},
-				None => {
-					// As mode is set to warp sync, but no warp sync strategy is active, this means
-					// that warp sync has already finished / was skipped.
-					warn!(
-						target: LOG_TARGET,
-						"Discarding warp sync target, as warp sync was seemingly skipped due \
-						 to node being (partially) synced.",
-					);
-					Ok(())
-				},
-			},
-			_ => {
-				error!(
-					target: LOG_TARGET,
-					"Cannot set warp sync target block: not in warp sync mode."
-				);
-				debug_assert!(false);
-				Err(())
-			},
-		}
-	}
-
 	/// Get actions that should be performed by the owner on the strategy's behalf
 	#[must_use]
 	pub fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError> {
@@ -598,65 +565,5 @@ where
 		} else {
 			unreachable!("Only warp & state strategies can finish; qed")
 		}
-	}
-}
-
-#[cfg(test)]
-mod test {
-	use super::*;
-	use futures::executor::block_on;
-	use sc_block_builder::BlockBuilderBuilder;
-	use substrate_test_runtime_client::{
-		ClientBlockImportExt, ClientExt, DefaultTestClientBuilderExt, TestClientBuilder,
-		TestClientBuilderExt,
-	};
-
-	/// Regression test for crash when starting already synced parachain node with `--sync=warp`.
-	/// We must remove this after setting of warp sync target block is moved to initialization of
-	/// `SyncingEngine` (issue https://github.com/paritytech/polkadot-sdk/issues/3537).
-	#[test]
-	fn set_target_block_finished_warp_sync() {
-		// Populate database with finalized state.
-		let client = Arc::new(TestClientBuilder::new().build());
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().best_hash)
-			.with_parent_block_number(client.chain_info().best_number)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let just = (*b"TEST", Vec::new());
-		client.finalize_block(block.hash(), Some(just)).unwrap();
-		let target_block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().best_hash)
-			.with_parent_block_number(client.chain_info().best_number)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-
-		// Initialize syncing strategy.
-		let config = SyncingConfig {
-			mode: SyncMode::Warp,
-			max_parallel_downloads: 3,
-			max_blocks_per_request: 64,
-			metrics_registry: None,
-		};
-		let mut strategy =
-			SyncingStrategy::new(config, client, Some(WarpSyncConfig::WaitForTarget)).unwrap();
-
-		// Warp sync instantly finishes as we have finalized state in DB.
-		let actions = strategy.actions().unwrap();
-		assert_eq!(actions.len(), 1);
-		assert!(matches!(actions[0], SyncingAction::Finished));
-		assert!(strategy.warp.is_none());
-
-		// Try setting the target block. We mustn't crash.
-		strategy
-			.set_warp_sync_target_block_header(target_block.header().clone())
-			.unwrap();
 	}
 }
