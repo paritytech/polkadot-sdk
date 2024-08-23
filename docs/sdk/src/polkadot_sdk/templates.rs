@@ -29,9 +29,14 @@
 //!
 //! In June 2023, OpenZeppelin was awarded a grant from the [Polkadot
 //! treasury](https://polkadot.polkassembly.io/treasury/406) for building a number of Polkadot-sdk
-//! based templates. These templates are expected to be a great starting point for developers.
-//!
-//! - <https://github.com/OpenZeppelin/polkadot-runtime-template/>
+//! based templates. These templates are a great starting point for developers and newcomers.
+//! So far OpenZeppelin has released two templates, which have been fully [audited](https://github.com/OpenZeppelin/polkadot-runtime-templates/tree/main/audits):
+//! - [`generic-runtime-template`](https://github.com/OpenZeppelin/polkadot-runtime-templates?tab=readme-ov-file#generic-runtime-template):
+//!   A minimal template that has all the common pallets that parachains use with secure defaults.
+//! - [`evm-runtime-template`](https://github.com/OpenZeppelin/polkadot-runtime-templates/tree/main?tab=readme-ov-file#evm-template):
+//! This template has EVM compatibility out of the box and allows migrating your solidity contracts
+//! or EVM compatible dapps easily. It also uses 20 byte addresses like Ethereum and has some
+//! Account Abstraction support.
 //!
 //! ## POP-CLI
 //!
