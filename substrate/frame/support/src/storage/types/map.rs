@@ -410,7 +410,7 @@ where
 		let value = match unhashed::get::<O>(&current_key) {
 			Some(value) => value,
 			None => {
-				log::error!("Invalid translate: fail to decode old value");
+				crate::defensive!("Invalid translate: fail to decode old value");
 				return Some(current_key);
 			},
 		};
@@ -419,7 +419,7 @@ where
 		let key = match Key::decode(&mut key_material) {
 			Ok(key) => key,
 			Err(_) => {
-				log::error!("Invalid translate: fail to decode key");
+				crate::defensive!("Invalid translate: fail to decode key");
 				return Some(current_key);
 			},
 		};

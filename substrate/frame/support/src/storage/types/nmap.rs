@@ -403,7 +403,6 @@ where
 	fn iter_prefix<KP>(kp: KP) -> PrefixIterator<(<Key as HasKeyPrefix<KP>>::Suffix, Value)>
 	where
 		Key: HasReversibleKeyPrefix<KP>,
-		// Key: HasKeyPrefix<KP>,
 	{
 		let prefix = Self::storage_n_map_partial_key(kp);
 		PrefixIterator {
