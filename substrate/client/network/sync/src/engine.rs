@@ -1029,8 +1029,8 @@ where
 			if let Some(metrics) = &self.metrics {
 				metrics.peers.inc();
 			}
+			self.num_connected.fetch_add(1, Ordering::AcqRel);
 		}
-		self.num_connected.fetch_add(1, Ordering::AcqRel);
 		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
 		if self.default_peers_set_no_slot_peers.contains(&peer_id) {
