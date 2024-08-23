@@ -327,7 +327,7 @@ impl<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
 	for StorageMap<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
 where
 	Prefix: StorageInstance,
-	Hasher: crate::hash::StorageHasher + crate::ReversibleStorageHasher,
+	Hasher: crate::ReversibleStorageHasher,
 	Key: FullCodec,
 	Value: FullCodec,
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
