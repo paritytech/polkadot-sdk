@@ -210,7 +210,7 @@ where
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
-				config.metrics_registry.clone(),
+				config.metrics_registry.as_ref(),
 				std::iter::empty(),
 			)?;
 			Ok(Self {
@@ -455,13 +455,6 @@ where
 		self.chain_sync.as_ref().map_or(0, |chain_sync| chain_sync.num_sync_requests())
 	}
 
-	/// Report Prometheus metrics
-	pub fn report_metrics(&self) {
-		if let Some(ref chain_sync) = self.chain_sync {
-			chain_sync.report_metrics();
-		}
-	}
-
 	/// Get actions that should be performed by the owner on the strategy's behalf
 	#[must_use]
 	pub fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError> {
@@ -519,7 +512,7 @@ where
 						self.client.clone(),
 						self.config.max_parallel_downloads,
 						self.config.max_blocks_per_request,
-						self.config.metrics_registry.clone(),
+						self.config.metrics_registry.as_ref(),
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(*peer_id, *best_hash, *best_number)
 						}),
@@ -547,7 +540,7 @@ where
 				self.client.clone(),
 				self.config.max_parallel_downloads,
 				self.config.max_blocks_per_request,
-				self.config.metrics_registry.clone(),
+				self.config.metrics_registry.as_ref(),
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(*peer_id, *best_hash, *best_number)
 				}),
