@@ -46,11 +46,11 @@ fn decl_runtime_version_impl_inner(item: ItemConst) -> Result<TokenStream> {
 	Ok(quote! {
 		#item
 		#link_section
-		mod warnings {
+		const _:() = {
 			#(
 				#warnings
 			)*
-		}
+		};
 	})
 }
 
@@ -138,7 +138,7 @@ impl ParseRuntimeVersion {
 				.old("state_version")
 				.new("system_version)")
 				.help_link("https://github.com/paritytech/polkadot-sdk/pull/4257")
-				.span(field_value.span())
+				.span(field_name.span())
 				.build_or_panic();
 			warnings.push(warning);
 			parse_once(&mut self.system_version, field_value, Self::parse_num_literal_u8)?;
