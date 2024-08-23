@@ -39,6 +39,7 @@ pub mod versioned {
 
 pub mod v1 {
 	use super::*;
+	use frame_support::storage_alias;
 
 	/// The log target.
 	const TARGET: &'static str = "runtime::identity::migration::v1";
@@ -46,7 +47,6 @@ pub mod v1 {
 	/// The old identity type, useful in pre-upgrade.
 	mod v0 {
 		use super::*;
-		use frame_support::storage_alias;
 
 		#[storage_alias]
 		pub type IdentityOf<T: Config> = StorageMap<
@@ -58,6 +58,26 @@ pub mod v1 {
 				<T as pallet::Config>::MaxRegistrars,
 				<T as pallet::Config>::IdentityInformation,
 			>,
+			OptionQuery,
+		>;
+	}
+
+	mod vx {
+		use super::*;
+
+		#[storage_alias]
+		pub type IdentityOf<T: Config> = StorageMap<
+			Pallet<T>,
+			Twox64Concat,
+			<T as frame_system::Config>::AccountId,
+			(
+				Registration<
+					BalanceOf<T>,
+					<T as pallet::Config>::MaxRegistrars,
+					<T as pallet::Config>::IdentityInformation,
+				>,
+				Option<Username<T>>,
+			),
 			OptionQuery,
 		>;
 	}
@@ -92,7 +112,7 @@ pub mod v1 {
 			let mut interrupted = false;
 
 			for (account, registration) in v0::IdentityOf::<T>::iter() {
-				IdentityOf::<T>::insert(account, (registration, None::<Username<T>>));
+				vx::IdentityOf::<T>::insert(account, (registration, None::<Username<T>>));
 				translated.saturating_inc();
 				if translated >= KL {
 					log::warn!(
