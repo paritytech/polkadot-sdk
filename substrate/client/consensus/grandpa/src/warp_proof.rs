@@ -338,7 +338,7 @@ mod tests {
 		let mut rng = rand::rngs::StdRng::from_seed([0; 32]);
 		let builder = TestClientBuilder::new();
 		let backend = builder.backend();
-		let mut client = Arc::new(builder.build());
+		let client = Arc::new(builder.build());
 
 		let available_authorities = Ed25519Keyring::iter().collect::<Vec<_>>();
 		let genesis_authorities = vec![(Ed25519Keyring::Alice.public().into(), 1)];

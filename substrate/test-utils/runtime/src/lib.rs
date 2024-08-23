@@ -1062,7 +1062,7 @@ mod tests {
 		// This tests that the on-chain `HEAP_PAGES` parameter is respected.
 
 		// Create a client devoting only 8 pages of wasm memory. This gives us ~512k of heap memory.
-		let mut client = TestClientBuilder::new().set_heap_pages(8).build();
+		let client = TestClientBuilder::new().set_heap_pages(8).build();
 		let best_hash = client.chain_info().best_hash;
 
 		// Try to allocate 1024k of memory on heap. This is going to fail since it is twice larger

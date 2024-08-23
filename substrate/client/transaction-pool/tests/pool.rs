@@ -980,7 +980,7 @@ fn ready_set_should_eventually_resolve_when_block_update_arrives() {
 
 #[test]
 fn import_notification_to_pool_maintain_works() {
-	let mut client = Arc::new(substrate_test_runtime_client::new());
+	let client = Arc::new(substrate_test_runtime_client::new());
 
 	let best_hash = client.info().best_hash;
 	let finalized_hash = client.info().finalized_hash;

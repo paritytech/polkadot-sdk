@@ -55,7 +55,7 @@ use sc_network_sync::{
 	block_relay_protocol::BlockRelayParams, block_request_handler::BlockRequestHandler,
 	engine::SyncingEngine, service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
-	warp_request_handler::RequestHandler as WarpSyncRequestHandler, SyncingService, WarpSyncParams,
+	warp_request_handler::RequestHandler as WarpSyncRequestHandler, SyncingService, WarpSyncConfig,
 };
 use sc_rpc::{
 	author::AuthorApiServer,
@@ -248,10 +248,7 @@ where
 				offchain_worker_enabled: config.offchain_worker.enabled,
 				offchain_indexing_api: config.offchain_worker.indexing_enabled,
 				wasm_runtime_overrides: config.wasm_runtime_overrides.clone(),
-				no_genesis: matches!(
-					config.network.sync_mode,
-					SyncMode::LightState { .. } | SyncMode::Warp { .. }
-				),
+				no_genesis: config.no_genesis(),
 				wasm_runtime_substitutes,
 				enable_import_proof_recording,
 			},
@@ -759,8 +756,8 @@ pub struct BuildNetworkParams<
 	/// A block announce validator builder.
 	pub block_announce_validator_builder:
 		Option<Box<dyn FnOnce(Arc<TCl>) -> Box<dyn BlockAnnounceValidator<TBl> + Send> + Send>>,
-	/// Optional warp sync params.
-	pub warp_sync_params: Option<WarpSyncParams<TBl>>,
+	/// Optional warp sync config.
+	pub warp_sync_config: Option<WarpSyncConfig<TBl>>,
 	/// User specified block relay params. If not specified, the default
 	/// block request handler will be used.
 	pub block_relay: Option<BlockRelayParams<TBl, TNet>>,
@@ -804,12 +801,12 @@ where
 		spawn_handle,
 		import_queue,
 		block_announce_validator_builder,
-		warp_sync_params,
+		warp_sync_config,
 		block_relay,
 		metrics,
 	} = params;
 
-	if warp_sync_params.is_none() && config.network.sync_mode.is_warp() {
+	if warp_sync_config.is_none() && config.network.sync_mode.is_warp() {
 		return Err("Warp sync enabled, but no warp sync provider configured.".into())
 	}
 
@@ -872,8 +869,8 @@ where
 		(protocol_config, config_name)
 	};
 
-	let (warp_sync_protocol_config, warp_request_protocol_name) = match warp_sync_params.as_ref() {
-		Some(WarpSyncParams::WithProvider(warp_with_provider)) => {
+	let (warp_sync_protocol_config, warp_request_protocol_name) = match warp_sync_config.as_ref() {
+		Some(WarpSyncConfig::WithProvider(warp_with_provider)) => {
 			// Allow both outgoing and incoming requests.
 			let (handler, protocol_config) = WarpSyncRequestHandler::new::<_, TNet>(
 				protocol_id.clone(),
@@ -942,7 +939,7 @@ where
 		protocol_id.clone(),
 		&config.chain_spec.fork_id().map(ToOwned::to_owned),
 		block_announce_validator,
-		warp_sync_params,
+		warp_sync_config,
 		chain_sync_network_handle,
 		import_queue.service(),
 		block_downloader,
