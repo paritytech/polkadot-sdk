@@ -61,7 +61,7 @@ pub mod pallet {
 		type VotingPeriod: Get<BlockNumberFor<Self>>;
 
 		/// Used for Pallet testing only. Represents the Total Reward distributed
-		#[pallet::constant]
+		#[cfg(feature = "temporary")]
 		type TemporaryRewards: Get<BalanceOf<Self>>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -212,7 +212,7 @@ pub mod pallet {
 		pub fn vote(
 			origin: OriginFor<T>,
 			project_account: ProjectId<T>,
-			amount: BalanceOf<T>,
+			#[pallet::compact] amount: BalanceOf<T>,
 			is_fund: bool,
 			conviction: Conviction,
 		) -> DispatchResult {

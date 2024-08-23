@@ -38,6 +38,7 @@ pallet-distribution = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]
+temporary = []
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
