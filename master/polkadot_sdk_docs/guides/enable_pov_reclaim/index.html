@@ -172,7 +172,7 @@ ability to fetch the size of the storage proof from the node. The reclaim
 mechanism uses the
 <a href="../../../cumulus_primitives_proof_size_hostfunction/storage_proof_size/index.html" title="mod cumulus_primitives_proof_size_hostfunction::storage_proof_size"><code>storage_proof_size</code></a>
 host function for this purpose. For convenience, cumulus provides
-<a href="../../../cumulus_client_service/type.ParachainHostFunctions.html" title="type cumulus_client_service::ParachainHostFunctions"><code>ParachainHostFunctions</code></a>, a set of
+<a href="cumulus_client_service::ParachainHostFunctions"><code>ParachainHostFunctions</code></a>, a set of
 host functions typically used by cumulus-based parachains. In the binary crate of your
 parachain, find the instantiation of the <a href="../../../sc_executor/executor/struct.WasmExecutor.html" title="struct sc_executor::executor::WasmExecutor"><code>WasmExecutor</code></a> and set the
 correct generic type.</p>
@@ -190,8 +190,8 @@ that this step in the guide was not set up correctly.</p>
 during block authoring and block import. Proof recording during authoring is already enabled on
 parachains. You must also ensure that storage proof recording is enabled during block import.
 Find where your node builds the fundamental substrate components by calling
-<a href="../../../sc_service/builder/fn.new_full_parts.html" title="fn sc_service::builder::new_full_parts"><code>new_full_parts</code></a>. Replace this
-with <a href="../../../sc_service/builder/fn.new_full_parts_record_import.html" title="fn sc_service::builder::new_full_parts_record_import"><code>new_full_parts_record_import</code></a> and
+<a href="sc_service::new_full_parts"><code>new_full_parts</code></a>. Replace this
+with <a href="sc_service::new_full_parts_record_import"><code>new_full_parts_record_import</code></a> and
 pass <code>true</code> as the last parameter to enable import recording.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>new_partial(config: <span class="kw-2">&amp;</span>Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;Service, sc_service::Error&gt; {

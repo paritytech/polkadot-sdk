@@ -1135,9 +1135,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#983" id="983">983</a>
 <a href="#984" id="984">984</a>
 <a href="#985" id="985">985</a>
-<a href="#986" id="986">986</a>
-<a href="#987" id="987">987</a>
-<a href="#988" id="988">988</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1617,10 +1614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>!context.is_member_of(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>votes.group_id) {
 			<span class="kw">let </span>sig = <span class="kw">match </span>vote {
 				ValidityVote::Valid(s) =&gt; s,
-				ValidityVote::Issued(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(
-					<span class="string">"implicit issuance vote only cast from `import_candidate` after \
-							checking group membership of issuer; qed"
-				</span>),
+				ValidityVote::Issued(s) =&gt; s,
 			};
 
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Misbehavior::UnauthorizedStatement(UnauthorizedStatement {

@@ -214,7 +214,7 @@ categories:</p>
 <ul>
 <li><code>sc-*</code> (short for <em>Substrate-client</em>) crates, located under <code>./client</code> folder. These are all
 the crates that lead to the node software. Notable examples are <a href="../../../sc_network/index.html" title="mod sc_network"><code>sc_network</code></a>, various
-consensus crates, RPC ([<code>sc_rpc_api</code>]) and database (<a href="../../../sc_client_db/index.html" title="mod sc_client_db"><code>sc_client_db</code></a>), all of which are
+consensus crates, RPC ([<code>sc_rpc_api</code>]) and database ([<code>sc_client_db</code>]), all of which are
 expected to reside in the node side.</li>
 <li><code>sp-*</code> (short for <em>substrate-primitives</em>) crates, located under <code>./primitives</code> folder. These
 are crates that facilitate both the node and the runtime, but are not opinionated about what
@@ -239,7 +239,7 @@ wasm file is placed in <code>./target/{debug|release}/wbuild/{runtime_name}/{run
 <p>Multiple binaries are shipped with substrate, the most important of which are located in the
 <a href="https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin"><code>./bin</code></a> folder.</p>
 <ul>
-<li><a href="../../../staging_node_cli/index.html" title="mod staging_node_cli"><code>node_cli</code></a> is an extensive substrate node that contains the superset of all runtime and node
+<li>[<code>node_cli</code>] is an extensive substrate node that contains the superset of all runtime and node
 side features. The corresponding runtime, called [<code>kitchensink_runtime</code>] contains all of the
 modules that are provided with <code>FRAME</code>. This node and runtime is only used for testing and
 demonstration.
@@ -254,7 +254,7 @@ project.</li>
 <li>[<code>subkey</code>]: Substrate’s key management utility.</li>
 </ul>
 <h4 id="anatomy-of-a-binary-crate"><a class="doc-anchor" href="#anatomy-of-a-binary-crate">§</a>Anatomy of a Binary Crate</h4>
-<p>From the above, <a href="../../../staging_node_cli/index.html" title="mod staging_node_cli"><code>node_cli</code></a>/[<code>kitchensink_runtime</code>] and <code>node-template</code> are essentially
+<p>From the above, [<code>node_cli</code>]/[<code>kitchensink_runtime</code>] and <code>node-template</code> are essentially
 blueprints of a Substrate-based project, as the name of the latter is implying. Each
 Substrate-based project typically contains the following:</p>
 <ul>
@@ -290,11 +290,11 @@ top of Substrate, empowering any substrate-based chain to be a Polkadot parachai
 <li>CLI Options of a Substrate node: [<code>sc_cli</code>]</li>
 <li>All of the consensus related crates provided by Substrate:
 <ul>
-<li><a href="../../../sc_consensus_aura/index.html" title="mod sc_consensus_aura"><code>sc_consensus_aura</code></a></li>
+<li>[<code>sc_consensus_aura</code>]</li>
 <li>[<code>sc_consensus_babe</code>]</li>
-<li><a href="../../../sc_consensus_grandpa/index.html" title="mod sc_consensus_grandpa"><code>sc_consensus_grandpa</code></a></li>
+<li>[<code>sc_consensus_grandpa</code>]</li>
 <li>[<code>sc_consensus_beefy</code>] (TODO: @adrian, add some high level docs <a href="https://github.com/paritytech/polkadot-sdk-docs/issues/57">https://github.com/paritytech/polkadot-sdk-docs/issues/57</a>)</li>
-<li>[<code>sc_consensus_manual_seal</code>]</li>
+<li><a href="../../../sc_consensus_manual_seal/index.html" title="mod sc_consensus_manual_seal"><code>sc_consensus_manual_seal</code></a></li>
 <li><a href="../../../sc_consensus_pow/index.html" title="mod sc_consensus_pow"><code>sc_consensus_pow</code></a></li>
 </ul>
 </li>
