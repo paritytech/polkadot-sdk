@@ -398,6 +398,25 @@ impl CandidateCommitments {
 			UMPSignal::SelectCore(core_selector, cq_offset) => Some((core_selector, cq_offset)),
 		}
 	}
+
+	/// Returns the core index determined by `UMPSignal::SelectCore` commitment
+	/// and `assigned_cores`.
+	///
+	/// Returns `None` if there is no `UMPSignal::SelectCore` commitment or
+	/// assigned cores is empty.
+	///
+	/// `assigned_cores` must be soted vec of all core indices assigned to a parachain.
+	pub fn committed_core_index(&self, assigned_cores: &[&CoreIndex]) -> Option<CoreIndex> {
+		if assigned_cores.is_empty() {
+			return None
+		}
+
+		self.selected_core().and_then(|(core_selector, _cq_offset)| {
+			let core_index =
+				**assigned_cores.get(core_selector.0 as usize % assigned_cores.len())?;
+			Some(core_index)
+		})
+	}
 }
 
 /// CandidateReceipt construction errors.
@@ -507,9 +526,11 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Checks if descriptor core index is equal to the commited core index.
 	/// Input `assigned_cores` must contain the sorted cores assigned to the para at
 	/// the committed claim queue offset.
-	pub fn check(&self, assigned_cores: &[CoreIndex]) -> Result<(), CandidateReceiptError> {
-		// Don't check v1 descriptors.
-		if self.descriptor.version() == CandidateDescriptorVersion::V1 {
+	pub fn check(&self, assigned_cores: &[&CoreIndex]) -> Result<(), CandidateReceiptError> {
+		// Don't check v1 descriptors without any `SelectCore` commitments.
+		if self.descriptor.version() == CandidateDescriptorVersion::V1 &&
+			self.commitments.selected_core().is_none()
+		{
 			return Ok(())
 		}
 
@@ -518,15 +539,12 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 		}
 
 		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
+		let core_index = self
+			.commitments
+			.committed_core_index(assigned_cores)
+			.ok_or(CandidateReceiptError::NoAssignment)?;
 
-		let (core_selector, _cq_offset) =
-			self.commitments.selected_core().ok_or(CandidateReceiptError::NoCoreSelected)?;
-
-		let core_index = assigned_cores
-			.get(core_selector.0 as usize % assigned_cores.len())
-			.ok_or(CandidateReceiptError::InvalidCoreIndex)?;
-
-		if *core_index != descriptor_core_index {
+		if core_index != descriptor_core_index {
 			return Err(CandidateReceiptError::CoreIndexMismatch)
 		}
 
