@@ -1758,7 +1758,6 @@ mod test {
 	#[test]
 	fn n_map_double_map_identical_key() {
 		sp_io::TestExternalities::default().execute_with(|| {
-
 			type NMap = self::frame_system::NMap<Runtime>;
 
 			NMap::insert((1, 2), 50);

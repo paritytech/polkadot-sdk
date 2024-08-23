@@ -26,9 +26,7 @@ use crate::{
 		StoragePrefixedMap, StorageTryAppend, TryAppendMap,
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
-	Never,
-	StorageHasher,
-	Twox128,
+	Never, StorageHasher, Twox128,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use frame_support::storage::StorageDecodeNonDedupLength;

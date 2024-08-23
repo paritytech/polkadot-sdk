@@ -25,11 +25,11 @@ use crate::{
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 	Never,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
-use sp_std::prelude::*;
 
 /// A type representing a *value* in storage. A *storage value* is a single value of a given type
 /// stored on-chain.
@@ -95,7 +95,6 @@ where
 	}
 }
 
-/// Implement this in the mod instead
 impl<Prefix, Value, QueryKind, OnEmpty> crate::storage::StorageValue<Value>
 	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
 where

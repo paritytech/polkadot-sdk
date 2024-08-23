@@ -23,18 +23,16 @@ use crate::{
 			OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder, StorageMap, StorageValue,
 			ValueQuery,
 		},
-		StorageAppend,
-		StorageDecodeLength,
-		StorageTryAppend,
+		StorageAppend, StorageDecodeLength, StorageTryAppend,
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInfoTrait, StorageInstance},
 	Never,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen, Ref};
 use sp_io::MultiRemovalResults;
 use sp_metadata_ir::StorageEntryMetadataIR;
 use sp_runtime::traits::Saturating;
-use sp_std::prelude::*;
 
 /// A wrapper around a [`StorageMap`] and a [`StorageValue`] (with the value being `u32`) to keep
 /// track of how many items are in a map, without needing to iterate all the values.
