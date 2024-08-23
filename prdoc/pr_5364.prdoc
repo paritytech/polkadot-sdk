@@ -4,7 +4,8 @@ doc:
   - audience: Node Dev
     description: |
       This improves `sc-service` API by not requiring the whole `&Configuration`, using specific configuration options
-      instead. `RpcConfiguration` was also extracted from `Configuration` to group all RPC options together.
+      instead. `RpcConfiguration` and `ExecutorConfiguration` were also extracted from `Configuration` to group all RPC
+      and executor options together.
       If `sc-service` is used as a library with lower-level APIs, `Configuration` can now be avoided in most cases.
 
 crates:
