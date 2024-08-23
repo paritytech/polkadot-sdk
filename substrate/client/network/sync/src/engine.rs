@@ -32,7 +32,7 @@ use crate::{
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
 	strategy::{
-		warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
+		warp::{EncodedProof, WarpProofRequest, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
 	},
 	types::{
@@ -42,11 +42,7 @@ use crate::{
 };
 
 use codec::{Decode, DecodeAll, Encode};
-use futures::{
-	channel::oneshot,
-	future::{BoxFuture, Fuse},
-	FutureExt, StreamExt,
-};
+use futures::{channel::oneshot, FutureExt, StreamExt};
 use libp2p::request_response::OutboundFailure;
 use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
@@ -257,10 +253,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// The `PeerId`'s of all boot nodes.
 	boot_node_ids: HashSet<PeerId>,
 
-	/// A channel to get target block header if we skip over proofs downloading during warp sync.
-	warp_sync_target_block_header_rx_fused:
-		Fuse<BoxFuture<'static, Result<B::Header, oneshot::Canceled>>>,
-
 	/// Protocol name used for block announcements
 	block_announce_protocol_name: ProtocolName,
 
@@ -309,7 +301,7 @@ where
 		protocol_id: ProtocolId,
 		fork_id: &Option<String>,
 		block_announce_validator: Box<dyn BlockAnnounceValidator<B> + Send>,
-		warp_sync_params: Option<WarpSyncParams<B>>,
+		warp_sync_config: Option<WarpSyncConfig<B>>,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
@@ -404,19 +396,6 @@ where
 				Arc::clone(&peer_store_handle),
 			);
 
-		// Split warp sync params into warp sync config and a channel to retrieve target block
-		// header.
-		let (warp_sync_config, warp_sync_target_block_header_rx) =
-			warp_sync_params.map_or((None, None), |params| {
-				let (config, target_block_rx) = params.split();
-				(Some(config), target_block_rx)
-			});
-
-		// Make sure polling of the target block channel is a no-op if there is no block to
-		// retrieve.
-		let warp_sync_target_block_header_rx_fused = warp_sync_target_block_header_rx
-			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
-
 		// Initialize syncing strategy.
 		let strategy = SyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?;
 
@@ -460,7 +439,6 @@ where
 				genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
-				warp_sync_target_block_header_rx_fused,
 				boot_node_ids,
 				default_peers_set_no_slot_peers,
 				default_peers_set_num_full,
@@ -634,17 +612,6 @@ where
 				notification_event = self.notification_service.next_event() => match notification_event {
 					Some(event) => self.process_notification_event(event),
 					None => return,
-				},
-				// TODO: setting of warp sync target block should be moved to the initialization of
-				// `SyncingEngine`, see https://github.com/paritytech/polkadot-sdk/issues/3537.
-				warp_target_block_header = &mut self.warp_sync_target_block_header_rx_fused => {
-					if let Err(_) = self.pass_warp_sync_target_block_header(warp_target_block_header) {
-						error!(
-							target: LOG_TARGET,
-							"Failed to set warp sync target block header, terminating `SyncingEngine`.",
-						);
-						return
-					}
 				},
 				response_event = self.pending_responses.select_next_some() =>
 					self.process_response_event(response_event),
@@ -894,22 +861,6 @@ where
 				};
 
 				self.push_block_announce_validation(peer, announce);
-			},
-		}
-	}
-
-	fn pass_warp_sync_target_block_header(
-		&mut self,
-		header: Result<B::Header, oneshot::Canceled>,
-	) -> Result<(), ()> {
-		match header {
-			Ok(header) => self.strategy.set_warp_sync_target_block_header(header),
-			Err(err) => {
-				error!(
-					target: LOG_TARGET,
-					"Failed to get target block for warp sync. Error: {err:?}",
-				);
-				Err(())
 			},
 		}
 	}

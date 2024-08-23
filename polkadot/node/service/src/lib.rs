@@ -764,7 +764,7 @@ pub fn new_full<
 ) -> Result<NewFull, Error> {
 	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 	use polkadot_node_network_protocol::request_response::IncomingRequest;
-	use sc_network_sync::WarpSyncParams;
+	use sc_network_sync::WarpSyncConfig;
 
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 	let role = config.role.clone();
@@ -1037,7 +1037,7 @@ pub fn new_full<
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
+			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
 		})?;
