@@ -405,7 +405,7 @@ impl CandidateCommitments {
 	/// Returns `None` if there is no `UMPSignal::SelectCore` commitment or
 	/// assigned cores is empty.
 	///
-	/// `assigned_cores` must be soted vec of all core indices assigned to a parachain.
+	/// `assigned_cores` must be a sorted vec of all core indices assigned to a parachain.
 	pub fn committed_core_index(&self, assigned_cores: &[&CoreIndex]) -> Option<CoreIndex> {
 		if assigned_cores.is_empty() {
 			return None
