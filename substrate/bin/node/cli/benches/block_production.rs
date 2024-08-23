@@ -124,7 +124,7 @@ fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
 	.into()
 }
 
-fn import_block(mut client: &FullClient, built: BuiltBlock<node_primitives::Block>) {
+fn import_block(client: &FullClient, built: BuiltBlock<node_primitives::Block>) {
 	let mut params = BlockImportParams::new(BlockOrigin::File, built.block.header);
 	params.state_action =
 		StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(built.storage_changes));
