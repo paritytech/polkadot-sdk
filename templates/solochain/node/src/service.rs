@@ -4,7 +4,7 @@ use futures::FutureExt;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
-use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncParams};
+use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncConfig};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use solochain_template_runtime::{self, apis::RuntimeApi, opaque::Block};
@@ -175,7 +175,7 @@ pub fn new_full<
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
+			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
 		})?;

@@ -100,6 +100,8 @@ jobs:
           --exclude
           "substrate/frame/contracts/fixtures/build"
           "substrate/frame/contracts/fixtures/contracts/common"
+          "substrate/frame/revive/fixtures/build"
+          "substrate/frame/revive/fixtures/contracts/common"
       - name: deny git deps
         run: python3 .github/scripts/deny-git-deps.py .
   check-markdown:
