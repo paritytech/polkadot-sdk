@@ -538,16 +538,20 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			return Err(CandidateReceiptError::NoAssignment)
 		}
 
-		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
 		let core_index = self
 			.commitments
 			.committed_core_index(assigned_cores)
 			.ok_or(CandidateReceiptError::NoAssignment)?;
 
-		if core_index != descriptor_core_index {
-			return Err(CandidateReceiptError::CoreIndexMismatch)
+		// Only check descriptor `core_index` field of v2 descriptors. If it is v1, that field
+		// will be garbage.
+		if self.descriptor.version() == CandidateDescriptorVersion::V2 {
+			let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
+			if core_index != descriptor_core_index {
+				return Err(CandidateReceiptError::CoreIndexMismatch)
+			}
 		}
-
+		
 		Ok(())
 	}
 }
