@@ -267,7 +267,7 @@ async fn build_relay_chain_interface(
 	task_manager: &mut TaskManager,
 ) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
 	let relay_chain_full_node = match collator_options.relay_chain_mode {
-		cumulus_client_cli::RelayChainMode::Embedded => polkadot_test_service::new_full(
+		RelayChainMode::Embedded => polkadot_test_service::new_full(
 			relay_chain_config,
 			if let Some(ref key) = collator_key {
 				polkadot_service::IsParachainNode::Collator(key.clone())
@@ -278,7 +278,7 @@ async fn build_relay_chain_interface(
 			polkadot_service::CollatorOverseerGen,
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
-		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
+		RelayChainMode::ExternalRpc(rpc_target_urls) =>
 			return build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
 				task_manager,
@@ -286,7 +286,7 @@ async fn build_relay_chain_interface(
 			)
 			.await
 			.map(|r| r.0),
-		cumulus_client_cli::RelayChainMode::LightClient =>
+		RelayChainMode::LightClient =>
 			return build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager)
 				.await
 				.map(|r| r.0),
@@ -295,9 +295,9 @@ async fn build_relay_chain_interface(
 	task_manager.add_child(relay_chain_full_node.task_manager);
 	tracing::info!("Using inprocess node.");
 	Ok(Arc::new(RelayChainInProcessInterface::new(
-		relay_chain_full_node.client.clone(),
-		relay_chain_full_node.backend.clone(),
-		relay_chain_full_node.sync_service.clone(),
+		relay_chain_full_node.client,
+		relay_chain_full_node.backend,
+		Arc::new(relay_chain_full_node.sync_service),
 		relay_chain_full_node.overseer_handle.ok_or(RelayChainError::GenericError(
 			"Overseer should be running in full node.".to_string(),
 		))?,

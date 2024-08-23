@@ -236,7 +236,7 @@ pub struct Peer<D, BlockImport> {
 	select_chain: Option<LongestChain<substrate_test_runtime_client::Backend, Block>>,
 	backend: Option<Arc<substrate_test_runtime_client::Backend>>,
 	network: NetworkWorker<Block, <Block as BlockT>::Hash>,
-	sync_service: Arc<SyncingService<Block>>,
+	sync_service: SyncingService<Block>,
 	imported_blocks_stream: Pin<Box<dyn Stream<Item = BlockImportNotification<Block>> + Send>>,
 	finality_notification_stream: Pin<Box<dyn Stream<Item = FinalityNotification<Block>> + Send>>,
 	listen_addr: Multiaddr,
@@ -510,7 +510,7 @@ where
 	}
 
 	/// Get `SyncingService`.
-	pub fn sync_service(&self) -> &Arc<SyncingService<Block>> {
+	pub fn sync_service(&self) -> &SyncingService<Block> {
 		&self.sync_service
 	}
 
@@ -925,7 +925,6 @@ pub trait TestNetFactory: Default + Sized + Send {
 			)
 			.unwrap();
 		let sync_service_import_queue = Box::new(sync_service.clone());
-		let sync_service = Arc::new(sync_service.clone());
 
 		for config in config.request_response_protocols {
 			full_net_config.add_request_response_protocol(config);

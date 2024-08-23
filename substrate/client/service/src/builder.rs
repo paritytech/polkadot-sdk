@@ -371,7 +371,7 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
 	pub tx_handler_controller:
 		sc_network_transactions::TransactionsHandlerController<<TBl as BlockT>::Hash>,
 	/// Syncing service.
-	pub sync_service: Arc<SyncingService<TBl>>,
+	pub sync_service: SyncingService<TBl>,
 	/// Telemetry instance for this node.
 	pub telemetry: Option<&'a mut Telemetry>,
 }
@@ -774,7 +774,7 @@ pub fn build_network<TBl, TNet, TExPool, TImpQu, TCl>(
 		TracingUnboundedSender<sc_rpc::system::Request<TBl>>,
 		sc_network_transactions::TransactionsHandlerController<<TBl as BlockT>::Hash>,
 		NetworkStarter,
-		Arc<SyncingService<TBl>>,
+		SyncingService<TBl>,
 	),
 	Error,
 >
@@ -948,7 +948,6 @@ where
 		Arc::clone(&peer_store_handle),
 	)?;
 	let sync_service_import_queue = sync_service.clone();
-	let sync_service = Arc::new(sync_service);
 
 	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 	let network_params = sc_network::config::Params::<TBl, <TBl as BlockT>::Hash, TNet> {

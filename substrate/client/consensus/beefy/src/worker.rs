@@ -386,7 +386,7 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, N, AuthorityId: Au
 	pub runtime: Arc<RuntimeApi>,
 	pub key_store: Arc<BeefyKeystore<AuthorityId>>,
 	pub payload_provider: P,
-	pub sync: Arc<S>,
+	pub sync: S,
 	pub fisherman: Arc<Fisherman<B, BE, RuntimeApi, AuthorityId>>,
 
 	// communication (created once, but returned and reused if worker is restarted/reinitialized)
@@ -1079,7 +1079,7 @@ pub(crate) mod tests {
 		Backend,
 		MmrRootProvider<Block, TestApi>,
 		TestApi,
-		Arc<SyncingService<Block>>,
+		SyncingService<Block>,
 		TestNetwork,
 		ecdsa_crypto::AuthorityId,
 	> {
@@ -1154,7 +1154,7 @@ pub(crate) mod tests {
 			key_store: key_store.clone(),
 			metrics,
 			payload_provider,
-			sync: Arc::new(sync),
+			sync,
 			fisherman: Arc::new(Fisherman::new(backend, api, key_store)),
 			links,
 			comms,

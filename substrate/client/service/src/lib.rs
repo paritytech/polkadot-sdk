@@ -171,7 +171,7 @@ async fn build_network_future<
 >(
 	network: N,
 	client: Arc<C>,
-	sync_service: Arc<SyncingService<B>>,
+	sync_service: SyncingService<B>,
 	announce_imported_blocks: bool,
 ) {
 	let mut imported_blocks_stream = client.import_notification_stream().fuse();
@@ -237,7 +237,7 @@ pub async fn build_system_rpc_future<
 >(
 	role: Role,
 	network_service: Arc<dyn NetworkService>,
-	sync_service: Arc<SyncingService<B>>,
+	sync_service: SyncingService<B>,
 	client: Arc<C>,
 	mut rpc_rx: TracingUnboundedReceiver<sc_rpc::system::Request<B>>,
 	should_have_peers: bool,
@@ -267,7 +267,7 @@ pub async fn build_system_rpc_future<
 				let _ = sender.send(network_service.local_peer_id().to_base58());
 			},
 			sc_rpc::system::Request::LocalListenAddresses(sender) => {
-				let peer_id = (network_service.local_peer_id()).into();
+				let peer_id = network_service.local_peer_id().into();
 				let p2p_proto_suffix = sc_network::multiaddr::Protocol::P2p(peer_id);
 				let addresses = network_service
 					.listen_addresses()

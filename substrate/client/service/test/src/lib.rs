@@ -74,7 +74,7 @@ pub trait TestNetNode: Clone + Future<Output = Result<(), Error>> + Send + 'stat
 	fn client(&self) -> Arc<Client<Self::Backend, Self::Executor, Self::Block, Self::RuntimeApi>>;
 	fn transaction_pool(&self) -> Arc<Self::TransactionPool>;
 	fn network(&self) -> Arc<dyn sc_network::service::traits::NetworkService>;
-	fn sync(&self) -> &Arc<SyncingService<Self::Block>>;
+	fn sync(&self) -> &SyncingService<Self::Block>;
 	fn spawn_handle(&self) -> SpawnTaskHandle;
 }
 
@@ -83,7 +83,7 @@ pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> {
 	client: Arc<Client<TBackend, TExec, TBl, TRtApi>>,
 	transaction_pool: Arc<TExPool>,
 	network: Arc<dyn sc_network::service::traits::NetworkService>,
-	sync: Arc<SyncingService<TBl>>,
+	sync: SyncingService<TBl>,
 }
 
 impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool>
@@ -93,7 +93,7 @@ impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool>
 		task_manager: TaskManager,
 		client: Arc<Client<TBackend, TExec, TBl, TRtApi>>,
 		network: Arc<dyn sc_network::service::traits::NetworkService>,
-		sync: Arc<SyncingService<TBl>>,
+		sync: SyncingService<TBl>,
 		transaction_pool: Arc<TExPool>,
 	) -> Self {
 		Self {
@@ -154,7 +154,7 @@ where
 	fn network(&self) -> Arc<dyn sc_network::service::traits::NetworkService> {
 		self.network.clone()
 	}
-	fn sync(&self) -> &Arc<SyncingService<Self::Block>> {
+	fn sync(&self) -> &SyncingService<Self::Block> {
 		&self.sync
 	}
 	fn spawn_handle(&self) -> SpawnTaskHandle {

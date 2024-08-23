@@ -150,7 +150,7 @@ pub async fn run<B, C, S, P>(
 	config: Config,
 	mut api_backend: ApiBackend,
 	client: Arc<C>,
-	sync: Arc<S>,
+	sync: S,
 	network: Arc<dyn NetworkService>,
 	protocol_name: ProtocolName,
 	transaction_pool: Arc<P>,

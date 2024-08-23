@@ -196,7 +196,7 @@ pub struct BeefyNetworkParams<B: Block, N, S> {
 	/// Network implementing gossip, requests and sync-oracle.
 	pub network: Arc<N>,
 	/// Syncing service implementing a sync oracle and an event stream for peers.
-	pub sync: Arc<S>,
+	pub sync: S,
 	/// Handle for receiving notification events.
 	pub notification_service: Box<dyn NotificationService>,
 	/// Chain specific BEEFY gossip protocol name. See
@@ -310,7 +310,7 @@ where
 	pub fn build<P, S, N>(
 		self,
 		payload_provider: P,
-		sync: Arc<S>,
+		sync: S,
 		comms: BeefyComms<B, N, AuthorityId>,
 		links: BeefyVoterLinks<B, AuthorityId>,
 		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B, AuthorityId>>,
@@ -527,7 +527,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 	N: GossipNetwork<B> + NetworkRequest + Send + Sync + 'static,
-	S: GossipSyncing<B> + SyncOracle + 'static,
+	S: GossipSyncing<B> + SyncOracle + Clone + 'static,
 	AuthorityId: AuthorityIdBound,
 {
 	let BeefyParams {

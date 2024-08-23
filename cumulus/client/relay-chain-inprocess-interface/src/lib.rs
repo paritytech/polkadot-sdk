@@ -364,7 +364,7 @@ pub fn build_inprocess_relay_chain(
 	let relay_chain_interface = Arc::new(RelayChainInProcessInterface::new(
 		full_node.client,
 		full_node.backend,
-		full_node.sync_service,
+		Arc::new(full_node.sync_service),
 		full_node.overseer_handle.clone().ok_or(RelayChainError::GenericError(
 			"Overseer not running in full node.".to_string(),
 		))?,

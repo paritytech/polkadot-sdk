@@ -91,7 +91,7 @@ pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, RCInterface, Spawn
 	pub collator_key: CollatorPair,
 	pub relay_chain_slot_duration: Duration,
 	pub recovery_handle: Box<dyn RecoveryHandle>,
-	pub sync_service: Arc<SyncingService<Block>>,
+	pub sync_service: SyncingService<Block>,
 }
 
 /// Parameters given to [`start_relay_chain_tasks`].
@@ -105,7 +105,7 @@ pub struct StartRelayChainTasksParams<'a, Block: BlockT, Client, RCInterface> {
 	pub import_queue: Box<dyn ImportQueueService<Block>>,
 	pub relay_chain_slot_duration: Duration,
 	pub recovery_handle: Box<dyn RecoveryHandle>,
-	pub sync_service: Arc<SyncingService<Block>>,
+	pub sync_service: SyncingService<Block>,
 }
 
 /// Parameters given to [`start_full_node`].
@@ -118,7 +118,7 @@ pub struct StartFullNodeParams<'a, Block: BlockT, Client, RCInterface> {
 	pub relay_chain_slot_duration: Duration,
 	pub import_queue: Box<dyn ImportQueueService<Block>>,
 	pub recovery_handle: Box<dyn RecoveryHandle>,
-	pub sync_service: Arc<SyncingService<Block>>,
+	pub sync_service: SyncingService<Block>,
 }
 
 /// Start a collator node for a parachain.
@@ -275,7 +275,7 @@ where
 		relay_chain_interface.clone(),
 		para_id,
 		recovery_chan_rx,
-		sync_service,
+		Arc::new(sync_service),
 	);
 
 	task_manager
@@ -439,7 +439,7 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 	TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 	TransactionsHandlerController<Block::Hash>,
 	NetworkStarter,
-	Arc<SyncingService<Block>>,
+	SyncingService<Block>,
 )>
 where
 	Block: BlockT,

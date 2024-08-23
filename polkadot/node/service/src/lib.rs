@@ -675,7 +675,7 @@ pub struct NewFull {
 	pub client: Arc<FullClient>,
 	pub overseer_handle: Option<Handle>,
 	pub network: Arc<dyn sc_network::service::traits::NetworkService>,
-	pub sync_service: Arc<sc_network_sync::SyncingService<Block>>,
+	pub sync_service: sc_network_sync::SyncingService<Block>,
 	pub rpc_handlers: RpcHandlers,
 	pub backend: Arc<FullBackend>,
 }
@@ -1166,7 +1166,7 @@ pub fn new_full<
 				OverseerGenArgs {
 					runtime_client,
 					network_service: network.clone(),
-					sync_service: sync_service.clone(),
+					sync_service: Arc::new(sync_service.clone()),
 					authority_discovery_service,
 					collation_req_v1_receiver,
 					collation_req_v2_receiver,

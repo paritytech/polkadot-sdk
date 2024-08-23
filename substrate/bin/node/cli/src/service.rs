@@ -384,7 +384,7 @@ pub struct NewFullBase {
 	/// The networking service of the node.
 	pub network: Arc<dyn NetworkService>,
 	/// The syncing service of the node.
-	pub sync: Arc<SyncingService<Block>>,
+	pub sync: SyncingService<Block>,
 	/// The transaction pool of the node.
 	pub transaction_pool: Arc<TransactionPool>,
 	/// The rpc handlers of the node.
