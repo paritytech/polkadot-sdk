@@ -125,8 +125,6 @@ pub mod pallet {
 	}
 }
 
-type PositionInClaimQueue = u32;
-
 struct ClaimQueueIterator<E> {
 	next_idx: u32,
 	queue: Peekable<btree_map::IntoIter<CoreIndex, VecDeque<E>>>,
@@ -162,6 +160,10 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn pre_new_session() {
 		Self::push_claim_queue_items_to_assignment_provider();
 		// Self::push_occupied_cores_to_assignment_provider();
+	}
+
+	pub(crate) fn num_cores() -> u32 {
+		T::AssignmentProvider::session_core_count()
 	}
 
 	/// Called by the initializer to note that a new session has started.
@@ -415,15 +417,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn pop_from_claim_queue(core_idx: &CoreIndex) -> Option<Assignment> {
-		ClaimQueue::<T>::mutate(|cq| cq.get_mut(&core_idx)?.pop_front())
+		ClaimQueue::<T>::mutate(|cq| cq.get_mut(core_idx)?.pop_front())
 	}
 
-	/// Paras scheduled next in the claim queue.
-	pub(crate) fn scheduled_paras() -> impl Iterator<Item = (CoreIndex, ParaId)> {
-		let claim_queue = ClaimQueue::<T>::get();
-		claim_queue
-			.into_iter()
-			.filter_map(|(core_idx, v)| v.front().map(|a| (core_idx, a.para_id())))
+	pub(crate) fn peek_claim_queue(core_idx: &CoreIndex) -> Option<Assignment> {
+		ClaimQueue::<T>::get().get(core_idx)?.front().cloned()
 	}
 
 	/// Paras that may get backed on cores.

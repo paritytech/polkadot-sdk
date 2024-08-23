@@ -18,8 +18,7 @@
 //! functions.
 
 use crate::{
-	configuration, disputes, dmp, hrmp, inclusion, initializer, paras, paras_inherent,
-	scheduler::{self, CoreOccupied},
+	configuration, disputes, dmp, hrmp, inclusion, initializer, paras, paras_inherent, scheduler,
 	session_info, shared,
 };
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
@@ -59,14 +58,11 @@ pub fn validator_groups<T: initializer::Config>(
 
 /// Implementation for the `availability_cores` function of the runtime API.
 pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, BlockNumberFor<T>>> {
-	let cores = scheduler::AvailabilityCores::<T>::get();
-	let now = frame_system::Pallet::<T>::block_number() + One::one();
-
 	// This explicit update is only strictly required for session boundaries:
 	//
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
-	scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(Vec::new(), now);
+	scheduler::Pallet::<T>::advance_claim_queue(&Default::default());
 
 	let time_out_for = scheduler::Pallet::<T>::availability_timeout_predicate();
 
@@ -87,13 +83,14 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 			},
 		};
 
-	let scheduled: BTreeMap<_, _> = scheduler::Pallet::<T>::scheduled_paras().collect();
+	let occupied_cores: BTreeMap<CoreIndex, ParaId> =
+		inclusion::Pallet::<T>::get_occupied_cores().collect();
+	let n_cores = scheduler::Pallet::<T>::num_cores();
 
-	cores
-		.into_iter()
-		.enumerate()
-		.map(|(i, core)| match core {
-			CoreOccupied::Paras(entry) => {
+	(0..n_cores)
+		.map(|core_idx| {
+			let core_idx = CoreIndex(core_idx);
+			if let Some(para_id) = occupied_cores.get(&core_idx) {
 				// Due to https://github.com/paritytech/polkadot-sdk/issues/64, using the new storage types would cause
 				// this runtime API to panic. We explicitly handle the storage for version 0 to
 				// prevent that. When removing the inclusion v0 -> v1 migration, this bit of code
@@ -101,14 +98,12 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 				let pending_availability = if inclusion::Pallet::<T>::on_chain_storage_version() ==
 					StorageVersion::new(0)
 				{
-					inclusion::migration::v0::PendingAvailability::<T>::get(entry.para_id())
+					inclusion::migration::v0::PendingAvailability::<T>::get(para_id)
 						.expect("Occupied core always has pending availability; qed")
 				} else {
-					let candidate = inclusion::Pallet::<T>::pending_availability_with_core(
-						entry.para_id(),
-						CoreIndex(i as u32),
-					)
-					.expect("Occupied core always has pending availability; qed");
+					let candidate =
+						inclusion::Pallet::<T>::pending_availability_with_core(*para_id, core_idx)
+							.expect("Occupied core always has pending availability; qed");
 
 					// Translate to the old candidate format, as we don't need the commitments now.
 					inclusion::migration::v0::CandidatePendingAvailability {
@@ -130,14 +125,10 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 				let backing_group_allocation_time =
 					pending_availability.relay_parent_number + One::one();
 				CoreState::Occupied(OccupiedCore {
-					next_up_on_available: scheduler::Pallet::<T>::next_up_on_available(CoreIndex(
-						i as u32,
-					)),
+					next_up_on_available: scheduler::Pallet::<T>::next_up_on_available(core_idx),
 					occupied_since: backed_in_number,
 					time_out_at: time_out_for(backed_in_number).live_until,
-					next_up_on_time_out: scheduler::Pallet::<T>::next_up_on_available(CoreIndex(
-						i as u32,
-					)),
+					next_up_on_time_out: scheduler::Pallet::<T>::next_up_on_available(core_idx),
 					availability: pending_availability.availability_votes.clone(),
 					group_responsible: group_responsible_for(
 						backing_group_allocation_time,
@@ -146,17 +137,16 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 					candidate_hash: pending_availability.hash,
 					candidate_descriptor: pending_availability.descriptor,
 				})
-			},
-			CoreOccupied::Free => {
-				if let Some(para_id) = scheduled.get(&CoreIndex(i as _)).cloned() {
+			} else {
+				if let Some(assignment) = scheduler::Pallet::<T>::peek_claim_queue(&core_idx) {
 					CoreState::Scheduled(polkadot_primitives::ScheduledCore {
-						para_id,
+						para_id: assignment.para_id(),
 						collator: None,
 					})
 				} else {
 					CoreState::Free
 				}
-			},
+			}
 		})
 		.collect()
 }

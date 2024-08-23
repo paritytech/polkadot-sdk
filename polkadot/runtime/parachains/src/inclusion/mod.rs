@@ -496,9 +496,14 @@ impl<T: Config> Pallet<T> {
 		T::MessageQueue::sweep_queue(AggregateMessageOrigin::Ump(UmpQueueId::Para(para)));
 	}
 
-	pub(crate) fn get_occupied_cores() -> impl Iterator<Item = CoreIndex> {
+	pub(crate) fn get_occupied_cores() -> impl Iterator<Item = (CoreIndex, ParaId)> {
 		PendingAvailability::<T>::iter_values()
-			.map(|pending_candidates| pending_candidates.iter().map(|c| c.core.clone()))
+			.map(|pending_candidates| {
+				pending_candidates
+					.iter()
+					.map(|c| (c.core.clone(), c.descriptor.para_id))
+					.collect::<Vec<_>>()
+			})
 			.flatten()
 	}
 

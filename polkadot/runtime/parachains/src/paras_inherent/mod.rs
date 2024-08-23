@@ -354,7 +354,7 @@ impl<T: Config> Pallet<T> {
 		log::debug!(target: LOG_TARGET, "Time weight before filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_before.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
 
 		let current_session = shared::CurrentSessionIndex::<T>::get();
-		let expected_bits = scheduler::AvailabilityCores::<T>::get().len();
+		let expected_bits = scheduler::Pallet::<T>::num_cores() as usize;
 		let validator_public = shared::ActiveValidatorKeys::<T>::get();
 
 		// We are assuming (incorrectly) to have all the weight (for the mandatory class or even
@@ -553,7 +553,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// We'll schedule paras again, given freed cores, and reasons for freeing.
-		let occupied_cores = inclusion::Pallet::<T>::get_occupied_cores().collect();
+		let occupied_cores =
+			inclusion::Pallet::<T>::get_occupied_cores().map(|(core, _para)| core).collect();
 		scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
@@ -599,8 +600,9 @@ impl<T: Config> Pallet<T> {
 
 		// Process backed candidates according to scheduled cores.
 		let inclusion::ProcessedCandidates::<<HeaderFor<T> as HeaderT>::Hash> {
-			core_indices: occupied,
 			candidate_receipt_with_backing_validator_indices,
+			// TODO: can we remove this?
+			..
 		} = inclusion::Pallet::<T>::process_candidates(
 			&allowed_relay_parents,
 			&backed_candidates_with_core,
