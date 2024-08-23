@@ -1285,7 +1285,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	block_relay_protocol::BlockRelayParams, block_request_handler::BlockRequestHandler,
 	engine::SyncingEngine, service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
-	warp_request_handler::RequestHandler <span class="kw">as </span>WarpSyncRequestHandler, SyncingService, WarpSyncParams,
+	warp_request_handler::RequestHandler <span class="kw">as </span>WarpSyncRequestHandler, SyncingService, WarpSyncConfig,
 };
 <span class="kw">use </span>sc_rpc::{
 	author::AuthorApiServer,
@@ -1986,8 +1986,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A block announce validator builder.
 	</span><span class="kw">pub </span>block_announce_validator_builder:
 		<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>FnOnce(Arc&lt;TCl&gt;) -&gt; Box&lt;<span class="kw">dyn </span>BlockAnnounceValidator&lt;TBl&gt; + Send&gt; + Send&gt;&gt;,
-	<span class="doccomment">/// Optional warp sync params.
-	</span><span class="kw">pub </span>warp_sync_params: <span class="prelude-ty">Option</span>&lt;WarpSyncParams&lt;TBl&gt;&gt;,
+	<span class="doccomment">/// Optional warp sync config.
+	</span><span class="kw">pub </span>warp_sync_config: <span class="prelude-ty">Option</span>&lt;WarpSyncConfig&lt;TBl&gt;&gt;,
 	<span class="doccomment">/// User specified block relay params. If not specified, the default
 	/// block request handler will be used.
 	</span><span class="kw">pub </span>block_relay: <span class="prelude-ty">Option</span>&lt;BlockRelayParams&lt;TBl, TNet&gt;&gt;,
@@ -2031,12 +2031,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		spawn_handle,
 		import_queue,
 		block_announce_validator_builder,
-		warp_sync_params,
+		warp_sync_config,
 		block_relay,
 		metrics,
 	} = params;
 
-	<span class="kw">if </span>warp_sync_params.is_none() &amp;&amp; config.network.sync_mode.is_warp() {
+	<span class="kw">if </span>warp_sync_config.is_none() &amp;&amp; config.network.sync_mode.is_warp() {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Warp sync enabled, but no warp sync provider configured."</span>.into())
 	}
 
@@ -2099,8 +2099,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(protocol_config, config_name)
 	};
 
-	<span class="kw">let </span>(warp_sync_protocol_config, warp_request_protocol_name) = <span class="kw">match </span>warp_sync_params.as_ref() {
-		<span class="prelude-val">Some</span>(WarpSyncParams::WithProvider(warp_with_provider)) =&gt; {
+	<span class="kw">let </span>(warp_sync_protocol_config, warp_request_protocol_name) = <span class="kw">match </span>warp_sync_config.as_ref() {
+		<span class="prelude-val">Some</span>(WarpSyncConfig::WithProvider(warp_with_provider)) =&gt; {
 			<span class="comment">// Allow both outgoing and incoming requests.
 			</span><span class="kw">let </span>(handler, protocol_config) = WarpSyncRequestHandler::new::&lt;<span class="kw">_</span>, TNet&gt;(
 				protocol_id.clone(),
@@ -2169,7 +2169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		protocol_id.clone(),
 		<span class="kw-2">&amp;</span>config.chain_spec.fork_id().map(ToOwned::to_owned),
 		block_announce_validator,
-		warp_sync_params,
+		warp_sync_config,
 		chain_sync_network_handle,
 		import_queue.service(),
 		block_downloader,

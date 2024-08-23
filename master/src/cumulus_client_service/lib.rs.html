@@ -718,33 +718,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -775,10 +748,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>cumulus_relay_chain_minimal_node::{
 	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
 };
-<span class="kw">use </span>futures::{
-	channel::{mpsc, oneshot},
-	FutureExt, StreamExt,
-};
+<span class="kw">use </span>futures::{channel::mpsc, StreamExt};
 <span class="kw">use </span>polkadot_primitives::{CollatorPair, OccupiedCoreAssumption};
 <span class="kw">use </span>sc_client_api::{
 	Backend <span class="kw">as </span>BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
@@ -790,7 +760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
 <span class="kw">use </span>sc_network_sync::SyncingService;
 <span class="kw">use </span>sc_network_transactions::TransactionsHandlerController;
-<span class="kw">use </span>sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncParams};
+<span class="kw">use </span>sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncConfig};
 <span class="kw">use </span>sc_telemetry::{log, TelemetryWorkerHandle};
 <span class="kw">use </span>sc_utils::mpsc::TracingUnboundedSender;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
@@ -1214,12 +1184,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">let </span>warp_sync_params = <span class="kw">match </span>parachain_config.network.sync_mode {
 		SyncMode::Warp =&gt; {
-			<span class="kw">let </span>target_block = warp_sync_get::&lt;Block, RCInterface&gt;(
-				para_id,
-				relay_chain_interface.clone(),
-				spawn_handle.clone(),
-			);
-			<span class="prelude-val">Some</span>(WarpSyncParams::WaitForTarget(target_block))
+			<span class="macro">log::debug!</span>(target: LOG_TARGET_SYNC, <span class="string">"waiting for announce block..."</span>);
+
+			<span class="kw">let </span>target_block =
+				wait_for_finalized_para_head::&lt;Block, <span class="kw">_</span>&gt;(para_id, relay_chain_interface.clone())
+					.<span class="kw">await
+					</span>.inspect_err(|e| {
+						<span class="macro">log::error!</span>(
+							target: LOG_TARGET_SYNC,
+							<span class="string">"Unable to determine parachain target block {:?}"</span>,
+							e
+						);
+					})<span class="question-mark">?</span>;
+			<span class="prelude-val">Some</span>(WarpSyncConfig::WithTarget(target_block))
 		},
 		<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 	};
@@ -1247,67 +1224,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		spawn_handle,
 		import_queue,
 		block_announce_validator_builder: <span class="prelude-val">Some</span>(Box::new(<span class="kw">move </span>|<span class="kw">_</span>| block_announce_validator)),
-		warp_sync_params,
+		warp_sync_config: warp_sync_params,
 		block_relay: <span class="prelude-val">None</span>,
 		metrics,
 	})
 }
 
-<span class="doccomment">/// Creates a new background task to wait for the relay chain to sync up and retrieve the parachain
-/// header
-</span><span class="kw">fn </span>warp_sync_get&lt;B, RCInterface&gt;(
-	para_id: ParaId,
-	relay_chain_interface: RCInterface,
-	spawner: SpawnTaskHandle,
-) -&gt; oneshot::Receiver&lt;&lt;B <span class="kw">as </span>BlockT&gt;::Header&gt;
-<span class="kw">where
-	</span>B: BlockT + <span class="lifetime">'static</span>,
-	RCInterface: RelayChainInterface + <span class="lifetime">'static</span>,
-{
-	<span class="kw">let </span>(sender, receiver) = oneshot::channel::&lt;B::Header&gt;();
-	spawner.spawn(
-		<span class="string">"cumulus-parachain-wait-for-target-block"</span>,
-		<span class="prelude-val">None</span>,
-		<span class="kw">async move </span>{
-			<span class="macro">log::debug!</span>(
-				target: LOG_TARGET_SYNC,
-				<span class="string">"waiting for announce block in a background task..."</span>,
-			);
-
-			<span class="kw">let _ </span>= wait_for_finalized_para_head::&lt;B, <span class="kw">_</span>&gt;(sender, para_id, relay_chain_interface)
-				.<span class="kw">await
-				</span>.map_err(|e| {
-					<span class="macro">log::error!</span>(
-						target: LOG_TARGET_SYNC,
-						<span class="string">"Unable to determine parachain target block {:?}"</span>,
-						e
-					)
-				});
-		}
-		.boxed(),
-	);
-
-	receiver
-}
-
 <span class="doccomment">/// Waits for the relay chain to have finished syncing and then gets the parachain header that
 /// corresponds to the last finalized relay chain block.
 </span><span class="kw">async fn </span>wait_for_finalized_para_head&lt;B, RCInterface&gt;(
-	sender: oneshot::Sender&lt;&lt;B <span class="kw">as </span>BlockT&gt;::Header&gt;,
 	para_id: ParaId,
 	relay_chain_interface: RCInterface,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt;
+) -&gt; sc_service::error::Result&lt;&lt;B <span class="kw">as </span>BlockT&gt;::Header&gt;
 <span class="kw">where
 	</span>B: BlockT + <span class="lifetime">'static</span>,
 	RCInterface: RelayChainInterface + Send + <span class="lifetime">'static</span>,
 {
-	<span class="kw">let </span><span class="kw-2">mut </span>imported_blocks = relay_chain_interface.import_notification_stream().<span class="kw">await</span><span class="question-mark">?</span>.fuse();
-	<span class="kw">while </span>imported_blocks.next().<span class="kw">await</span>.is_some() {
-		<span class="kw">let </span>is_syncing = relay_chain_interface.is_major_syncing().<span class="kw">await</span>.map_err(|e| {
-			Box::&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;::from(<span class="macro">format!</span>(
-				<span class="string">"Unable to determine sync status. {e}"
+	<span class="kw">let </span><span class="kw-2">mut </span>imported_blocks = relay_chain_interface
+		.import_notification_stream()
+		.<span class="kw">await
+		</span>.map_err(|error| {
+			sc_service::Error::Other(<span class="macro">format!</span>(
+				<span class="string">"Relay chain import notification stream error when waiting for parachain head: \
+				{error}"
 			</span>))
-		})<span class="question-mark">?</span>;
+		})<span class="question-mark">?
+		</span>.fuse();
+	<span class="kw">while </span>imported_blocks.next().<span class="kw">await</span>.is_some() {
+		<span class="kw">let </span>is_syncing = relay_chain_interface
+			.is_major_syncing()
+			.<span class="kw">await
+			</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">"Unable to determine sync status: {e}"</span>))<span class="question-mark">?</span>;
 
 		<span class="kw">if </span>!is_syncing {
 			<span class="kw">let </span>relay_chain_best_hash = relay_chain_interface
@@ -1333,8 +1280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				finalized_header.number(),
 				finalized_header.hash()
 			);
-			<span class="kw">let _ </span>= sender.send(finalized_header);
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(finalized_header)
 		}
 	}
 

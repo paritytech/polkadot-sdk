@@ -1497,55 +1497,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1345" id="1345">1345</a>
 <a href="#1346" id="1346">1346</a>
 <a href="#1347" id="1347">1347</a>
-<a href="#1348" id="1348">1348</a>
-<a href="#1349" id="1349">1349</a>
-<a href="#1350" id="1350">1350</a>
-<a href="#1351" id="1351">1351</a>
-<a href="#1352" id="1352">1352</a>
-<a href="#1353" id="1353">1353</a>
-<a href="#1354" id="1354">1354</a>
-<a href="#1355" id="1355">1355</a>
-<a href="#1356" id="1356">1356</a>
-<a href="#1357" id="1357">1357</a>
-<a href="#1358" id="1358">1358</a>
-<a href="#1359" id="1359">1359</a>
-<a href="#1360" id="1360">1360</a>
-<a href="#1361" id="1361">1361</a>
-<a href="#1362" id="1362">1362</a>
-<a href="#1363" id="1363">1363</a>
-<a href="#1364" id="1364">1364</a>
-<a href="#1365" id="1365">1365</a>
-<a href="#1366" id="1366">1366</a>
-<a href="#1367" id="1367">1367</a>
-<a href="#1368" id="1368">1368</a>
-<a href="#1369" id="1369">1369</a>
-<a href="#1370" id="1370">1370</a>
-<a href="#1371" id="1371">1371</a>
-<a href="#1372" id="1372">1372</a>
-<a href="#1373" id="1373">1373</a>
-<a href="#1374" id="1374">1374</a>
-<a href="#1375" id="1375">1375</a>
-<a href="#1376" id="1376">1376</a>
-<a href="#1377" id="1377">1377</a>
-<a href="#1378" id="1378">1378</a>
-<a href="#1379" id="1379">1379</a>
-<a href="#1380" id="1380">1380</a>
-<a href="#1381" id="1381">1381</a>
-<a href="#1382" id="1382">1382</a>
-<a href="#1383" id="1383">1383</a>
-<a href="#1384" id="1384">1384</a>
-<a href="#1385" id="1385">1385</a>
-<a href="#1386" id="1386">1386</a>
-<a href="#1387" id="1387">1387</a>
-<a href="#1388" id="1388">1388</a>
-<a href="#1389" id="1389">1389</a>
-<a href="#1390" id="1390">1390</a>
-<a href="#1391" id="1391">1391</a>
-<a href="#1392" id="1392">1392</a>
-<a href="#1393" id="1393">1393</a>
-<a href="#1394" id="1394">1394</a>
-<a href="#1395" id="1395">1395</a>
-<a href="#1396" id="1396">1396</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1580,7 +1531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
 	strategy::{
-		warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
+		warp::{EncodedProof, WarpProofRequest, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
 	},
 	types::{
@@ -1590,11 +1541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
-<span class="kw">use </span>futures::{
-	channel::oneshot,
-	future::{BoxFuture, Fuse},
-	FutureExt, StreamExt,
-};
+<span class="kw">use </span>futures::{channel::oneshot, FutureExt, StreamExt};
 <span class="kw">use </span>libp2p::request_response::OutboundFailure;
 <span class="kw">use </span>log::{debug, error, trace, warn};
 <span class="kw">use </span>prometheus_endpoint::{
@@ -1805,10 +1752,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The `PeerId`'s of all boot nodes.
 	</span>boot_node_ids: HashSet&lt;PeerId&gt;,
 
-	<span class="doccomment">/// A channel to get target block header if we skip over proofs downloading during warp sync.
-	</span>warp_sync_target_block_header_rx_fused:
-		Fuse&lt;BoxFuture&lt;<span class="lifetime">'static</span>, <span class="prelude-ty">Result</span>&lt;B::Header, oneshot::Canceled&gt;&gt;&gt;,
-
 	<span class="doccomment">/// Protocol name used for block announcements
 	</span>block_announce_protocol_name: ProtocolName,
 
@@ -1857,7 +1800,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		protocol_id: ProtocolId,
 		fork_id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;,
 		block_announce_validator: Box&lt;<span class="kw">dyn </span>BlockAnnounceValidator&lt;B&gt; + Send&gt;,
-		warp_sync_params: <span class="prelude-ty">Option</span>&lt;WarpSyncParams&lt;B&gt;&gt;,
+		warp_sync_config: <span class="prelude-ty">Option</span>&lt;WarpSyncConfig&lt;B&gt;&gt;,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box&lt;<span class="kw">dyn </span>ImportQueueService&lt;B&gt;&gt;,
 		block_downloader: Arc&lt;<span class="kw">dyn </span>BlockDownloader&lt;B&gt;&gt;,
@@ -1952,19 +1895,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
 			);
 
-		<span class="comment">// Split warp sync params into warp sync config and a channel to retrieve target block
-		// header.
-		</span><span class="kw">let </span>(warp_sync_config, warp_sync_target_block_header_rx) =
-			warp_sync_params.map_or((<span class="prelude-val">None</span>, <span class="prelude-val">None</span>), |params| {
-				<span class="kw">let </span>(config, target_block_rx) = params.split();
-				(<span class="prelude-val">Some</span>(config), target_block_rx)
-			});
-
-		<span class="comment">// Make sure polling of the target block channel is a no-op if there is no block to
-		// retrieve.
-		</span><span class="kw">let </span>warp_sync_target_block_header_rx_fused = warp_sync_target_block_header_rx
-			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
-
 		<span class="comment">// Initialize syncing strategy.
 		</span><span class="kw">let </span>strategy = SyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)<span class="question-mark">?</span>;
 
@@ -2008,7 +1938,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
-				warp_sync_target_block_header_rx_fused,
 				boot_node_ids,
 				default_peers_set_no_slot_peers,
 				default_peers_set_num_full,
@@ -2182,17 +2111,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				notification_event = <span class="self">self</span>.notification_service.next_event() =&gt; <span class="kw">match </span>notification_event {
 					<span class="prelude-val">Some</span>(event) =&gt; <span class="self">self</span>.process_notification_event(event),
 					<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
-				},
-				<span class="comment">// TODO: setting of warp sync target block should be moved to the initialization of
-				// `SyncingEngine`, see https://github.com/paritytech/polkadot-sdk/issues/3537.
-				</span>warp_target_block_header = <span class="kw-2">&amp;mut </span><span class="self">self</span>.warp_sync_target_block_header_rx_fused =&gt; {
-					<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = <span class="self">self</span>.pass_warp_sync_target_block_header(warp_target_block_header) {
-						<span class="macro">error!</span>(
-							target: LOG_TARGET,
-							<span class="string">"Failed to set warp sync target block header, terminating `SyncingEngine`."</span>,
-						);
-						<span class="kw">return
-					</span>}
 				},
 				response_event = <span class="self">self</span>.pending_responses.select_next_some() =&gt;
 					<span class="self">self</span>.process_response_event(response_event),
@@ -2442,22 +2360,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>};
 
 				<span class="self">self</span>.push_block_announce_validation(peer, announce);
-			},
-		}
-	}
-
-	<span class="kw">fn </span>pass_warp_sync_target_block_header(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		header: <span class="prelude-ty">Result</span>&lt;B::Header, oneshot::Canceled&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-		<span class="kw">match </span>header {
-			<span class="prelude-val">Ok</span>(header) =&gt; <span class="self">self</span>.strategy.set_warp_sync_target_block_header(header),
-			<span class="prelude-val">Err</span>(err) =&gt; {
-				<span class="macro">error!</span>(
-					target: LOG_TARGET,
-					<span class="string">"Failed to get target block for warp sync. Error: {err:?}"</span>,
-				);
-				<span class="prelude-val">Err</span>(())
 			},
 		}
 	}

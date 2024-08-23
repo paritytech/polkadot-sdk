@@ -1405,10 +1405,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1253" id="1253">1253</a>
 <a href="#1254" id="1254">1254</a>
 <a href="#1255" id="1255">1255</a>
-<a href="#1256" id="1256">1256</a>
-<a href="#1257" id="1257">1257</a>
-<a href="#1258" id="1258">1258</a>
-<a href="#1259" id="1259">1259</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1445,7 +1441,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	time::Duration,
 };
 
-<span class="kw">use </span>futures::{channel::oneshot, future::BoxFuture, pin_mut, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>futures::{future::BoxFuture, pin_mut, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::trace;
 <span class="kw">use </span>parking_lot::Mutex;
@@ -1478,7 +1474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	service::{network::NetworkServiceProvider, syncing_service::SyncingService},
 	state_request_handler::StateRequestHandler,
 	strategy::warp::{
-		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncParams, WarpSyncProvider,
+		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig, WarpSyncProvider,
 	},
 	warp_request_handler,
 };
@@ -2112,7 +2108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Enable transaction indexing.
 	</span><span class="kw">pub </span>storage_chain: bool,
 	<span class="doccomment">/// Optional target block header to sync to
-	</span><span class="kw">pub </span>target_block: <span class="prelude-ty">Option</span>&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;,
+	</span><span class="kw">pub </span>target_header: <span class="prelude-ty">Option</span>&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;,
 	<span class="doccomment">/// Force genesis even in case of warp &amp; light state sync.
 	</span><span class="kw">pub </span>force_genesis: bool,
 }
@@ -2276,13 +2272,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>warp_sync = Arc::new(TestWarpSyncProvider(client.clone()));
 
-		<span class="kw">let </span>warp_sync_params = <span class="kw">match </span>config.target_block {
-			<span class="prelude-val">Some</span>(target_block) =&gt; {
-				<span class="kw">let </span>(sender, receiver) = oneshot::channel::&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;();
-				<span class="kw">let _ </span>= sender.send(target_block);
-				WarpSyncParams::WaitForTarget(receiver)
-			},
-			<span class="kw">_ </span>=&gt; WarpSyncParams::WithProvider(warp_sync.clone()),
+		<span class="kw">let </span>warp_sync_config = <span class="kw">match </span>config.target_header {
+			<span class="prelude-val">Some</span>(target_header) =&gt; WarpSyncConfig::WithTarget(target_header),
+			<span class="kw">_ </span>=&gt; WarpSyncConfig::WithProvider(warp_sync.clone()),
 		};
 
 		<span class="kw">let </span>warp_protocol_config = {
@@ -2330,7 +2322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				protocol_id.clone(),
 				<span class="kw-2">&amp;</span>fork_id,
 				block_announce_validator,
-				<span class="prelude-val">Some</span>(warp_sync_params),
+				<span class="prelude-val">Some</span>(warp_sync_config),
 				chain_sync_network_handle,
 				import_queue.service(),
 				block_relay_params.downloader,

@@ -1616,42 +1616,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1464" id="1464">1464</a>
 <a href="#1465" id="1465">1465</a>
 <a href="#1466" id="1466">1466</a>
-<a href="#1467" id="1467">1467</a>
-<a href="#1468" id="1468">1468</a>
-<a href="#1469" id="1469">1469</a>
-<a href="#1470" id="1470">1470</a>
-<a href="#1471" id="1471">1471</a>
-<a href="#1472" id="1472">1472</a>
-<a href="#1473" id="1473">1473</a>
-<a href="#1474" id="1474">1474</a>
-<a href="#1475" id="1475">1475</a>
-<a href="#1476" id="1476">1476</a>
-<a href="#1477" id="1477">1477</a>
-<a href="#1478" id="1478">1478</a>
-<a href="#1479" id="1479">1479</a>
-<a href="#1480" id="1480">1480</a>
-<a href="#1481" id="1481">1481</a>
-<a href="#1482" id="1482">1482</a>
-<a href="#1483" id="1483">1483</a>
-<a href="#1484" id="1484">1484</a>
-<a href="#1485" id="1485">1485</a>
-<a href="#1486" id="1486">1486</a>
-<a href="#1487" id="1487">1487</a>
-<a href="#1488" id="1488">1488</a>
-<a href="#1489" id="1489">1489</a>
-<a href="#1490" id="1490">1490</a>
-<a href="#1491" id="1491">1491</a>
-<a href="#1492" id="1492">1492</a>
-<a href="#1493" id="1493">1493</a>
-<a href="#1494" id="1494">1494</a>
-<a href="#1495" id="1495">1495</a>
-<a href="#1496" id="1496">1496</a>
-<a href="#1497" id="1497">1497</a>
-<a href="#1498" id="1498">1498</a>
-<a href="#1499" id="1499">1499</a>
-<a href="#1500" id="1500">1500</a>
-<a href="#1501" id="1501">1501</a>
-<a href="#1502" id="1502">1502</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1680,7 +1644,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	LOG_TARGET,
 };
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>log::{debug, error, trace};
 <span class="kw">use </span>sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
@@ -1758,8 +1721,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>WarpSyncPhase&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// Waiting for peers to connect.
 	</span>AwaitingPeers { required_peers: usize },
-	<span class="doccomment">/// Waiting for target block to be received.
-	</span>AwaitingTargetBlock,
 	<span class="doccomment">/// Downloading and verifying grandpa warp proofs.
 	</span>DownloadingWarpProofs,
 	<span class="doccomment">/// Downloading target block.
@@ -1779,7 +1740,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::AwaitingPeers { required_peers } =&gt;
 				<span class="macro">write!</span>(f, <span class="string">"Waiting for {required_peers} peers to be connected"</span>),
-			<span class="self">Self</span>::AwaitingTargetBlock =&gt; <span class="macro">write!</span>(f, <span class="string">"Waiting for target block to be received"</span>),
 			<span class="self">Self</span>::DownloadingWarpProofs =&gt; <span class="macro">write!</span>(f, <span class="string">"Downloading finality proofs"</span>),
 			<span class="self">Self</span>::DownloadingTargetBlock =&gt; <span class="macro">write!</span>(f, <span class="string">"Downloading target block"</span>),
 			<span class="self">Self</span>::DownloadingState =&gt; <span class="macro">write!</span>(f, <span class="string">"Downloading state"</span>),
@@ -1799,37 +1759,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>total_bytes: u64,
 }
 
-<span class="doccomment">/// The different types of warp syncing, passed to `build_network`.
-</span><span class="kw">pub enum </span>WarpSyncParams&lt;Block: BlockT&gt; {
-	<span class="doccomment">/// Standard warp sync for the chain.
-	</span>WithProvider(Arc&lt;<span class="kw">dyn </span>WarpSyncProvider&lt;Block&gt;&gt;),
-	<span class="doccomment">/// Skip downloading proofs and wait for a header of the state that should be downloaded.
-	///
-	/// It is expected that the header provider ensures that the header is trusted.
-	</span>WaitForTarget(oneshot::Receiver&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;),
-}
-
 <span class="doccomment">/// Warp sync configuration as accepted by [`WarpSync`].
 </span><span class="kw">pub enum </span>WarpSyncConfig&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// Standard warp sync for the chain.
 	</span>WithProvider(Arc&lt;<span class="kw">dyn </span>WarpSyncProvider&lt;Block&gt;&gt;),
-	<span class="doccomment">/// Skip downloading proofs and wait for a header of the state that should be downloaded.
+	<span class="doccomment">/// Skip downloading proofs and use provided header of the state that should be downloaded.
 	///
 	/// It is expected that the header provider ensures that the header is trusted.
-	</span>WaitForTarget,
-}
-
-<span class="kw">impl</span>&lt;Block: BlockT&gt; WarpSyncParams&lt;Block&gt; {
-	<span class="doccomment">/// Split `WarpSyncParams` into `WarpSyncConfig` and warp sync target block header receiver.
-	</span><span class="kw">pub fn </span>split(
-		<span class="self">self</span>,
-	) -&gt; (WarpSyncConfig&lt;Block&gt;, <span class="prelude-ty">Option</span>&lt;oneshot::Receiver&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;&gt;) {
-		<span class="kw">match </span><span class="self">self </span>{
-			WarpSyncParams::WithProvider(provider) =&gt;
-				(WarpSyncConfig::WithProvider(provider), <span class="prelude-val">None</span>),
-			WarpSyncParams::WaitForTarget(rx) =&gt; (WarpSyncConfig::WaitForTarget, <span class="prelude-val">Some</span>(rx)),
-		}
-	}
+	</span>WithTarget(&lt;Block <span class="kw">as </span>BlockT&gt;::Header),
 }
 
 <span class="doccomment">/// Warp sync phase used by warp sync state machine.
@@ -1843,9 +1780,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		last_hash: B::Hash,
 		warp_sync_provider: Arc&lt;<span class="kw">dyn </span>WarpSyncProvider&lt;B&gt;&gt;,
 	},
-	<span class="doccomment">/// Waiting for target block to be set externally if we skip warp proofs downloading,
-	/// and start straight from the target block (used by parachains warp sync).
-	</span>PendingTargetBlock,
 	<span class="doccomment">/// Downloading target block.
 	</span>TargetBlock(B::Header),
 	<span class="doccomment">/// Warp sync is complete.
@@ -1928,7 +1862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>phase = <span class="kw">match </span>warp_sync_config {
 			WarpSyncConfig::WithProvider(warp_sync_provider) =&gt;
 				Phase::WaitingForPeers { warp_sync_provider },
-			WarpSyncConfig::WaitForTarget =&gt; Phase::PendingTargetBlock,
+			WarpSyncConfig::WithTarget(target_header) =&gt; Phase::TargetBlock(target_header),
 		};
 
 		<span class="self">Self </span>{
@@ -1941,20 +1875,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			actions: Vec::new(),
 			result: <span class="prelude-val">None</span>,
 		}
-	}
-
-	<span class="doccomment">/// Set target block externally in case we skip warp proof downloading.
-	</span><span class="kw">pub fn </span>set_target_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, header: B::Header) {
-		<span class="kw">let </span>Phase::PendingTargetBlock = <span class="self">self</span>.phase <span class="kw">else </span>{
-			<span class="macro">error!</span>(
-				target: LOG_TARGET,
-				<span class="string">"Attempt to set warp sync target block in invalid phase."</span>,
-			);
-			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-			<span class="kw">return
-		</span>};
-
-		<span class="self">self</span>.phase = Phase::TargetBlock(header);
 	}
 
 	<span class="doccomment">/// Notify that a new peer has connected.
@@ -2246,10 +2166,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				phase: WarpSyncPhase::DownloadingTargetBlock,
 				total_bytes: <span class="self">self</span>.total_proof_bytes,
 			},
-			Phase::PendingTargetBlock { .. } =&gt; WarpSyncProgress {
-				phase: WarpSyncPhase::AwaitingTargetBlock,
-				total_bytes: <span class="self">self</span>.total_proof_bytes,
-			},
 			Phase::Complete =&gt; WarpSyncProgress {
 				phase: WarpSyncPhase::Complete,
 				total_bytes: <span class="self">self</span>.total_proof_bytes + <span class="self">self</span>.total_state_bytes,
@@ -2268,14 +2184,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			state: <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.phase {
 				Phase::WaitingForPeers { .. } =&gt; SyncState::Downloading { target: Zero::zero() },
 				Phase::WarpProof { .. } =&gt; SyncState::Downloading { target: Zero::zero() },
-				Phase::PendingTargetBlock =&gt; SyncState::Downloading { target: Zero::zero() },
 				Phase::TargetBlock(header) =&gt; SyncState::Downloading { target: <span class="kw-2">*</span>header.number() },
 				Phase::Complete =&gt; SyncState::Idle,
 			},
 			best_seen_block: <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.phase {
 				Phase::WaitingForPeers { .. } =&gt; <span class="prelude-val">None</span>,
 				Phase::WarpProof { .. } =&gt; <span class="prelude-val">None</span>,
-				Phase::PendingTargetBlock =&gt; <span class="prelude-val">None</span>,
 				Phase::TargetBlock(header) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>header.number()),
 				Phase::Complete =&gt; <span class="prelude-val">None</span>,
 			},
@@ -2413,7 +2327,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>warp_sync_to_target_for_db_with_finalized_state_is_noop() {
 		<span class="kw">let </span>client = mock_client_with_state();
-		<span class="kw">let </span>config = WarpSyncConfig::WaitForTarget;
+		<span class="kw">let </span>config = WarpSyncConfig::WithTarget(&lt;Block <span class="kw">as </span>BlockT&gt;::Header::new(
+			<span class="number">1</span>,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
 		<span class="kw">let </span><span class="kw-2">mut </span>warp_sync = WarpSync::new(Arc::new(client), config);
 
 		<span class="comment">// Warp sync instantly finishes
@@ -2439,7 +2359,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>warp_sync_to_target_for_empty_db_doesnt_finish_instantly() {
 		<span class="kw">let </span>client = mock_client_without_state();
-		<span class="kw">let </span>config = WarpSyncConfig::WaitForTarget;
+		<span class="kw">let </span>config = WarpSyncConfig::WithTarget(&lt;Block <span class="kw">as </span>BlockT&gt;::Header::new(
+			<span class="number">1</span>,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
 		<span class="kw">let </span><span class="kw-2">mut </span>warp_sync = WarpSync::new(Arc::new(client), config);
 
 		<span class="comment">// No actions are emitted.
@@ -2590,7 +2516,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// Manually set to another phase.
-		</span>warp_sync.phase = Phase::PendingTargetBlock;
+		</span>warp_sync.phase = Phase::TargetBlock(&lt;Block <span class="kw">as </span>BlockT&gt;::Header::new(
+			<span class="number">1</span>,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
 
 		<span class="comment">// No request is made.
 		</span><span class="macro">assert!</span>(warp_sync.warp_proof_request().is_none());
@@ -2847,7 +2779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap()
 			.block;
 		<span class="kw">let </span>target_header = target_block.header().clone();
-		<span class="kw">let </span>config = WarpSyncConfig::WaitForTarget;
+		<span class="kw">let </span>config = WarpSyncConfig::WithTarget(target_header);
 		<span class="kw">let </span><span class="kw-2">mut </span>warp_sync = WarpSync::new(client, config);
 
 		<span class="comment">// Make sure we have enough peers to make a request.
@@ -2855,10 +2787,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
 		}
 
-		<span class="comment">// No actions generated so far.
-		</span><span class="macro">assert_eq!</span>(warp_sync.actions().count(), <span class="number">0</span>);
-
-		warp_sync.set_target_block(target_header);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(warp_sync.phase, Phase::TargetBlock(<span class="kw">_</span>)));
 
 		<span class="kw">let </span>(_peer_id, request) = warp_sync.target_block_request().unwrap();

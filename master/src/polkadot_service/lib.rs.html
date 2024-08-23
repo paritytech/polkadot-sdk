@@ -2462,7 +2462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NewFull, Error&gt; {
 	<span class="kw">use </span>polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 	<span class="kw">use </span>polkadot_node_network_protocol::request_response::IncomingRequest;
-	<span class="kw">use </span>sc_network_sync::WarpSyncParams;
+	<span class="kw">use </span>sc_network_sync::WarpSyncConfig;
 
 	<span class="kw">let </span>is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 	<span class="kw">let </span>role = config.role.clone();
@@ -2735,7 +2735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: <span class="prelude-val">None</span>,
-			warp_sync_params: <span class="prelude-val">Some</span>(WarpSyncParams::WithProvider(warp_sync)),
+			warp_sync_config: <span class="prelude-val">Some</span>(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: <span class="prelude-val">None</span>,
 			metrics,
 		})<span class="question-mark">?</span>;
