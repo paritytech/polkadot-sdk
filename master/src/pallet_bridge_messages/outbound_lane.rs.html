@@ -539,86 +539,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -643,13 +563,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ChainWithMessages, DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 };
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>frame_support::{
-	traits::Get,
-	weights::{RuntimeDbWeight, Weight},
-	BoundedVec, PalletError,
-};
+<span class="kw">use </span>frame_support::{traits::Get, BoundedVec, PalletError};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_runtime::{traits::Zero, RuntimeDebug};
+<span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>sp_std::{collections::vec_deque::VecDeque, marker::PhantomData};
 
 <span class="doccomment">/// Outbound lane storage.
@@ -764,40 +680,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		ensure_unrewarded_relayers_are_correct(confirmed_messages.end, relayers)<span class="question-mark">?</span>;
 
+		<span class="comment">// prune all confirmed messages
+		</span><span class="kw">for </span>nonce <span class="kw">in </span>confirmed_messages.begin..=confirmed_messages.end {
+			<span class="self">self</span>.storage.remove_message(<span class="kw-2">&amp;</span>nonce);
+		}
+
 		data.latest_received_nonce = confirmed_messages.end;
+		data.oldest_unpruned_nonce = data.latest_received_nonce.saturating_add(<span class="number">1</span>);
 		<span class="self">self</span>.storage.set_data(data);
 
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(confirmed_messages))
-	}
-
-	<span class="doccomment">/// Prune at most `max_messages_to_prune` already received messages.
-	///
-	/// Returns weight, consumed by messages pruning and lane state update.
-	</span><span class="kw">pub fn </span>prune_messages(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		db_weight: RuntimeDbWeight,
-		<span class="kw-2">mut </span>remaining_weight: Weight,
-	) -&gt; Weight {
-		<span class="kw">let </span>write_weight = db_weight.writes(<span class="number">1</span>);
-		<span class="kw">let </span>two_writes_weight = write_weight + write_weight;
-		<span class="kw">let </span><span class="kw-2">mut </span>spent_weight = Weight::zero();
-		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="self">self</span>.storage.data();
-		<span class="kw">while </span>remaining_weight.all_gte(two_writes_weight) &amp;&amp;
-			data.oldest_unpruned_nonce &lt;= data.latest_received_nonce
-		{
-			<span class="self">self</span>.storage.remove_message(<span class="kw-2">&amp;</span>data.oldest_unpruned_nonce);
-
-			spent_weight += write_weight;
-			remaining_weight -= write_weight;
-			data.oldest_unpruned_nonce += <span class="number">1</span>;
-		}
-
-		<span class="kw">if </span>!spent_weight.is_zero() {
-			spent_weight += write_weight;
-			<span class="self">self</span>.storage.set_data(data);
-		}
-
-		spent_weight
 	}
 }
 
@@ -842,7 +734,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			REGULAR_PAYLOAD, TEST_LANE_ID,
 		},
 	};
-	<span class="kw">use </span>frame_support::weights::constants::RocksDbWeight;
 	<span class="kw">use </span>sp_std::ops::RangeInclusive;
 
 	<span class="kw">fn </span>unrewarded_relayers(
@@ -902,7 +793,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_received_nonce, <span class="number">3</span>);
-			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">4</span>);
 		});
 	}
 
@@ -923,7 +814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_received_nonce, <span class="number">2</span>);
-			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">3</span>);
 
 			<span class="macro">assert_eq!</span>(
 				lane.confirm_delivery(<span class="number">3</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>unrewarded_relayers(<span class="number">3</span>..=<span class="number">3</span>)),
@@ -931,7 +822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_received_nonce, <span class="number">3</span>);
-			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">4</span>);
 		});
 	}
 
@@ -952,12 +843,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(lane.confirm_delivery(<span class="number">3</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>unrewarded_relayers(<span class="number">1</span>..=<span class="number">3</span>)), <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_received_nonce, <span class="number">3</span>);
-			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">4</span>);
 
 			<span class="macro">assert_eq!</span>(lane.confirm_delivery(<span class="number">1</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>unrewarded_relayers(<span class="number">1</span>..=<span class="number">1</span>)), <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_received_nonce, <span class="number">3</span>);
-			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">4</span>);
 		});
 	}
 
@@ -1013,57 +904,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			),
 			<span class="prelude-val">Err</span>(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries),
 		);
-	}
-
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>prune_messages_works() {
-		run_test(|| {
-			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
-			<span class="comment">// when lane is empty, nothing is pruned
-			</span><span class="macro">assert_eq!</span>(
-				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(<span class="number">101</span>)),
-				Weight::zero()
-			);
-			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">1</span>);
-			<span class="comment">// when nothing is confirmed, nothing is pruned
-			</span>lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
-			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
-			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
-			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">1</span>).is_some());
-			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">2</span>).is_some());
-			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">3</span>).is_some());
-			<span class="macro">assert_eq!</span>(
-				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(<span class="number">101</span>)),
-				Weight::zero()
-			);
-			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">1</span>);
-			<span class="comment">// after confirmation, some messages are received
-			</span><span class="macro">assert_eq!</span>(
-				lane.confirm_delivery(<span class="number">2</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>unrewarded_relayers(<span class="number">1</span>..=<span class="number">2</span>)),
-				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(delivered_messages(<span class="number">1</span>..=<span class="number">2</span>))),
-			);
-			<span class="macro">assert_eq!</span>(
-				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(<span class="number">101</span>)),
-				RocksDbWeight::get().writes(<span class="number">3</span>),
-			);
-			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">1</span>).is_none());
-			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">2</span>).is_none());
-			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">3</span>).is_some());
-			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">3</span>);
-			<span class="comment">// after last message is confirmed, everything is pruned
-			</span><span class="macro">assert_eq!</span>(
-				lane.confirm_delivery(<span class="number">1</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>unrewarded_relayers(<span class="number">3</span>..=<span class="number">3</span>)),
-				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(delivered_messages(<span class="number">3</span>..=<span class="number">3</span>))),
-			);
-			<span class="macro">assert_eq!</span>(
-				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(<span class="number">101</span>)),
-				RocksDbWeight::get().writes(<span class="number">2</span>),
-			);
-			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">1</span>).is_none());
-			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">2</span>).is_none());
-			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">3</span>).is_none());
-			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">4</span>);
-		});
 	}
 
 	<span class="attr">#[test]

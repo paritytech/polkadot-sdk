@@ -1014,6 +1014,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#862" id="862">862</a>
 <a href="#863" id="863">863</a>
 <a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1086,7 +1111,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
-<span class="kw">use </span>sp_runtime::traits::UniqueSaturatedFrom;
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">mod </span>inbound_lane;
@@ -1167,40 +1191,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>OwnerStorage = PalletOwner&lt;T, I&gt;;
 		<span class="kw">type </span>OperatingMode = MessagesOperatingMode;
 		<span class="kw">type </span>OperatingModeStorage = PalletOperatingMode&lt;T, I&gt;;
-	}
-
-	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt;
-	<span class="kw">where
-		</span>u32: TryFrom&lt;BlockNumberFor&lt;T&gt;&gt;,
-	{
-		<span class="kw">fn </span>on_idle(_block: BlockNumberFor&lt;T&gt;, remaining_weight: Weight) -&gt; Weight {
-			<span class="comment">// we'll need at least to read outbound lane state, kill a message and update lane state
-			</span><span class="kw">let </span>db_weight = T::DbWeight::get();
-			<span class="kw">if </span>!remaining_weight.all_gte(db_weight.reads_writes(<span class="number">1</span>, <span class="number">2</span>)) {
-				<span class="kw">return </span>Weight::zero()
-			}
-
-			<span class="comment">// messages from lane with index `i` in `ActiveOutboundLanes` are pruned when
-			// `System::block_number() % lanes.len() == i`. Otherwise we need to read lane states on
-			// every block, wasting the whole `remaining_weight` for nothing and causing starvation
-			// of the last lane pruning
-			</span><span class="kw">let </span>active_lanes = T::ActiveOutboundLanes::get();
-			<span class="kw">let </span>active_lanes_len = (active_lanes.len() <span class="kw">as </span>u32).into();
-			<span class="kw">let </span>active_lane_index = u32::unique_saturated_from(
-				frame_system::Pallet::&lt;T&gt;::block_number() % active_lanes_len,
-			);
-			<span class="kw">let </span>active_lane_id = active_lanes[active_lane_index <span class="kw">as </span>usize];
-
-			<span class="comment">// first db read - outbound lane state
-			</span><span class="kw">let </span><span class="kw-2">mut </span>active_lane = outbound_lane::&lt;T, I&gt;(active_lane_id);
-			<span class="kw">let </span><span class="kw-2">mut </span>used_weight = db_weight.reads(<span class="number">1</span>);
-			<span class="comment">// and here we'll have writes
-			</span>used_weight += active_lane.prune_messages(db_weight, remaining_weight - used_weight);
-
-			<span class="comment">// we already checked we have enough `remaining_weight` to cover this `used_weight`
-			</span>used_weight
-		}
 	}
 
 	<span class="attr">#[pallet::call]
@@ -1626,6 +1616,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
+	<span class="attr">#[pallet::hooks]
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+			<span class="self">Self</span>::do_try_state()
+		}
+	}
+
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Get stored data of the outbound message with given nonce.
 		</span><span class="kw">pub fn </span>outbound_message_data(lane: LaneId, nonce: MessageNonce) -&gt; <span class="prelude-ty">Option</span>&lt;MessagePayload&gt; {
@@ -1658,6 +1656,58 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; InboundLaneData&lt;AccountIdOf&lt;BridgedChainOf&lt;T, I&gt;&gt;&gt; {
 			InboundLanes::&lt;T, I&gt;::get(lane).<span class="number">0
 		</span>}
+	}
+
+	<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
+		<span class="doccomment">/// Ensure the correctness of the state of this pallet.
+		</span><span class="kw">pub fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+			<span class="self">Self</span>::do_try_state_for_outbound_lanes()
+		}
+
+		<span class="doccomment">/// Ensure the correctness of the state of outbound lanes.
+		</span><span class="kw">pub fn </span>do_try_state_for_outbound_lanes() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+			<span class="kw">use </span>sp_runtime::traits::One;
+			<span class="kw">use </span>sp_std::vec::Vec;
+
+			<span class="comment">// collect unpruned lanes
+			</span><span class="kw">let </span><span class="kw-2">mut </span>unpruned_lanes = Vec::new();
+			<span class="kw">for </span>(lane_id, lane_data) <span class="kw">in </span>OutboundLanes::&lt;T, I&gt;::iter() {
+				<span class="kw">let </span><span class="prelude-val">Some</span>(expected_last_prunned_nonce) =
+					lane_data.oldest_unpruned_nonce.checked_sub(One::one())
+				<span class="kw">else </span>{
+					<span class="kw">continue</span>;
+				};
+
+				<span class="comment">// collect message_nonces that were supposed to be pruned
+				</span><span class="kw">let </span><span class="kw-2">mut </span>unpruned_message_nonces = Vec::new();
+				<span class="kw">const </span>MAX_MESSAGES_ITERATION: u64 = <span class="number">16</span>;
+				<span class="kw">let </span>start_nonce =
+					expected_last_prunned_nonce.checked_sub(MAX_MESSAGES_ITERATION).unwrap_or(<span class="number">0</span>);
+				<span class="kw">for </span>current_nonce <span class="kw">in </span>start_nonce..=expected_last_prunned_nonce {
+					<span class="comment">// check a message for current_nonce
+					</span><span class="kw">if </span>OutboundMessages::&lt;T, I&gt;::contains_key(MessageKey {
+						lane_id,
+						nonce: current_nonce,
+					}) {
+						unpruned_message_nonces.push(current_nonce);
+					}
+				}
+
+				<span class="kw">if </span>!unpruned_message_nonces.is_empty() {
+					<span class="macro">log::warn!</span>(
+						target: LOG_TARGET,
+						<span class="string">"do_try_state_for_outbound_lanes for lane_id: {lane_id:?} with lane_data: {lane_data:?} found unpruned_message_nonces: {unpruned_message_nonces:?}"</span>,
+					);
+					unpruned_lanes.push((lane_id, lane_data, unpruned_message_nonces));
+				}
+			}
+
+			<span class="comment">// ensure messages before `oldest_unpruned_nonce` are really pruned.
+			</span><span class="macro">ensure!</span>(unpruned_lanes.is_empty(), <span class="string">"Found unpruned lanes!"</span>);
+
+			<span class="prelude-val">Ok</span>(())
+		}
 	}
 
 	<span class="doccomment">/// Get-parameter that returns number of active outbound lanes that the pallet maintains.
