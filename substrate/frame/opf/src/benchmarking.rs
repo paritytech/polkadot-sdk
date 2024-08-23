@@ -153,6 +153,7 @@ mod benchmarks {
 			true,
 			Conviction::Locked1x,
 		)?;
+		
 		when = Votes::<T>::get(account.clone(), caller.clone()).unwrap().funds_unlock_block;
 
 		run_to_block::<T>(when);

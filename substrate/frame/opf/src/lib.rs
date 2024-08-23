@@ -61,7 +61,6 @@ pub mod pallet {
 		type VotingPeriod: Get<BlockNumberFor<Self>>;
 
 		/// Used for Pallet testing only. Represents the Total Reward distributed
-		#[cfg(feature = "temporary")]
 		type TemporaryRewards: Get<BalanceOf<Self>>;
 
 		/// Weight information for extrinsics in this pallet.
