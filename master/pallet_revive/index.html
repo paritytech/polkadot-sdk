@@ -1,0 +1,225 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Revive Pallet"><title>pallet_revive - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_revive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-4c98445ec4002617.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive/index.html">pallet_revive</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../pallet_revive/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_revive</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_revive/lib.rs.html#18-1354">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="revive-pallet"><a class="doc-anchor" href="#revive-pallet">§</a>Revive Pallet</h2>
+<p>This is an <strong>experimental</strong> module that provides functionality for the runtime to deploy and execute PolkaVM
+smart-contracts. It is a heavily modified <code>pallet_contracts</code> fork.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>This module extends accounts based on the [<code>frame_support::traits::fungible</code>] traits to have smart-contract
+functionality. It can be used with other modules that implement accounts based on [<code>frame_support::traits::fungible</code>].
+These “smart-contract accounts” have the ability to instantiate smart-contracts and make calls to other contract and
+non-contract accounts.</p>
+<p>The smart-contract code is stored once, and later retrievable via its <code>code_hash</code>. This means that multiple
+smart-contracts can be instantiated from the same <code>code</code>, without replicating the code each time.</p>
+<p>When a smart-contract is called, its associated code is retrieved via the code hash and gets executed. This call can
+alter the storage entries of the smart-contract account, instantiate new smart-contracts, or call other smart-contracts.</p>
+<p>Finally, when an account is reaped, its associated code and storage of the smart-contract account will also be deleted.</p>
+<h4 id="weight"><a class="doc-anchor" href="#weight">§</a>Weight</h4>
+<p>Senders must specify a <a href="https://paritytech.github.io/substrate/master/sp_weights/struct.Weight.html"><code>Weight</code></a> limit
+with every call, as all instructions invoked by the smart-contract require weight. Unused weight is refunded after the
+call, regardless of the execution outcome.</p>
+<p>If the weight limit is reached, then all calls and state changes (including balance transfers) are only reverted at the
+current call’s contract level. For example, if contract A calls B and B runs out of weight mid-call, then all of B’s
+calls are reverted. Assuming correct error handling by contract A, A’s other calls and state changes still persist.</p>
+<p>One <code>ref_time</code> <code>Weight</code> is defined as one picosecond of execution time on the runtime’s reference machine.</p>
+<h4 id="revert-behaviour"><a class="doc-anchor" href="#revert-behaviour">§</a>Revert Behaviour</h4>
+<p>Contract call failures are not cascading. When failures occur in a sub-call, they do not “bubble up”, and the call will
+only revert at the specific contract level. For example, if contract A calls contract B, and B fails, A can decide how
+to handle that failure, either proceeding or reverting A’s changes.</p>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="dispatchable-functions"><a class="doc-anchor" href="#dispatchable-functions">§</a>Dispatchable functions</h4>
+<p>Those are documented in the <a href="https://paritytech.github.io/substrate/master/pallet_revive/index.html#dispatchable-functions">reference
+documentation</a>.</p>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<p>This module executes PolkaVM smart contracts. These can potentially be written in any language that compiles to
+RISC-V. For now, the only officially supported languages are Solidity (via <a href="https://github.com/xermicus/revive"><code>revive</code></a>)
+and Rust (check the <code>fixtures</code> directory for Rust examples).</p>
+<h3 id="debugging"><a class="doc-anchor" href="#debugging">§</a>Debugging</h3>
+<p>Contracts can emit messages to the client when called as RPC through the
+<a href="https://paritytech.github.io/substrate/master/pallet_revive/trait.SyscallDocs.html#tymethod.debug_message"><code>debug_message</code></a>
+API.</p>
+<p>Those messages are gathered into an internal buffer and sent to the RPC client. It is up to the individual client if
+and how those messages are presented to the user.</p>
+<p>This buffer is also printed as a debug message. In order to see these messages on the node console the log level for the
+<code>runtime::revive</code> target needs to be raised to at least the <code>debug</code> level. However, those messages are easy to
+overlook because of the noise generated by block production. A good starting point for observing them on the console is
+using this command line in the root directory of the Substrate repository:</p>
+<div class="example-wrap"><pre class="language-bash"><code>cargo run --release -- --dev -lerror,runtime::revive=debug
+</code></pre></div>
+<p>This raises the log level of <code>runtime::revive</code> to <code>debug</code> and all other targets to <code>error</code> in order to prevent them
+from spamming the console.</p>
+<p><code>--dev</code>: Use a dev chain spec <code>--tmp</code>: Use temporary storage for chain data (the chain state is deleted on exit)</p>
+<h3 id="host-function-tracing"><a class="doc-anchor" href="#host-function-tracing">§</a>Host function tracing</h3>
+<p>For contract authors, it can be a helpful debugging tool to see which host functions are called, with which arguments,
+and what the result was.</p>
+<p>In order to see these messages on the node console, the log level for the <code>runtime::revive::strace</code> target needs to
+be raised to the <code>trace</code> level.</p>
+<p>Example:</p>
+<div class="example-wrap"><pre class="language-bash"><code>cargo run --release -- --dev -lerror,runtime::revive::strace=trace,runtime::revive=debug
+</code></pre></div><h3 id="unstable-interfaces"><a class="doc-anchor" href="#unstable-interfaces">§</a>Unstable Interfaces</h3>
+<p>Driven by the desire to have an iterative approach in developing new contract interfaces this pallet contains the
+concept of an unstable interface. Akin to the rust nightly compiler it allows us to add new interfaces but mark them as
+unstable so that contract languages can experiment with them and give feedback before we stabilize those.</p>
+<p>In order to access interfaces which don’t have a stable <code>#[api_version(x)]</code> in <a href="src/wasm/runtime.rs"><code>runtime.rs</code></a>
+one need to set <code>pallet_revive::Config::UnsafeUnstableInterface</code> to <code>ConstU32&lt;true&gt;</code>.
+<strong>It should be obvious that any production runtime should never be compiled with this feature: In addition to be
+subject to change or removal those interfaces might not have proper weights associated with them and are therefore
+considered unsafe</strong>.</p>
+<p>New interfaces are generally added as unstable and might go through several iterations before they are promoted to a
+stable interface.</p>
+<p>License: Apache-2.0</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.Tracing"><code>pub use crate::debug::<a class="trait" href="debug/trait.Tracing.html" title="trait pallet_revive::debug::Tracing">Tracing</a>;</code></div></li><li><div class="item-name" id="reexport.MigrateSequence"><code>pub use crate::migration::<a class="trait" href="migration/trait.MigrateSequence.html" title="trait pallet_revive::migration::MigrateSequence">MigrateSequence</a>;</code></div></li><li><div class="item-name" id="reexport.Migration"><code>pub use crate::migration::<a class="struct" href="migration/struct.Migration.html" title="struct pallet_revive::migration::Migration">Migration</a>;</code></div></li><li><div class="item-name" id="reexport.NoopMigration"><code>pub use crate::migration::NoopMigration;</code></div></li><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_revive::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use crate::<a class="mod" href="pallet/index.html" title="mod pallet_revive::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="chain_extension/index.html" title="mod pallet_revive::chain_extension">chain_extension</a></div><div class="desc docblock-short">A mechanism for runtime authors to augment the functionality of contracts.</div></li><li><div class="item-name"><a class="mod" href="debug/index.html" title="mod pallet_revive::debug">debug</a></div></li><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod pallet_revive::migration">migration</a></div><div class="desc docblock-short">Multi-block Migration framework for pallet-revive.</div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_revive::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="test_utils/index.html" title="mod pallet_revive::test_utils">test_utils</a></div><div class="desc docblock-short">Shared utilities for testing contracts.
+This is not part of the tests module because it is made public for other crates to use.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_revive::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_revive</code></div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.build_runtime.html" title="macro pallet_revive::build_runtime">build_runtime</a></div></li><li><div class="item-name"><a class="macro" href="macro.memory.html" title="macro pallet_revive::memory">memory</a></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.CodeUploadReturnValue.html" title="struct pallet_revive::CodeUploadReturnValue">CodeUploadReturnValue</a></div><div class="desc docblock-short">The result of successfully uploading a contract.</div></li><li><div class="item-name"><a class="struct" href="struct.ContractResult.html" title="struct pallet_revive::ContractResult">ContractResult</a></div><div class="desc docblock-short">Result type of a <code>bare_call</code> or <code>bare_instantiate</code> call as well as <code>ContractsApi::call</code> and
+<code>ContractsApi::instantiate</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.DefaultAddressGenerator.html" title="struct pallet_revive::DefaultAddressGenerator">DefaultAddressGenerator</a></div><div class="desc docblock-short">Default address generator.</div></li><li><div class="item-name"><a class="struct" href="struct.ExecReturnValue.html" title="struct pallet_revive::ExecReturnValue">ExecReturnValue</a></div><div class="desc docblock-short">Output of a contract call or instantiation which ran to completion.</div></li><li><div class="item-name"><a class="struct" href="struct.InstantiateReturnValue.html" title="struct pallet_revive::InstantiateReturnValue">InstantiateReturnValue</a></div><div class="desc docblock-short">The result of a successful contract instantiation.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Code.html" title="enum pallet_revive::Code">Code</a></div><div class="desc docblock-short">Reference to an existing code hash or a new wasm module.</div></li><li><div class="item-name"><a class="enum" href="enum.CollectEvents.html" title="enum pallet_revive::CollectEvents">CollectEvents</a></div><div class="desc docblock-short">Determines whether events should be collected during execution.</div></li><li><div class="item-name"><a class="enum" href="enum.ContractAccessError.html" title="enum pallet_revive::ContractAccessError">ContractAccessError</a></div><div class="desc docblock-short">The possible errors that can happen querying the storage of a contract.</div></li><li><div class="item-name"><a class="enum" href="enum.DebugInfo.html" title="enum pallet_revive::DebugInfo">DebugInfo</a></div><div class="desc docblock-short">Determines whether debug messages will be collected.</div></li><li><div class="item-name"><a class="enum" href="enum.StorageDeposit.html" title="enum pallet_revive::StorageDeposit">StorageDeposit</a></div><div class="desc docblock-short">The amount of balance that was either charged or refunded in order to pay for storage.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AddressGenerator.html" title="trait pallet_revive::AddressGenerator">AddressGenerator</a></div><div class="desc docblock-short">Provides the contract address generation method.</div></li><li><div class="item-name"><a class="trait" href="trait.ReviveApi.html" title="trait pallet_revive::ReviveApi">ReviveApi</a></div><div class="desc docblock-short">The API used to dry-run contract interactions.</div></li><li><div class="item-name"><a class="trait" href="trait.SyscallDoc.html" title="trait pallet_revive::SyscallDoc">SyscallDoc</a></div><div class="desc docblock-short">Documentation of the syscalls (host functions) available to contracts.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.CodeUploadResult.html" title="type pallet_revive::CodeUploadResult">CodeUploadResult</a></div><div class="desc docblock-short">Result type of a <code>bare_code_upload</code> call.</div></li><li><div class="item-name"><a class="type" href="type.ContractExecResult.html" title="type pallet_revive::ContractExecResult">ContractExecResult</a></div><div class="desc docblock-short">Result type of a <code>bare_call</code> call as well as <code>ContractsApi::call</code>.</div></li><li><div class="item-name"><a class="type" href="type.ContractInstantiateResult.html" title="type pallet_revive::ContractInstantiateResult">ContractInstantiateResult</a></div><div class="desc docblock-short">Result type of a <code>bare_instantiate</code> call as well as <code>ContractsApi::instantiate</code>.</div></li><li><div class="item-name"><a class="type" href="type.GetStorageResult.html" title="type pallet_revive::GetStorageResult">GetStorageResult</a></div><div class="desc docblock-short">Result type of a <code>get_storage</code> call.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

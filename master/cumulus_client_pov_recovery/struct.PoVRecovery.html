@@ -156,7 +156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     recovery_handle: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.RecoveryHandle.html" title="trait cumulus_client_pov_recovery::RecoveryHandle">RecoveryHandle</a>&gt;,
     recovery_delay_range: <a class="struct" href="struct.RecoveryDelayRange.html" title="struct cumulus_client_pov_recovery::RecoveryDelayRange">RecoveryDelayRange</a>,
     parachain_client: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;PC&gt;,
-    parachain_import_queue: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="../sc_consensus/import_queue/trait.ImportQueueService.html" title="trait sc_consensus::import_queue::ImportQueueService">ImportQueueService</a>&lt;Block&gt;&gt;,
+    parachain_import_queue: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn ImportQueueService&lt;Block&gt;&gt;,
     relay_chain_interface: RCInterface,
     para_id: <a class="struct" href="../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
     recovery_chan_rx: Receiver&lt;<a class="struct" href="struct.RecoveryRequest.html" title="struct cumulus_client_pov_recovery::RecoveryRequest">RecoveryRequest</a>&lt;Block&gt;&gt;,

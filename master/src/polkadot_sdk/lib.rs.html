@@ -1675,6 +1675,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1523" id="1523">1523</a>
 <a href="#1524" id="1524">1524</a>
 <a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2252,6 +2272,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Remark storage pallet.
 </span><span class="attr">#[cfg(feature = <span class="string">"pallet-remark"</span>)]
 </span><span class="kw">pub use </span>pallet_remark;
+
+<span class="doccomment">/// FRAME pallet for PolkaVM contracts.
+</span><span class="attr">#[cfg(feature = <span class="string">"pallet-revive"</span>)]
+</span><span class="kw">pub use </span>pallet_revive;
+
+<span class="doccomment">/// Fixtures for testing and benchmarking.
+</span><span class="attr">#[cfg(feature = <span class="string">"pallet-revive-fixtures"</span>)]
+</span><span class="kw">pub use </span>pallet_revive_fixtures;
+
+<span class="doccomment">/// A mock network for testing pallet-revive.
+</span><span class="attr">#[cfg(feature = <span class="string">"pallet-revive-mock-network"</span>)]
+</span><span class="kw">pub use </span>pallet_revive_mock_network;
+
+<span class="doccomment">/// Procedural macros used in pallet_revive.
+</span><span class="attr">#[cfg(feature = <span class="string">"pallet-revive-proc-macro"</span>)]
+</span><span class="kw">pub use </span>pallet_revive_proc_macro;
+
+<span class="doccomment">/// Exposes all the host functions that a contract can import.
+</span><span class="attr">#[cfg(feature = <span class="string">"pallet-revive-uapi"</span>)]
+</span><span class="kw">pub use </span>pallet_revive_uapi;
 
 <span class="doccomment">/// FRAME root offences pallet.
 </span><span class="attr">#[cfg(feature = <span class="string">"pallet-root-offences"</span>)]

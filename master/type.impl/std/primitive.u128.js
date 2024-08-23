@@ -18,6 +18,7 @@
 "node_primitives":[],
 "pallet_contracts_mock_network":[],
 "pallet_nomination_pools":[],
+"pallet_revive_mock_network":[],
 "parachain_template_runtime":[],
 "parachains_common":[],
 "penpal_runtime":[],

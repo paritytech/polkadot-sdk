@@ -1,5 +1,6 @@
 (function() {var implementors = {
 "pallet_contracts_mock_network":[["impl MaybeEquivalence&lt;Location, <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.77.0/std/primitive.u128.html\">u128</a>&gt; for <a class=\"struct\" href=\"pallet_contracts_mock_network/parachain/struct.FromLocationToAsset.html\" title=\"struct pallet_contracts_mock_network::parachain::FromLocationToAsset\">FromLocationToAsset</a>&lt;Location, <a class=\"type\" href=\"pallet_contracts_mock_network/primitives/type.AssetIdForAssets.html\" title=\"type pallet_contracts_mock_network::primitives::AssetIdForAssets\">AssetIdForAssets</a>&gt;"]],
+"pallet_revive_mock_network":[["impl MaybeEquivalence&lt;Location, <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.77.0/std/primitive.u128.html\">u128</a>&gt; for <a class=\"struct\" href=\"pallet_revive_mock_network/parachain/struct.FromLocationToAsset.html\" title=\"struct pallet_revive_mock_network::parachain::FromLocationToAsset\">FromLocationToAsset</a>&lt;Location, <a class=\"type\" href=\"pallet_revive_mock_network/primitives/type.AssetIdForAssets.html\" title=\"type pallet_revive_mock_network::primitives::AssetIdForAssets\">AssetIdForAssets</a>&gt;"]],
 "polkadot_sdk_frame":[],
 "polkadot_service":[],
 "sp_runtime":[],
