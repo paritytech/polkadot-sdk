@@ -253,16 +253,6 @@ where
 		ret
 	}
 
-	fn mutate_extant<KeyArg: EncodeLike<Key>, R: Default, F: FnOnce(&mut Value) -> R>(
-		key: KeyArg,
-		f: F,
-	) -> R {
-		Self::mutate_exists(key, |maybe_v| match maybe_v {
-			Some(ref mut value) => f(value),
-			None => R::default(),
-		})
-	}
-
 	fn mutate_exists<KeyArg: EncodeLike<Key>, R, F: FnOnce(&mut Option<Value>) -> R>(
 		key: KeyArg,
 		f: F,
