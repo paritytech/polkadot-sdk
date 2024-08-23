@@ -16,6 +16,60 @@ doc:
 
 crates:
   - name: frame-system
-    bump: minor
+    bump: major
+  - name: sp-api
+    bump: none
   - name: sp-version
+    bump: major
+  - name: sp-storage
+    bump: minor
+  - name: sp-version-proc-macro
+    bump: minor
+  - name: sc-block-builder
+    bump: major
+  - name: sc-executor
+    bump: major
+  - name: sc-rpc
+    bump: none
+  - name: sc-rpc-spec-v2
+    bump: none
+  - name: cumulus-pallet-parachain-system
+    bump: none
+  - name: cumulus-client-pov-recovery
+    bump: none
+  - name: cumulus-client-network
+    bump: none
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major
+  - name: people-rococo-runtime
+    bump: major
+  - name: people-westend-runtime
+    bump: major
+  - name: penpal-runtime
+    bump: major
+  - name: contracts-rococo-runtime
+    bump: major
+  - name: glutton-westend-runtime
+    bump: major
+  - name: seedling-runtime
+    bump: major
+  - name: shell-runtime
+    bump: major
+  - name: rococo-parachain-runtime
     bump: major
