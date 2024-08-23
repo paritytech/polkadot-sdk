@@ -712,13 +712,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#560" id="560">560</a>
 <a href="#561" id="561">561</a>
 <a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -931,7 +924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
-				config.metrics_registry.clone(),
+				config.metrics_registry.as_ref(),
 				std::iter::empty(),
 			)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
@@ -1176,13 +1169,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.chain_sync.as_ref().map_or(<span class="number">0</span>, |chain_sync| chain_sync.num_sync_requests())
 	}
 
-	<span class="doccomment">/// Report Prometheus metrics
-	</span><span class="kw">pub fn </span>report_metrics(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>chain_sync) = <span class="self">self</span>.chain_sync {
-			chain_sync.report_metrics();
-		}
-	}
-
 	<span class="doccomment">/// Get actions that should be performed by the owner on the strategy's behalf
 	</span><span class="attr">#[must_use]
 	</span><span class="kw">pub fn </span>actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;SyncingAction&lt;B&gt;&gt;, ClientError&gt; {
@@ -1240,7 +1226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="self">self</span>.client.clone(),
 						<span class="self">self</span>.config.max_parallel_downloads,
 						<span class="self">self</span>.config.max_blocks_per_request,
-						<span class="self">self</span>.config.metrics_registry.clone(),
+						<span class="self">self</span>.config.metrics_registry.as_ref(),
 						<span class="self">self</span>.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(<span class="kw-2">*</span>peer_id, <span class="kw-2">*</span>best_hash, <span class="kw-2">*</span>best_number)
 						}),
@@ -1268,7 +1254,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.client.clone(),
 				<span class="self">self</span>.config.max_parallel_downloads,
 				<span class="self">self</span>.config.max_blocks_per_request,
-				<span class="self">self</span>.config.metrics_registry.clone(),
+				<span class="self">self</span>.config.metrics_registry.as_ref(),
 				<span class="self">self</span>.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(<span class="kw-2">*</span>peer_id, <span class="kw-2">*</span>best_hash, <span class="kw-2">*</span>best_number)
 				}),

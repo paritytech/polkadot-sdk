@@ -2428,8 +2428,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2276" id="2276">2276</a>
 <a href="#2277" id="2277">2277</a>
 <a href="#2278" id="2278">2278</a>
-<a href="#2279" id="2279">2279</a>
-<a href="#2280" id="2280">2280</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2475,7 +2473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>log::{debug, error, info, trace, warn};
-<span class="kw">use </span>prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
+<span class="kw">use </span>prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 <span class="kw">use </span>sc_client_api::{BlockBackend, ProofProvider};
 <span class="kw">use </span>sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 <span class="kw">use </span>sc_network_common::sync::message::{
@@ -2560,7 +2558,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">struct </span>Metrics {
 	queued_blocks: Gauge&lt;U64&gt;,
 	fork_targets: Gauge&lt;U64&gt;,
-	justifications: GaugeVec&lt;U64&gt;,
 }
 
 <span class="kw">impl </span>Metrics {
@@ -2573,16 +2570,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>},
 			fork_targets: {
 				<span class="kw">let </span>g = Gauge::new(<span class="string">"substrate_sync_fork_targets"</span>, <span class="string">"Number of fork sync targets"</span>)<span class="question-mark">?</span>;
-				register(g, r)<span class="question-mark">?
-			</span>},
-			justifications: {
-				<span class="kw">let </span>g = GaugeVec::new(
-					Opts::new(
-						<span class="string">"substrate_sync_extra_justifications"</span>,
-						<span class="string">"Number of extra justifications requests"</span>,
-					),
-					<span class="kw-2">&amp;</span>[<span class="string">"status"</span>],
-				)<span class="question-mark">?</span>;
 				register(g, r)<span class="question-mark">?
 			</span>},
 		})
@@ -2806,7 +2793,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		client: Arc&lt;Client&gt;,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
-		metrics_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
+		metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
 		initial_peers: <span class="kw">impl </span>Iterator&lt;Item = (PeerId, B::Hash, NumberFor&lt;B&gt;)&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ClientError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>sync = <span class="self">Self </span>{
@@ -2816,7 +2803,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			blocks: BlockCollection::new(),
 			best_queued_hash: Default::default(),
 			best_queued_number: Zero::zero(),
-			extra_justifications: ExtraRequests::new(<span class="string">"justification"</span>),
+			extra_justifications: ExtraRequests::new(<span class="string">"justification"</span>, metrics_registry),
 			mode,
 			queue_blocks: Default::default(),
 			fork_targets: Default::default(),
@@ -2828,7 +2815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			import_existing: <span class="bool-val">false</span>,
 			gap_sync: <span class="prelude-val">None</span>,
 			actions: Vec::new(),
-			metrics: metrics_registry.and_then(|r| <span class="kw">match </span>Metrics::register(<span class="kw-2">&amp;</span>r) {
+			metrics: metrics_registry.and_then(|r| <span class="kw">match </span>Metrics::register(r) {
 				<span class="prelude-val">Ok</span>(metrics) =&gt; <span class="prelude-val">Some</span>(metrics),
 				<span class="prelude-val">Err</span>(err) =&gt; {
 					<span class="macro">log::error!</span>(
@@ -3108,7 +3095,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="self">self</span>.fork_targets
 			.entry(<span class="kw-2">*</span>hash)
-			.or_insert_with(|| ForkTarget { number, peers: Default::default(), parent_hash: <span class="prelude-val">None </span>})
+			.or_insert_with(|| {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+					metrics.fork_targets.inc();
+				}
+
+				ForkTarget { number, peers: Default::default(), parent_hash: <span class="prelude-val">None </span>}
+			})
 			.peers
 			.extend(peers);
 	}
@@ -3315,10 +3308,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								);
 								<span class="self">self</span>.fork_targets
 									.entry(peer.best_hash)
-									.or_insert_with(|| ForkTarget {
-										number: peer.best_number,
-										parent_hash: <span class="prelude-val">None</span>,
-										peers: Default::default(),
+									.or_insert_with(|| {
+										<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+											metrics.fork_targets.inc();
+										}
+
+										ForkTarget {
+											number: peer.best_number,
+											parent_hash: <span class="prelude-val">None</span>,
+											peers: Default::default(),
+										}
 									})
 									.peers
 									.insert(<span class="kw-2">*</span>peer_id);
@@ -3558,10 +3557,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="self">self</span>.fork_targets
 				.entry(hash)
-				.or_insert_with(|| ForkTarget {
-					number,
-					parent_hash: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>announce.header.parent_hash()),
-					peers: Default::default(),
+				.or_insert_with(|| {
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+						metrics.fork_targets.inc();
+					}
+
+					ForkTarget {
+						number,
+						parent_hash: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>announce.header.parent_hash()),
+						peers: Default::default(),
+					}
 				})
 				.peers
 				.insert(peer_id);
@@ -3593,41 +3598,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target.peers.remove(peer_id);
 			!target.peers.is_empty()
 		});
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+			metrics.fork_targets.set(<span class="self">self</span>.fork_targets.len().try_into().unwrap_or(u64::MAX));
+		}
 
 		<span class="kw">let </span>blocks = <span class="self">self</span>.ready_blocks();
 
 		<span class="kw">if </span>!blocks.is_empty() {
 			<span class="self">self</span>.validate_and_queue_blocks(blocks, <span class="bool-val">false</span>);
-		}
-	}
-
-	<span class="doccomment">/// Report prometheus metrics.
-	</span><span class="kw">pub fn </span>report_metrics(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
-			metrics
-				.fork_targets
-				.set(<span class="self">self</span>.fork_targets.len().try_into().unwrap_or(std::u64::MAX));
-			metrics
-				.queued_blocks
-				.set(<span class="self">self</span>.queue_blocks.len().try_into().unwrap_or(std::u64::MAX));
-
-			<span class="kw">let </span>justifications_metrics = <span class="self">self</span>.extra_justifications.metrics();
-			metrics
-				.justifications
-				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"pending"</span>])
-				.set(justifications_metrics.pending_requests.into());
-			metrics
-				.justifications
-				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"active"</span>])
-				.set(justifications_metrics.active_requests.into());
-			metrics
-				.justifications
-				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"failed"</span>])
-				.set(justifications_metrics.failed_requests.into());
-			metrics
-				.justifications
-				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"importing"</span>])
-				.set(justifications_metrics.importing_requests.into());
 		}
 	}
 
@@ -3696,6 +3674,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.on_block_queued(h, n)
 		}
 		<span class="self">self</span>.queue_blocks.extend(new_blocks.iter().map(|b| b.hash));
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+			metrics
+				.queued_blocks
+				.set(<span class="self">self</span>.queue_blocks.len().try_into().unwrap_or(u64::MAX));
+		}
 
 		<span class="self">self</span>.actions.push(ChainSyncAction::ImportBlocks { origin, blocks: new_blocks })
 	}
@@ -3712,6 +3695,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// through all peers to update our view of their state as well.
 	</span><span class="kw">fn </span>on_block_queued(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>B::Hash, number: NumberFor&lt;B&gt;) {
 		<span class="kw">if </span><span class="self">self</span>.fork_targets.remove(hash).is_some() {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+				metrics.fork_targets.dec();
+			}
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Completed fork sync {hash:?}"</span>);
 		}
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(gap_sync) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.gap_sync {
@@ -3981,12 +3967,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			std::cmp::min(<span class="self">self</span>.best_queued_number, <span class="self">self</span>.client.info().finalized_number);
 		<span class="kw">let </span>best_queued = <span class="self">self</span>.best_queued_number;
 		<span class="kw">let </span>client = <span class="kw-2">&amp;</span><span class="self">self</span>.client;
-		<span class="kw">let </span>queue = <span class="kw-2">&amp;</span><span class="self">self</span>.queue_blocks;
+		<span class="kw">let </span>queue_blocks = <span class="kw-2">&amp;</span><span class="self">self</span>.queue_blocks;
 		<span class="kw">let </span>allowed_requests = <span class="self">self</span>.allowed_requests.take();
 		<span class="kw">let </span>max_parallel = <span class="kw">if </span>is_major_syncing { <span class="number">1 </span>} <span class="kw">else </span>{ <span class="self">self</span>.max_parallel_downloads };
 		<span class="kw">let </span>max_blocks_per_request = <span class="self">self</span>.max_blocks_per_request;
 		<span class="kw">let </span>gap_sync = <span class="kw-2">&amp;mut </span><span class="self">self</span>.gap_sync;
 		<span class="kw">let </span>disconnected_peers = <span class="kw-2">&amp;mut </span><span class="self">self</span>.disconnected_peers;
+		<span class="kw">let </span>metrics = <span class="self">self</span>.metrics.as_ref();
 		<span class="self">self</span>.peers
 			.iter_mut()
 			.filter_map(<span class="kw">move </span>|(<span class="kw-2">&amp;</span>id, peer)| {
@@ -4006,7 +3993,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					MAX_BLOCKS_TO_LOOK_BACKWARDS.into() &amp;&amp;
 					best_queued &lt; peer.best_number &amp;&amp;
 					peer.common_number &lt; last_finalized &amp;&amp;
-					queue.len() &lt;= MAJOR_SYNC_BLOCKS.into()
+					queue_blocks.len() &lt;= MAJOR_SYNC_BLOCKS.into()
 				{
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
@@ -4049,13 +4036,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					last_finalized,
 					attrs,
 					|hash| {
-						<span class="kw">if </span>queue.contains(hash) {
+						<span class="kw">if </span>queue_blocks.contains(hash) {
 							BlockStatus::Queued
 						} <span class="kw">else </span>{
 							client.block_status(<span class="kw-2">*</span>hash).unwrap_or(BlockStatus::Unknown)
 						}
 					},
 					max_blocks_per_request,
+					metrics,
 				) {
 					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Downloading fork {hash:?} from {id}"</span>);
 					peer.state = PeerSyncState::DownloadingStale(hash);
@@ -4196,7 +4184,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>has_error = <span class="bool-val">false</span>;
 		<span class="kw">for </span>(<span class="kw">_</span>, hash) <span class="kw">in </span><span class="kw-2">&amp;</span>results {
-			<span class="self">self</span>.queue_blocks.remove(hash);
+			<span class="kw">if </span><span class="self">self</span>.queue_blocks.remove(hash) {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+					metrics.queued_blocks.dec();
+				}
+			}
 			<span class="self">self</span>.blocks.clear_queued(hash);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(gap_sync) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.gap_sync {
 				gap_sync.blocks.clear_queued(hash);
@@ -4526,14 +4518,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Get pending fork sync targets for a peer.
 </span><span class="kw">fn </span>fork_sync_request&lt;B: BlockT&gt;(
 	id: <span class="kw-2">&amp;</span>PeerId,
-	targets: <span class="kw-2">&amp;mut </span>HashMap&lt;B::Hash, ForkTarget&lt;B&gt;&gt;,
+	fork_targets: <span class="kw-2">&amp;mut </span>HashMap&lt;B::Hash, ForkTarget&lt;B&gt;&gt;,
 	best_num: NumberFor&lt;B&gt;,
 	finalized: NumberFor&lt;B&gt;,
 	attributes: BlockAttributes,
 	check_block: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>B::Hash) -&gt; BlockStatus,
 	max_blocks_per_request: u32,
+	metrics: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Metrics&gt;,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;(B::Hash, BlockRequest&lt;B&gt;)&gt; {
-	targets.retain(|hash, r| {
+	fork_targets.retain(|hash, r| {
 		<span class="kw">if </span>r.number &lt;= finalized {
 			<span class="macro">trace!</span>(
 				target: LOG_TARGET,
@@ -4554,7 +4547,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 		<span class="bool-val">true
 	</span>});
-	<span class="kw">for </span>(hash, r) <span class="kw">in </span>targets {
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics {
+		metrics.fork_targets.set(fork_targets.len().try_into().unwrap_or(u64::MAX));
+	}
+	<span class="kw">for </span>(hash, r) <span class="kw">in </span>fork_targets {
 		<span class="kw">if </span>!r.peers.contains(<span class="kw-2">&amp;</span>id) {
 			<span class="kw">continue
 		</span>}

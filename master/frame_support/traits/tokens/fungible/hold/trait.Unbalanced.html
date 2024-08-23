@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         reason: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungible::hold::Inspect::Reason">Reason</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-    ) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>;
+    ) -&gt; DispatchResult;
 
     // Provided methods
     fn <a href="#method.decrease_balance_on_hold" class="fn">decrease_balance_on_hold</a>(
@@ -181,7 +181,7 @@ use.</p>
     reason: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungible::hold::Inspect::Reason">Reason</a>,
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Forcefully set the balance on hold of <code>who</code> to <code>amount</code>. This is independent of any other
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Forcefully set the balance on hold of <code>who</code> to <code>amount</code>. This is independent of any other
 balances on hold or the main (“free”) balance.</p>
 <p>If this call executes successfully, you can <code>assert_eq!(Self::balance_on_hold(), amount);</code>.</p>
 <p>This function does its best to force the balance change through, but will not break system

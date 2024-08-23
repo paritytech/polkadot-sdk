@@ -1495,8 +1495,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1343" id="1343">1343</a>
 <a href="#1344" id="1344">1344</a>
 <a href="#1345" id="1345">1345</a>
-<a href="#1346" id="1346">1346</a>
-<a href="#1347" id="1347">1347</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1970,15 +1968,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		))
 	}
 
-	<span class="doccomment">/// Report Prometheus metrics.
-	</span><span class="kw">pub fn </span>report_metrics(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
-			<span class="kw">let </span>n = u64::try_from(<span class="self">self</span>.peers.len()).unwrap_or(std::u64::MAX);
-			metrics.peers.set(n);
-		}
-		<span class="self">self</span>.strategy.report_metrics();
-	}
-
 	<span class="kw">fn </span>update_peer_info(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		peer_id: <span class="kw-2">&amp;</span>PeerId,
@@ -2105,7 +2094,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub async fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>) {
 		<span class="kw">loop </span>{
 			<span class="macro">tokio::select! </span>{
-				<span class="kw">_ </span>= <span class="self">self</span>.tick_timeout.tick() =&gt; <span class="self">self</span>.perform_periodic_actions(),
+				<span class="kw">_ </span>= <span class="self">self</span>.tick_timeout.tick() =&gt; {
+					<span class="comment">// TODO: This tick should not be necessary, but
+					//  `self.process_strategy_actions()` is not called in some cases otherwise and
+					//  some tests fail because of this
+				</span>},
 				command = <span class="self">self</span>.service_rx.select_next_some() =&gt;
 					<span class="self">self</span>.process_service_command(command),
 				notification_event = <span class="self">self</span>.notification_service.next_event() =&gt; <span class="kw">match </span>notification_event {
@@ -2221,10 +2214,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="kw">fn </span>perform_periodic_actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="self">self</span>.report_metrics();
 	}
 
 	<span class="kw">fn </span>process_service_command(<span class="kw-2">&amp;mut </span><span class="self">self</span>, command: ToServiceCommand&lt;B&gt;) {
@@ -2372,6 +2361,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{peer_id} does not exist in `SyncingEngine`"</span>);
 			<span class="kw">return
 		</span>};
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+			metrics.peers.dec();
+		}
 
 		<span class="kw">if </span><span class="self">self</span>.important_peers.contains(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Reserved peer {peer_id} disconnected"</span>);
@@ -2547,7 +2539,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Connected {peer_id}"</span>);
 
-		<span class="self">self</span>.peers.insert(peer_id, peer);
+		<span class="kw">if </span><span class="self">self</span>.peers.insert(peer_id, peer).is_none() {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+				metrics.peers.inc();
+			}
+		}
 		<span class="self">self</span>.peer_store_handle.set_peer_role(<span class="kw-2">&amp;</span>peer_id, status.roles.into());
 
 		<span class="kw">if </span><span class="self">self</span>.default_peers_set_no_slot_peers.contains(<span class="kw-2">&amp;</span>peer_id) {
