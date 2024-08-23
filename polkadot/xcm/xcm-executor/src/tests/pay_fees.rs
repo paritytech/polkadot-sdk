@@ -44,7 +44,7 @@ fn works_for_execution_fees() {
 		.deposit_asset(All, RECIPIENT.clone())
 		.build();
 
-	let mut vm = instantiate_executor(SENDER, xcm.clone());
+	let (mut vm, weight) = instantiate_executor(SENDER, xcm.clone());
 
 	// Program runs successfully.
 	assert!(vm.bench_process(xcm).is_ok());
@@ -57,6 +57,10 @@ fn works_for_execution_fees() {
 	// The recipient received all the assets in the holding register, so `100` that
 	// were withdrawn, minus the `10` that were destinated for fee payment.
 	assert_eq!(asset_list(RECIPIENT), [(Here, 90u128).into()]);
+
+	// Leftover fees get trapped.
+	assert!(vm.bench_post_process(weight).ensure_complete().is_ok());
+	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 6u128).into()])
 }
 
 // This tests the new functionality provided by `PayFees`, being able to pay for
@@ -82,7 +86,7 @@ fn works_for_delivery_fees() {
 		.deposit_asset(All, RECIPIENT.clone())
 		.build();
 
-	let mut vm = instantiate_executor(SENDER.clone(), xcm.clone());
+	let (mut vm, _) = instantiate_executor(SENDER.clone(), xcm.clone());
 
 	// Program runs successfully.
 	assert!(vm.bench_process(xcm).is_ok());
@@ -135,7 +139,7 @@ fn buy_execution_works_as_before() {
 		.deposit_asset(All, RECIPIENT.clone())
 		.build();
 
-	let mut vm = instantiate_executor(SENDER, xcm.clone());
+	let (mut vm, _) = instantiate_executor(SENDER, xcm.clone());
 
 	// Program runs successfully.
 	assert!(vm.bench_process(xcm).is_ok());
@@ -165,7 +169,7 @@ fn fees_can_be_refunded() {
 		.deposit_asset(All, SENDER.clone())
 		.build();
 
-	let mut vm = instantiate_executor(SENDER.clone(), xcm.clone());
+	let (mut vm, _) = instantiate_executor(SENDER.clone(), xcm.clone());
 
 	// Program runs successfully.
 	assert!(vm.bench_process(xcm).is_ok());
@@ -197,7 +201,7 @@ fn putting_all_assets_in_pay_fees() {
 		.deposit_asset(All, RECIPIENT.clone())
 		.build();
 
-	let mut vm = instantiate_executor(SENDER.clone(), xcm.clone());
+	let (mut vm, _) = instantiate_executor(SENDER.clone(), xcm.clone());
 
 	// Program runs successfully.
 	assert!(vm.bench_process(xcm).is_ok());
@@ -234,7 +238,7 @@ fn refunding_too_early() {
 		.report_error(query_response_info)
 		.build();
 
-	let mut vm = instantiate_executor(SENDER.clone(), xcm.clone());
+	let (mut vm, _) = instantiate_executor(SENDER.clone(), xcm.clone());
 
 	// Program fails to run.
 	assert!(vm.bench_process(xcm).is_err());

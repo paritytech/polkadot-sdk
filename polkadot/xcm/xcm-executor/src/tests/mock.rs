@@ -38,11 +38,12 @@ use crate::{
 pub fn instantiate_executor(
 	origin: impl Into<Location>,
 	message: Xcm<<XcmConfig as Config>::RuntimeCall>,
-) -> XcmExecutor<XcmConfig> {
+) -> (XcmExecutor<XcmConfig>, Weight) {
 	let mut vm =
 		XcmExecutor::<XcmConfig>::new(origin, message.using_encoded(sp_io::hashing::blake2_256));
-	vm.message_weight = XcmExecutor::<XcmConfig>::prepare(message.clone()).unwrap().weight_of();
-	vm
+	let weight = XcmExecutor::<XcmConfig>::prepare(message.clone()).unwrap().weight_of();
+	vm.message_weight = weight;
+	(vm, weight)
 }
 
 parameter_types! {
@@ -200,15 +201,15 @@ impl WeightTrader for TestTrader {
 }
 
 /// Account where all dropped assets are deposited.
-pub const VOID_ACCOUNT: [u8; 32] = [255; 32];
+pub const TRAPPED_ASSETS: [u8; 32] = [255; 32];
 
-/// Test asset trap that moves all dropped assets to the `VOID_ACCOUNT` account.
+/// Test asset trap that moves all dropped assets to the `TRAPPED_ASSETS` account.
 pub struct TestAssetTrap;
 impl DropAssets for TestAssetTrap {
 	fn drop_assets(_origin: &Location, assets: AssetsInHolding, _context: &XcmContext) -> Weight {
 		ASSETS.with(|a| {
 			a.borrow_mut()
-				.entry(VOID_ACCOUNT.into())
+				.entry(TRAPPED_ASSETS.into())
 				.or_insert(AssetsInHolding::new())
 				.subsume_assets(assets)
 		});

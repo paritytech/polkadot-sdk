@@ -582,6 +582,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		self.process(xcm)
 	}
 
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	pub fn bench_post_process(self, xcm_weight: Weight) -> Outcome {
+		self.post_process(xcm_weight)
+	}
+
 	fn process(&mut self, xcm: Xcm<Config::RuntimeCall>) -> Result<(), ExecutorError> {
 		tracing::trace!(
 			target: "xcm::process",
