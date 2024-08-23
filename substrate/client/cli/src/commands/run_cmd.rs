@@ -128,11 +128,12 @@ pub struct RunCmd {
 	#[arg(long, value_name = "PORT")]
 	pub rpc_port: Option<u16>,
 
-	/// Specify the JSON-RPC server interface and this option which can be enabled several times if
-	/// you want expose several RPC interfaces with different configurations.
+	/// EXPERIMENTAL: Specify the JSON-RPC server interface and this option which can be enabled
+	/// several times if you want expose several RPC interfaces with different configurations.
 	///
-	/// The format for this option is: `--rpc-endpoint"listen-addr=<ip:port>,<key=value>,..."`
-	/// where each option is separated by a comma and `listen-addr` is the only required param.
+	/// The format for this option is:
+	/// `--experimental-rpc-endpoint"listen-addr=<ip:port>,<key=value>,..."` where each option is
+	/// separated by a comma and `listen-addr` is the only required param.
 	///
 	/// The following options are available:
 	///  • listen-addr: The socket address (ip:port) to listen on. Be careful to not expose the
@@ -157,13 +158,15 @@ pub struct RunCmd {
 	///  • rate-limit-trust-proxy-headers: Trust proxy headers for disable rate limiting (optional)
 	///  • rate-limit-whitelisted-ips: Disable rate limiting for certain ip addresses (optional)
 	///  • retry-random-port: If the port is already in use, retry with a random port (optional)
+	///
+	/// Use with care, this flag is unstable and subject to change.
 	#[arg(
 		long,
 		num_args = 1..,
 		verbatim_doc_comment,
 		conflicts_with_all = &["rpc_external", "unsafe_rpc_external", "rpc_port", "rpc_cors", "rpc_rate_limit_trust_proxy_headers", "rpc_rate_limit", "rpc_rate_limit_whitelisted_ips", "rpc_message_buffer_capacity_per_connection", "rpc_disable_batch_requests", "rpc_max_subscriptions_per_connection", "rpc_max_request_size", "rpc_max_response_size"]
 	)]
-	pub rpc_endpoint: Vec<RpcEndpoint>,
+	pub experimental_rpc_endpoint: Vec<RpcEndpoint>,
 
 	/// Maximum number of RPC server connections.
 	#[arg(long, value_name = "COUNT", default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
@@ -448,8 +451,8 @@ impl CliConfiguration for RunCmd {
 	}
 
 	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<RpcEndpoint>>> {
-		if !self.rpc_endpoint.is_empty() {
-			for endpoint in &self.rpc_endpoint {
+		if !self.experimental_rpc_endpoint.is_empty() {
+			for endpoint in &self.experimental_rpc_endpoint {
 				// Technically, `0.0.0.0` isn't a public IP address, but it's a way to listen on
 				// all interfaces. Thus, we consider it as a public endpoint and warn about it.
 				if endpoint.rpc_methods == RpcMethods::Unsafe && endpoint.is_global() ||
@@ -462,7 +465,7 @@ impl CliConfiguration for RunCmd {
 				}
 			}
 
-			return Ok(Some(self.rpc_endpoint.clone()));
+			return Ok(Some(self.experimental_rpc_endpoint.clone()));
 		}
 
 		let (ipv4, ipv6) = rpc_interface(
