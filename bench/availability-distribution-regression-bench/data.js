@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724407304812,
+  "lastUpdate": 1724428326601,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23243,6 +23243,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011435402813333339,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Yuri Volkov",
+            "username": "mutantcornholio",
+            "email": "0@mcornholio.ru"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b3c2a25b73bb4854f26204068f0aec3e8577196c",
+          "message": "Moving `Find FAIL-CI` check to GHA (#5377)",
+          "timestamp": "2024-08-23T14:03:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b3c2a25b73bb4854f26204068f0aec3e8577196c"
+        },
+        "date": 1724428299126,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1803930067933333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013893032480000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022728275233333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011856065760000005,
             "unit": "seconds"
           }
         ]
