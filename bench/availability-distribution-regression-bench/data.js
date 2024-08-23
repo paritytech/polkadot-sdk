@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724342895909,
+  "lastUpdate": 1724407304812,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23191,6 +23191,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16776898215333338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Gustavo Gonzalez",
+            "username": "ggonzalez94",
+            "email": "ggonzalezsomer@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4ffccac4fe4d2294dfa63b20155f9c6052c69574",
+          "message": "Update OpenZeppelin template documentation (#5398)\n\n# Description\nUpdates `template.rs` to reflect the two OZ templates available and a\nshort description\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T`\n  required)\n* External contributors: ask maintainers to put the right label on your\nPR.\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>",
+          "timestamp": "2024-08-23T08:17:28Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ffccac4fe4d2294dfa63b20155f9c6052c69574"
+        },
+        "date": 1724407276184,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022682732140000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013512266086666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17797905230000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011435402813333339,
             "unit": "seconds"
           }
         ]
