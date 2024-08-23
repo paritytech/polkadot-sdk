@@ -1,3 +1,4 @@
+
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -58,6 +59,7 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn vote(r: u32, ) -> Weight;
 	fn remove_vote(r: u32, ) -> Weight;
+	fn unlock_funds(r: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_opf` using the Substrate node and recommended hardware.
@@ -78,10 +80,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `277 + r * (32 ±0)`
 		//  Estimated: `6192`
-		// Minimum execution time: 84_557_000 picoseconds.
-		Weight::from_parts(85_970_703, 6192)
-			// Standard Error: 1_503
-			.saturating_add(Weight::from_parts(16_191, 0).saturating_mul(r.into()))
+		// Minimum execution time: 84_136_000 picoseconds.
+		Weight::from_parts(85_531_315, 6192)
+			// Standard Error: 7_241
+			.saturating_add(Weight::from_parts(117_991, 0).saturating_mul(r.into()))
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -98,12 +100,28 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `492`
 		//  Estimated: `3676`
-		// Minimum execution time: 68_126_000 picoseconds.
-		Weight::from_parts(69_761_261, 3676)
-			// Standard Error: 1_041
-			.saturating_add(Weight::from_parts(2_380, 0).saturating_mul(r.into()))
+		// Minimum execution time: 67_756_000 picoseconds.
+		Weight::from_parts(69_024_099, 3676)
+			// Standard Error: 1_038
+			.saturating_add(Weight::from_parts(1_894, 0).saturating_mul(r.into()))
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Storage: `OptimisticProjectFunding::Votes` (r:1 w:0)
+	/// Proof: `OptimisticProjectFunding::Votes` (`max_values`: None, `max_size`: Some(126), added: 2601, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `MaxEncodedLen`)
+	/// The range of component `r` is `[1, 64]`.
+	fn unlock_funds(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `478`
+		//  Estimated: `3676`
+		// Minimum execution time: 75_452_000 picoseconds.
+		Weight::from_parts(97_430_164, 3676)
+			// Standard Error: 6_339
+			.saturating_add(Weight::from_parts(1_257, 0).saturating_mul(r.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -124,10 +142,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `277 + r * (32 ±0)`
 		//  Estimated: `6192`
-		// Minimum execution time: 84_557_000 picoseconds.
-		Weight::from_parts(85_970_703, 6192)
-			// Standard Error: 1_503
-			.saturating_add(Weight::from_parts(16_191, 0).saturating_mul(r.into()))
+		// Minimum execution time: 84_136_000 picoseconds.
+		Weight::from_parts(85_531_315, 6192)
+			// Standard Error: 7_241
+			.saturating_add(Weight::from_parts(117_991, 0).saturating_mul(r.into()))
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -144,11 +162,27 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `492`
 		//  Estimated: `3676`
-		// Minimum execution time: 68_126_000 picoseconds.
-		Weight::from_parts(69_761_261, 3676)
-			// Standard Error: 1_041
-			.saturating_add(Weight::from_parts(2_380, 0).saturating_mul(r.into()))
+		// Minimum execution time: 67_756_000 picoseconds.
+		Weight::from_parts(69_024_099, 3676)
+			// Standard Error: 1_038
+			.saturating_add(Weight::from_parts(1_894, 0).saturating_mul(r.into()))
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `OptimisticProjectFunding::Votes` (r:1 w:0)
+	/// Proof: `OptimisticProjectFunding::Votes` (`max_values`: None, `max_size`: Some(126), added: 2601, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `MaxEncodedLen`)
+	/// The range of component `r` is `[1, 64]`.
+	fn unlock_funds(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `478`
+		//  Estimated: `3676`
+		// Minimum execution time: 75_452_000 picoseconds.
+		Weight::from_parts(97_430_164, 3676)
+			// Standard Error: 6_339
+			.saturating_add(Weight::from_parts(1_257, 0).saturating_mul(r.into()))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

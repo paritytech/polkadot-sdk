@@ -126,7 +126,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/*#[benchmark]
+	#[benchmark]
 	fn unlock_funds(
 		r: Linear<1, { T::MaxWhitelistedProjects::get() }>,
 	) -> Result<(), BenchmarkError> {
@@ -157,12 +157,13 @@ mod benchmarks {
 		when = Votes::<T>::get(account.clone(), caller.clone()).unwrap().funds_unlock_block;
 
 		run_to_block::<T>(when);
+		on_idle_full_block::<T>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account);
 
 		Ok(())
-	}*/
+	}
 
 	impl_benchmark_test_suite!(Opf, crate::mock::new_test_ext(), crate::mock::Test);
 }

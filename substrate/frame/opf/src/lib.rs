@@ -308,7 +308,7 @@ pub mod pallet {
 		///  
 		/// ## Events
 		#[pallet::call_index(2)]
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
+		#[pallet::weight(<T as Config>::WeightInfo::unlock_funds(T::MaxWhitelistedProjects::get()))]
 		pub fn unlock_funds(origin: OriginFor<T>, project: AccountIdOf<T>) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
 			let infos =
