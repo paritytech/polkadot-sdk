@@ -22,7 +22,7 @@ name: Check the getting-started.sh script
 # We test a selected handful of combinations here.
 
 on:
-  push:
+  pull_request:
     paths:
       - '.github/workflows/check-getting-started.yml'
       - 'scripts/getting-started.sh'
