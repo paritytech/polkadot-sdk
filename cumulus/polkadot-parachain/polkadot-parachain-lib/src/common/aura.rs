@@ -18,9 +18,11 @@
 
 use codec::Codec;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::BlockT;
 use sp_consensus_aura::AuraApi;
-use sp_runtime::app_crypto::{AppCrypto, AppPair, AppSignature, Pair};
+use sp_runtime::{
+	app_crypto::{AppCrypto, AppPair, AppSignature, Pair},
+	traits::Block as BlockT,
+};
 
 /// Convenience trait for defining the basic bounds of an `AuraId`.
 pub trait AuraIdT: AppCrypto<Pair = Self::BoundedPair> + Codec + Send {
