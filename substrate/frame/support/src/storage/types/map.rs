@@ -300,13 +300,6 @@ where
 		sp_io::storage::append(&key, item.encode());
 	}
 
-	fn decode_len<KeyArg: EncodeLike<Key>>(key: KeyArg) -> Option<usize>
-	where
-		Value: StorageDecodeLength,
-	{
-		Value::decode_len(&Self::hashed_key_for(key))
-	}
-
 	fn migrate_key<OldHasher: StorageHasher, KeyArg: EncodeLike<Key>>(
 		key: KeyArg,
 	) -> Option<Value> {
