@@ -132,7 +132,7 @@ pub struct RunCmd {
 	/// several times if you want expose several RPC interfaces with different configurations.
 	///
 	/// The format for this option is:
-	/// `--experimental-rpc-endpoint"listen-addr=<ip:port>,<key=value>,..."` where each option is
+	/// `--experimental-rpc-endpoint" listen-addr=<ip:port>,<key=value>,..."` where each option is
 	/// separated by a comma and `listen-addr` is the only required param.
 	///
 	/// The following options are available:
