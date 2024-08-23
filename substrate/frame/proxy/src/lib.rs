@@ -148,14 +148,10 @@ pub mod pallet {
 			+ Default
 			+ MaxEncodedLen;
 
-		/// A means of providing some cost for storing annoucement data on-chain.
+		/// A means of providing some cost for storing announcement data on-chain.
 		type AnnouncementConsideration: Consideration<Self::AccountId, Footprint>;
 
-		/// The amount of currency needed per proxy added.
-		///
-		/// This is held for adding 32 bytes plus an instance of `ProxyType` more into a
-		/// pre-existing storage value. Thus, when configuring `ProxyDepositFactor` one should take
-		/// into account `32 + proxy_type.encode().len()` bytes of data.
+		/// A means of providing some cost for storing proxy data on-chain.
 		type ProxyConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// The maximum amount of proxies allowed for a single account.
@@ -420,22 +416,18 @@ pub mod pallet {
 					let (mut pending, ticket) = if let Some(v) = value.take() {
 						v
 					} else {
-						let bounded_announcements: BoundedVec<
-							Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>,
-							T::MaxPending,
-						> = Default::default();
 						(
-							bounded_announcements,
+							Default::default(),
 							T::AnnouncementConsideration::new(
 								&who,
-								Footprint::from_parts(0, Self::annoucement_size_bytes()),
+								Footprint::from_parts(0, Self::announcement_size_bytes()),
 							)?,
 						)
 					};
 					pending.try_push(announcement).map_err(|_| Error::<T>::TooMany)?;
 					let new_ticket = ticket.clone().update(
 						&who,
-						Footprint::from_parts(pending.len(), Self::annoucement_size_bytes()),
+						Footprint::from_parts(pending.len(), Self::announcement_size_bytes()),
 					)?;
 					*value = Some((pending, new_ticket));
 					Ok::<(), DispatchError>(())
@@ -632,7 +624,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	const fn annoucement_size_bytes() -> usize {
+	const fn announcement_size_bytes() -> usize {
 		core::mem::size_of::<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>>()
 	}
 
@@ -708,12 +700,8 @@ impl<T: Config> Pallet<T> {
 			let (mut proxies, ticket) = if let Some(v) = value.take() {
 				v
 			} else {
-				let bounded_proxies: BoundedVec<
-					ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
-					T::MaxProxies,
-				> = Default::default();
 				(
-					bounded_proxies,
+					Default::default(),
 					T::ProxyConsideration::new(
 						delegator,
 						Footprint::from_parts(0, Self::proxy_def_size_bytes()),
@@ -800,7 +788,7 @@ impl<T: Config> Pallet<T> {
 			ensure!(orig_pending_len > pending.len(), Error::<T>::NotFound);
 			let new_ticket = ticket.update(
 				delegate,
-				Footprint::from_parts(pending.len(), Self::annoucement_size_bytes()),
+				Footprint::from_parts(pending.len(), Self::announcement_size_bytes()),
 			)?;
 			*x = Some((pending, new_ticket));
 			Ok(())
