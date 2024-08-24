@@ -9,21 +9,5 @@ doc:
 
 crates: 
     - name: frame-support
-      bump: minor
-    - name: bridge-runtime-common
-      bump: minor
-    - name: pallet-bridge-grandpa
-      bump: minor
-    - name: pallet-bridge-messages
-      bump: minor
-    - name: pallet-bridge-parachains
-      bump: minor
-    - name: pallet-bags-list-remote-tests
-      bump: minor
-    - name: pallet-bounties
-      bump: minor
-    - name: pallet-session
-      bump: minor
-    - name: substrate-frame-rpc-support
-      bump: minor
+      bump: major
 
