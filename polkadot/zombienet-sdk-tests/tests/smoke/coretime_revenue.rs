@@ -48,12 +48,6 @@ type CoretimeUtilityCall = coretime_api::runtime_types::pallet_utility::pallet::
 type CoretimeBrokerCall = coretime_api::runtime_types::pallet_broker::pallet::Call;
 
 // On-demand coretime base fee (set at the genesis)
-//
-// NB: This fee MUST always be higher than RC's existential deposit value. Otherwise, when
-//     some insta coretime is bought for the base fee value, it gets transferred from the buyer's
-//     account to the pallet pot and gets burnt immediately if the pot was empty. That
-//     results in everything messed up afterwards when funds have to be withdrawn from the pot and
-//     teleported to the PC as revenue.
 const ON_DEMAND_BASE_FEE: u128 = 50_000_000;
 
 async fn get_total_issuance(
