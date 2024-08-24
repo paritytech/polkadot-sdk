@@ -2123,7 +2123,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>result = <span class="self">Self</span>::assemble_collators();
 
 			frame_system::Pallet::&lt;T&gt;::register_extra_weight_unchecked(
-				T::WeightInfo::new_session(candidates_len_before, removed),
+				T::WeightInfo::new_session(removed, candidates_len_before),
 				DispatchClass::Mandatory,
 			);
 			<span class="prelude-val">Some</span>(result)

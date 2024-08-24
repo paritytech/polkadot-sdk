@@ -160,12 +160,12 @@ and for testing.</li>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.send" class="method"><a class="src rightside" href="../../src/polkadot_node_subsystem_util/reputation.rs.html#60-69">source</a><h4 class="code-header">pub async fn <a href="#method.send" class="fn">send</a>(
     &amp;mut self,
-    sender: &amp;mut impl SubsystemSender&lt;NetworkBridgeTxMessage&gt;
+    sender: &amp;mut impl SubsystemSender&lt;<a class="enum" href="../../polkadot_node_subsystem_types/messages/enum.NetworkBridgeTxMessage.html" title="enum polkadot_node_subsystem_types::messages::NetworkBridgeTxMessage">NetworkBridgeTxMessage</a>&gt;
 )</h4></section></summary><div class="docblock"><p>Sends collected reputation changes in a batch,
 removing them from inner state</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.modify" class="method"><a class="src rightside" href="../../src/polkadot_node_subsystem_util/reputation.rs.html#73-88">source</a><h4 class="code-header">pub async fn <a href="#method.modify" class="fn">modify</a>(
     &amp;mut self,
-    sender: &amp;mut impl SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
+    sender: &amp;mut impl SubsystemSender&lt;<a class="enum" href="../../polkadot_node_subsystem_types/messages/enum.NetworkBridgeTxMessage.html" title="enum polkadot_node_subsystem_types::messages::NetworkBridgeTxMessage">NetworkBridgeTxMessage</a>&gt;,
     peer_id: <a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
     rep: UnifiedReputationChange
 )</h4></section></summary><div class="docblock"><p>Adds reputation change to inner state

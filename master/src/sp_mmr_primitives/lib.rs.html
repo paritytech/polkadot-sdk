@@ -954,7 +954,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// It is different from [`OpaqueLeaf`], because it does implement `Codec`
 /// and the encoding has to match raw `Vec&lt;u8&gt;` encoding.
-</span><span class="attr">#[derive(codec::Encode, codec::Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+</span><span class="attr">#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
 </span><span class="kw">pub struct </span>EncodableOpaqueLeaf(<span class="kw">pub </span>Vec&lt;u8&gt;);
 
 <span class="kw">impl </span>EncodableOpaqueLeaf {
