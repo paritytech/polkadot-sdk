@@ -4,8 +4,8 @@
 The **OPF Pallet** handles the Optimistic Project Funding. 
 It allows users to nominate projects (whitelisted in OpenGov) with their DOT. This mechanism will be funded with a constant stream of DOT taken directly from inflation and distributed to projects based on the proportion of DOT that has nominated them.
 The project rewards distribution is handled by the **Distribution Pallet**
-The voting round timeline is described below for someone voting for a project with no conviction round_1 and
-for another project with a conviction of 1x in round_2:
+The voting round timeline is described below for someone voting for a project with no conviction round_0 and
+for another project with a conviction of 1x in round_1:
 
 ```
 |----------Voting_Round_0-----------|----------Voting_Round_1-----------|
