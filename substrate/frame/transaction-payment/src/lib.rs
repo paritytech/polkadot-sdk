@@ -825,9 +825,6 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 	}
 }
 
-// FAIL-CI
-pub type Hey;
-
 impl<T: Config> SignedExtension for ChargeTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64>,
