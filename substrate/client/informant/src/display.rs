@@ -101,17 +101,9 @@ impl<B: BlockT> InformantDisplay<B> {
 					_,
 					Some(WarpSyncProgress { phase: WarpSyncPhase::DownloadingBlocks(n), .. }),
 				) if !sync_status.is_major_syncing() => ("⏩", "Block history".into(), format!(", #{}", n)),
-				(
-					_,
-					_,
-					Some(WarpSyncProgress { phase: WarpSyncPhase::AwaitingTargetBlock, .. }),
-				) => ("⏩", "Waiting for pending target block".into(), "".into()),
 				// Handle all phases besides the two phases we already handle above.
 				(_, _, Some(warp))
-					if !matches!(
-						warp.phase,
-						WarpSyncPhase::AwaitingTargetBlock | WarpSyncPhase::DownloadingBlocks(_)
-					) =>
+					if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) =>
 					(
 						"⏩",
 						"Warping".into(),
