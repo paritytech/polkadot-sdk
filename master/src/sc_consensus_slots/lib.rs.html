@@ -1392,7 +1392,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1240" id="1240">1240</a>
 <a href="#1241" id="1241">1241</a>
 <a href="#1242" id="1242">1242</a>
-<a href="#1243" id="1243">1243</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1912,16 +1911,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CIDP: CreateInherentDataProviders&lt;B, ()&gt; + Send + <span class="lifetime">'static</span>,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 {
-	<span class="kw">let </span><span class="kw-2">mut </span>slots = Slots::new(slot_duration.as_duration(), create_inherent_data_providers, client);
+	<span class="kw">let </span><span class="kw-2">mut </span>slots = Slots::new(
+		slot_duration.as_duration(),
+		create_inherent_data_providers,
+		client,
+		sync_oracle,
+	);
 
 	<span class="kw">loop </span>{
 		<span class="kw">let </span>slot_info = slots.next_slot().<span class="kw">await</span>;
-
-		<span class="kw">if </span>sync_oracle.is_major_syncing() {
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Skipping proposal slot due to sync."</span>);
-			<span class="kw">continue
-		</span>}
-
 		<span class="kw">let _ </span>= worker.on_slot(slot_info).<span class="kw">await</span>;
 	}
 }

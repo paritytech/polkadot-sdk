@@ -337,6 +337,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -360,7 +369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! This is used instead of `futures_timer::Interval` because it was unreliable.
 
 </span><span class="kw">use super</span>::{InherentDataProviderExt, Slot, LOG_TARGET};
-<span class="kw">use </span>sp_consensus::SelectChain;
+<span class="kw">use </span>sp_consensus::{SelectChain, SyncOracle};
 <span class="kw">use </span>sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT};
 
@@ -426,21 +435,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A stream that returns every time there is a new slot.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Slots&lt;Block, SC, IDP&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Slots&lt;Block, SC, IDP, SO&gt; {
 	last_slot: Slot,
 	slot_duration: Duration,
 	until_next_slot: <span class="prelude-ty">Option</span>&lt;Delay&gt;,
 	create_inherent_data_providers: IDP,
 	select_chain: SC,
+	sync_oracle: SO,
 	_phantom: std::marker::PhantomData&lt;Block&gt;,
 }
 
-<span class="kw">impl</span>&lt;Block, SC, IDP&gt; Slots&lt;Block, SC, IDP&gt; {
+<span class="kw">impl</span>&lt;Block, SC, IDP, SO&gt; Slots&lt;Block, SC, IDP, SO&gt; {
 	<span class="doccomment">/// Create a new `Slots` stream.
 	</span><span class="kw">pub fn </span>new(
 		slot_duration: Duration,
 		create_inherent_data_providers: IDP,
 		select_chain: SC,
+		sync_oracle: SO,
 	) -&gt; <span class="self">Self </span>{
 		Slots {
 			last_slot: <span class="number">0</span>.into(),
@@ -448,17 +459,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			until_next_slot: <span class="prelude-val">None</span>,
 			create_inherent_data_providers,
 			select_chain,
+			sync_oracle,
 			_phantom: Default::default(),
 		}
 	}
 }
 
-<span class="kw">impl</span>&lt;Block, SC, IDP&gt; Slots&lt;Block, SC, IDP&gt;
+<span class="kw">impl</span>&lt;Block, SC, IDP, SO&gt; Slots&lt;Block, SC, IDP, SO&gt;
 <span class="kw">where
 	</span>Block: BlockT,
 	SC: SelectChain&lt;Block&gt;,
 	IDP: CreateInherentDataProviders&lt;Block, ()&gt; + <span class="lifetime">'static</span>,
 	IDP::InherentDataProviders: <span class="kw">crate</span>::InherentDataProviderExt,
+	SO: SyncOracle,
 {
 	<span class="doccomment">/// Returns a future that fires when the next slot starts.
 	</span><span class="kw">pub async fn </span>next_slot(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; SlotInfo&lt;Block&gt; {
@@ -476,6 +489,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Schedule delay for next slot.
 			</span><span class="kw">let </span>wait_dur = time_until_next_slot(<span class="self">self</span>.slot_duration);
 			<span class="self">self</span>.until_next_slot = <span class="prelude-val">Some</span>(Delay::new(wait_dur));
+
+			<span class="kw">if </span><span class="self">self</span>.sync_oracle.is_major_syncing() {
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Skipping slot: major sync is in progress."</span>);
+				<span class="kw">continue</span>;
+			}
 
 			<span class="kw">let </span>chain_head = <span class="kw">match </span><span class="self">self</span>.select_chain.best_chain().<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(x) =&gt; x,
