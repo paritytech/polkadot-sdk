@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724428626315,
+  "lastUpdate": 1724546030734,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -18563,6 +18563,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 18.358037784166672,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "José Molina Colmenero",
+            "username": "Moliholy",
+            "email": "jose@blockdeep.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "475432f462450c3ca29b48066482765c87420ad3",
+          "message": "pallet-collator-selection: correctly register weight in `new_session` (#5430)\n\nThe `pallet-collator-selection` is not correctly using the weight for\nthe\n[new_session](https://github.com/blockdeep/pallet-collator-staking/blob/main/src/benchmarking.rs#L350-L353)\nfunction.\n\nThe first parameter is the removed candidates, and the second one the\noriginal number of candidates before the removal, but both values are\nswapped.",
+          "timestamp": "2024-08-24T22:38:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/475432f462450c3ca29b48066482765c87420ad3"
+        },
+        "date": 1724546004023,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.034461756133334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.16463817823333332,
             "unit": "seconds"
           }
         ]
