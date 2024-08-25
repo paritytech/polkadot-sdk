@@ -4135,8 +4135,7 @@ fn test_multi_page_payout_stakers_by_page() {
 
 #[test]
 fn unbond_with_chill_works() {
-	//
-	// * Should test
+	// Should test:
 	// * Given an account being bonded [and chosen as a validator](not mandatory)
 	// * it can force unbond a portion of its funds from the stash account.
 	ExtBuilder::default().nominate(false).build_and_execute(|| {

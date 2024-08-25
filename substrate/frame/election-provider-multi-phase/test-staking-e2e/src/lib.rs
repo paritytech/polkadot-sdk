@@ -245,8 +245,8 @@ fn ledger_consistency_active_balance_below_ed() {
 	execute_with(ext, || {
 		assert_eq!(Staking::ledger(11.into()).unwrap().active, 1000);
 
-		// unbonding total of active stake passes because Chill occurs implicitly when unbonding
-		// full amount
+		// unbonding total of active stake passes because chill occurs implicitly when unbonding
+		// full amount.
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 
 		// the active balance of the ledger entry is 0, while total balance is 1000 until

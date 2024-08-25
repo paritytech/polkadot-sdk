@@ -1,4 +1,4 @@
-title: "Chill and Full Unbond in [pallet_staking]"
+title: "Implicit chill when full unbounding in [pallet_staking]"
 
 doc:
   - audience: Runtime Dev
@@ -8,3 +8,4 @@ doc:
 
 crates:
   - name: pallet-staking
+    bump: minor
