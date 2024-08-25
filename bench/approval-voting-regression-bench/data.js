@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724428028486,
+  "lastUpdate": 1724545433261,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -15885,6 +15885,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.4625530340401793,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "José Molina Colmenero",
+            "username": "Moliholy",
+            "email": "jose@blockdeep.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "475432f462450c3ca29b48066482765c87420ad3",
+          "message": "pallet-collator-selection: correctly register weight in `new_session` (#5430)\n\nThe `pallet-collator-selection` is not correctly using the weight for\nthe\n[new_session](https://github.com/blockdeep/pallet-collator-staking/blob/main/src/benchmarking.rs#L350-L353)\nfunction.\n\nThe first parameter is the removed candidates, and the second one the\noriginal number of candidates before the removal, but both values are\nswapped.",
+          "timestamp": "2024-08-24T22:38:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/475432f462450c3ca29b48066482765c87420ad3"
+        },
+        "date": 1724545406323,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 64037.96,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.718658806359993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.7360097644299035,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.715958127870208,
             "unit": "seconds"
           }
         ]
