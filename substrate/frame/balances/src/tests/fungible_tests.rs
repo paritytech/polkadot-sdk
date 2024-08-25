@@ -518,24 +518,25 @@ fn freeze_consideration_works() {
 			let who = 4;
 			// freeze amount taken somewhere outside of our (Consideration) scope.
 			let extend_freeze = 15;
+			let zero_ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0);
 
-			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap().unwrap();
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 10);
 
-			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap().unwrap();
+			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 4);
 
 			assert_ok!(Balances::increase_frozen(&TestId::Foo, &who, extend_freeze));
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 4 + extend_freeze);
 
-			let ticket = ticket.update(&who, Footprint::from_parts(8, 1)).unwrap().unwrap();
+			let ticket = ticket.update(&who, Footprint::from_parts(8, 1)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 8 + extend_freeze);
 
-			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), None);
+			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), zero_ticket);
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0 + extend_freeze);
 
-			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap().unwrap();
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 10 + extend_freeze);
 
 			let _ = ticket.drop(&who).unwrap();
@@ -560,24 +561,26 @@ fn hold_consideration_works() {
 			let who = 4;
 			// hold amount taken somewhere outside of our (Consideration) scope.
 			let extend_hold = 15;
+
+			let zero_ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0);
 
-			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap().unwrap();
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10);
 
-			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap().unwrap();
+			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 4);
 
 			assert_ok!(Balances::hold(&TestId::Foo, &who, extend_hold));
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 4 + extend_hold);
 
-			let ticket = ticket.update(&who, Footprint::from_parts(8, 1)).unwrap().unwrap();
+			let ticket = ticket.update(&who, Footprint::from_parts(8, 1)).unwrap();
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 8 + extend_hold);
 
-			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), None);
+			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), zero_ticket);
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0 + extend_hold);
 
-			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap().unwrap();
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10 + extend_hold);
 
 			let _ = ticket.drop(&who).unwrap();
@@ -600,21 +603,22 @@ fn lone_freeze_consideration_works() {
 			>;
 
 			let who = 4;
+			let zero_ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0);
 
-			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap().unwrap();
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 10);
 
 			assert_ok!(Balances::increase_frozen(&TestId::Foo, &who, 5));
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 15);
 
-			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap().unwrap();
+			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 4);
 
-			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), None);
+			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), zero_ticket);
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0);
 
-			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap().unwrap();
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 10);
 
 			let _ = ticket.drop(&who).unwrap();
@@ -637,21 +641,22 @@ fn lone_hold_consideration_works() {
 			>;
 
 			let who = 4;
+			let zero_ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0);
 
-			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap().unwrap();
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10);
 
 			assert_ok!(Balances::hold(&TestId::Foo, &who, 5));
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 15);
 
-			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap().unwrap();
+			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 4);
 
-			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), None);
+			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), zero_ticket);
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0);
 
-			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap().unwrap();
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10);
 
 			let _ = ticket.drop(&who).unwrap();

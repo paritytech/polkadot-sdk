@@ -1335,6 +1335,7 @@ impl pallet_beefy_mmr::Config for Runtime {
 	type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
 	type LeafExtra = H256;
 	type BeefyDataProvider = ParaHeadsRootProvider;
+	type WeightInfo = weights::pallet_beefy_mmr::WeightInfo<Runtime>;
 }
 
 impl paras_sudo_wrapper::Config for Runtime {}
@@ -1579,6 +1580,13 @@ pub mod migrations {
 				<slots::Pallet<Runtime> as Leaser<BlockNumber>>::lease_period_index(now)?;
 			Some(index.saturating_add(lease.len() as u32).saturating_mul(LeasePeriod::get()))
 		}
+
+		fn get_all_parachains_with_leases() -> Vec<ParaId> {
+			slots::Leases::<Runtime>::iter()
+				.filter(|(_, lease)| !lease.is_empty())
+				.map(|(para, _)| para)
+				.collect::<Vec<_>>()
+		}
 	}
 
 	parameter_types! {
@@ -1629,47 +1637,45 @@ pub mod migrations {
 
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
-		pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
-		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
-		assigned_slots::migration::v1::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
-		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
-		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		paras_registrar::migration::MigrateToV1<Runtime, ()>,
-		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
-		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
+        pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
+        parachains_configuration::migration::v7::MigrateToV7<Runtime>,
+        assigned_slots::migration::v1::MigrateToV1<Runtime>,
+        parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
+        parachains_configuration::migration::v8::MigrateToV8<Runtime>,
+        parachains_configuration::migration::v9::MigrateToV9<Runtime>,
+        paras_registrar::migration::MigrateToV1<Runtime, ()>,
+        pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
+        pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
 
-		// Unlock & unreserve Gov1 funds
+        // Unlock & unreserve Gov1 funds
 
-		pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
-		pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
-		pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
+        pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
+        pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
+        pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
 
-		// Delete all Gov v1 pallet storage key/values.
+        // Delete all Gov v1 pallet storage key/values.
 
-		frame_support::migrations::RemovePallet<DemocracyPalletName, <Runtime as frame_system::Config>::DbWeight>,
-		frame_support::migrations::RemovePallet<CouncilPalletName, <Runtime as frame_system::Config>::DbWeight>,
-		frame_support::migrations::RemovePallet<TechnicalCommitteePalletName, <Runtime as frame_system::Config>::DbWeight>,
-		frame_support::migrations::RemovePallet<PhragmenElectionPalletName, <Runtime as frame_system::Config>::DbWeight>,
-		frame_support::migrations::RemovePallet<TechnicalMembershipPalletName, <Runtime as frame_system::Config>::DbWeight>,
-		frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
+        frame_support::migrations::RemovePallet<DemocracyPalletName, <Runtime as frame_system::Config>::DbWeight>,
+        frame_support::migrations::RemovePallet<CouncilPalletName, <Runtime as frame_system::Config>::DbWeight>,
+        frame_support::migrations::RemovePallet<TechnicalCommitteePalletName, <Runtime as frame_system::Config>::DbWeight>,
+        frame_support::migrations::RemovePallet<PhragmenElectionPalletName, <Runtime as frame_system::Config>::DbWeight>,
+        frame_support::migrations::RemovePallet<TechnicalMembershipPalletName, <Runtime as frame_system::Config>::DbWeight>,
+        frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
+        pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
+        parachains_configuration::migration::v10::MigrateToV10<Runtime>,
 
-		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
+        // Migrate Identity pallet for Usernames
+        pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
+        parachains_configuration::migration::v11::MigrateToV11<Runtime>,
+        // This needs to come after the `parachains_configuration` above as we are reading the configuration.
+        coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl, TIMESLICE_PERIOD>,
+        parachains_configuration::migration::v12::MigrateToV12<Runtime>,
+        parachains_on_demand::migration::MigrateV0ToV1<Runtime>,
 
-		// Migrate Identity pallet for Usernames
-		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
-		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
-		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
-		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
-		parachains_configuration::migration::v12::MigrateToV12<Runtime>,
-		parachains_on_demand::migration::MigrateV0ToV1<Runtime>,
-
-		// permanent
-		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-
-		parachains_inclusion::migration::MigrateToV1<Runtime>,
-	);
+        // permanent
+        pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+        parachains_inclusion::migration::MigrateToV1<Runtime>,
+    );
 }
 
 /// Executive: handles dispatch to the various modules.
@@ -1735,6 +1741,7 @@ mod benches {
 		// Substrate
 		[pallet_balances, Balances]
 		[pallet_balances, NisCounterpartBalances]
+		[pallet_beefy_mmr, MmrLeaf]
 		[frame_benchmarking::baseline, Baseline::<Runtime>]
 		[pallet_bounties, Bounties]
 		[pallet_child_bounties, ChildBounties]

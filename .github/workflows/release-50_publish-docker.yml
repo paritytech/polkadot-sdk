@@ -75,12 +75,13 @@ env:
   # EVENT_ACTION: ${{ github.event.action }}
   EVENT_NAME: ${{ github.event_name }}
   IMAGE_TYPE: ${{ inputs.image_type }}
-  VERSION: ${{ inputs.version }}
 
 jobs:
   validate-inputs:
     runs-on: ubuntu-latest
     outputs:
+        version: ${{ steps.validate_inputs.outputs.VERSION }}
+        release_id: ${{ steps.validate_inputs.outputs.RELEASE_ID }}
         stable_tag: ${{ steps.validate_inputs.outputs.stable_tag }}
 
     steps:
@@ -93,10 +94,12 @@ jobs:
           . ./.github/scripts/common/lib.sh
 
           VERSION=$(filter_version_from_input "${{ inputs.version }}")
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
           RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
-          echo "RELEASE_ID=${RELEASE_ID}" >> $GITHUB_ENV
+          echo "RELEASE_ID=${RELEASE_ID}" >> $GITHUB_OUTPUT
+
+          echo "Release ID: $RELEASE_ID"
 
           STABLE_TAG=$(validate_stable_tag ${{ inputs.stable_tag }})
           echo "stable_tag=${STABLE_TAG}" >> $GITHUB_OUTPUT
@@ -104,6 +107,7 @@ jobs:
   fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
+    needs: [validate-inputs]
 
     steps:
       - name: Checkout sources
@@ -129,6 +133,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
+          VERSION="${{ needs.validate-inputs.outputs.VERSION }}"
           fetch_release_artifacts_from_s3
 
       - name: Fetch chain-spec-builder rc artifacts or release artifacts based on release id
@@ -137,6 +142,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
+          RELEASE_ID="${{ needs.validate-inputs.outputs.RELEASE_ID }}"
           fetch_release_artifacts
 
       - name: Upload artifacts
@@ -181,8 +187,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
-          release=release-$RELEASE_ID && \
+          release="release-${{ needs.validate-inputs.outputs.RELEASE_ID }}" && \
           echo "release=${release}" >> $GITHUB_OUTPUT
 
           commit=$(git rev-parse --short HEAD) && \
@@ -198,9 +203,14 @@ jobs:
         id: fetch_release_refs
         run: |
           chmod a+rx $BINARY
-          [[ $BINARY != 'chain-spec-builder' ]] && VERSION=$(./$BINARY --version | awk '{ print $2 }' )
 
-          release=$( echo $VERSION | cut -f1 -d- )
+          if [[ $BINARY != 'chain-spec-builder' ]]; then
+            VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+            release=$( echo $VERSION | cut -f1 -d- )
+          else
+            release=$(echo ${{ needs.validate-inputs.outputs.VERSION }} | sed 's/^v//')
+          fi
+
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
           echo "stable=${{ needs.validate-inputs.outputs.stable_tag }}" >> $GITHUB_OUTPUT
