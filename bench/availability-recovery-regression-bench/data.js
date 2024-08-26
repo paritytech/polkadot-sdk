@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724693788893,
+  "lastUpdate": 1724708615697,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -18731,6 +18731,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.3908004603666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b34d4a083f71245794604fd9fa6464e714f958b1",
+          "message": "[CI] Fix SemVer check base commit (#5361)\n\nAfter seeing some cases of reported changes that did not happen by the\nmerge request proposer (like\nhttps://github.com/paritytech/polkadot-sdk/pull/5339), it became clear\nthat [this](https://github.com/orgs/community/discussions/59677) is\nprobably the issue.\nThe base commit of the SemVer check CI is currently using the *latest*\nmaster commit, instead of the master commit at the time when the MR was\ncreated.\n\nTrying to get the correct base commit now. For this to be debugged, i\nhave to wait until another MR is merged into master.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-26T19:53:56Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34d4a083f71245794604fd9fa6464e714f958b1"
+        },
+        "date": 1724708588286,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20160580263333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.40321475623334,
             "unit": "seconds"
           }
         ]
