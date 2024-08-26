@@ -31,7 +31,10 @@ use frame_support::{
 	traits::{EnqueueMessage, ExecuteOverweightError, ServiceQueues},
 	weights::Weight,
 };
-use polkadot_primitives::{well_known_keys, Id as ParaId, UpwardMessage};
+use polkadot_primitives::{
+	vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR},
+	well_known_keys, Id as ParaId, UpwardMessage,
+};
 use sp_crypto_hashing::{blake2_256, twox_64};
 use sp_runtime::traits::Bounded;
 
@@ -638,6 +641,42 @@ fn cannot_offboard_while_ump_dispatch_queued() {
 		// Offboarding completed.
 		run_to_block(11, vec![11]);
 		assert!(!Paras::is_valid_para(para));
+	});
+}
+
+/// A para-chain cannot send an UMP to the relay chain while it is offboarding.
+#[test]
+fn enqueue_ump_signals() {
+	let para = 100.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		register_parachain(para);
+		run_to_block(5, vec![4, 5]);
+
+		let config = configuration::ActiveConfig::<Test>::get();
+		let mut messages = (0..config.max_upward_message_num_per_candidate)
+			.into_iter()
+			.map(|_| "msg".encode())
+			.collect::<Vec<_>>();
+		let expected_messages = messages.iter().cloned().map(|msg| (para, msg)).collect::<Vec<_>>();
+
+		// `UMPSignals` and separator do not count as XCM messages. The below check must pass.
+		messages.append(&mut vec![
+			UMP_SEPARATOR,
+			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode(),
+		]);
+
+		ParaInclusion::check_upward_messages(
+			&configuration::ActiveConfig::<Test>::get(),
+			para,
+			&messages,
+		)
+		.unwrap();
+
+		// We expect that all messages except UMP signal and separator are processed
+		ParaInclusion::receive_upward_messages(para, &messages);
+		MessageQueue::service_queues(Weight::max_value());
+		assert_eq!(Processed::take(), expected_messages);
 	});
 }
 
