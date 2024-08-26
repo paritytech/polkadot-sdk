@@ -1,6 +1,8 @@
 crates:
-- bump: minor
+- bump: patch
   name: frame-omni-bencher
+- bump: patch
+  name: frame-benchmarking-cli
 doc:
 - audience: Runtime Dev
   description: |
