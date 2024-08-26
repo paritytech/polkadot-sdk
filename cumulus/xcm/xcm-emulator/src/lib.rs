@@ -31,7 +31,10 @@ pub use core::{cell::RefCell, fmt::Debug};
 pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessageOrigin;
 pub use frame_support::{
 	assert_ok,
-	sp_runtime::{traits::{Header as HeaderT, Dispatchable}, DispatchResult},
+	sp_runtime::{
+		traits::{Dispatchable, Header as HeaderT},
+		DispatchResult,
+	},
 	traits::{
 		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
 		ProcessMessage, ProcessMessageError, ServiceQueues,
@@ -1203,7 +1206,7 @@ macro_rules! __impl_check_assertion {
 			Args: Clone,
 		{
 			fn check_assertion(test: $crate::Test<Origin, Destination, Hops, Args>) {
-				use $crate::{TestExt, Dispatchable};
+				use $crate::{Dispatchable, TestExt};
 
 				let chain_name = std::any::type_name::<$chain<$network>>();
 
@@ -1212,11 +1215,13 @@ macro_rules! __impl_check_assertion {
 						$crate::assert_ok!(dispatchable(test.clone()));
 					}
 					if let Some(call) = test.hops_calls.get(chain_name) {
-						$crate::assert_ok!(match call.clone().dispatch(test.signed_origin.clone()) {
-							// We get rid of `post_info`.
-							Ok(_) => Ok(()),
-							Err(error_with_post_info) => Err(error_with_post_info.error),
-						});
+						$crate::assert_ok!(
+							match call.clone().dispatch(test.signed_origin.clone()) {
+								// We get rid of `post_info`.
+								Ok(_) => Ok(()),
+								Err(error_with_post_info) => Err(error_with_post_info.error),
+							}
+						);
 					}
 					if let Some(assertion) = test.hops_assertion.get(chain_name) {
 						assertion(test);

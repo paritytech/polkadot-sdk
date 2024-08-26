@@ -348,7 +348,8 @@ fn multi_hop_pay_fees_works() {
 		local_execution_fees = Runtime::query_weight_to_asset_fee(
 			local_xcm_weight,
 			VersionedAssetId::V5(Location::parent().into()),
-		).unwrap();
+		)
+		.unwrap();
 		// We filter the result to get only the messages we are interested in.
 		let (destination_to_query, messages_to_query) = &result
 			.forwarded_xcms
@@ -451,7 +452,7 @@ fn multi_hop_pay_fees_works() {
 		test.clone(),
 		(Parent, local_execution_fees + delivery_fees_amount),
 		(Parent, intermediate_execution_fees + intermediate_delivery_fees_amount),
-		(Parent, final_execution_fees)
+		(Parent, final_execution_fees),
 	);
 	test.set_call(call);
 	test.assert();
@@ -466,10 +467,7 @@ fn multi_hop_pay_fees_works() {
 	});
 
 	// We know the exact fees on every hop.
-	assert_eq!(
-		sender_assets_after,
-		sender_assets_before - amount_to_send
-	);
+	assert_eq!(sender_assets_after, sender_assets_before - amount_to_send);
 	assert_eq!(
 		receiver_assets_after,
 		receiver_assets_before + amount_to_send -
@@ -496,7 +494,11 @@ fn transfer_assets_para_to_para_through_ah_pay_fees_call(
 	let ah_to_penpal_b = AssetHubWestend::sibling_location_of(PenpalB::para_id());
 	let xcm_in_reserve = Xcm::<()>::builder_unsafe()
 		.pay_fees(estimated_intermediate_fees)
-		.deposit_reserve_asset(AllCounted(test.args.assets.len() as u32), ah_to_penpal_b, xcm_in_destination)
+		.deposit_reserve_asset(
+			AllCounted(test.args.assets.len() as u32),
+			ah_to_penpal_b,
+			xcm_in_destination,
+		)
 		.build();
 	let penpal_a_to_ah = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 	let local_xcm = Xcm::<RuntimeCall>::builder()

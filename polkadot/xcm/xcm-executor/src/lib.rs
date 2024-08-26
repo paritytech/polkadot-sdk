@@ -902,20 +902,24 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let maybe_parked_fee = if self.fees.is_empty() {
-						// we need to do this take/put cycle to solve wildcards and get exact assets to
-						// be weighed
+						// we need to do this take/put cycle to solve wildcards and get exact assets
+						// to be weighed
 						let to_weigh = self.holding.saturating_take(assets.clone());
 						self.holding.subsume_assets(to_weigh.clone());
 						let to_weigh_reanchored = Self::reanchored(to_weigh, &dest, None);
 						let mut message_to_weigh =
 							vec![ReserveAssetDeposited(to_weigh_reanchored), ClearOrigin];
 						message_to_weigh.extend(xcm.0.clone().into_iter());
-						let (_, fee) =
-							validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
+						let (_, fee) = validate_send::<Config::XcmSender>(
+							dest.clone(),
+							Xcm(message_to_weigh),
+						)?;
 						// set aside fee to be charged by XcmSender
 						let delivery_fee = self.holding.saturating_take(fee.into());
 						Some(delivery_fee)
-					} else { None };
+					} else {
+						None
+					};
 
 					// now take assets to deposit (possibly excluding delivery_fee)
 					let deposited = self.holding.saturating_take(assets);
