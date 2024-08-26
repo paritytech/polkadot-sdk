@@ -1200,18 +1200,21 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Remove a username that corresponds to an account with no identity. Exists when a user
-		/// gets a username but then calls `clear_identity`.
+		/// Remove a username that corresponds to an account with no primary username. Exists when a
+		/// user gets a username but then the authority removes it.
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::remove_dangling_username())]
 		pub fn remove_dangling_username(
 			origin: OriginFor<T>,
 			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			ensure!(!UsernameOf::<T>::contains_key(&who), Error::<T>::InvalidUsername);
+			let _ = ensure_signed(origin)?;
 			let username_info =
 				UsernameInfoOf::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
+			ensure!(
+				!UsernameOf::<T>::contains_key(&username_info.owner),
+				Error::<T>::InvalidUsername
+			);
 			match username_info.provider {
 				Provider::Authority(username_deposit) => {
 					let suffix =
@@ -1229,7 +1232,10 @@ pub mod pallet {
 				},
 				Provider::System => return Err(Error::<T>::InvalidTarget.into()),
 			}
-			Self::deposit_event(Event::DanglingUsernameRemoved { who: who.clone(), username });
+			Self::deposit_event(Event::DanglingUsernameRemoved {
+				who: username_info.owner.clone(),
+				username,
+			});
 			Ok(Pays::No.into())
 		}
 

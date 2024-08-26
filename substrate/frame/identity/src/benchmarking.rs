@@ -593,12 +593,12 @@ mod benchmarks {
 		assert_ok!(Identity::<T>::add_username_authority(
 			origin.clone(),
 			authority_lookup.clone(),
-			suffix,
+			suffix.clone(),
 			allocation
 		));
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, authority_lookup);
+		_(origin as T::RuntimeOrigin, suffix.into(), authority_lookup);
 
 		assert_last_event::<T>(Event::<T>::AuthorityRemoved { authority }.into());
 		Ok(())
@@ -636,7 +636,13 @@ mod benchmarks {
 		assert!(signature.verify(&bounded_username[..], &public.into()));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(authority.clone()), who_lookup, username, Some(signature.into()));
+		_(
+			RawOrigin::Signed(authority.clone()),
+			who_lookup,
+			bounded_username.clone().into(),
+			Some(signature.into()),
+			true,
+		);
 
 		assert_has_event::<T>(
 			Event::<T>::UsernameSet {
@@ -656,7 +662,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let username = bounded_username::<T>(bench_username(), bench_suffix());
 
-		Identity::<T>::queue_acceptance(&caller, username.clone());
+		Identity::<T>::queue_acceptance(&caller, username.clone(), Provider::Governance);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), username.clone());
@@ -669,7 +675,7 @@ mod benchmarks {
 	fn remove_expired_approval() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let username = bounded_username::<T>(bench_username(), bench_suffix());
-		Identity::<T>::queue_acceptance(&caller, username.clone());
+		Identity::<T>::queue_acceptance(&caller, username.clone(), Provider::Governance);
 
 		let expected_expiration =
 			frame_system::Pallet::<T>::block_number() + T::PendingUsernameExpiration::get();
@@ -690,8 +696,8 @@ mod benchmarks {
 		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
 
 		// First one will be set as primary. Second will not be.
-		Identity::<T>::insert_username(&caller, first_username);
-		Identity::<T>::insert_username(&caller, second_username.clone());
+		Identity::<T>::insert_username(&caller, first_username, Provider::Governance);
+		Identity::<T>::insert_username(&caller, second_username.clone(), Provider::Governance);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), second_username.clone());
@@ -709,11 +715,11 @@ mod benchmarks {
 		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
 
 		// First one will be set as primary. Second will not be.
-		Identity::<T>::insert_username(&caller, first_username);
-		Identity::<T>::insert_username(&caller, second_username.clone());
+		Identity::<T>::insert_username(&caller, first_username.clone(), Provider::Governance);
+		Identity::<T>::insert_username(&caller, second_username.clone(), Provider::Governance);
 
-		// User calls `clear_identity`, leaving their second username as "dangling"
-		Identity::<T>::clear_identity(RawOrigin::Signed(caller.clone()).into())?;
+		// Root calls `kill_username`, leaving their second username as "dangling"
+		Identity::<T>::kill_username(RawOrigin::Root.into(), first_username.into())?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), second_username.clone());

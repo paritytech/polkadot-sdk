@@ -1285,7 +1285,9 @@ fn invalid_usernames_should_be_rejected() {
 		}
 
 		// valid one works
-		let valid_username = b"testusernametestusernametes".to_vec();
+		let mut valid_username = b"testusernametestusernametes".to_vec();
+		valid_username.push(b'.');
+		valid_username.extend(valid_suffix);
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority),
 			who,
@@ -1623,10 +1625,13 @@ fn removing_dangling_usernames_should_work() {
 		);
 
 		// Now the user calls `clear_identity`
-		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(who_account.clone()),));
+		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(who_account.clone())));
 
 		// Identity is gone
 		assert!(IdentityOf::<Test>::get(who_account.clone()).is_none());
+
+		// Kill the username.
+		assert_ok!(Identity::kill_username(RuntimeOrigin::root(), username.clone().into()));
 
 		// The reverse lookup of the primary is gone.
 		assert!(UsernameInfoOf::<Test>::get::<&Username<Test>>(&username).is_none());
