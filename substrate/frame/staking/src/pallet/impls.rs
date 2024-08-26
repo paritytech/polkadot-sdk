@@ -1982,7 +1982,8 @@ impl<T: Config> Pallet<T> {
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
-		Self::ensure_disabled_validators_sorted()
+		Self::ensure_disabled_validators_sorted()?;
+		Self::check_points_and_rewards()
 	}
 
 	/// Invariants:
@@ -2301,6 +2302,17 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] <= pair[1]),
 			"DisabledValidators is not sorted"
+		);
+		Ok(())
+	}
+
+	fn check_points_and_rewards() -> Result<(), TryRuntimeError> {
+		let total_points = ErasRewardPoints::<T>::iter().count() as u32;
+		let total_rewards = ErasTotalStake::<T>::iter().count() as u32;
+
+		ensure!(
+			total_points <= total_rewards,
+			"Points can never be lower than the stake in the pool"
 		);
 		Ok(())
 	}
