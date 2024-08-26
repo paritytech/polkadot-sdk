@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724694342261,
+  "lastUpdate": 1724708928775,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9449,6 +9449,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04704506029399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b34d4a083f71245794604fd9fa6464e714f958b1",
+          "message": "[CI] Fix SemVer check base commit (#5361)\n\nAfter seeing some cases of reported changes that did not happen by the\nmerge request proposer (like\nhttps://github.com/paritytech/polkadot-sdk/pull/5339), it became clear\nthat [this](https://github.com/orgs/community/discussions/59677) is\nprobably the issue.\nThe base commit of the SemVer check CI is currently using the *latest*\nmaster commit, instead of the master commit at the time when the MR was\ncreated.\n\nTrying to get the correct base commit now. For this to be debugged, i\nhave to wait until another MR is merged into master.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-26T19:53:56Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34d4a083f71245794604fd9fa6464e714f958b1"
+        },
+        "date": 1724708900399,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.94599999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03830250692200002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.046268075630000016,
             "unit": "seconds"
           }
         ]
