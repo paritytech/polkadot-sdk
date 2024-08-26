@@ -477,10 +477,7 @@ impl<Ctx: Context> Table<Ctx> {
 		if !context.is_member_of(&from, &votes.group_id) {
 			let sig = match vote {
 				ValidityVote::Valid(s) => s,
-				ValidityVote::Issued(_) => panic!(
-					"implicit issuance vote only cast from `import_candidate` after \
-							checking group membership of issuer; qed"
-				),
+				ValidityVote::Issued(s) => s,
 			};
 
 			return Err(Misbehavior::UnauthorizedStatement(UnauthorizedStatement {
