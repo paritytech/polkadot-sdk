@@ -39,6 +39,7 @@ parachains-common = { workspace = true, default-features = true }
 rococo-system-emulated-network = { workspace = true }
 rococo-westend-system-emulated-network = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }
+bridge-hub-rococo-runtime = { workspace = true }
 
 # Snowbridge
 snowbridge-core = { workspace = true }
