@@ -9,6 +9,7 @@
 body.sdk-docs {
 	nav.sidebar>div.sidebar-crate>a>img {
 		width: 190px;
+		height: 52px;
 	}
 
 	nav.sidebar {
@@ -18,6 +19,5 @@ body.sdk-docs {
 
 /* A shadow for the logo to be readable on a light background */
 html[data-theme="light"] .sidebar-crate > .logo-container > img {
-  --logo-shadow-color: rgba(150,150,150,0.5);
-  filter: drop-shadow(1px 0 0px var(--logo-shadow-color)) drop-shadow(0 1px 0 var(--logo-shadow-color)) drop-shadow(-1px 0 0 var(--logo-shadow-color)) drop-shadow(0 -1px 0 var(--logo-shadow-color))
+  content: url("https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_Black.png");
 }

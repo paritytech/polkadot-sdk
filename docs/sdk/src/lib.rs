@@ -27,7 +27,7 @@
 #![warn(rustdoc::private_intra_doc_links)]
 #![doc(html_favicon_url = "https://polkadot.com/favicon.ico")]
 #![doc(
-	html_logo_url = "https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg"
+	html_logo_url = "https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png"
 )]
 #![doc(issue_tracker_base_url = "https://github.com/paritytech/polkadot-sdk/issues")]
 
