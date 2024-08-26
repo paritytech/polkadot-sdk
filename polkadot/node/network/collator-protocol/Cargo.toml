@@ -36,7 +36,6 @@ rstest = { workspace = true }
 sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
 sc-network = { workspace = true, default-features = true }
 codec = { features = ["std"], workspace = true, default-features = true }
 
