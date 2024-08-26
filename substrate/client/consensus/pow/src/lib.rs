@@ -317,7 +317,7 @@ where
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<ImportResult, Self::Error> {
 		let best_header = self

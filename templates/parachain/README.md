@@ -16,7 +16,7 @@
 * ☁️ It is based on the
 [Cumulus](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html) framework.
 
-* 🔧 Its runtime is configured of a single custom pallet as a starting point, and a handful of ready-made pallets
+* 🔧 Its runtime is configured with a single custom pallet as a starting point, and a handful of ready-made pallets
 such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
 * 👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains)
@@ -59,18 +59,25 @@ docker build . -t polkadot-sdk-parachain-template
 You can grab a [released binary](https://github.com/paritytech/zombienet/releases/latest) or use an [npm version](https://www.npmjs.com/package/@zombienet/cli).
 
 This template produces a parachain node.
+You can install it in your environment by running:
+
+```sh
+cargo install --path node
+```
+
 You still need a relaychain node - you can download the `polkadot`
 (and the accompanying `polkadot-prepare-worker` and `polkadot-execute-worker`)
 binaries from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
-Make sure to bring the parachain node - as well as `polkadot`, `polkadot-prepare-worker`, `polkadot-execute-worker`,
-and `zombienet` - into `PATH` like so:
+In addition to the installed parachain node, make sure to bring
+`zombienet`, `polkadot`, `polkadot-prepare-worker`, and `polkadot-execute-worker`
+into `PATH`, for example:
 
 ```sh
-export PATH="./target/release/:$PATH"
+export PATH="<path-to-binaries>:$PATH"
 ```
 
-This way, we can conveniently use them un the following steps.
+This way, we can conveniently use them in the following steps.
 
 👥 The following command starts a local development chain, with a single relay chain node and a single parachain collator:
 

@@ -6,7 +6,7 @@ description = "Utility for building WASM binaries"
 edition.workspace = true
 repository.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 
 [lints]
 workspace = true
@@ -27,6 +27,7 @@ filetime = { workspace = true }
 wasm-opt = { workspace = true }
 parity-wasm = { workspace = true }
 polkavm-linker = { workspace = true }
+jobserver = { workspace = true }
 
 # Dependencies required for the `metadata-hash` feature.
 merkleized-metadata = { optional = true, workspace = true }

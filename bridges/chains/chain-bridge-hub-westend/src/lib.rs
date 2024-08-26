@@ -25,7 +25,7 @@ use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 use frame_support::dispatch::DispatchClass;
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, StateVersion};
 
 /// BridgeHubWestend parachain.
 #[derive(RuntimeDebug)]
@@ -43,6 +43,8 @@ impl Chain for BridgeHubWestend {
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		*BlockLength::get().max.get(DispatchClass::Normal)

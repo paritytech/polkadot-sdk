@@ -2,7 +2,7 @@
 authors.workspace = true
 description = "Simple pallet to select collators for a parachain."
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 license = "Apache-2.0"
 name = "pallet-collator-selection"
 readme = "README.md"
@@ -21,7 +21,6 @@ codec = { features = ["derive"], workspace = true }
 rand = { features = ["std_rng"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
-sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
 frame-support = { workspace = true }
@@ -65,7 +64,6 @@ std = [
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]
 
 try-runtime = [

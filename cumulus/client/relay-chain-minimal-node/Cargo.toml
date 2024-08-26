@@ -17,13 +17,7 @@ polkadot-overseer = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 
-polkadot-availability-recovery = { workspace = true, default-features = true }
-polkadot-collator-protocol = { workspace = true, default-features = true }
 polkadot-network-bridge = { workspace = true, default-features = true }
-polkadot-node-collation-generation = { workspace = true, default-features = true }
-polkadot-node-core-runtime-api = { workspace = true, default-features = true }
-polkadot-node-core-chain-api = { workspace = true, default-features = true }
-polkadot-node-core-prospective-parachains = { workspace = true, default-features = true }
 polkadot-service = { workspace = true, default-features = true }
 
 # substrate deps
@@ -51,4 +45,3 @@ array-bytes = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-parking_lot = { workspace = true, default-features = true }

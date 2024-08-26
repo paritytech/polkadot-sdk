@@ -104,7 +104,6 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		announce_block: true,
 		data_path: base_path.path().into(),
 		base_path,
-		informant_output_format: Default::default(),
 		wasm_runtime_overrides: None,
 	};
 
@@ -125,7 +124,7 @@ fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
 	.into()
 }
 
-fn import_block(mut client: &FullClient, built: BuiltBlock<node_primitives::Block>) {
+fn import_block(client: &FullClient, built: BuiltBlock<node_primitives::Block>) {
 	let mut params = BlockImportParams::new(BlockOrigin::File, built.block.header);
 	params.state_action =
 		StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(built.storage_changes));

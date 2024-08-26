@@ -31,16 +31,16 @@ use sp_runtime::{
 /// is not affected in any other way.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct CheckTxVersion<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);
+pub struct CheckTxVersion<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckTxVersion<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckTxVersion<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckTxVersion")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -48,7 +48,7 @@ impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckTxVersion<T> {
 impl<T: Config + Send + Sync> CheckTxVersion<T> {
 	/// Create new `SignedExtension` to check transaction version.
 	pub fn new() -> Self {
-		Self(sp_std::marker::PhantomData)
+		Self(core::marker::PhantomData)
 	}
 }
 

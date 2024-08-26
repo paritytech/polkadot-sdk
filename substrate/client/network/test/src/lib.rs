@@ -34,7 +34,7 @@ use std::{
 	time::Duration,
 };
 
-use futures::{channel::oneshot, future::BoxFuture, pin_mut, prelude::*};
+use futures::{future::BoxFuture, pin_mut, prelude::*};
 use libp2p::PeerId;
 use log::trace;
 use parking_lot::Mutex;
@@ -67,7 +67,7 @@ use sc_network_sync::{
 	service::{network::NetworkServiceProvider, syncing_service::SyncingService},
 	state_request_handler::StateRequestHandler,
 	strategy::warp::{
-		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncParams, WarpSyncProvider,
+		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig, WarpSyncProvider,
 	},
 	warp_request_handler,
 };
@@ -217,7 +217,7 @@ impl BlockImport<Block> for PeersClient {
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.client.import_block(block).await
@@ -607,7 +607,7 @@ where
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.import_block(block).await
@@ -701,7 +701,7 @@ pub struct FullPeerConfig {
 	/// Enable transaction indexing.
 	pub storage_chain: bool,
 	/// Optional target block header to sync to
-	pub target_block: Option<<Block as BlockT>::Header>,
+	pub target_header: Option<<Block as BlockT>::Header>,
 	/// Force genesis even in case of warp & light state sync.
 	pub force_genesis: bool,
 }
@@ -824,7 +824,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			network_config.default_peers_set.reserved_nodes = addrs;
 			network_config.default_peers_set.non_reserved_mode = NonReservedPeerMode::Deny;
 		}
-		let mut full_net_config = FullNetworkConfiguration::new(&network_config);
+		let mut full_net_config = FullNetworkConfiguration::new(&network_config, None);
 
 		let protocol_id = ProtocolId::from("test-protocol-name");
 
@@ -865,13 +865,9 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let warp_sync = Arc::new(TestWarpSyncProvider(client.clone()));
 
-		let warp_sync_params = match config.target_block {
-			Some(target_block) => {
-				let (sender, receiver) = oneshot::channel::<<Block as BlockT>::Header>();
-				let _ = sender.send(target_block);
-				WarpSyncParams::WaitForTarget(receiver)
-			},
-			_ => WarpSyncParams::WithProvider(warp_sync.clone()),
+		let warp_sync_config = match config.target_header {
+			Some(target_header) => WarpSyncConfig::WithTarget(target_header),
+			_ => WarpSyncConfig::WithProvider(warp_sync.clone()),
 		};
 
 		let warp_protocol_config = {
@@ -896,6 +892,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				.iter()
 				.map(|bootnode| bootnode.peer_id.into())
 				.collect(),
+			None,
 		);
 		let peer_store_handle = Arc::new(peer_store.handle());
 		self.spawn_task(peer_store.run().boxed());
@@ -918,7 +915,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				protocol_id.clone(),
 				&fork_id,
 				block_announce_validator,
-				Some(warp_sync_params),
+				Some(warp_sync_config),
 				chain_sync_network_handle,
 				import_queue.service(),
 				block_relay_params.downloader,

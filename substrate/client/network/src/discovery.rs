@@ -58,7 +58,8 @@ use libp2p::{
 		self,
 		record::store::{MemoryStore, RecordStore},
 		Behaviour as Kademlia, BucketInserts, Config as KademliaConfig, Event as KademliaEvent,
-		GetClosestPeersError, GetRecordOk, QueryId, QueryResult, Quorum, Record, RecordKey,
+		GetClosestPeersError, GetRecordOk, PeerRecord, QueryId, QueryResult, Quorum, Record,
+		RecordKey,
 	},
 	mdns::{self, tokio::Behaviour as TokioMdns},
 	multiaddr::Protocol,
@@ -92,7 +93,11 @@ const MAX_KNOWN_EXTERNAL_ADDRESSES: usize = 32;
 /// record is replicated to.
 pub const DEFAULT_KADEMLIA_REPLICATION_FACTOR: usize = 20;
 
+// The minimum number of peers we expect an answer before we terminate the request.
+const GET_RECORD_REDUNDANCY_FACTOR: u32 = 4;
+
 /// `DiscoveryBehaviour` configuration.
+///
 ///
 /// Note: In order to discover nodes or load and store values via Kademlia one has to add
 ///       Kademlia protocol via [`DiscoveryConfig::with_kademlia`].
@@ -234,7 +239,6 @@ impl DiscoveryConfig {
 			// auto-insertion and instead add peers manually.
 			config.set_kbucket_inserts(BucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
-
 			let store = MemoryStore::new(local_peer_id);
 			let mut kad = Kademlia::with_config(local_peer_id, store, config);
 			kad.set_mode(Some(kad::Mode::Server));
@@ -437,6 +441,31 @@ impl DiscoveryBehaviour {
 		}
 	}
 
+	/// Puts a record into the DHT on the provided `peers`
+	///
+	/// If `update_local_storage` is true, the local storage is update as well.
+	pub fn put_record_to(
+		&mut self,
+		record: Record,
+		peers: HashSet<sc_network_types::PeerId>,
+		update_local_storage: bool,
+	) {
+		if let Some(kad) = self.kademlia.as_mut() {
+			if update_local_storage {
+				if let Err(_e) = kad.store_mut().put(record.clone()) {
+					warn!(target: "sub-libp2p", "Failed to update local starage");
+				}
+			}
+
+			if !peers.is_empty() {
+				kad.put_record_to(
+					record,
+					peers.into_iter().map(|peer_id| peer_id.into()),
+					Quorum::All,
+				);
+			}
+		}
+	}
 	/// Store a record in the Kademlia record store.
 	pub fn store_record(
 		&mut self,
@@ -527,7 +556,7 @@ pub enum DiscoveryOut {
 	/// The DHT yielded results for the record request.
 	///
 	/// Returning the result grouped in (key, value) pairs as well as the request duration.
-	ValueFound(Vec<(RecordKey, Vec<u8>)>, Duration),
+	ValueFound(PeerRecord, Duration),
 
 	/// The DHT received a put record request.
 	PutRecordRequest(
@@ -860,16 +889,24 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							Ok(GetRecordOk::FoundRecord(r)) => {
 								debug!(
 									target: "sub-libp2p",
-									"Libp2p => Found record ({:?}) with value: {:?}",
+									"Libp2p => Found record ({:?}) with value: {:?} id {:?} stats {:?}",
 									r.record.key,
 									r.record.value,
+									id,
+									stats,
 								);
 
-								// Let's directly finish the query, as we are only interested in a
-								// quorum of 1.
-								if let Some(kad) = self.kademlia.as_mut() {
-									if let Some(mut query) = kad.query_mut(&id) {
-										query.finish();
+								// Let's directly finish the query if we are above 4.
+								// This number is small enough to make sure we don't
+								// unnecessarily flood the network with queries, but high
+								// enough to make sure we also touch peers which might have
+								// old record, so that we can update them once we notice
+								// they have old records.
+								if stats.num_successes() > GET_RECORD_REDUNDANCY_FACTOR {
+									if let Some(kad) = self.kademlia.as_mut() {
+										if let Some(mut query) = kad.query_mut(&id) {
+											query.finish();
+										}
 									}
 								}
 
@@ -877,14 +914,18 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 								// `FinishedWithNoAdditionalRecord`.
 								self.records_to_publish.insert(id, r.record.clone());
 
-								DiscoveryOut::ValueFound(
-									vec![(r.record.key, r.record.value)],
-									stats.duration().unwrap_or_default(),
-								)
+								DiscoveryOut::ValueFound(r, stats.duration().unwrap_or_default())
 							},
 							Ok(GetRecordOk::FinishedWithNoAdditionalRecord {
 								cache_candidates,
 							}) => {
+								debug!(
+									target: "sub-libp2p",
+									"Libp2p => Finished with no-additional-record {:?} stats {:?} took {:?} ms",
+									id,
+									stats,
+									stats.duration().map(|val| val.as_millis())
+								);
 								// We always need to remove the record to not leak any data!
 								if let Some(record) = self.records_to_publish.remove(&id) {
 									if cache_candidates.is_empty() {

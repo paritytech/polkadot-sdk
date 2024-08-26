@@ -19,10 +19,6 @@
 //!
 //! Allows dynamic, chain-state-based pausing and unpausing of specific extrinsics via call filters.
 //!
-//! ## WARNING
-//!
-//! NOT YET AUDITED. DO NOT USE IN PRODUCTION.
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -79,6 +75,9 @@ pub mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
@@ -87,7 +86,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use sp_runtime::{traits::Dispatchable, DispatchResult};
-use sp_std::prelude::*;
 
 pub use pallet::*;
 pub use weights::*;

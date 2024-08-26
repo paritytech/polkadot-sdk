@@ -680,7 +680,6 @@ impl<P: ParachainsPipeline> SubmittedHeadsTracker<P> {
 mod tests {
 	use super::*;
 	use async_std::sync::{Arc, Mutex};
-	use codec::Encode;
 	use futures::{SinkExt, StreamExt};
 	use relay_substrate_client::test_chain::{TestChain, TestParachain};
 	use relay_utils::{HeaderId, MaybeConnectionError};
@@ -821,8 +820,7 @@ mod tests {
 			let head_result =
 				SourceClient::<TestParachainsPipeline>::parachain_head(self, at_block).await?;
 			let head = head_result.as_available().unwrap();
-			let storage_proof = vec![head.hash().encode()];
-			let proof = (ParaHeadsProof { storage_proof }, head.hash());
+			let proof = (ParaHeadsProof { storage_proof: Default::default() }, head.hash());
 			self.data.lock().await.source_proof.clone().map(|_| proof)
 		}
 	}

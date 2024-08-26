@@ -28,11 +28,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 // Re-export since this is necessary for `impl_apis` in runtime.
 pub use sp_consensus_grandpa::{
 	self as fg_primitives, AuthorityId, AuthorityList, AuthorityWeight,
 };
 
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
@@ -50,7 +53,6 @@ use sp_consensus_grandpa::{
 use sp_runtime::{generic::DigestItem, traits::Zero, DispatchResult};
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
-use sp_std::prelude::*;
 
 mod default_weights;
 mod equivocation;
@@ -351,7 +353,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: AuthorityList,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
