@@ -2053,6 +2053,7 @@ dependencies = [
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "bridge-hub-rococo-runtime",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
