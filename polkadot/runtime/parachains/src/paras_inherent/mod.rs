@@ -969,8 +969,8 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	// we can expect v1 candidate receipts with `UMPSignal::SelectCore` commitments.
 	//
 	// It is important that we use these commitments of v1 receipts and not rely on injected cores.
-	// Parachain runtime upgrade should be enough to enable both validators and the runtime
-	// to also validate the core index the candidate has committed to.
+	// Parachain runtime upgrade is enough to enable both validators and the runtime to validate
+	// the core index the candidate has committed to.
 	let Some((core_selector, cq_offset)) = candidate.candidate().commitments.selected_core() else {
 		if candidate.descriptor().version() == CandidateDescriptorVersion::V1 {
 			return true
