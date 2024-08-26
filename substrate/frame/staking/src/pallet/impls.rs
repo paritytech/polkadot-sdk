@@ -164,7 +164,7 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// additional amount or actual balance of stash whichever is lower.
 			additional.min(
-				asset::free_balance::<T>(stash)
+				asset::stakeable_balance::<T>(stash)
 					.checked_sub(&ledger.total)
 					.ok_or(ArithmeticError::Overflow)?,
 			)

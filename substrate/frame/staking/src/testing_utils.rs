@@ -54,7 +54,7 @@ pub fn create_funded_user<T: Config>(
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
 	let balance = asset::existential_deposit::<T>() * balance_factor.into();
-	let _ = asset::set_balance::<T>(&user, balance);
+	let _ = asset::set_stakeable_balance::<T>(&user, balance);
 	user
 }
 
@@ -65,7 +65,7 @@ pub fn create_funded_user_with_balance<T: Config>(
 	balance: BalanceOf<T>,
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
-	let _ = asset::set_balance::<T>(&user, balance);
+	let _ = asset::set_stakeable_balance::<T>(&user, balance);
 	user
 }
 

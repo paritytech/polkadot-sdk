@@ -14,22 +14,27 @@ pub fn total_issuance<T: Config>() -> BalanceOf<T> {
 	T::Currency::total_issuance()
 }
 
-/// Make total balance equal to value.
-pub fn set_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
+/// Set balance that can be staked for `who`.
+///
+/// This includes any balance that is already staked.
+pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
 	T::Currency::make_free_balance_be(who, value);
 }
 
 /// Burn the amount from the total issuance.
+#[cfg(feature = "runtime-benchmarks")]
 pub fn burn<T: Config>(amount: BalanceOf<T>) -> PositiveImbalanceOf<T> {
 	T::Currency::burn(amount)
 }
 
-/// Stakeable balance. Includes already staked + free to stake.
-pub fn free_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
+/// Stakeable balance of `who`.
+///
+/// This includes balance free to stake along with any balance that is already staked.
+pub fn stakeable_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::free_balance(who)
 }
 
-/// Total balance of an account. Includes both, liquid and reserved.
+/// Total balance of an account. Includes both, free and reserved.
 pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::total_balance(who)
 }
