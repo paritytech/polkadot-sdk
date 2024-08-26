@@ -21,9 +21,8 @@
 // A parachain template ready to be connected to a relay-chain, such as [Paseo]
 //! (https://github.com/paseo-network/.github), Kusama  or Polkadot.
 //!
-//! Note that these templates are mirrored automatically from [this]
-//! (https://github.com/paritytech/polkadot-sdk/blob/master/templates) directory of polkadot-sdk,
-//! therefore any changes to them should be made as a PR to this repo. 
+//! Note that these templates are mirrored automatically from [this](https://github.com/paritytech/polkadot-sdk/blob/master/templates) 
+//! directory of polkadot-sdk, therefore any changes to them should be made as a PR to this repo. 
 //!
 //! ## OpenZeppelin
 //!
