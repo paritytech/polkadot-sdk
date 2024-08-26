@@ -283,15 +283,12 @@ pub mod pallet {
 	pub type UsernameAuthorities<T: Config> =
 		StorageMap<_, Twox64Concat, Suffix<T>, AuthorityProperties<T::AccountId>, OptionQuery>;
 
-	/// Reverse lookup from `username` to the `AccountId` that has registered it. The value should
-	/// be a key in the `IdentityOf` map, but it may not if the user has cleared their identity.
+	/// Reverse lookup from `username` to the `AccountId` that has registered it and the provider of
+	/// the username. The `owner` value should be a key in the `UsernameOf` map, but it may not if
+	/// the user has cleared their username or it has been removed.
 	///
-	/// Multiple usernames may map to the same `AccountId`, but `IdentityOf` will only map to one
+	/// Multiple usernames may map to the same `AccountId`, but `UsernameOf` will only map to one
 	/// primary username.
-	#[pallet::storage]
-	pub type AccountOfUsername<T: Config> =
-		StorageMap<_, Blake2_128Concat, Username<T>, T::AccountId, OptionQuery>;
-
 	#[pallet::storage]
 	pub type UsernameInfoOf<T: Config> = StorageMap<
 		_,
@@ -1116,7 +1113,7 @@ pub mod pallet {
 
 			// Usernames must be unique. Ensure it's not taken.
 			ensure!(
-				!AccountOfUsername::<T>::contains_key(&bounded_username),
+				!UsernameInfoOf::<T>::contains_key(&bounded_username),
 				Error::<T>::UsernameTaken
 			);
 			ensure!(
@@ -1196,7 +1193,7 @@ pub mod pallet {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority).
 			let who = ensure_signed(origin)?;
 			let account_of_username =
-				AccountOfUsername::<T>::get(&username).ok_or(Error::<T>::NoUsername)?;
+				UsernameInfoOf::<T>::get(&username).ok_or(Error::<T>::NoUsername)?.owner;
 			ensure!(who == account_of_username, Error::<T>::InvalidUsername);
 			UsernameOf::<T>::insert(&who, username.clone());
 			Self::deposit_event(Event::PrimaryUsernameSet { who: who.clone(), username });

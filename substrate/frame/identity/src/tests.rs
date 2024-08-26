@@ -1039,7 +1039,12 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 		// Even though user has no balance and no identity, they get a default one for free.
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 		// Lookup from username to account works.
-		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username), Some(who_account));
+		let expected_user_info =
+			UsernameInformation { owner: who_account, provider: Provider::Governance };
+		assert_eq!(
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
+			Some(expected_user_info)
+		);
 	});
 }
 
@@ -1082,7 +1087,12 @@ fn set_username_with_signature_with_existing_identity_should_work() {
 		));
 
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
-		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username), Some(who_account));
+		let expected_user_info =
+			UsernameInformation { owner: who_account, provider: Provider::Governance };
+		assert_eq!(
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
+			Some(expected_user_info)
+		);
 	});
 }
 
@@ -1154,7 +1164,12 @@ fn set_username_with_bytes_signature_should_work() {
 		// `username_to_sign`.
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 		// Likewise for the lookup.
-		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username), Some(who_account));
+		let expected_user_info =
+			UsernameInformation { owner: who_account, provider: Provider::Governance };
+		assert_eq!(
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
+			Some(expected_user_info)
+		);
 	});
 }
 
@@ -1199,7 +1214,11 @@ fn set_username_with_acceptance_should_work() {
 		// Check Identity storage
 		assert_eq!(UsernameOf::<Test>::get(&who), Some(username.clone()));
 		// Check reverse lookup
-		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username), Some(who));
+		let expected_user_info = UsernameInformation { owner: who, provider: Provider::Governance };
+		assert_eq!(
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
+			Some(expected_user_info)
+		);
 	});
 }
 
@@ -1370,13 +1389,15 @@ fn setting_primary_should_work() {
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(first_username.clone()));
 
 		// Lookup from both works.
+		let expected_user_info =
+			UsernameInformation { owner: who_account.clone(), provider: Provider::Governance };
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&first_username),
-			Some(who_account.clone())
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&first_username),
+			Some(expected_user_info.clone())
 		);
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&second_username),
-			Some(who_account.clone())
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&second_username),
+			Some(expected_user_info.clone())
 		);
 
 		assert_ok!(Identity::set_primary_username(
@@ -1389,12 +1410,12 @@ fn setting_primary_should_work() {
 
 		// Lookup from both still works.
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&first_username),
-			Some(who_account.clone())
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&first_username),
+			Some(expected_user_info.clone())
 		);
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&second_username),
-			Some(who_account)
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&second_username),
+			Some(expected_user_info)
 		);
 	});
 }
@@ -1442,13 +1463,17 @@ fn must_own_primary() {
 		));
 
 		// Ensure that both users have their usernames.
+		let expected_pi_info =
+			UsernameInformation { owner: pi_account.clone(), provider: Provider::Governance };
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&pi_username),
-			Some(pi_account.clone())
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&pi_username),
+			Some(expected_pi_info)
 		);
+		let expected_e_info =
+			UsernameInformation { owner: e_account.clone(), provider: Provider::Governance };
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&e_username),
-			Some(e_account.clone())
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&e_username),
+			Some(expected_e_info)
 		);
 
 		// Cannot set primary to a username that does not exist.
@@ -1577,13 +1602,15 @@ fn removing_dangling_usernames_should_work() {
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 
 		// But both usernames should look up the account.
+		let expected_user_info =
+			UsernameInformation { owner: who_account.clone(), provider: Provider::Governance };
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&username),
-			Some(who_account.clone())
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
+			Some(expected_user_info.clone())
 		);
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two),
-			Some(who_account.clone())
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username_two),
+			Some(expected_user_info.clone())
 		);
 
 		// Someone tries to remove it, but they can't
@@ -1602,12 +1629,12 @@ fn removing_dangling_usernames_should_work() {
 		assert!(IdentityOf::<Test>::get(who_account.clone()).is_none());
 
 		// The reverse lookup of the primary is gone.
-		assert!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username).is_none());
+		assert!(UsernameInfoOf::<Test>::get::<&Username<Test>>(&username).is_none());
 
 		// But the reverse lookup of the non-primary is still there
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two),
-			Some(who_account)
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username_two),
+			Some(expected_user_info)
 		);
 
 		// Now it can be removed
@@ -1617,6 +1644,6 @@ fn removing_dangling_usernames_should_work() {
 		));
 
 		// And the reverse lookup is gone
-		assert!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two).is_none());
+		assert!(UsernameInfoOf::<Test>::get::<&Username<Test>>(&username_two).is_none());
 	});
 }
