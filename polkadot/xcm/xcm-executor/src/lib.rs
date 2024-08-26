@@ -901,20 +901,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			DepositReserveAsset { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
-					// we need to do this take/put cycle to solve wildcards and get exact assets to
-					// be weighed
-					let to_weigh = self.holding.saturating_take(assets.clone());
-					self.holding.subsume_assets(to_weigh.clone());
-					let to_weigh_reanchored = Self::reanchored(to_weigh, &dest, None);
-					let mut message_to_weigh =
-						vec![ReserveAssetDeposited(to_weigh_reanchored), ClearOrigin];
-					message_to_weigh.extend(xcm.0.clone().into_iter());
-					let (_, fee) =
-						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
-					// set aside fee to be charged by XcmSender
-					let transport_fee = self.holding.saturating_take(fee.into());
+					let maybe_parked_fee = if self.fees.is_empty() {
+						// we need to do this take/put cycle to solve wildcards and get exact assets to
+						// be weighed
+						let to_weigh = self.holding.saturating_take(assets.clone());
+						self.holding.subsume_assets(to_weigh.clone());
+						let to_weigh_reanchored = Self::reanchored(to_weigh, &dest, None);
+						let mut message_to_weigh =
+							vec![ReserveAssetDeposited(to_weigh_reanchored), ClearOrigin];
+						message_to_weigh.extend(xcm.0.clone().into_iter());
+						let (_, fee) =
+							validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
+						// set aside fee to be charged by XcmSender
+						let delivery_fee = self.holding.saturating_take(fee.into());
+						Some(delivery_fee)
+					} else { None };
 
-					// now take assets to deposit (excluding transport_fee)
+					// now take assets to deposit (possibly excluding delivery_fee)
 					let deposited = self.holding.saturating_take(assets);
 					self.deposit_assets_with_retry(&deposited, &dest)?;
 					// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
@@ -923,8 +926,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let assets = Self::reanchored(deposited, &dest, None);
 					let mut message = vec![ReserveAssetDeposited(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
-					// put back transport_fee in holding register to be charged by XcmSender
-					self.holding.subsume_assets(transport_fee);
+					if let Some(delivery_fee) = maybe_parked_fee {
+						// Put back delivery_fee in holding register to be charged by XcmSender.
+						self.holding.subsume_assets(delivery_fee);
+					}
 					self.send(dest, Xcm(message), FeeReason::DepositReserveAsset)?;
 					Ok(())
 				});
