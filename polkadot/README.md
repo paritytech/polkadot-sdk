@@ -103,9 +103,8 @@ Connect to the global Polkadot Mainnet network by running:
 ../target/release/polkadot --chain=polkadot
 ```
 
-You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
-
-[telemetry](https://telemetry.polkadot.io/#list/Polkadot): https://telemetry.polkadot.io/#list/Polkadot
+You can see your node on [Polkadot telemetry](https://telemetry.polkadot.io/#list/0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3)
+(set a custom name with `--name "my custom name"`).
 
 ### Connect to the "Kusama" Canary Network
 
@@ -115,9 +114,8 @@ Connect to the global Kusama canary network by running:
 ../target/release/polkadot --chain=kusama
 ```
 
-You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
-
-[telemetry](https://telemetry.polkadot.io/#list/Kusama): https://telemetry.polkadot.io/#list/Kusama
+You can see your node on [Kusama telemetry](https://telemetry.polkadot.io/#list/0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe)
+(set a custom name with `--name "my custom name"`).
 
 ### Connect to the Westend Testnet
 
@@ -127,9 +125,8 @@ Connect to the global Westend testnet by running:
 ../target/release/polkadot --chain=westend
 ```
 
-You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
-
-[telemetry](https://telemetry.polkadot.io/#list/Westend): https://telemetry.polkadot.io/#list/Westend
+You can see your node on [Westend telemetry](https://telemetry.polkadot.io/#list/0xe143f23803ac50e8f6f8e62695d1ce9e4e1d68aa36c1cd2cfd15340213f3423e)
+(set a custom name with `--name "my custom name"`).
 
 ### Obtaining DOTs
 
@@ -147,7 +144,7 @@ Then, grab the Polkadot source code:
 
 ```bash
 git clone https://github.com/paritytech/polkadot-sdk.git
-cd polkadot
+cd polkadot-sdk
 ```
 
 Then build the code. You will need to build in release mode (`--release`) to start a network. Only
@@ -185,7 +182,7 @@ You can run a simple single-node development "network" on your machine by runnin
 cargo run --bin polkadot --release -- --dev
 ```
 
-You can muck around by heading to <https://polkadot.js.org/apps> and choose "Local Node" from the
+You can muck around by heading to <https://polkadot.js.org/apps> and choosing "Local Node" from the
 Settings menu.
 
 ### Local Two-node Testnet
@@ -214,11 +211,11 @@ that we currently maintain.
 
 ### Using Docker
 
-[Using Docker](../docs/contributor/docker.md)
+[Using Docker](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/docker.md)
 
 ### Shell Completion
 
-[Shell Completion](doc/shell-completion.md)
+[Shell Completion](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/doc/shell-completion.md)
 
 ## Contributing
 
@@ -232,4 +229,4 @@ that we currently maintain.
 
 ## License
 
-Polkadot is [GPL 3.0 licensed](LICENSE).
+Polkadot is [GPL 3.0 licensed](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/LICENSE).
