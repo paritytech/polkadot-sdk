@@ -1238,7 +1238,7 @@ fn candidate_checks() {
 				&group_validators,
 				false
 			),
-			Ok(ProcessedCandidates::default())
+			Ok(Default::default())
 		);
 
 		// Check candidate ordering
@@ -1545,20 +1545,16 @@ fn candidate_checks() {
 				None,
 			);
 
-			let ProcessedCandidates {
-				core_indices: occupied_cores,
-				candidate_receipt_with_backing_validator_indices,
-			} = ParaInclusion::process_candidates(
-				&allowed_relay_parents,
-				&vec![(thread_a_assignment.0, vec![(backed.clone(), thread_a_assignment.1)])]
-					.into_iter()
-					.collect(),
-				&group_validators,
-				false,
-			)
-			.expect("candidate is accepted with bad collator signature");
-
-			assert_eq!(occupied_cores, vec![(CoreIndex::from(2), thread_a)]);
+			let candidate_receipt_with_backing_validator_indices =
+				ParaInclusion::process_candidates(
+					&allowed_relay_parents,
+					&vec![(thread_a_assignment.0, vec![(backed.clone(), thread_a_assignment.1)])]
+						.into_iter()
+						.collect(),
+					&group_validators,
+					false,
+				)
+				.expect("candidate is accepted with bad collator signature");
 
 			let mut expected = std::collections::HashMap::<
 				CandidateHash,
@@ -1917,25 +1913,13 @@ fn backing_works() {
 			}
 		};
 
-		let ProcessedCandidates {
-			core_indices: occupied_cores,
-			candidate_receipt_with_backing_validator_indices,
-		} = ParaInclusion::process_candidates(
+		let candidate_receipt_with_backing_validator_indices = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
 			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(
-			occupied_cores,
-			vec![
-				(CoreIndex::from(0), chain_a),
-				(CoreIndex::from(1), chain_b),
-				(CoreIndex::from(2), thread_a)
-			]
-		);
 
 		// Transform the votes into the setup we expect
 		let expected = {
@@ -2220,26 +2204,13 @@ fn backing_works_with_elastic_scaling_mvp() {
 			}
 		};
 
-		let ProcessedCandidates {
-			core_indices: occupied_cores,
-			candidate_receipt_with_backing_validator_indices,
-		} = ParaInclusion::process_candidates(
+		let candidate_receipt_with_backing_validator_indices = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
 			true,
 		)
 		.expect("candidates scheduled, in order, and backed");
-
-		// Both b candidates will be backed.
-		assert_eq!(
-			occupied_cores,
-			vec![
-				(CoreIndex::from(0), chain_a),
-				(CoreIndex::from(1), chain_b),
-				(CoreIndex::from(2), chain_b),
-			]
-		);
 
 		// Transform the votes into the setup we expect
 		let mut expected = std::collections::HashMap::<
@@ -2417,18 +2388,15 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			None,
 		);
 
-		let ProcessedCandidates { core_indices: occupied_cores, .. } =
-			ParaInclusion::process_candidates(
-				&allowed_relay_parents,
-				&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
-					.into_iter()
-					.collect::<BTreeMap<_, _>>(),
-				group_validators,
-				false,
-			)
-			.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(occupied_cores, vec![(CoreIndex::from(0), chain_a)]);
+		let _ = ParaInclusion::process_candidates(
+			&allowed_relay_parents,
+			&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
+				.into_iter()
+				.collect::<BTreeMap<_, _>>(),
+			group_validators,
+			false,
+		)
+		.expect("candidates scheduled, in order, and backed");
 
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
@@ -2844,7 +2812,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			None,
 		);
 
-		let ProcessedCandidates { core_indices: occupied_cores, .. } =
+		let _ =
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
 				&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
@@ -2854,8 +2822,6 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 				false,
 			)
 			.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(occupied_cores, vec![(CoreIndex::from(0), chain_a)]);
 
 		// Run a couple of blocks before the inclusion.
 		run_to_block(7, |_| None);

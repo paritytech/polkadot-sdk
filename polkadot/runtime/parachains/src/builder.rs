@@ -18,7 +18,10 @@ use crate::{
 	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
-	scheduler::{self, common::AssignmentProvider, CoreOccupied, ParasEntry},
+	scheduler::{
+		self,
+		common::{Assignment, AssignmentProvider},
+	},
 	session_info, shared,
 };
 use alloc::{
@@ -837,33 +840,9 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// Mark all the used cores as occupied. We expect that there are
 		// `backed_and_concluding_paras` that are pending availability and that there are
 		// `used_cores - backed_and_concluding_paras ` which are about to be disputed.
-		let now = frame_system::Pallet::<T>::block_number() + One::one();
 
 		let mut core_idx = 0u32;
 		let elastic_paras = &builder.elastic_paras;
-		// Assign potentially multiple cores to same parachains,
-		let cores = all_cores
-			.iter()
-			.flat_map(|(para_id, _)| {
-				(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
-					.map(|_para_local_core_idx| {
-						let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
-						// Load an assignment into provider so that one is present to pop
-						let assignment =
-							<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
-								CoreIndex(core_idx),
-								ParaId::from(*para_id),
-							);
-						core_idx += 1;
-						CoreOccupied::Paras(ParasEntry::new(assignment, now + ttl))
-					})
-					.collect::<Vec<CoreOccupied<_>>>()
-			})
-			.collect::<Vec<CoreOccupied<_>>>();
-
-		scheduler::AvailabilityCores::<T>::set(cores);
-
-		core_idx = 0u32;
 
 		// We need entries in the claim queue for those:
 		all_cores.append(&mut builder.backed_in_inherent_paras.clone());
@@ -874,7 +853,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 				.flat_map(|para_id| {
 					(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
 						.map(|_para_local_core_idx| {
-							let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
 							// Load an assignment into provider so that one is present to pop
 							let assignment =
 								<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
@@ -883,14 +861,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								);
 
 							core_idx += 1;
-							(
-								CoreIndex(core_idx - 1),
-								[ParasEntry::new(assignment, now + ttl)].into(),
-							)
+							(CoreIndex(core_idx - 1), [assignment].into())
 						})
-						.collect::<Vec<(CoreIndex, VecDeque<ParasEntry<_>>)>>()
+						.collect::<Vec<(CoreIndex, VecDeque<Assignment>)>>()
 				})
-				.collect::<BTreeMap<CoreIndex, VecDeque<ParasEntry<_>>>>();
+				.collect::<BTreeMap<CoreIndex, VecDeque<Assignment>>>();
 
 			scheduler::ClaimQueue::<T>::set(cores);
 		}

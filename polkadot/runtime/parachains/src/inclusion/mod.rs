@@ -47,7 +47,7 @@ use pallet_message_queue::OnQueueChanged;
 use polkadot_primitives::{
 	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, BackedCandidate,
 	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
+	CommittedCandidateReceipt, CoreIndex, GroupIndex, HeadData, Id as ParaId,
 	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
 	ValidityAttestation,
 };
@@ -479,14 +479,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn get_occupied_cores() -> impl Iterator<Item = (CoreIndex, ParaId)> {
-		PendingAvailability::<T>::iter_values()
-			.map(|pending_candidates| {
-				pending_candidates
-					.iter()
-					.map(|c| (c.core.clone(), c.descriptor.para_id))
-					.collect::<Vec<_>>()
-			})
-			.flatten()
+		PendingAvailability::<T>::iter_values().flat_map(|pending_candidates| {
+			pending_candidates
+				.iter()
+				.map(|c| (c.core, c.descriptor.para_id))
+				.collect::<Vec<_>>()
+		})
 	}
 
 	/// Extract the freed cores based on cores that became available.

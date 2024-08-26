@@ -23,7 +23,6 @@ use crate::{
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
-use alloc::collections::btree_map::BTreeMap;
 use frame_support::{assert_ok, pallet_prelude::*};
 use polkadot_primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
 
@@ -71,7 +70,7 @@ fn run_to_block(
 		Scheduler::initializer_initialize(b + 1);
 
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
-		Scheduler::free_cores_and_fill_claim_queue(BTreeMap::new(), b + 1);
+		Scheduler::advance_claim_queue(&Default::default());
 	}
 }
 
