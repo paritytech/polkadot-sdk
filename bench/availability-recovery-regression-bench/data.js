@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724685376744,
+  "lastUpdate": 1724693788893,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -18689,6 +18689,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.21616004236667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Nazar Mokrynskyi",
+            "username": "nazar-pc",
+            "email": "nazar@mokrynskyi.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "dd1aaa4713b93607804bed8adeaed6f98f3e5aef",
+          "message": "Sync status refactoring (#5450)\n\nAs I was looking at the coupling between `SyncingEngine`,\n`SyncingStrategy` and individual strategies I noticed a few things that\nwere unused, redundant or awkward.\n\nThe awkward change comes from\nhttps://github.com/paritytech/substrate/pull/13700 where\n`num_connected_peers` property was added to `SyncStatus` struct just so\nit can be rendered in the informer. While convenient, the property\ndidn't really belong there and was annoyingly set to `0` in some\nstrategies and to `num_peers` in others. I have replaced that with a\nproperty on `SyncingService` that already stored necessary information\ninternally.\n\nAlso `ExtendedPeerInfo` didn't have a working `Clone` implementation due\nto lack of perfect derive in Rust and while I ended up not using it in\nthe refactoring, I included fixed implementation for it in this PR\nanyway.\n\nWhile these changes are not strictly necessary for\nhttps://github.com/paritytech/polkadot-sdk/issues/5333, they do reduce\ncoupling of syncing engine with syncing strategy, which I thought is a\ngood thing.\n\nReviewing individual commits will be the easiest as usual.\n\n---------\n\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>",
+          "timestamp": "2024-08-26T15:37:51Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd1aaa4713b93607804bed8adeaed6f98f3e5aef"
+        },
+        "date": 1724693761843,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 14.492074917966667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.3908004603666666,
             "unit": "seconds"
           }
         ]
