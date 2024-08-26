@@ -1,0 +1,9 @@
+crates:
+- bump: minor
+  name: frame-omni-bencher
+doc:
+- audience: Runtime Dev
+  description: "Changes:\r\n- Set default level to `Info` again. Seems like a dependency\
+    \ update set it to something higher.\r\n- Fix docs to not use `--locked` since\
+    \ we rely on dependency bumps via cargo.\r\n- Add README with rust docs."
+title: frame-omni-bencher maintenance
