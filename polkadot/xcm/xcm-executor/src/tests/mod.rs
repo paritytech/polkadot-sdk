@@ -22,3 +22,4 @@
 
 mod mock;
 mod pay_fees;
+mod set_asset_claimer;
