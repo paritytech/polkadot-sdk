@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 frame-system = { workspace = true, default-features = true, optional = true }
 sp-runtime = { workspace = true, default-features = true, optional = true }
-anyhow = { workspace = true }
+anyhow = { workspace = true, default-features = true }
 
 [build-dependencies]
 parity-wasm = { workspace = true }
