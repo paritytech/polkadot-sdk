@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724631133979,
+  "lastUpdate": 1724684783116,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -15979,6 +15979,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.1456280256201308,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ad0de7495e0e4685408d70c755cddaa14e3b02ca",
+          "message": "`MaybeConsideration` extension trait for `Consideration` (#5384)\n\nIntroduce `MaybeConsideration` extension trait for `Consideration`.\n\nThe trait allows for the management of tickets that may represent no\ncost. While the `MaybeConsideration` still requires proper handling, it\nintroduces the ability to determine if a ticket represents no cost and\ncan be safely forgotten without any side effects.\n\nThe new trait is particularly useful when a consumer expects the cost to\nbe zero under certain conditions (e.g., when the proposal count is below\na threshold N) and does not want to store such consideration tickets in\nstorage. The extension approach allows us to avoid breaking changes to\nthe existing trait and to continue using it as a non-optional version\nfor migrating pallets that utilize the `Currency` and `fungible` traits\nfor `holds` and `freezes`, without requiring any storage migration.",
+          "timestamp": "2024-08-26T13:23:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ad0de7495e0e4685408d70c755cddaa14e3b02ca"
+        },
+        "date": 1724684755615,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64020.06999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.65090767907993,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.499677459320157,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.433570505210028,
             "unit": "seconds"
           }
         ]
