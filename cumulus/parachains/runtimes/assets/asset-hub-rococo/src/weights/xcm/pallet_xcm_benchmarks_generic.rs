@@ -146,6 +146,9 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 727_000 picoseconds.
 		Weight::from_parts(780_000, 0)
 	}
+	pub fn set_asset_claimer() -> Weight {
+		Weight::from_parts(2_176_000, 0)
+	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
