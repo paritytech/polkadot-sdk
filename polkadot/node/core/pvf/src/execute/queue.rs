@@ -782,16 +782,27 @@ impl Unscheduled {
 
 #[cfg(test)]
 mod tests {
+	use polkadot_node_primitives::BlockData;
+	use sp_core::H256;
+
 	use super::*;
 	use crate::testing::artifact_id;
 	use std::time::Duration;
 
 	fn create_execution_job() -> ExecuteJob {
 		let (result_tx, _result_rx) = oneshot::channel();
+		let pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: 1u32,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: 4096 * 1024,
+		});
+		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 		ExecuteJob {
 			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
 			exec_timeout: Duration::from_secs(10),
-			params: vec![],
+			pvd,
+			pov,
 			executor_params: ExecutorParams::default(),
 			result_tx,
 			waiting_since: Instant::now(),
