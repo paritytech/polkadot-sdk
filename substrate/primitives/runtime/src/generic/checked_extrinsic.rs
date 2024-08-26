@@ -44,15 +44,9 @@ pub enum ExtrinsicFormat<AccountId, Extension> {
 	General(Extension),
 }
 
-// TODO: Rename ValidateUnsigned to ValidateInherent
-// TODO: Consider changing ValidateInherent API to avoid need for duplicating validate
-//   code into pre_dispatch (rename that to `prepare`).
-// TODO: New extrinsic type corresponding to `ExtrinsicFormat::General`, which is
-//   unsigned but includes extension data.
-// TODO: Move usage of `signed` to `format`:
-// - Inherent instead of None.
-// - Signed(id, extension) instead of Some((id, extra)).
-// - Introduce General(extension) for one without a signature.
+// TODO: Deprecate `ValidateUnsigned` and move all current unsigned extrinsic usage into either
+// inherents as `Bare` extrinsics or `General` transactions, solution outlined in
+// https://github.com/paritytech/polkadot-sdk/issues/2415).
 
 /// Definition of something that the external world might want to say; its existence implies that it
 /// has been checked and is good, particularly with regards to the signature.
@@ -109,8 +103,8 @@ where
 		match self.format {
 			ExtrinsicFormat::Bare => {
 				I::pre_dispatch(&self.function)?;
-				// TODO: Remove below once `pre_dispatch_unsigned` is removed from `LegacyExtension`
-				//   or `LegacyExtension` is removed.
+				// TODO: Remove below once `ValidateUnsigned` is deprecated and the only `Bare`
+				// extrinsics left are inherents.
 				#[allow(deprecated)]
 				Extension::validate_bare_compat(&self.function, info, len)?;
 				#[allow(deprecated)]
@@ -118,8 +112,8 @@ where
 				let res = self.function.dispatch(None.into());
 				let post_info = res.unwrap_or_else(|err| err.post_info);
 				let pd_res = res.map(|_| ()).map_err(|e| e.error);
-				// TODO: Remove below once `pre_dispatch_unsigned` is removed from `LegacyExtension`
-				//   or `LegacyExtension` is removed.
+				// TODO: Remove below once `ValidateUnsigned` is deprecated and the only `Bare`
+				// extrinsics left are inherents.
 				#[allow(deprecated)]
 				Extension::post_dispatch_bare_compat(info, &post_info, len, &pd_res)?;
 				Ok(res)

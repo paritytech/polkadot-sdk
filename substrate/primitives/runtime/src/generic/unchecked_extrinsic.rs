@@ -384,6 +384,10 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo
 	}
 }
 
+// TODO: Migrate existing extension pipelines to support current `Signed` transactions as `General`
+// transactions by adding an extension to validate signatures, as they are currently validated in
+// the `Checkable` implementation for `Signed` transactions.
+
 impl<LookupSource, AccountId, Call, Signature, Extension, Lookup> Checkable<Lookup>
 	for UncheckedExtrinsic<LookupSource, Call, Signature, Extension>
 where

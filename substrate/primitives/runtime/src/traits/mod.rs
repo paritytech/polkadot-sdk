@@ -1352,12 +1352,6 @@ pub trait Extrinsic: Sized {
 	fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
 		None
 	}
-
-	/// Create a new inherent extrinsic.
-	fn new_inherent(function: Self::Call) -> Self {
-		#[allow(deprecated)]
-		Self::new(function, None).expect("Extrinsic must provide inherents; qed")
-	}
 }
 
 /// Something that acts like an `Extrinsic`.

@@ -106,7 +106,7 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<(ValidTransaction, u32), TransactionValidityError> {
-		// ignore the next length. If they return `Ok`, then it is below the limit.
+		// If they return `Ok`, then it is below the limit.
 		let next_len = Self::check_block_length(info, len)?;
 		// during validation we skip block limit check. Since the `validate_transaction`
 		// call runs on an empty block anyway, by this we prevent `on_initialize` weight
