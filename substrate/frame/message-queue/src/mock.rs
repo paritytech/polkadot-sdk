@@ -164,7 +164,6 @@ impl ProcessMessage for RecordingMessageProcessor {
 		meter: &mut WeightMeter,
 		_id: &mut [u8; 32],
 	) -> Result<bool, ProcessMessageError> {
-		sp_io::storage::set(b"transactional_storage", &vec![1, 2, 3]);
 		processing_message(message, &origin)?;
 
 		let weight = if message.starts_with(&b"weight="[..]) {
@@ -185,7 +184,9 @@ impl ProcessMessage for RecordingMessageProcessor {
 		if meter.try_consume(required).is_ok() {
 			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
 				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
-				Callback::get()(&origin, s.parse().expect("Expected an u32"));
+				if let Err(()) = Callback::get()(&origin, s.parse().expect("Expected an u32")) {
+					return Err(ProcessMessageError::Corrupt)
+				}
 			}
 			let mut m = MessagesProcessed::get();
 			m.push((message.to_vec(), origin));
@@ -198,7 +199,7 @@ impl ProcessMessage for RecordingMessageProcessor {
 }
 
 parameter_types! {
-	pub static Callback: Box<fn (&MessageOrigin, u32)> = Box::new(|_, _| {});
+	pub static Callback: Box<fn (&MessageOrigin, u32) -> Result<(), ()>> = Box::new(|_, _| { Ok(()) });
 	pub static IgnoreStackOvError: bool = false;
 }
 
@@ -253,7 +254,9 @@ impl ProcessMessage for CountingMessageProcessor {
 		if meter.try_consume(required).is_ok() {
 			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
 				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
-				Callback::get()(&origin, s.parse().expect("Expected an u32"));
+				if let Err(()) = Callback::get()(&origin, s.parse().expect("Expected an u32")) {
+					return Err(ProcessMessageError::Corrupt)
+				}
 			}
 			NumMessagesProcessed::set(NumMessagesProcessed::get() + 1);
 			Ok(true)
