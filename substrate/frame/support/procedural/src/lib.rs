@@ -1333,6 +1333,10 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 /// (NOTE: It is also recomended to use [`frame_system::DenyNone`] transaction extension at the end
 /// the transaction extension pipeline.)
 ///
+/// To enable the creation of authorized call from offchain worker. The runtime should implement
+/// [`frame_system::CreateAuthorizedTransaction`]. This trait allows to specify which transaction
+/// extension to use when creating a transaction for an authorized call.
+///
 /// # Usage in the pallet
 ///
 /// ## Example/Overview:
