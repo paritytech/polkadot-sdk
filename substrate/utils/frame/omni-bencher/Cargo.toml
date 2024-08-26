@@ -18,5 +18,5 @@ frame-benchmarking-cli = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 log = { workspace = true }
