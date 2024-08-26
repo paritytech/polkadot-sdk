@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724631735646,
+  "lastUpdate": 1724685376744,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -18647,6 +18647,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.216862625099996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ad0de7495e0e4685408d70c755cddaa14e3b02ca",
+          "message": "`MaybeConsideration` extension trait for `Consideration` (#5384)\n\nIntroduce `MaybeConsideration` extension trait for `Consideration`.\n\nThe trait allows for the management of tickets that may represent no\ncost. While the `MaybeConsideration` still requires proper handling, it\nintroduces the ability to determine if a ticket represents no cost and\ncan be safely forgotten without any side effects.\n\nThe new trait is particularly useful when a consumer expects the cost to\nbe zero under certain conditions (e.g., when the proposal count is below\na threshold N) and does not want to store such consideration tickets in\nstorage. The extension approach allows us to avoid breaking changes to\nthe existing trait and to continue using it as a non-optional version\nfor migrating pallets that utilize the `Currency` and `fungible` traits\nfor `holds` and `freezes`, without requiring any storage migration.",
+          "timestamp": "2024-08-26T13:23:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ad0de7495e0e4685408d70c755cddaa14e3b02ca"
+        },
+        "date": 1724685348815,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1966958619,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.21616004236667,
             "unit": "seconds"
           }
         ]
