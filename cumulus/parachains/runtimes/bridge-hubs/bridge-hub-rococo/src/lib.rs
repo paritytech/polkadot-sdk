@@ -55,7 +55,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult
+	ApplyExtrinsicResult,
 };
 
 #[cfg(feature = "std")]
@@ -157,7 +157,9 @@ pub type Migrations = (
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
-	snowbridge_pallet_ethereum_client::migration::execution_header_cleanup::ExecutionHeaderCleanup<Runtime>,
+	snowbridge_pallet_ethereum_client::migration::execution_header_cleanup::ExecutionHeaderCleanup<
+		Runtime,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );

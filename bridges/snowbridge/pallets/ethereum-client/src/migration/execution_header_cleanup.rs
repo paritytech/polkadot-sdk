@@ -14,11 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
-use core::marker::PhantomData;
 use crate::Config;
-use frame_support::weights::constants::RocksDbWeight;
-
+use core::marker::PhantomData;
+use frame_support::{
+	traits::OnRuntimeUpgrade,
+	weights::{constants::RocksDbWeight, Weight},
+};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -27,31 +28,31 @@ use sp_std::prelude::*;
 
 const LOG_TARGET: &str = "runtime::snowbridge::migration";
 
-pub struct ExecutionHeaderCleanup<T: Config>(
-    PhantomData<T>,
-);
+pub struct ExecutionHeaderCleanup<T: Config>(PhantomData<T>);
 
 impl<T: Config> OnRuntimeUpgrade for ExecutionHeaderCleanup<T> {
-    fn on_runtime_upgrade() -> Weight {
-        log::info!(target: LOG_TARGET, "Cleaning up latest execution header state and index.");
-        crate::migration::v0::LatestExecutionState::<T>::kill();
-        crate::migration::v0::ExecutionHeaderIndex::<T>::kill();
+	fn on_runtime_upgrade() -> Weight {
+		log::info!(target: LOG_TARGET, "Cleaning up latest execution header state and index.");
+		crate::migration::v0::LatestExecutionState::<T>::kill();
+		crate::migration::v0::ExecutionHeaderIndex::<T>::kill();
 
-        RocksDbWeight::get().reads_writes(2, 2)
-    }
+		RocksDbWeight::get().reads_writes(2, 2)
+	}
 
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-        let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
-        frame_support::ensure!(last_index != 0, "Snowbridge execution header storage is not migrated.");
-        Ok(vec![])
-    }
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
+		frame_support::ensure!(
+			last_index != 0,
+			"Snowbridge execution header storage is not migrated."
+		);
+		Ok(vec![])
+	}
 
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
-        let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
-        frame_support::ensure!(last_index == 0, "Snowbridge execution header storage is migrated.");
-        Ok(())
-    }
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+		let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
+		frame_support::ensure!(last_index == 0, "Snowbridge execution header storage is migrated.");
+		Ok(())
+	}
 }
-
