@@ -1092,8 +1092,13 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	// of the same para is preserved.
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
 
-	// Get the paras scheduled next on each core.
-	let scheduled_paras = scheduler::Pallet::<T>::scheduled_paras().collect::<BTreeMap<_, _>>();
+	// Get the eligible paras for each core.
+	let scheduled_paras = scheduled
+		.iter()
+		.map(|(para_id, cores)| cores.iter().map(|core| (*core, *para_id)))
+		.flatten()
+		.collect();
+
 	for candidate in backed_candidates {
 		if !sanitize_backed_candidate_v2::<T>(
 			&candidate,
