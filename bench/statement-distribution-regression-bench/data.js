@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724632035408,
+  "lastUpdate": 1724685678548,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9365,6 +9365,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03678659144600001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3cbefaf197b5a5633b61d724f1b9a92fb7790ebb",
+          "message": "Add build options to the srtool build step (#4956)\n\nThis PR adds possibility to set BUILD_OPTIONS to the \"Srtool Build\" step\nin the release pipeline while building runtimes.\n\nColses: https://github.com/paritytech/release-engineering/issues/213\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: EgorPopelyaev <EgorPopelyaev@users.noreply.github.com>",
+          "timestamp": "2024-08-26T14:44:03Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3cbefaf197b5a5633b61d724f1b9a92fb7790ebb"
+        },
+        "date": 1724685650451,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.94799999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.044928072862000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036288010787999994,
             "unit": "seconds"
           }
         ]
