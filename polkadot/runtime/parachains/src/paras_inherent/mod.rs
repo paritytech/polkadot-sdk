@@ -598,16 +598,13 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Process backed candidates according to scheduled cores.
-		let inclusion::ProcessedCandidates::<<HeaderFor<T> as HeaderT>::Hash> {
-			candidate_receipt_with_backing_validator_indices,
-			// TODO: can we remove this?
-			..
-		} = inclusion::Pallet::<T>::process_candidates(
-			&allowed_relay_parents,
-			&backed_candidates_with_core,
-			scheduler::Pallet::<T>::group_validators,
-			core_index_enabled,
-		)?;
+		let candidate_receipt_with_backing_validator_indices =
+			inclusion::Pallet::<T>::process_candidates(
+				&allowed_relay_parents,
+				&backed_candidates_with_core,
+				scheduler::Pallet::<T>::group_validators,
+				core_index_enabled,
+			)?;
 
 		// We need to advance the claim queue on all cores, except for the ones that did not get
 		// freed in this block. The ones that did not get freed also cannot be newly occupied.

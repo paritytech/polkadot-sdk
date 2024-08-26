@@ -199,24 +199,6 @@ pub trait RewardValidators {
 	fn reward_bitfields(validators: impl IntoIterator<Item = ValidatorIndex>);
 }
 
-/// Helper return type for `process_candidates`.
-#[derive(Encode, Decode, PartialEq, TypeInfo)]
-#[cfg_attr(test, derive(Debug))]
-pub(crate) struct ProcessedCandidates<H = Hash> {
-	pub(crate) core_indices: Vec<(CoreIndex, ParaId)>,
-	pub(crate) candidate_receipt_with_backing_validator_indices:
-		Vec<(CandidateReceipt<H>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
-}
-
-impl<H> Default for ProcessedCandidates<H> {
-	fn default() -> Self {
-		Self {
-			core_indices: Vec::new(),
-			candidate_receipt_with_backing_validator_indices: Vec::new(),
-		}
-	}
-}
-
 /// Reads the footprint of queues for a specific origin type.
 pub trait QueueFootprinter {
 	type Origin;
@@ -621,12 +603,15 @@ impl<T: Config> Pallet<T> {
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
 		core_index_enabled: bool,
-	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
+	) -> Result<
+		Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
+		DispatchError,
+	>
 	where
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
 	{
 		if candidates.is_empty() {
-			return Ok(ProcessedCandidates::default())
+			return Ok(Default::default())
 		}
 
 		let now = frame_system::Pallet::<T>::block_number();
@@ -635,7 +620,6 @@ impl<T: Config> Pallet<T> {
 		// Collect candidate receipts with backers.
 		let mut candidate_receipt_with_backing_validator_indices =
 			Vec::with_capacity(candidates.len());
-		let mut core_indices = Vec::with_capacity(candidates.len());
 
 		for (para_id, para_candidates) in candidates {
 			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
@@ -689,7 +673,6 @@ impl<T: Config> Pallet<T> {
 				latest_head_data = candidate.candidate().commitments.head_data.clone();
 				candidate_receipt_with_backing_validator_indices
 					.push((candidate.receipt(), backer_idx_and_attestation));
-				core_indices.push((*core, *para_id));
 
 				// Update storage now
 				PendingAvailability::<T>::mutate(&para_id, |pending_availability| {
@@ -724,10 +707,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		Ok(ProcessedCandidates::<T::Hash> {
-			core_indices,
-			candidate_receipt_with_backing_validator_indices,
-		})
+		Ok(candidate_receipt_with_backing_validator_indices)
 	}
 
 	// Get the latest backed output head data of this para (including pending availability).
