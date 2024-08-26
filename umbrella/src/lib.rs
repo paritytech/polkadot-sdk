@@ -400,7 +400,7 @@ pub use pallet_collective;
 pub use pallet_collective_content;
 
 /// FRAME pallet for WASM contracts.
-#[cfg(feature = "pallet-contracts")]
+#[cfg(all(feature = "pallet-contracts", not(target_arch = "riscv32")))]
 pub use pallet_contracts;
 
 /// A mock network for testing pallet-contracts.

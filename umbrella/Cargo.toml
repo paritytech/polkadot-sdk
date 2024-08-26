@@ -1134,7 +1134,7 @@ path = "../cumulus/parachains/pallets/collective-content"
 default-features = false
 optional = true
 
-[dependencies.pallet-contracts]
+[target.'cfg(not(target_arch = "riscv32"))'.dependencies.pallet-contracts]
 path = "../substrate/frame/contracts"
 default-features = false
 optional = true
