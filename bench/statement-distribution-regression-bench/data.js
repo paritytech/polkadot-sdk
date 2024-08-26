@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724546328970,
+  "lastUpdate": 1724632035408,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9323,6 +9323,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.036768433547999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Lech Głowiak",
+            "username": "LGLO",
+            "email": "LGLO@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "178e699c7d9a9f399040e290943dd13873772c68",
+          "message": "Skip slot before creating inherent data providers during major sync (#5344)\n\n# Description\n\nMoves `create_inherent_data_provider` after checking if major sync is in\nprogress.\n\n## Integration\n\nChange is internal to sc-consensus-slots. It should be no-op unless\nsomeone is using fork of this SDK.\n\n## Review Notes\n\nMotivation for this change is to avoid calling\n`create_inherent_data_providers` if it's result is going to be discarded\nanyway during major sync. This has potential to speed up node operations\nduring major sync by not calling possibly expensive\n`create_inherent_data_provider`.\n\nTODO: labels T0-node D0-simple\nTODO: there is no tests for `Slots`, should I add one for this case?\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T`\n  required)\n* External contributors: ask maintainers to put the right label on your\nPR.\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2024-08-25T22:30:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/178e699c7d9a9f399040e290943dd13873772c68"
+        },
+        "date": 1724632008189,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.92599999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04554700970999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03678659144600001,
             "unit": "seconds"
           }
         ]
