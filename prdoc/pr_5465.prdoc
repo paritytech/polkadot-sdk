@@ -1,0 +1,10 @@
+title: try-state check invariant for nomination-pools (points <= stake)
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Invariants `ErasRewardPoints` should be less than or equals `ErasTotalStake`
+
+crates:
+  - name: pallet-staking
+    bump: minor

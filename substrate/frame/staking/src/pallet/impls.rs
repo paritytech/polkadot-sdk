@@ -2306,13 +2306,15 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Invariants:
+	/// * Checks that `ErasRewardPoints` should be less than or equals `ErasTotalStake`.
 	fn check_points_and_rewards() -> Result<(), TryRuntimeError> {
 		let total_points = ErasRewardPoints::<T>::iter().count() as u32;
-		let total_rewards = ErasTotalStake::<T>::iter().count() as u32;
+		let total_stake = ErasTotalStake::<T>::iter().count() as u32;
 
 		ensure!(
-			total_points <= total_rewards,
-			"Points can never be lower than the stake in the pool"
+			total_points <= total_stake,
+			"Points should be less than or equals the stake in the pool"
 		);
 		Ok(())
 	}
