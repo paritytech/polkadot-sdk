@@ -27,12 +27,10 @@ use std::sync::Arc;
 pub use parachains_common::{AccountId, Balance, Hash, Nonce};
 
 type Header<BlockNumber> = generic::Header<BlockNumber, BlakeTwo256>;
-pub type CustomBlock<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtrinsic>;
-pub type Block = CustomBlock<u32>;
+pub type Block<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtrinsic>;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 pub type ParachainHostFunctions = cumulus_client_service::ParachainHostFunctions;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,

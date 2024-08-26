@@ -25,7 +25,7 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	fake_runtime_api::u32_block::aura_sr25519::RuntimeApi as FakeRuntimeApi,
+	fake_runtime_api::aura_sr25519::RuntimeApi as FakeRuntimeApi,
 };
 use cumulus_client_collator::service::{
 	CollatorService, ServiceInterface as CollatorServiceInterface,
@@ -66,14 +66,14 @@ use std::{marker::PhantomData, sync::Arc, time::Duration};
 /// Build the import queue for the shell runtime.
 pub(crate) struct BuildShellImportQueue;
 
-impl BuildImportQueue<Block, FakeRuntimeApi> for BuildShellImportQueue {
+impl BuildImportQueue<Block<u32>, FakeRuntimeApi> for BuildShellImportQueue {
 	fn build_import_queue(
-		client: Arc<ParachainClient<Block, FakeRuntimeApi>>,
-		block_import: ParachainBlockImport<Block, FakeRuntimeApi>,
+		client: Arc<ParachainClient<Block<u32>, FakeRuntimeApi>>,
+		block_import: ParachainBlockImport<Block<u32>, FakeRuntimeApi>,
 		config: &Configuration,
 		_telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
-	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
+	) -> sc_service::error::Result<DefaultImportQueue<Block<u32>>> {
 		cumulus_client_consensus_relay_chain::import_queue(
 			client,
 			block_import,
@@ -88,10 +88,10 @@ impl BuildImportQueue<Block, FakeRuntimeApi> for BuildShellImportQueue {
 pub(crate) struct ShellNode;
 
 impl NodeSpec for ShellNode {
-	type Block = Block;
+	type Block = Block<u32>;
 	type RuntimeApi = FakeRuntimeApi;
 	type BuildImportQueue = BuildShellImportQueue;
-	type BuildRpcExtensions = BuildEmptyRpcExtensions<Block, Self::RuntimeApi>;
+	type BuildRpcExtensions = BuildEmptyRpcExtensions<Block<u32>, Self::RuntimeApi>;
 	type StartConsensus = StartRelayChainConsensus;
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Unresistant;
@@ -256,22 +256,22 @@ where
 /// decides what is backed and included.
 pub(crate) struct StartRelayChainConsensus;
 
-impl StartConsensus<Block, FakeRuntimeApi> for StartRelayChainConsensus {
+impl StartConsensus<Block<u32>, FakeRuntimeApi> for StartRelayChainConsensus {
 	fn start_consensus(
-		client: Arc<ParachainClient<Block, FakeRuntimeApi>>,
-		block_import: ParachainBlockImport<Block, FakeRuntimeApi>,
+		client: Arc<ParachainClient<Block<u32>, FakeRuntimeApi>>,
+		block_import: ParachainBlockImport<Block<u32>, FakeRuntimeApi>,
 		prometheus_registry: Option<&Registry>,
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<FullPool<Block, ParachainClient<Block, FakeRuntimeApi>>>,
+		transaction_pool: Arc<FullPool<Block<u32>, ParachainClient<Block<u32>, FakeRuntimeApi>>>,
 		_keystore: KeystorePtr,
 		_relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
-		_backend: Arc<ParachainBackend<Block>>,
+		_backend: Arc<ParachainBackend<Block<u32>>>,
 		_node_extra_args: NodeExtraArgs,
 	) -> Result<(), Error> {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
