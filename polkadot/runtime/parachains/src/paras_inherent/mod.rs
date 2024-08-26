@@ -555,7 +555,6 @@ impl<T: Config> Pallet<T> {
 		// We'll schedule paras again, given freed cores, and reasons for freeing.
 		let occupied_cores =
 			inclusion::Pallet::<T>::get_occupied_cores().map(|(core, _para)| core).collect();
-		scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
@@ -609,6 +608,10 @@ impl<T: Config> Pallet<T> {
 			scheduler::Pallet::<T>::group_validators,
 			core_index_enabled,
 		)?;
+
+		// We need to advance the claim queue on all cores, except for the ones that did not get
+		// freed in this block. The ones that did not get freed also cannot be newly occupied.
+		scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
 
 		set_scrapable_on_chain_backings::<T>(
 			current_session,

@@ -58,12 +58,6 @@ pub fn validator_groups<T: initializer::Config>(
 
 /// Implementation for the `availability_cores` function of the runtime API.
 pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, BlockNumberFor<T>>> {
-	// This explicit update is only strictly required for session boundaries:
-	//
-	// At the end of a session we clear the claim queues: Without this update call, nothing would be
-	// scheduled to the client.
-	scheduler::Pallet::<T>::advance_claim_queue(&Default::default());
-
 	let time_out_for = scheduler::Pallet::<T>::availability_timeout_predicate();
 
 	let group_responsible_for =

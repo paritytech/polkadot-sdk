@@ -36,8 +36,6 @@
 //! number of groups as availability cores. Validator groups will be assigned to different
 //! availability cores over time.
 
-use core::iter::Peekable;
-
 use crate::{configuration, initializer::SessionChangeNotification, paras};
 use alloc::{
 	collections::{
@@ -47,6 +45,7 @@ use alloc::{
 	},
 	vec::Vec,
 };
+use core::iter::Peekable;
 use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
@@ -157,9 +156,10 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_finalize() {}
 
 	/// Called before the initializer notifies of a new session.
-	pub(crate) fn pre_new_session() {
+	pub(crate) fn pre_new_session(occupied_cores: impl Iterator<Item = (CoreIndex, ParaId)>) {
 		Self::push_claim_queue_items_to_assignment_provider();
-		// Self::push_occupied_cores_to_assignment_provider();
+		Self::push_occupied_cores_to_assignment_provider(occupied_cores);
+		Self::populate_claim_queue();
 	}
 
 	pub(crate) fn num_cores() -> u32 {
@@ -344,19 +344,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Pushes occupied cores to the assignment provider.
-	/// TODO: these need to get the av-cores from the paras_inherent pallet.
-	// fn push_occupied_cores_to_assignment_provider() {
-	// 	AvailabilityCores::<T>::mutate(|cores| {
-	// 		for core in cores.iter_mut() {
-	// 			match core::mem::replace(core, CoreOccupied::Free) {
-	// 				CoreOccupied::Free => continue,
-	// 				CoreOccupied::Paras(entry) => {
-	// 					Self::maybe_push_assignment(entry);
-	// 				},
-	// 			}
-	// 		}
-	// 	});
-	// }
+	fn push_occupied_cores_to_assignment_provider(
+		occupied_cores: impl Iterator<Item = (CoreIndex, ParaId)>,
+	) {
+		for (core_index, para_id) in occupied_cores {
+			// TODO: can we assume a pool assignment for simplicity?
+			Self::push_assignment(Assignment::Pool { para_id, core_index });
+		}
+	}
 
 	// on new session
 	fn push_claim_queue_items_to_assignment_provider() {
@@ -364,26 +359,44 @@ impl<T: Config> Pallet<T> {
 			// Push back in reverse order so that when we pop from the provider again,
 			// the entries in the claim queue are in the same order as they are right now.
 			for para_entry in claim_queue.into_iter().rev() {
-				Self::maybe_push_assignment(para_entry);
+				Self::push_assignment(para_entry);
 			}
 		}
 	}
 
-	/// Push assignments back to the provider on session change unless the paras
-	/// timed out on availability before.
-	fn maybe_push_assignment(assignment: Assignment) {
+	// on new session
+	fn populate_claim_queue() {
+		let n_session_cores = T::AssignmentProvider::session_core_count();
+		let config = configuration::ActiveConfig::<T>::get();
+		// Extra sanity, config should already never be smaller than 1:
+		let n_lookahead = config.scheduler_params.lookahead.max(1);
+		let cq = ClaimQueue::<T>::get();
+
+		for core_idx in 0..n_session_cores {
+			let core_idx = CoreIndex::from(core_idx);
+			let n_lookahead_used = cq.get(&core_idx).map_or(0, |v| v.len() as u32);
+
+			for _ in n_lookahead_used..n_lookahead {
+				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
+					Self::add_to_claim_queue(core_idx, assignment);
+				}
+			}
+		}
+	}
+
+	/// Push assignments back to the provider on session change.
+	fn push_assignment(assignment: Assignment) {
 		T::AssignmentProvider::push_back_assignment(assignment);
 	}
 
 	/// Frees cores and fills the free claim queue spots by popping from the `AssignmentProvider`.
-	pub fn advance_claim_queue(occupied_cores: &BTreeSet<CoreIndex>) {
+	pub fn advance_claim_queue(except_for: &BTreeSet<CoreIndex>) {
 		// This can only happen on new sessions at which we move all assignments back to the
 		// provider. Hence, there's nothing we need to do here.
 		if ValidatorGroups::<T>::decode_len().map_or(true, |l| l == 0) {
 			return
 		}
 		let n_session_cores = T::AssignmentProvider::session_core_count();
-		let cq = ClaimQueue::<T>::get();
 		let config = configuration::ActiveConfig::<T>::get();
 		// Extra sanity, config should already never be smaller than 1:
 		let n_lookahead = config.scheduler_params.lookahead.max(1);
@@ -391,13 +404,15 @@ impl<T: Config> Pallet<T> {
 		for core_idx in 0..n_session_cores {
 			let core_idx = CoreIndex::from(core_idx);
 
-			if !occupied_cores.contains(&core_idx) {
+			if !except_for.contains(&core_idx) {
 				let core_idx = CoreIndex::from(core_idx);
-				let n_lookahead_used = cq.get(&core_idx).map_or(0, |v| v.len() as u32);
 
 				if let Some(dropped_para) = Self::pop_from_claim_queue(&core_idx) {
 					T::AssignmentProvider::report_processed(dropped_para);
 				}
+
+				let n_lookahead_used =
+					ClaimQueue::<T>::get().get(&core_idx).map_or(0, |v| v.len() as u32);
 
 				for _ in n_lookahead_used..n_lookahead {
 					if let Some(assignment) =
