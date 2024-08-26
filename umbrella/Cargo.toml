@@ -1134,11 +1134,6 @@ path = "../cumulus/parachains/pallets/collective-content"
 default-features = false
 optional = true
 
-[target.'cfg(not(target_arch = "riscv32"))'.dependencies.pallet-contracts]
-path = "../substrate/frame/contracts"
-default-features = false
-optional = true
-
 [dependencies.pallet-contracts-proc-macro]
 path = "../substrate/frame/contracts/proc-macro"
 default-features = false
@@ -2657,3 +2652,8 @@ optional = true
 [package.metadata.docs.rs]
 features = ["node", "runtime"]
 targets = ["x86_64-unknown-linux-gnu"]
+
+[target."cfg(not(target_arch = \"riscv32\"))".dependencies.pallet-contracts]
+path = "../substrate/frame/contracts"
+default-features = false
+optional = true

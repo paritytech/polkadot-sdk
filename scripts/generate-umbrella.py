@@ -38,6 +38,12 @@ def exclude(crate):
 
 	return False
 
+
+def no_riscv_target(crate):
+	if crate.name == "pallet-contracts":
+		return True
+	return False
+
 def main(path, version):
 	delete_umbrella(path)
 	workspace = Workspace.from_path(path)
@@ -89,13 +95,21 @@ def main(path, version):
 	all_crates = std_crates + nostd_crates
 	all_crates.sort(key=lambda x: x[0].name)
 	dependencies = {}
+	target = {}
+	no_arch_riscv_deps = {}
+	target["cfg(not(target_arch = \"riscv32\"))"] = {}
+	target["cfg(not(target_arch = \"riscv32\"))"]["dependencies"] = no_arch_riscv_deps
 
+	def add_dependency(crate, path):
+		deps = no_arch_riscv_deps if no_riscv_target(crate) else dependencies
+		deps[crate.name] = {"path": f"../{path}", "default-features": False, "optional": True}
+		
 	for (crate, path) in nostd_crates:
-		dependencies[crate.name] = {"path": f"../{path}", "default-features": False, "optional": True}
+		add_dependency(crate, path)
 
 	for (crate, path) in std_crates:
-		dependencies[crate.name] = {"path": f"../{path}", "default-features": False, "optional": True}
-
+		add_dependency(crate, path)
+	
 	# The empty features are filled by Zepter
 	features = {
 		"default": [ "std" ],
@@ -126,6 +140,7 @@ def main(path, version):
 		},
 		"dependencies": dependencies,
 		"features": features,
+		"target": target,
 	}
 
 	umbrella_dir = os.path.join(workspace.path, "umbrella")
@@ -158,7 +173,10 @@ def main(path, version):
 			use = crate.name.replace("-", "_")
 			desc = crate.description if crate.description.endswith(".") else crate.description + "."
 			f.write(f'\n/// {desc}')
-			f.write(f'\n#[cfg(feature = "{crate.name}")]\n')
+			if no_riscv_target(crate):
+				f.write(f'\n#[cfg(all(feature = "{crate.name}", not(target_arch = "riscv32")))]\n')
+			else:
+				f.write(f'\n#[cfg(feature = "{crate.name}")]\n')
 			f.write(f"pub use {use};\n")
 
 		print(f"Wrote {lib_path}")
