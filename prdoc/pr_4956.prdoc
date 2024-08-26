@@ -1,34 +1,39 @@
+title: Add build options to the srtool build step and delete `disanle-logging` feature
+
+doc:
+- audience: Runtime Dev
+  description: |
+    This PR adds possibility to set BUILD_OPTIONS to the "Srtool Build\" step in the release pipeline while building runtimes.
+    And deletes the `disable-logging` feature from test runtimes to be able to build those with an activated logging.
+
+
+
 crates:
 - name: people-rococo-runtime
-  validate: false
+  bump: patch
 - name: people-westend-runtime
-  validate: false
+  bump: patch
 - name: rococo-parachain-runtime
-  validate: false
+  bump: patch
 - name: asset-hub-rococo-runtime
-  validate: false
+  bump: patch
 - name: asset-hub-westend-runtime
-  validate: false
+  bump: patch
 - name: bridge-hub-rococo-runtime
-  validate: false
+  bump: patch
 - name: bridge-hub-westend-runtime
-  validate: false
+  bump: patch
 - name: collectives-westend-runtime
-  validate: false
+  bump: patch
 - name: contracts-rococo-runtime
-  validate: false
+  bump: patch
 - name: coretime-rococo-runtime
-  validate: false
+  bump: patch
 - name: coretime-westend-runtime
-  validate: false
+  bump: patch
 - name: glutton-westend-runtime
-  validate: false
+  bump: patch
 - name: rococo-runtime
-  validate: false
+  bump: patch
 - name: westend-runtime
-  validate: false
-doc:
-- audience: TODO
-  description: "This PR adds possibility to set BUILD_OPTIONS to the \"Srtool Build\"\
-    \  step in the release pipeline while building runtimes.\r\n\r\nColses: https://github.com/paritytech/release-engineering/issues/213"
-title: Add build options to the srtool build step
+  bump: patch
