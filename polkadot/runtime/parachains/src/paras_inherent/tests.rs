@@ -48,7 +48,7 @@ fn default_config() -> MockGenesisConfig {
 mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
 	use crate::{
-		builder::{Bench, BenchBuilder},
+		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder},
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
 		scheduler::{
 			common::{Assignment, AssignmentProvider},
@@ -63,7 +63,7 @@ mod enter {
 	use frame_system::limits;
 	use polkadot_primitives::{
 		vstaging::{InternalVersion, SchedulerParams},
-		AvailabilityBitfield, UncheckedSigned,
+		AvailabilityBitfield, CandidateDescriptor, UncheckedSigned,
 	};
 	use sp_runtime::Perbill;
 
@@ -1640,6 +1640,75 @@ mod enter {
 			});
 
 			let inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (2 validators per core, 5 backed candidates)
+			assert_eq!(inherent_data.bitfields.len(), 5);
+			// * 5 v2 candidate descriptors.
+			assert_eq!(inherent_data.backed_candidates.len(), 5);
+
+			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data).unwrap();
+		});
+	}
+
+	// Test when parachain runtime is upgraded to support the new commitments
+	// but some collators are not and provide v1 descriptors.
+	#[test]
+	fn elastic_scaling_mixed_v1_v2_descriptors() {
+		let config = default_config();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+		new_test_ext(config).execute_with(|| {
+			// Set the elastic scaling MVP feature.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::ElasticScalingMVP as u8,
+				true,
+			)
+			.unwrap();
+
+			// Enable the v2 receipts.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let unavailable_cores = vec![];
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				fill_claimqueue: true,
+				// 3 cores
+				elastic_paras: [(2, 3)].into_iter().collect(),
+				unavailable_cores: unavailable_cores.clone(),
+				v2_descriptor: false,
+			});
+
+			let mut inherent_data = scenario.data.clone();
+			let candidate_count = inherent_data.backed_candidates.len();
+
+			// Make last 2 candidates v1
+			for index in candidate_count - 2..candidate_count {
+				let encoded = inherent_data.backed_candidates[index].descriptor().encode();
+
+				let mut decoded: CandidateDescriptor =
+					Decode::decode(&mut encoded.as_slice()).unwrap();
+				decoded.collator = junk_collator();
+				decoded.signature = junk_collator_signature();
+
+				*inherent_data.backed_candidates[index].descriptor_mut() =
+					Decode::decode(&mut encoded.as_slice()).unwrap();
+			}
 
 			// Check the para inherent data is as expected:
 			// * 1 bitfield per validator (2 validators per core, 5 backed candidates)

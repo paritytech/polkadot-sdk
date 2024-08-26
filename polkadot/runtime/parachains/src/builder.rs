@@ -52,14 +52,14 @@ fn mock_validation_code() -> ValidationCode {
 	ValidationCode(vec![1, 2, 3])
 }
 
-// Create a dummy collator id suitable to be used in a V1 candidate descriptor.
-fn junk_collator() -> CollatorId {
+/// Create a dummy collator id suitable to be used in a V1 candidate descriptor.
+pub fn junk_collator() -> CollatorId {
 	CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
 		.expect("32 bytes; qed")
 }
 
-// Creates a dummy collator signature suitable to be used in a V1 candidate descriptor.
-fn junk_collator_signature() -> CollatorSignature {
+/// Creates a dummy collator signature suitable to be used in a V1 candidate descriptor.
+pub fn junk_collator_signature() -> CollatorSignature {
 	CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
 		.expect("64 bytes; qed")
 }

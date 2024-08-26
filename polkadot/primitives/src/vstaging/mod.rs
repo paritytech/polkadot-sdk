@@ -534,6 +534,10 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			return Ok(())
 		}
 
+		if self.commitments.selected_core().is_none() {
+			return Err(CandidateReceiptError::NoCoreSelected)
+		}
+
 		if assigned_cores.is_empty() {
 			return Err(CandidateReceiptError::NoAssignment)
 		}
@@ -551,7 +555,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 				return Err(CandidateReceiptError::CoreIndexMismatch)
 			}
 		}
-		
+
 		Ok(())
 	}
 }
@@ -887,7 +891,7 @@ mod tests {
 			.upward_messages
 			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
 
-		assert_eq!(new_ccr.check(&vec![CoreIndex(123)]), Ok(()));
+		assert_eq!(new_ccr.check(&vec![&CoreIndex(123)]), Ok(()));
 	}
 
 	#[test]
@@ -901,7 +905,7 @@ mod tests {
 
 		// The check should fail because no `SelectCore` signal was sent.
 		assert_eq!(
-			new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]),
+			new_ccr.check(&vec![&CoreIndex(0), &CoreIndex(100)]),
 			Err(CandidateReceiptError::NoCoreSelected)
 		);
 
@@ -913,7 +917,7 @@ mod tests {
 
 		// Failure is expected.
 		assert_eq!(
-			new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]),
+			new_ccr.check(&vec![&CoreIndex(0), &CoreIndex(100)]),
 			Err(CandidateReceiptError::NoCoreSelected)
 		);
 
@@ -932,7 +936,7 @@ mod tests {
 			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
 
 		// Duplicate doesn't override first signal.
-		assert_eq!(new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]), Ok(()));
+		assert_eq!(new_ccr.check(&vec![&CoreIndex(0), &CoreIndex(100)]), Ok(()));
 	}
 
 	#[test]
@@ -969,9 +973,41 @@ mod tests {
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
 		assert_eq!(v2_ccr.descriptor.core_index(), Some(CoreIndex(123)));
-		assert_eq!(new_ccr.check(&vec![CoreIndex(123)]), Ok(()));
+		assert_eq!(new_ccr.check(&vec![&CoreIndex(123)]), Ok(()));
 
 		assert_eq!(new_ccr.hash(), v2_ccr.hash());
+	}
+
+	// Only check descriptor `core_index` field of v2 descriptors. If it is v1, that field
+	// will be garbage.
+	#[test]
+	fn test_v1_descriptors_with_ump_signal() {
+		let mut ccr = dummy_old_committed_candidate_receipt();
+		ccr.descriptor.para_id = ParaId::new(1024);
+		// Adding collator signature should make it decode as v1.
+		ccr.descriptor.signature = dummy_collator_signature();
+		ccr.descriptor.collator = dummy_collator_id();
+
+		ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		ccr.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
+
+		let encoded_ccr: Vec<u8> = ccr.encode();
+
+		let v1_ccr: CommittedCandidateReceiptV2 =
+			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
+
+		assert_eq!(v1_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert!(v1_ccr.commitments.selected_core().is_some());
+		assert!(v1_ccr.check(&vec![&CoreIndex(0), &CoreIndex(1)]).is_ok());
+
+		assert_eq!(
+			v1_ccr.commitments.committed_core_index(&vec![&CoreIndex(10), &CoreIndex(5)]),
+			Some(CoreIndex(5)),
+		);
+
+		assert_eq!(v1_ccr.descriptor.core_index(), None);
 	}
 
 	#[test]
@@ -988,7 +1024,7 @@ mod tests {
 		// version 2.
 		// We expect the check to fail in such case because there will be no `SelectCore`
 		// commitment.
-		assert_eq!(new_ccr.check(&vec![CoreIndex(0)]), Err(CandidateReceiptError::NoCoreSelected));
+		assert_eq!(new_ccr.check(&vec![&CoreIndex(0)]), Err(CandidateReceiptError::NoCoreSelected));
 
 		// Adding collator signature should make it decode as v1.
 		old_ccr.descriptor.signature = dummy_collator_signature();
