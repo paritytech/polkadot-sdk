@@ -1,6 +1,7 @@
 # Running Commands in PRs
 
 You can run commands in PRs by triggering it via comment. It will use the context of your PR and post the results back.
+Note: it works only for members of the `paritytech` organization.
 
 ## Usage
 
@@ -30,3 +31,9 @@ The pipeline logs will include what is failed (like which runtimes/pallets), the
 ### Adding new Commands
 Feel free to add new commands to the workflow, however **_note_** that triggered workflows will use the actions from `main` (default) branch, meaning they will take effect only after the PR with new changes/command is merged.
 If you want to test the new command, it's better to test in your fork and local-to-fork PRs, where you control the default branch.
+
+### Examples
+The regex in cmd.yml is: `^(\/cmd )([-\/\s\w.=:]+)$` to accept only alphanumeric, space, "-", "/", "=", ":", "." characters. 
+
+`/cmd bench --runtime bridge-hub-westend --pallet=pallet_name`
+`/cmd update-ui --image=docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v202407161507 --clean`
