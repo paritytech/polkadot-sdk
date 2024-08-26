@@ -434,11 +434,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		info: <span class="kw-2">&amp;</span>ClientInfo&lt;B&gt;,
 		net_status: NetworkStatus,
 		sync_status: SyncStatus&lt;B&gt;,
+		num_connected_peers: usize,
 	) {
 		<span class="kw">let </span>best_number = info.chain.best_number;
 		<span class="kw">let </span>best_hash = info.chain.best_hash;
 		<span class="kw">let </span>finalized_number = info.chain.finalized_number;
-		<span class="kw">let </span>num_connected_peers = sync_status.num_connected_peers;
 		<span class="kw">let </span>speed = speed::&lt;B&gt;(best_number, <span class="self">self</span>.last_number, <span class="self">self</span>.last_update);
 		<span class="kw">let </span>total_bytes_inbound = net_status.total_bytes_inbound;
 		<span class="kw">let </span>total_bytes_outbound = net_status.total_bytes_outbound;

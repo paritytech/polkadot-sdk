@@ -1479,22 +1479,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1327" id="1327">1327</a>
 <a href="#1328" id="1328">1328</a>
 <a href="#1329" id="1329">1329</a>
-<a href="#1330" id="1330">1330</a>
-<a href="#1331" id="1331">1331</a>
-<a href="#1332" id="1332">1332</a>
-<a href="#1333" id="1333">1333</a>
-<a href="#1334" id="1334">1334</a>
-<a href="#1335" id="1335">1335</a>
-<a href="#1336" id="1336">1336</a>
-<a href="#1337" id="1337">1337</a>
-<a href="#1338" id="1338">1338</a>
-<a href="#1339" id="1339">1339</a>
-<a href="#1340" id="1340">1340</a>
-<a href="#1341" id="1341">1341</a>
-<a href="#1342" id="1342">1342</a>
-<a href="#1343" id="1343">1343</a>
-<a href="#1344" id="1344">1344</a>
-<a href="#1345" id="1345">1345</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2112,8 +2096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="comment">// Update atomic variables
-			</span><span class="self">self</span>.num_connected.store(<span class="self">self</span>.peers.len(), Ordering::Relaxed);
-			<span class="self">self</span>.is_major_syncing.store(<span class="self">self</span>.strategy.is_major_syncing(), Ordering::Relaxed);
+			</span><span class="self">self</span>.is_major_syncing.store(<span class="self">self</span>.strategy.is_major_syncing(), Ordering::Relaxed);
 
 			<span class="comment">// Process actions requested by a syncing strategy.
 			</span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.process_strategy_actions() {
@@ -2258,24 +2241,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 			},
 			ToServiceCommand::Status(tx) =&gt; {
-				<span class="kw">let </span><span class="kw-2">mut </span>status = <span class="self">self</span>.strategy.status();
-				status.num_connected_peers = <span class="self">self</span>.peers.len() <span class="kw">as </span>u32;
-				<span class="kw">let _ </span>= tx.send(status);
+				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.strategy.status());
 			},
 			ToServiceCommand::NumActivePeers(tx) =&gt; {
 				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.num_active_peers());
-			},
-			ToServiceCommand::SyncState(tx) =&gt; {
-				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.strategy.status());
-			},
-			ToServiceCommand::BestSeenBlock(tx) =&gt; {
-				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.strategy.status().best_seen_block);
-			},
-			ToServiceCommand::NumSyncPeers(tx) =&gt; {
-				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.strategy.status().num_peers);
-			},
-			ToServiceCommand::NumQueuedBlocks(tx) =&gt; {
-				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.strategy.status().queued_blocks);
 			},
 			ToServiceCommand::NumDownloadedBlocks(tx) =&gt; {
 				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.strategy.num_downloaded_blocks());
@@ -2284,11 +2253,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let _ </span>= tx.send(<span class="self">self</span>.strategy.num_sync_requests());
 			},
 			ToServiceCommand::PeersInfo(tx) =&gt; {
-				<span class="kw">let </span>peers_info = <span class="self">self
-					</span>.peers
-					.iter()
-					.map(|(peer_id, peer)| (<span class="kw-2">*</span>peer_id, peer.info.clone()))
-					.collect();
+				<span class="kw">let </span>peers_info =
+					<span class="self">self</span>.peers.iter().map(|(peer_id, peer)| (<span class="kw-2">*</span>peer_id, peer.info)).collect();
 				<span class="kw">let _ </span>= tx.send(peers_info);
 			},
 			ToServiceCommand::OnBlockFinalized(hash, header) =&gt;
@@ -2364,6 +2330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 			metrics.peers.dec();
 		}
+		<span class="self">self</span>.num_connected.fetch_sub(<span class="number">1</span>, Ordering::AcqRel);
 
 		<span class="kw">if </span><span class="self">self</span>.important_peers.contains(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Reserved peer {peer_id} disconnected"</span>);
@@ -2543,6 +2510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 				metrics.peers.inc();
 			}
+			<span class="self">self</span>.num_connected.fetch_add(<span class="number">1</span>, Ordering::AcqRel);
 		}
 		<span class="self">self</span>.peer_store_handle.set_peer_role(<span class="kw-2">&amp;</span>peer_id, status.roles.into());
 

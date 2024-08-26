@@ -338,6 +338,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -379,7 +388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Info about a peer's known state (both full and light).
-</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>ExtendedPeerInfo&lt;B: BlockT&gt; {
 	<span class="doccomment">/// Roles
 	</span><span class="kw">pub </span>roles: Roles,
@@ -388,6 +397,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Peer best block number
 	</span><span class="kw">pub </span>best_number: NumberFor&lt;B&gt;,
 }
+
+<span class="kw">impl</span>&lt;B&gt; Clone <span class="kw">for </span>ExtendedPeerInfo&lt;B&gt;
+<span class="kw">where
+	</span>B: BlockT,
+{
+	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ roles: <span class="self">self</span>.roles, best_hash: <span class="self">self</span>.best_hash, best_number: <span class="self">self</span>.best_number }
+	}
+}
+
+<span class="kw">impl</span>&lt;B&gt; Copy <span class="kw">for </span>ExtendedPeerInfo&lt;B&gt; <span class="kw">where </span>B: BlockT {}
 
 <span class="doccomment">/// Reported sync state.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Debug)]
@@ -416,8 +436,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>best_seen_block: <span class="prelude-ty">Option</span>&lt;NumberFor&lt;Block&gt;&gt;,
 	<span class="doccomment">/// Number of peers participating in syncing.
 	</span><span class="kw">pub </span>num_peers: u32,
-	<span class="doccomment">/// Number of peers known to `SyncingEngine` (both full and light).
-	</span><span class="kw">pub </span>num_connected_peers: u32,
 	<span class="doccomment">/// Number of blocks queued for import
 	</span><span class="kw">pub </span>queued_blocks: u32,
 	<span class="doccomment">/// State sync status in progress, if any.

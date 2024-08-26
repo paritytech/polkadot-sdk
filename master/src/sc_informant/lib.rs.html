@@ -319,7 +319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>log::{debug, info, trace};
 <span class="kw">use </span>sc_client_api::{BlockchainEvents, UsageProvider};
 <span class="kw">use </span>sc_network::NetworkStatusProvider;
-<span class="kw">use </span>sc_network_sync::SyncStatusProvider;
+<span class="kw">use </span>sc_network_sync::{SyncStatusProvider, SyncingService};
 <span class="kw">use </span>sp_blockchain::HeaderMetadata;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header};
 <span class="kw">use </span>std::{collections::VecDeque, fmt::Display, sync::Arc, time::Duration};
@@ -332,10 +332,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Builds the informant and returns a `Future` that drives the informant.
-</span><span class="kw">pub async fn </span>build&lt;B: BlockT, C, N, S&gt;(client: Arc&lt;C&gt;, network: N, syncing: S)
+</span><span class="kw">pub async fn </span>build&lt;B: BlockT, C, N&gt;(client: Arc&lt;C&gt;, network: N, syncing: Arc&lt;SyncingService&lt;B&gt;&gt;)
 <span class="kw">where
 	</span>N: NetworkStatusProvider,
-	S: SyncStatusProvider&lt;B&gt;,
 	C: UsageProvider&lt;B&gt; + HeaderMetadata&lt;B&gt; + BlockchainEvents&lt;B&gt;,
 	&lt;C <span class="kw">as </span>HeaderMetadata&lt;B&gt;&gt;::Error: Display,
 {
@@ -347,13 +346,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.filter_map(|<span class="kw">_</span>| <span class="kw">async </span>{
 			<span class="kw">let </span>net_status = network.status().<span class="kw">await</span>;
 			<span class="kw">let </span>sync_status = syncing.status().<span class="kw">await</span>;
+			<span class="kw">let </span>num_connected_peers = syncing.num_connected_peers();
 
-			<span class="kw">match </span>(net_status.ok(), sync_status.ok()) {
-				(<span class="prelude-val">Some</span>(net), <span class="prelude-val">Some</span>(sync)) =&gt; <span class="prelude-val">Some</span>((net, sync)),
+			<span class="kw">match </span>(net_status, sync_status) {
+				(<span class="prelude-val">Ok</span>(net), <span class="prelude-val">Ok</span>(sync)) =&gt; <span class="prelude-val">Some</span>((net, sync, num_connected_peers)),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 			}
 		})
-		.for_each(<span class="kw">move </span>|(net_status, sync_status)| {
+		.for_each(<span class="kw">move </span>|(net_status, sync_status, num_connected_peers)| {
 			<span class="kw">let </span>info = client_1.usage_info();
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>usage) = info.usage {
 				<span class="macro">trace!</span>(target: <span class="string">"usage"</span>, <span class="string">"Usage statistics: {}"</span>, usage);
@@ -363,7 +363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">"Usage statistics not displayed as backend does not provide it"</span>,
 				)
 			}
-			display.display(<span class="kw-2">&amp;</span>info, net_status, sync_status);
+			display.display(<span class="kw-2">&amp;</span>info, net_status, sync_status, num_connected_peers);
 			future::ready(())
 		});
 
