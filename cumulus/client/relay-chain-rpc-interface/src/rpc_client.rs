@@ -134,15 +134,13 @@ impl RelayChainRpcClient {
 		RelayChainRpcClient { worker_channel }
 	}
 
-	/// Call a call to `state_call` rpc method.
-	pub async fn call_remote_runtime_function<R: Decode>(
+	/// Same as `call_remote_runtime_function` but work on encoded data
+	pub async fn call_remote_runtime_function_encoded(
 		&self,
 		method_name: &str,
 		hash: RelayHash,
-		payload: Option<impl Encode>,
-	) -> RelayChainResult<R> {
-		let payload_bytes =
-			payload.map_or(sp_core::Bytes(Vec::new()), |v| sp_core::Bytes(v.encode()));
+		payload_bytes: &[u8],
+	) -> RelayChainResult<sp_core::Bytes> {
 		let params = rpc_params! {
 			method_name,
 			payload_bytes,
@@ -158,6 +156,22 @@ impl RelayChainRpcClient {
 					"Error during call to 'state_call'.",
 				);
 			})
+			.await?;
+
+		Ok(res)
+	}
+
+	/// Call a call to `state_call` rpc method.
+	pub async fn call_remote_runtime_function<R: Decode>(
+		&self,
+		method_name: &str,
+		hash: RelayHash,
+		payload: Option<impl Encode>,
+	) -> RelayChainResult<R> {
+		let payload_bytes =
+			payload.map_or(sp_core::Bytes(Vec::new()), |v| sp_core::Bytes(v.encode()));
+		let res = self
+			.call_remote_runtime_function_encoded(method_name, hash, &payload_bytes)
 			.await?;
 		Decode::decode(&mut &*res.0).map_err(Into::into)
 	}
