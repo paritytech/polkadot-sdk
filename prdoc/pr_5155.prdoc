@@ -10,5 +10,13 @@ doc:
 
 
 crates:
+  - name: polkadot-sdk
+    bump: patch
   - name: polkadot-sdk-frame
+    bump: patch
+  - name: sp-wasm-interface 
+    bump: patch
+  - name: pallet-revive
+    bump: patch
+  - name: pallet-revive-fixtures 
     bump: patch
