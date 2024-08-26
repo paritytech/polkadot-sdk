@@ -26,8 +26,8 @@ anyhow = { optional = true, workspace = true }
 [features]
 default = ["std"]
 std = [
+	"anyhow?/std",
 	"codec/std",
 	"log/std",
-	"anyhow?/std"
 ]
 wasmtime = ["anyhow", "dep:wasmtime"]
