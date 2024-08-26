@@ -194,6 +194,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	pub fn set_topic(&mut self, v: Option<[u8; 32]>) {
 		self.context.topic = v;
 	}
+	pub fn asset_claimer(&self) -> Option<Location> { self.asset_claimer.clone() }
 }
 
 pub struct WeighedMessage<Call>(Weight, Xcm<Call>);
