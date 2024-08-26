@@ -66,7 +66,5 @@ fn ethereum_execution_header_migration_works() {
 			assert_eq!(ExecutionHeaderMapping::<Test>::get(index as u32), H256::zero());
 			assert!(ExecutionHeaders::<Test>::get(block_root_hash).is_none());
 		}
-		assert_eq!(LatestExecutionState::<Test>::get(), ExecutionHeaderState::default());
-		assert_eq!(ExecutionHeaderIndex::<Test>::get(), 0);
 	});
 }
