@@ -32,7 +32,7 @@ use substrate_test_runtime_client::{
 };
 
 fn prepare_good_block() -> (TestClient, Hash, u64, PeerId, IncomingBlock<Block>) {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 	let block = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().best_hash)
 		.with_parent_block_number(client.chain_info().best_number)
