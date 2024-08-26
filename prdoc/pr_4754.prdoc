@@ -8,14 +8,14 @@ doc:
 
 crates:
   - name: snowbridge-pallet-ethereum-client
-    bump: minor
+    bump: patch
   - name: snowbridge-pallet-inbound-queue
-    bump: patch
+    bump: major
   - name: snowbridge-pallet-outbound-queue
-    bump: patch
+    bump: major
   - name: snowbridge-router-primitives
     bump: patch
   - name: bridge-hub-rococo-integration-tests
     bump: patch
   - name: bridge-hub-rococo-runtime
-    bump: minor
+    bump: major

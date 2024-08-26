@@ -16,13 +16,13 @@ use crate::imports::*;
 use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 use bridge_hub_westend_runtime::EthereumInboundQueue;
 use codec::{Decode, Encode};
-use sp_core::H256;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use snowbridge_core::outbound::OperatingMode;
 use snowbridge_router_primitives::inbound::{
 	Command, ConvertMessage, Destination, MessageV1, VersionedMessage,
 };
+use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 
 const INITIAL_FUND: u128 = 5_000_000_000_000_000_000;
