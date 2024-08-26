@@ -764,13 +764,17 @@ pub mod pallet {
 
 		#[cfg(feature = "experimental")]
 		#[pallet::call_index(8)]
-		#[pallet::weight(task.weight())]
+		#[pallet::weight(task.weight().saturating_add(task.weight_of_is_valid()))]
 		#[pallet::authorize(Pallet::<T>::validate_do_task)]
-		// TODO TODO: correct weight
-		#[pallet::weight_of_authorize(Weight::from_all(0))]
-		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
-			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+		// TODO TODO: add call into the scope when there is weight and update this formula
+		#[pallet::weight_of_authorize(Weight::zero())]
+		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
+			let skip_validity = origin.as_system_ref() == Some(&RawOrigin::Authorized.into());
+
+			if !skip_validity {
+				if !task.is_valid() {
+					return Err(Error::<T>::InvalidTask.into())
+				}
 			}
 
 			Self::deposit_event(Event::TaskStarted { task: task.clone() });
@@ -783,7 +787,11 @@ pub mod pallet {
 			Self::deposit_event(Event::TaskCompleted { task });
 
 			// Return success.
-			Ok(().into())
+			if skip_validity {
+				Ok(task.weight().into())
+			} else {
+				Ok(().into())
+			}
 		}
 
 		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
@@ -830,7 +838,7 @@ pub mod pallet {
 		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade(), DispatchClass::Operational))]
 		#[pallet::authorize(Pallet::<T>::validate_apply_authorized_upgrade)]
 		// TODO TODO: correct weight
-		#[pallet::weight_of_authorize(Weight::from_all(0))]
+		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn apply_authorized_upgrade(
 			_: OriginFor<T>,
 			code: Vec<u8>,

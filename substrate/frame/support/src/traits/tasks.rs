@@ -54,10 +54,13 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 	/// to DoS attacks.
 	fn is_valid(&self) -> bool;
 
+	/// Returns the weight of `is_valid` function.
+	fn weight_of_is_valid(&self) -> bool;
+
 	/// Performs the work for this particular `Task` variant.
 	fn run(&self) -> Result<(), DispatchError>;
 
-	/// Returns the weight of executing this `Task`.
+	/// Returns the weight of `run` function.
 	fn weight(&self) -> Weight;
 
 	/// A unique value representing this `Task` within the current pallet. Analogous to
