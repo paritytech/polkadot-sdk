@@ -136,6 +136,7 @@ members = [
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
 	"cumulus/polkadot-parachain",
+	"cumulus/polkadot-parachain/polkadot-parachain-lib",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
@@ -394,6 +395,11 @@ members = [
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
 	"substrate/frame/remark",
+	"substrate/frame/revive",
+	"substrate/frame/revive/fixtures",
+	"substrate/frame/revive/mock-network",
+	"substrate/frame/revive/proc-macro",
+	"substrate/frame/revive/uapi",
 	"substrate/frame/root-offences",
 	"substrate/frame/root-testing",
 	"substrate/frame/safe-mode",
@@ -535,6 +541,7 @@ members = [
 ]
 
 default-members = [
+	"cumulus/polkadot-parachain",
 	"polkadot",
 	"substrate/bin/node/cli",
 ]
@@ -892,7 +899,7 @@ pallet-collator-selection = { path = "cumulus/pallets/collator-selection", defau
 pallet-collective = { path = "substrate/frame/collective", default-features = false }
 pallet-collective-content = { path = "cumulus/parachains/pallets/collective-content", default-features = false }
 pallet-contracts = { path = "substrate/frame/contracts", default-features = false }
-pallet-contracts-fixtures = { path = "substrate/frame/contracts/fixtures" }
+pallet-contracts-fixtures = { path = "substrate/frame/contracts/fixtures", default-features = false }
 pallet-contracts-mock-network = { default-features = false, path = "substrate/frame/contracts/mock-network" }
 pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", default-features = false }
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
@@ -948,6 +955,11 @@ pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
 pallet-remark = { default-features = false, path = "substrate/frame/remark" }
+pallet-revive = { path = "substrate/frame/revive", default-features = false }
+pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
+pallet-revive-mock-network = { default-features = false, path = "substrate/frame/revive/mock-network" }
+pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
+pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = false }
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
 pallet-safe-mode = { default-features = false, path = "substrate/frame/safe-mode" }
@@ -1041,6 +1053,7 @@ polkadot-node-subsystem-test-helpers = { path = "polkadot/node/subsystem-test-he
 polkadot-node-subsystem-types = { path = "polkadot/node/subsystem-types", default-features = false }
 polkadot-node-subsystem-util = { path = "polkadot/node/subsystem-util", default-features = false }
 polkadot-overseer = { path = "polkadot/node/overseer", default-features = false }
+polkadot-parachain-lib = { path = "cumulus/polkadot-parachain/polkadot-parachain-lib", default-features = false }
 polkadot-parachain-primitives = { path = "polkadot/parachain", default-features = false }
 polkadot-primitives = { path = "polkadot/primitives", default-features = false }
 polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers" }
@@ -1057,7 +1070,7 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = "0.9.3"
+polkavm = { version = "0.9.3", default-features = false }
 polkavm-derive = "0.9.1"
 polkavm-linker = "0.9.2"
 portpicker = { version = "0.1.1" }
