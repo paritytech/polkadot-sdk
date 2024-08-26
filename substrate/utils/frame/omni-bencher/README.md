@@ -51,7 +51,8 @@ frame-omni-bencher v1 benchmark pallet \
 --pallet "pallet_balances" --extrinsic ""
 ```
 
-The `--steps`, `--repeat`, `--heap-pages` and `--wasm-execution` arguments have sane defaults and do not need be passed explicitly anymore.
+The `--steps`, `--repeat`, `--heap-pages` and `--wasm-execution` arguments have sane defaults and do
+not need be passed explicitly anymore.
 
 ## Backwards Compatibility
 
