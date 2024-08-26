@@ -14711,6 +14711,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-default-config-example",
  "pallet-democracy",
+ "pallet-example-authorization-tx-extension",
  "pallet-example-offchain-worker",
  "pallet-example-single-block-migrations",
  "pallet-examples",
