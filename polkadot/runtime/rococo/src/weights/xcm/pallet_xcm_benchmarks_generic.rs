@@ -82,6 +82,13 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 2_831_000 picoseconds.
 		Weight::from_parts(2_904_000, 0)
 	}
+	pub(crate) fn pay_fees() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_831_000 picoseconds.
+		Weight::from_parts(27_000_000, 0)
+	}
 	/// Storage: XcmPallet Queries (r:1 w:0)
 	/// Proof Skipped: XcmPallet Queries (max_values: None, max_size: None, mode: Measured)
 	pub(crate) fn query_response() -> Weight {

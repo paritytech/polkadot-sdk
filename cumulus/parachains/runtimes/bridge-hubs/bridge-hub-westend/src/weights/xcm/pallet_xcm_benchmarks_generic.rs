@@ -80,6 +80,13 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 510_000 picoseconds.
 		Weight::from_parts(569_000, 0)
 	}
+	pub fn pay_fees() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 510_000 picoseconds.
+		Weight::from_parts(27_000_000, 0)
+	}
 	// Storage: `PolkadotXcm::Queries` (r:1 w:0)
 	// Proof: `PolkadotXcm::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn query_response() -> Weight {
