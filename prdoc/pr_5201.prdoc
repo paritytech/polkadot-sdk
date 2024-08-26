@@ -7,7 +7,8 @@ doc:
   - audience: Runtime Dev
     description: |
       Allow free consensus updates to the Snowbridge Ethereum client if the headers are more than a certain
-      number of headers apart.
+      number of headers apart. Relayers providing valid consensus updates are refunded for updates. Bridge
+      users are not affected.
 
 crates:
   - name: snowbridge-pallet-ethereum-client

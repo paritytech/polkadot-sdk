@@ -109,10 +109,12 @@ parameter_types! {
 	};
 }
 
+pub const FREE_SLOTS_INTERVAL: u32 = config::SLOTS_PER_EPOCH as u32;
+
 impl ethereum_beacon_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
-	type FreeHeadersInterval = ConstU32<96>;
+	type FreeHeadersInterval = ConstU32<FREE_SLOTS_INTERVAL>;
 	type WeightInfo = ();
 }
 

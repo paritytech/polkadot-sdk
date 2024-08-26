@@ -661,8 +661,8 @@ pub mod pallet {
 				return Pays::No;
 			}
 
-			// If free headers are allowed and the latest finalized header is larger than the
-			// minimum slot interval, the header import transaction is free.
+			// If the latest finalized header is larger than the minimum slot interval, the header
+			// import transaction is free.
 			if update.finalized_header.slot >=
 				latest_slot.saturating_add(T::FreeHeadersInterval::get() as u64)
 			{

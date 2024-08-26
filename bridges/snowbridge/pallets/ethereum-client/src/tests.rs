@@ -133,15 +133,31 @@ pub fn may_refund_call_fee() {
 	let finalized_update = Box::new(load_next_finalized_header_update_fixture());
 	let sync_committee_update = Box::new(load_sync_committee_update_fixture());
 	new_tester().execute_with(|| {
+		let free_headers_interval: u64 = crate::mock::FREE_SLOTS_INTERVAL as u64;
 		// Not free, smaller than the allowed free header interval
 		assert_eq!(
-			EthereumBeaconClient::check_refundable(&finalized_update.clone(), 8190),
+			EthereumBeaconClient::check_refundable(
+				&finalized_update.clone(),
+				finalized_update.finalized_header.slot + free_headers_interval
+			),
 			Pays::Yes
 		);
 		// Is free, larger than the minimum interval
-		assert_eq!(EthereumBeaconClient::check_refundable(&finalized_update, 8000), Pays::No);
+		assert_eq!(
+			EthereumBeaconClient::check_refundable(
+				&finalized_update,
+				finalized_update.finalized_header.slot - (free_headers_interval + 2)
+			),
+			Pays::No
+		);
 		// Is free, valid sync committee update
-		assert_eq!(EthereumBeaconClient::check_refundable(&sync_committee_update, 8190), Pays::No);
+		assert_eq!(
+			EthereumBeaconClient::check_refundable(
+				&sync_committee_update,
+				finalized_update.finalized_header.slot
+			),
+			Pays::No
+		);
 	});
 }
 
