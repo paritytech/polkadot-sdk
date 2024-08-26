@@ -197,7 +197,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type PendingUsernameExpiration: Get<BlockNumberFor<Self>>;
 
-		/// TODO
+		/// The number of blocks that must pass to enable the permanent deletion of a username by
+		/// its respective authority.
 		#[pallet::constant]
 		type UsernameGracePeriod: Get<BlockNumberFor<Self>>;
 
@@ -232,7 +233,7 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// TODO[GMP]
+	/// Identifies the primary username of an account.
 	#[pallet::storage]
 	pub type UsernameOf<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, Username<T>, OptionQuery>;
@@ -373,9 +374,9 @@ pub mod pallet {
 		NoUsername,
 		/// The username cannot be forcefully removed because it can still be accepted.
 		NotExpired,
-		/// TOOD[GMP]
+		/// The username cannot be removed because it's still in the grace period.
 		TooEarly,
-		/// TODO[GMP]
+		/// The username cannot be removed because it is not unbinding.
 		NotUnbinding,
 	}
 
@@ -1177,7 +1178,7 @@ pub mod pallet {
 						// We don't refund the allocation, it is lost.
 					},
 					Provider::System => {
-						// TODO[GMP]
+						// Usernames added by the system shouldn't ever be expired.
 						return Err(Error::<T>::InvalidTarget.into());
 					},
 				}
@@ -1235,7 +1236,9 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// TODO[GMP]
+		/// Start the process of removing a username by placing it in the unbinding usernames map.
+		/// Once the grace period has passed, the username can be permanently deleted by calling
+		/// [remove_username](crate::Call::remove_username).
 		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::remove_dangling_username())]
 		pub fn unbind_username(
@@ -1267,7 +1270,7 @@ pub mod pallet {
 			Ok(Pays::Yes.into())
 		}
 
-		/// TODO[GMP]
+		/// Permanently delete a username which has been unbinding for longer than the grace period.
 		#[pallet::call_index(23)]
 		#[pallet::weight(T::WeightInfo::remove_dangling_username())]
 		pub fn remove_username(
@@ -1306,21 +1309,8 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/*
-		if let Some(username) = UsernameOf::<T>::take(&target) {
-				let username_info =
-					UsernameInfoOf::<T>::take(username).ok_or(Error::<T>::NoUsername)?;
-				match username_info.provider {
-					Provider::Authority(_username_deposit) => {
-						// T::Slashed::on_unbalanced(T::Currency::slash_reserved(&target,
-						// deposit).0);
-					},
-					_ => {},
-				}
-			}
-		 */
-
-		/// TODO[GMP]
+		/// Call with [ForceOrigin](crate::Config::ForceOrigin) privileges which deletes a username
+		/// and slashes any deposit associated with it.
 		#[pallet::call_index(24)]
 		#[pallet::weight(T::WeightInfo::remove_dangling_username())]
 		pub fn kill_username(

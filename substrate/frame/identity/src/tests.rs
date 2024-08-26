@@ -77,6 +77,7 @@ impl pallet_identity::Config for Test {
 	type Slashed = ();
 	type BasicDeposit = ConstU64<100>;
 	type ByteDeposit = ConstU64<10>;
+	type UsernameDeposit = ConstU64<10>;
 	type SubAccountDeposit = ConstU64<100>;
 	type MaxSubAccounts = ConstU32<2>;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
@@ -87,6 +88,7 @@ impl pallet_identity::Config for Test {
 	type SigningPublicKey = AccountPublic;
 	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
 	type PendingUsernameExpiration = ConstU64<100>;
+	type UsernameGracePeriod = ConstU64<2>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
