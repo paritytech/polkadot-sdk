@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	address::{self, AddressMapper},
 	debug::{CallInterceptor, CallSpan, Tracing},
 	gas::GasMeter,
 	limits,
@@ -23,8 +24,8 @@ use crate::{
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
 	transient_storage::TransientStorage,
-	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer,
-	Error, Event, Pallet as Contracts, LOG_TARGET,
+	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer, Error,
+	Event, Pallet as Contracts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -48,7 +49,7 @@ use frame_system::{
 use sp_core::{
 	ecdsa::Public as ECDSAPublic,
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
-	ConstU32, Get,
+	ConstU32, Get, H160, H256,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
@@ -184,7 +185,7 @@ pub trait Ext: sealing::Sealed {
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<Self::T>,
-		to: AccountIdOf<Self::T>,
+		to: &H160,
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
@@ -196,7 +197,7 @@ pub trait Ext: sealing::Sealed {
 	/// Returns the code size of the called contract.
 	fn delegate_call(
 		&mut self,
-		code: CodeHash<Self::T>,
+		code: H256,
 		input_data: Vec<u8>,
 	) -> Result<ExecReturnValue, ExecError>;
 
@@ -209,11 +210,11 @@ pub trait Ext: sealing::Sealed {
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<Self::T>,
-		code: CodeHash<Self::T>,
+		code: H256,
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
-		salt: &[u8],
-	) -> Result<(AccountIdOf<Self::T>, ExecReturnValue), ExecError>;
+		salt: &[u8; 32],
+	) -> Result<(H160, ExecReturnValue), ExecError>;
 
 	/// Transfer all funds to `beneficiary` and delete the contract.
 	///
@@ -222,10 +223,10 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult;
+	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
 
 	/// Transfer some amount of funds into the specified account.
-	fn transfer(&mut self, to: &AccountIdOf<Self::T>, value: BalanceOf<Self::T>) -> DispatchResult;
+	fn transfer(&mut self, to: &H160, value: BalanceOf<Self::T>) -> DispatchResult;
 
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
@@ -273,15 +274,15 @@ pub trait Ext: sealing::Sealed {
 	fn caller(&self) -> Origin<Self::T>;
 
 	/// Check if a contract lives at the specified `address`.
-	fn is_contract(&self, address: &AccountIdOf<Self::T>) -> bool;
+	fn is_contract(&self, address: &H160) -> bool;
 
 	/// Returns the code hash of the contract for the given `address`.
 	///
 	/// Returns `None` if the `address` does not belong to a contract.
-	fn code_hash(&self, address: &AccountIdOf<Self::T>) -> Option<CodeHash<Self::T>>;
+	fn code_hash(&self, address: &H160) -> Option<H256>;
 
 	/// Returns the code hash of the contract being executed.
-	fn own_code_hash(&mut self) -> &CodeHash<Self::T>;
+	fn own_code_hash(&mut self) -> &H256;
 
 	/// Check if the caller of the current contract is the origin of the whole call stack.
 	///
@@ -368,7 +369,7 @@ pub trait Ext: sealing::Sealed {
 	fn transient_storage(&mut self) -> &mut TransientStorage<Self::T>;
 
 	/// Sets new code hash for existing contract.
-	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult;
+	fn set_code_hash(&mut self, hash: H256) -> DispatchResult;
 
 	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
 	/// Increment the reference count of a of a stored code by one.
@@ -377,7 +378,7 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
 	/// `code_hash`.
-	fn increment_refcount(code_hash: CodeHash<Self::T>) -> DispatchResult;
+	fn increment_refcount(code_hash: H256) -> DispatchResult;
 
 	/// Decrement the reference count of a stored code by one.
 	///
@@ -385,7 +386,7 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// A contract whose reference count dropped to zero isn't automatically removed. A
 	/// `remove_code` transaction must be submitted by the original uploader to do so.
-	fn decrement_refcount(code_hash: CodeHash<Self::T>);
+	fn decrement_refcount(code_hash: H256);
 
 	/// Adds a delegate dependency to [`ContractInfo`]'s `delegate_dependencies` field.
 	///
@@ -398,7 +399,7 @@ pub trait Ext: sealing::Sealed {
 	/// - [`Error::MaxDelegateDependenciesReached`]
 	/// - [`Error::CannotAddSelfAsDelegateDependency`]
 	/// - [`Error::DelegateDependencyAlreadyExists`]
-	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult;
+	fn lock_delegate_dependency(&mut self, code_hash: H256) -> DispatchResult;
 
 	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
@@ -408,7 +409,7 @@ pub trait Ext: sealing::Sealed {
 	/// # Errors
 	///
 	/// - [`Error::DelegateDependencyNotFound`]
-	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult;
+	fn unlock_delegate_dependency(&mut self, code_hash: &H256) -> DispatchResult;
 
 	/// Returns the number of locked delegate dependencies.
 	///
@@ -447,10 +448,7 @@ pub trait Executable<T: Config>: Sized {
 	///
 	/// # Note
 	/// Charges size base load weight from the gas meter.
-	fn from_storage(
-		code_hash: CodeHash<T>,
-		gas_meter: &mut GasMeter<T>,
-	) -> Result<Self, DispatchError>;
+	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError>;
 
 	/// Execute the specified exported function and return the result.
 	///
@@ -471,8 +469,11 @@ pub trait Executable<T: Config>: Sized {
 	/// The code info of the executable.
 	fn code_info(&self) -> &CodeInfo<T>;
 
+	/// The raw code of the executable.
+	fn code(&self) -> &[u8];
+
 	/// The code hash of the executable.
-	fn code_hash(&self) -> &CodeHash<T>;
+	fn code_hash(&self) -> &H256;
 }
 
 /// The complete call stack of a contract execution.
@@ -519,7 +520,7 @@ pub struct Stack<'a, T: Config, E> {
 /// For each nested contract call or instantiate one frame is created. It holds specific
 /// information for the said call and caches the in-storage `ContractInfo` data structure.
 struct Frame<T: Config> {
-	/// The account id of the executing contract.
+	/// The address of the executing contract.
 	account_id: T::AccountId,
 	/// The cached in-storage data of the contract.
 	contract_info: CachedContract<T>,
@@ -567,7 +568,7 @@ enum FrameArgs<'a, T: Config, E> {
 		/// The executable whose `deploy` function is run.
 		executable: E,
 		/// A salt used in the contract address derivation of the new contract.
-		salt: &'a [u8],
+		salt: &'a [u8; 32],
 		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
 	},
@@ -668,7 +669,7 @@ impl<T: Config> CachedContract<T> {
 	/// Load the `contract_info` from storage if necessary.
 	fn load(&mut self, account_id: &T::AccountId) {
 		if let CachedContract::Invalidated = self {
-			let contract = <ContractInfoOf<T>>::get(&account_id);
+			let contract = <ContractInfoOf<T>>::get(T::AddressMapper::to_address(account_id));
 			if let Some(contract) = contract {
 				*self = CachedContract::Cached(contract);
 			}
@@ -705,7 +706,7 @@ where
 	/// Result<(ExecReturnValue, CodeSize), (ExecError, CodeSize)>
 	pub fn run_call(
 		origin: Origin<T>,
-		dest: T::AccountId,
+		dest: H160,
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
@@ -713,7 +714,11 @@ where
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<ExecReturnValue, ExecError> {
 		let (mut stack, executable) = Self::new(
-			FrameArgs::Call { dest, cached_info: None, delegated_call: None },
+			FrameArgs::Call {
+				dest: T::AddressMapper::to_account_id(&dest),
+				cached_info: None,
+				delegated_call: None,
+			},
 			origin,
 			gas_meter,
 			storage_meter,
@@ -740,9 +745,9 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
-		salt: &[u8],
+		salt: &[u8; 32],
 		debug_message: Option<&'a mut DebugBuffer>,
-	) -> Result<(T::AccountId, ExecReturnValue), ExecError> {
+	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
 			FrameArgs::Instantiate {
 				sender: origin.clone(),
@@ -756,13 +761,13 @@ where
 			value,
 			debug_message,
 		)?;
-		let account_id = stack.top_frame().account_id.clone();
-		stack.run(executable, input_data).map(|ret| (account_id, ret))
+		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
+		stack.run(executable, input_data).map(|ret| (address, ret))
 	}
 
 	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
 	pub fn bench_new_call(
-		dest: T::AccountId,
+		dest: H160,
 		origin: Origin<T>,
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
@@ -770,7 +775,11 @@ where
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> (Self, E) {
 		Self::new(
-			FrameArgs::Call { dest, cached_info: None, delegated_call: None },
+			FrameArgs::Call {
+				dest: T::AddressMapper::to_account_id(&dest),
+				cached_info: None,
+				delegated_call: None,
+			},
 			origin,
 			gas_meter,
 			storage_meter,
@@ -834,7 +843,8 @@ where
 				let contract = if let Some(contract) = cached_info {
 					contract
 				} else {
-					<ContractInfoOf<T>>::get(&dest).ok_or(<Error<T>>::ContractNotFound)?
+					<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
+						.ok_or(<Error<T>>::ContractNotFound)?
 				};
 
 				let (executable, delegate_caller) =
@@ -847,18 +857,19 @@ where
 				(dest, contract, executable, delegate_caller, ExportedFunction::Call)
 			},
 			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
-				let account_id = Contracts::<T>::contract_address(
-					&sender,
-					&executable.code_hash(),
-					input_data,
-					salt,
-				);
+				let address = address::create2::<T>(&sender, executable.code(), input_data, salt);
 				let contract = ContractInfo::new(
-					&account_id,
+					&address,
 					<System<T>>::account_nonce(&sender),
 					*executable.code_hash(),
 				)?;
-				(account_id, contract, executable, None, ExportedFunction::Constructor)
+				(
+					T::AddressMapper::to_account_id_contract(&address),
+					contract,
+					executable,
+					None,
+					ExportedFunction::Constructor,
+				)
 			},
 		};
 
@@ -898,7 +909,10 @@ where
 		if let (CachedContract::Cached(contract), ExportedFunction::Call) =
 			(&frame.contract_info, frame.entry_point)
 		{
-			<ContractInfoOf<T>>::insert(frame.account_id.clone(), contract.clone());
+			<ContractInfoOf<T>>::insert(
+				T::AddressMapper::to_address(&frame.account_id),
+				contract.clone(),
+			);
 		}
 
 		let frame = top_frame_mut!(self);
@@ -950,11 +964,11 @@ where
 			// Every non delegate call or instantiate also optionally transfers the balance.
 			self.initial_transfer()?;
 
-			let contract_address = &top_frame!(self).account_id;
+			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
 
-			let call_span = T::Debug::new_call_span(contract_address, entry_point, &input_data);
+			let call_span = T::Debug::new_call_span(&contract_address, entry_point, &input_data);
 
-			let output = T::Debug::intercept_call(contract_address, entry_point, &input_data)
+			let output = T::Debug::intercept_call(&contract_address, entry_point, &input_data)
 				.unwrap_or_else(|| {
 					executable
 						.execute(self, entry_point, input_data)
@@ -980,7 +994,7 @@ where
 			}
 
 			let frame = self.top_frame();
-			let account_id = &frame.account_id.clone();
+			let account_id = T::AddressMapper::to_address(&frame.account_id);
 			match (entry_point, delegated_code_hash) {
 				(ExportedFunction::Constructor, _) => {
 					// It is not allowed to terminate a contract inside its constructor.
@@ -995,7 +1009,7 @@ where
 					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
-					let caller = self.caller().account_id()?.clone();
+					let caller = T::AddressMapper::to_address(self.caller().account_id()?);
 
 					// Deposit an instantiation event.
 					Contracts::<T>::deposit_event(Event::Instantiated {
@@ -1108,7 +1122,7 @@ where
 				// because that case is already handled by the optimization above. Only the first
 				// cache needs to be invalidated because that one will invalidate the next cache
 				// when it is popped from the stack.
-				<ContractInfoOf<T>>::insert(account_id, contract);
+				<ContractInfoOf<T>>::insert(T::AddressMapper::to_address(account_id), contract);
 				if let Some(c) = self.frames_mut().skip(1).find(|f| f.account_id == *account_id) {
 					c.contract_info = CachedContract::Invalidated;
 				}
@@ -1132,7 +1146,10 @@ where
 				contract.as_deref_mut(),
 			);
 			if let Some(contract) = contract {
-				<ContractInfoOf<T>>::insert(&self.first_frame.account_id, contract);
+				<ContractInfoOf<T>>::insert(
+					T::AddressMapper::to_address(&self.first_frame.account_id),
+					contract,
+				);
 			}
 		}
 	}
@@ -1203,7 +1220,7 @@ where
 	}
 
 	/// Returns whether the specified contract allows to be reentered right now.
-	fn allows_reentry(&self, id: &AccountIdOf<T>) -> bool {
+	fn allows_reentry(&self, id: &T::AccountId) -> bool {
 		!self.frames().any(|f| &f.account_id == id && !f.allows_reentry)
 	}
 }
@@ -1219,7 +1236,7 @@ where
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<T>,
-		to: T::AccountId,
+		dest: &H160,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
@@ -1230,8 +1247,10 @@ where
 		// is caught by it.
 		self.top_frame_mut().allows_reentry = allows_reentry;
 
+		let dest = T::AddressMapper::to_account_id(dest);
+
 		let try_call = || {
-			if !self.allows_reentry(&to) {
+			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into())
 			}
 
@@ -1240,13 +1259,13 @@ where
 			// constructor: We disallow calling not fully constructed contracts.
 			let cached_info = self
 				.frames()
-				.find(|f| f.entry_point == ExportedFunction::Call && f.account_id == to)
+				.find(|f| f.entry_point == ExportedFunction::Call && f.account_id == dest)
 				.and_then(|f| match &f.contract_info {
 					CachedContract::Cached(contract) => Some(contract.clone()),
 					_ => None,
 				});
 			let executable = self.push_frame(
-				FrameArgs::Call { dest: to, cached_info, delegated_call: None },
+				FrameArgs::Call { dest, cached_info, delegated_call: None },
 				value,
 				gas_limit,
 				deposit_limit,
@@ -1267,7 +1286,7 @@ where
 
 	fn delegate_call(
 		&mut self,
-		code_hash: CodeHash<Self::T>,
+		code_hash: H256,
 		input_data: Vec<u8>,
 	) -> Result<ExecReturnValue, ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
@@ -1293,11 +1312,11 @@ where
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<Self::T>,
-		code_hash: CodeHash<T>,
+		code_hash: H256,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
-		salt: &[u8],
-	) -> Result<(AccountIdOf<T>, ExecReturnValue), ExecError> {
+		salt: &[u8; 32],
+	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = &self.top_frame().account_id;
 		let executable = self.push_frame(
@@ -1312,20 +1331,22 @@ where
 			deposit_limit,
 			self.is_read_only(),
 		)?;
-		let account_id = self.top_frame().account_id.clone();
-		self.run(executable, input_data).map(|ret| (account_id, ret))
+		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
+		self.run(executable, input_data).map(|ret| (address, ret))
 	}
 
-	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult {
+	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult {
 		if self.is_recursive() {
 			return Err(Error::<T>::TerminatedWhileReentrant.into())
 		}
 		let frame = self.top_frame_mut();
 		let info = frame.terminate();
-		frame.nested_storage.terminate(&info, beneficiary.clone());
+		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary);
+		frame.nested_storage.terminate(&info, beneficiary_account);
 
 		info.queue_trie_for_deletion();
-		ContractInfoOf::<T>::remove(&frame.account_id);
+		let account_address = T::AddressMapper::to_address(&frame.account_id);
+		ContractInfoOf::<T>::remove(&account_address);
 		Self::decrement_refcount(info.code_hash);
 
 		for (code_hash, deposit) in info.delegate_dependencies() {
@@ -1336,14 +1357,19 @@ where
 		}
 
 		Contracts::<T>::deposit_event(Event::Terminated {
-			contract: frame.account_id.clone(),
+			contract: account_address,
 			beneficiary: beneficiary.clone(),
 		});
 		Ok(())
 	}
 
-	fn transfer(&mut self, to: &T::AccountId, value: BalanceOf<T>) -> DispatchResult {
-		Self::transfer(Preservation::Preserve, &self.top_frame().account_id, to, value)
+	fn transfer(&mut self, to: &H160, value: BalanceOf<T>) -> DispatchResult {
+		Self::transfer(
+			Preservation::Preserve,
+			&self.top_frame().account_id,
+			&T::AddressMapper::to_account_id(to),
+			value,
+		)
 	}
 
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
@@ -1402,15 +1428,15 @@ where
 		}
 	}
 
-	fn is_contract(&self, address: &T::AccountId) -> bool {
+	fn is_contract(&self, address: &H160) -> bool {
 		ContractInfoOf::<T>::contains_key(&address)
 	}
 
-	fn code_hash(&self, address: &T::AccountId) -> Option<CodeHash<Self::T>> {
+	fn code_hash(&self, address: &H160) -> Option<H256> {
 		<ContractInfoOf<T>>::get(&address).map(|contract| contract.code_hash)
 	}
 
-	fn own_code_hash(&mut self) -> &CodeHash<Self::T> {
+	fn own_code_hash(&mut self) -> &H256 {
 		&self.top_frame_mut().contract_info().code_hash
 	}
 
@@ -1446,7 +1472,7 @@ where
 	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
 		Contracts::<Self::T>::deposit_indexed_event(
 			topics,
-			Event::ContractEmitted { contract: self.top_frame().account_id.clone(), data },
+			Event::ContractEmitted { contract: T::AddressMapper::to_address(self.address()), data },
 		);
 	}
 
@@ -1528,7 +1554,7 @@ where
 		&mut self.transient_storage
 	}
 
-	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult {
+	fn set_code_hash(&mut self, hash: H256) -> DispatchResult {
 		let frame = top_frame_mut!(self);
 
 		let info = frame.contract_info();
@@ -1548,14 +1574,14 @@ where
 		Self::increment_refcount(hash)?;
 		Self::decrement_refcount(prev_hash);
 		Contracts::<Self::T>::deposit_event(Event::ContractCodeUpdated {
-			contract: frame.account_id.clone(),
+			contract: T::AddressMapper::to_address(&frame.account_id),
 			new_code_hash: hash,
 			old_code_hash: prev_hash,
 		});
 		Ok(())
 	}
 
-	fn increment_refcount(code_hash: CodeHash<Self::T>) -> DispatchResult {
+	fn increment_refcount(code_hash: H256) -> DispatchResult {
 		<CodeInfoOf<Self::T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
 			if let Some(info) = existing {
 				*info.refcount_mut() = info.refcount().saturating_add(1);
@@ -1566,7 +1592,7 @@ where
 		})
 	}
 
-	fn decrement_refcount(code_hash: CodeHash<T>) {
+	fn decrement_refcount(code_hash: H256) {
 		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
 			if let Some(info) = existing {
 				*info.refcount_mut() = info.refcount().saturating_sub(1);
@@ -1574,7 +1600,7 @@ where
 		});
 	}
 
-	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult {
+	fn lock_delegate_dependency(&mut self, code_hash: H256) -> DispatchResult {
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 		ensure!(code_hash != info.code_hash, Error::<T>::CannotAddSelfAsDelegateDependency);
@@ -1590,7 +1616,7 @@ where
 		Ok(())
 	}
 
-	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult {
+	fn unlock_delegate_dependency(&mut self, code_hash: &H256) -> DispatchResult {
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 
@@ -1673,25 +1699,25 @@ mod tests {
 	struct MockExecutable {
 		func: Rc<dyn for<'a> Fn(MockCtx<'a>, &Self) -> ExecResult + 'static>,
 		func_type: ExportedFunction,
-		code_hash: CodeHash<Test>,
+		code_hash: H256,
 		code_info: CodeInfo<Test>,
 	}
 
 	#[derive(Default, Clone)]
 	pub struct MockLoader {
-		map: HashMap<CodeHash<Test>, MockExecutable>,
+		map: HashMap<H256, MockExecutable>,
 		counter: u64,
 	}
 
 	impl MockLoader {
-		fn code_hashes() -> Vec<CodeHash<Test>> {
+		fn code_hashes() -> Vec<H256> {
 			Loader::get().map.keys().copied().collect()
 		}
 
 		fn insert(
 			func_type: ExportedFunction,
 			f: impl Fn(MockCtx, &MockExecutable) -> ExecResult + 'static,
-		) -> CodeHash<Test> {
+		) -> H256 {
 			Loader::mutate(|loader| {
 				// Generate code hashes as monotonically increasing values.
 				let hash = <Test as frame_system::Config>::Hash::from_low_u64_be(loader.counter);
@@ -1712,7 +1738,7 @@ mod tests {
 
 	impl Executable<Test> for MockExecutable {
 		fn from_storage(
-			code_hash: CodeHash<Test>,
+			code_hash: H256,
 			_gas_meter: &mut GasMeter<Test>,
 		) -> Result<Self, DispatchError> {
 			Loader::mutate(|loader| {
@@ -1746,7 +1772,11 @@ mod tests {
 			}
 		}
 
-		fn code_hash(&self) -> &CodeHash<Test> {
+		fn code(&self) -> &[u8] {
+			unimplemented!("The mock executable doesn't have code")
+		}
+
+		fn code_hash(&self) -> &H256 {
 			&self.code_hash
 		}
 

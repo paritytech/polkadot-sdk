@@ -18,12 +18,13 @@
 //! Environment definition of the wasm smart-contract runtime.
 
 use crate::{
+	address::AddressMapper,
 	exec::{ExecError, ExecResult, Ext, Key, TopicOf},
 	gas::{ChargedAmount, Token},
 	limits,
 	primitives::ExecReturnValue,
 	weights::WeightInfo,
-	BalanceOf, CodeHash, Config, Error, LOG_TARGET, SENTINEL,
+	BalanceOf, Config, Error, LOG_TARGET, SENTINEL,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
@@ -34,6 +35,7 @@ use frame_support::{
 };
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
+use sp_core::{H160, H256};
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
 use sp_runtime::{traits::Zero, DispatchError, RuntimeDebug};
 
@@ -939,8 +941,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let call_outcome = match call_type {
 			CallType::Call { callee_ptr, value_ptr, deposit_ptr, weight } => {
-				let callee: <<E as Ext>::T as frame_system::Config>::AccountId =
-					memory.read_as(callee_ptr)?;
+				let mut callee = H160::zero();
+				memory.read_into_buf(callee_ptr, callee.as_bytes_mut())?;
 				let deposit_limit: BalanceOf<<E as Ext>::T> = if deposit_ptr == SENTINEL {
 					BalanceOf::<<E as Ext>::T>::zero()
 				} else {
@@ -959,7 +961,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				self.ext.call(
 					weight,
 					deposit_limit,
-					callee,
+					&callee,
 					value,
 					input_data,
 					flags.contains(CallFlags::ALLOW_REENTRY),
@@ -1022,9 +1024,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			memory.read_as(deposit_ptr)?
 		};
 		let value: BalanceOf<<E as Ext>::T> = memory.read_as(value_ptr)?;
-		let code_hash: CodeHash<<E as Ext>::T> = memory.read_as(code_hash_ptr)?;
+		let code_hash: H256 = memory.read_as(code_hash_ptr)?;
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
-		let salt = memory.read(salt_ptr, salt_len)?;
+		let mut salt = [0u8; 32];
+		memory.read_into_buf(salt_ptr, salt.as_mut_slice())?;
 		let instantiate_outcome =
 			self.ext.instantiate(weight, deposit_limit, code_hash, value, input_data, &salt);
 		if let Ok((address, output)) = &instantiate_outcome {
@@ -1054,8 +1057,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let count = self.ext.locked_delegate_dependencies_count() as _;
 		self.charge_gas(RuntimeCosts::Terminate(count))?;
 
-		let beneficiary: <<E as Ext>::T as frame_system::Config>::AccountId =
-			memory.read_as(beneficiary_ptr)?;
+		let mut beneficiary = H160::zero();
+		memory.read_into_buf(beneficiary_ptr, beneficiary.as_bytes_mut())?;
 		self.ext.terminate(&beneficiary)?;
 		Err(TrapReason::Termination)
 	}
@@ -1161,8 +1164,8 @@ pub mod env {
 		value_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Transfer)?;
-		let callee: <<E as Ext>::T as frame_system::Config>::AccountId =
-			memory.read_as(account_ptr)?;
+		let mut callee = H160::zero();
+		memory.read_into_buf(account_ptr, callee.as_bytes_mut())?;
 		let value: BalanceOf<<E as Ext>::T> = memory.read_as(value_ptr)?;
 		let result = self.ext.transfer(&callee, value);
 		match result {
@@ -1311,12 +1314,12 @@ pub mod env {
 	#[api_version(0)]
 	fn caller(&mut self, memory: &mut M, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Caller)?;
-		let caller = self.ext.caller().account_id()?.clone();
+		let caller = <E::T as Config>::AddressMapper::to_address(self.ext.caller().account_id()?);
 		Ok(self.write_sandbox_output(
 			memory,
 			out_ptr,
 			out_len_ptr,
-			&caller.encode(),
+			caller.as_bytes(),
 			false,
 			already_charged,
 		)?)
@@ -1327,9 +1330,8 @@ pub mod env {
 	#[api_version(0)]
 	fn is_contract(&mut self, memory: &mut M, account_ptr: u32) -> Result<u32, TrapReason> {
 		self.charge_gas(RuntimeCosts::IsContract)?;
-		let address: <<E as Ext>::T as frame_system::Config>::AccountId =
-			memory.read_as(account_ptr)?;
-
+		let mut address = H160::zero();
+		memory.read_into_buf(account_ptr, address.as_bytes_mut())?;
 		Ok(self.ext.is_contract(&address) as u32)
 	}
 
@@ -1344,8 +1346,8 @@ pub mod env {
 		out_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeHash)?;
-		let address: <<E as Ext>::T as frame_system::Config>::AccountId =
-			memory.read_as(account_ptr)?;
+		let mut address = H160::zero();
+		memory.read_into_buf(account_ptr, address.as_bytes_mut())?;
 		if let Some(value) = self.ext.code_hash(&address) {
 			self.write_sandbox_output(
 				memory,
@@ -1408,11 +1410,12 @@ pub mod env {
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Address)?;
+		let address = <E::T as Config>::AddressMapper::to_address(self.ext.address());
 		Ok(self.write_sandbox_output(
 			memory,
 			out_ptr,
 			out_len_ptr,
-			&self.ext.address().encode(),
+			address.as_bytes(),
 			false,
 			already_charged,
 		)?)
@@ -1872,7 +1875,7 @@ pub mod env {
 		code_hash_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::SetCodeHash)?;
-		let code_hash: CodeHash<<E as Ext>::T> = memory.read_as(code_hash_ptr)?;
+		let code_hash: H256 = memory.read_as(code_hash_ptr)?;
 		match self.ext.set_code_hash(code_hash) {
 			Err(err) => {
 				let code = Self::err_into_return_code(err)?;

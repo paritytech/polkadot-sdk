@@ -70,13 +70,14 @@ use frame_system::{
 	EventRecord, Pallet as System,
 };
 use scale_info::TypeInfo;
+use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Saturating, StaticLookup},
+	traits::{BadOrigin, Convert, Dispatchable, Saturating},
 	DispatchError,
 };
 
 pub use crate::{
-	address::{AddressGenerator, DefaultAddressGenerator},
+	address::{AddressMapper, DefaultAddressMapper},
 	debug::Tracing,
 	migration::{MigrateSequence, Migration, NoopMigration},
 	pallet::*,
@@ -86,12 +87,10 @@ pub use weights::WeightInfo;
 #[cfg(doc)]
 pub use crate::wasm::SyscallDoc;
 
-type CodeHash<T> = <T as frame_system::Config>::Hash;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type CodeVec<T> = BoundedVec<u8, <T as Config>::MaxCodeLen>;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type EventRecordOf<T> =
 	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
 type DebugBuffer = BoundedVec<u8, ConstU32<{ limits::DEBUG_BUFFER_BYTES }>>;
@@ -228,9 +227,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type CodeHashLockupDepositPercent: Get<Perbill>;
 
-		/// The address generator used to generate the addresses of contracts.
+		/// Only valid type is [`DefaultAddressMapper`].
 		#[pallet::no_default_bounds]
-		type AddressGenerator: AddressGenerator<Self>;
+		type AddressMapper: AddressMapper<AccountIdOf<Self>>;
 
 		/// The maximum length of a contract code in bytes.
 		///
@@ -376,8 +375,7 @@ pub mod pallet {
 
 			#[inject_runtime_type]
 			type RuntimeCall = ();
-
-			type AddressGenerator = DefaultAddressGenerator;
+			type AddressMapper = DefaultAddressMapper;
 			type CallFilter = ();
 			type ChainExtension = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
@@ -401,7 +399,7 @@ pub mod pallet {
 	#[pallet::event]
 	pub enum Event<T: Config> {
 		/// Contract deployed by address at the specified address.
-		Instantiated { deployer: T::AccountId, contract: T::AccountId },
+		Instantiated { deployer: H160, contract: H160 },
 
 		/// Contract has been removed.
 		///
@@ -411,34 +409,34 @@ pub mod pallet {
 		/// `seal_terminate`.
 		Terminated {
 			/// The contract that was terminated.
-			contract: T::AccountId,
+			contract: H160,
 			/// The account that received the contracts remaining balance
-			beneficiary: T::AccountId,
+			beneficiary: H160,
 		},
 
 		/// Code with the specified hash has been stored.
-		CodeStored { code_hash: T::Hash, deposit_held: BalanceOf<T>, uploader: T::AccountId },
+		CodeStored { code_hash: H256, deposit_held: BalanceOf<T>, uploader: H160 },
 
 		/// A custom event emitted by the contract.
 		ContractEmitted {
 			/// The contract that emitted the event.
-			contract: T::AccountId,
+			contract: H160,
 			/// Data supplied by the contract. Metadata generated during contract compilation
 			/// is needed to decode it.
 			data: Vec<u8>,
 		},
 
 		/// A code with the specified hash was removed.
-		CodeRemoved { code_hash: T::Hash, deposit_released: BalanceOf<T>, remover: T::AccountId },
+		CodeRemoved { code_hash: H256, deposit_released: BalanceOf<T>, remover: H160 },
 
 		/// A contract's code was updated.
 		ContractCodeUpdated {
 			/// The contract that has been updated.
-			contract: T::AccountId,
+			contract: H160,
 			/// New code hash that was set for the contract.
-			new_code_hash: T::Hash,
+			new_code_hash: H256,
 			/// Previous code hash of the contract.
-			old_code_hash: T::Hash,
+			old_code_hash: H256,
 		},
 
 		/// A contract was called either by a plain account or another contract.
@@ -452,7 +450,7 @@ pub mod pallet {
 			/// The caller of the `contract`.
 			caller: Origin<T>,
 			/// The contract that was called.
-			contract: T::AccountId,
+			contract: H160,
 		},
 
 		/// A contract delegate called a code hash.
@@ -465,24 +463,16 @@ pub mod pallet {
 		DelegateCalled {
 			/// The contract that performed the delegate call and hence in whose context
 			/// the `code_hash` is executed.
-			contract: T::AccountId,
+			contract: H160,
 			/// The code hash that was delegate called.
-			code_hash: CodeHash<T>,
+			code_hash: H256,
 		},
 
 		/// Some funds have been transferred and held as storage deposit.
-		StorageDepositTransferredAndHeld {
-			from: T::AccountId,
-			to: T::AccountId,
-			amount: BalanceOf<T>,
-		},
+		StorageDepositTransferredAndHeld { from: H160, to: H160, amount: BalanceOf<T> },
 
 		/// Some storage deposit funds have been transferred and released.
-		StorageDepositTransferredAndReleased {
-			from: T::AccountId,
-			to: T::AccountId,
-			amount: BalanceOf<T>,
-		},
+		StorageDepositTransferredAndReleased { from: H160, to: H160, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -592,16 +582,15 @@ pub mod pallet {
 
 	/// A mapping from a contract's code hash to its code.
 	#[pallet::storage]
-	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, CodeHash<T>, CodeVec<T>>;
+	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, CodeVec<T>>;
 
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
-	pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, CodeHash<T>, CodeInfo<T>>;
+	pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, H256, CodeInfo<T>>;
 
 	/// The code associated with a given account.
 	#[pallet::storage]
-	pub(crate) type ContractInfoOf<T: Config> =
-		StorageMap<_, Identity, T::AccountId, ContractInfo<T>>;
+	pub(crate) type ContractInfoOf<T: Config> = StorageMap<_, Identity, H160, ContractInfo<T>>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
@@ -804,13 +793,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::call().saturating_add(*gas_limit))]
 		pub fn call(
 			origin: OriginFor<T>,
-			dest: AccountIdLookupOf<T>,
+			dest: H160,
 			#[pallet::compact] value: BalanceOf<T>,
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			let dest = T::Lookup::lookup(dest)?;
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -843,9 +831,9 @@ pub mod pallet {
 			#[pallet::compact] value: BalanceOf<T>,
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
-			code_hash: CodeHash<T>,
+			code_hash: sp_core::H256,
 			data: Vec<u8>,
-			salt: Vec<u8>,
+			salt: [u8; 32],
 		) -> DispatchResultWithPostInfo {
 			let data_len = data.len() as u32;
 			let salt_len = salt.len() as u32;
@@ -909,7 +897,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
 			data: Vec<u8>,
-			salt: Vec<u8>,
+			salt: [u8; 32],
 		) -> DispatchResultWithPostInfo {
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
@@ -967,7 +955,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::remove_code())]
 		pub fn remove_code(
 			origin: OriginFor<T>,
-			code_hash: CodeHash<T>,
+			code_hash: sp_core::H256,
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
 			let origin = ensure_signed(origin)?;
@@ -990,12 +978,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_code())]
 		pub fn set_code(
 			origin: OriginFor<T>,
-			dest: AccountIdLookupOf<T>,
-			code_hash: CodeHash<T>,
+			dest: H160,
+			code_hash: sp_core::H256,
 		) -> DispatchResult {
 			Migration::<T>::ensure_migrated()?;
 			ensure_root(origin)?;
-			let dest = T::Lookup::lookup(dest)?;
 			<ContractInfoOf<T>>::try_mutate(&dest, |contract| {
 				let contract = if let Some(contract) = contract {
 					contract
@@ -1075,7 +1062,7 @@ impl<T: Config> Pallet<T> {
 	/// collection).
 	pub fn bare_call(
 		origin: OriginFor<T>,
-		dest: T::AccountId,
+		dest: H160,
 		value: BalanceOf<T>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
@@ -1133,12 +1120,12 @@ impl<T: Config> Pallet<T> {
 		value: BalanceOf<T>,
 		gas_limit: Weight,
 		mut storage_deposit_limit: BalanceOf<T>,
-		code: Code<CodeHash<T>>,
+		code: Code,
 		data: Vec<u8>,
-		salt: Vec<u8>,
+		salt: [u8; 32],
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> ContractInstantiateResult<T::AccountId, BalanceOf<T>, EventRecordOf<T>> {
+	) -> ContractInstantiateResult<H160, BalanceOf<T>, EventRecordOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let mut debug_message =
@@ -1204,7 +1191,7 @@ impl<T: Config> Pallet<T> {
 		origin: OriginFor<T>,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
-	) -> CodeUploadResult<CodeHash<T>, BalanceOf<T>> {
+	) -> CodeUploadResult<BalanceOf<T>> {
 		Migration::<T>::ensure_migrated()?;
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
 		let (module, deposit) = Self::try_upload_code(origin, code, storage_deposit_limit, None)?;
@@ -1212,7 +1199,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Query storage of a specified contract under a specified key.
-	pub fn get_storage(address: T::AccountId, key: Vec<u8>) -> GetStorageResult {
+	pub fn get_storage(address: H160, key: Vec<u8>) -> GetStorageResult {
 		if Migration::<T>::in_progress() {
 			return Err(ContractAccessError::MigrationInProgress)
 		}
@@ -1225,19 +1212,6 @@ impl<T: Config> Pallet<T> {
 				.into(),
 		);
 		Ok(maybe_value)
-	}
-
-	/// Determine the address of a contract.
-	///
-	/// This is the address generation function used by contract instantiation. See
-	/// [`DefaultAddressGenerator`] for the default implementation.
-	pub fn contract_address(
-		deploying_address: &T::AccountId,
-		code_hash: &CodeHash<T>,
-		input_data: &[u8],
-		salt: &[u8],
-	) -> T::AccountId {
-		T::AddressGenerator::contract_address(deploying_address, code_hash, input_data, salt)
 	}
 
 	/// Uploads new code and returns the Wasm blob and deposit amount collected.
@@ -1300,11 +1274,10 @@ environmental!(executing_contract: bool);
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
 	#[api_version(1)]
-	pub trait ReviveApi<AccountId, Balance, BlockNumber, Hash, EventRecord> where
+	pub trait ReviveApi<AccountId, Balance, BlockNumber, EventRecord> where
 		AccountId: Codec,
 		Balance: Codec,
 		BlockNumber: Codec,
-		Hash: Codec,
 		EventRecord: Codec,
 	{
 		/// Perform a call from a specified account to a given contract.
@@ -1327,7 +1300,7 @@ sp_api::decl_runtime_apis! {
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
-			code: Code<Hash>,
+			code: Code,
 			data: Vec<u8>,
 			salt: Vec<u8>,
 		) -> ContractInstantiateResult<AccountId, Balance, EventRecord>;
@@ -1339,7 +1312,7 @@ sp_api::decl_runtime_apis! {
 			origin: AccountId,
 			code: Vec<u8>,
 			storage_deposit_limit: Option<Balance>,
-		) -> CodeUploadResult<Hash, Balance>;
+		) -> CodeUploadResult<Balance>;
 
 		/// Query a given storage key in a given contract.
 		///

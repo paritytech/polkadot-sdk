@@ -17,15 +17,15 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	AccountIdLookupOf, AccountIdOf, BalanceOf, Code, CodeHash, CollectEvents, Config,
-	ContractExecResult, ContractInstantiateResult, DebugInfo, EventRecordOf, ExecReturnValue,
-	InstantiateReturnValue, OriginFor, Pallet, Weight,
+	BalanceOf, Code, CollectEvents, Config, ContractExecResult, ContractInstantiateResult,
+	DebugInfo, EventRecordOf, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
 use scale_info::TypeInfo;
+use sp_core::H160;
 
 /// Helper macro to generate a builder for contract API calls.
 macro_rules! builder {
@@ -82,7 +82,7 @@ builder!(
 		storage_deposit_limit: BalanceOf<T>,
 		code: Vec<u8>,
 		data: Vec<u8>,
-		salt: Vec<u8>,
+		salt: [u8; 32],
 	) -> DispatchResultWithPostInfo;
 
 	/// Create an [`InstantiateWithCodeBuilder`] with default values.
@@ -94,7 +94,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
-			salt: vec![],
+			salt: [0; 32],
 		}
 	}
 );
@@ -105,13 +105,13 @@ builder!(
 		value: BalanceOf<T>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
-		code_hash: CodeHash<T>,
+		code_hash: sp_core::H256,
 		data: Vec<u8>,
-		salt: Vec<u8>,
+		salt: [u8; 32],
 	) -> DispatchResultWithPostInfo;
 
 	/// Create an [`InstantiateBuilder`] with default values.
-	pub fn instantiate(origin: OriginFor<T>, code_hash: CodeHash<T>) -> Self {
+	pub fn instantiate(origin: OriginFor<T>, code_hash: sp_core::H256) -> Self {
 		Self {
 			origin,
 			value: 0u32.into(),
@@ -119,7 +119,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code_hash,
 			data: vec![],
-			salt: vec![],
+			salt: [0; 32],
 		}
 	}
 );
@@ -130,24 +130,24 @@ builder!(
 		value: BalanceOf<T>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
-		code: Code<CodeHash<T>>,
+		code: Code,
 		data: Vec<u8>,
-		salt: Vec<u8>,
+		salt: [u8; 32],
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> ContractInstantiateResult<AccountIdOf<T>, BalanceOf<T>, EventRecordOf<T>>;
+	) -> ContractInstantiateResult<H160, BalanceOf<T>, EventRecordOf<T>>;
 
 	/// Build the instantiate call and unwrap the result.
-	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue<AccountIdOf<T>> {
+	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue<H160> {
 		self.build().result.unwrap()
 	}
 
 	/// Build the instantiate call and unwrap the account id.
-	pub fn build_and_unwrap_account_id(self) -> AccountIdOf<T> {
+	pub fn build_and_unwrap_account_id(self) -> H160 {
 		self.build().result.unwrap().account_id
 	}
 
-	pub fn bare_instantiate(origin: OriginFor<T>, code: Code<CodeHash<T>>) -> Self {
+	pub fn bare_instantiate(origin: OriginFor<T>, code: Code) -> Self {
 		Self {
 			origin,
 			value: 0u32.into(),
@@ -155,7 +155,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
-			salt: vec![],
+			salt: [0; 32],
 			debug: DebugInfo::UnsafeDebug,
 			collect_events: CollectEvents::Skip,
 		}
@@ -165,7 +165,7 @@ builder!(
 builder!(
 	call(
 		origin: OriginFor<T>,
-		dest: AccountIdLookupOf<T>,
+		dest: H160,
 		value: BalanceOf<T>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
@@ -173,7 +173,7 @@ builder!(
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`CallBuilder`] with default values.
-	pub fn call(origin: OriginFor<T>, dest: AccountIdLookupOf<T>) -> Self {
+	pub fn call(origin: OriginFor<T>, dest: H160) -> Self {
 		CallBuilder {
 			origin,
 			dest,
@@ -188,7 +188,7 @@ builder!(
 builder!(
 	bare_call(
 		origin: OriginFor<T>,
-		dest: AccountIdOf<T>,
+		dest: H160,
 		value: BalanceOf<T>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
@@ -203,7 +203,7 @@ builder!(
 	}
 
 	/// Create a [`BareCallBuilder`] with default values.
-	pub fn bare_call(origin: OriginFor<T>, dest: AccountIdOf<T>) -> Self {
+	pub fn bare_call(origin: OriginFor<T>, dest: H160) -> Self {
 		Self {
 			origin,
 			dest,

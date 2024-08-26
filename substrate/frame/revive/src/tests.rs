@@ -39,9 +39,9 @@ use crate::{
 	tests::test_utils::{get_contract, get_contract_checked},
 	wasm::Memory,
 	weights::WeightInfo,
-	BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf,
-	DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
-	MigrationInProgress, Origin, Pallet, PristineCode,
+	BalanceOf, Code, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf, DebugInfo,
+	DefaultAddressMapper, DeletionQueueCounter, Error, HoldReason, MigrationInProgress, Origin,
+	Pallet, PristineCode,
 };
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
@@ -102,13 +102,13 @@ macro_rules! assert_refcount {
 pub mod test_utils {
 	use super::{Contracts, DepositPerByte, DepositPerItem, Test};
 	use crate::{
-		exec::AccountIdOf, BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo,
-		ContractInfoOf, PristineCode,
+		exec::AccountIdOf, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
+		PristineCode,
 	};
 	use codec::{Encode, MaxEncodedLen};
 	use frame_support::traits::fungible::{InspectHold, Mutate};
 
-	pub fn place_contract(address: &AccountIdOf<Test>, code_hash: CodeHash<Test>) {
+	pub fn place_contract(address: &AccountIdOf<Test>, code_hash: sp_core::H256) {
 		set_balance(address, Contracts::min_balance() * 10);
 		<CodeInfoOf<Test>>::insert(code_hash, CodeInfo::new(address.clone()));
 		let contract = <ContractInfo<Test>>::new(&address, 0, code_hash).unwrap();
@@ -132,7 +132,7 @@ pub mod test_utils {
 	pub fn get_contract_checked(addr: &AccountIdOf<Test>) -> Option<ContractInfo<Test>> {
 		ContractInfoOf::<Test>::get(addr)
 	}
-	pub fn get_code_deposit(code_hash: &CodeHash<Test>) -> BalanceOf<Test> {
+	pub fn get_code_deposit(code_hash: &sp_core::H256) -> BalanceOf<Test> {
 		crate::CodeInfoOf::<Test>::get(code_hash).unwrap().deposit()
 	}
 	pub fn contract_info_storage_deposit(
@@ -152,7 +152,7 @@ pub mod test_utils {
 		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
 			DepositPerItem::get().saturating_mul(2)
 	}
-	pub fn ensure_stored(code_hash: CodeHash<Test>) -> usize {
+	pub fn ensure_stored(code_hash: sp_core::H256) -> usize {
 		// Assert that code_info is stored
 		assert!(CodeInfoOf::<Test>::contains_key(&code_hash));
 		// Assert that contract code is stored, and get its size.
@@ -165,10 +165,10 @@ mod builder {
 	use crate::{
 		test_utils::{builder::*, AccountId32, ALICE},
 		tests::RuntimeOrigin,
-		AccountIdLookupOf, Code, CodeHash,
+		AccountIdLookupOf, Code,
 	};
 
-	pub fn bare_instantiate(code: Code<CodeHash<Test>>) -> BareInstantiateBuilder<Test> {
+	pub fn bare_instantiate(code: Code) -> BareInstantiateBuilder<Test> {
 		BareInstantiateBuilder::<Test>::bare_instantiate(RuntimeOrigin::signed(ALICE), code)
 	}
 
@@ -183,7 +183,7 @@ mod builder {
 		)
 	}
 
-	pub fn instantiate(code_hash: CodeHash<Test>) -> InstantiateBuilder<Test> {
+	pub fn instantiate(code_hash: sp_core::H256) -> InstantiateBuilder<Test> {
 		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
 	}
 
@@ -483,7 +483,7 @@ impl Config for Test {
 		(TestExtension, DisabledExtension, RevertingExtension, TempStorageExtension);
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
-	type AddressGenerator = DefaultAddressGenerator;
+	type AddressMapper = DefaultAddressMapper;
 	type UnsafeUnstableInterface = UnstableInterface;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
@@ -495,7 +495,7 @@ impl Config for Test {
 pub struct ExtBuilder {
 	existential_deposit: u64,
 	storage_version: Option<StorageVersion>,
-	code_hashes: Vec<CodeHash<Test>>,
+	code_hashes: Vec<sp_core::H256>,
 }
 
 impl Default for ExtBuilder {
@@ -513,7 +513,7 @@ impl ExtBuilder {
 		self.existential_deposit = existential_deposit;
 		self
 	}
-	pub fn with_code_hashes(mut self, code_hashes: Vec<CodeHash<Test>>) -> Self {
+	pub fn with_code_hashes(mut self, code_hashes: Vec<sp_core::H256>) -> Self {
 		self.code_hashes = code_hashes;
 		self
 	}

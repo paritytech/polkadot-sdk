@@ -90,8 +90,7 @@ pub type ContractInstantiateResult<AccountId, Balance, EventRecord> =
 	ContractResult<Result<InstantiateReturnValue<AccountId>, DispatchError>, Balance, EventRecord>;
 
 /// Result type of a `bare_code_upload` call.
-pub type CodeUploadResult<CodeHash, Balance> =
-	Result<CodeUploadReturnValue<CodeHash, Balance>, DispatchError>;
+pub type CodeUploadResult<Balance> = Result<CodeUploadReturnValue<Balance>, DispatchError>;
 
 /// Result type of a `get_storage` call.
 pub type GetStorageResult = Result<Option<Vec<u8>>, ContractAccessError>;
@@ -134,20 +133,20 @@ pub struct InstantiateReturnValue<AccountId> {
 
 /// The result of successfully uploading a contract.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
-pub struct CodeUploadReturnValue<CodeHash, Balance> {
+pub struct CodeUploadReturnValue<Balance> {
 	/// The key under which the new code is stored.
-	pub code_hash: CodeHash,
+	pub code_hash: sp_core::H256,
 	/// The deposit that was reserved at the caller. Is zero when the code already existed.
 	pub deposit: Balance,
 }
 
 /// Reference to an existing code hash or a new wasm module.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum Code<Hash> {
+pub enum Code {
 	/// A wasm module as raw bytes.
 	Upload(Vec<u8>),
 	/// The code hash of an on-chain wasm blob.
-	Existing(Hash),
+	Existing(sp_core::H256),
 }
 
 /// The amount of balance that was either charged or refunded in order to pay for storage.
