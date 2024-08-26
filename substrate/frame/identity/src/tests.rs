@@ -159,23 +159,21 @@ fn unfunded_accounts() -> [AccountIdOf<Test>; 2] {
 	[account(100), account(101)]
 }
 
-// First return value is a username that would be submitted as a parameter to the dispatchable. As
-// in, it has no suffix attached. Second is a full BoundedVec username with suffix, which is what a
-// user would need to sign.
-fn test_username_of(int: Vec<u8>, suffix: Vec<u8>) -> (Vec<u8>, Username<Test>) {
+// Returns a full BoundedVec username with suffix, which is what a user would need to sign.
+fn test_username_of(int: Vec<u8>, suffix: Vec<u8>) -> Username<Test> {
 	let base = b"testusername";
 	let mut username = Vec::with_capacity(base.len() + int.len());
 	username.extend(base);
 	username.extend(int);
 
 	let mut bounded_username = Vec::with_capacity(username.len() + suffix.len() + 1);
-	bounded_username.extend(username.clone());
+	bounded_username.extend(username);
 	bounded_username.extend(b".");
 	bounded_username.extend(suffix);
 	let bounded_username = Username::<Test>::try_from(bounded_username)
 		.expect("test usernames should fit within bounds");
 
-	(username, bounded_username)
+	bounded_username
 }
 
 fn infoof_ten() -> IdentityInfo<MaxAdditionalFields> {
@@ -403,7 +401,7 @@ fn registration_should_work() {
 			RuntimeOrigin::signed(ten.clone()),
 			Box::new(ten_info.clone())
 		));
-		assert_eq!(IdentityOf::<Test>::get(ten.clone()).unwrap().0.info, ten_info);
+		assert_eq!(IdentityOf::<Test>::get(ten.clone()).unwrap().info, ten_info);
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(ten.clone())));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000);
@@ -487,7 +485,7 @@ fn uninvited_judgement_should_work() {
 			identity_hash
 		));
 		assert_eq!(
-			IdentityOf::<Test>::get(ten).unwrap().0.judgements,
+			IdentityOf::<Test>::get(ten).unwrap().judgements,
 			vec![(0, Judgement::Reasonable)]
 		);
 	});
@@ -877,20 +875,14 @@ fn poke_deposit_works() {
 		// Set a custom registration with 0 deposit
 		IdentityOf::<Test>::insert::<
 			_,
-			(
-				Registration<u64, MaxRegistrars, IdentityInfo<MaxAdditionalFields>>,
-				Option<Username<Test>>,
-			),
+			Registration<u64, MaxRegistrars, IdentityInfo<MaxAdditionalFields>>,
 		>(
 			&ten,
-			(
-				Registration {
-					judgements: Default::default(),
-					deposit: Zero::zero(),
-					info: ten_info.clone(),
-				},
-				None::<Username<Test>>,
-			),
+			Registration {
+				judgements: Default::default(),
+				deposit: Zero::zero(),
+				info: ten_info.clone(),
+			},
 		);
 		assert!(IdentityOf::<Test>::get(ten.clone()).is_some());
 		// Set a sub with zero deposit
@@ -912,14 +904,11 @@ fn poke_deposit_works() {
 		// new registration deposit is 10
 		assert_eq!(
 			IdentityOf::<Test>::get(&ten),
-			Some((
-				Registration {
-					judgements: Default::default(),
-					deposit: id_deposit,
-					info: infoof_ten()
-				},
-				None
-			))
+			Some(Registration {
+				judgements: Default::default(),
+				deposit: id_deposit,
+				info: infoof_ten()
+			},)
 		);
 		// new subs deposit is 10           vvvvvvvvvvvv
 		assert_eq!(SubsOf::<Test>::get(ten), (subs_deposit, vec![twenty].try_into().unwrap()));
@@ -934,20 +923,14 @@ fn poke_deposit_does_not_insert_new_subs_storage() {
 		// Set a custom registration with 0 deposit
 		IdentityOf::<Test>::insert::<
 			_,
-			(
-				Registration<u64, MaxRegistrars, IdentityInfo<MaxAdditionalFields>>,
-				Option<Username<Test>>,
-			),
+			Registration<u64, MaxRegistrars, IdentityInfo<MaxAdditionalFields>>,
 		>(
 			&ten,
-			(
-				Registration {
-					judgements: Default::default(),
-					deposit: Zero::zero(),
-					info: ten_info.clone(),
-				},
-				None::<Username<Test>>,
-			),
+			Registration {
+				judgements: Default::default(),
+				deposit: Zero::zero(),
+				info: ten_info.clone(),
+			},
 		);
 		assert!(IdentityOf::<Test>::get(ten.clone()).is_some());
 
@@ -963,14 +946,11 @@ fn poke_deposit_does_not_insert_new_subs_storage() {
 		// new registration deposit is 10
 		assert_eq!(
 			IdentityOf::<Test>::get(&ten),
-			Some((
-				Registration {
-					judgements: Default::default(),
-					deposit: id_deposit,
-					info: infoof_ten()
-				},
-				None
-			))
+			Some(Registration {
+				judgements: Default::default(),
+				deposit: id_deposit,
+				info: infoof_ten()
+			})
 		);
 		// No new subs storage item.
 		assert!(!SubsOf::<Test>::contains_key(&ten));
@@ -991,10 +971,11 @@ fn adding_and_removing_authorities_should_work() {
 			suffix.clone(),
 			allocation
 		));
+		let suffix: Suffix<Test> = suffix.try_into().unwrap();
 		assert_eq!(
-			UsernameAuthorities::<Test>::get(&authority),
-			Some(AuthorityPropertiesOf::<Test> {
-				suffix: suffix.clone().try_into().unwrap(),
+			UsernameAuthorities::<Test>::get(&suffix),
+			Some(AuthorityProperties::<AccountIdOf<Test>> {
+				account_id: authority.clone(),
 				allocation
 			})
 		);
@@ -1003,20 +984,24 @@ fn adding_and_removing_authorities_should_work() {
 		assert_ok!(Identity::add_username_authority(
 			RuntimeOrigin::root(),
 			authority.clone(),
-			suffix.clone(),
+			suffix.clone().into(),
 			11u32
 		));
 		assert_eq!(
-			UsernameAuthorities::<Test>::get(&authority),
-			Some(AuthorityPropertiesOf::<Test> {
-				suffix: suffix.try_into().unwrap(),
+			UsernameAuthorities::<Test>::get(&suffix),
+			Some(AuthorityProperties::<AccountIdOf<Test>> {
+				account_id: authority.clone(),
 				allocation: 11
 			})
 		);
 
 		// remove
-		assert_ok!(Identity::remove_username_authority(RuntimeOrigin::root(), authority.clone(),));
-		assert!(UsernameAuthorities::<Test>::get(&authority).is_none());
+		assert_ok!(Identity::remove_username_authority(
+			RuntimeOrigin::root(),
+			suffix.clone().into(),
+			authority.clone(),
+		));
+		assert!(UsernameAuthorities::<Test>::get(&suffix).is_none());
 	});
 }
 
@@ -1035,39 +1020,26 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 		));
 
 		// set up username
-		let (username, username_to_sign) = test_username_of(b"42".to_vec(), suffix);
+		let username = test_username_of(b"42".to_vec(), suffix);
 
 		// set up user and sign message
 		let public = sr25519_generate(0.into(), None);
 		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
-		let signature = MultiSignature::Sr25519(
-			sr25519_sign(0.into(), &public, &username_to_sign[..]).unwrap(),
-		);
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority),
 			who_account.clone(),
-			username.clone(),
-			Some(signature)
+			username.clone().into(),
+			Some(signature),
+			true,
 		));
 
 		// Even though user has no balance and no identity, they get a default one for free.
-		assert_eq!(
-			IdentityOf::<Test>::get(&who_account),
-			Some((
-				Registration {
-					judgements: Default::default(),
-					deposit: 0,
-					info: Default::default()
-				},
-				Some(username_to_sign.clone())
-			))
-		);
+		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 		// Lookup from username to account works.
-		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
-			Some(who_account)
-		);
+		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username), Some(who_account));
 	});
 }
 
@@ -1086,14 +1058,13 @@ fn set_username_with_signature_with_existing_identity_should_work() {
 		));
 
 		// set up username
-		let (username, username_to_sign) = test_username_of(b"42".to_vec(), suffix);
+		let username = test_username_of(b"42".to_vec(), suffix);
 
 		// set up user and sign message
 		let public = sr25519_generate(0.into(), None);
 		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
-		let signature = MultiSignature::Sr25519(
-			sr25519_sign(0.into(), &public, &username_to_sign[..]).unwrap(),
-		);
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
 
 		// Set an identity for who. They need some balance though.
 		Balances::make_free_balance_be(&who_account, 1000);
@@ -1105,25 +1076,13 @@ fn set_username_with_signature_with_existing_identity_should_work() {
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority),
 			who_account.clone(),
-			username.clone(),
-			Some(signature)
+			username.clone().into(),
+			Some(signature),
+			true,
 		));
 
-		assert_eq!(
-			IdentityOf::<Test>::get(&who_account),
-			Some((
-				Registration {
-					judgements: Default::default(),
-					deposit: id_deposit(&ten_info),
-					info: ten_info
-				},
-				Some(username_to_sign.clone())
-			))
-		);
-		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
-			Some(who_account)
-		);
+		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
+		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username), Some(who_account));
 	});
 }
 
@@ -1146,8 +1105,8 @@ fn set_username_with_bytes_signature_should_work() {
 		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
 
 		// set up username
-		let (username, username_to_sign) = test_username_of(b"42".to_vec(), suffix);
-		let unwrapped_username = username_to_sign.to_vec();
+		let username = test_username_of(b"42".to_vec(), suffix);
+		let unwrapped_username = username.to_vec();
 
 		// Sign an unwrapped version, as in `username.suffix`.
 		let signature_on_unwrapped = MultiSignature::Sr25519(
@@ -1186,28 +1145,16 @@ fn set_username_with_bytes_signature_should_work() {
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority),
 			who_account.clone(),
-			username,
-			Some(signature_on_wrapped)
+			username.clone().into(),
+			Some(signature_on_wrapped),
+			true,
 		));
 
 		// The username in storage should not include `<Bytes>`. As in, it's the original
 		// `username_to_sign`.
-		assert_eq!(
-			IdentityOf::<Test>::get(&who_account),
-			Some((
-				Registration {
-					judgements: Default::default(),
-					deposit: 0,
-					info: Default::default()
-				},
-				Some(username_to_sign.clone())
-			))
-		);
+		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 		// Likewise for the lookup.
-		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
-			Some(who_account)
-		);
+		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username), Some(who_account));
 	});
 }
 
@@ -1226,45 +1173,33 @@ fn set_username_with_acceptance_should_work() {
 		));
 
 		// set up username
-		let (username, full_username) = test_username_of(b"101".to_vec(), suffix);
+		let username = test_username_of(b"101".to_vec(), suffix);
 		let now = frame_system::Pallet::<Test>::block_number();
 		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u64>>::get();
 
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority),
 			who.clone(),
-			username.clone(),
-			None
+			username.clone().into(),
+			None,
+			true,
 		));
 
 		// Should be pending
 		assert_eq!(
-			PendingUsernames::<Test>::get::<&Username<Test>>(&full_username),
-			Some((who.clone(), expiration))
+			PendingUsernames::<Test>::get::<&Username<Test>>(&username),
+			Some((who.clone(), expiration, Provider::Governance))
 		);
 
 		// Now the user can accept
-		assert_ok!(Identity::accept_username(
-			RuntimeOrigin::signed(who.clone()),
-			full_username.clone()
-		));
+		assert_ok!(Identity::accept_username(RuntimeOrigin::signed(who.clone()), username.clone()));
 
 		// No more pending
-		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&full_username).is_none());
+		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&username).is_none());
 		// Check Identity storage
-		assert_eq!(
-			IdentityOf::<Test>::get(&who),
-			Some((
-				Registration {
-					judgements: Default::default(),
-					deposit: 0,
-					info: Default::default()
-				},
-				Some(full_username.clone())
-			))
-		);
+		assert_eq!(UsernameOf::<Test>::get(&who), Some(username.clone()));
 		// Check reverse lookup
-		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&full_username), Some(who));
+		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username), Some(who));
 	});
 }
 
@@ -1297,7 +1232,7 @@ fn invalid_usernames_should_be_rejected() {
 		assert_ok!(Identity::add_username_authority(
 			RuntimeOrigin::root(),
 			authority.clone(),
-			valid_suffix,
+			valid_suffix.clone(),
 			allocation
 		));
 
@@ -1313,13 +1248,18 @@ fn invalid_usernames_should_be_rejected() {
 			//0         1         2      v With `.test` this makes it too long.
 			b"testusernametestusernametest".to_vec(),
 		];
-		for username in invalid_usernames {
+		for username in invalid_usernames.into_iter().map(|mut username| {
+			username.push(b'.');
+			username.extend(valid_suffix.clone());
+			username
+		}) {
 			assert_noop!(
 				Identity::set_username_for(
 					RuntimeOrigin::signed(authority.clone()),
 					who.clone(),
 					username.clone(),
-					None
+					None,
+					true,
 				),
 				Error::<Test>::InvalidUsername
 			);
@@ -1331,7 +1271,8 @@ fn invalid_usernames_should_be_rejected() {
 			RuntimeOrigin::signed(authority),
 			who,
 			valid_username,
-			None
+			None,
+			true,
 		));
 	});
 }
@@ -1354,21 +1295,24 @@ fn authorities_should_run_out_of_allocation() {
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			pi,
-			b"username314159".to_vec(),
-			None
+			b"username314159.test".to_vec(),
+			None,
+			true,
 		));
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			e,
-			b"username271828".to_vec(),
-			None
+			b"username271828.test".to_vec(),
+			None,
+			true
 		));
 		assert_noop!(
 			Identity::set_username_for(
 				RuntimeOrigin::signed(authority.clone()),
 				c,
-				b"username299792458".to_vec(),
-				None
+				b"username299792458.test".to_vec(),
+				None,
+				true,
 			),
 			Error::<Test>::NoAllocation
 		);
@@ -1394,90 +1338,62 @@ fn setting_primary_should_work() {
 		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
 
 		// set up username
-		let (first_username, first_to_sign) = test_username_of(b"42".to_vec(), suffix.clone());
+		let first_username = test_username_of(b"42".to_vec(), suffix.clone());
 		let first_signature =
-			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &first_to_sign[..]).unwrap());
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &first_username[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			who_account.clone(),
-			first_username.clone(),
-			Some(first_signature)
+			first_username.clone().into(),
+			Some(first_signature),
+			true
 		));
 
 		// First username set as primary.
-		assert_eq!(
-			IdentityOf::<Test>::get(&who_account),
-			Some((
-				Registration {
-					judgements: Default::default(),
-					deposit: 0,
-					info: Default::default()
-				},
-				Some(first_to_sign.clone())
-			))
-		);
+		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(first_username.clone()));
 
 		// set up username
-		let (second_username, second_to_sign) = test_username_of(b"101".to_vec(), suffix);
+		let second_username = test_username_of(b"101".to_vec(), suffix);
 		let second_signature =
-			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &second_to_sign[..]).unwrap());
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &second_username[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority),
 			who_account.clone(),
-			second_username.clone(),
-			Some(second_signature)
+			second_username.clone().into(),
+			Some(second_signature),
+			true,
 		));
 
 		// The primary is still the first username.
-		assert_eq!(
-			IdentityOf::<Test>::get(&who_account),
-			Some((
-				Registration {
-					judgements: Default::default(),
-					deposit: 0,
-					info: Default::default()
-				},
-				Some(first_to_sign.clone())
-			))
-		);
+		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(first_username.clone()));
 
 		// Lookup from both works.
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&first_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&first_username),
 			Some(who_account.clone())
 		);
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&second_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&second_username),
 			Some(who_account.clone())
 		);
 
 		assert_ok!(Identity::set_primary_username(
 			RuntimeOrigin::signed(who_account.clone()),
-			second_to_sign.clone()
+			second_username.clone()
 		));
 
 		// The primary is now the second username.
-		assert_eq!(
-			IdentityOf::<Test>::get(&who_account),
-			Some((
-				Registration {
-					judgements: Default::default(),
-					deposit: 0,
-					info: Default::default()
-				},
-				Some(second_to_sign.clone())
-			))
-		);
+		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(second_username.clone()));
 
 		// Lookup from both still works.
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&first_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&first_username),
 			Some(who_account.clone())
 		);
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&second_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&second_username),
 			Some(who_account)
 		);
 	});
@@ -1500,50 +1416,51 @@ fn must_own_primary() {
 		// Set up first user ("pi") and a username.
 		let pi_public = sr25519_generate(0.into(), None);
 		let pi_account: AccountIdOf<Test> = MultiSigner::Sr25519(pi_public).into_account().into();
-		let (pi_username, pi_to_sign) =
-			test_username_of(b"username314159".to_vec(), suffix.clone());
+		let pi_username = test_username_of(b"username314159".to_vec(), suffix.clone());
 		let pi_signature =
-			MultiSignature::Sr25519(sr25519_sign(0.into(), &pi_public, &pi_to_sign[..]).unwrap());
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &pi_public, &pi_username[..]).unwrap());
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			pi_account.clone(),
-			pi_username.clone(),
-			Some(pi_signature)
+			pi_username.clone().into(),
+			Some(pi_signature),
+			true,
 		));
 
 		// Set up second user ("e") and a username.
 		let e_public = sr25519_generate(1.into(), None);
 		let e_account: AccountIdOf<Test> = MultiSigner::Sr25519(e_public).into_account().into();
-		let (e_username, e_to_sign) = test_username_of(b"username271828".to_vec(), suffix.clone());
+		let e_username = test_username_of(b"username271828".to_vec(), suffix.clone());
 		let e_signature =
-			MultiSignature::Sr25519(sr25519_sign(1.into(), &e_public, &e_to_sign[..]).unwrap());
+			MultiSignature::Sr25519(sr25519_sign(1.into(), &e_public, &e_username[..]).unwrap());
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			e_account.clone(),
-			e_username.clone(),
-			Some(e_signature)
+			e_username.clone().into(),
+			Some(e_signature),
+			true
 		));
 
 		// Ensure that both users have their usernames.
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&pi_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&pi_username),
 			Some(pi_account.clone())
 		);
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&e_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&e_username),
 			Some(e_account.clone())
 		);
 
 		// Cannot set primary to a username that does not exist.
-		let (_, c_username) = test_username_of(b"speedoflight".to_vec(), suffix.clone());
+		let c_username = test_username_of(b"speedoflight".to_vec(), suffix.clone());
 		assert_err!(
-			Identity::set_primary_username(RuntimeOrigin::signed(pi_account.clone()), c_username,),
+			Identity::set_primary_username(RuntimeOrigin::signed(pi_account.clone()), c_username),
 			Error::<Test>::NoUsername
 		);
 
 		// Cannot take someone else's username as your primary.
 		assert_err!(
-			Identity::set_primary_username(RuntimeOrigin::signed(pi_account.clone()), e_to_sign,),
+			Identity::set_primary_username(RuntimeOrigin::signed(pi_account.clone()), e_username),
 			Error::<Test>::InvalidUsername
 		);
 	});
@@ -1564,31 +1481,29 @@ fn unaccepted_usernames_should_expire() {
 		));
 
 		// set up username
-		let (username, full_username) = test_username_of(b"101".to_vec(), suffix);
+		let username = test_username_of(b"101".to_vec(), suffix);
 		let now = frame_system::Pallet::<Test>::block_number();
 		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u64>>::get();
 
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority),
 			who.clone(),
-			username.clone(),
-			None
+			username.clone().into(),
+			None,
+			true,
 		));
 
 		// Should be pending
 		assert_eq!(
-			PendingUsernames::<Test>::get::<&Username<Test>>(&full_username),
-			Some((who.clone(), expiration))
+			PendingUsernames::<Test>::get::<&Username<Test>>(&username),
+			Some((who.clone(), expiration, Provider::Governance))
 		);
 
 		run_to_block(now + expiration - 1);
 
 		// Cannot be removed
 		assert_noop!(
-			Identity::remove_expired_approval(
-				RuntimeOrigin::signed(account(1)),
-				full_username.clone()
-			),
+			Identity::remove_expired_approval(RuntimeOrigin::signed(account(1)), username.clone()),
 			Error::<Test>::NotExpired
 		);
 
@@ -1597,11 +1512,11 @@ fn unaccepted_usernames_should_expire() {
 		// Anyone can remove
 		assert_ok!(Identity::remove_expired_approval(
 			RuntimeOrigin::signed(account(1)),
-			full_username.clone()
+			username.clone()
 		));
 
 		// No more pending
-		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&full_username).is_none());
+		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&username).is_none());
 	});
 }
 
@@ -1620,14 +1535,13 @@ fn removing_dangling_usernames_should_work() {
 		));
 
 		// set up username
-		let (username, username_to_sign) = test_username_of(b"42".to_vec(), suffix.clone());
+		let username = test_username_of(b"42".to_vec(), suffix.clone());
 
 		// set up user and sign message
 		let public = sr25519_generate(0.into(), None);
 		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
-		let signature = MultiSignature::Sr25519(
-			sr25519_sign(0.into(), &public, &username_to_sign[..]).unwrap(),
-		);
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
 
 		// Set an identity for who. They need some balance though.
 		Balances::make_free_balance_be(&who_account, 1000);
@@ -1639,45 +1553,36 @@ fn removing_dangling_usernames_should_work() {
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			who_account.clone(),
-			username.clone(),
-			Some(signature)
+			username.clone().into(),
+			Some(signature),
+			true
 		));
 
 		// Now they set up a second username.
-		let (username_two, username_two_to_sign) = test_username_of(b"43".to_vec(), suffix);
+		let username_two = test_username_of(b"43".to_vec(), suffix);
 
 		// set up user and sign message
-		let signature_two = MultiSignature::Sr25519(
-			sr25519_sign(0.into(), &public, &username_two_to_sign[..]).unwrap(),
-		);
+		let signature_two =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username_two[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority),
 			who_account.clone(),
-			username_two.clone(),
-			Some(signature_two)
+			username_two.clone().into(),
+			Some(signature_two),
+			true
 		));
 
 		// The primary should still be the first one.
-		assert_eq!(
-			IdentityOf::<Test>::get(&who_account),
-			Some((
-				Registration {
-					judgements: Default::default(),
-					deposit: id_deposit(&ten_info),
-					info: ten_info
-				},
-				Some(username_to_sign.clone())
-			))
-		);
+		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 
 		// But both usernames should look up the account.
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&username),
 			Some(who_account.clone())
 		);
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two),
 			Some(who_account.clone())
 		);
 
@@ -1685,7 +1590,7 @@ fn removing_dangling_usernames_should_work() {
 		assert_noop!(
 			Identity::remove_dangling_username(
 				RuntimeOrigin::signed(caller.clone()),
-				username_to_sign.clone()
+				username.clone()
 			),
 			Error::<Test>::InvalidUsername
 		);
@@ -1697,21 +1602,21 @@ fn removing_dangling_usernames_should_work() {
 		assert!(IdentityOf::<Test>::get(who_account.clone()).is_none());
 
 		// The reverse lookup of the primary is gone.
-		assert!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign).is_none());
+		assert!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username).is_none());
 
 		// But the reverse lookup of the non-primary is still there
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two),
 			Some(who_account)
 		);
 
 		// Now it can be removed
 		assert_ok!(Identity::remove_dangling_username(
 			RuntimeOrigin::signed(caller),
-			username_two_to_sign.clone()
+			username_two.clone()
 		));
 
 		// And the reverse lookup is gone
-		assert!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two_to_sign).is_none());
+		assert!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two).is_none());
 	});
 }
