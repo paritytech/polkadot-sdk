@@ -22,6 +22,6 @@ crates:
     bump: patch
   - name: frame-support
     bump: patch
-  - name pallet-balances
+  - name: pallet-balances
     bump: patch
 
