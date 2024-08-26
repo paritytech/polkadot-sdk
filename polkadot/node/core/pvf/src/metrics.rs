@@ -105,6 +105,21 @@ impl Metrics {
 				.observe((memory_stats.peak_tracked_alloc / 1024) as f64);
 		}
 	}
+
+	pub(crate) fn observe_code_size(&self, code_size: usize) {
+		if let Some(metrics) = &self.0 {
+			metrics.code_size.observe(code_size as f64);
+		}
+	}
+
+	pub(crate) fn observe_pov_size(&self, pov_size: usize, compressed: bool) {
+		if let Some(metrics) = &self.0 {
+			metrics
+				.pov_size
+				.with_label_values(&[if compressed { "true" } else { "false" }])
+				.observe(pov_size as f64);
+		}
+	}
 }
 
 #[derive(Clone)]
@@ -129,6 +144,8 @@ struct MetricsInner {
 	preparation_max_resident: prometheus::Histogram,
 	// Peak allocation value, tracked by tracking-allocator
 	preparation_peak_tracked_allocation: prometheus::Histogram,
+	pov_size: prometheus::HistogramVec,
+	code_size: prometheus::Histogram,
 }
 
 impl metrics::Metrics for Metrics {
@@ -318,6 +335,35 @@ impl metrics::Metrics for Metrics {
 						"peak allocation observed for preparation (in kilobytes)",
 					).buckets(
 						prometheus::exponential_buckets(8192.0, 2.0, 10)
+							.expect("arguments are always valid; qed"),
+					),
+				)?,
+				registry,
+			)?,
+			// The following metrics was moved here from the candidate valiidation subsystem.
+			// Names are kept to avoid breaking dashboards and stuff.
+			pov_size: prometheus::register(
+				prometheus::HistogramVec::new(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_candidate_validation_pov_size",
+						"The compressed and decompressed size of the proof of validity of a candidate",
+					)
+					.buckets(
+						prometheus::exponential_buckets(16384.0, 2.0, 10)
+							.expect("arguments are always valid; qed"),
+					),
+					&["compressed"],
+				)?,
+				registry,
+			)?,
+			code_size: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_candidate_validation_code_size",
+						"The size of the decompressed WASM validation blob used for checking a candidate",
+					)
+					.buckets(
+						prometheus::exponential_buckets(16384.0, 2.0, 10)
 							.expect("arguments are always valid; qed"),
 					),
 				)?,
