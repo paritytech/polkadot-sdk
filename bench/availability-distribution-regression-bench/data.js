@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724631445630,
+  "lastUpdate": 1724685111059,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23399,6 +23399,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012474219219999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ad0de7495e0e4685408d70c755cddaa14e3b02ca",
+          "message": "`MaybeConsideration` extension trait for `Consideration` (#5384)\n\nIntroduce `MaybeConsideration` extension trait for `Consideration`.\n\nThe trait allows for the management of tickets that may represent no\ncost. While the `MaybeConsideration` still requires proper handling, it\nintroduces the ability to determine if a ticket represents no cost and\ncan be safely forgotten without any side effects.\n\nThe new trait is particularly useful when a consumer expects the cost to\nbe zero under certain conditions (e.g., when the proposal count is below\na threshold N) and does not want to store such consideration tickets in\nstorage. The extension approach allows us to avoid breaking changes to\nthe existing trait and to continue using it as a non-optional version\nfor migrating pallets that utilize the `Currency` and `fungible` traits\nfor `holds` and `freezes`, without requiring any storage migration.",
+          "timestamp": "2024-08-26T13:23:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ad0de7495e0e4685408d70c755cddaa14e3b02ca"
+        },
+        "date": 1724685083521,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022133137060000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16857603264,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012275988379999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009758158400000005,
             "unit": "seconds"
           }
         ]
