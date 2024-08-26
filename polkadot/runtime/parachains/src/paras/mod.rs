@@ -551,6 +551,12 @@ pub trait WeightInfo {
 	fn include_pvf_check_statement_finalize_onboarding_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_onboarding_reject() -> Weight;
 	fn include_pvf_check_statement() -> Weight;
+
+	fn include_pvf_check_statement_general_finalize_upgrade_accept() -> Weight;
+	fn include_pvf_check_statement_general_finalize_upgrade_reject() -> Weight;
+	fn include_pvf_check_statement_general_finalize_onboarding_accept() -> Weight;
+	fn include_pvf_check_statement_general_finalize_onboarding_reject() -> Weight;
+	fn authorize_include_pvf_check_statement_general() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -596,6 +602,21 @@ impl WeightInfo for TestWeightInfo {
 		// This special value is to distinguish from the finalizing variants above in tests.
 		Weight::MAX - Weight::from_parts(1, 1)
 	}
+	fn authorize_include_pvf_check_statement_general() -> Weight {
+		Weight::MAX
+	}
+	fn include_pvf_check_statement_general_finalize_upgrade_accept() -> Weight {
+		Weight::MAX
+	}
+	fn include_pvf_check_statement_general_finalize_upgrade_reject() -> Weight {
+		Weight::MAX
+	}
+	fn include_pvf_check_statement_general_finalize_onboarding_accept() -> Weight {
+		Weight::MAX
+	}
+	fn include_pvf_check_statement_general_finalize_onboarding_reject() -> Weight {
+		Weight::MAX
+	}
 }
 
 #[frame_support::pallet]
@@ -603,7 +624,6 @@ pub mod pallet {
 	use super::*;
 	use sp_runtime::transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		ValidTransaction,
 	};
 
 	#[pallet::pallet]
@@ -884,7 +904,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = <T as Config>::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Set the storage for the parachain validation code immediately.
 		#[pallet::call_index(0)]
@@ -1047,6 +1067,8 @@ pub mod pallet {
 
 		/// Includes a statement for a PVF pre-checking vote. Potentially, finalizes the vote and
 		/// enacts the results if that was the last vote before achieving the supermajority.
+		///
+		/// Deprecated in favor of [`include_pvf_check_statement_general`].
 		#[pallet::call_index(7)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::include_pvf_check_statement_finalize_upgrade_accept()
@@ -1055,27 +1077,41 @@ pub mod pallet {
 					.max(<T as Config>::WeightInfo::include_pvf_check_statement_finalize_onboarding_reject())
 				)
 		)]
-		#[pallet::authorize(Pallet::<T>::validate_include_pvf_check_statement)]
-		// Weight is taken into account in the dispatchable itself
-		#[pallet::weight_of_authorize(Weight::from_all(0))]
 		pub fn include_pvf_check_statement(
 			origin: OriginFor<T>,
 			stmt: PvfCheckStatement,
-			_signature: ValidatorSignature,
+			signature: ValidatorSignature,
 		) -> DispatchResultWithPostInfo {
-			ensure_none(origin.clone()).or_else(|_| ensure_authorized(origin))?;
-
-			// Transaction validation checks:
-			// * statement.session_index is not stale nor future.
-			// * signature is correct.
-			// * no double vote.
+			ensure_none(origin)?;
 
 			let validators = shared::ActiveValidatorKeys::<T>::get();
+			let current_session = shared::CurrentSessionIndex::<T>::get();
+			if stmt.session_index < current_session {
+				return Err(Error::<T>::PvfCheckStatementStale.into())
+			} else if stmt.session_index > current_session {
+				return Err(Error::<T>::PvfCheckStatementFuture.into())
+			}
 			let validator_index = stmt.validator_index.0 as usize;
+			let validator_public = validators
+				.get(validator_index)
+				.ok_or(Error::<T>::PvfCheckValidatorIndexOutOfBounds)?;
+
+			let signing_payload = stmt.signing_payload();
+			ensure!(
+				signature.verify(&signing_payload[..], &validator_public),
+				Error::<T>::PvfCheckInvalidSignature,
+			);
 
 			let mut active_vote = PvfActiveVoteMap::<T>::get(&stmt.subject)
-				// It must have been checked by transaction validation.
 				.ok_or(Error::<T>::PvfCheckSubjectInvalid)?;
+
+			// Ensure that the validator submitting this statement hasn't voted already.
+			ensure!(
+				!active_vote
+					.has_vote(validator_index)
+					.ok_or(Error::<T>::PvfCheckValidatorIndexOutOfBounds)?,
+				Error::<T>::PvfCheckDoubleVote,
+			);
 
 			// Finally, cast the vote and persist.
 			if stmt.accept {
@@ -1135,6 +1171,85 @@ pub mod pallet {
 			MostRecentContext::<T>::insert(&para, context);
 			Ok(())
 		}
+
+		/// Includes a statement for a PVF pre-checking vote. Potentially, finalizes the vote and
+		/// enacts the results if that was the last vote before achieving the supermajority.
+		///
+		/// Transaction must general.
+		#[pallet::call_index(9)]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::include_pvf_check_statement_general_finalize_upgrade_accept()
+				.max(<T as Config>::WeightInfo::include_pvf_check_statement_general_finalize_upgrade_reject())
+				.max(<T as Config>::WeightInfo::include_pvf_check_statement_general_finalize_onboarding_accept()
+					.max(<T as Config>::WeightInfo::include_pvf_check_statement_general_finalize_onboarding_reject())
+				)
+		)]
+		#[pallet::authorize(Pallet::<T>::validate_include_pvf_check_statement)]
+		pub fn include_pvf_check_statement_general(
+			origin: OriginFor<T>,
+			stmt: PvfCheckStatement,
+			_signature: ValidatorSignature,
+		) -> DispatchResultWithPostInfo {
+			ensure_authorized(origin)?;
+
+			// Transaction validation checks:
+			// * statement.session_index is not stale nor future.
+			// * signature is correct.
+			// * no double vote.
+
+			let validators = shared::ActiveValidatorKeys::<T>::get();
+			let validator_index = stmt.validator_index.0 as usize;
+
+			let mut active_vote = PvfActiveVoteMap::<T>::get(&stmt.subject)
+				// Defensive, it must have been checked by transaction validation.
+				.ok_or(Error::<T>::PvfCheckSubjectInvalid)?;
+
+			// Finally, cast the vote and persist.
+			if stmt.accept {
+				active_vote.votes_accept.set(validator_index, true);
+			} else {
+				active_vote.votes_reject.set(validator_index, true);
+			}
+
+			if let Some(outcome) = active_vote.quorum(validators.len()) {
+				// The quorum has been achieved.
+				//
+				// Remove the PVF vote from the active map and finalize the PVF checking according
+				// to the outcome.
+				PvfActiveVoteMap::<T>::remove(&stmt.subject);
+				PvfActiveVoteList::<T>::mutate(|l| {
+					if let Ok(i) = l.binary_search(&stmt.subject) {
+						l.remove(i);
+					}
+				});
+				match outcome {
+					PvfCheckOutcome::Accepted => {
+						let cfg = configuration::ActiveConfig::<T>::get();
+						Self::enact_pvf_accepted(
+							frame_system::Pallet::<T>::block_number(),
+							&stmt.subject,
+							&active_vote.causes,
+							active_vote.age,
+							&cfg,
+						);
+					},
+					PvfCheckOutcome::Rejected => {
+						Self::enact_pvf_rejected(&stmt.subject, active_vote.causes);
+					},
+				}
+
+				// No weight refund since this statement was the last one and lead to finalization.
+				Ok(().into())
+			} else {
+				// No quorum has been achieved.
+				//
+				// - So just store the updated state back into the storage.
+				// - Only charge weight for simple vote inclusion.
+				PvfActiveVoteMap::<T>::insert(&stmt.subject, active_vote);
+				Ok(Some(<T as Config>::WeightInfo::include_pvf_check_statement()).into())
+			}
+		}
+
 	}
 
 	#[pallet::validate_unsigned]
@@ -1142,11 +1257,23 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			match call {
-				Call::include_pvf_check_statement { stmt, signature } => 
-					Self::validate_include_pvf_check_statement(stmt, signature),
+			let (stmt, signature) = match call {
+				Call::include_pvf_check_statement { stmt, signature } => (stmt, signature),
 				_ => return InvalidTransaction::Call.into(),
-			}
+			};
+
+			Self::validate_include_pvf_check_statement(stmt, signature)
+		}
+
+		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
+			// Return `Ok` here meaning that as soon as the transaction got into the block, it will
+			// always dispatched. This is OK, since the `include_pvf_check_statement` dispatchable
+			// will perform the same checks anyway, so there is no point doing it here.
+			//
+			// On the other hand, if we did not provide the implementation, then the default
+			// implementation would be used. The default implementation just delegates the
+			// pre-dispatch validation to `validate_unsigned`.
+			Ok(())
 		}
 	}
 }
@@ -2266,20 +2393,15 @@ impl<T: Config> Pallet<T> {
 		MostRecentContext::<T>::insert(&id, BlockNumberFor::<T>::from(0u32));
 	}
 
-	#[cfg(test)]
-	pub(crate) fn active_vote_state(
-		code_hash: &ValidationCodeHash,
-	) -> Option<PvfCheckActiveVoteState<BlockNumberFor<T>>> {
-		PvfActiveVoteMap::<T>::get(code_hash)
-	}
-
-	/// Transaction validation checks:
+	/// Validate the transaction `include_pvf_check_statement`.
+	///
+	/// Checks:
 	/// * statement.session_index is not stale nor future.
 	/// * signature is correct.
 	/// * no double vote.
 	fn validate_include_pvf_check_statement(
 		stmt: &PvfCheckStatement,
-		signature: &ValidatorSignature,
+		signature: &ValidatorSignature
 	) -> TransactionValidity {
 		let current_session = shared::CurrentSessionIndex::<T>::get();
 		if stmt.session_index < current_session {
@@ -2322,6 +2444,13 @@ impl<T: Config> Pallet<T> {
 			.and_provides((stmt.session_index, stmt.validator_index, stmt.subject))
 			.propagate(true)
 			.build()
+	}
+
+	#[cfg(test)]
+	pub(crate) fn active_vote_state(
+		code_hash: &ValidationCodeHash,
+	) -> Option<PvfCheckActiveVoteState<BlockNumberFor<T>>> {
+		PvfActiveVoteMap::<T>::get(code_hash)
 	}
 }
 
