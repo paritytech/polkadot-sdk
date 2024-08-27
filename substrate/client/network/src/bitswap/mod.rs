@@ -468,7 +468,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn transaction_found() {
-		let mut client = TestClientBuilder::with_tx_storage(u32::MAX).build();
+		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
 		let mut block_builder = BlockBuilderBuilder::new(&client)
 			.on_parent_block(client.chain_info().genesis_hash)
 			.with_parent_block_number(0)

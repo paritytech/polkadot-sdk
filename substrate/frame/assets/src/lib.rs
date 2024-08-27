@@ -822,8 +822,6 @@ pub mod pallet {
 		///
 		/// - `id`: The identifier of the asset to be destroyed. This must identify an existing
 		///   asset.
-		///
-		/// The asset class must be frozen before calling `start_destroy`.
 		#[pallet::call_index(2)]
 		pub fn start_destroy(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			let maybe_check_owner = match T::ForceOrigin::try_origin(origin) {
@@ -1817,6 +1815,7 @@ pub mod pallet {
 		///   (false), or transfer everything except at least the minimum balance, which will
 		///   guarantee to keep the sender asset account alive (true).
 		#[pallet::call_index(32)]
+		#[pallet::weight(T::WeightInfo::transfer_all())]
 		pub fn transfer_all(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
