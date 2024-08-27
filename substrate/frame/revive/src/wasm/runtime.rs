@@ -556,7 +556,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 	}
 }
 
-impl<'a, E: Ext + 'a, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
+impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	pub fn new(ext: &'a mut E, input_data: Vec<u8>) -> Self {
 		Self {
 			ext,
