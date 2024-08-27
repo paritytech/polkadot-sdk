@@ -98,6 +98,21 @@ benchmarks! {
 
 	}
 
+	pay_fees {
+		let holding = T::worst_case_holding(0).into();
+
+		let mut executor = new_executor::<T>(Default::default());
+		executor.set_holding(holding);
+
+		let fee_asset = T::fee_asset().unwrap();
+
+		let instruction = Instruction::<XcmCallOf<T>>::PayFees { asset: fee_asset };
+
+		let xcm = Xcm(vec![instruction]);
+	} : {
+		executor.bench_process(xcm)?;
+	} verify {}
+
 	query_response {
 		let mut executor = new_executor::<T>(Default::default());
 		let (query_id, response) = T::worst_case_response();
