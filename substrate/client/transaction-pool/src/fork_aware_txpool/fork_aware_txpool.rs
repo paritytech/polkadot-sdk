@@ -544,13 +544,12 @@ where
 			let mut results_map = view_store.submit_at(source, to_be_submitted.into_iter()).await;
 			let mut submission_result = reduce_multiview_result(&mut results_map).into_iter();
 
-			//todo:
+			//todo [#5494]:
 			//ImmediatelyDropped errors from view submission shall be ignored. If transaction got into the mempool,
 			//(and not into the view) it means that it was successfully submitted. It will be sent
 			//to view in some near fufure.
 			//alternatively, we could reverse the order, and at first submit transaction to all
 			//views, and if it is dropped by all of them, do not add it to mempool and return error.
-			//Not sure which approach is better (leaning towards 2nd one).
 			Ok(mempool_result
 				.into_iter()
 				.map(|result| {
@@ -588,7 +587,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		//todo: should send to view frist, and check if not Dropped.
+		//todo: should send to view frist, and check if not Dropped [#5494]
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
 		let xt = Arc::from(xt);
 		if let Err(e) = self.mempool.push_watched(source, xt.clone()) {
@@ -600,8 +599,8 @@ where
 		async move { view_store.submit_and_watch(at, source, xt).await }.boxed()
 	}
 
-	// todo: api change? we need block hash here (assuming we need it at all - could be useful for
-	// verification for debugging purposes).
+	// todo [#5491]: api change? we need block hash here (assuming we need it at all - could be
+	// useful for verification for debugging purposes).
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
 		if !hashes.is_empty() {
 			log::info!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
@@ -614,7 +613,7 @@ where
 		Default::default()
 	}
 
-	// todo: api change?
+	// todo [#5491]: api change?
 	// status(Hash) -> Option<PoolStatus>
 	fn status(&self) -> PoolStatus {
 		self.view_store
@@ -640,7 +639,7 @@ where
 		self.view_store.listener.transactions_broadcasted(propagations);
 	}
 
-	// todo: api change: we probably should have at here?
+	// todo [#5491]: api change: we probably should have at here?
 	fn ready_transaction(&self, tx_hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
 		let most_recent_view = self.view_store.most_recent_view.read();
 		let result = most_recent_view
@@ -719,7 +718,7 @@ where
 		_at: Block::Hash,
 		_xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
-		//todo
+		//todo [#5493]
 		//looks like view_store / view needs non async submit_local method ?.
 		unimplemented!();
 	}
@@ -913,10 +912,10 @@ where
 		let view = Arc::from(view);
 
 		let included_xts = Arc::from(included_xts);
-		//todo: maybe we don't need to register listener in view? We could use
-		// multi_view_listner.transcation_in_block
 		let submitted_count = Arc::from(AtomicUsize::new(0));
 
+		//todo [#5495]: maybe we don't need to register listener in view? We could use
+		// multi_view_listner.transcation_in_block
 		let results = self
 			.mempool
 			.clone_watched()
@@ -1214,8 +1213,8 @@ where
 			},
 			Ok(EnactmentAction::Skip) => return,
 			Ok(EnactmentAction::HandleFinalization) => {
-				// todo: in some cases handle_new_block is actually needed (new_num > tips_of_forks)
-				// let hash = event.hash();
+				// todo [#5492]: in some cases handle_new_block is actually needed (new_num >
+				// tips_of_forks) let hash = event.hash();
 				// if !self.has_view(hash) {
 				// 	if let Ok(tree_route) = compute_tree_route(prev_finalized_block, hash) {
 				// 		self.handle_new_block(&tree_route).await;

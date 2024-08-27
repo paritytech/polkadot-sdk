@@ -63,7 +63,7 @@ where
 	Block: BlockT,
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
-	//todo: add listener? for updating view with invalid transaction?
+	//todo: add listener for updating listeners with events [#5495]
 	/// Is the progress of transaction watched.
 	///
 	/// Was transaction sent with `submit_and_watch`.
@@ -120,15 +120,13 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
 	api: Arc<ChainApi>,
-	//todo: could be removed after removing watched field (and adding listener into tx)
+	//todo: could be removed after removing watched field (and adding listener into tx) [#5495]
 	listener: Arc<MultiViewListener<ChainApi>>,
 	transactions: RwLock<InternalMap<ChainApi, Block>>,
 	metrics: PrometheusMetrics,
 	max_transactions_count: usize,
 }
 
-// Clumsy implementation - some improvements shall be done in the following code, use of Arc,
-// redundant clones, naming..., etc...
 impl<ChainApi, Block> TxMemPool<ChainApi, Block>
 where
 	Block: BlockT,
@@ -175,6 +173,7 @@ where
 		hash: ExtrinsicHash<ChainApi>,
 		tx: TxInMemPool<ChainApi, Block>,
 	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
+		//todo: obey size limits [#5476]
 		match (current_len < self.max_transactions_count, entry) {
 			(false, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped.into()),
 			(true, Entry::Vacant(v)) => {

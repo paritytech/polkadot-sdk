@@ -283,12 +283,7 @@
 //!
 //!
 //! ## API Considerations
-//! todo:
-//! - at (aka internal `most_recent_view`) -- see `todo` comments at some [api][TransactionPool API]
-//! methods implementation.
-//! - PendingExtrinsics (dedicated call) - would be nice to have extra call giving the total number
-//! of extrinsics within the transaction pool (w/o receiving all of them). Super useful for stress
-//! tests, or for utils sending the massive amounts of transactions.
+//! Refer to github issue: <https://github.com/paritytech/polkadot-sdk/issues/5491>
 //!
 //! [`View`]: crate::fork_aware_txpool::view::View
 //! [`revalidate_later`]: crate::fork_aware_txpool::view::View::revalidate_later

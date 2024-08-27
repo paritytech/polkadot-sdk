@@ -200,7 +200,7 @@ where
 
 		//todo: sort batch by revalidation timestamp | maybe not needed at all? xts will be getting
 		//out of the view...
-		//todo: revalidate future, remove if invalid.
+		//todo: revalidate future, remove if invalid [#5496]
 
 		let mut invalid_hashes = Vec::new();
 		let mut revalidated = HashMap::new();

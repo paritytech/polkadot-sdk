@@ -156,14 +156,10 @@ where
 					true
 				}
 			},
-			TransactionStatus::Broadcast(_) => {
-				//todo: remove panic
-				panic!("broadcast shall not happen");
-				// false
-			},
+			TransactionStatus::Broadcast(_) => false,
 			TransactionStatus::InBlock((block, _)) => self.inblock.insert(*block),
 			TransactionStatus::Retracted(_) => {
-				//todo: remove panic
+				//todo remove panic / handle event [#5479]
 				panic!("retracted? shall not happen");
 				// false
 			},
@@ -191,12 +187,12 @@ where
 			self.terminate = true;
 			true
 		} else {
-			//todo:
-			// - add debug / metrics,
+			//todo [#5477]
 			// - handle corner case:  this may happen when tx is invalid for mempool, but somehow
 			//   some view still sees it as ready/future. In that case we don't send the invalid
 			//   event, as transaction can still be included. Probably we should set some flag here
 			//   and allow for invalid sent from the view.
+			// - add debug / metrics,
 			false
 		}
 	}
