@@ -1374,21 +1374,19 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///     #[frame_benchmarking::v2::benchmarks]
 ///     mod benchmarks {
 ///         use super::*;
+///         use frame_benchmarking::v2::BenchmarkError;
 ///
 ///         #[benchmark]
-///         fn authorize_some_call() {
+///         fn authorize_some_call() -> Result<(), BenchmarkError> {
 ///             let call = Call::<T>::some_call { arg: 42 };
-///             let res;
 ///
 ///             #[block]
 ///             {
 ///                 use frame_support::pallet_prelude::Authorize;
-///                 res = call.authorize();
+///                 call.authorize().ok_or("Call must give some authorization")??;
 ///             }
 ///
-///             res
-///                 .expect("Call give some authorization")
-///                 .expect("Authorization is valid");
+///             Ok(())
 ///         }
 ///     }
 /// }

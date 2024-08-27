@@ -55,7 +55,7 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 	fn is_valid(&self) -> bool;
 
 	/// Returns the weight of `is_valid` function.
-	fn weight_of_is_valid(&self) -> bool;
+	fn weight_of_is_valid(&self) -> Weight;
 
 	/// Performs the work for this particular `Task` variant.
 	fn run(&self) -> Result<(), DispatchError>;
@@ -80,6 +80,10 @@ impl Task for () {
 
 	fn is_valid(&self) -> bool {
 		true
+	}
+
+	fn weight_of_is_valid(&self) -> Weight {
+		Weight::default()
 	}
 
 	fn run(&self) -> Result<(), DispatchError> {

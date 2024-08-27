@@ -96,6 +96,13 @@ pub fn expand_outer_task(
 				}
 			}
 
+			fn weight_of_is_valid(&self) -> #scrate::pallet_prelude::Weight {
+				match self {
+					#(RuntimeTask::#variant_names(val) => val.weight_of_is_valid(),)*
+					_ => unreachable!(#INCOMPLETE_MATCH_QED),
+				}
+			}
+
 			fn run(&self) -> Result<(), #scrate::traits::tasks::__private::DispatchError> {
 				match self {
 					#(RuntimeTask::#variant_names(val) => val.run(),)*

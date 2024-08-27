@@ -193,6 +193,11 @@ impl ToTokens for TasksDef {
 					}
 				}
 
+				fn weight_of_is_valid(&self) -> #scrate::pallet_prelude::Weight {
+					// TODO TODO: attribute to specify weight of is_valid
+					Default::default()
+				}
+
 				fn run(&self) -> Result<(), #scrate::pallet_prelude::DispatchError> {
 					match self.clone() {
 						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => {

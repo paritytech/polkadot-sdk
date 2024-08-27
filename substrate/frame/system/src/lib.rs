@@ -651,7 +651,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = <T as Config>::SystemWeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Make some on-chain remark.
 		///
@@ -769,7 +769,7 @@ pub mod pallet {
 		// TODO TODO: add call into the scope when there is weight and update this formula
 		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
-			let skip_validity = origin.as_system_ref() == Some(&RawOrigin::Authorized.into());
+			let skip_validity = origin.as_system_ref() == Some(&RawOrigin::Authorized);
 
 			if !skip_validity {
 				if !task.is_valid() {
@@ -837,8 +837,6 @@ pub mod pallet {
 		#[pallet::call_index(11)]
 		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade(), DispatchClass::Operational))]
 		#[pallet::authorize(Pallet::<T>::validate_apply_authorized_upgrade)]
-		// TODO TODO: correct weight
-		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn apply_authorized_upgrade(
 			_: OriginFor<T>,
 			code: Vec<u8>,
