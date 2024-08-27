@@ -576,6 +576,26 @@ pub use pallet_referenda;
 #[cfg(feature = "pallet-remark")]
 pub use pallet_remark;
 
+/// FRAME pallet for PolkaVM contracts.
+#[cfg(feature = "pallet-revive")]
+pub use pallet_revive;
+
+/// Fixtures for testing and benchmarking.
+#[cfg(feature = "pallet-revive-fixtures")]
+pub use pallet_revive_fixtures;
+
+/// A mock network for testing pallet-revive.
+#[cfg(feature = "pallet-revive-mock-network")]
+pub use pallet_revive_mock_network;
+
+/// Procedural macros used in pallet_revive.
+#[cfg(feature = "pallet-revive-proc-macro")]
+pub use pallet_revive_proc_macro;
+
+/// Exposes all the host functions that a contract can import.
+#[cfg(feature = "pallet-revive-uapi")]
+pub use pallet_revive_uapi;
+
 /// FRAME root offences pallet.
 #[cfg(feature = "pallet-root-offences")]
 pub use pallet_root_offences;
