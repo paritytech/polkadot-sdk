@@ -7,4 +7,4 @@ doc:
 
 crates:
   - name: polkadot-runtime-parachains
-    bump: none
+    bump: minor
