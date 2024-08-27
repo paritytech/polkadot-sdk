@@ -86,15 +86,8 @@ def main(path, version):
 	# Sort by name
 	std_crates.sort(key=lambda x: x[0].name)
 	nostd_crates.sort(key=lambda x: x[0].name)
-	runtime_crates_names = [
-			"frame-support",
-			"frame-system",
-			"polkadot-sdk-frame",
-			"sp-api",
-			"sp-genesis-builder",
-			"sp-runtime",
-	]
-	runtime_crates = [crate for crate in nostd_crates if crate[0].name in runtime_crates_names or crate[0].name.startswith("frame")]
+
+	runtime_crates = [crate for crate in nostd_crates if 'frame' in crate[0].name or crate[0].name.startswith('sp-')]
 	all_crates = std_crates + nostd_crates
 	all_crates.sort(key=lambda x: x[0].name)
 	dependencies = {}
@@ -130,7 +123,7 @@ def main(path, version):
 			"description": "Polkadot SDK umbrella crate.",
 			"license": "Apache-2.0",
 			"metadata": { "docs": { "rs": {
-				"features": ["runtime", "node"],
+				"features": ["runtime-full", "node"],
 				"targets": ["x86_64-unknown-linux-gnu"]
 			}}}
 		},
