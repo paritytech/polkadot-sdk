@@ -680,6 +680,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1204,8 +1210,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>}
 
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Propagating transactions"</span>);
 		<span class="kw">let </span>transactions = <span class="self">self</span>.transaction_pool.transactions();
+
+		<span class="kw">if </span>transactions.is_empty() {
+			<span class="kw">return
+		</span>}
+
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Propagating transactions"</span>);
+
 		<span class="kw">let </span>propagated_to = <span class="self">self</span>.do_propagate_transactions(<span class="kw-2">&amp;</span>transactions);
 		<span class="self">self</span>.transaction_pool.on_broadcasted(propagated_to);
 	}
