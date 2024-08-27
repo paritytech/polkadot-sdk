@@ -46,19 +46,19 @@ impl<T: Config> Pallet<T> {
 		// Update Funds unlock block according to the selected conviction
 		new_vote.funds_unlock();
 
-		if Votes::<T>::contains_key(project.clone(), voter_id.clone()) {
+		if Votes::<T>::contains_key(&project, &voter_id) {
 			let old_vote =
-				Votes::<T>::get(project.clone(), voter_id.clone()).ok_or(Error::<T>::NoVoteData)?;
+				Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let old_amount = old_vote.amount;
-			Votes::<T>::mutate(project.clone(), voter_id.clone(), |value| {
+			Votes::<T>::mutate(&project, &voter_id, |value| {
 				*value = Some(new_vote);
 			});
 			// Adjust locked amount
-			let total_hold = T::NativeBalance::total_balance_on_hold(&voter_id.clone());
+			let total_hold = T::NativeBalance::total_balance_on_hold(&voter_id);
 			let new_hold = total_hold.saturating_sub(old_amount).saturating_add(amount);
 			T::NativeBalance::set_on_hold(&HoldReason::FundsReserved.into(), &voter_id, new_hold)?;
 		} else {
-			Votes::<T>::insert(project.clone(), voter_id.clone(), new_vote);
+			Votes::<T>::insert(project, &voter_id, new_vote);
 			// Lock the necessary amount
 			T::NativeBalance::hold(&HoldReason::FundsReserved.into(), &voter_id, amount)?;
 		}
@@ -79,11 +79,11 @@ impl<T: Config> Pallet<T> {
 
 	// Helper function for complete vote data removal from storage.
 	pub fn try_remove_vote(voter_id: AccountIdOf<T>, project: AccountIdOf<T>) -> DispatchResult {
-		if Votes::<T>::contains_key(project.clone(), voter_id.clone()) {
+		if Votes::<T>::contains_key(&project, &voter_id) {
 			let infos =
-				Votes::<T>::get(project.clone(), voter_id.clone()).ok_or(Error::<T>::NoVoteData)?;
+				Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let amount = infos.amount;
-			Votes::<T>::remove(project.clone(), voter_id.clone());
+			Votes::<T>::remove(&project, &voter_id);
 
 			T::NativeBalance::release(
 				&HoldReason::FundsReserved.into(),
@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
 
 			// Total amount from all votes
 			for vote in votes {
-				let info = vote.2.clone();
+				let info = &vote.2;
 				let conviction_coeff = info.conviction;
 				let amount = info.amount.saturating_add(
 					info.amount
@@ -132,14 +132,14 @@ impl<T: Config> Pallet<T> {
 			// and then populate the storage Projects in pallet_distribution
 			for project in projects {
 				let this_project_votes: Vec<_> =
-					Votes::<T>::iter().filter(|x| x.0 == project.clone()).collect();
+					Votes::<T>::iter().filter(|x| x.0 == project).collect();
 
 				let mut project_positive_reward = BalanceOf::<T>::zero();
 				let mut project_negative_reward = BalanceOf::<T>::zero();
 				let mut project_reward = BalanceOf::<T>::zero();
 				let mut round = 0;
 
-				for (_p_id, _voter, info) in this_project_votes.clone() {
+				for (_p_id, _voter, info) in &this_project_votes {
 					let conviction_coeff = info.conviction;
 					let amount =
 						info.amount.saturating_add(info.amount.saturating_mul(

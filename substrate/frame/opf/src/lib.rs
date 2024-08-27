@@ -15,7 +15,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Distribution pallet.
+//! OPF pallet.
+//! 
+//! The OPF Pallet handles the Optimistic Project Funding. 
+//! It allows users to nominate projects (whitelisted in OpenGov) with their DOT. 
+//! 
+//! ## Overview
+//! 
+//! This mechanism will be funded with a constant stream of DOT taken directly from inflation 
+//! and distributed to projects based on the proportion of DOT that has nominated them. 
+//! The project rewards distribution is handled by the Distribution Pallet.
+//! 
+//! ### Terminology
+//! 
+//! - **MaxWhitelistedProjects:** Maximum number of Whitelisted projects that can be handled by the pallet.
+//! - **VoteLockingPeriod:** Period during which voting is disabled.
+//! - **VotingPeriod:**Period during which voting is enabled.
+//! - **TemporaryRewards:**For test purposes only ⇒ used as a substitute for the inflation portion used for the rewards.
+//! 
+//! ## Interface
+//! 
+//! ### Permissionless Functions
+//! 
+//! ### Privileged Functions
+//! 
+//! * `vote`: Allows users to [vote for/nominate] a whitelisted project using their funds.
+//! * `remove_vote`: Allows users to remove a casted vote.
+//! * `unlock_funds`: Allows users to unlock funds related to a specific project.
+//! 
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -312,7 +339,7 @@ pub mod pallet {
 		pub fn unlock_funds(origin: OriginFor<T>, project: AccountIdOf<T>) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
 			let infos =
-				Votes::<T>::get(project.clone(), voter.clone()).ok_or(Error::<T>::NoVoteData)?;
+				Votes::<T>::get(&project, &voter).ok_or(Error::<T>::NoVoteData)?;
 			let amount = infos.amount;
 			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= infos.funds_unlock_block, Error::<T>::FundsUnlockNotPermitted);
