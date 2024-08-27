@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724781720081,
+  "lastUpdate": 1724789190083,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -16308,6 +16308,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.769498369179951,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn",
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f90bfa6ada211ef1bb55861ffbb7588b15ec21df",
+          "message": "Add feature to allow Aura collator to use full PoV size (#5393)\n\nThis PR introduces a feature that allows to optionally enable using the\nfull PoV size.\n\nTechnically, we're ready to enable it by default, but as corresponding\nruntime changes have not been propagated to the system parachain\nruntimes yet, doing so could put them at risk. On the other hand, there\nare teams that could benefit from it right now, and it makes no sense\nfor them to wait for the fellowship release and everything.\n\n---------\n\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
+          "timestamp": "2024-08-27T18:22:51Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f90bfa6ada211ef1bb55861ffbb7588b15ec21df"
+        },
+        "date": 1724789162076,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63970.229999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.23670339099004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.240445424560109,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3778496417501813,
             "unit": "seconds"
           }
         ]
