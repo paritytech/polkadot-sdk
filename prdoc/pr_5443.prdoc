@@ -6,5 +6,5 @@ doc:
   description: as part of https://github.com/paritytech/devops/issues/3502, try-runtime
     nodes were migrated to a new provider with a new domain address. The PR fixes
     all the references to try-runtime nodes on rococo, westend, kusama and polkadot
-    networks.
+    networks
 title: change try-runtime rpc domains
