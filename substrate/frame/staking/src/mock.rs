@@ -265,7 +265,6 @@ pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
-	type Fungible = Balances;
 	type UnixTime = Timestamp;
 	type RewardRemainder = RewardRemainderMock;
 	type Reward = MockReward;

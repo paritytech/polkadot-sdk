@@ -365,9 +365,9 @@ pub type RewardPoint = u32;
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = Debt<<T as frame_system::Config>::AccountId, <T as Config>::Fungible>;
+type PositiveImbalanceOf<T> = Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 pub type NegativeImbalanceOf<T> =
-	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Fungible>;
+	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 

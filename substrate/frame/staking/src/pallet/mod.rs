@@ -97,14 +97,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The staking balance.
 		#[pallet::no_default]
-		type Currency: LockableCurrency<
-				Self::AccountId,
-				Moment = BlockNumberFor<Self>,
-				Balance = Self::CurrencyBalance,
-			> + InspectLockableCurrency<Self::AccountId>;
-
-		#[pallet::no_default]
-		type Fungible: FunHoldMutate<
+		type Currency: FunHoldMutate<
 				Self::AccountId,
 				Reason = Self::RuntimeHoldReason,
 				Balance = Self::CurrencyBalance,

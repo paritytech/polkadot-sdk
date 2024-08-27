@@ -14,31 +14,31 @@ use crate::{BalanceOf, Config, Error, HoldReason, NegativeImbalanceOf, PositiveI
 
 /// Existential deposit for the chain.
 pub fn existential_deposit<T: Config>() -> BalanceOf<T> {
-	T::Fungible::minimum_balance()
+	T::Currency::minimum_balance()
 }
 
 /// Total issuance of the chain.
 pub fn total_issuance<T: Config>() -> BalanceOf<T> {
-	T::Fungible::total_issuance()
+	T::Currency::total_issuance()
 }
 
 /// Total balance of `who`. Includes both, free and reserved.
 pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
-	T::Fungible::total_balance(who)
+	T::Currency::total_balance(who)
 }
 
 /// Stakeable balance of `who`.
 ///
 /// This includes balance free to stake along with any balance that is already staked.
 pub fn stakeable_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
-	T::Fungible::balance(who) + T::Fungible::balance_on_hold(&HoldReason::Staking.into(), who)
+	T::Currency::balance(who) + T::Currency::balance_on_hold(&HoldReason::Staking.into(), who)
 }
 
 /// Balance of `who` that is currently at stake.
 ///
 /// The staked amount is locked and cannot be transferred out of `who`s account.
 pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
-	T::Fungible::balance_on_hold(&HoldReason::Staking.into(), who)
+	T::Currency::balance_on_hold(&HoldReason::Staking.into(), who)
 }
 
 /// Set balance that can be staked for `who`.
@@ -51,11 +51,11 @@ pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
 	let reserved_balance = staked::<T>(who);
 	if reserved_balance < value {
-		let _ = T::Fungible::set_balance(who, value - reserved_balance);
+		let _ = T::Currency::set_balance(who, value - reserved_balance);
 	} else {
 		update_stake::<T>(who, value).expect("can remove from what is staked");
 		// burn all free
-		let _ = T::Fungible::set_balance(who, Zero::zero());
+		let _ = T::Currency::set_balance(who, Zero::zero());
 	}
 
 	assert!(total_balance::<T>(who) == value);
@@ -71,12 +71,12 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 		frame_system::Pallet::<T>::inc_providers(who);
 	}
 
-	T::Fungible::set_on_hold(&HoldReason::Staking.into(), who, amount)
+	T::Currency::set_on_hold(&HoldReason::Staking.into(), who, amount)
 }
 
 pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
 	let _ = frame_system::Pallet::<T>::dec_providers(who);
-	T::Fungible::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort).map(|_| ())
+	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort).map(|_| ())
 }
 
 /// Slash the value from `who`.
@@ -86,7 +86,7 @@ pub fn slash<T: Config>(
 	who: &T::AccountId,
 	value: BalanceOf<T>,
 ) -> (NegativeImbalanceOf<T>, BalanceOf<T>) {
-	T::Fungible::slash(&HoldReason::Staking.into(), who, value)
+	T::Currency::slash(&HoldReason::Staking.into(), who, value)
 }
 
 /// Mint reward into an existing account.
@@ -96,30 +96,30 @@ pub fn mint_existing<T: Config>(
 	who: &T::AccountId,
 	value: BalanceOf<T>,
 ) -> Option<PositiveImbalanceOf<T>> {
-	T::Fungible::deposit(who, value, Precision::Exact).ok()
+	T::Currency::deposit(who, value, Precision::Exact).ok()
 }
 
 /// Mint reward and create account for `who` if it does not exist.
 ///
 /// This does not increase the total issuance.
 pub fn mint_creating<T: Config>(who: &T::AccountId, value: BalanceOf<T>) -> PositiveImbalanceOf<T> {
-	T::Fungible::deposit(who, value, Precision::Exact).unwrap_or_default()
+	T::Currency::deposit(who, value, Precision::Exact).unwrap_or_default()
 }
 
 /// Deposit newly issued or slashed `value` into `who`.
 pub fn deposit_slashed<T: Config>(who: &T::AccountId, value: NegativeImbalanceOf<T>) {
-	let _ = T::Fungible::resolve(who, value);
+	let _ = T::Currency::resolve(who, value);
 }
 
 /// Issue `value` increasing total issuance.
 ///
 /// Creates a negative imbalance.
 pub fn issue<T: Config>(value: BalanceOf<T>) -> NegativeImbalanceOf<T> {
-	T::Fungible::issue(value)
+	T::Currency::issue(value)
 }
 
 /// Burn the amount from the total issuance.
 #[cfg(feature = "runtime-benchmarks")]
 pub fn burn<T: Config>(amount: BalanceOf<T>) -> PositiveImbalanceOf<T> {
-	T::Fungible::rescind(amount)
+	T::Currency::rescind(amount)
 }
