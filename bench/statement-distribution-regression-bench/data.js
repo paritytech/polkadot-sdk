@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724708928775,
+  "lastUpdate": 1724724716946,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9491,6 +9491,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.046268075630000016,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liu-Cheng Xu",
+            "username": "liuchengxu",
+            "email": "xuliuchengxlc@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6ecbde331ead4600536df2fba912a868ebc06625",
+          "message": "Only log the propagating transactions when they are not empty (#5424)\n\nThis can make the log cleaner, especially when you specify `--log\nsync=debug`.",
+          "timestamp": "2024-08-27T00:14:01Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ecbde331ead4600536df2fba912a868ebc06625"
+        },
+        "date": 1724724687854,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.92199999999991,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.046959880297999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03856465291800001,
             "unit": "seconds"
           }
         ]
