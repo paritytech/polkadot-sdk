@@ -93,7 +93,9 @@ use approval_checking::RequiredTranches;
 use bitvec::{order::Lsb0, vec::BitVec};
 pub use criteria::{AssignmentCriteria, Config as AssignmentConfig, RealAssignmentCriteria};
 use persisted_entries::{ApprovalEntry, BlockEntry, CandidateEntry};
-use time::{slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick};
+use polkadot_node_primitives::approval::time::{
+	slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick,
+};
 
 mod approval_checking;
 pub mod approval_db;
@@ -102,7 +104,6 @@ pub mod criteria;
 mod import;
 mod ops;
 mod persisted_entries;
-pub mod time;
 
 use crate::{
 	approval_checking::{Check, TranchesToApproveResult},
@@ -123,7 +124,6 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
 const APPROVAL_CACHE_SIZE: u32 = 1024;
 
-pub const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
 const APPROVAL_DELAY: Tick = 2;
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting";
 
@@ -1399,6 +1399,8 @@ pub async fn start_approval_worker<
 	sync_oracle: Box<dyn SyncOracle + Send>,
 	metrics: Metrics,
 	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
+	task_name: &'static str,
+	group_name: &'static str,
 	clock: Arc<dyn Clock + Send + Sync>,
 ) -> SubsystemResult<()> {
 	let approval_voting = ApprovalVotingSubsystem::with_config_and_clock(
@@ -1414,8 +1416,8 @@ pub async fn start_approval_worker<
 	let backend = DbBackend::new(db.clone(), approval_voting.db_config);
 	let spawner = approval_voting.spawner.clone();
 	spawner.spawn_blocking(
-		"approval-voting-parallel-db",
-		Some("approval-voting-parallel"),
+		task_name,
+		Some(group_name),
 		Box::pin(async move {
 			if let Err(err) = run(
 				work_provider,
@@ -2025,14 +2027,9 @@ async fn handle_from_overseer<
 		},
 		FromOrchestra::Communication { msg } => match msg {
 			ApprovalVotingMessage::ImportAssignment(checked_assignment, tx) => {
-				let (check_outcome, actions) = import_assignment(
-					sender,
-					state,
-					db,
-					session_info_provider,
-					checked_assignment,
-				)
-				.await?;
+				let (check_outcome, actions) =
+					import_assignment(sender, state, db, session_info_provider, checked_assignment)
+						.await?;
 				// approval-distribution makes sure this assignment is valid and expected,
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.

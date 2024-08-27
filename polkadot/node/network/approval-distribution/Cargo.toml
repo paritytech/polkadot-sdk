@@ -10,7 +10,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-polkadot-node-core-approval-voting = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }

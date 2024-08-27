@@ -12,9 +12,10 @@ use crate::{
 use assert_matches::assert_matches;
 use futures::{channel::oneshot, future, stream::PollNext, StreamExt};
 use itertools::Itertools;
-use polkadot_node_core_approval_voting::{time::SystemClock, ApprovalVotingWorkProvider, Config};
+use polkadot_node_core_approval_voting::{ApprovalVotingWorkProvider, Config};
 use polkadot_node_network_protocol::{peer_set::ValidationVersion, ObservedRole, PeerId, View};
 use polkadot_node_primitives::approval::{
+	time::SystemClock,
 	v1::{
 		AssignmentCert, AssignmentCertKind, IndirectAssignmentCert, IndirectSignedApprovalVote,
 		RELAY_VRF_MODULO_CONTEXT,

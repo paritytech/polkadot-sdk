@@ -16,11 +16,11 @@
 
 use crate::configuration::TestAuthorities;
 use itertools::Itertools;
-use polkadot_node_core_approval_voting::time::{Clock, SystemClock, Tick};
 use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	View,
 };
+use polkadot_node_primitives::approval::time::{Clock, SystemClock, Tick};
 use polkadot_node_subsystem::messages::{
 	ApprovalDistributionMessage, ApprovalVotingParallelMessage,
 };

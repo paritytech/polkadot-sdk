@@ -32,7 +32,7 @@ use crate::{
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
 	strategy::{
-		warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
+		warp::{EncodedProof, WarpProofRequest, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
 	},
 	types::{
@@ -42,11 +42,7 @@ use crate::{
 };
 
 use codec::{Decode, DecodeAll, Encode};
-use futures::{
-	channel::oneshot,
-	future::{BoxFuture, Fuse},
-	FutureExt, StreamExt,
-};
+use futures::{channel::oneshot, FutureExt, StreamExt};
 use libp2p::request_response::OutboundFailure;
 use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
@@ -257,10 +253,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// The `PeerId`'s of all boot nodes.
 	boot_node_ids: HashSet<PeerId>,
 
-	/// A channel to get target block header if we skip over proofs downloading during warp sync.
-	warp_sync_target_block_header_rx_fused:
-		Fuse<BoxFuture<'static, Result<B::Header, oneshot::Canceled>>>,
-
 	/// Protocol name used for block announcements
 	block_announce_protocol_name: ProtocolName,
 
@@ -309,7 +301,7 @@ where
 		protocol_id: ProtocolId,
 		fork_id: &Option<String>,
 		block_announce_validator: Box<dyn BlockAnnounceValidator<B> + Send>,
-		warp_sync_params: Option<WarpSyncParams<B>>,
+		warp_sync_config: Option<WarpSyncConfig<B>>,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
@@ -404,19 +396,6 @@ where
 				Arc::clone(&peer_store_handle),
 			);
 
-		// Split warp sync params into warp sync config and a channel to retrieve target block
-		// header.
-		let (warp_sync_config, warp_sync_target_block_header_rx) =
-			warp_sync_params.map_or((None, None), |params| {
-				let (config, target_block_rx) = params.split();
-				(Some(config), target_block_rx)
-			});
-
-		// Make sure polling of the target block channel is a no-op if there is no block to
-		// retrieve.
-		let warp_sync_target_block_header_rx_fused = warp_sync_target_block_header_rx
-			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
-
 		// Initialize syncing strategy.
 		let strategy = SyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?;
 
@@ -460,7 +439,6 @@ where
 				genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
-				warp_sync_target_block_header_rx_fused,
 				boot_node_ids,
 				default_peers_set_no_slot_peers,
 				default_peers_set_num_full,
@@ -491,15 +469,6 @@ where
 			SyncingService::new(tx, num_connected, is_major_syncing),
 			block_announce_config,
 		))
-	}
-
-	/// Report Prometheus metrics.
-	pub fn report_metrics(&self) {
-		if let Some(metrics) = &self.metrics {
-			let n = u64::try_from(self.peers.len()).unwrap_or(std::u64::MAX);
-			metrics.peers.set(n);
-		}
-		self.strategy.report_metrics();
 	}
 
 	fn update_peer_info(
@@ -628,23 +597,16 @@ where
 	pub async fn run(mut self) {
 		loop {
 			tokio::select! {
-				_ = self.tick_timeout.tick() => self.perform_periodic_actions(),
+				_ = self.tick_timeout.tick() => {
+					// TODO: This tick should not be necessary, but
+					//  `self.process_strategy_actions()` is not called in some cases otherwise and
+					//  some tests fail because of this
+				},
 				command = self.service_rx.select_next_some() =>
 					self.process_service_command(command),
 				notification_event = self.notification_service.next_event() => match notification_event {
 					Some(event) => self.process_notification_event(event),
 					None => return,
-				},
-				// TODO: setting of warp sync target block should be moved to the initialization of
-				// `SyncingEngine`, see https://github.com/paritytech/polkadot-sdk/issues/3537.
-				warp_target_block_header = &mut self.warp_sync_target_block_header_rx_fused => {
-					if let Err(_) = self.pass_warp_sync_target_block_header(warp_target_block_header) {
-						error!(
-							target: LOG_TARGET,
-							"Failed to set warp sync target block header, terminating `SyncingEngine`.",
-						);
-						return
-					}
 				},
 				response_event = self.pending_responses.select_next_some() =>
 					self.process_response_event(response_event),
@@ -653,7 +615,6 @@ where
 			}
 
 			// Update atomic variables
-			self.num_connected.store(self.peers.len(), Ordering::Relaxed);
 			self.is_major_syncing.store(self.strategy.is_major_syncing(), Ordering::Relaxed);
 
 			// Process actions requested by a syncing strategy.
@@ -757,10 +718,6 @@ where
 		Ok(())
 	}
 
-	fn perform_periodic_actions(&mut self) {
-		self.report_metrics();
-	}
-
 	fn process_service_command(&mut self, command: ToServiceCommand<B>) {
 		match command {
 			ToServiceCommand::SetSyncForkRequest(peers, hash, number) => {
@@ -803,24 +760,10 @@ where
 				);
 			},
 			ToServiceCommand::Status(tx) => {
-				let mut status = self.strategy.status();
-				status.num_connected_peers = self.peers.len() as u32;
-				let _ = tx.send(status);
+				let _ = tx.send(self.strategy.status());
 			},
 			ToServiceCommand::NumActivePeers(tx) => {
 				let _ = tx.send(self.num_active_peers());
-			},
-			ToServiceCommand::SyncState(tx) => {
-				let _ = tx.send(self.strategy.status());
-			},
-			ToServiceCommand::BestSeenBlock(tx) => {
-				let _ = tx.send(self.strategy.status().best_seen_block);
-			},
-			ToServiceCommand::NumSyncPeers(tx) => {
-				let _ = tx.send(self.strategy.status().num_peers);
-			},
-			ToServiceCommand::NumQueuedBlocks(tx) => {
-				let _ = tx.send(self.strategy.status().queued_blocks);
 			},
 			ToServiceCommand::NumDownloadedBlocks(tx) => {
 				let _ = tx.send(self.strategy.num_downloaded_blocks());
@@ -829,11 +772,8 @@ where
 				let _ = tx.send(self.strategy.num_sync_requests());
 			},
 			ToServiceCommand::PeersInfo(tx) => {
-				let peers_info = self
-					.peers
-					.iter()
-					.map(|(peer_id, peer)| (*peer_id, peer.info.clone()))
-					.collect();
+				let peers_info =
+					self.peers.iter().map(|(peer_id, peer)| (*peer_id, peer.info)).collect();
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::OnBlockFinalized(hash, header) =>
@@ -898,22 +838,6 @@ where
 		}
 	}
 
-	fn pass_warp_sync_target_block_header(
-		&mut self,
-		header: Result<B::Header, oneshot::Canceled>,
-	) -> Result<(), ()> {
-		match header {
-			Ok(header) => self.strategy.set_warp_sync_target_block_header(header),
-			Err(err) => {
-				error!(
-					target: LOG_TARGET,
-					"Failed to get target block for warp sync. Error: {err:?}",
-				);
-				Err(())
-			},
-		}
-	}
-
 	/// Called by peer when it is disconnecting.
 	///
 	/// Returns a result if the handshake of this peer was indeed accepted.
@@ -922,6 +846,10 @@ where
 			log::debug!(target: LOG_TARGET, "{peer_id} does not exist in `SyncingEngine`");
 			return
 		};
+		if let Some(metrics) = &self.metrics {
+			metrics.peers.dec();
+		}
+		self.num_connected.fetch_sub(1, Ordering::AcqRel);
 
 		if self.important_peers.contains(&peer_id) {
 			log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
@@ -1097,7 +1025,12 @@ where
 
 		log::debug!(target: LOG_TARGET, "Connected {peer_id}");
 
-		self.peers.insert(peer_id, peer);
+		if self.peers.insert(peer_id, peer).is_none() {
+			if let Some(metrics) = &self.metrics {
+				metrics.peers.inc();
+			}
+			self.num_connected.fetch_add(1, Ordering::AcqRel);
+		}
 		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
 		if self.default_peers_set_no_slot_peers.contains(&peer_id) {

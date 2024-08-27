@@ -48,9 +48,12 @@ use itertools::Itertools;
 use orchestra::TimeoutExt;
 use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
 use polkadot_approval_distribution::ApprovalDistribution;
+use polkadot_node_primitives::approval::time::{
+	slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock,
+};
+
 use polkadot_node_core_approval_voting::{
-	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
-	ApprovalVotingSubsystem, Config as ApprovalVotingConfig,
+	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, RealAssignmentCriteria,
 };
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
@@ -834,6 +837,7 @@ fn build_overseer(
 		state.approval_voting_parallel_metrics.approval_distribution_metrics(),
 		TEST_CONFIG.slot_duration_millis,
 		Arc::new(system_clock.clone()),
+		Arc::new(RealAssignmentCriteria {}),
 		state.options.approval_voting_parallel_enabled,
 	);
 

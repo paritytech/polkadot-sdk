@@ -27,11 +27,6 @@ use self::metrics::Metrics;
 use futures::{select, FutureExt as _};
 use itertools::Itertools;
 use net_protocol::peer_set::{ProtocolVersion, ValidationVersion};
-use polkadot_node_core_approval_voting::{
-	criteria::InvalidAssignment,
-	time::{Clock, ClockExt, SystemClock},
-	AssignmentCriteria, RealAssignmentCriteria, TICK_TOO_FAR_IN_FUTURE,
-};
 use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
 	self as net_protocol, filter_by_peer_version,
@@ -42,6 +37,8 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{
 	approval::{
+		criteria::{AssignmentCriteria, InvalidAssignment},
+		time::{Clock, ClockExt, SystemClock, TICK_TOO_FAR_IN_FUTURE},
 		v1::{
 			AssignmentCertKind, BlockApprovalMeta, DelayTranche, IndirectAssignmentCert,
 			IndirectSignedApprovalVote, RelayVRFStory,
@@ -104,6 +101,7 @@ pub struct ApprovalDistribution {
 	metrics: Metrics,
 	slot_duration_millis: u64,
 	clock: Arc<dyn Clock + Send + Sync>,
+	assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
 	subsystem_disabled: bool,
 }
 
@@ -180,7 +178,7 @@ impl ApprovalEntry {
 		Self {
 			validator_index: assignment.validator,
 			assignment,
-			approvals: HashMap::with_capacity(candidates.len()),
+			approvals: HashMap::new(),
 			assignment_claimed_candidates: candidates,
 			routing_info,
 		}
@@ -518,7 +516,7 @@ struct BlockEntry {
 	/// candidates being claimed by assignments.
 	approval_entries: HashMap<(ValidatorIndex, CandidateBitfield), ApprovalEntry>,
 	/// The block vrf story.
-	pub vrf_story: RelayVRFStory,
+	vrf_story: RelayVRFStory,
 	/// The block slot.
 	slot: Slot,
 }
@@ -742,7 +740,7 @@ impl State {
 		metrics: &Metrics,
 		event: NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>,
 		rng: &mut (impl CryptoRng + Rng),
-		assignment_criteria: &impl AssignmentCriteria,
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
 		clock: &(impl Clock + ?Sized),
 		session_info_provider: &mut RuntimeInfo,
 	) {
@@ -862,7 +860,7 @@ impl State {
 		metrics: &Metrics,
 		metas: Vec<BlockApprovalMeta>,
 		rng: &mut (impl CryptoRng + Rng),
-		assignment_criteria: &impl AssignmentCriteria,
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
 		clock: &(impl Clock + ?Sized),
 		session_info_provider: &mut RuntimeInfo,
 	) {
@@ -1044,7 +1042,7 @@ impl State {
 		peer_id: PeerId,
 		assignments: Vec<(IndirectAssignmentCertV2, CandidateBitfield)>,
 		rng: &mut R,
-		assignment_criteria: &impl AssignmentCriteria,
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
 		clock: &(impl Clock + ?Sized),
 		session_info_provider: &mut RuntimeInfo,
 	) where
@@ -1155,7 +1153,7 @@ impl State {
 			protocol_v3::ApprovalDistributionMessage,
 		>,
 		rng: &mut R,
-		assignment_criteria: &impl AssignmentCriteria,
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
 		clock: &(impl Clock + ?Sized),
 		session_info_provider: &mut RuntimeInfo,
 	) where
@@ -1351,7 +1349,7 @@ impl State {
 		assignment: IndirectAssignmentCertV2,
 		claimed_candidate_indices: CandidateBitfield,
 		rng: &mut R,
-		assignment_criteria: &impl AssignmentCriteria,
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
 		clock: &(impl Clock + ?Sized),
 		session_info_provider: &mut RuntimeInfo,
 	) where
@@ -1683,7 +1681,7 @@ impl State {
 	}
 
 	async fn check_assignment_valid<RA: overseer::SubsystemSender<RuntimeApiMessage>>(
-		assignment_criteria: &impl AssignmentCriteria,
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
 		entry: &BlockEntry,
 		assignment: &IndirectAssignmentCertV2,
 		claimed_candidate_indices: &CandidateBitfield,
@@ -1726,7 +1724,7 @@ impl State {
 			.check_assignment_cert(
 				claimed_cores,
 				assignment.validator,
-				&polkadot_node_core_approval_voting::AssignmentConfig::from(session_info),
+				&polkadot_node_primitives::approval::criteria::Config::from(session_info),
 				entry.vrf_story.clone(),
 				&assignment.cert,
 				backing_groups,
@@ -2664,11 +2662,17 @@ async fn modify_reputation(
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalDistribution {
 	/// Create a new instance of the [`ApprovalDistribution`] subsystem.
-	pub fn new(metrics: Metrics, slot_duration_millis: u64, subsystem_disabled: bool) -> Self {
+	pub fn new(
+		metrics: Metrics,
+		slot_duration_millis: u64,
+		assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
+		subsystem_disabled: bool,
+	) -> Self {
 		Self::new_with_clock(
 			metrics,
 			slot_duration_millis,
 			Arc::new(SystemClock),
+			assignment_criteria,
 			subsystem_disabled,
 		)
 	}
@@ -2678,9 +2682,10 @@ impl ApprovalDistribution {
 		metrics: Metrics,
 		slot_duration_millis: u64,
 		clock: Arc<dyn Clock + Send + Sync>,
+		assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
 		subsystem_disabled: bool,
 	) -> Self {
-		Self { metrics, slot_duration_millis, clock, subsystem_disabled }
+		Self { metrics, slot_duration_millis, clock, assignment_criteria, subsystem_disabled }
 	}
 
 	async fn run<Context>(self, ctx: Context) {
@@ -2689,7 +2694,6 @@ impl ApprovalDistribution {
 		// According to the docs of `rand`, this is a ChaCha12 RNG in practice
 		// and will always be chosen for strong performance and security properties.
 		let mut rng = rand::rngs::StdRng::from_entropy();
-		let assignment_criteria = RealAssignmentCriteria {};
 		let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 			keystore: None,
 			session_cache_lru_size: DISPUTE_WINDOW.get(),
@@ -2700,7 +2704,6 @@ impl ApprovalDistribution {
 			&mut state,
 			REPUTATION_CHANGE_INTERVAL,
 			&mut rng,
-			&assignment_criteria,
 			&mut session_info_provider,
 		)
 		.await
@@ -2713,7 +2716,6 @@ impl ApprovalDistribution {
 		state: &mut State,
 		reputation_interval: Duration,
 		rng: &mut (impl CryptoRng + Rng),
-		assignment_criteria: &impl AssignmentCriteria,
 		session_info_provider: &mut RuntimeInfo,
 	) {
 		let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
@@ -2741,7 +2743,9 @@ impl ApprovalDistribution {
 						},
 					};
 
-					self.handle_from_orchestra(message, &mut approval_voting_sender, &mut network_sender, &mut runtime_api_sender, state, rng, assignment_criteria, session_info_provider).await;
+					if self.handle_from_orchestra(message, &mut approval_voting_sender, &mut network_sender, &mut runtime_api_sender, state, rng, session_info_provider).await {
+						return;
+					}
 
 				},
 			}
@@ -2749,6 +2753,8 @@ impl ApprovalDistribution {
 	}
 
 	/// Handles a from orchestra message received by approval distribution subystem.
+	///
+	/// Returns `true` if the subsystem should be stopped.
 	pub async fn handle_from_orchestra<
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
@@ -2761,9 +2767,8 @@ impl ApprovalDistribution {
 		runtime_api_sender: &mut RA,
 		state: &mut State,
 		rng: &mut (impl CryptoRng + Rng),
-		assignment_criteria: &impl AssignmentCriteria,
 		session_info_provider: &mut RuntimeInfo,
-	) {
+	) -> bool {
 		match message {
 			FromOrchestra::Communication { msg } =>
 				Self::handle_incoming(
@@ -2774,7 +2779,7 @@ impl ApprovalDistribution {
 					msg,
 					&self.metrics,
 					rng,
-					assignment_criteria,
+					self.assignment_criteria.as_ref(),
 					self.clock.as_ref(),
 					session_info_provider,
 				)
@@ -2796,8 +2801,9 @@ impl ApprovalDistribution {
 				gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
 				state.handle_block_finalized(network_sender, &self.metrics, number).await;
 			},
-			FromOrchestra::Signal(OverseerSignal::Conclude) => return,
+			FromOrchestra::Signal(OverseerSignal::Conclude) => return true,
 		}
+		false
 	}
 
 	async fn handle_incoming<
@@ -2812,7 +2818,7 @@ impl ApprovalDistribution {
 		msg: ApprovalDistributionMessage,
 		metrics: &Metrics,
 		rng: &mut (impl CryptoRng + Rng),
-		assignment_criteria: &impl AssignmentCriteria,
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
 		clock: &(impl Clock + ?Sized),
 		session_info_provider: &mut RuntimeInfo,
 	) {

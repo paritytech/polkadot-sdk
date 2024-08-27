@@ -22,16 +22,16 @@
 //! as independent subsystems.
 use itertools::Itertools;
 use metrics::{Meters, MetricsWatcher};
-use polkadot_node_core_approval_voting::{
-	time::{Clock, SystemClock},
-	Config, RealAssignmentCriteria,
-};
+use polkadot_node_core_approval_voting::{Config, RealAssignmentCriteria};
 use polkadot_node_metrics::metered::{
 	self, channel, unbounded, MeteredReceiver, MeteredSender, UnboundedMeteredReceiver,
 	UnboundedMeteredSender,
 };
 
-use polkadot_node_primitives::DISPUTE_WINDOW;
+use polkadot_node_primitives::{
+	approval::time::{Clock, SystemClock},
+	DISPUTE_WINDOW,
+};
 use polkadot_node_subsystem::{
 	messages::{ApprovalDistributionMessage, ApprovalVotingMessage, ApprovalVotingParallelMessage},
 	overseer, FromOrchestra, SpawnedSubsystem, SubsystemError, SubsystemResult,
@@ -185,6 +185,7 @@ where
 				subsystem.metrics.approval_distribution_metrics(),
 				subsystem.slot_duration_millis,
 				subsystem.clock.clone(),
+				Arc::new(RealAssignmentCriteria {}),
 				false,
 			);
 		let task_name = format!("approval-voting-parallel-{}", i);
@@ -210,7 +211,6 @@ where
 				let mut state =
 					polkadot_approval_distribution::State::with_config(slot_duration_millis);
 				let mut rng = rand::rngs::StdRng::from_entropy();
-				let assignment_criteria = RealAssignmentCriteria {};
 				let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 					keystore: None,
 					session_cache_lru_size: DISPUTE_WINDOW.get(),
@@ -235,7 +235,6 @@ where
 							&mut runtime_api_sender,
 							&mut state,
 							&mut rng,
-							&assignment_criteria,
 							&mut session_info_provider,
 						)
 						.await;
@@ -262,6 +261,8 @@ where
 		subsystem.sync_oracle,
 		subsystem.metrics.approval_voting_metrics(),
 		subsystem.spawner.clone(),
+		"approval-voting-parallel-db",
+		"approval-voting-parallel",
 		subsystem.clock.clone(),
 	)
 	.await?;
