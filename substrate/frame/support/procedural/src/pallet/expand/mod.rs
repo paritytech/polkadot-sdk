@@ -15,12 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
 /// Helper to generate better error in case of internal error.
 macro_rules! msg {
 	($t:literal) => {
 		&format!(
-			"Pallet Internal Error:{}:{}:{}: Please open send an issue on polkadot-sdk github \
-			with the pallet input which triggered this error\n",
+			"Pallet Internal Error:{}:{}:{}: Please open an issue on polkadot-sdk github with the \
+			pallet input which triggered this error",
 			file!(),
 			line!(),
 			$t
@@ -130,4 +131,17 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		.push(syn::Item::Verbatim(new_items));
 
 	def.item.into_token_stream()
+}
+
+#[cfg(test)]
+mod tests {
+	#[test]
+	fn test_msg() {
+		assert_eq!(
+			msg!("my internal error"),
+			"Pallet Internal Error:substrate/frame/support/procedural/src/pallet/expand/mod.rs:141:\
+			my internal error: Please open an issue on polkadot-sdk github with the pallet input \
+			which triggered this error"
+		);
+	}
 }
