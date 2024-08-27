@@ -512,10 +512,10 @@ impl<T: Config> Pallet<T> {
 			})
 			.into_iter()
 			.unzip();
-		// Also include descendants of the concluded invalid candidates.
-		let current_concluded_invalid_disputes = |hash: CandidateHash| {
-			concluded_invalid_hashes.contains(&hash) ||
-				<T>::DisputesHandler::concluded_invalid(current_session, hash)
+		// Also include cores freed as a result of concluded invalid candidates.
+		let current_concluded_invalid_disputes = |hash: &CandidateHash| {
+			concluded_invalid_hashes.contains(hash) ||
+				<T>::DisputesHandler::concluded_invalid(current_session, *hash)
 		};
 
 		// Create a bit index from the set of core indices where each index corresponds to
@@ -963,7 +963,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	backed_candidates: Vec<BackedCandidate<T::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-	concluded_invalid_with_descendants: impl Fn(CandidateHash) -> bool,
+	concluded_invalid_with_descendants: impl Fn(&CandidateHash) -> bool,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
@@ -984,13 +984,14 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
 	// candidates (along with their descendants).
 	retain_candidates::<T, _, _>(&mut candidates_per_para, |_, candidate| {
-		let keep = !concluded_invalid_with_descendants(candidate.candidate().hash());
+		let hash = candidate.candidate().hash();
+		let keep = !concluded_invalid_with_descendants(&hash);
 
 		if !keep {
 			log::debug!(
 				target: LOG_TARGET,
 				"Found backed candidate {:?} which was concluded invalid or is a descendant of a concluded invalid candidate, for paraid {:?}.",
-				candidate.candidate().hash(),
+				hash,
 				candidate.descriptor().para_id
 			);
 		}

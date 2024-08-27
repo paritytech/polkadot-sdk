@@ -1748,7 +1748,7 @@ mod sanitizers {
 		};
 		use alloc::collections::vec_deque::VecDeque;
 		use polkadot_primitives::ValidationCode;
-		use sp_runtime::Digest;
+		use sp_runtime::{Digest, ModuleError};
 
 		use super::*;
 
@@ -3413,7 +3413,7 @@ mod sanitizers {
 			}
 		}
 
-		fn no_disputes(_h: CandidateHash) -> bool {
+		fn no_disputes(_h: &CandidateHash) -> bool {
 			false
 		}
 
@@ -4032,8 +4032,15 @@ mod sanitizers {
 					backed_candidates,
 				};
 
-				let _ =
+				let err =
 					Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data).unwrap_err();
+				assert_matches!(
+					err.error,
+					DispatchError::Module(ModuleError {
+						message: Some("CandidatesFilteredDuringExecution"),
+						..
+					})
+				);
 			});
 		}
 
