@@ -1249,9 +1249,8 @@ pub mod pallet {
 			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			ensure!(UsernameOf::<T>::contains_key(&who), Error::<T>::InvalidUsername);
 			let username_info =
-				UsernameInfoOf::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
+				UsernameInfoOf::<T>::get(&username).ok_or(Error::<T>::NoUsername)?;
 			let suffix = Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
 			let authority_account = UsernameAuthorities::<T>::get(&suffix)
 				.map(|auth_info| auth_info.account_id)
@@ -1285,13 +1284,20 @@ pub mod pallet {
 				UnbindingUsernames::<T>::take(&username).ok_or(Error::<T>::NotUnbinding)?;
 			let now = frame_system::Pallet::<T>::block_number();
 			ensure!(
-				grace_period_start.saturating_add(T::UsernameGracePeriod::get()) >= now,
+				now >= grace_period_start.saturating_add(T::UsernameGracePeriod::get()),
 				Error::<T>::TooEarly
 			);
 			let username_info =
 				UsernameInfoOf::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
-			// Maybe it's a primary username, maybe not. We remove it anyway.
-			let _ = UsernameOf::<T>::take(&username_info.owner);
+			// If this is the primary username, remove the entry from the account -> username map.
+			UsernameOf::<T>::mutate(&username_info.owner, |maybe_primary| {
+				if match maybe_primary {
+					Some(primary) if *primary == username => true,
+					_ => false,
+				} {
+					*maybe_primary = None;
+				}
+			});
 			match username_info.provider {
 				Provider::Authority(username_deposit) => {
 					let suffix =
@@ -1323,8 +1329,15 @@ pub mod pallet {
 			T::ForceOrigin::ensure_origin(origin)?;
 			let username_info =
 				UsernameInfoOf::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
-			// Maybe it's a primary username, maybe not. We remove it anyway.
-			let _ = UsernameOf::<T>::take(&username_info.owner);
+			// If this is the primary username, remove the entry from the account -> username map.
+			UsernameOf::<T>::mutate(&username_info.owner, |maybe_primary| {
+				if match maybe_primary {
+					Some(primary) if *primary == username => true,
+					_ => false,
+				} {
+					*maybe_primary = None;
+				}
+			});
 			let _ = UnbindingUsernames::<T>::take(&username);
 			match username_info.provider {
 				Provider::Authority(username_deposit) => {
