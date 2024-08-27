@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724724066956,
+  "lastUpdate": 1724759338494,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23607,6 +23607,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02266132838666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7e7c33453eeb14f47c6c4d0f98cc982e485edc77",
+          "message": "frame-omni-bencher maintenance (#5466)\n\nChanges:\n- Set default level to `Info` again. Seems like a dependency update set\nit to something higher.\n- Fix docs to not use `--locked` since we rely on dependency bumps via\ncargo.\n- Add README with rust docs.\n- Fix bug where the node ignored `--heap-pages` argument.\n\nYou can test the `--heap-pages` bug by running this command on master\nand then on this branch. Note that it should fail because of the very\nlow heap pages arg:\n`cargo run --release --bin polkadot --features=runtime-benchmarks --\nbenchmark pallet --chain=dev --steps=10 --repeat=30\n--wasm-execution=compiled --heap-pages=8 --pallet=frame-system\n--extrinsic=\"*\"`\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: ggwpez <ggwpez@users.noreply.github.com>",
+          "timestamp": "2024-08-27T10:05:15Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7e7c33453eeb14f47c6c4d0f98cc982e485edc77"
+        },
+        "date": 1724759310505,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02247526308666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010550669140000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012623741706666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17159619315999997,
             "unit": "seconds"
           }
         ]
