@@ -1,0 +1,25 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "`MaybeConsideration` extension trait for `Consideration`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The trait allows for the management of tickets that may represent no cost. While 
+      the `MaybeConsideration` still requires proper handling, it introduces the ability 
+      to determine if a ticket represents no cost and can be safely forgotten without any 
+      side effects.
+
+      The new trait is particularly useful when a consumer expects the cost to be zero under 
+      certain conditions (e.g., when the proposal count is below a threshold N) and does not want 
+      to store such consideration tickets in storage. The extension approach allows us to avoid 
+      breaking changes to the existing trait and to continue using it as a non-optional version 
+      for migrating pallets that utilize the `Currency` and `fungible` traits for `holds` and 
+      `freezes`, without requiring any storage migration.
+
+crates:
+  - name: frame-support
+    bump: minor
+  - name: pallet-balances
+    bump: patch
