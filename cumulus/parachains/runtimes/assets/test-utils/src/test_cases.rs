@@ -1143,7 +1143,8 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 		.with_balances(vec![(
 			foreign_creator_as_account_id.clone(),
 			existential_deposit +
-				asset_deposit + metadata_deposit_base +
+				asset_deposit +
+				metadata_deposit_base +
 				metadata_deposit_per_byte_eta +
 				buy_execution_fee_amount.into() +
 				buy_execution_fee_amount.into(),

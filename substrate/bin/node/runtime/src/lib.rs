@@ -2171,52 +2171,32 @@ impl pallet_broker::Config for Runtime {
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }
 
-
 parameter_types! {
-	// Id of the treasury
 	pub const PotId: PalletId = PalletId(*b"py/potid");
-
-	// Time needed after approval to unlock the reward claim
 	pub const Period:BlockNumber = 5*MINUTES;
-
-	// Maximum number of whitelisted projects
 	pub const MaxProjects:u32 = 50;
-
 	pub const EpochDurationBlocks: BlockNumber = EPOCH_DURATION_IN_BLOCKS;
-
 }
+
 impl pallet_distribution::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-
 	type NativeBalance = Balances;
-
-	/// Pot PalletId
 	type PotId = PotId;
-
-	/// A reason for placing a hold on funds.
 	type RuntimeHoldReason = RuntimeHoldReason;
-
-	/// This the minimum required time period between project whitelisting
-	/// and payment/reward_claim from the treasury.
 	type BufferPeriod = Period;
-
-	/// Maximum number of whitelisted projects
 	type MaxProjects = MaxProjects;
-
-	/// Epoch duration in blocks
 	type EpochDurationBlocks = EpochDurationBlocks;
-
 	type BlockNumberProvider = System;
-
 	type WeightInfo = pallet_distribution::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types!{	
+parameter_types! {
 	pub const MaxWhitelistedProjects: u32 = 64;
 	pub const TemporaryRewards: Balance = 100000 * DOLLARS;
 	pub const TotalPeriod:BlockNumber = 30 * DAYS;
 	pub const LockPeriod:BlockNumber = 10 * DAYS;
 }
+
 impl pallet_opf::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type VoteLockingPeriod = LockPeriod;
@@ -2225,7 +2205,6 @@ impl pallet_opf::Config for Runtime {
 	type TemporaryRewards = TemporaryRewards;
 	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
 }
-
 
 parameter_types! {
 	pub const MixnetNumCoverToCurrentBlocks: BlockNumber = 3;
@@ -2568,14 +2547,13 @@ mod runtime {
 	pub type AssetConversionMigration = pallet_asset_conversion_ops::Pallet<Runtime>;
 
 	#[runtime::pallet_index(80)]
-<<<<<<< HEAD
-	pub type Distribution = pallet_distribution::Pallet<Runtime>;
+	pub type Revive = pallet_revive::Pallet<Runtime>;
 
 	#[runtime::pallet_index(81)]
+	pub type Distribution = pallet_distribution::Pallet<Runtime>;
+
+	#[runtime::pallet_index(82)]
 	pub type OptimisticProjectFunding = pallet_opf::Pallet<Runtime>;
-=======
-	pub type Revive = pallet_revive::Pallet<Runtime>;
->>>>>>> 4057ccd7a37396bc1c6d1742f418415af61b2787
 }
 
 /// The address format for describing accounts.

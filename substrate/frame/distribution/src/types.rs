@@ -66,8 +66,6 @@ pub struct SpendInfo<T: Config> {
 	pub amount: BalanceOf<T>,
 	/// The block number from which the spend can be claimed(24h after SpendStatus Creation).
 	pub valid_from: BlockNumberFor<T>,
-	/// The status of the payout/claim.
-	pub status: SpendState,
 	/// Corresponding project id
 	pub whitelisted_project: Option<AccountIdOf<T>>,
 	/// Has it been claimed?
@@ -75,15 +73,14 @@ pub struct SpendInfo<T: Config> {
 }
 
 impl<T: Config> SpendInfo<T> {
-	pub fn new(whitelisted: ProjectInfo<T>) -> Self {
+	pub fn new(whitelisted: &ProjectInfo<T>) -> Self {
 		let amount = whitelisted.amount;
-		let whitelisted_project = Some(whitelisted.project_account);
+		let whitelisted_project = Some(whitelisted.project_account.clone());
 		let claimed = false;
-		let status = SpendState::default();
 		let valid_from =
 			<frame_system::Pallet<T>>::block_number().saturating_add(T::BufferPeriod::get());
 
-		let spend = SpendInfo { amount, valid_from, status, whitelisted_project, claimed };
+		let spend = SpendInfo { amount, valid_from, whitelisted_project, claimed };
 
 		// Get the Spend index
 		let index = SpendsCount::<T>::get();

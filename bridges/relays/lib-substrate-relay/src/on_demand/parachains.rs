@@ -664,7 +664,8 @@ impl<'a, P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt>
 	for (
 		&'a OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>,
 		&'a ParachainsSource<P, SourceRelayClnt>,
-	) where
+	)
+where
 	SourceRelayClnt: Client<P::SourceRelayChain>,
 	TargetClnt: Client<P::TargetChain>,
 {

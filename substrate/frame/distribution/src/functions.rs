@@ -59,50 +59,19 @@ impl<T: Config> Pallet<T> {
 	pub fn spend(
 		amount: BalanceOf<T>,
 		beneficiary: AccountIdOf<T>,
-		spend_index: u32,
 	) -> DispatchResult {
 		// Get Pot account
 		let pot_account: AccountIdOf<T> = Self::pot_account();
 
 		//Operate the transfer
-		let result =
 			T::NativeBalance::transfer(&pot_account, &beneficiary, amount, Preservation::Preserve)
-				.map_err(|_| Error::<T>::TransferFailed);
+				.map_err(|_| Error::<T>::TransferFailed)?;
 
-		Self::process_failed_spend_result(spend_index, result)?;
 
 		Ok(())
 	}
 
-	/// Helper function used to change the status of a failed Spend
-	/// As we reserve the funds in the pot before doing a transfer
-	/// the probability of a transaction failing is very low.
-	/// However, an additionnal fail safe won't hurt.
-	pub fn process_failed_spend_result(
-		spend_index: u32,
-		result: Result<BalanceOf<T>, Error<T>>,
-	) -> Result<BalanceOf<T>, Error<T>> {
-		match result {
-			Ok(x) => {
-				// Change Spend status
-				Spends::<T>::mutate(spend_index, |val| {
-					let mut val0 = val.clone().unwrap();
-					val0.status = SpendState::Completed;
-					*val = Some(val0);
-				});
-				Ok(x)
-			},
-			Err(_e) => {
-				// Change Spend status
-				Spends::<T>::mutate(spend_index, |val| {
-					let mut val0 = val.clone().unwrap();
-					val0.status = SpendState::Failed;
-					*val = Some(val0);
-				});
-				Err(Error::<T>::FailedSpendOperation)
-			},
-		}
-	}
+
 
 	// Done in begin_block
 	// At the beginning of every Epoch, populate the `Spends` storage from the `Projects` storage
@@ -120,13 +89,13 @@ impl<T: Config> Pallet<T> {
 			let mut projects = Projects::<T>::get();
 
 			if projects.len() > 0 {
-				for project in projects.clone() {
+				for project in projects.clone(){
 					// check if the pot has enough fund for the Spend
 					let check = Self::pot_check(project.amount);
 					let _result = match check {
 						Ok(x) => {
 							// Create a new Spend
-							let new_spend = SpendInfo::<T>::new(project.clone());
+							let new_spend = SpendInfo::<T>::new(&project);
 
 							// Reserve funds for the project
 							let pot = Self::pot_account();
@@ -145,7 +114,7 @@ impl<T: Config> Pallet<T> {
 							Self::deposit_event(Event::SpendCreated {
 								when: now,
 								amount: new_spend.amount,
-								project_account: project.project_account,
+								project_account: project.project_account
 							});
 
 							Ok(x)

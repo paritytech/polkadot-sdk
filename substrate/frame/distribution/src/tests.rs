@@ -77,7 +77,6 @@ fn spends_creation_works() {
 		let alice_spend: types::SpendInfo<Test> = SpendInfo {
 			amount: amount1,
 			valid_from: now,
-			status: types::SpendState::default(),
 			whitelisted_project: Some(ALICE),
 			claimed: false,
 		};
@@ -85,7 +84,6 @@ fn spends_creation_works() {
 		let bob_spend: types::SpendInfo<Test> = SpendInfo {
 			amount: amount2,
 			valid_from: now,
-			status: types::SpendState::default(),
 			whitelisted_project: Some(BOB),
 			claimed: false,
 		};
@@ -93,7 +91,6 @@ fn spends_creation_works() {
 		let dave_spend: types::SpendInfo<Test> = SpendInfo {
 			amount: amount3,
 			valid_from: now,
-			status: types::SpendState::default(),
 			whitelisted_project: Some(DAVE),
 			claimed: false,
 		};

@@ -15,10 +15,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! OPF pallet.
+//! Distribution pallet.
+//! 
+//! The Distribution Pallet handles the distribution of whitelisted projects rewards.
+//! For now only one reward distribution pattern has been implemented, 
+//! but the pallet could be extended to offer to the user claiming rewards for a project, 
+//! a choice between more than one distribution pattern.
+//! 
+//! ## Overview
+//! 
+//! The Distribution Pallet receives a list of Whitelisted/Nominated Projects with their respective calculated rewards.
+//! For each project, it will create a corresponding spend that will be stored until the project reward can be claimed. 
+//! At the moment, the reward claim period start corresponds to: 
+//! [beginning of an Epoch_Block + BufferPeriod] (The BufferPeriod can be configured in the runtime).
+//! 
+//! ### Terminology
+//! 
+//! - **PotId:** Pot containing the funds used to pay the rewards.
+//! - **BufferPeriod:** Minimum required buffer time period between project nomination and reward claim.
+//! 
+//! ## Interface
+//! 
+//! ### Permissionless Functions
+//! 
+//! * `pot_account`: Output the pot account_id.
+//! * `get_spend`: Get a spend related to a specific projrct_id.
+//! * `pot_check`: Series of checks on the Pot, to ensure that we have enough funds
+//!	   before executing a Spend.
+//! * `spend`: Funds transfer from the Pot to a project account.
+//! * `process_failed_spend_result`: Helper function used to change the status of a failed Spend.
+//! 
+//! ### Privileged Functions
+//! 
+//! * `claim_reward_for`: Claim a reward for a nominated/whitelisted project.
+//! 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-// Re-export all pallet parts, this is needed to properly import the pallet into the runtime.
 pub use pallet::*;
 mod functions;
 mod types;
@@ -43,8 +75,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		/// https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_runtime_types/index.html
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type to access the Balances Pallet.
@@ -145,7 +175,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Weight: see `begin_block`
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			Self::begin_block(n)
 		}
@@ -198,15 +227,14 @@ pub mod pallet {
 					Precision::Exact,
 				)?;
 				// transfer the funds
-				Self::spend(info.amount, project_account.clone(), i)?;
+				Self::spend(info.amount, project_account.clone())?;
 
-				// Update SpendInfo claimed field in the storage
-				let mut infos = Spends::<T>::take(i).ok_or(Error::<T>::InexistentSpend)?;
-				infos.status = SpendState::Completed;
+				let infos = Spends::<T>::take(i).ok_or(Error::<T>::InexistentSpend)?;
+				
 
 				Self::deposit_event(Event::RewardClaimed {
 					when: now,
-					amount: info.amount,
+					amount: infos.amount,
 					project_account,
 				});
 			}
