@@ -727,7 +727,7 @@ pub mod pallet {
 	/// offended using binary search.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type DisabledValidators<T: Config> = StorageValue<_, Vec<u32>, ValueQuery>;
+	pub type DisabledValidators<T: Config> = StorageValue<_, Vec<(u32, Perbill)>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators

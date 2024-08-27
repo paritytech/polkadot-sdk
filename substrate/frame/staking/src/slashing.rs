@@ -52,7 +52,7 @@
 use crate::{
 	BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure, NegativeImbalanceOf,
 	NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
-	ValidatorSlashInEra,
+	ValidatorSlashInEra, log,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -321,23 +321,50 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 }
 
 /// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
-/// validators provided by [`make_disabling_decision`].
+/// validators provided by [`decision`].
 fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
-	DisabledValidators::<T>::mutate(|disabled| {
-		if let Some(offender) =
-			T::DisablingStrategy::decision(params.stash, params.slash_era, &disabled)
-		{
-			// Add the validator to `DisabledValidators` and disable it. Do nothing if it is
-			// already disabled.
-			if let Err(index) = disabled.binary_search_by_key(&offender, |index| *index) {
-				disabled.insert(index, offender);
-				T::SessionInterface::disable_validator(offender);
-			}
-		}
-	});
+    DisabledValidators::<T>::mutate(|disabled| {
+        let (offender, reenable) =
+            T::DisablingStrategy::decision(params.stash, params.slash_era, &disabled);
 
-	// `DisabledValidators` should be kept sorted
-	debug_assert!(DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] < pair[1]));
+        match (offender, reenable) {
+            (None, None) => {
+                // Do nothing
+            }
+            (Some(offender_idx), None) => {
+                // Add the validator to `DisabledValidators` and disable it. Do nothing if it is
+                // already disabled.
+                if let Err(index) = disabled.binary_search_by_key(&offender_idx, |index| *index) {
+                    disabled.insert(index, offender_idx);
+                    // Propagate disablement to session level
+                    T::SessionInterface::disable_validator(offender_idx);
+                }
+            }
+            (Some(offender_idx), Some(reenable_idx)) => {
+                // Remove the validator from `DisabledValidators` and re-enable it.
+                if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |index| *index) {
+                    disabled.remove(index);
+                    // Propagate re-enablement to session level
+                    T::SessionInterface::enable_validator(reenable_idx);
+                }
+
+                // Add the validator to `DisabledValidators` and disable it. Do nothing if it is
+                // already disabled.
+                if let Err(index) = disabled.binary_search_by_key(&offender_idx, |index| *index) {
+                    disabled.insert(index, offender_idx);
+                    // Propagate disablement to session level
+                    T::SessionInterface::disable_validator(offender_idx);
+                }
+            }
+            _ => {
+                // This case should not happen, but we handle it defensively
+                log!(error, "Unexpected decision result: {:?}", (offender, reenable));
+            }
+        }
+    });
+
+    // `DisabledValidators` should be kept sorted
+    debug_assert!(DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] < pair[1]));
 }
 
 /// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.

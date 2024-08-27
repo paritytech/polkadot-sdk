@@ -508,7 +508,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// disable all offending validators that have been disabled for the whole era
-		for index in <DisabledValidators<T>>::get() {
+		for (index, _) in <DisabledValidators<T>>::get() {
 			T::SessionInterface::disable_validator(index);
 		}
 	}
@@ -2299,7 +2299,7 @@ impl<T: Config> Pallet<T> {
 
 	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
 		ensure!(
-			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] <= pair[1]),
+			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0].0 <= pair[1].0),
 			"DisabledValidators is not sorted"
 		);
 		Ok(())
