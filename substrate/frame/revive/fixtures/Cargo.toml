@@ -15,9 +15,6 @@ frame-system = { workspace = true, default-features = true, optional = true }
 sp-runtime = { workspace = true, default-features = true, optional = true }
 anyhow = { workspace = true }
 
-[package.metadata.polkadot-sdk]
-exclude-from-umbrella = true
-
 [build-dependencies]
 parity-wasm = { workspace = true }
 tempfile = { workspace = true }
