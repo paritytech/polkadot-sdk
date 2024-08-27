@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724708317367,
+  "lastUpdate": 1724724066956,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23555,6 +23555,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16747291784000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liu-Cheng Xu",
+            "username": "liuchengxu",
+            "email": "xuliuchengxlc@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6ecbde331ead4600536df2fba912a868ebc06625",
+          "message": "Only log the propagating transactions when they are not empty (#5424)\n\nThis can make the log cleaner, especially when you specify `--log\nsync=debug`.",
+          "timestamp": "2024-08-27T00:14:01Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ecbde331ead4600536df2fba912a868ebc06625"
+        },
+        "date": 1724724039996,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1738861755733333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010908803093333346,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012995243366666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02266132838666667,
             "unit": "seconds"
           }
         ]
