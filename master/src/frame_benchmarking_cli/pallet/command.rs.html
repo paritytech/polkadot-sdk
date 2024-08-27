@@ -1457,7 +1457,7 @@ become a hard error any time after December 2024."</span>;
 		<span class="kw">let </span>state = <span class="kw-2">&amp;</span>state_without_tracking;
 		<span class="kw">let </span>runtime = <span class="self">self</span>.runtime_blob(<span class="kw-2">&amp;</span>state_without_tracking)<span class="question-mark">?</span>;
 		<span class="kw">let </span>runtime_code = runtime.code()<span class="question-mark">?</span>;
-		<span class="kw">let </span>alloc_strategy = <span class="self">Self</span>::alloc_strategy(runtime_code.heap_pages);
+		<span class="kw">let </span>alloc_strategy = <span class="self">self</span>.alloc_strategy(runtime_code.heap_pages);
 
 		<span class="kw">let </span>executor = WasmExecutor::&lt;(
 			sp_io::SubstrateHostFunctions,
@@ -1967,9 +1967,9 @@ become a hard error any time after December 2024."</span>;
 	}
 
 	<span class="doccomment">/// Allocation strategy for pallet benchmarking.
-	</span><span class="kw">fn </span>alloc_strategy(heap_pages: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; HeapAllocStrategy {
-		heap_pages.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static {
-			extra_pages: p <span class="kw">as _</span>,
+	</span><span class="kw">fn </span>alloc_strategy(<span class="kw-2">&amp;</span><span class="self">self</span>, runtime_heap_pages: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; HeapAllocStrategy {
+		<span class="self">self</span>.heap_pages.or(runtime_heap_pages).map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| {
+			HeapAllocStrategy::Static { extra_pages: p <span class="kw">as _ </span>}
 		})
 	}
 

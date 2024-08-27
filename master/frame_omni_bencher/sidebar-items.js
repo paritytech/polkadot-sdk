@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["main"],"mod":["command"]};
+window.SIDEBAR_ITEMS = {"fn":["main","setup_logger"],"mod":["command"]};

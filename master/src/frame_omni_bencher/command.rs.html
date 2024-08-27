@@ -299,6 +299,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -337,13 +343,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Directly via crates.io:
 ///
 /// ```sh
-/// cargo install --locked frame-omni-bencher
+/// cargo install frame-omni-bencher --profile=production
 /// ```
 ///
-/// or when the sources are locally checked out:
+/// from GitHub:
 ///
 /// ```sh
-/// cargo install --locked --path substrate/utils/frame/omni-bencher --profile=production
+/// cargo install --git https://github.com/paritytech/polkadot-sdk frame-omni-bencher --profile=production
+/// ```
+///
+/// or locally from the sources:
+///
+/// ```sh
+/// cargo install --path substrate/utils/frame/omni-bencher --profile=production
 /// ```
 ///
 /// Check the installed version and print the docs:
@@ -361,7 +373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// cargo build -p westend-runtime --profile production --features runtime-benchmarks
 /// ```
 ///
-/// Now as example we benchmark `pallet_balances`:
+/// Now as an example, we benchmark the `balances` pallet:
 ///
 /// ```sh
 /// frame-omni-bencher v1 benchmark pallet \

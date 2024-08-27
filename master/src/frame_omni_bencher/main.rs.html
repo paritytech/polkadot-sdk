@@ -178,6 +178,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -199,12 +211,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>sc_cli::Result;
+<span class="kw">use </span>tracing_subscriber::EnvFilter;
 
 <span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-	sp_tracing::try_init_simple();
+	setup_logger();
+
 	<span class="macro">log::warn!</span>(<span class="string">"The FRAME omni-bencher is not yet battle tested - double check the results."</span>,);
 
 	command::Command::parse().run()
+}
+
+<span class="doccomment">/// Setup logging with `info` as default level. Can be set via `RUST_LOG` env.
+</span><span class="kw">fn </span>setup_logger() {
+	<span class="kw">let </span>env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|<span class="kw">_</span>| EnvFilter::new(<span class="string">"info"</span>));
+
+	tracing_subscriber::fmt()
+		.with_env_filter(env_filter)
+		.with_writer(std::io::stderr)
+		.init();
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
