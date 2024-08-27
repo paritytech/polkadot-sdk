@@ -119,14 +119,10 @@ pub mod pallet {
 		FundsReserved,
 	}
 
-	/// Number of Spends that have been executed so far.
-	#[pallet::storage]
-	pub(super) type SpendsCount<T: Config> = CountedStorageMap<_,Twox64Concat, ProjectId<T>, SpendIndex,ValueQuery>;
-
 	/// Spends that still have to be claimed.
 	#[pallet::storage]
 	pub(super) type Spends<T: Config> =
-		StorageMap<_, Twox64Concat, SpendIndex, SpendInfo<T>, OptionQuery>;
+	CountedStorageMap<_, Twox64Concat, ProjectId<T>, SpendInfo<T>, OptionQuery>;
 
 	/// List of whitelisted projects to be rewarded
 	#[pallet::storage]
@@ -209,10 +205,8 @@ pub mod pallet {
 			project_account: ProjectId<T>,
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
-			let spend_indexes = Self::get_spend(&project_account);
 			let pot = Self::pot_account();
-			for i in spend_indexes {
-				let info = Spends::<T>::get(i).ok_or(Error::<T>::InexistentSpend)?;
+				let info = Spends::<T>::get(&project_account).ok_or(Error::<T>::InexistentSpend)?;
 				let project_account =
 					info.whitelisted_project.clone().ok_or(Error::<T>::NoValidAccount)?;
 				let now = T::BlockNumberProvider::current_block_number();
@@ -229,7 +223,7 @@ pub mod pallet {
 				// transfer the funds
 				Self::spend(info.amount, project_account.clone())?;
 
-				let infos = Spends::<T>::take(i).ok_or(Error::<T>::InexistentSpend)?;
+				let infos = Spends::<T>::take(&project_account).ok_or(Error::<T>::InexistentSpend)?;
 				
 
 				Self::deposit_event(Event::RewardClaimed {
@@ -237,7 +231,7 @@ pub mod pallet {
 					amount: infos.amount,
 					project_account,
 				});
-			}
+			
 			Ok(())
 		}
 	}

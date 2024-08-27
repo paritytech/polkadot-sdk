@@ -82,11 +82,8 @@ impl<T: Config> SpendInfo<T> {
 
 		let spend = SpendInfo { amount, valid_from, whitelisted_project, claimed };
 
-		// Get the Spend index
-		let index = SpendsCount::<T>::count();
 		//Add it to the Spends storage
-		Spends::<T>::insert(index, spend.clone());
-		SpendsCount::<T>::insert(whitelisted.project_account.clone(), index);
+		Spends::<T>::insert(whitelisted.project_account.clone(), spend.clone());
 
 		spend
 	}

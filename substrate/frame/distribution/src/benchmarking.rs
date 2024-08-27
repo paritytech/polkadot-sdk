@@ -91,16 +91,19 @@ mod benchmarks {
 		add_projects::<T>(r)?;
 
 		ensure!(<Projects<T>>::get().len() as u32 == r, "Project list setting failed !!");
-
+		let index:usize = (r-1).try_into().unwrap(); 
+		let project = &<Projects<T>>::get()[index];
 		let _pot = setup_pot_account::<T>();
 		let caller: T::AccountId = whitelisted_caller();
 		let epoch = T::EpochDurationBlocks::get();
 		let mut when = T::BlockNumberProvider::current_block_number().saturating_add(epoch);
 		run_to_block::<T>(when);
 		/* execute extrinsic or function */
-		let project = <Spends<T>>::get(r - 1).unwrap();
-		when = when.saturating_add(project.valid_from);
-		let project_id = project.whitelisted_project.unwrap();
+		
+		
+		let project_id = &project.project_account;
+		let spend = <Spends<T>>::get(&project_id);
+		when = when.saturating_add(spend.unwrap().valid_from);
 		run_to_block::<T>(when);
 
 		#[extrinsic_call]

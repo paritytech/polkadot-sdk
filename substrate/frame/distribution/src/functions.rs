@@ -25,18 +25,6 @@ impl<T: Config> Pallet<T> {
 		let pot_account: AccountIdOf<T> = pot_id.into_account_truncating();
 		pot_account
 	}
-
-	pub fn get_spend(project_account: &ProjectId<T>) -> Vec<SpendIndex> {
-		let mut spends: Vec<SpendIndex> = Vec::new();
-		if SpendsCount::<T>::contains_key(project_account){
-			let index = SpendsCount::<T>::get(project_account);
-		spends.push(index);
-		}
-		
-		spends
-		}
-
-		
 	
 
 	/// Series of checks on the Pot, to ensure that we have enough funds

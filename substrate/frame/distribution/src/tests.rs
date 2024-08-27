@@ -62,7 +62,7 @@ fn spends_creation_works() {
 		create_project(DAVE, amount3);
 
 		// The Spends Storage should be empty
-		assert_eq!(SpendsCount::<Test>::count(), 0);
+		assert_eq!(Spends::<Test>::count(), 0);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
@@ -71,7 +71,7 @@ fn spends_creation_works() {
 		run_to_block(now);
 
 		// We should have 3 Spends
-		assert!(SpendsCount::<Test>::count() == 3);
+		assert!(Spends::<Test>::count() == 3);
 
 		// The 3 Spends are known
 		let alice_spend: types::SpendInfo<Test> = SpendInfo {
@@ -135,7 +135,7 @@ fn funds_are_locked() {
 		create_project(DAVE, amount3);
 
 		// The Spends Storage should be empty
-		assert_eq!(SpendsCount::<Test>::count(), 0);
+		assert_eq!(Spends::<Test>::count(), 0);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
@@ -182,7 +182,7 @@ fn funds_claim_works() {
 		create_project(DAVE, amount3);
 
 		// The Spends Storage should be empty
-		assert_eq!(SpendsCount::<Test>::count(), 0);
+		assert_eq!(Spends::<Test>::count(), 0);
 
 		assert_eq!(Projects::<Test>::get().len(), 3);
 
@@ -192,7 +192,7 @@ fn funds_claim_works() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-		let project = Spends::<Test>::get(0).unwrap();
+		let project = Spends::<Test>::get(ALICE).unwrap();
 		let project_account = project.whitelisted_project.unwrap();
 		let balance_0 =
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);
@@ -200,7 +200,7 @@ fn funds_claim_works() {
 		run_to_block(now);
 
 		// Spend is in storage
-		assert!(Spends::<Test>::get(0).is_some());
+		assert!(Spends::<Test>::get(ALICE).is_some());
 
 		assert_ok!(Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_account,));
 		let balance_1 =
@@ -225,7 +225,7 @@ fn funds_claim_fails_before_claim_period() {
 		create_project(DAVE, amount3);
 
 		// The Spends Storage should be empty
-		assert_eq!(SpendsCount::<Test>::count(), 0);
+		assert_eq!(Spends::<Test>::count(), 0);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
@@ -233,7 +233,7 @@ fn funds_claim_fails_before_claim_period() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-		let project = Spends::<Test>::get(0).unwrap();
+		let project = Spends::<Test>::get(ALICE).unwrap();
 		let project_account = project.whitelisted_project.unwrap();
 
 		assert_noop!(
