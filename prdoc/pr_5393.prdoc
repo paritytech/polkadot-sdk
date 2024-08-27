@@ -6,7 +6,7 @@ title: Allow to enable full PoV size
 doc:
   - audience: Node Dev
     description: |
-      A feature is introduced allowing a collator to enable full PoV size in compile time.
+      A feature is introduced allowing a collator to enable full PoV size at compile time.
       WARNING: To use this feature, security considerations must be understood and the latest
       SDK version must be used.
 
