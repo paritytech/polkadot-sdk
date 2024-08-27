@@ -179,7 +179,7 @@ where
 	/// Intended to run from revalidation worker. Revlidation can be terminated by sending message
 	/// to the rx channel provided within `finish_revalidation_worker_channels`. Results are sent
 	/// back over tx channels and shall be applied in maintain thread.
-	pub(super) async fn revalidate_later(
+	pub(super) async fn revalidate(
 		&self,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<ChainApi>,
 	) {
@@ -251,7 +251,10 @@ where
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
 					invalid_hashes.push(tx_hash);
 				},
-				Ok(Err(TransactionValidityError::Unknown(_))) => {},
+				Ok(Err(TransactionValidityError::Unknown(_))) => {
+					// skipping unknown, they might be pushed by valid or invalid transaction
+					// when latter resubmitted.
+				},
 				Ok(Ok(validity)) => {
 					revalidated.insert(
 						tx_hash,

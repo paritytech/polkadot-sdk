@@ -124,8 +124,12 @@ where
 	}
 
 	fn event_stream() -> (StreamOfDropped<C>, Controller<Command<C>>) {
-		let (sender, receiver) =
-			sc_utils::mpsc::tracing_unbounded::<Command<C>>("import-notification-sink", 16);
+		//note: 64 allows to avoid warning messages during execution of unit tests.
+		const CHANNEL_SIZE: usize = 64;
+		let (sender, receiver) = sc_utils::mpsc::tracing_unbounded::<Command<C>>(
+			"import-notification-sink",
+			CHANNEL_SIZE,
+		);
 
 		let mut stream_map: StreamMap<BlockHash<C>, StreamOf<C>> = StreamMap::new();
 		//note: do not terminate stream-map if input streams (views) are all done:

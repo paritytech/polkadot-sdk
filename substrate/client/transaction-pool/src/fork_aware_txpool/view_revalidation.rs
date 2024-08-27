@@ -74,7 +74,7 @@ where
 			};
 			match payload {
 				WorkerPayload::RevalidateView(view, worker_channels) =>
-					(*view).revalidate_later(worker_channels).await,
+					(*view).revalidate(worker_channels).await,
 				WorkerPayload::RevalidateMempool(mempool, finalized_hash_and_number) =>
 					(*mempool).revalidate(finalized_hash_and_number).await,
 			};
@@ -135,7 +135,7 @@ where
 				log::warn!(target: LOG_TARGET, "revalidation_queue::revalidate_view: Failed to update background worker: {:?}", e);
 			}
 		} else {
-			view.revalidate_later(finish_revalidation_worker_channels).await
+			view.revalidate(finish_revalidation_worker_channels).await
 		}
 	}
 

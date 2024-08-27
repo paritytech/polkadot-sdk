@@ -669,7 +669,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 	pub fn create_dropped_by_limits_stream(
 		&self,
 	) -> super::listener::DroppedByLimitsStream<ExtrinsicHash<B>, BlockHash<B>> {
-		self.listener.write().create_dropped_by_litmis_stream()
+		self.listener.write().create_dropped_by_limits_stream()
 	}
 }
 

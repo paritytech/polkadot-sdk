@@ -87,7 +87,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	/// Creates a new single stream for entire pool.
 	///
 	/// The stream can be used to subscribe to life-cycle events of all extrinsics in the pool.
-	pub fn create_dropped_by_litmis_stream(&mut self) -> DroppedByLimitsStream<H, BlockHash<C>> {
+	pub fn create_dropped_by_limits_stream(&mut self) -> DroppedByLimitsStream<H, BlockHash<C>> {
 		let (sender, single_stream) = tracing_unbounded("mpsc_txpool_watcher", 100_000);
 		self.dropped_by_limits_sink = Some(sender);
 		single_stream

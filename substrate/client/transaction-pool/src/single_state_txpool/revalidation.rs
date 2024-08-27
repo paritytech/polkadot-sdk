@@ -354,10 +354,6 @@ where
 		}
 
 		if let Some(ref to_worker) = self.background {
-			log::info!(
-				target: LOG_TARGET,
-				"revlidation send",
-			);
 			if let Err(e) = to_worker.unbounded_send(WorkerPayload { at, transactions }) {
 				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
 			}

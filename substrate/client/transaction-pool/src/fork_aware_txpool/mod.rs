@@ -226,7 +226,7 @@
 //!
 //! ####  View revalidation
 //! View revalidation is performed in the background thread. Revalidation is executed for every
-//! view. All the transaction from the view are [revalidated][`revalidate_later`].
+//! view. All the transaction from the view are [revalidated][`view::revalidate`].
 //!
 //! The fork-aware pool utilizes two threads to execute maintain and revalidation process
 //! exclusively, ensuring maintain performance without overlapping with revalidation.
@@ -286,7 +286,7 @@
 //! Refer to github issue: <https://github.com/paritytech/polkadot-sdk/issues/5491>
 //!
 //! [`View`]: crate::fork_aware_txpool::view::View
-//! [`revalidate_later`]: crate::fork_aware_txpool::view::View::revalidate_later
+//! [`view::revalidate`]: crate::fork_aware_txpool::view::View::revalidate
 //! [`start_background_revalidation`]: crate::fork_aware_txpool::view::View::start_background_revalidation
 //! [`View::submit_and_watch`]: crate::fork_aware_txpool::view::View::submit_and_watch
 //! [`ViewStore`]: crate::fork_aware_txpool::view_store::ViewStore
