@@ -79,3 +79,7 @@ polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem.default-features = true
 polkadot-overseer.workspace = true
 polkadot-overseer.default-features = true
+
+[features]
+# Allows collator to use full PoV size for block building
+full-pov-size = []
