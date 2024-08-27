@@ -154,7 +154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 specific key. The exact key is dependent on the type of the storage.</p>
 <blockquote>
 <p>From the perspective of this pallet, the entire blockchain state is abstracted behind
-a key-value api, namely <a href="../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a>.</p>
+a key-value api, namely [<code>sp_io::storage</code>].</p>
 </blockquote>
 <h3 id="storage-types"><a class="doc-anchor" href="#storage-types">§</a>Storage Types</h3>
 <p>The following storage types are supported by the <code>#[storage]</code> macro. For specific
@@ -315,7 +315,7 @@ the implementors section of
 <h4 id="prefixes"><a class="doc-anchor" href="#prefixes">§</a>Prefixes</h4>
 <p>Internally, every storage type generates a “prefix”. This prefix serves as the initial
 segment of the key utilized to store values in the on-chain state (i.e., the final key
-used in <a href="../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a>). For all storage types, the following rule
+used in <a href="sp_io::storage"><code>sp_io::storage</code></a>). For all storage types, the following rule
 applies:</p>
 <blockquote>
 <p>The storage prefix begins with <code>twox128(pallet_prefix) ++ twox128(STORAGE_PREFIX)</code>,

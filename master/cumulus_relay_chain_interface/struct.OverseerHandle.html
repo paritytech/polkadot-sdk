@@ -162,7 +162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><details class="toggle method-toggle" open><summary><section id="method.wait_for_activation" class="method"><h4 class="code-header">pub async fn <a href="#method.wait_for_activation" class="fn">wait_for_activation</a>(
     &amp;mut self,
     hash: H256,
-    response_channel: Sender&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, SubsystemError&gt;&gt;
+    response_channel: Sender&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="../polkadot_node_subsystem_types/errors/enum.SubsystemError.html" title="enum polkadot_node_subsystem_types::errors::SubsystemError">SubsystemError</a>&gt;&gt;
 )</h4></section></summary><div class="docblock"><p>Wait for a block with the given hash to be in the active-leaves set.</p>
 <p>The response channel responds if the hash was activated and is closed if the hash was
 deactivated. Note that due the fact the overseer doesn’t store the whole active-leaves set,
