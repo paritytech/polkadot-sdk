@@ -3788,8 +3788,7 @@ impl<T: Config> Pallet<T> {
 			);
 
 			ensure!(
-				bonded_pool.points >=
-				bonded_pool.points_to_balance(bonded_pool.points),
+				bonded_pool.points >= bonded_pool.points_to_balance(bonded_pool.points),
 				"Each `BondedPool.points` must never be lower than the pool's balance"
 			);
 
