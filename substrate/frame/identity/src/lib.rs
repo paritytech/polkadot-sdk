@@ -1167,8 +1167,12 @@ pub mod pallet {
 				ensure!(now > expiration, Error::<T>::NotExpired);
 				match provider {
 					Provider::Authority(deposit) => {
-						T::Currency::unreserve(&who, deposit);
-						let err_amount = T::Currency::unreserve(&who, deposit);
+						let suffix = Self::suffix_of_username(&username)
+							.ok_or(Error::<T>::InvalidUsername)?;
+						let authority_account = UsernameAuthorities::<T>::get(&suffix)
+							.map(|auth_info| auth_info.account_id)
+							.ok_or(Error::<T>::NotUsernameAuthority)?;
+						let err_amount = T::Currency::unreserve(&authority_account, deposit);
 						debug_assert!(err_amount.is_zero());
 					},
 					Provider::Governance => {

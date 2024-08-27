@@ -1177,7 +1177,9 @@ fn set_username_with_bytes_signature_should_work() {
 fn set_username_with_acceptance_should_work() {
 	new_test_ext().execute_with(|| {
 		// set up authority
+		let initial_authority_balance = 1000;
 		let [authority, who] = unfunded_accounts();
+		Balances::make_free_balance_be(&authority, initial_authority_balance);
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -1188,12 +1190,12 @@ fn set_username_with_acceptance_should_work() {
 		));
 
 		// set up username
-		let username = test_username_of(b"101".to_vec(), suffix);
+		let username = test_username_of(b"101".to_vec(), suffix.clone());
 		let now = frame_system::Pallet::<Test>::block_number();
 		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u64>>::get();
 
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority),
+			RuntimeOrigin::signed(authority.clone()),
 			who.clone(),
 			username.clone().into(),
 			None,
@@ -1218,6 +1220,51 @@ fn set_username_with_acceptance_should_work() {
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
 			Some(expected_user_info)
+		);
+		assert_eq!(Balances::free_balance(&authority), initial_authority_balance);
+
+		let second_caller = account(99);
+		let second_username = test_username_of(b"102".to_vec(), suffix);
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			second_caller.clone(),
+			second_username.clone().into(),
+			None,
+			false,
+		));
+
+		// Should be pending
+		let username_deposit = <Test as Config>::UsernameDeposit::get();
+		assert_eq!(
+			PendingUsernames::<Test>::get::<&Username<Test>>(&second_username),
+			Some((second_caller.clone(), expiration, Provider::Authority(username_deposit)))
+		);
+		assert_eq!(
+			Balances::free_balance(&authority),
+			initial_authority_balance - username_deposit
+		);
+		// Now the user can accept
+		assert_ok!(Identity::accept_username(
+			RuntimeOrigin::signed(second_caller.clone()),
+			second_username.clone()
+		));
+
+		// No more pending
+		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&second_username).is_none());
+		// Check Identity storage
+		assert_eq!(UsernameOf::<Test>::get(&second_caller), Some(second_username.clone()));
+		// Check reverse lookup
+		let expected_user_info = UsernameInformation {
+			owner: second_caller,
+			provider: Provider::Authority(username_deposit),
+		};
+		assert_eq!(
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&second_username),
+			Some(expected_user_info)
+		);
+		assert_eq!(
+			Balances::free_balance(&authority),
+			initial_authority_balance - username_deposit
 		);
 	});
 }
@@ -1494,10 +1541,12 @@ fn must_own_primary() {
 }
 
 #[test]
-fn unaccepted_usernames_should_expire() {
+fn unaccepted_usernames_through_grant_should_expire() {
 	new_test_ext().execute_with(|| {
 		// set up authority
+		let initial_authority_balance = 1000;
 		let [authority, who] = unfunded_accounts();
+		Balances::make_free_balance_be(&authority, initial_authority_balance);
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -1508,17 +1557,22 @@ fn unaccepted_usernames_should_expire() {
 		));
 
 		// set up username
-		let username = test_username_of(b"101".to_vec(), suffix);
+		let username = test_username_of(b"101".to_vec(), suffix.clone());
 		let now = frame_system::Pallet::<Test>::block_number();
 		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u64>>::get();
 
+		let suffix: Suffix<Test> = suffix.try_into().unwrap();
+
+		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 10);
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority),
+			RuntimeOrigin::signed(authority.clone()),
 			who.clone(),
 			username.clone().into(),
 			None,
 			true,
 		));
+		assert_eq!(Balances::free_balance(&authority), initial_authority_balance);
+		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 9);
 
 		// Should be pending
 		assert_eq!(
@@ -1541,6 +1595,83 @@ fn unaccepted_usernames_should_expire() {
 			RuntimeOrigin::signed(account(1)),
 			username.clone()
 		));
+		assert_eq!(Balances::free_balance(&authority), initial_authority_balance);
+		// Allocation wasn't refunded
+		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 9);
+
+		// No more pending
+		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&username).is_none());
+	});
+}
+
+#[test]
+fn unaccepted_usernames_through_deposit_should_expire() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let initial_authority_balance = 1000;
+		let [authority, who] = unfunded_accounts();
+		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		// set up username
+		let username = test_username_of(b"101".to_vec(), suffix.clone());
+		let now = frame_system::Pallet::<Test>::block_number();
+		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u64>>::get();
+
+		let suffix: Suffix<Test> = suffix.try_into().unwrap();
+		let username_deposit: BalanceOf<Test> = <Test as Config>::UsernameDeposit::get();
+
+		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 10);
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			who.clone(),
+			username.clone().into(),
+			None,
+			false,
+		));
+		assert_eq!(
+			Balances::free_balance(&authority),
+			initial_authority_balance - username_deposit
+		);
+		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 10);
+
+		// Should be pending
+		assert_eq!(
+			PendingUsernames::<Test>::get::<&Username<Test>>(&username),
+			Some((who.clone(), expiration, Provider::Authority(username_deposit)))
+		);
+
+		run_to_block(now + expiration - 1);
+
+		// Cannot be removed
+		assert_noop!(
+			Identity::remove_expired_approval(RuntimeOrigin::signed(account(1)), username.clone()),
+			Error::<Test>::NotExpired
+		);
+
+		run_to_block(now + expiration);
+
+		// Anyone can remove
+		assert_eq!(
+			Balances::free_balance(&authority),
+			initial_authority_balance - username_deposit
+		);
+		assert_eq!(Balances::reserved_balance(&authority), username_deposit);
+		assert_ok!(Identity::remove_expired_approval(
+			RuntimeOrigin::signed(account(1)),
+			username.clone()
+		));
+		// Deposit was refunded
+		assert_eq!(Balances::free_balance(&authority), initial_authority_balance);
+		// Allocation wasn't refunded
+		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 10);
 
 		// No more pending
 		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&username).is_none());
