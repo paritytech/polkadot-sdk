@@ -21,7 +21,7 @@
 use frame_support::traits::{
 	fungible::{
 		hold::{Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate},
-		Balanced, Inspect as FunInspect, Mutate as FunMutate,
+		Balanced, Inspect as FunInspect,
 	},
 	tokens::Precision,
 };
@@ -66,6 +66,8 @@ pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 /// Should only be used with test.
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
+	use frame_support::traits::fungible::Mutate;
+
 	let reserved_balance = staked::<T>(who);
 	if reserved_balance < value {
 		let _ = T::Currency::set_balance(who, value - reserved_balance);
