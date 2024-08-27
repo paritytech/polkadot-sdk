@@ -312,11 +312,8 @@ use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
-		tokens::{
-			fungible::{Credit, Debt, Inspect, InspectHold},
-			Fortitude, Preservation,
-		},
-		ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+		tokens::fungible::{Credit, Debt},
+		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get,
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -337,7 +334,6 @@ pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
-pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking";
 
 // syntactic sugar for logging.

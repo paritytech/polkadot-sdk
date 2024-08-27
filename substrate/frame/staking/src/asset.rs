@@ -3,14 +3,13 @@
 use frame_support::traits::{
 	fungible::{
 		hold::{Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate},
-		Balanced, Inspect as FunInspect, Mutate as FunMutate,
+		Balanced, Inspect as FunInspect,
 	},
-	tokens::{Fortitude, Precision},
-	Currency, Imbalance, InspectLockableCurrency, LockableCurrency,
+	tokens::Precision,
 };
 use sp_runtime::{traits::Zero, DispatchResult};
 
-use crate::{BalanceOf, Config, Error, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf};
+use crate::{BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf};
 
 /// Existential deposit for the chain.
 pub fn existential_deposit<T: Config>() -> BalanceOf<T> {

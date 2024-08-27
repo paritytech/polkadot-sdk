@@ -26,14 +26,11 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{
-			hold::{
-				Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate,
-			},
-			Balanced, Inspect as FunInspect, Mutate as FunMutate,
+			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
+			Mutate as FunMutate,
 		},
-		tokens::Precision,
-		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime,
+		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get, OnUnbalanced,
+		UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
