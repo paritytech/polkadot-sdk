@@ -16,6 +16,7 @@
 //! Tests for XCM fee estimation in the runtime.
 
 use crate::imports::*;
+use emulated_integration_tests_common::test_can_estimate_and_pay_exact_fees;
 use frame_support::{
 	dispatch::RawOrigin,
 	sp_runtime::{traits::Dispatchable, DispatchResult},
@@ -74,16 +75,6 @@ fn receiver_assertions(test: ParaToParaThroughAHTest) {
 			},
 		]
 	);
-}
-
-fn transfer_assets_para_to_para_through_ah_dispatchable(
-	test: ParaToParaThroughAHTest,
-) -> DispatchResult {
-	let call = transfer_assets_para_to_para_through_ah_call(test.clone());
-	match call.dispatch(test.signed_origin) {
-		Ok(_) => Ok(()),
-		Err(error_with_post_info) => Err(error_with_post_info.error),
-	}
 }
 
 fn transfer_assets_para_to_para_through_ah_call(
@@ -257,7 +248,8 @@ fn multi_hop_works() {
 	test.set_assertion::<PenpalA>(sender_assertions);
 	test.set_assertion::<AssetHubRococo>(hop_assertions);
 	test.set_assertion::<PenpalB>(receiver_assertions);
-	test.set_dispatchable::<PenpalA>(transfer_assets_para_to_para_through_ah_dispatchable);
+	let call = transfer_assets_para_to_para_through_ah_call(test.clone());
+	test.set_call(call);
 	test.assert();
 
 	let sender_assets_after = PenpalA::execute_with(|| {
@@ -283,4 +275,9 @@ fn multi_hop_works() {
 			intermediate_delivery_fees_amount -
 			final_execution_fees
 	);
+}
+
+#[test]
+fn multi_hop_pay_fees_works() {
+	test_can_estimate_and_pay_exact_fees!(PenpalA, AssetHubRococo, PenpalB, (Parent, 1_000_000_000_000u128), Penpal);
 }
