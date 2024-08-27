@@ -1006,7 +1006,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	}
 
-	// Get the claim queue snapshot at the candidate relay paren.
+	// Get the claim queue snapshot at the candidate relay parent.
 	let Some((rp_info, _)) =
 		allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
 	else {
