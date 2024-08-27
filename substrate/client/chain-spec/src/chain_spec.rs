@@ -136,8 +136,10 @@ where
 	EHF: HostFunctions,
 {
 	fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
+		println!("This gets called!!");
 		match self.genesis.resolve()? {
 			Genesis::Raw(RawGenesis { top: map, children_default: children_map }) => {
+				println!("raw!!");
 				storage.top.extend(map.into_iter().map(|(k, v)| (k.0, v.0)));
 				children_map.into_iter().for_each(|(k, v)| {
 					let child_info = ChildInfo::new_default(k.0.as_slice());
@@ -158,6 +160,7 @@ where
 				json_blob: RuntimeGenesisConfigJson::Config(config),
 				code,
 			}) => {
+				println!("RuntimeGenesis config!!");
 				RuntimeCaller::<EHF>::new(&code[..])
 					.get_storage_for_config(config)?
 					.assimilate_storage(storage)?;
@@ -169,6 +172,7 @@ where
 				json_blob: RuntimeGenesisConfigJson::Patch(patch),
 				code,
 			}) => {
+				println!("RuntimeGenesis patch!!");
 				RuntimeCaller::<EHF>::new(&code[..])
 					.get_storage_for_patch(patch)?
 					.assimilate_storage(storage)?;

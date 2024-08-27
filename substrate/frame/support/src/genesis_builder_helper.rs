@@ -28,6 +28,7 @@ use sp_genesis_builder::{PresetId, Result as BuildResult};
 /// Build `GenesisConfig` from a JSON blob not using any defaults and store it in the storage. For
 /// more info refer to [`sp_genesis_builder::GenesisBuilder::build_state`].
 pub fn build_state<GC: BuildGenesisConfig>(json: Vec<u8>) -> BuildResult {
+	log::info!("guten tag");
 	let gc =
 		serde_json::from_slice::<GC>(&json).map_err(|e| format!("Invalid JSON blob: {}", e))?;
 	<GC as BuildGenesisConfig>::build(&gc);

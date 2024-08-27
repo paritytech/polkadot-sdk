@@ -253,7 +253,7 @@ impl<T: Config> Pallet<T> {
 			buf[..len].copy_from_slice(&random_hash.as_ref()[..len]);
 			buf
 		};
-
+        log::info!("Coming across here too");
 		let configuration::SessionChangeOutcome { prev_config, new_config } =
 			configuration::Pallet::<T>::initializer_on_new_session(&session_index);
 		let new_config = new_config.unwrap_or_else(|| prev_config.clone());
@@ -304,8 +304,9 @@ impl<T: Config> Pallet<T> {
 
 		if session_index == 0 {
 			// Genesis session should be immediately enacted.
-			Self::apply_new_session(0, validators, queued);
+			Self::apply_new_session(0, validators.clone(), queued.clone());
 		} else {
+			log::info!(target: "skunert", "This shit gets triggered 2");
 			BufferedSessionChanges::<T>::mutate(|v| {
 				v.push(BufferedSessionChange { validators, queued, session_index })
 			});
@@ -343,6 +344,7 @@ impl<T: pallet_session::Config + Config> OneSessionHandler<T::AccountId> for Pal
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
+		log::info!(target: "skunert", "on_genesis_new_session");
 		Pallet::<T>::on_new_session(false, 0, validators, None);
 	}
 
@@ -350,6 +352,7 @@ impl<T: pallet_session::Config + Config> OneSessionHandler<T::AccountId> for Pal
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
+		log::info!(target: "skunert", "on_new_session");
 		let session_index = pallet_session::Pallet::<T>::current_index();
 		Pallet::<T>::on_new_session(changed, session_index, validators, Some(queued));
 	}

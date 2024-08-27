@@ -503,6 +503,7 @@ pub mod pallet {
 				.collect();
 
 			// Tell everyone about the genesis session keys
+			log::info!(target: "skunert", "doing the session initialization");
 			T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);
 
 			Validators::<T>::put(initial_validators_0);

@@ -883,6 +883,7 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			let mut parachains = ParachainsCache::new();
+			log::info!("This is getting called");
 			for (id, genesis_args) in &self.paras {
 				if genesis_args.validation_code.0.is_empty() {
 					panic!("empty validation code is not allowed in genesis");

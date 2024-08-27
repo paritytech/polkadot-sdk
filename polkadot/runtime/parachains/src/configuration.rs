@@ -576,6 +576,7 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			self.config.panic_if_not_consistent();
+			log::info!("Genesis config called {}", self.config.scheduler_params.num_cores);
 			ActiveConfig::<T>::put(&self.config);
 		}
 	}
@@ -1301,6 +1302,8 @@ impl<T: Config> Pallet<T> {
 
 		// No pending configuration changes, so we're done.
 		if pending_configs.is_empty() {
+			log::info!("Returning here for the lulz");
+			log::info!("{prev_config:?}");
 			return SessionChangeOutcome { prev_config, new_config: None }
 		}
 
@@ -1385,6 +1388,7 @@ impl<T: Config> Pallet<T> {
 		// There cannot be (cur, X) because those are applied in the session change handler for the
 		// current session.
 
+		log::info!("Scheduling config change");
 		// First, we need to decide what we should use as the base configuration.
 		let mut base_config = pending_configs
 			.last()
