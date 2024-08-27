@@ -17,6 +17,7 @@
 
 use crate::imports::*;
 
+use emulated_integration_tests_common::test_can_estimate_and_pay_exact_fees;
 use frame_support::{
 	dispatch::RawOrigin,
 	sp_runtime::{traits::Dispatchable, DispatchResult},
@@ -75,16 +76,6 @@ fn receiver_assertions(test: ParaToParaThroughAHTest) {
 			},
 		]
 	);
-}
-
-fn transfer_assets_para_to_para_through_ah_dispatchable(
-	test: ParaToParaThroughAHTest,
-) -> DispatchResult {
-	let call = transfer_assets_para_to_para_through_ah_call(test.clone());
-	match call.dispatch(test.signed_origin) {
-		Ok(_) => Ok(()),
-		Err(error_with_post_info) => Err(error_with_post_info.error),
-	}
 }
 
 fn transfer_assets_para_to_para_through_ah_call(
@@ -259,7 +250,8 @@ fn multi_hop_works() {
 	test.set_assertion::<PenpalA>(sender_assertions);
 	test.set_assertion::<AssetHubWestend>(hop_assertions);
 	test.set_assertion::<PenpalB>(receiver_assertions);
-	test.set_dispatchable::<PenpalA>(transfer_assets_para_to_para_through_ah_dispatchable);
+	let call = transfer_assets_para_to_para_through_ah_call(test.clone());
+	test.set_call(call);
 	test.assert();
 
 	let sender_assets_after = PenpalA::execute_with(|| {
@@ -289,226 +281,5 @@ fn multi_hop_works() {
 
 #[test]
 fn multi_hop_pay_fees_works() {
-	let destination = PenpalA::sibling_location_of(PenpalB::para_id());
-	let sender = PenpalASender::get();
-	let amount_to_send = 1_000_000_000_000;
-	let asset_owner = PenpalAssetOwner::get();
-	let assets: Assets = (Parent, amount_to_send).into();
-	let relay_native_asset_location = Location::parent();
-	let sender_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalA::para_id());
-	let sov_of_sender_on_ah =
-		AssetHubWestend::sovereign_account_id_of(sender_as_seen_by_ah.clone());
-
-	// fund Parachain's sender account
-	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
-		relay_native_asset_location.clone(),
-		sender.clone(),
-		amount_to_send * 2,
-	);
-
-	// fund the Parachain Origin's SA on AssetHub with the native tokens held in reserve.
-	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah.clone(), amount_to_send * 2)]);
-
-	// Init values for Parachain Destination
-	let beneficiary_id = PenpalBReceiver::get();
-
-	let test_args = TestContext {
-		sender: PenpalASender::get(),     // Bob in PenpalB.
-		receiver: PenpalBReceiver::get(), // Alice.
-		args: TestArgs::new_para(
-			destination,
-			beneficiary_id.clone(),
-			amount_to_send,
-			assets,
-			None,
-			0,
-		),
-	};
-	let mut test = ParaToParaThroughAHTest::new(test_args);
-
-	// We get them from the PenpalA closure.
-	let mut local_execution_fees = 0;
-	let mut delivery_fees_amount = 0;
-	let mut remote_message = VersionedXcm::V5(Xcm(Vec::new()));
-	<PenpalA as TestExt>::execute_with(|| {
-		type Runtime = <PenpalA as Chain>::Runtime;
-		type OriginCaller = <PenpalA as Chain>::OriginCaller;
-
-		let call = transfer_assets_para_to_para_through_ah_pay_fees_call(
-			test.clone(),
-			(Parent, 100_000_000_000u128),
-			(Parent, 100_000_000_000u128),
-			(Parent, 100_000_000_000u128),
-		);
-		let origin = OriginCaller::system(RawOrigin::Signed(sender.clone()));
-		let result = Runtime::dry_run_call(origin, call).unwrap();
-		let local_xcm = result.local_xcm.unwrap().clone();
-		let local_xcm_weight = Runtime::query_xcm_weight(local_xcm).unwrap();
-		local_execution_fees = Runtime::query_weight_to_asset_fee(
-			local_xcm_weight,
-			VersionedAssetId::V5(Location::parent().into()),
-		)
-		.unwrap();
-		// We filter the result to get only the messages we are interested in.
-		let (destination_to_query, messages_to_query) = &result
-			.forwarded_xcms
-			.iter()
-			.find(|(destination, _)| {
-				*destination == VersionedLocation::V5(Location::new(1, [Parachain(1000)]))
-			})
-			.unwrap();
-		assert_eq!(messages_to_query.len(), 1);
-		remote_message = messages_to_query[0].clone();
-		let delivery_fees =
-			Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
-				.unwrap();
-		delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
-	});
-
-	// These are set in the AssetHub closure.
-	let mut intermediate_execution_fees = 0;
-	let mut intermediate_delivery_fees_amount = 0;
-	let mut intermediate_remote_message = VersionedXcm::V5(Xcm::<()>(Vec::new()));
-	<AssetHubWestend as TestExt>::execute_with(|| {
-		type Runtime = <AssetHubWestend as Chain>::Runtime;
-		type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
-
-		// First we get the execution fees.
-		let weight = Runtime::query_xcm_weight(remote_message.clone()).unwrap();
-		intermediate_execution_fees = Runtime::query_weight_to_asset_fee(
-			weight,
-			VersionedAssetId::V5(Location::parent().into()),
-		)
-		.unwrap();
-
-		// We have to do this to turn `VersionedXcm<()>` into `VersionedXcm<RuntimeCall>`.
-		let xcm_program =
-			VersionedXcm::V5(Xcm::<RuntimeCall>::from(remote_message.clone().try_into().unwrap()));
-
-		// Now we get the delivery fees to the final destination.
-		let result =
-			Runtime::dry_run_xcm(sender_as_seen_by_ah.clone().into(), xcm_program).unwrap();
-		let (destination_to_query, messages_to_query) = &result
-			.forwarded_xcms
-			.iter()
-			.find(|(destination, _)| {
-				*destination == VersionedLocation::V5(Location::new(1, [Parachain(2001)]))
-			})
-			.unwrap();
-		// There's actually two messages here.
-		// One created when the message we sent from PenpalA arrived and was executed.
-		// The second one when we dry-run the xcm.
-		// We could've gotten the message from the queue without having to dry-run, but
-		// offchain applications would have to dry-run, so we do it here as well.
-		intermediate_remote_message = messages_to_query[0].clone();
-		let delivery_fees = Runtime::query_delivery_fees(
-			destination_to_query.clone(),
-			intermediate_remote_message.clone(),
-		)
-		.unwrap();
-		intermediate_delivery_fees_amount = get_amount_from_versioned_assets(delivery_fees);
-	});
-
-	// Get the final execution fees in the destination.
-	let mut final_execution_fees = 0;
-	<PenpalB as TestExt>::execute_with(|| {
-		type Runtime = <PenpalA as Chain>::Runtime;
-
-		let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
-		final_execution_fees =
-			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::V5(Parent.into()))
-				.unwrap();
-	});
-
-	// Dry-running is done.
-	PenpalA::reset_ext();
-	AssetHubWestend::reset_ext();
-	PenpalB::reset_ext();
-
-	// Fund accounts again.
-	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
-		relay_native_asset_location.clone(),
-		sender.clone(),
-		amount_to_send * 2,
-	);
-	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah, amount_to_send * 2)]);
-
-	// Actually run the extrinsic.
-	let sender_assets_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
-	});
-	let receiver_assets_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &beneficiary_id)
-	});
-
-	test.set_assertion::<PenpalA>(sender_assertions);
-	test.set_assertion::<AssetHubWestend>(hop_assertions);
-	test.set_assertion::<PenpalB>(receiver_assertions);
-	let call = transfer_assets_para_to_para_through_ah_pay_fees_call(
-		test.clone(),
-		(Parent, local_execution_fees + delivery_fees_amount),
-		(Parent, intermediate_execution_fees + intermediate_delivery_fees_amount),
-		(Parent, final_execution_fees),
-	);
-	test.set_call(call);
-	test.assert();
-
-	let sender_assets_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
-	});
-	let receiver_assets_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &beneficiary_id)
-	});
-
-	// We know the exact fees on every hop.
-	assert_eq!(sender_assets_after, sender_assets_before - amount_to_send);
-	assert_eq!(
-		receiver_assets_after,
-		receiver_assets_before + amount_to_send -
-			local_execution_fees -
-			delivery_fees_amount -
-			intermediate_execution_fees -
-			intermediate_delivery_fees_amount -
-			final_execution_fees
-	);
-}
-
-fn transfer_assets_para_to_para_through_ah_pay_fees_call(
-	test: ParaToParaThroughAHTest,
-	estimated_local_fees: impl Into<Asset>,
-	estimated_intermediate_fees: impl Into<Asset>,
-	estimated_remote_fees: impl Into<Asset>,
-) -> <PenpalA as Chain>::RuntimeCall {
-	type RuntimeCall = <PenpalA as Chain>::RuntimeCall;
-
-	let xcm_in_destination = Xcm::<()>::builder_unsafe()
-		.pay_fees(estimated_remote_fees)
-		.deposit_asset(AllCounted(test.args.assets.len() as u32), test.args.beneficiary)
-		.build();
-	let ah_to_penpal_b = AssetHubWestend::sibling_location_of(PenpalB::para_id());
-	let xcm_in_reserve = Xcm::<()>::builder_unsafe()
-		.pay_fees(estimated_intermediate_fees)
-		.deposit_reserve_asset(
-			AllCounted(test.args.assets.len() as u32),
-			ah_to_penpal_b,
-			xcm_in_destination,
-		)
-		.build();
-	let penpal_a_to_ah = PenpalA::sibling_location_of(AssetHubWestend::para_id());
-	let local_xcm = Xcm::<RuntimeCall>::builder()
-		.withdraw_asset(test.args.assets.clone())
-		.pay_fees(estimated_local_fees)
-		.initiate_reserve_withdraw(All, penpal_a_to_ah, xcm_in_reserve)
-		.build();
-
-	RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
-		message: bx!(VersionedXcm::from(local_xcm)),
-		max_weight: Weight::from_parts(3_000_000_000, 200_000),
-	})
+	test_can_estimate_and_pay_exact_fees!(PenpalA, AssetHubWestend, PenpalB, (Parent, 1_000_000_000_000u128), Penpal);
 }
