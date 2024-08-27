@@ -96,8 +96,8 @@ use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure, print,
 	traits::{
-		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
-		ReservableCurrency, WithdrawReasons,
+		fungible::Credit, tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance,
+		OnUnbalanced, ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
 	PalletId,
@@ -205,7 +205,9 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The staking balance.
-		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+		type Currency: Currency<Self::AccountId>
+			+ ReservableCurrency<Self::AccountId>
+			+ frame_support::traits::fungible::Balanced<Self::AccountId, Balance = BalanceOf<Self, I>>;
 
 		/// Origin from which rejections must come.
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -971,6 +973,19 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 		let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
 
 		Self::deposit_event(Event::Deposit { value: numeric_amount });
+	}
+}
+
+/// Implement the `OnUnbalanced` handler for [`frame_support::traits::fungible`] trait currency.
+pub struct FungibleCompat<T>(PhantomData<T>);
+impl<T: Config> OnUnbalanced<Credit<T::AccountId, T::Currency>> for FungibleCompat<T> {
+	fn on_nonzero_unbalanced(credit: Credit<T::AccountId, T::Currency>) {
+		use frame_support::traits::fungible::Balanced;
+		let numeric_amount = credit.peek();
+
+		let _ = T::Currency::resolve(&Pallet::<T>::account_id(), credit);
+
+		Pallet::<T>::deposit_event(Event::Deposit { value: numeric_amount });
 	}
 }
 
