@@ -25,9 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		fungible::{Inspect, Mutate, MutateHold},
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
-		OnUnbalanced, OneSessionHandler, WithdrawReasons,
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance,
+		OnUnbalanced, OneSessionHandler,
 	},
 	weights::constants::RocksDbWeight,
 };

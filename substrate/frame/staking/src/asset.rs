@@ -21,7 +21,7 @@
 use frame_support::traits::{
 	fungible::{
 		hold::{Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate},
-		Balanced, Inspect as FunInspect,
+		Balanced, Inspect as FunInspect, Mutate as FunMutate,
 	},
 	tokens::Precision,
 };
