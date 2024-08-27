@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724724716946,
+  "lastUpdate": 1724759914694,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9533,6 +9533,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03856465291800001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7e7c33453eeb14f47c6c4d0f98cc982e485edc77",
+          "message": "frame-omni-bencher maintenance (#5466)\n\nChanges:\n- Set default level to `Info` again. Seems like a dependency update set\nit to something higher.\n- Fix docs to not use `--locked` since we rely on dependency bumps via\ncargo.\n- Add README with rust docs.\n- Fix bug where the node ignored `--heap-pages` argument.\n\nYou can test the `--heap-pages` bug by running this command on master\nand then on this branch. Note that it should fail because of the very\nlow heap pages arg:\n`cargo run --release --bin polkadot --features=runtime-benchmarks --\nbenchmark pallet --chain=dev --steps=10 --repeat=30\n--wasm-execution=compiled --heap-pages=8 --pallet=frame-system\n--extrinsic=\"*\"`\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: ggwpez <ggwpez@users.noreply.github.com>",
+          "timestamp": "2024-08-27T10:05:15Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7e7c33453eeb14f47c6c4d0f98cc982e485edc77"
+        },
+        "date": 1724759886357,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40599999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.93799999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045741226266,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03757363849399998,
             "unit": "seconds"
           }
         ]
