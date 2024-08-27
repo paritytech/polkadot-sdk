@@ -1067,7 +1067,7 @@ pub mod pallet {
 
 		/// Schedule a portion of the stash to be unlocked ready for transfer out after the bond
 		/// period ends. If this leaves an amount actively bonded less than
-		/// asset::existential_deposit::<T>(), then it is increased to the full amount.
+		/// [`asset::existential_deposit`], then it is increased to the full amount.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
 		///
