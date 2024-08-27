@@ -381,7 +381,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 					initial_statuses.insert(removed_hash, Status::Ready);
 					txs_to_resubmit.push((removed_hash, tx_to_resubmit));
 				}
-				// make sure to remove the hash even if it's not present in the pool any more.
+				// make sure to remove the hash even if it's not present in the pool anymore.
 				updated_transactions.remove(&hash);
 			}
 

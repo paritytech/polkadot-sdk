@@ -453,7 +453,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 	/// Returns a list of actually removed transactions.
 	/// NOTE some transactions might still be valid, but were just removed because
 	/// they were part of a chain, you may attempt to re-import them later.
-	/// NOTE If you want to remove ready transactions that were already used
+	/// NOTE If you want to remove ready transactions that were already used,
 	/// and you don't want them to be stored in the pool use `prune_tags` method.
 	pub fn remove_subtree(&mut self, hashes: &[Hash]) -> Vec<Arc<Transaction<Hash, Ex>>> {
 		let mut removed = self.ready.remove_subtree(hashes);

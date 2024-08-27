@@ -113,7 +113,7 @@
 //! Once the view is created, all transactions from *mempool* are submitted to and validated at this
 //! view.
 //!
-//! The *mempool* removes its transactions when they get finalized. Mempool's transactions are
+//! The *mempool* removes its transactions when they get finalized. The transactions in *mempool* are
 //! also periodically verified at every finalized block and removed from the *mempool* if no longer
 //! valid. This is process is called [*mempool* revalidation](#mempool-pruningrevalidation).
 //!

@@ -252,7 +252,7 @@ impl<B: ChainApi> Pool<B> {
 	///
 	/// Used to clear the pool from transactions that were part of recently imported block.
 	/// To perform pruning we need the tags that each extrinsic provides and to avoid calling
-	/// into runtime too often we first lookup all extrinsics that are in the pool and get
+	/// into runtime too often we first look up all extrinsics that are in the pool and get
 	/// their provided tags from there. Otherwise we query the runtime at the `parent` block.
 	pub async fn prune(
 		&self,
@@ -514,7 +514,7 @@ mod tests {
 	}
 
 	#[test]
-	fn submit_at_preservs_order() {
+	fn submit_at_preserves_order() {
 		sp_tracing::try_init_simple();
 		// given
 		let (pool, api) = pool();

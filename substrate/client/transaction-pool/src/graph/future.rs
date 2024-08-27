@@ -110,7 +110,7 @@ impl<Hash, Ex> WaitingTransaction<Hash, Ex> {
 /// could provide a tag that they require.
 #[derive(Clone, Debug)]
 pub struct FutureTransactions<Hash: hash::Hash + Eq, Ex> {
-	/// tags that are not yet provided by any transaction and we await for them
+	/// tags that are not yet provided by any transaction, and we await for them
 	wanted_tags: HashMap<Tag, HashSet<Hash>>,
 	/// Transactions waiting for a particular other transaction
 	waiting: HashMap<Hash, WaitingTransaction<Hash, Ex>>,
@@ -191,7 +191,7 @@ impl<Hash: hash::Hash + Eq + Clone + std::fmt::Debug, Ex: std::fmt::Debug>
 	/// Satisfies provided tags in transactions that are waiting for them.
 	///
 	/// Returns (and removes) transactions that became ready after their last tag got
-	/// satisfied and now we can remove them from Future and move to Ready queue.
+	/// satisfied, and now we can remove them from Future and move to Ready queue.
 	pub fn satisfy_tags<T: AsRef<Tag>>(
 		&mut self,
 		tags: impl IntoIterator<Item = T>,

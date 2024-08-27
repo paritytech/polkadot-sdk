@@ -123,7 +123,7 @@ mod test_chain_with_forks {
 		//    /
 		// F00
 		//    \
-		//     F11 - F12 - F13 - F14 - F15 | Bob nonce increasing, bob's txs
+		//     F11 - F12 - F13 - F14 - F15 | Bob nonce increasing, Bob's txs
 		//
 		// e.g. F03 contains uxt(Alice, 202), nonces: Alice = 203, Bob = 200
 		//      F12 contains uxt(Bob,   201), nonces: Alice = 200, Bob = 202
@@ -262,7 +262,7 @@ mod test_chain_with_forks {
 // fn should_ban_invalid_transactions()
 // fn should_correctly_prune_transactions_providing_more_than_one_tag()
 //
-// review, difficult to unerstand:
+// review, difficult to understand:
 // fn import_notification_to_pool_maintain_works()
 
 #[test]
@@ -527,7 +527,7 @@ fn fatp_one_view_ready_turns_to_stale_works() {
 }
 
 #[test]
-fn fatp_two_views_future_and_ready_sumbit_one() {
+fn fatp_two_views_future_and_ready_submit_one() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -560,7 +560,7 @@ fn fatp_two_views_future_and_ready_sumbit_one() {
 }
 
 #[test]
-fn fatp_two_views_future_and_ready_sumbit_many() {
+fn fatp_two_views_future_and_ready_submit_many() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1050,7 +1050,7 @@ fn fatp_fork_finalization_removes_stale_views() {
 	let event = new_best_block_event(&pool, Some(f00), f02);
 	block_on(pool.maintain(event));
 
-	//only views at the tip of forks are kept
+	//only views at the tips of the forks are kept
 	assert_eq!(pool.views_count(), 2);
 
 	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
@@ -1058,8 +1058,8 @@ fn fatp_fork_finalization_removes_stale_views() {
 	let event = ChainEvent::Finalized { hash: f03, tree_route: Arc::from(vec![]) };
 	block_on(pool.maintain(event));
 	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
-	// note: currently the pruning views only cleans views with block number less then finalized
-	// blcock. views with higher number on other forks are not cleaned (will be done in next round).
+	// note: currently the pruning views only cleans views with block number less than finalized
+	// block. views with higher number on other forks are not cleaned (will be done in next round).
 	assert_eq!(pool.views_count(), 2);
 
 	let event = ChainEvent::Finalized { hash: f04, tree_route: Arc::from(vec![]) };
@@ -1898,7 +1898,7 @@ fn fatp_watcher_two_blocks_delayed_finalization_works() {
 	let xt2_status = futures::executor::block_on_stream(xt2_watcher).collect::<Vec<_>>();
 
 	//todo: double events.
-	//view for header04 reported inblock for all xts.
+	//view for header04 reported InBlock for all xts.
 	//Then finalization comes for header03. We need to create a view to sent finalization events.
 	//But in_block are also sent because of pruning - normal process during view creation.
 	//
@@ -2623,4 +2623,4 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 
 //todo: add test: check len of filter after finalization (!)
 //todo: broadcasted test?
-//todo: ready_at_with_timeout
+//todo: ready_at_with_timeout [#5488]

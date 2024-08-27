@@ -79,8 +79,8 @@ where
 /// For every transaction the view's stream generating its own events can be added. The events are
 /// flattened and sent out to the external listener.
 ///
-/// The listner allows to add and remove view's stream (per transaction).
-/// The listener allows also to invalidate and finalize transcation.
+/// The listener allows to add and remove view's stream (per transaction).
+/// The listener allows also to invalidate and finalize transaction.
 pub struct MultiViewListener<ChainApi: graph::ChainApi> {
 	controllers: parking_lot::RwLock<
 		HashMap<ExtrinsicHash<ChainApi>, Controller<ControllerCommand<ChainApi>>>,
@@ -100,7 +100,7 @@ struct ExternalWatcherContext<ChainApi: graph::ChainApi> {
 	future_seen: bool,
 	ready_seen: bool,
 
-	inblock: HashSet<BlockHash<ChainApi>>,
+	in_block: HashSet<BlockHash<ChainApi>>,
 	views_keeping_tx_valid: HashSet<BlockHash<ChainApi>>,
 }
 
@@ -124,7 +124,7 @@ where
 			future_seen: false,
 			ready_seen: false,
 			views_keeping_tx_valid: Default::default(),
-			inblock: Default::default(),
+			in_block: Default::default(),
 		}
 	}
 
@@ -157,7 +157,7 @@ where
 				}
 			},
 			TransactionStatus::Broadcast(_) => false,
-			TransactionStatus::InBlock((block, _)) => self.inblock.insert(*block),
+			TransactionStatus::InBlock((block, _)) => self.in_block.insert(*block),
 			TransactionStatus::Retracted(_) => {
 				//todo remove panic / handle event [#5479]
 				panic!("retracted? shall not happen");

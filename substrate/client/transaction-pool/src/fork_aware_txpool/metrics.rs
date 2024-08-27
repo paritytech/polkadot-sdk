@@ -108,7 +108,7 @@ impl MetricsRegistrant for Metrics {
 			resubmitted_retracted_txs: register(
 				Counter::new(
 					"substrate_sub_txpool_resubmitted_retracted_txs_total",
-					"Total number of transactions resbumitted from retracted forks.",
+					"Total number of transactions resubmitted from retracted forks.",
 				)?,
 				registry,
 			)?,

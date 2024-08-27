@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Transaction pool view store. Basically block hash to view map with some utitlity methods.
+//! Transaction pool view store. Basically block hash to view map with some utility methods.
 
 use super::{
 	multi_view_listener::{MultiViewListener, TxStatusStream},
@@ -90,9 +90,9 @@ where
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
-		let results = {
+		let submit_futures = {
 			let views = self.views.read();
-			let futs = views
+			let futures = views
 				.iter()
 				.map(|(_, view)| {
 					let view = view.clone();
@@ -100,9 +100,9 @@ where
 					async move { (view.at.hash, view.submit_many(source, xts).await) }
 				})
 				.collect::<Vec<_>>();
-			futs
+			futures
 		};
-		let results = futures::future::join_all(results).await;
+		let results = futures::future::join_all(submit_futures).await;
 
 		HashMap::<_, _>::from_iter(results.into_iter())
 	}
@@ -118,9 +118,9 @@ where
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
 			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
 		};
-		let results = {
+		let submit_and_watch_futures = {
 			let views = self.views.read();
-			let futs = views
+			let futures = views
 				.iter()
 				.map(|(_, view)| {
 					let view = view.clone();
@@ -141,9 +141,9 @@ where
 					}
 				})
 				.collect::<Vec<_>>();
-			futs
+			futures
 		};
-		let maybe_watchers = futures::future::join_all(results).await;
+		let maybe_watchers = futures::future::join_all(submit_and_watch_futures).await;
 		// log::info!("view::submit_and_watch: maybe_watchers: {:?}", maybe_watchers);
 		let maybe_error = maybe_watchers.into_iter().reduce(|mut r, v| {
 			if r.is_err() && v.is_ok() {
@@ -169,7 +169,7 @@ where
 
 	/// Finds the best existing view to clone from along the path.
 	/// Allows to include all the transactions from the imported blocks (that are on the retracted
-	/// path) without additional validation. Tip of retracted fork is usually most recent block
+	/// path) without additional validation. Tip of retracted fork is usually the most recent block
 	/// processed by txpool.
 	///
 	/// ```text
@@ -379,18 +379,18 @@ where
 
 	pub(crate) async fn finish_background_revalidations(&self) {
 		let start = Instant::now();
-		let futures = {
+		let finish_revalidation_futures = {
 			let views = self.views.read();
-			let futs = views
+			let futures = views
 				.iter()
 				.map(|(_, view)| {
 					let view = view.clone();
 					async move { view.finish_revalidation().await }
 				})
 				.collect::<Vec<_>>();
-			futs
+			futures
 		};
-		futures::future::join_all(futures).await;
+		futures::future::join_all(finish_revalidation_futures).await;
 		log::debug!(target:LOG_TARGET,"finish_background_revalidations took {:?}", start.elapsed());
 	}
 }

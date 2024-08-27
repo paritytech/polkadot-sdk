@@ -111,7 +111,7 @@ type InternalMapEntry<'a, ChainApi, Block> =
 /// Keeps all the transaction which are potentially valid. Transactions that were finalized or
 /// transaction that are invalid at finalized blocks are removed.
 ///
-/// All transcations from `TxMemPool` are submitted to newly created views.
+/// All transactions from `TxMemPool` are submitted to newly created views.
 ///
 /// All newly submitted transactions goes into `TxMemPool`.
 pub(super) struct TxMemPool<ChainApi, Block>
@@ -290,7 +290,7 @@ where
 			)
 		};
 
-		let futs = input.into_iter().map(|(xt_hash, xt)| {
+		let validations_futures = input.into_iter().map(|(xt_hash, xt)| {
 			self.api.validate_transaction(finalized_block.hash, xt.source, xt.tx()).map(
 				move |validation_result| {
 					xt.validated_at
@@ -299,7 +299,7 @@ where
 				},
 			)
 		});
-		let validation_results = futures::future::join_all(futs).await;
+		let validation_results = futures::future::join_all(validations_futures).await;
 		let input_len = validation_results.len();
 
 		let duration = start.elapsed();

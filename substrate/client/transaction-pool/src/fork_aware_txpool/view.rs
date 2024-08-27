@@ -104,7 +104,7 @@ pub(super) struct View<ChainApi: graph::ChainApi> {
 	pub(super) at: HashAndNumber<ChainApi::Block>,
 	/// Endpoints of communication channel with background worker.
 	revalidation_worker_channels: Mutex<Option<FinishRevalidationLocalChannels<ChainApi>>>,
-	/// Prometheus metrics endpoint.
+	/// Prometheus's metrics endpoint.
 	metrics: PrometheusMetrics,
 }
 
@@ -140,7 +140,7 @@ where
 		}
 	}
 
-	/// Imports many unvalidate extrinsics into the view.
+	/// Imports many unvalidated extrinsics into the view.
 	pub(super) async fn submit_many(
 		&self,
 		source: TransactionSource,
@@ -161,7 +161,7 @@ where
 		self.pool.submit_and_watch(&self.at, source, xt).await
 	}
 
-	/// Status of the pool associated withe the view.
+	/// Status of the pool associated with the view.
 	pub(super) fn status(&self) -> PoolStatus {
 		self.pool.validated_pool().status()
 	}
@@ -176,7 +176,7 @@ where
 
 	/// Revalidates some part of transaction from the internal pool.
 	///
-	/// Intended to run from revalidation worker. Revlidation can be terminated by sending message
+	/// Intended to run from revalidation worker. Revalidation can be terminated by sending message
 	/// to the rx channel provided within `finish_revalidation_worker_channels`. Results are sent
 	/// back over tx channels and shall be applied in maintain thread.
 	pub(super) async fn revalidate(
@@ -289,7 +289,7 @@ where
 		}
 	}
 
-	/// Sends revalidation request to the backround worker.
+	/// Sends revalidation request to the background worker.
 	///
 	/// Also creates communication channels.
 	/// Intended to ba called from maintain thread.

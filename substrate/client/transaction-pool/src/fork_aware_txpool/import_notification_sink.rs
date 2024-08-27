@@ -53,12 +53,12 @@ impl<K, I: Send + Sync> Debug for Command<K, I> {
 	}
 }
 
-struct MulitSinksContext<K, I: Send + Sync> {
+struct MultiSinksContext<K, I: Send + Sync> {
 	stream_map: Fuse<StreamMap<K, StreamOf<I>>>,
 	controller: Fuse<CommandReceiver<Command<K, I>>>,
 }
 
-impl<K, I> MulitSinksContext<K, I>
+impl<K, I> MultiSinksContext<K, I>
 where
 	K: Send + Debug + Unpin + Clone + Default + Hash + Eq + 'static,
 	I: Send + Sync + 'static + PartialEq + Eq + Hash + Clone + Debug,
@@ -117,7 +117,7 @@ where
 	I: 'static + Clone + Send + Debug + Sync + PartialEq + Eq + Hash,
 {
 	pub fn new_with_worker() -> (MultiViewImportNotificationSink<K, I>, ImportNotificationTask) {
-		let (output_stream, ctrl) = MulitSinksContext::<K, I>::event_stream();
+		let (output_stream, ctrl) = MultiSinksContext::<K, I>::event_stream();
 		let ctrl = Self { ctrl, external_sinks: Default::default(), filter: Default::default() };
 		let external_sinks = ctrl.external_sinks.clone();
 		let filter = ctrl.filter.clone();

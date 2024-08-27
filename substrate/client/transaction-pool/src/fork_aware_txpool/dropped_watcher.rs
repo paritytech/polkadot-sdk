@@ -65,7 +65,7 @@ where
 	}
 }
 
-struct MulitViewDropWatcherContext<C>
+struct MultiViewDropWatcherContext<C>
 where
 	C: ChainApi,
 {
@@ -74,11 +74,11 @@ where
 
 	/// For each transaction we keep the HashSet of views that see this transaction as ready or
 	/// future.
-	/// Once transaction is dropped, dropping view is removed fromt the set.
+	/// Once transaction is dropped, dropping view is removed from the set.
 	transaction_states: HashMap<ExtrinsicHash<C>, HashSet<BlockHash<C>>>,
 }
 
-impl<C> MulitViewDropWatcherContext<C>
+impl<C> MultiViewDropWatcherContext<C>
 where
 	C: ChainApi + 'static,
 	<<C as ChainApi>::Block as BlockT>::Hash: Unpin,
@@ -189,7 +189,7 @@ where
 {
 	/// Creates new [`StreamOfDropped`] and its controller.
 	pub fn new() -> (MultiViewDroppedWatcherController<C>, StreamOfDropped<C>) {
-		let (stream_map, ctrl) = MulitViewDropWatcherContext::<C>::event_stream();
+		let (stream_map, ctrl) = MultiViewDropWatcherContext::<C>::event_stream();
 		(Self { ctrl }, stream_map.boxed())
 	}
 

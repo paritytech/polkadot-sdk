@@ -662,7 +662,7 @@ where
 		// blocks. Before pruning enacted transactions, we inform the listeners about
 		// retracted blocks and their transactions. This order is important, because
 		// if we enact and retract the same transaction at the same time, we want to
-		// send first the retract and than the prune event.
+		// send first the retract and then the prune event.
 		for retracted in tree_route.retracted() {
 			// notify txs awaiting finality that it has been retracted
 			pool.validated_pool().on_block_retracted(retracted.hash);

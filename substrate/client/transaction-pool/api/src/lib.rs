@@ -49,7 +49,7 @@ pub struct PoolStatus {
 }
 
 impl PoolStatus {
-	/// Returns true if the are no transactions in the pool.
+	/// Returns true if there are no transactions in the pool.
 	pub fn is_empty(&self) -> bool {
 		self.ready == 0 && self.future == 0
 	}
@@ -57,7 +57,7 @@ impl PoolStatus {
 
 /// Possible transaction status events.
 ///
-/// This events are being emitted by `TransactionPool` watchers,
+/// These events are being emitted by `TransactionPool` watchers,
 /// which are also exposed over RPC.
 ///
 /// The status events can be grouped based on their kinds as:
@@ -144,7 +144,7 @@ pub enum TransactionStatus<Hash, BlockHash> {
 	/// Maximum number of finality watchers has been reached,
 	/// old watchers are being removed.
 	FinalityTimeout(BlockHash),
-	/// Transaction has been finalized by a finality-gadget, e.g GRANDPA.
+	/// Transaction has been finalized by a finality-gadget, e.g. GRANDPA.
 	#[serde(with = "v1_compatible")]
 	Finalized((BlockHash, TxIndex)),
 	/// Transaction has been replaced in the pool, by another transaction

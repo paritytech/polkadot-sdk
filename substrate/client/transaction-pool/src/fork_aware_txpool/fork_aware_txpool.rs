@@ -127,13 +127,13 @@ where
 	/// Utility for managing pollers of `ready_at` future..
 	ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<ChainApi>, Block>>>,
 
-	/// Prometheus metrics endpoint.
+	/// Prometheus's metrics endpoint.
 	metrics: PrometheusMetrics,
 
 	/// Util tracking best and finalized block.
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
 
-	/// The channel allowing to send revalidtion jobs to the background thread.
+	/// The channel allowing to send revalidation jobs to the background thread.
 	revalidation_queue: Arc<view_revalidation::RevalidationQueue<ChainApi, Block>>,
 
 	/// Util providing an aggregated stream of transactions that were imported to ready queue in
@@ -313,7 +313,7 @@ where
 		self.view_store.views.read().contains_key(hash)
 	}
 
-	/// Returns numbder of unwatched and watched transactions in internal mempool.
+	/// Returns a number of unwatched and watched transactions in internal mempool.
 	///
 	/// Intended for use in unit tests.
 	pub fn mempool_len(&self) -> (usize, usize) {
@@ -547,7 +547,7 @@ where
 			//todo [#5494]:
 			//ImmediatelyDropped errors from view submission shall be ignored. If transaction got into the mempool,
 			//(and not into the view) it means that it was successfully submitted. It will be sent
-			//to view in some near fufure.
+			//to view in some near future.
 			//alternatively, we could reverse the order, and at first submit transaction to all
 			//views, and if it is dropped by all of them, do not add it to mempool and return error.
 			Ok(mempool_result
@@ -556,7 +556,7 @@ where
 					result.and_then(|_|
 						submission_result
 							.next()
-							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submitssion result. qed."))
+							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed."))
 				})
 				.collect::<Vec<_>>())
 		}
@@ -587,7 +587,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		//todo: should send to view frist, and check if not Dropped [#5494]
+		//todo: should send to view first, and check if not Dropped [#5494]
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
 		let xt = Arc::from(xt);
 		if let Err(e) = self.mempool.push_watched(source, xt.clone()) {
@@ -732,7 +732,7 @@ where
 {
 	/// Handles a new block notification.
 	///
-	/// It is reponsible for handling a newly notified block. It executes some sanity checks, find
+	/// It is responsible for handling a newly notified block. It executes some sanity checks, find
 	/// the best view to clone from and executes the new view build procedure for the notified
 	/// block.
 	///
@@ -813,7 +813,7 @@ where
 			)
 		};
 
-		//we need to capture all import notifiication from the very beginning
+		//we need to capture all import notification from the very beginning
 		self.import_notification_sink.add_view(
 			view.at.hash,
 			view.pool.validated_pool().import_notification_stream().boxed(),
@@ -842,7 +842,7 @@ where
 
 	/// Returns the list of xts included in all block ancestors, excluding the block itself.
 	///
-	/// For the following chain `F<-B1<-B2<-B3` xts from `F,B1,B2` will returned.
+	/// For the following chain `F<-B1<-B2<-B3` xts from `F,B1,B2` will be returned.
 	async fn extrinsics_included_since_finalized(&self, at: Block::Hash) -> HashSet<TxHash<Self>> {
 		let start = Instant::now();
 		let recent_finalized_block = self.enactment_state.lock().recent_finalized_block();
@@ -915,7 +915,7 @@ where
 		let submitted_count = Arc::from(AtomicUsize::new(0));
 
 		//todo [#5495]: maybe we don't need to register listener in view? We could use
-		// multi_view_listner.transcation_in_block
+		// multi_view_listener.transaction_in_block
 		let results = self
 			.mempool
 			.clone_watched()
@@ -945,7 +945,7 @@ where
 							match error {
 								// We need to install listener for stale xt: in case of
 								// transaction being already included in the block we want to
-								// send inblock + finalization event.
+								// send InBlock + Finalized event.
 								// The same applies for TemporarilyBanned / AlreadyImported. We
 								// need to create listener.
 								Ok(
@@ -1132,7 +1132,7 @@ where
 		self.api.hash_and_length(xt).0
 	}
 
-	// use for verirfaction - only for debugging purposes
+	// use for verification - only for debugging purposes
 	// todo: to be removed at some point
 	#[allow(dead_code)]
 	async fn verify(&self) {

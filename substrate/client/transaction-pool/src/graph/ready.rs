@@ -84,7 +84,7 @@ pub struct ReadyTx<Hash, Ex> {
 	/// How many required tags are provided inherently
 	///
 	/// Some transactions might be already pruned from the queue,
-	/// so when we compute ready set we may consider this transactions ready earlier.
+	/// so when we compute ready set we may consider these transactions ready earlier.
 	pub requires_offset: usize,
 }
 
