@@ -62,6 +62,7 @@ pub use self::{
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
+	metrics::MetricsService,
 };
 #[allow(deprecated)]
 pub use builder::new_native_or_wasm_executor;
@@ -81,7 +82,7 @@ pub use sc_chain_spec::{
 
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
-pub use sc_network_sync::WarpSyncParams;
+pub use sc_network_sync::WarpSyncConfig;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
 pub use sc_rpc::{
@@ -101,6 +102,11 @@ const DEFAULT_PROTOCOL_ID: &str = "sup";
 pub struct RpcHandlers(Arc<RpcModule<()>>);
 
 impl RpcHandlers {
+	/// Create PRC handlers instance.
+	pub fn new(inner: Arc<RpcModule<()>>) -> Self {
+		Self(inner)
+	}
+
 	/// Starts an RPC query.
 	///
 	/// The query is passed as a string and must be valid JSON-RPC request object.
@@ -342,7 +348,7 @@ pub async fn build_system_rpc_future<
 			sc_rpc::system::Request::SyncState(sender) => {
 				use sc_rpc::system::SyncState;
 
-				match sync_service.best_seen_block().await {
+				match sync_service.status().await.map(|status| status.best_seen_block) {
 					Ok(best_seen_block) => {
 						let best_number = client.info().best_number;
 						let _ = sender.send(SyncState {

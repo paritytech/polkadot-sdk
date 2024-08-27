@@ -16,7 +16,7 @@
 
 //! Cumulus extension pallet for AuRa
 //!
-//! This pallets extends the Substrate AuRa pallet to make it compatible with parachains. It
+//! This pallet extends the Substrate AuRa pallet to make it compatible with parachains. It
 //! provides the [`Pallet`], the [`Config`] and the [`GenesisConfig`].
 //!
 //! It is also required that the parachain runtime uses the provided [`BlockExecutor`] to properly
@@ -109,7 +109,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -125,7 +125,7 @@ pub mod pallet {
 ///
 /// When executing the block it will verify the block seal to ensure that the correct author created
 /// the block.
-pub struct BlockExecutor<T, I>(sp_std::marker::PhantomData<(T, I)>);
+pub struct BlockExecutor<T, I>(core::marker::PhantomData<(T, I)>);
 
 impl<Block, T, I> ExecuteBlock<Block> for BlockExecutor<T, I>
 where

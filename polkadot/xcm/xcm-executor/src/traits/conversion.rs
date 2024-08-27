@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use core::{marker::PhantomData, result::Result};
 use frame_support::traits::{Contains, OriginTrait};
 use sp_runtime::{traits::Dispatchable, DispatchErrorWithPostInfo};
-use sp_std::{marker::PhantomData, result::Result};
 use xcm::latest::prelude::*;
 
 /// Means of converting a location into an account identifier.

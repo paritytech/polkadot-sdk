@@ -16,7 +16,9 @@
 // limitations under the License.
 
 use crate::{BoundedAuthorityList, Pallet};
+use alloc::vec::Vec;
 use codec::Decode;
+use core::marker::PhantomData;
 use frame_support::{
 	migrations::VersionedMigration,
 	storage,
@@ -24,7 +26,6 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_consensus_grandpa::AuthorityList;
-use sp_std::{marker::PhantomData, vec::Vec};
 
 const GRANDPA_AUTHORITIES_KEY: &[u8] = b":grandpa_authorities";
 

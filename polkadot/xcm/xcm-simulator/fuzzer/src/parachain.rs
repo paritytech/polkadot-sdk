@@ -29,7 +29,6 @@ use sp_runtime::{
 	traits::{AccountIdLookup, BlakeTwo256, Hash, IdentifyAccount, Verify},
 	MultiAddress, MultiSignature,
 };
-use sp_std::prelude::*;
 
 use pallet_xcm::XcmPassthrough;
 use polkadot_core_primitives::BlockNumber as RelayBlockNumber;

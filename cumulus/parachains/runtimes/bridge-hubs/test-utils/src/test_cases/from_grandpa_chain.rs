@@ -22,6 +22,7 @@ use crate::{
 	test_data,
 };
 
+use alloc::{boxed::Box, vec};
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{LaneId, UnrewardedRelayersState};
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
@@ -61,7 +62,7 @@ pub trait WithRemoteGrandpaChainHelper {
 
 /// Adapter struct that implements [`WithRemoteGrandpaChainHelper`].
 pub struct WithRemoteGrandpaChainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, MPI>(
-	sp_std::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, MPI)>,
+	core::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, MPI)>,
 );
 
 impl<Runtime, AllPalletsWithoutSystem, GPI, MPI> WithRemoteGrandpaChainHelper
@@ -93,11 +94,9 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
 	slot_durations: SlotDurations,
 	runtime_para_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		RuntimeCallOf<RuntimeHelper::Runtime>,
@@ -124,10 +123,11 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
+		 xcm,
+		 bridged_chain_id| {
 			let relay_header_number = 5u32.into();
 
-			prepare_configuration();
+			let lane_id = prepare_configuration();
 
 			// start with bridged relay chain block#0
 			helpers::initialize_bridge_grandpa_pallet::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(
@@ -140,7 +140,6 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 					BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 					ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-					(),
 				>(
 					lane_id,
 					xcm.into(),
@@ -196,11 +195,9 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
 	slot_durations: SlotDurations,
 	runtime_para_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		RuntimeCallOf<RuntimeHelper::Runtime>,
@@ -234,8 +231,9 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
-			prepare_configuration();
+		 xcm,
+		 bridged_chain_id| {
+			let lane_id = prepare_configuration();
 
 			// start with bridged relay chain block#0
 			let initial_block_number = 0;
@@ -265,7 +263,6 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 					BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 					ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-					(),
 				>(
 					lane_id,
 					xcm.into(),
@@ -327,10 +324,8 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		RuntimeCallOf<RuntimeHelper::Runtime>,
@@ -360,10 +355,11 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
+		 xcm,
+		 bridged_chain_id| {
 			let relay_header_number = 1u32.into();
 
-			prepare_configuration();
+			let lane_id = prepare_configuration();
 
 			// start with bridged relay chain block#0
 			helpers::initialize_bridge_grandpa_pallet::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(
@@ -376,7 +372,6 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 					BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 					ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-					(),
 				>(
 					lane_id,
 					xcm.into(),
@@ -451,7 +446,6 @@ where
 			test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				LaneId::default(),
 				vec![Instruction::<()>::ClearOrigin; 1_024].into(),
@@ -556,7 +550,6 @@ where
 			test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				LaneId::default(),
 				vec![Instruction::<()>::ClearOrigin; 1_024].into(),

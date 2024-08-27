@@ -50,7 +50,7 @@ use crate::{
 
 use codec::Encode;
 use futures::StreamExt;
-use libp2p::kad::RecordKey;
+use libp2p::kad::{PeerRecord, Record as P2PRecord, RecordKey};
 use litep2p::{
 	config::ConfigBuilder,
 	crypto::ed25519::Keypair,
@@ -622,8 +622,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		Arc::clone(&self.network_service)
 	}
 
-	fn peer_store(bootnodes: Vec<sc_network_types::PeerId>) -> Self::PeerStore {
-		Peerstore::new(bootnodes)
+	fn peer_store(
+		bootnodes: Vec<sc_network_types::PeerId>,
+		metrics_registry: Option<Registry>,
+	) -> Self::PeerStore {
+		Peerstore::new(bootnodes, metrics_registry)
 	}
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
@@ -700,6 +703,12 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							let query_id = self.discovery.put_value(key.clone(), value).await;
 							self.pending_put_values.insert(query_id, (key, Instant::now()));
 						}
+						NetworkServiceCommand::PutValueTo { record, peers, update_local_storage} => {
+							let kademlia_key = record.key.to_vec().into();
+							let query_id = self.discovery.put_value_to_peers(record, peers, update_local_storage).await;
+							self.pending_put_values.insert(query_id, (kademlia_key, Instant::now()));
+						}
+
 						NetworkServiceCommand::StoreRecord { key, value, publisher, expires } => {
 							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
 						}
@@ -816,19 +825,15 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									"`GET_VALUE` for {:?} ({query_id:?}) succeeded",
 									key,
 								);
-
-								let value_found = match records {
-									RecordsType::LocalStore(record) => vec![
-										(libp2p::kad::RecordKey::new(&record.key), record.value)
-									],
-									RecordsType::Network(records) => records.into_iter().map(|peer_record| {
-										(libp2p::kad::RecordKey::new(&peer_record.record.key), peer_record.record.value)
-									}).collect(),
-								};
-
-								self.event_streams.send(Event::Dht(
-									DhtEvent::ValueFound(value_found)
-								));
+								for record in litep2p_to_libp2p_peer_record(records) {
+									self.event_streams.send(
+										Event::Dht(
+											DhtEvent::ValueFound(
+												record
+											)
+										)
+									);
+								}
 
 								if let Some(ref metrics) = self.metrics {
 									metrics
@@ -850,6 +855,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									target: LOG_TARGET,
 									"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded",
 								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ValuePut(libp2p::kad::RecordKey::new(&key))
+								));
 
 								if let Some(ref metrics) = self.metrics {
 									metrics
@@ -911,7 +920,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						let mut addresses = self.external_addresses.write();
 
 						if addresses.insert(address.clone()) {
-							log::info!(target: LOG_TARGET, "discovered new external address for our node: {address}");
+							log::info!(target: LOG_TARGET, "🔍 Discovered new external address for our node: {address}");
 						}
 					}
 					Some(DiscoveryEvent::Ping { peer, rtt }) => {
@@ -1017,5 +1026,44 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				},
 			}
 		}
+	}
+}
+
+// Glue code to convert from a litep2p records type to a libp2p2 PeerRecord.
+fn litep2p_to_libp2p_peer_record(records: RecordsType) -> Vec<PeerRecord> {
+	match records {
+		litep2p::protocol::libp2p::kademlia::RecordsType::LocalStore(record) => {
+			vec![PeerRecord {
+				record: P2PRecord {
+					key: record.key.to_vec().into(),
+					value: record.value,
+					publisher: record.publisher.map(|peer_id| {
+						let peer_id: sc_network_types::PeerId = peer_id.into();
+						peer_id.into()
+					}),
+					expires: record.expires,
+				},
+				peer: None,
+			}]
+		},
+		litep2p::protocol::libp2p::kademlia::RecordsType::Network(records) => records
+			.into_iter()
+			.map(|record| {
+				let peer_id: sc_network_types::PeerId = record.peer.into();
+
+				PeerRecord {
+					record: P2PRecord {
+						key: record.record.key.to_vec().into(),
+						value: record.record.value,
+						publisher: record.record.publisher.map(|peer_id| {
+							let peer_id: sc_network_types::PeerId = peer_id.into();
+							peer_id.into()
+						}),
+						expires: record.record.expires,
+					},
+					peer: Some(peer_id.into()),
+				}
+			})
+			.collect::<Vec<_>>(),
 	}
 }

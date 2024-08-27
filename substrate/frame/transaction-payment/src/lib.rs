@@ -69,7 +69,6 @@ use sp_runtime::{
 	},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
-use sp_std::prelude::*;
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 
 #[cfg(test)]
@@ -137,7 +136,7 @@ type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T
 ///
 /// More info can be found at:
 /// <https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html>
-pub struct TargetedFeeAdjustment<T, S, V, M, X>(sp_std::marker::PhantomData<(T, S, V, M, X)>);
+pub struct TargetedFeeAdjustment<T, S, V, M, X>(core::marker::PhantomData<(T, S, V, M, X)>);
 
 /// Something that can convert the current multiplier to the next one.
 pub trait MultiplierUpdate: Convert<Multiplier, Multiplier> {
@@ -208,7 +207,7 @@ where
 		// the computed ratio is only among the normal class.
 		let normal_max_weight =
 			weights.get(DispatchClass::Normal).max_total.unwrap_or(weights.max_block);
-		let current_block_weight = <frame_system::Pallet<T>>::block_weight();
+		let current_block_weight = frame_system::Pallet::<T>::block_weight();
 		let normal_block_weight =
 			current_block_weight.get(DispatchClass::Normal).min(normal_max_weight);
 
@@ -264,7 +263,7 @@ where
 }
 
 /// A struct to make the fee multiplier a constant
-pub struct ConstFeeMultiplier<M: Get<Multiplier>>(sp_std::marker::PhantomData<M>);
+pub struct ConstFeeMultiplier<M: Get<Multiplier>>(core::marker::PhantomData<M>);
 
 impl<M: Get<Multiplier>> MultiplierUpdate for ConstFeeMultiplier<M> {
 	fn min() -> Multiplier {
@@ -292,7 +291,7 @@ where
 
 /// Storage releases of the pallet.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-enum Releases {
+pub enum Releases {
 	/// Original version of the pallet.
 	V1Ancient,
 	/// One that bumps the usage to FixedU128 from FixedI128.
@@ -395,18 +394,17 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_fee_multiplier)]
 	pub type NextFeeMultiplier<T: Config> =
 		StorageValue<_, Multiplier, ValueQuery, NextFeeMultiplierOnEmpty>;
 
 	#[pallet::storage]
-	pub(super) type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
+	pub type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub multiplier: Multiplier,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -434,7 +432,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_: frame_system::pallet_prelude::BlockNumberFor<T>) {
-			<NextFeeMultiplier<T>>::mutate(|fm| {
+			NextFeeMultiplier::<T>::mutate(|fm| {
 				*fm = T::FeeMultiplierUpdate::convert(*fm);
 			});
 		}
@@ -472,7 +470,7 @@ pub mod pallet {
 			let min_value = T::FeeMultiplierUpdate::min();
 			let target = target + addition;
 
-			<frame_system::Pallet<T>>::set_block_consumed_resources(target, 0);
+			frame_system::Pallet::<T>::set_block_consumed_resources(target, 0);
 			let next = T::FeeMultiplierUpdate::convert(min_value);
 			assert!(
 				next > min_value,
@@ -485,6 +483,11 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Public function to access the next fee multiplier.
+	pub fn next_fee_multiplier() -> Multiplier {
+		NextFeeMultiplier::<T>::get()
+	}
+
 	/// Query the data that we know about the fee of a given `call`.
 	///
 	/// This pallet is not and cannot be aware of the internals of a signed extension, for example
@@ -634,7 +637,7 @@ impl<T: Config> Pallet<T> {
 		if pays_fee == Pays::Yes {
 			// the adjustable part of the fee.
 			let unadjusted_weight_fee = Self::weight_to_fee(weight);
-			let multiplier = Self::next_fee_multiplier();
+			let multiplier = NextFeeMultiplier::<T>::get();
 			// final adjusted weight fee.
 			let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
 
@@ -664,6 +667,11 @@ impl<T: Config> Pallet<T> {
 		let capped_weight = weight.min(T::BlockWeights::get().max_block);
 		T::WeightToFee::weight_to_fee(&capped_weight)
 	}
+
+	/// Deposit the [`Event::TransactionFeePaid`] event.
+	pub fn deposit_fee_paid_event(who: T::AccountId, actual_fee: BalanceOf<T>, tip: BalanceOf<T>) {
+		Self::deposit_event(Event::TransactionFeePaid { who, actual_fee, tip });
+	}
 }
 
 impl<T> Convert<Weight, BalanceOf<T>> for Pallet<T>
@@ -676,7 +684,7 @@ where
 	/// share that the weight contributes to the overall fee of a transaction. It is mainly
 	/// for informational purposes and not used in the actual fee calculation.
 	fn convert(weight: Weight) -> BalanceOf<T> {
-		<NextFeeMultiplier<T>>::get().saturating_mul_int(Self::weight_to_fee(weight))
+		NextFeeMultiplier::<T>::get().saturating_mul_int(Self::weight_to_fee(weight))
 	}
 }
 
@@ -806,13 +814,13 @@ where
 	}
 }
 
-impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
+impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "ChargeTransactionPayment<{:?}>", self.0)
 	}
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -834,7 +842,7 @@ where
 		// imbalance resulting from withdrawing the fee
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
 	);
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 		Ok(())
 	}
 

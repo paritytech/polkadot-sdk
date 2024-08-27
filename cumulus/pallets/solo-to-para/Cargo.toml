@@ -18,7 +18,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-sudo = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 # Polkadot
 polkadot-primitives = { workspace = true }
@@ -37,7 +36,6 @@ std = [
 	"polkadot-primitives/std",
 	"scale-info/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",

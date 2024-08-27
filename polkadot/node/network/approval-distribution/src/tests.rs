@@ -50,10 +50,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	mut state: State,
 	test_fn: impl FnOnce(VirtualOverseer) -> T,
 ) -> State {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (context, virtual_overseer) =
@@ -62,9 +59,13 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let subsystem = ApprovalDistribution::new(Default::default());
 	{
 		let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(12345);
-
-		let subsystem =
-			subsystem.run_inner(context, &mut state, REPUTATION_CHANGE_TEST_INTERVAL, &mut rng);
+		let (tx, rx) = oneshot::channel();
+		let subsystem = async {
+			subsystem
+				.run_inner(context, &mut state, REPUTATION_CHANGE_TEST_INTERVAL, &mut rng)
+				.await;
+			tx.send(()).expect("Fail to notify subystem is done");
+		};
 
 		let test_fut = test_fn(virtual_overseer);
 
@@ -79,6 +80,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 					.timeout(TIMEOUT)
 					.await
 					.expect("Conclude send timeout");
+				let _ =
+					rx.timeout(Duration::from_secs(2)).await.expect("Subsystem did not conclude");
 			},
 			subsystem,
 		));
@@ -2404,7 +2407,7 @@ fn propagates_locally_generated_assignment_to_both_dimensions() {
 		let assignments = vec![(cert.clone(), candidate_index)];
 		let approvals = vec![approval.clone()];
 
-		let assignment_sent_peers = assert_matches!(
+		let mut assignment_sent_peers = assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				sent_peers,
@@ -2428,12 +2431,14 @@ fn propagates_locally_generated_assignment_to_both_dimensions() {
 		assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
-				sent_peers,
+				mut sent_peers,
 				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
 					protocol_v1::ApprovalDistributionMessage::Approvals(sent_approvals)
 				))
 			)) => {
 				// Random sampling is reused from the assignment.
+				sent_peers.sort();
+				assignment_sent_peers.sort();
 				assert_eq!(sent_peers, assignment_sent_peers);
 				assert_eq!(sent_approvals, approvals);
 			}
@@ -2678,7 +2683,7 @@ fn propagates_to_required_after_connect() {
 		let assignments = vec![(cert.clone(), candidate_index)];
 		let approvals = vec![approval.clone()];
 
-		let assignment_sent_peers = assert_matches!(
+		let mut assignment_sent_peers = assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				sent_peers,
@@ -2702,12 +2707,14 @@ fn propagates_to_required_after_connect() {
 		assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
-				sent_peers,
+				mut sent_peers,
 				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
 					protocol_v1::ApprovalDistributionMessage::Approvals(sent_approvals)
 				))
 			)) => {
 				// Random sampling is reused from the assignment.
+				sent_peers.sort();
+				assignment_sent_peers.sort();
 				assert_eq!(sent_peers, assignment_sent_peers);
 				assert_eq!(sent_approvals, approvals);
 			}

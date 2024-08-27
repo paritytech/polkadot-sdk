@@ -18,8 +18,8 @@
 //! of parachain blocks ready to submit to the relay chain, as well as some basic implementations.
 
 use super::relay_state_snapshot::RelayChainStateProof;
+use core::num::NonZeroU32;
 use frame_support::weights::Weight;
-use sp_std::num::NonZeroU32;
 
 /// The possible capacity of the unincluded segment.
 #[derive(Clone)]
@@ -95,7 +95,7 @@ impl<const N: u32> ConsensusHook for FixedCapacityUnincludedSegment<N> {
 	fn on_state_proof(_state_proof: &RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity) {
 		(
 			Weight::zero(),
-			NonZeroU32::new(sp_std::cmp::max(N, 1))
+			NonZeroU32::new(core::cmp::max(N, 1))
 				.expect("1 is the minimum value and non-zero; qed")
 				.into(),
 		)

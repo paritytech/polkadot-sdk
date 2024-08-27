@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use core::result::Result;
 use frame_support::traits::ProcessMessageError;
-use sp_std::result::Result;
 use xcm::latest::{Instruction, Location, Weight, XcmHash};
 
 /// Properties of an XCM message and its imminent execution.

@@ -23,8 +23,6 @@ pub(crate) struct MetricsInner {
 	pub(crate) validate_from_chain_state: prometheus::Histogram,
 	pub(crate) validate_from_exhaustive: prometheus::Histogram,
 	pub(crate) validate_candidate_exhaustive: prometheus::Histogram,
-	pub(crate) pov_size: prometheus::HistogramVec,
-	pub(crate) code_size: prometheus::Histogram,
 }
 
 /// Candidate validation metrics.
@@ -70,21 +68,6 @@ impl Metrics {
 			.as_ref()
 			.map(|metrics| metrics.validate_candidate_exhaustive.start_timer())
 	}
-
-	pub fn observe_code_size(&self, code_size: usize) {
-		if let Some(metrics) = &self.0 {
-			metrics.code_size.observe(code_size as f64);
-		}
-	}
-
-	pub fn observe_pov_size(&self, pov_size: usize, compressed: bool) {
-		if let Some(metrics) = &self.0 {
-			metrics
-				.pov_size
-				.with_label_values(&[if compressed { "true" } else { "false" }])
-				.observe(pov_size as f64);
-		}
-	}
 }
 
 impl metrics::Metrics for Metrics {
@@ -119,33 +102,6 @@ impl metrics::Metrics for Metrics {
 					"polkadot_parachain_candidate_validation_validate_candidate_exhaustive",
 					"Time spent within `candidate_validation::validate_candidate_exhaustive`",
 				))?,
-				registry,
-			)?,
-			pov_size: prometheus::register(
-				prometheus::HistogramVec::new(
-					prometheus::HistogramOpts::new(
-						"polkadot_parachain_candidate_validation_pov_size",
-						"The compressed and decompressed size of the proof of validity of a candidate",
-					)
-					.buckets(
-						prometheus::exponential_buckets(16384.0, 2.0, 10)
-							.expect("arguments are always valid; qed"),
-					),
-					&["compressed"],
-				)?,
-				registry,
-			)?,
-			code_size: prometheus::register(
-				prometheus::Histogram::with_opts(
-					prometheus::HistogramOpts::new(
-						"polkadot_parachain_candidate_validation_code_size",
-						"The size of the decompressed WASM validation blob used for checking a candidate",
-					)
-					.buckets(
-						prometheus::exponential_buckets(16384.0, 2.0, 10)
-							.expect("arguments are always valid; qed"),
-					),
-				)?,
 				registry,
 			)?,
 		};

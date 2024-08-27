@@ -18,11 +18,11 @@
 //! Preimage pallet benchmarking.
 
 use super::*;
+use alloc::vec;
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
-use sp_std::{prelude::*, vec};
 
 use crate::Pallet as Preimage;
 
@@ -116,7 +116,7 @@ benchmarks! {
 		T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		hash
 	) verify {
-		let ticket = TicketOf::<T>::new(&noter, Footprint { count: 1, size: MAX_SIZE as u64 }).unwrap().unwrap();
+		let ticket = TicketOf::<T>::new(&noter, Footprint { count: 1, size: MAX_SIZE as u64 }).unwrap();
 		let s = RequestStatus::Requested { maybe_ticket: Some((noter, ticket)), count: 1, maybe_len: Some(MAX_SIZE) };
 		assert_eq!(RequestStatusFor::<T>::get(&hash), Some(s));
 	}

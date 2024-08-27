@@ -17,6 +17,7 @@
 
 //! Traits for encoding data related to pallet's storage items.
 
+use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
 use codec::{Encode, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
@@ -27,7 +28,6 @@ use sp_runtime::{
 	traits::{Convert, Member, Saturating},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// An instance of a pallet in the storage.
 ///
@@ -170,12 +170,19 @@ pub struct Footprint {
 }
 
 impl Footprint {
+	/// Construct a footprint directly from `items` and `len`.
 	pub fn from_parts(items: usize, len: usize) -> Self {
 		Self { count: items as u64, size: len as u64 }
 	}
 
+	/// Construct a footprint with one item, and size equal to the encoded size of `e`.
 	pub fn from_encodable(e: impl Encode) -> Self {
 		Self::from_parts(1, e.encoded_size())
+	}
+
+	/// Construct a footprint with one item, and size equal to the max encoded length of `E`.
+	pub fn from_mel<E: MaxEncodedLen>() -> Self {
+		Self::from_parts(1, E::max_encoded_len())
 	}
 }
 
@@ -194,7 +201,7 @@ where
 }
 
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
-/// holding some data `Footprint` (e.g. [`Footprint`]) in state.
+/// holding some data [`Footprint`] in state.
 ///
 /// The cost may be increased, reduced or dropped entirely as the footprint changes.
 ///
@@ -210,16 +217,14 @@ pub trait Consideration<AccountId, Footprint>:
 	Member + FullCodec + TypeInfo + MaxEncodedLen
 {
 	/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* ultimately
-	/// be consumed through `update` or `drop` once the footprint changes or is removed. `None`
-	/// implies no cost for a given footprint.
-	fn new(who: &AccountId, new: Footprint) -> Result<Option<Self>, DispatchError>;
+	/// be consumed through `update` or `drop` once the footprint changes or is removed.
+	fn new(who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
 	/// Optionally consume an old ticket and alter the footprint, enforcing the new cost to `who`
-	/// and returning the new ticket (or an error if there was an issue). `None` implies no cost for
-	/// a given footprint.
+	/// and returning the new ticket (or an error if there was an issue).
 	///
 	/// For creating tickets and dropping them, you can use the simpler `new` and `drop` instead.
-	fn update(self, who: &AccountId, new: Footprint) -> Result<Option<Self>, DispatchError>;
+	fn update(self, who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
 	/// Consume a ticket for some `old` footprint attributable to `who` which should now been freed.
 	fn drop(self, who: &AccountId) -> Result<(), DispatchError>;
@@ -232,17 +237,41 @@ pub trait Consideration<AccountId, Footprint>:
 	fn burn(self, _: &AccountId) {
 		let _ = self;
 	}
+	/// Ensure that creating a ticket for a given account and footprint will be successful if done
+	/// immediately after this call.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &AccountId, new: Footprint);
 }
 
 impl<A, F> Consideration<A, F> for () {
-	fn new(_: &A, _: F) -> Result<Option<Self>, DispatchError> {
-		Ok(Some(()))
+	fn new(_: &A, _: F) -> Result<Self, DispatchError> {
+		Ok(())
 	}
-	fn update(self, _: &A, _: F) -> Result<Option<Self>, DispatchError> {
-		Ok(Some(()))
+	fn update(self, _: &A, _: F) -> Result<(), DispatchError> {
+		Ok(())
 	}
 	fn drop(self, _: &A) -> Result<(), DispatchError> {
 		Ok(())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &A, _: F) {}
+}
+
+#[cfg(feature = "experimental")]
+/// An extension of the [`Consideration`] trait that allows for the management of tickets that may
+/// represent no cost. While the [`MaybeConsideration`] still requires proper handling, it
+/// introduces the ability to determine if a ticket represents no cost and can be safely forgotten
+/// without any side effects.
+pub trait MaybeConsideration<AccountId, Footprint>: Consideration<AccountId, Footprint> {
+	/// Returns `true` if this [`Consideration`] represents a no-cost ticket and can be forgotten
+	/// without any side effects.
+	fn is_none(&self) -> bool;
+}
+
+#[cfg(feature = "experimental")]
+impl<A, F> MaybeConsideration<A, F> for () {
+	fn is_none(&self) -> bool {
+		true
 	}
 }
 
@@ -288,7 +317,8 @@ impl_incrementable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::ConstU64;
+	use crate::BoundedVec;
+	use sp_core::{ConstU32, ConstU64};
 
 	#[test]
 	fn linear_storage_price_works() {
@@ -304,5 +334,18 @@ mod tests {
 		assert_eq!(p(1, 8), 31);
 
 		assert_eq!(p(u64::MAX, u64::MAX), u64::MAX);
+	}
+
+	#[test]
+	fn footprint_from_mel_works() {
+		let footprint = Footprint::from_mel::<(u8, BoundedVec<u8, ConstU32<9>>)>();
+		let expected_size = BoundedVec::<u8, ConstU32<9>>::max_encoded_len() as u64;
+		assert_eq!(expected_size, 10);
+		assert_eq!(footprint, Footprint { count: 1, size: expected_size + 1 });
+
+		let footprint = Footprint::from_mel::<(u8, BoundedVec<u8, ConstU32<999>>)>();
+		let expected_size = BoundedVec::<u8, ConstU32<999>>::max_encoded_len() as u64;
+		assert_eq!(expected_size, 1001);
+		assert_eq!(footprint, Footprint { count: 1, size: expected_size + 1 });
 	}
 }

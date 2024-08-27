@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_std::result;
+use core::result;
 use xcm::latest::prelude::*;
 
 pub trait MatchesFungible<Balance> {
