@@ -1388,6 +1388,8 @@ pub async fn start_approval_worker<
 	sync_oracle: Box<dyn SyncOracle + Send>,
 	metrics: Metrics,
 	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
+	task_name: &'static str,
+	group_name: &'static str,
 	clock: Arc<dyn Clock + Send + Sync>,
 ) -> SubsystemResult<()> {
 	let approval_voting = ApprovalVotingSubsystem::with_config_and_clock(
@@ -1402,8 +1404,8 @@ pub async fn start_approval_worker<
 	let backend = DbBackend::new(db.clone(), approval_voting.db_config);
 	let spawner = approval_voting.spawner.clone();
 	spawner.spawn_blocking(
-		"approval-voting-rewrite-db",
-		Some("approval-voting-rewrite-subsystem"),
+		task_name,
+		Some(group_name),
 		Box::pin(async move {
 			if let Err(err) = run(
 				work_provider,
@@ -2013,14 +2015,9 @@ async fn handle_from_overseer<
 		},
 		FromOrchestra::Communication { msg } => match msg {
 			ApprovalVotingMessage::ImportAssignment(checked_assignment, tx) => {
-				let (check_outcome, actions) = import_assignment(
-					sender,
-					state,
-					db,
-					session_info_provider,
-					checked_assignment,
-				)
-				.await?;
+				let (check_outcome, actions) =
+					import_assignment(sender, state, db, session_info_provider, checked_assignment)
+						.await?;
 				// approval-distribution makes sure this assignment is valid and expected,
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.
