@@ -11,7 +11,7 @@ doc:
 
 crates:
   - name: polkadot-sdk
-    bump: patch
+    bump: major
   - name: polkadot-sdk-frame
     bump: patch
   - name: sp-wasm-interface 
