@@ -127,6 +127,7 @@ impl pallet_assets::Config for Runtime {
 	type CallbackHandle = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	type DepositDestinationOnRevocation = ();
 }
 
 parameter_types! {
