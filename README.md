@@ -21,7 +21,8 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 ## ⚡ Quickstart
 If you want to get an example node running quickly you can execute the following getting started script:
 ```
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh > getting-started.sh && bash getting-started.sh
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh > getting-started.sh \
+&& bash getting-started.sh
 ```
 
 ## 📚 Documentation
