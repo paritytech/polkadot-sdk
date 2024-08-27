@@ -43,7 +43,10 @@ pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 
 /// Set balance that can be staked for `who`.
 ///
-/// This includes any balance that is already staked.
+/// If `value` is less than already staked, the difference is amount is unlocked. Otherwise,
+/// the difference is added to free balance.
+///
+/// Should only be used with test.
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
 	let reserved_balance = staked::<T>(who);
