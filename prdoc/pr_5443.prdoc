@@ -1,6 +1,6 @@
 crates:
 - name: frame-remote-externalities
-  validate: false
+  bump: patch
 doc:
 - audience: Runtime Dev
   description: as part of https://github.com/paritytech/devops/issues/3502, try-runtime
