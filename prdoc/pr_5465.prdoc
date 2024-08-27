@@ -1,10 +1,10 @@
-title: try-state check invariant for nomination-pools (points <= stake)
+title: try-state check invariant for nomination-pools (points >= stake)
 
 doc:
   - audience: Runtime Dev
     description: |
-      Invariants `ErasRewardPoints` should be less than or equals `ErasTotalStake`
+      The Invariant holds the Each Bonded pool's point must never be lower than the stake in the pool
 
 crates:
-  - name: pallet-staking
+  - name: pallet-nomination-pools
     bump: minor
