@@ -1009,7 +1009,9 @@ fn adding_and_removing_authorities_should_work() {
 fn set_username_with_signature_without_existing_identity_should_work() {
 	new_test_ext().execute_with(|| {
 		// set up authority
+		let initial_authority_balance = 1000;
 		let [authority, _] = unfunded_accounts();
+		Balances::make_free_balance_be(&authority, initial_authority_balance);
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -1020,7 +1022,7 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 		));
 
 		// set up username
-		let username = test_username_of(b"42".to_vec(), suffix);
+		let username = test_username_of(b"42".to_vec(), suffix.clone());
 
 		// set up user and sign message
 		let public = sr25519_generate(0.into(), None);
@@ -1029,14 +1031,15 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
 
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority),
+			RuntimeOrigin::signed(authority.clone()),
 			who_account.clone(),
 			username.clone().into(),
 			Some(signature),
 			true,
 		));
 
-		// Even though user has no balance and no identity, they get a default one for free.
+		// Even though user has no balance and no identity, the authority provides the username for
+		// free.
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 		// Lookup from username to account works.
 		let expected_user_info =
@@ -1044,6 +1047,61 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
 			Some(expected_user_info)
+		);
+		// No balance was reserved.
+		assert_eq!(Balances::free_balance(&authority), initial_authority_balance);
+		// But the allocation decreased.
+		assert_eq!(
+			UsernameAuthorities::<Test>::get(&Identity::suffix_of_username(&username).unwrap())
+				.unwrap()
+				.allocation,
+			9
+		);
+
+		// do the same for a username with a deposit
+		let username_deposit: BalanceOf<Test> = <Test as Config>::UsernameDeposit::get();
+		// set up username
+		let second_username = test_username_of(b"84".to_vec(), suffix.clone());
+
+		// set up user and sign message
+		let public = sr25519_generate(1.into(), None);
+		let second_who: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(1.into(), &public, &second_username[..]).unwrap());
+		// don't use the allocation this time
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			second_who.clone(),
+			second_username.clone().into(),
+			Some(signature),
+			false,
+		));
+
+		// Even though user has no balance and no identity, the authority placed the deposit for
+		// them.
+		assert_eq!(UsernameOf::<Test>::get(&second_who), Some(second_username.clone()));
+		// Lookup from username to account works.
+		let expected_user_info = UsernameInformation {
+			owner: second_who,
+			provider: Provider::Authority(username_deposit),
+		};
+		assert_eq!(
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&second_username),
+			Some(expected_user_info)
+		);
+		// The username deposit was reserved.
+		assert_eq!(
+			Balances::free_balance(&authority),
+			initial_authority_balance - username_deposit
+		);
+		// But the allocation was preserved.
+		assert_eq!(
+			UsernameAuthorities::<Test>::get(
+				&Identity::suffix_of_username(&second_username).unwrap()
+			)
+			.unwrap()
+			.allocation,
+			9
 		);
 	});
 }
@@ -1089,6 +1147,73 @@ fn set_username_with_signature_with_existing_identity_should_work() {
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 		let expected_user_info =
 			UsernameInformation { owner: who_account, provider: Provider::Governance };
+		assert_eq!(
+			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
+			Some(expected_user_info)
+		);
+	});
+}
+
+#[test]
+fn set_username_through_deposit_with_existing_identity_should_work() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let initial_authority_balance = 1000;
+		let [authority, _] = unfunded_accounts();
+		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		// set up username
+		let username = test_username_of(b"42".to_vec(), suffix);
+
+		// set up user and sign message
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
+
+		// Set an identity for who. They need some balance though.
+		Balances::make_free_balance_be(&who_account, 1000);
+		let ten_info = infoof_ten();
+		let expected_identity_deposit = Identity::calculate_identity_deposit(&ten_info);
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(who_account.clone()),
+			Box::new(ten_info.clone())
+		));
+		assert_eq!(
+			expected_identity_deposit,
+			IdentityOf::<Test>::get(&who_account).unwrap().deposit
+		);
+		assert_eq!(Balances::reserved_balance(&who_account), expected_identity_deposit);
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			who_account.clone(),
+			username.clone().into(),
+			Some(signature),
+			false,
+		));
+
+		let username_deposit: BalanceOf<Test> = <Test as Config>::UsernameDeposit::get();
+		// The authority placed the deposit for the username.
+		assert_eq!(
+			Balances::free_balance(&authority),
+			initial_authority_balance - username_deposit
+		);
+		// No extra balance was reserved from the user for the username.
+		assert_eq!(Balances::free_balance(&who_account), 1000 - expected_identity_deposit);
+		assert_eq!(Balances::reserved_balance(&who_account), expected_identity_deposit);
+		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
+		let expected_user_info = UsernameInformation {
+			owner: who_account,
+			provider: Provider::Authority(username_deposit),
+		};
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
 			Some(expected_user_info)
