@@ -232,6 +232,7 @@ pub struct RuntimeVersion {
 
 	/// Version of the system implementation used by this runtime.
 	/// Use of an incorrect version is consensus breaking.
+	#[cfg_attr(feature = "serde", serde(alias = "stateVersion"))]
 	pub system_version: u8,
 }
 
