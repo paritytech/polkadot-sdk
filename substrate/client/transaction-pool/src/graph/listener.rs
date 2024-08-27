@@ -115,9 +115,9 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	}
 
 	/// Transaction was dropped from the pool because of the limit.
-	// todo: we can do better,
-	// note: well, above documentation is not really accurate, so we need bool indicate the drop
-	// reason.
+	///
+	/// If the function was actually called due to enforcing limits, the `limits_enforced` flag
+	/// shall be set to true.
 	pub fn dropped(&mut self, tx: &H, by: Option<&H>, limits_enforced: bool) {
 		trace!(target: LOG_TARGET, "[{:?}] Dropped (replaced with {:?})", tx, by);
 		self.fire(tx, |watcher| match by {

@@ -157,8 +157,6 @@ where
 					},
 
 					event = futures::StreamExt::select_next_some(&mut ctx.stream_map) => {
-						//todo: add some logic ready + future and dropped processing
-						// txs: HashMap< Hash, HashSet<BlockHash>>
 						info!(target: LOG_TARGET, "dropped_watcher: select_next_some -> {:#?}", event);
 						if let Some(dropped) = ctx.handle_event(event.0, event.1) {
 							info!("dropped_watcher: sending out: {dropped:?}");

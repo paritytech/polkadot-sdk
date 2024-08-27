@@ -191,8 +191,12 @@ where
 			self.terminate = true;
 			true
 		} else {
-			//todo: this seems to be shitty, add debug / metrics, should we re-add (or not remove)
-			// tx to mempool
+			//todo:
+			// - add debug / metrics,
+			// - handle corner case:  this may happen when tx is invalid for mempool, but somehow
+			//   some view still sees it as ready/future. In that case we don't send the invalid
+			//   event, as transaction can still be included. Probably we should set some flag here
+			//   and allow for invalid sent from the view.
 			false
 		}
 	}
