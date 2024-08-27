@@ -28,10 +28,8 @@ impl<T: Config> Pallet<T> {
 
 	pub fn get_spend(project_account: ProjectId<T>) -> Vec<SpendIndex> {
 		let mut spends: Vec<SpendIndex> = Vec::new();
-		let value = Some(project_account);
-
 		for (index, info) in Spends::<T>::iter() {
-			if info.whitelisted_project == value {
+			if info.whitelisted_project == Some(project_account.clone()) {
 				spends.push(index);
 			}
 		}
@@ -41,17 +39,17 @@ impl<T: Config> Pallet<T> {
 
 	/// Series of checks on the Pot, to ensure that we have enough funds
 	/// before executing a Spend
-	pub fn pot_check(amount: BalanceOf<T>) -> DispatchResult {
+	pub fn pot_check(spend: BalanceOf<T>) -> DispatchResult {
 		// Get Pot account
 		let pot_account: AccountIdOf<T> = Self::pot_account();
 
 		// Check that the Pot as enough funds for the transfer
 		let balance = T::NativeBalance::balance(&pot_account);
 		let minimum_balance = T::NativeBalance::minimum_balance();
-		let remaining_balance = balance.saturating_sub(amount);
+		let remaining_balance = balance.saturating_sub(spend);
 
 		ensure!(remaining_balance > minimum_balance, Error::<T>::InsufficientPotReserves);
-		ensure!(balance > amount, Error::<T>::InsufficientPotReserves);
+		ensure!(balance > spend, Error::<T>::InsufficientPotReserves);
 		Ok(())
 	}
 
@@ -92,35 +90,31 @@ impl<T: Config> Pallet<T> {
 				for project in projects.clone(){
 					// check if the pot has enough fund for the Spend
 					let check = Self::pot_check(project.amount);
-					let _result = match check {
-						Ok(x) => {
-							// Create a new Spend
-							let new_spend = SpendInfo::<T>::new(&project);
+					if check.is_ok(){
+						// Create a new Spend
+						let new_spend = SpendInfo::<T>::new(&project);
 
-							// Reserve funds for the project
-							let pot = Self::pot_account();
-							let _ = T::NativeBalance::hold(
-								&HoldReason::FundsReserved.into(),
-								&pot,
-								project.amount,
-							)
-							.map_err(|_| Error::<T>::FundsReserveFailed);
+						// Reserve funds for the project
+						let pot = Self::pot_account();
+						let _ = T::NativeBalance::hold(
+							&HoldReason::FundsReserved.into(),
+							&pot,
+							project.amount,
+						)
+						.expect("Funds Reserve Failed");
 
-							// Remove project from project_list
-							projects.retain(|value| *value != project);
+						// Remove project from project_list
+						projects.retain(|value| *value != project);
 
-							// Emmit an event
-							let now = T::BlockNumberProvider::current_block_number();
-							Self::deposit_event(Event::SpendCreated {
-								when: now,
-								amount: new_spend.amount,
-								project_account: project.project_account
-							});
-
-							Ok(x)
-						},
-						Err(_e) => Err(Error::<T>::InsufficientPotReserves),
-					};
+						// Emmit an event
+						let now = T::BlockNumberProvider::current_block_number();
+						Self::deposit_event(Event::SpendCreated {
+							when: now,
+							amount: new_spend.amount,
+							project_account: project.project_account
+						});
+					}
+					 
 				}
 			}
 
