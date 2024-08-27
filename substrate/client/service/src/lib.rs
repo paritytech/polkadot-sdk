@@ -85,7 +85,7 @@ pub use sc_chain_spec::{
 
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
-pub use sc_network_sync::WarpSyncParams;
+pub use sc_network_sync::WarpSyncConfig;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
 pub use sc_rpc::{RandomIntegerSubscriptionId, RandomStringSubscriptionId};
@@ -342,7 +342,7 @@ pub async fn build_system_rpc_future<
 			sc_rpc::system::Request::SyncState(sender) => {
 				use sc_rpc::system::SyncState;
 
-				match sync_service.best_seen_block().await {
+				match sync_service.status().await.map(|status| status.best_seen_block) {
 					Ok(best_seen_block) => {
 						let best_number = client.info().best_number;
 						let _ = sender.send(SyncState {
