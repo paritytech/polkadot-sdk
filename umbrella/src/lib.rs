@@ -580,6 +580,10 @@ pub use pallet_remark;
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
 
+/// Fixtures for testing and benchmarking.
+#[cfg(feature = "pallet-revive-fixtures")]
+pub use pallet_revive_fixtures;
+
 /// A mock network for testing pallet-revive.
 #[cfg(feature = "pallet-revive-mock-network")]
 pub use pallet_revive_mock_network;
