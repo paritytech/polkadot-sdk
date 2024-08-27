@@ -14,17 +14,9 @@ pub fn total_issuance<T: Config>() -> BalanceOf<T> {
 	T::Currency::total_issuance()
 }
 
-/// Set balance that can be staked for `who`.
-///
-/// This includes any balance that is already staked.
-pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
-	T::Currency::make_free_balance_be(who, value);
-}
-
-/// Burn the amount from the total issuance.
-#[cfg(feature = "runtime-benchmarks")]
-pub fn burn<T: Config>(amount: BalanceOf<T>) -> PositiveImbalanceOf<T> {
-	T::Currency::burn(amount)
+/// Total balance of `who`. Includes both, free and reserved.
+pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
+	T::Currency::total_balance(who)
 }
 
 /// Stakeable balance of `who`.
@@ -34,16 +26,18 @@ pub fn stakeable_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::free_balance(who)
 }
 
-/// Total balance of an account. Includes both, free and reserved.
-pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
-	T::Currency::total_balance(who)
-}
-
-/// Balance of `who` that is at stake.
+/// Balance of `who` that is currently at stake.
 ///
 /// The staked amount is locked and cannot be transferred out of `who`s account.
 pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::balance_locked(crate::STAKING_ID, who)
+}
+
+/// Set balance that can be staked for `who`.
+///
+/// This includes any balance that is already staked.
+pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
+	T::Currency::make_free_balance_be(who, value);
 }
 
 /// Update `amount` at stake for `who`.
@@ -103,4 +97,10 @@ pub fn deposit_slashed<T: Config>(who: &T::AccountId, value: NegativeImbalanceOf
 /// Creates a negative imbalance.
 pub fn issue<T: Config>(value: BalanceOf<T>) -> NegativeImbalanceOf<T> {
 	T::Currency::issue(value)
+}
+
+/// Burn the amount from the total issuance.
+#[cfg(feature = "runtime-benchmarks")]
+pub fn burn<T: Config>(amount: BalanceOf<T>) -> PositiveImbalanceOf<T> {
+	T::Currency::burn(amount)
 }
