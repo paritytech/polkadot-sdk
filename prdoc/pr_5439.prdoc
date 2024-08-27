@@ -12,3 +12,5 @@ doc:
 crates:
   - name: cumulus-pallet-parachain-system
     bump: major
+  - name: cumulus-pallet-xcmp-queue
+    bump: none
