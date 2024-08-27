@@ -63,8 +63,9 @@ use crate::{
 	criteria::{AssignmentCriteria, OurAssignment},
 	get_extended_session_info, get_session_info,
 	persisted_entries::CandidateEntry,
-	time::{slot_number_to_tick, Tick},
 };
+
+use polkadot_node_primitives::approval::time::{slot_number_to_tick, Tick};
 
 use super::{State, LOG_TARGET};
 
@@ -621,6 +622,7 @@ pub(crate) mod tests {
 		approval_db::common::{load_block_entry, DbBackend},
 		RuntimeInfo, RuntimeInfoConfig, MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 	};
+	use approval_types::time::Clock;
 	use assert_matches::assert_matches;
 	use polkadot_node_primitives::{
 		approval::v1::{VrfSignature, VrfTranscript},
@@ -657,7 +659,7 @@ pub(crate) mod tests {
 	#[derive(Default)]
 	struct MockClock;
 
-	impl crate::time::Clock for MockClock {
+	impl Clock for MockClock {
 		fn tick_now(&self) -> Tick {
 			42 // chosen by fair dice roll
 		}

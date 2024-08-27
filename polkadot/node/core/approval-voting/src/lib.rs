@@ -93,7 +93,9 @@ use approval_checking::RequiredTranches;
 use bitvec::{order::Lsb0, vec::BitVec};
 pub use criteria::{AssignmentCriteria, Config as AssignmentConfig, RealAssignmentCriteria};
 use persisted_entries::{ApprovalEntry, BlockEntry, CandidateEntry};
-use time::{slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick};
+use polkadot_node_primitives::approval::time::{
+	slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick,
+};
 
 mod approval_checking;
 pub mod approval_db;
@@ -102,7 +104,6 @@ pub mod criteria;
 mod import;
 mod ops;
 mod persisted_entries;
-pub mod time;
 
 use crate::{
 	approval_checking::{Check, TranchesToApproveResult},
@@ -123,7 +124,6 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
 const APPROVAL_CACHE_SIZE: u32 = 1024;
 
-pub const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
 const APPROVAL_DELAY: Tick = 2;
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting";
 

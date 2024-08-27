@@ -17,7 +17,6 @@
 use super::*;
 use assert_matches::assert_matches;
 use futures::{channel::oneshot, executor, future, Future};
-use polkadot_node_core_approval_voting::criteria;
 use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	our_view,
@@ -25,6 +24,7 @@ use polkadot_node_network_protocol::{
 	view, ObservedRole,
 };
 use polkadot_node_primitives::approval::{
+	criteria,
 	v1::{
 		AssignmentCert, AssignmentCertKind, IndirectAssignmentCert, IndirectSignedApprovalVote,
 		VrfPreOutput, VrfProof, VrfSignature,
@@ -53,7 +53,7 @@ type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalDistributionMessage>;
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
-	assignment_criteria: &impl AssignmentCriteria,
+	assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
 	clock: Box<dyn Clock + Send + Sync>,
 	mut state: State,
 	test_fn: impl FnOnce(VirtualOverseer) -> T,
@@ -64,22 +64,32 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let (context, virtual_overseer) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
-	let subsystem =
-		ApprovalDistribution::new_with_clock(Metrics::default(), Default::default(), clock);
+	let subsystem = ApprovalDistribution::new_with_clock(
+		Metrics::default(),
+		Default::default(),
+		clock,
+		assignment_criteria,
+	);
 	{
 		let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(12345);
 		let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
 			keystore: None,
 			session_cache_lru_size: DISPUTE_WINDOW.get(),
 		});
-		let subsystem = subsystem.run_inner(
-			context,
-			&mut state,
-			REPUTATION_CHANGE_TEST_INTERVAL,
-			&mut rng,
-			assignment_criteria,
-			&mut session_info_provider,
-		);
+
+		let (tx, rx) = oneshot::channel();
+		let subsystem = async {
+			subsystem
+				.run_inner(
+					context,
+					&mut state,
+					REPUTATION_CHANGE_TEST_INTERVAL,
+					&mut rng,
+					&mut session_info_provider,
+				)
+				.await;
+			tx.send(()).expect("Fail to notify subystem is done");
+		};
 
 		let test_fut = test_fn(virtual_overseer);
 
@@ -94,6 +104,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 					.timeout(TIMEOUT)
 					.await
 					.expect("Conclude send timeout");
+				let _ =
+					rx.timeout(Duration::from_secs(2)).await.expect("Subsystem did not conclude");
 			},
 			subsystem,
 		));
@@ -543,7 +555,7 @@ fn try_import_the_same_assignment() {
 	let hash = Hash::repeat_byte(0xAA);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -649,7 +661,7 @@ fn try_import_the_same_assignment_v2() {
 	let hash = Hash::repeat_byte(0xAA);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -760,7 +772,7 @@ fn delay_reputation_change() {
 	let hash = Hash::repeat_byte(0xAA);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_with_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -833,7 +845,7 @@ fn spam_attack_results_in_negative_reputation_change() {
 	let hash_b = Hash::repeat_byte(0xBB);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -930,7 +942,7 @@ fn peer_sending_us_the_same_we_just_sent_them_is_ok() {
 	let peer_a = peers.first().unwrap().0;
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -1031,7 +1043,7 @@ fn import_approval_happy_path_v1_v2_peers() {
 	let candidate_hash = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xBB));
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -1171,7 +1183,7 @@ fn import_approval_happy_path_v2() {
 	let candidate_hash_first = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xBB));
 	let candidate_hash_second = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xCC));
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -1302,7 +1314,7 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 	let candidate_hash_second = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xCC));
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -1512,7 +1524,7 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 	let candidate_hash_second = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xCC));
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -1711,7 +1723,7 @@ fn import_approval_bad() {
 	let diff_candidate_hash = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xCC));
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -1798,7 +1810,7 @@ fn update_our_view() {
 	let hash_c = Hash::repeat_byte(0xCC);
 
 	let state = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
@@ -1846,7 +1858,7 @@ fn update_our_view() {
 	assert!(state.blocks.get(&hash_c).is_some());
 
 	let state = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
@@ -1865,7 +1877,7 @@ fn update_our_view() {
 	assert!(state.blocks.get(&hash_c).is_some());
 
 	let state = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
@@ -1893,7 +1905,7 @@ fn update_peer_view() {
 	let peer = &peer_a;
 
 	let state = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
@@ -1992,7 +2004,7 @@ fn update_peer_view() {
 	);
 
 	let state = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
@@ -2052,7 +2064,7 @@ fn update_peer_view() {
 
 	let finalized_number = 4_000_000_000;
 	let state = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
@@ -2094,7 +2106,7 @@ fn update_peer_authority_id() {
 	let neighbour_y = peers.get(neighbour_y_index).unwrap().0;
 
 	let _state = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
@@ -2275,7 +2287,7 @@ fn import_remotely_then_locally() {
 	let peer = &peer_a;
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -2381,7 +2393,7 @@ fn sends_assignments_even_when_state_is_approved() {
 	let peer = &peer_a;
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
@@ -2487,7 +2499,7 @@ fn sends_assignments_even_when_state_is_approved_v2() {
 	let peer = &peer_a;
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
@@ -2613,7 +2625,7 @@ fn race_condition_in_local_vs_remote_view_update() {
 	let hash_b = Hash::repeat_byte(0xBB);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -2699,7 +2711,7 @@ fn propagates_locally_generated_assignment_to_both_dimensions() {
 	let peers = make_peers_and_authority_ids(100);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
@@ -2829,7 +2841,7 @@ fn propagates_assignments_along_unshared_dimension() {
 	let peers = make_peers_and_authority_ids(100);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -2988,7 +3000,7 @@ fn propagates_to_required_after_connect() {
 	let peers = make_peers_and_authority_ids(100);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
@@ -3153,7 +3165,7 @@ fn sends_to_more_peers_after_getting_topology() {
 	let peers = make_peers_and_authority_ids(100);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
@@ -3291,7 +3303,7 @@ fn originator_aggression_l1() {
 	let aggression_l1_threshold = state.aggression_config.l1_threshold.unwrap();
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
@@ -3472,7 +3484,7 @@ fn non_originator_aggression_l1() {
 	let aggression_l1_threshold = state.aggression_config.l1_threshold.unwrap();
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
@@ -3597,7 +3609,7 @@ fn non_originator_aggression_l2() {
 	let aggression_l1_threshold = state.aggression_config.l1_threshold.unwrap();
 	let aggression_l2_threshold = state.aggression_config.l2_threshold.unwrap();
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
@@ -3782,7 +3794,7 @@ fn resends_messages_periodically() {
 	state.aggression_config.l2_threshold = None;
 	state.aggression_config.resend_unfinalized_period = Some(2);
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
@@ -3946,7 +3958,7 @@ fn import_versioned_approval() {
 	let state = state_without_reputation_delay();
 	let candidate_hash = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xBB));
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
@@ -4121,6 +4133,7 @@ fn batch_test_round(message_count: usize) {
 		Default::default(),
 		Default::default(),
 		Box::new(SystemClock {}),
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 	);
 	let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(12345);
 	let mut sender = context.sender().clone();
@@ -4134,7 +4147,6 @@ fn batch_test_round(message_count: usize) {
 		&mut state,
 		REPUTATION_CHANGE_TEST_INTERVAL,
 		&mut rng,
-		&MockAssignmentCriteria { tranche: Ok(0) },
 		&mut session_info_provider,
 	);
 
@@ -4285,13 +4297,13 @@ fn const_ensure_size_not_zero() {
 
 struct DummyClock;
 impl Clock for DummyClock {
-	fn tick_now(&self) -> polkadot_node_core_approval_voting::time::Tick {
+	fn tick_now(&self) -> polkadot_node_primitives::approval::time::Tick {
 		0
 	}
 
 	fn wait(
 		&self,
-		_tick: polkadot_node_core_approval_voting::time::Tick,
+		_tick: polkadot_node_primitives::approval::time::Tick,
 	) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send + 'static>> {
 		todo!()
 	}
@@ -4306,7 +4318,7 @@ fn subsystem_rejects_assignment_in_future() {
 	let hash = Hash::repeat_byte(0xAA);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(89) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(89) }),
 		Box::new(DummyClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -4370,9 +4382,9 @@ fn subsystem_rejects_bad_assignments() {
 	let hash = Hash::repeat_byte(0xAA);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria {
+		Arc::new(MockAssignmentCriteria {
 			tranche: Err(InvalidAssignment(criteria::InvalidAssignmentReason::NullAssignment)),
-		},
+		}),
 		Box::new(DummyClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -4435,7 +4447,7 @@ fn subsystem_rejects_wrong_claimed_assignments() {
 	let hash = Hash::repeat_byte(0xAA);
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(DummyClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
@@ -4519,7 +4531,7 @@ fn subsystem_accepts_tranche0_duplicate_assignments() {
 	let candidate_hash_fourth = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xBB));
 
 	let _ = test_harness(
-		&MockAssignmentCriteria { tranche: Ok(0) },
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 		Box::new(DummyClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
