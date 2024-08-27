@@ -962,6 +962,21 @@ fn update_our_view<Context>(
 		)
 	};
 
+	let our_view = OurView::new(
+		live_heads.iter().take(MAX_VIEW_HEADS).cloned().map(|a| (a.hash, a.span)),
+		finalized_number,
+	);
+
+	dispatch_validation_event_to_all_unbounded(
+		NetworkBridgeEvent::OurViewChange(our_view.clone()),
+		ctx.sender(),
+	);
+
+	dispatch_collation_event_to_all_unbounded(
+		NetworkBridgeEvent::OurViewChange(our_view),
+		ctx.sender(),
+	);
+
 	let v1_validation_peers =
 		filter_by_peer_version(&validation_peers, ValidationVersion::V1.into());
 	let v1_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V1.into());
@@ -1006,21 +1021,6 @@ fn update_our_view<Context>(
 		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 		notification_sinks,
-	);
-
-	let our_view = OurView::new(
-		live_heads.iter().take(MAX_VIEW_HEADS).cloned().map(|a| (a.hash, a.span)),
-		finalized_number,
-	);
-
-	dispatch_validation_event_to_all_unbounded(
-		NetworkBridgeEvent::OurViewChange(our_view.clone()),
-		ctx.sender(),
-	);
-
-	dispatch_collation_event_to_all_unbounded(
-		NetworkBridgeEvent::OurViewChange(our_view),
-		ctx.sender(),
 	);
 }
 

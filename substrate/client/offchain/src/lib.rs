@@ -481,7 +481,7 @@ mod tests {
 		let (client, backend) = substrate_test_runtime_client::TestClientBuilder::new()
 			.enable_offchain_indexing_api()
 			.build_with_backend();
-		let mut client = Arc::new(client);
+		let client = Arc::new(client);
 		let offchain_db = backend.offchain_storage().unwrap();
 
 		let key = &b"hello"[..];

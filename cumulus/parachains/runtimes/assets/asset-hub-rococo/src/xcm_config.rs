@@ -65,7 +65,6 @@ use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const TokenLocation: Location = Location::parent();
-	pub const TokenLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Rococo;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
@@ -74,8 +73,6 @@ parameter_types! {
 	pub TrustBackedAssetsPalletLocation: Location =
 		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
 	pub TrustBackedAssetsPalletIndex: u8 = <Assets as PalletInfoAccess>::index() as u8;
-	pub TrustBackedAssetsPalletLocationV3: xcm::v3::Location =
-		xcm::v3::Junction::PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
 	pub ForeignAssetsPalletLocation: Location =
 		PalletInstance(<ForeignAssets as PalletInfoAccess>::index() as u8).into();
 	pub PoolAssetsPalletLocation: Location =
@@ -177,7 +174,7 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
 	),
 	Balance,
-	xcm::v3::Location,
+	xcm::v4::Location,
 >;
 
 /// Means for transacting foreign assets from different global consensus.
@@ -361,7 +358,7 @@ impl xcm_executor::Config for XcmConfig {
 			ResolveTo<StakingPot, Balances>,
 		>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
-			TokenLocationV3,
+			TokenLocation,
 			crate::AssetConversion,
 			WeightToFee,
 			crate::NativeAndAssets,
@@ -369,7 +366,7 @@ impl xcm_executor::Config for XcmConfig {
 				TrustBackedAssetsAsLocation<
 					TrustBackedAssetsPalletLocation,
 					Balance,
-					xcm::v3::Location,
+					xcm::v4::Location,
 				>,
 				ForeignAssetsConvertedConcreteId,
 			),
@@ -502,9 +499,9 @@ pub type ForeignCreatorsSovereignAccountOf = (
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<xcm::v3::Location> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> xcm::v3::Location {
-		xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(id)])
+impl pallet_assets::BenchmarkHelper<xcm::v4::Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> xcm::v4::Location {
+		xcm::v4::Location::new(1, [xcm::v4::Junction::Parachain(id)])
 	}
 }
 

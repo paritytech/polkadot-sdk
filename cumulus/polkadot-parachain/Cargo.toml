@@ -2,9 +2,9 @@
 name = "polkadot-parachain-bin"
 version = "4.0.0"
 authors.workspace = true
-build = "build.rs"
 edition.workspace = true
-description = "Runs a polkadot parachain node which could be a collator."
+build = "build.rs"
+description = "Runs a polkadot parachain node"
 license = "Apache-2.0"
 
 [lints]
@@ -15,19 +15,14 @@ name = "polkadot-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = { workspace = true }
-clap = { features = ["derive"], workspace = true }
-codec = { workspace = true, default-features = true }
 color-eyre = { workspace = true }
-color-print = { workspace = true }
-futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-docify = { workspace = true }
 
 # Local
+polkadot-parachain-lib = { features = ["rococo-native", "westend-native"], workspace = true }
 rococo-parachain-runtime = { workspace = true }
 shell-runtime = { workspace = true }
 glutton-westend-runtime = { workspace = true }
@@ -41,7 +36,6 @@ coretime-rococo-runtime = { workspace = true }
 coretime-westend-runtime = { workspace = true }
 bridge-hub-westend-runtime = { workspace = true, default-features = true }
 penpal-runtime = { workspace = true }
-jsonrpsee = { features = ["server"], workspace = true }
 people-rococo-runtime = { workspace = true }
 people-westend-runtime = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
@@ -51,83 +45,32 @@ testnet-parachains-constants = { features = [
 ], workspace = true }
 
 # Substrate
-frame-benchmarking = { workspace = true, default-features = true }
-frame-benchmarking-cli = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
-sp-io = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-sp-session = { workspace = true, default-features = true }
-frame-try-runtime = { optional = true, workspace = true, default-features = true }
-sc-consensus = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-frame-support = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-executor = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
-sc-telemetry = { workspace = true, default-features = true }
-sc-transaction-pool = { workspace = true, default-features = true }
-sp-transaction-pool = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-network-sync = { workspace = true, default-features = true }
-sc-basic-authorship = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-genesis-builder = { workspace = true }
-sp-block-builder = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
-sc-rpc = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
-sc-tracing = { workspace = true, default-features = true }
-sp-offchain = { workspace = true, default-features = true }
-frame-system-rpc-runtime-api = { workspace = true, default-features = true }
-pallet-transaction-payment = { workspace = true, default-features = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
-sp-inherents = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-consensus-aura = { workspace = true, default-features = true }
-sc-sysinfo = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
-substrate-frame-rpc-system = { workspace = true, default-features = true }
-pallet-transaction-payment-rpc = { workspace = true, default-features = true }
-substrate-state-trie-migration-rpc = { workspace = true, default-features = true }
 
 # Polkadot
-# Use rococo-native as this is currently the default "local" relay chain
-polkadot-cli = { features = ["rococo-native", "westend-native"], workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
 polkadot-service = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 
 # Cumulus
-cumulus-client-cli = { workspace = true, default-features = true }
-cumulus-client-collator = { workspace = true, default-features = true }
-cumulus-client-consensus-aura = { workspace = true, default-features = true }
-cumulus-client-consensus-relay-chain = { workspace = true, default-features = true }
-cumulus-client-consensus-common = { workspace = true, default-features = true }
-cumulus-client-consensus-proposer = { workspace = true, default-features = true }
-cumulus-client-parachain-inherent = { workspace = true, default-features = true }
-cumulus-client-service = { workspace = true, default-features = true }
-cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
-cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
 
-[dev-dependencies]
-assert_cmd = { workspace = true }
-nix = { features = ["signal"], workspace = true }
-tempfile = { workspace = true }
-tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
-wait-timeout = { workspace = true }
-
 [features]
 default = []
 runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-parachain-lib/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+
 	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
@@ -136,23 +79,17 @@ runtime-benchmarks = [
 	"contracts-rococo-runtime/runtime-benchmarks",
 	"coretime-rococo-runtime/runtime-benchmarks",
 	"coretime-westend-runtime/runtime-benchmarks",
-	"cumulus-primitives-core/runtime-benchmarks",
-	"frame-benchmarking-cli/runtime-benchmarks",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
 	"glutton-westend-runtime/runtime-benchmarks",
-	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
 	"people-rococo-runtime/runtime-benchmarks",
 	"people-westend-runtime/runtime-benchmarks",
-	"polkadot-cli/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-service/runtime-benchmarks",
 	"rococo-parachain-runtime/runtime-benchmarks",
-	"sc-service/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
+	"polkadot-parachain-lib/try-runtime",
+	"polkadot-service/try-runtime",
+	"sp-runtime/try-runtime",
+
 	"asset-hub-rococo-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",
 	"bridge-hub-rococo-runtime/try-runtime",
@@ -161,17 +98,11 @@ try-runtime = [
 	"contracts-rococo-runtime/try-runtime",
 	"coretime-rococo-runtime/try-runtime",
 	"coretime-westend-runtime/try-runtime",
-	"frame-support/try-runtime",
-	"frame-try-runtime/try-runtime",
 	"glutton-westend-runtime/try-runtime",
-	"pallet-transaction-payment/try-runtime",
 	"penpal-runtime/try-runtime",
 	"people-rococo-runtime/try-runtime",
 	"people-westend-runtime/try-runtime",
-	"polkadot-cli/try-runtime",
-	"polkadot-service/try-runtime",
 	"shell-runtime/try-runtime",
-	"sp-runtime/try-runtime",
 ]
 fast-runtime = [
 	"bridge-hub-rococo-runtime/fast-runtime",

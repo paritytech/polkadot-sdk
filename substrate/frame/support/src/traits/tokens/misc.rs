@@ -98,7 +98,7 @@ pub enum WithdrawConsequence<Balance> {
 	/// There has been an overflow in the system. This is indicative of a corrupt state and
 	/// likely unrecoverable.
 	Overflow,
-	/// Not enough of the funds in the account are unavailable for withdrawal.
+	/// Not enough of the funds in the account are available for withdrawal.
 	Frozen,
 	/// Account balance would reduce to zero, potentially destroying it. The parameter is the
 	/// amount of balance which is destroyed.
