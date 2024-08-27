@@ -420,6 +420,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -659,6 +665,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.<span class="kw">await
 			</span>);
 
+			<span class="kw">let </span>allowed_pov_size = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"full-pov-size"</span>) {
+				validation_data.max_pov_size
+			} <span class="kw">else </span>{
+				<span class="comment">// Set the block limit to 50% of the maximum PoV size.
+				//
+				// TODO: If we got benchmarking that includes the proof size,
+				// we should be able to use the maximum pov size.
+				</span>validation_data.max_pov_size / <span class="number">2
+			</span>} <span class="kw">as </span>usize;
+
 			<span class="kw">let </span>maybe_collation = <span class="macro">try_request!</span>(
 				collator
 					.collate(
@@ -667,11 +683,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">None</span>,
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
-						<span class="comment">// Set the block limit to 50% of the maximum PoV size.
-						//
-						// TODO: If we got benchmarking that includes the proof size,
-						// we should be able to use the maximum pov size.
-						</span>(validation_data.max_pov_size / <span class="number">2</span>) <span class="kw">as </span>usize,
+						allowed_pov_size,
 					)
 					.<span class="kw">await
 			</span>);

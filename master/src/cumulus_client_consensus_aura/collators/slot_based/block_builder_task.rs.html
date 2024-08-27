@@ -641,6 +641,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -993,6 +999,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.<span class="kw">await</span>;
 
+			<span class="kw">let </span>allowed_pov_size = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"full-pov-size"</span>) {
+				validation_data.max_pov_size
+			} <span class="kw">else </span>{
+				<span class="comment">// Set the block limit to 50% of the maximum PoV size.
+				//
+				// TODO: If we got benchmarking that includes the proof size,
+				// we should be able to use the maximum pov size.
+				</span>validation_data.max_pov_size / <span class="number">2
+			</span>} <span class="kw">as </span>usize;
+
 			<span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(candidate)) = collator
 				.build_block_and_import(
 					<span class="kw-2">&amp;</span>parent_header,
@@ -1000,11 +1016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">None</span>,
 					(parachain_inherent_data, other_inherent_data),
 					authoring_duration,
-					<span class="comment">// Set the block limit to 50% of the maximum PoV size.
-					//
-					// TODO: If we got benchmarking that includes the proof size,
-					// we should be able to use the maximum pov size.
-					</span>(validation_data.max_pov_size / <span class="number">2</span>) <span class="kw">as </span>usize,
+					allowed_pov_size,
 				)
 				.<span class="kw">await
 			else </span>{
