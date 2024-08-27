@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724759006969,
+  "lastUpdate": 1724781720081,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -16261,6 +16261,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.838725640100085,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Frazz",
+            "username": "Sudo-Whodo",
+            "email": "59382025+Sudo-Whodo@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7a2c5375fa4b950f9518a47c87d92bd611b1bfdc",
+          "message": "Adding stkd bootnodes (#5470)\n\nOpening this PR to add our bootnodes for the IBP. These nodes are\nlocated in Santiago Chile, we own and manage the underlying hardware. If\nyou need any more information please let me know.\n\n\nCommands to test:\n\n```\n./polkadot --tmp --name \"testing-bootnode\" --chain kusama --reserved-only --reserved-nodes \"/dns/kusama.bootnode.stkd.io/tcp/30633/wss/p2p/12D3KooWJHhnF64TXSmyxNkhPkXAHtYNRy86LuvGQu1LTi5vrJCL\" --no-hardware-benchmarks\n\n./polkadot --tmp --name \"testing-bootnode\" --chain paseo --reserved-only --reserved-nodes \"/dns/paseo.bootnode.stkd.io/tcp/30633/wss/p2p/12D3KooWMdND5nwfCs5M2rfp5kyRo41BGDgD8V67rVRaB3acgZ53\" --no-hardware-benchmarks\n\n./polkadot --tmp --name \"testing-bootnode\" --chain polkadot --reserved-only --reserved-nodes \"/dns/polkadot.bootnode.stkd.io/tcp/30633/wss/p2p/12D3KooWEymrFRHz6c17YP3FAyd8kXS5gMRLgkW4U77ZJD2ZNCLZ\" --no-hardware-benchmarks\n\n./polkadot --tmp --name \"testing-bootnode\" --chain westend --reserved-only --reserved-nodes \"/dns/westend.bootnode.stkd.io/tcp/30633/wss/p2p/12D3KooWHaQKkJiTPqeNgqDcW7dfYgJxYwT8YqJMtTkueSu6378V\" --no-hardware-benchmarks\n```",
+          "timestamp": "2024-08-27T16:23:17Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7a2c5375fa4b950f9518a47c87d92bd611b1bfdc"
+        },
+        "date": 1724781692155,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63983.97000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 5.978988129619966,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.2195390776900874,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.769498369179951,
             "unit": "seconds"
           }
         ]
