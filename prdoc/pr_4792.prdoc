@@ -32,30 +32,31 @@ crates:
     bump: major
   - name: sc-service
     bump: major
+  - name: sc-rpc-api
+    bump: patch
+  - name: polkadot-dispute-distribution
+    bump: patch
+  - name: polkadot-parachain-lib
+    bump: patch
+  - name: substrate-frame-rpc-system
+    bump: major
+  - name: substrate-state-trie-migration-rpc
+    bump: major
   - name: cumulus-client-cli
     bump: major
     validate: false
-  - name: polkadot-rpc
-    bump: major
-    validate: false
-  - name: sc-consensus-babe-rpc
+  - name: sc-consensus-beefy-rpc
     bump: major
     validate: false
   - name: sc-consensus-grandpa-rpc
     bump: major
     validate: false
-  - name: sc-rpc-api
-    bump: patch
-  - name: polkadot-service
-    bump: major
-  - name: polkadot-dispute-distribution
-    bump: patch
-  - name: polkadot-parachain-lib
-    bump: patch
-  - name: sc-consensus-beefy-rpc
+  - name: sc-consensus-babe-rpc
     bump: major
     validate: false
-  - name: substrate-frame-rpc-system
+  - name: polkadot-rpc
     bump: major
-  - name: substrate-state-trie-migration-rpc
+    validate: false
+  - name: polkadot-service
     bump: major
+    validate: false
