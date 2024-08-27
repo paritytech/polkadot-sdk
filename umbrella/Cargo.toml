@@ -120,7 +120,6 @@ std = [
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
 	"pallet-remark?/std",
-	"pallet-revive-fixtures?/std",
 	"pallet-revive-mock-network?/std",
 	"pallet-revive?/std",
 	"pallet-root-offences?/std",
@@ -651,7 +650,6 @@ runtime = [
 	"pallet-referenda",
 	"pallet-remark",
 	"pallet-revive",
-	"pallet-revive-fixtures",
 	"pallet-revive-proc-macro",
 	"pallet-revive-uapi",
 	"pallet-root-offences",
@@ -774,7 +772,6 @@ tuples-96 = [
 	"frame-support?/tuples-96",
 ]
 riscv = [
-	"pallet-revive-fixtures?/riscv",
 	"pallet-revive?/riscv",
 ]
 
@@ -1346,11 +1343,6 @@ optional = true
 
 [dependencies.pallet-revive]
 path = "../substrate/frame/revive"
-default-features = false
-optional = true
-
-[dependencies.pallet-revive-fixtures]
-path = "../substrate/frame/revive/fixtures"
 default-features = false
 optional = true
 

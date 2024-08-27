@@ -14393,7 +14393,6 @@ dependencies = [
  "pallet-referenda",
  "pallet-remark",
  "pallet-revive",
- "pallet-revive-fixtures",
  "pallet-revive-mock-network",
  "pallet-revive-proc-macro",
  "pallet-revive-uapi",
