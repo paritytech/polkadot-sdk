@@ -25,7 +25,7 @@ use alloc::{
 };
 use frame_support::{pallet_prelude::*, traits::DisabledValidators};
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{SessionIndex, ValidatorId, ValidatorIndex};
+use polkadot_primitives::{CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex};
 use sp_runtime::traits::AtLeast32BitUnsigned;
 
 use rand::{seq::SliceRandom, SeedableRng};
@@ -43,16 +43,25 @@ pub(crate) const SESSION_DELAY: SessionIndex = 2;
 #[cfg(test)]
 mod tests;
 
-/// Information about past relay-parents.
+/// Information about a relay parent.
+#[derive(Encode, Decode, Default, TypeInfo, Debug)]
+pub struct RelayParentInfo<Hash> {
+	// Relay parent hash
+	pub relay_parent: Hash,
+	// The state root at this block
+	pub state_root: Hash,
+	// Claim queue snapshot
+	pub claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
+}
+
+/// Keeps tracks of information about all viable relay parents.
 #[derive(Encode, Decode, Default, TypeInfo)]
 pub struct AllowedRelayParentsTracker<Hash, BlockNumber> {
-	// The past relay parents, paired with state roots, that are viable to build upon.
+	// Information about past relay parents that are viable to build upon.
 	//
 	// They are in ascending chronologic order, so the newest relay parents are at
 	// the back of the deque.
-	//
-	// (relay_parent, state_root)
-	buffer: VecDeque<(Hash, Hash)>,
+	buffer: VecDeque<RelayParentInfo<Hash>>,
 
 	// The number of the most recent relay-parent, if any.
 	// If the buffer is empty, this value has no meaning and may
@@ -70,13 +79,15 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		&mut self,
 		relay_parent: Hash,
 		state_root: Hash,
+		claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
 		number: BlockNumber,
 		max_ancestry_len: u32,
 	) {
 		// + 1 for the most recent block, which is always allowed.
 		let buffer_size_limit = max_ancestry_len as usize + 1;
 
-		self.buffer.push_back((relay_parent, state_root));
+		self.buffer.push_back(RelayParentInfo { relay_parent, state_root, claim_queue });
+
 		self.latest_number = number;
 		while self.buffer.len() > buffer_size_limit {
 			let _ = self.buffer.pop_front();
@@ -96,8 +107,8 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		&self,
 		relay_parent: Hash,
 		prev: Option<BlockNumber>,
-	) -> Option<(Hash, BlockNumber)> {
-		let pos = self.buffer.iter().position(|(rp, _)| rp == &relay_parent)?;
+	) -> Option<(&RelayParentInfo<Hash>, BlockNumber)> {
+		let pos = self.buffer.iter().position(|info| info.relay_parent == relay_parent)?;
 		let age = (self.buffer.len() - 1) - pos;
 		let number = self.latest_number - BlockNumber::from(age as u32);
 
@@ -107,7 +118,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 			}
 		}
 
-		Some((self.buffer[pos].1, number))
+		Some((&self.buffer[pos], number))
 	}
 
 	/// Returns block number of the earliest block the buffer would contain if
@@ -263,11 +274,12 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn add_allowed_relay_parent(
 		relay_parent: T::Hash,
 		state_root: T::Hash,
+		claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
 		number: BlockNumberFor<T>,
 		max_ancestry_len: u32,
 	) {
 		AllowedRelayParents::<T>::mutate(|tracker| {
-			tracker.update(relay_parent, state_root, number, max_ancestry_len)
+			tracker.update(relay_parent, state_root, claim_queue, number, max_ancestry_len)
 		})
 	}
 }
