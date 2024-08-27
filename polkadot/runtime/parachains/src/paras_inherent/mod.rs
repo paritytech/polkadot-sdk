@@ -333,22 +333,6 @@ impl<T: Config> Pallet<T> {
 		let now = frame_system::Pallet::<T>::block_number();
 		let config = configuration::ActiveConfig::<T>::get();
 
-		// Before anything else, update the allowed relay-parents.
-		{
-			let parent_number = now - One::one();
-			let parent_storage_root = *parent_header.state_root();
-
-			shared::AllowedRelayParents::<T>::mutate(|tracker| {
-				tracker.update(
-					parent_hash,
-					parent_storage_root,
-					parent_number,
-					config.async_backing_params.allowed_ancestry_len,
-				);
-			});
-		}
-		let allowed_relay_parents = shared::AllowedRelayParents::<T>::get();
-
 		let candidates_weight = backed_candidates_weight::<T>(&backed_candidates);
 		let bitfields_weight = signed_bitfields_weight::<T>(&bitfields);
 		let disputes_weight = multi_dispute_statement_sets_weight::<T>(&disputes);
@@ -569,6 +553,29 @@ impl<T: Config> Pallet<T> {
 		scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(freed, now);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
+
+		// After freeing cores and filling claims, but before processing backed candidates
+		// we update the allowed relay-parents.
+		{
+			let parent_number = now - One::one();
+			let parent_storage_root = *parent_header.state_root();
+
+			shared::AllowedRelayParents::<T>::mutate(|tracker| {
+				tracker.update(
+					parent_hash,
+					parent_storage_root,
+					scheduler::ClaimQueue::<T>::get()
+						.into_iter()
+						.map(|(core_index, paras)| {
+							(core_index, paras.into_iter().map(|e| e.para_id()).collect())
+						})
+						.collect(),
+					parent_number,
+					config.async_backing_params.allowed_ancestry_len,
+				);
+			});
+		}
+		let allowed_relay_parents = shared::AllowedRelayParents::<T>::get();
 
 		let core_index_enabled = configuration::ActiveConfig::<T>::get()
 			.node_features
@@ -961,7 +968,6 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-	scheduled_paras: &BTreeMap<CoreIndex, ParaId>,
 	allow_v2_receipts: bool,
 ) -> bool {
 	// We move forward only if the candidate commits to a core selector and claim queue offset.
@@ -1000,8 +1006,8 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	}
 
-	// Get the relay parent number for the candidate
-	let Some((_state_root, relay_parent_num)) =
+	// Get the claim queue snapshot at the candidate relay paren.
+	let Some((rp_info, _)) =
 		allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
 	else {
 		log::debug!(
@@ -1013,35 +1019,19 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	};
 
-	let current_block_num = frame_system::Pallet::<T>::block_number();
-	let expected_cq_offset = current_block_num - relay_parent_num - One::one();
-
-	// Drop the candidate receipt if the core claim has not reached the top of the
-	// claim queue.
-	if expected_cq_offset != (cq_offset.0 as u32).into() {
-		log::debug!(
-			target: LOG_TARGET,
-			"Dropped candidate {:?} of paraid {:?} because the claimed core is not at top  \
-			of the claim queue, cq_offset: {:?}, relay_parent_num: {:?}",
-			candidate.candidate().hash(),
-			candidate.descriptor().para_id(),
-			cq_offset,
-			relay_parent_num
-		);
-		return false
-	}
-
-	let assigned_cores =
-		scheduled_paras
-			.iter()
-			.filter_map(|(core_index, para)| {
-				if *para == candidate.descriptor().para_id() {
-					Some(core_index)
-				} else {
-					None
-				}
-			})
-			.collect::<Vec<_>>();
+	// The cores assigned to the parachain at the committed claim queue offset.
+	let assigned_cores = rp_info
+		.claim_queue
+		.iter()
+		.filter_map(move |(core_index, paras)| {
+			let para_at_offset = *paras.get(cq_offset.0 as usize)?;
+			if para_at_offset == candidate.descriptor().para_id() {
+				Some(core_index)
+			} else {
+				None
+			}
+		})
+		.collect::<Vec<_>>();
 	let assigned_cores = assigned_cores.as_slice();
 
 	// Check if core index in descriptor matches the one in the commitments
@@ -1092,20 +1082,9 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	// of the same para is preserved.
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
 
-	// Get the eligible paras for each core.
-	let scheduled_paras = scheduled
-		.iter()
-		.map(|(para_id, cores)| cores.iter().map(|core| (*core, *para_id)))
-		.flatten()
-		.collect();
-
 	for candidate in backed_candidates {
-		if !sanitize_backed_candidate_v2::<T>(
-			&candidate,
-			allowed_relay_parents,
-			&scheduled_paras,
-			allow_v2_receipts,
-		) {
+		if !sanitize_backed_candidate_v2::<T>(&candidate, allowed_relay_parents, allow_v2_receipts)
+		{
 			continue
 		}
 

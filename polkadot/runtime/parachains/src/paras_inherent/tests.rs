@@ -161,7 +161,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: false,
+				fill_claimqueue: true,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor,
@@ -184,9 +184,6 @@ mod enter {
 			inherent_data
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
-
-			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			assert_eq!(
@@ -267,7 +264,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: false,
+				fill_claimqueue: true,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
 				v2_descriptor,
@@ -286,9 +283,6 @@ mod enter {
 			inherent_data
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
-
-			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			assert!(pallet::OnChainVotes::<Test>::get().is_none());
 
@@ -2018,6 +2012,7 @@ mod sanitizers {
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				default_header().hash(),
 				Default::default(),
+				Default::default(),
 				RELAY_PARENT_NUM,
 				1,
 			);
@@ -2213,6 +2208,7 @@ mod sanitizers {
 			// votes) won't behave correctly
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				default_header().hash(),
+				Default::default(),
 				Default::default(),
 				RELAY_PARENT_NUM,
 				1,
@@ -2733,6 +2729,7 @@ mod sanitizers {
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				relay_parent,
 				Default::default(),
+				Default::default(),
 				RELAY_PARENT_NUM,
 				1,
 			);
@@ -3233,6 +3230,7 @@ mod sanitizers {
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				prev_relay_parent,
 				Default::default(),
+				Default::default(),
 				RELAY_PARENT_NUM - 1,
 				2,
 			);
@@ -3240,12 +3238,14 @@ mod sanitizers {
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				relay_parent,
 				Default::default(),
+				Default::default(),
 				RELAY_PARENT_NUM,
 				2,
 			);
 
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				next_relay_parent,
+				Default::default(),
 				Default::default(),
 				RELAY_PARENT_NUM + 1,
 				2,

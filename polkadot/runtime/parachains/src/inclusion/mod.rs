@@ -1261,17 +1261,17 @@ impl<T: Config> CandidateCheckContext<T> {
 		let relay_parent = backed_candidate_receipt.descriptor.relay_parent();
 
 		// Check that the relay-parent is one of the allowed relay-parents.
-		let (relay_parent_storage_root, relay_parent_number) = {
+		let (state_root, relay_parent_number) = {
 			match allowed_relay_parents.acquire_info(relay_parent, self.prev_context) {
 				None => return Err(Error::<T>::DisallowedRelayParent),
-				Some(info) => info,
+				Some((info, relay_parent_number)) => (info.state_root, relay_parent_number),
 			}
 		};
 
 		{
 			let persisted_validation_data = make_persisted_validation_data_with_parent::<T>(
 				relay_parent_number,
-				relay_parent_storage_root,
+				state_root,
 				parent_head_data,
 			);
 

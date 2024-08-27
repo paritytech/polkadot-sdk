@@ -83,7 +83,7 @@ fn default_allowed_relay_parent_tracker() -> AllowedRelayParentsTracker<Hash, Bl
 	let relay_parent = System::parent_hash();
 	let parent_number = System::block_number().saturating_sub(1);
 
-	allowed.update(relay_parent, Hash::zero(), parent_number, 1);
+	allowed.update(relay_parent, Hash::zero(), Default::default(), parent_number, 1);
 	allowed
 }
 
@@ -2496,18 +2496,21 @@ fn check_allowed_relay_parents() {
 		allowed_relay_parents.update(
 			relay_parent_a.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_a.0,
 			max_ancestry_len,
 		);
 		allowed_relay_parents.update(
 			relay_parent_b.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_b.0,
 			max_ancestry_len,
 		);
 		allowed_relay_parents.update(
 			relay_parent_c.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_c.0,
 			max_ancestry_len,
 		);
