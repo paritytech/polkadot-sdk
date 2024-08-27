@@ -279,5 +279,11 @@ fn multi_hop_works() {
 
 #[test]
 fn multi_hop_pay_fees_works() {
-	test_can_estimate_and_pay_exact_fees!(PenpalA, AssetHubRococo, PenpalB, (Parent, 1_000_000_000_000u128), Penpal);
+	test_can_estimate_and_pay_exact_fees!(
+		PenpalA,
+		AssetHubRococo,
+		PenpalB,
+		(Parent, 1_000_000_000_000u128),
+		Penpal
+	);
 }
