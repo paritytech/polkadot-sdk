@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724782021410,
+  "lastUpdate": 1724789490896,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23711,6 +23711,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010339331380000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn",
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f90bfa6ada211ef1bb55861ffbb7588b15ec21df",
+          "message": "Add feature to allow Aura collator to use full PoV size (#5393)\n\nThis PR introduces a feature that allows to optionally enable using the\nfull PoV size.\n\nTechnically, we're ready to enable it by default, but as corresponding\nruntime changes have not been propagated to the system parachain\nruntimes yet, doing so could put them at risk. On the other hand, there\nare teams that could benefit from it right now, and it makes no sense\nfor them to wait for the fellowship release and everything.\n\n---------\n\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
+          "timestamp": "2024-08-27T18:22:51Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f90bfa6ada211ef1bb55861ffbb7588b15ec21df"
+        },
+        "date": 1724789462787,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16930788131999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012230926986666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009967333780000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022174675793333338,
             "unit": "seconds"
           }
         ]
