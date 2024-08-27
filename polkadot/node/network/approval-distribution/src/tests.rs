@@ -72,14 +72,21 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 			keystore: None,
 			session_cache_lru_size: DISPUTE_WINDOW.get(),
 		});
-		let subsystem = subsystem.run_inner(
-			context,
-			&mut state,
-			REPUTATION_CHANGE_TEST_INTERVAL,
-			&mut rng,
-			assignment_criteria,
-			&mut session_info_provider,
-		);
+
+		let (tx, rx) = oneshot::channel();
+		let subsystem = async {
+			subsystem
+				.run_inner(
+					context,
+					&mut state,
+					REPUTATION_CHANGE_TEST_INTERVAL,
+					&mut rng,
+					assignment_criteria,
+					&mut session_info_provider,
+				)
+				.await;
+			tx.send(()).expect("Fail to notify subystem is done");
+		};
 
 		let test_fut = test_fn(virtual_overseer);
 
@@ -94,6 +101,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 					.timeout(TIMEOUT)
 					.await
 					.expect("Conclude send timeout");
+				let _ =
+					rx.timeout(Duration::from_secs(2)).await.expect("Subsystem did not conclude");
 			},
 			subsystem,
 		));
