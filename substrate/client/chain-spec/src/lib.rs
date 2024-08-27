@@ -172,6 +172,12 @@
 //!   </tbody>
 //! </table>
 //!
+//! The main purpose of the `RuntimeGenesisConfig` patch is to:
+//! - minimize the maintenance effort when RuntimeGenesisConfig is changed in the future (e.g. new
+//!   pallets added to the runtime or pallet's genesis config changed),
+//! - increase the readability - it only contains the relevant fields,
+//! - allow to apply numerous changes in distinct domains (e.g. for zombienet).
+//!
 //! For production or long-lasting blockchains, using the `raw` format in the chain specification is
 //! recommended. Only the `raw` format guarantees that storage root hash will remain unchanged when
 //! the `RuntimeGenesisConfig` format changes due to software upgrade.
@@ -333,8 +339,8 @@ pub mod json_patch;
 
 pub use self::{
 	chain_spec::{
-		update_code_in_json_chain_spec, ChainSpec as GenericChainSpec, ChainSpecBuilder,
-		NoExtension,
+		set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec,
+		ChainSpec as GenericChainSpec, ChainSpecBuilder, NoExtension,
 	},
 	extension::{get_extension, get_extension_mut, Extension, Fork, Forks, GetExtension, Group},
 	genesis_block::{

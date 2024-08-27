@@ -28,10 +28,10 @@ use crate::{
 	},
 	AccountIdOf, CodeVec, Config, Error, Schedule, LOG_TARGET,
 };
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+use alloc::vec::Vec;
 use codec::MaxEncodedLen;
 use sp_runtime::{traits::Hash, DispatchError};
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-use sp_std::prelude::Vec;
 use wasmi::{
 	core::ValType as WasmiValueType, CompilationMode, Config as WasmiConfig, Engine, ExternType,
 	Module, StackLimits,
@@ -56,7 +56,7 @@ pub enum LoadingMode {
 
 #[cfg(test)]
 pub mod tracker {
-	use sp_std::cell::RefCell;
+	use core::cell::RefCell;
 	thread_local! {
 		pub static LOADED_MODULE: RefCell<Vec<super::LoadingMode>> = RefCell::new(Vec::new());
 	}

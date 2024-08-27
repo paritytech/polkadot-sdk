@@ -21,7 +21,7 @@ use async_trait::async_trait;
 use bp_polkadot_core::BlockNumber as RelayBlockNumber;
 use bp_runtime::HeaderIdProvider;
 use parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
-use relay_substrate_client::Parachain;
+use relay_substrate_client::{Client, Parachain};
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -30,7 +30,7 @@ use crate::{
 	cli::{
 		bridge::{CliBridgeBase, ParachainToRelayHeadersCliBridge},
 		chain_schema::*,
-		PrometheusParams,
+		DefaultClient, PrometheusParams,
 	},
 	parachains::{source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter},
 	TransactionParams,
@@ -72,16 +72,19 @@ pub struct RelayParachainHeadParams {
 #[async_trait]
 pub trait ParachainsRelayer: ParachainToRelayHeadersCliBridge
 where
-	ParachainsSource<Self::ParachainFinality>:
+	ParachainsSource<Self::ParachainFinality, DefaultClient<Self::SourceRelay>>:
 		SourceClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
-	ParachainsTarget<Self::ParachainFinality>:
-		TargetClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
+	ParachainsTarget<
+		Self::ParachainFinality,
+		DefaultClient<Self::SourceRelay>,
+		DefaultClient<Self::Target>,
+	>: TargetClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
 	<Self as CliBridgeBase>::Source: Parachain,
 {
 	/// Start relaying parachains finality.
 	async fn relay_parachains(data: RelayParachainsParams) -> anyhow::Result<()> {
 		let source_chain_client = data.source.into_client::<Self::SourceRelay>().await?;
-		let source_client = ParachainsSource::<Self::ParachainFinality>::new(
+		let source_client = ParachainsSource::<Self::ParachainFinality, _>::new(
 			source_chain_client.clone(),
 			Arc::new(Mutex::new(AvailableHeader::Missing)),
 		);
@@ -91,7 +94,7 @@ where
 			mortality: data.target_sign.target_transactions_mortality,
 		};
 		let target_chain_client = data.target.into_client::<Self::Target>().await?;
-		let target_client = ParachainsTarget::<Self::ParachainFinality>::new(
+		let target_client = ParachainsTarget::<Self::ParachainFinality, _, _>::new(
 			source_chain_client,
 			target_chain_client,
 			target_transaction_params,
@@ -121,7 +124,7 @@ where
 			.map_err(|e| anyhow::format_err!("{}", e))?
 			.id();
 
-		let source_client = ParachainsSource::<Self::ParachainFinality>::new(
+		let source_client = ParachainsSource::<Self::ParachainFinality, _>::new(
 			source_chain_client.clone(),
 			Arc::new(Mutex::new(AvailableHeader::Missing)),
 		);
@@ -131,7 +134,7 @@ where
 			mortality: data.target_sign.target_transactions_mortality,
 		};
 		let target_chain_client = data.target.into_client::<Self::Target>().await?;
-		let target_client = ParachainsTarget::<Self::ParachainFinality>::new(
+		let target_client = ParachainsTarget::<Self::ParachainFinality, _, _>::new(
 			source_chain_client,
 			target_chain_client,
 			target_transaction_params,

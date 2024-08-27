@@ -9,6 +9,7 @@ rules:
         - ^\.gitlab/.*
         - ^\.config/nextest.toml
         - ^\.cargo/.*
+        - ^\.forklift/.*
       exclude:
         - ^\.gitlab/pipeline/zombienet.*
     type: "or"
@@ -33,6 +34,7 @@ rules:
         - ^docker/.*
         - ^\.github/.*
         - ^\.gitlab/.*
+        - ^\.forklift/.*
         - ^\.config/nextest.toml
         - ^\.cargo/.*
     minApprovals: 2

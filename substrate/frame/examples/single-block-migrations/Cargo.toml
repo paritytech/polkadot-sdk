@@ -4,7 +4,7 @@ version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "MIT-0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME example pallet demonstrating best-practices for writing storage migrations."
 publish = false
@@ -13,20 +13,19 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-docify = "0.2.8"
-log = { version = "0.4.21", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../../support", default-features = false }
-frame-executive = { path = "../../executive", default-features = false }
-frame-system = { path = "../../system", default-features = false }
-frame-try-runtime = { path = "../../try-runtime", default-features = false, optional = true }
-pallet-balances = { path = "../../balances", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-core = { path = "../../../primitives/core", default-features = false }
-sp-io = { path = "../../../primitives/io", default-features = false }
-sp-version = { path = "../../../primitives/version", default-features = false }
+docify = { workspace = true }
+log = { workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+frame-support = { workspace = true }
+frame-executive = { workspace = true }
+frame-system = { workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
+pallet-balances = { workspace = true }
+sp-runtime = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-version = { workspace = true }
 
 [features]
 default = ["std"]
@@ -42,7 +41,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-version/std",
 ]
 runtime-benchmarks = [

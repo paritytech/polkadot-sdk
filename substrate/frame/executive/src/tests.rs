@@ -649,8 +649,8 @@ fn block_weight_limit_enforced() {
 				assert!(res.is_ok());
 				assert_eq!(
 					<frame_system::Pallet<Runtime>>::block_weight().total(),
-					//--------------------- on_initialize + block_execution + extrinsic_base weight
-					Weight::from_parts((encoded_len + 5) * (nonce + 1), 0) + base_block_weight,
+					//--------------------- on_initialize + block_execution + extrinsic_base weight + extrinsic len
+					Weight::from_parts((encoded_len + 5) * (nonce + 1), (nonce + 1)* encoded_len) + base_block_weight,
 				);
 				assert_eq!(
 					<frame_system::Pallet<Runtime>>::extrinsic_index(),
@@ -698,9 +698,10 @@ fn block_weight_and_size_is_stored_per_tx() {
 			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.base_extrinsic;
+		// Check we account for all extrinsic weight and their len.
 		assert_eq!(
 			<frame_system::Pallet<Runtime>>::block_weight().total(),
-			base_block_weight + 3u64 * extrinsic_weight,
+			base_block_weight + 3u64 * extrinsic_weight + 3u64 * Weight::from_parts(0, len as u64),
 		);
 		assert_eq!(<frame_system::Pallet<Runtime>>::all_extrinsics_len(), 3 * len);
 

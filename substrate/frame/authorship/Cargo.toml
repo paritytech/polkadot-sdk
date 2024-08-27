@@ -5,7 +5,7 @@ description = "Block and Uncle Author tracking for the FRAME"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 
@@ -16,19 +16,18 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+codec = { features = [
 	"derive",
-] }
-impl-trait-for-tuples = "0.2.2"
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
+], workspace = true }
+impl-trait-for-tuples = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
 
 [dev-dependencies]
-sp-core = { path = "../../primitives/core" }
-sp-io = { path = "../../primitives/io" }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -40,7 +39,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

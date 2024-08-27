@@ -17,12 +17,11 @@
 
 //! Generic implementation of a digest.
 
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::format;
+use alloc::vec::Vec;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::format;
-
-use sp_std::prelude::*;
 
 use crate::{
 	codec::{Decode, Encode, Error, Input},

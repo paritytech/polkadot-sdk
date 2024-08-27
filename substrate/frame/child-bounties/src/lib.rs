@@ -56,7 +56,9 @@ mod benchmarking;
 mod tests;
 pub mod weights;
 
-use sp_std::prelude::*;
+extern crate alloc;
+
+use alloc::vec::Vec;
 
 use frame_support::traits::{
 	Currency,

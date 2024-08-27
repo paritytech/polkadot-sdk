@@ -14,7 +14,7 @@
 //! documentation up-to-date, as the overhead is reduced by making sure everything is in one
 //! repository, and everything being in `.rs` files.
 //!
-//! > This is not say that a more visually appealing version of this crate (for example as an
+//! > This is not to say that a more visually appealing version of this crate (for example as an
 //! > `md-book`) cannot exist, but it would be outside the scope of this crate.
 //!
 //! Moreover, we acknowledge that a major pain point has been not only outdated *concepts*, but also

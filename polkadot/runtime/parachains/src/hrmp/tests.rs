@@ -27,8 +27,9 @@ use crate::{
 	},
 	shared,
 };
-use frame_support::{assert_noop, assert_ok, error::BadOrigin};
+use frame_support::{assert_noop, assert_ok};
 use polkadot_primitives::{BlockNumber, InboundDownwardMessage};
+use sp_runtime::traits::BadOrigin;
 use std::collections::BTreeMap;
 
 pub(crate) fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>>) {

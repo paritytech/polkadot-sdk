@@ -28,6 +28,7 @@ use frame_support::{
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
+use xcm_builder::InspectMessageQueues;
 
 #[test]
 fn empty_concatenated_works() {
@@ -854,7 +855,6 @@ fn verify_fee_factor_increase_and_decrease() {
 #[test]
 fn get_messages_works() {
 	new_test_ext().execute_with(|| {
-		use xcm_builder::InspectMessageQueues;
 		let sibling_para_id = ParaId::from(2001);
 		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling_para_id);
 		let destination: Location = (Parent, Parachain(sibling_para_id.into())).into();
@@ -888,5 +888,34 @@ fn get_messages_works() {
 				),
 			],
 		);
+	});
+}
+
+/// We try to send a fragment that will not fit into the currently active page. This should
+/// therefore not modify the current page but instead create a new one.
+#[test]
+fn page_not_modified_when_fragment_does_not_fit() {
+	new_test_ext().execute_with(|| {
+		let sibling = ParaId::from(2001);
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling);
+
+		let destination: Location = (Parent, Parachain(sibling.into())).into();
+		let message = Xcm(vec![ClearOrigin; 600]);
+
+		loop {
+			let old_page_zero = OutboundXcmpMessages::<Test>::get(sibling, 0);
+			assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), message.clone()));
+
+			// If a new page was created by this send_xcm call, then page_zero was not also
+			// modified:
+			let num_pages = OutboundXcmpMessages::<Test>::iter_prefix(sibling).count();
+			if num_pages == 2 {
+				let new_page_zero = OutboundXcmpMessages::<Test>::get(sibling, 0);
+				assert_eq!(old_page_zero, new_page_zero);
+				break
+			} else if num_pages > 2 {
+				panic!("Too many pages created");
+			}
+		}
 	});
 }

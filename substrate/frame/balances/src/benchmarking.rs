@@ -288,13 +288,13 @@ mod benchmarks {
 
 	#[benchmark]
 	fn force_adjust_total_issuance() {
-		let ti = Balances::<T, I>::total_issuance();
+		let ti = TotalIssuance::<T, I>::get();
 		let delta = 123u32.into();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, AdjustmentDirection::Increase, delta);
 
-		assert_eq!(Balances::<T, I>::total_issuance(), ti + delta);
+		assert_eq!(TotalIssuance::<T, I>::get(), ti + delta);
 	}
 
 	/// Benchmark `burn` extrinsic with the worst possible condition - burn kills the account.

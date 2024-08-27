@@ -26,9 +26,10 @@ use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
-	CandidateCommitments, CandidateDescriptor, CollatorPair, CommittedCandidateReceipt,
-	Hash as PHash, HeadData, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, SigningContext, ValidationCodeHash, ValidatorId,
+	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorPair,
+	CommittedCandidateReceipt, CoreState, Hash as PHash, HeadData, InboundDownwardMessage,
+	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
+	SigningContext, ValidationCodeHash, ValidatorId,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
@@ -295,6 +296,13 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		let header = self.relay_client.header(hash)?;
 
 		Ok(header)
+	}
+
+	async fn availability_cores(
+		&self,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		unimplemented!("Not needed for test");
 	}
 
 	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
@@ -604,7 +612,7 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 	block_on(async move {
 		let (mut validator, api) = make_validator_and_api();
 
-		let mut client = api.relay_client.clone();
+		let client = api.relay_client.clone();
 		let block = client.init_polkadot_block_builder().build().expect("Build new block").block;
 
 		let (signal, header) = make_gossip_message_and_header(api, block.hash(), 0).await;

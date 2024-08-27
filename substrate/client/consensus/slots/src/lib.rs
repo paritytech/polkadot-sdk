@@ -29,8 +29,8 @@ mod aux_schema;
 mod slots;
 
 pub use aux_schema::{check_equivocation, MAX_SLOT_CAPACITY, PRUNING_BOUND};
-pub use slots::SlotInfo;
 use slots::Slots;
+pub use slots::{time_until_next_slot, SlotInfo};
 
 use futures::{future::Either, Future, TryFutureExt};
 use futures_timer::Delay;
@@ -517,16 +517,15 @@ pub async fn start_slot_worker<B, C, W, SO, CIDP, Proof>(
 	CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 {
-	let mut slots = Slots::new(slot_duration.as_duration(), create_inherent_data_providers, client);
+	let mut slots = Slots::new(
+		slot_duration.as_duration(),
+		create_inherent_data_providers,
+		client,
+		sync_oracle,
+	);
 
 	loop {
 		let slot_info = slots.next_slot().await;
-
-		if sync_oracle.is_major_syncing() {
-			debug!(target: LOG_TARGET, "Skipping proposal slot due to sync.");
-			continue
-		}
-
 		let _ = worker.on_slot(slot_info).await;
 	}
 }

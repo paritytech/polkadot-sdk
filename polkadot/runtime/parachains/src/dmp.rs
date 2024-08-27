@@ -46,6 +46,8 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	initializer, FeeTracker,
 };
+use alloc::vec::Vec;
+use core::fmt;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{DownwardMessage, Hash, Id as ParaId, InboundDownwardMessage};
@@ -54,7 +56,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Hash as HashT, SaturatedConversion},
 	FixedU128, Saturating,
 };
-use sp_std::{fmt, prelude::*};
 use xcm::latest::SendError;
 
 pub use pallet::*;

@@ -261,19 +261,15 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 // Disabling threshold for `UpToLimitDisablingStrategy`
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
-	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type UnixTime = Timestamp;
-	type CurrencyToVote = ();
 	type RewardRemainder = RewardRemainderMock;
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = ();
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EnsureOneOrRoot;
-	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
@@ -288,8 +284,6 @@ impl crate::pallet::pallet::Config for Test {
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type BenchmarkingConfig = TestBenchmarkingConfig;
-	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 }
 
@@ -541,6 +535,7 @@ impl ExtBuilder {
 					.map(|id| (id, id, SessionKeys { other: id.into() }))
 					.collect()
 			},
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
@@ -669,7 +664,7 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
 		Staking::eras_total_stake(active_era()),
-		Balances::total_issuance(),
+		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
 	assert!(payout > 0);
@@ -679,7 +674,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
 		Staking::eras_total_stake(active_era()),
-		Balances::total_issuance(),
+		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
 	payout + rest

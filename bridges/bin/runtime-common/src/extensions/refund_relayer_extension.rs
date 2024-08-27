@@ -22,9 +22,9 @@
 use crate::messages_call_ext::{
 	CallHelper as MessagesCallHelper, CallInfo as MessagesCallInfo, MessagesCallSubType,
 };
-use bp_messages::{LaneId, MessageNonce};
+use bp_messages::{ChainWithMessages, LaneId, MessageNonce};
 use bp_relayers::{ExplicitOrAccountParams, RewardsAccountOwner, RewardsAccountParams};
-use bp_runtime::{Parachain, RangeInclusiveExt, StaticStrProvider};
+use bp_runtime::{Chain, Parachain, RangeInclusiveExt, StaticStrProvider};
 use codec::{Codec, Decode, Encode};
 use frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, PostDispatchInfo},
@@ -293,7 +293,7 @@ pub trait RefundSignedExtension:
 				<Self::Msgs as RefundableMessagesLaneId>::Id::get(),
 				<Self::Runtime as MessagesConfig<
 					<Self::Msgs as RefundableMessagesLaneId>::Instance,
-				>>::BridgedChainId::get(),
+				>>::BridgedChain::ID,
 				if call_info.is_receive_messages_proof_call() {
 					RewardsAccountOwner::ThisChain
 				} else {
@@ -406,8 +406,7 @@ pub trait RefundSignedExtension:
 		// a quick check to avoid invalid high-priority transactions
 		let max_unconfirmed_messages_in_confirmation_tx = <Self::Runtime as MessagesConfig<
 			<Self::Msgs as RefundableMessagesLaneId>::Instance,
-		>>::MaxUnconfirmedMessagesAtInboundLane::get(
-		);
+		>>::BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 		if bundled_messages > max_unconfirmed_messages_in_confirmation_tx {
 			return None
 		}
@@ -935,9 +934,6 @@ where
 pub(crate) mod tests {
 	use super::*;
 	use crate::{
-		messages::{
-			source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		},
 		messages_call_ext::{
 			BaseMessagesProofInfo, ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo,
 			UnrewardedRelayerOccupation,
@@ -946,8 +942,10 @@ pub(crate) mod tests {
 	};
 	use bp_header_chain::StoredHeaderDataBuilder;
 	use bp_messages::{
-		DeliveredMessages, InboundLaneData, MessageNonce, MessagesOperatingMode, OutboundLaneData,
-		UnrewardedRelayer, UnrewardedRelayersState,
+		source_chain::FromBridgedChainMessagesDeliveryProof,
+		target_chain::FromBridgedChainMessagesProof, DeliveredMessages, InboundLaneData,
+		MessageNonce, MessagesOperatingMode, OutboundLaneData, UnrewardedRelayer,
+		UnrewardedRelayersState,
 	};
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
 	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
@@ -1123,7 +1121,7 @@ pub(crate) mod tests {
 				ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 				[parachain_head_at_relay_header_number as u8; 32].into(),
 			)],
-			parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 		})
 	}
 
@@ -1136,7 +1134,7 @@ pub(crate) mod tests {
 				ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 				[parachain_head_at_relay_header_number as u8; 32].into(),
 			)],
-			parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: false,
 		})
 	}
@@ -1144,9 +1142,9 @@ pub(crate) mod tests {
 	fn message_delivery_call(best_message: MessageNonce) -> RuntimeCall {
 		RuntimeCall::BridgeMessages(MessagesCall::receive_messages_proof {
 			relayer_id_at_bridged_chain: relayer_account_at_bridged_chain(),
-			proof: FromBridgedChainMessagesProof {
+			proof: Box::new(FromBridgedChainMessagesProof {
 				bridged_header_hash: Default::default(),
-				storage_proof: vec![],
+				storage_proof: Default::default(),
 				lane: TestLaneId::get(),
 				nonces_start: pallet_bridge_messages::InboundLanes::<TestRuntime>::get(
 					TEST_LANE_ID,
@@ -1154,7 +1152,7 @@ pub(crate) mod tests {
 				.last_delivered_nonce() +
 					1,
 				nonces_end: best_message,
-			},
+			}),
 			messages_count: 1,
 			dispatch_weight: Weight::zero(),
 		})
@@ -1164,7 +1162,7 @@ pub(crate) mod tests {
 		RuntimeCall::BridgeMessages(MessagesCall::receive_messages_delivery_proof {
 			proof: FromBridgedChainMessagesDeliveryProof {
 				bridged_header_hash: Default::default(),
-				storage_proof: vec![],
+				storage_proof: Default::default(),
 				lane: TestLaneId::get(),
 			},
 			relayers_state: UnrewardedRelayersState {
@@ -1327,8 +1325,10 @@ pub(crate) mod tests {
 						best_stored_nonce: 100,
 					},
 					unrewarded_relayers: UnrewardedRelayerOccupation {
-						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
+						free_relayer_slots:
+							BridgedUnderlyingChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+						free_message_slots:
+							BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 					},
 				}),
 			),
@@ -1397,8 +1397,10 @@ pub(crate) mod tests {
 						best_stored_nonce: 100,
 					},
 					unrewarded_relayers: UnrewardedRelayerOccupation {
-						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
+						free_relayer_slots:
+							BridgedUnderlyingChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+						free_message_slots:
+							BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 					},
 				}),
 			),
@@ -1459,8 +1461,10 @@ pub(crate) mod tests {
 						best_stored_nonce: 100,
 					},
 					unrewarded_relayers: UnrewardedRelayerOccupation {
-						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
+						free_relayer_slots:
+							BridgedUnderlyingChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+						free_message_slots:
+							BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 					},
 				}),
 			),
@@ -1499,8 +1503,10 @@ pub(crate) mod tests {
 						best_stored_nonce: 100,
 					},
 					unrewarded_relayers: UnrewardedRelayerOccupation {
-						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
+						free_relayer_slots:
+							BridgedUnderlyingChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+						free_message_slots:
+							BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 					},
 				},
 			)),
@@ -1735,14 +1741,16 @@ pub(crate) mod tests {
 
 			let fns = [run_validate, run_grandpa_validate, run_messages_validate];
 			for f in fns {
-				let priority_of_max_messages_delivery =
-					f(message_delivery_call(100 + MaxUnconfirmedMessagesAtInboundLane::get()))
-						.unwrap()
-						.priority;
-				let priority_of_more_than_max_messages_delivery =
-					f(message_delivery_call(100 + MaxUnconfirmedMessagesAtInboundLane::get() + 1))
-						.unwrap()
-						.priority;
+				let priority_of_max_messages_delivery = f(message_delivery_call(
+					100 + BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+				))
+				.unwrap()
+				.priority;
+				let priority_of_more_than_max_messages_delivery = f(message_delivery_call(
+					100 + BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX + 1,
+				))
+				.unwrap()
+				.priority;
 
 				assert!(
 					priority_of_max_messages_delivery > priority_of_more_than_max_messages_delivery,
@@ -2103,7 +2111,7 @@ pub(crate) mod tests {
 								[1u8; 32].into(),
 							),
 						],
-						parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
+						parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 					}),
 					message_delivery_call(200),
 				],
@@ -2865,7 +2873,8 @@ pub(crate) mod tests {
 	#[test]
 	fn does_not_panic_on_boosting_priority_of_empty_message_delivery_transaction() {
 		run_test(|| {
-			let best_delivered_message = MaxUnconfirmedMessagesAtInboundLane::get();
+			let best_delivered_message =
+				BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 			initialize_environment(100, 100, best_delivered_message);
 
 			// register relayer so it gets priority boost

@@ -111,7 +111,7 @@ pub fn expand_runtime_metadata(
 					>();
 
 				#scrate::__private::metadata_ir::MetadataIR {
-					pallets: #scrate::__private::sp_std::vec![ #(#pallets),* ],
+					pallets: #scrate::__private::vec![ #(#pallets),* ],
 					extrinsic: #scrate::__private::metadata_ir::ExtrinsicMetadataIR {
 						ty,
 						version: <#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata>::VERSION,
@@ -156,7 +156,7 @@ pub fn expand_runtime_metadata(
 				})
 			}
 
-			pub fn metadata_versions() -> #scrate::__private::sp_std::vec::Vec<u32> {
+			pub fn metadata_versions() -> #scrate::__private::Vec<u32> {
 				#scrate::__private::metadata_ir::supported_versions()
 			}
 		}

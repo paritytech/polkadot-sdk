@@ -10,29 +10,29 @@ version = "7.0.0"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-scale-info = { version = "2.11.1", features = ["derive"] }
+codec = { workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true }
 
-frame-system = { path = "../../../../substrate/frame/system" }
-frame-support = { path = "../../../../substrate/frame/support" }
-pallet-balances = { path = "../../../../substrate/frame/balances" }
-pallet-message-queue = { path = "../../../../substrate/frame/message-queue" }
-pallet-uniques = { path = "../../../../substrate/frame/uniques" }
-sp-std = { path = "../../../../substrate/primitives/std" }
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime" }
-sp-io = { path = "../../../../substrate/primitives/io" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
+frame-system = { workspace = true, default-features = true }
+frame-support = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-message-queue = { workspace = true, default-features = true }
+pallet-uniques = { workspace = true, default-features = true }
+sp-std = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
-xcm = { package = "staging-xcm", path = "../.." }
-xcm-simulator = { path = ".." }
-xcm-executor = { package = "staging-xcm-executor", path = "../../xcm-executor" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder" }
-pallet-xcm = { path = "../../pallet-xcm" }
-polkadot-core-primitives = { path = "../../../core-primitives" }
-polkadot-runtime-parachains = { path = "../../../runtime/parachains" }
-polkadot-parachain-primitives = { path = "../../../parachain" }
+xcm = { workspace = true, default-features = true }
+xcm-simulator = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
+pallet-xcm = { workspace = true, default-features = true }
+polkadot-core-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
 
 [features]
 default = []

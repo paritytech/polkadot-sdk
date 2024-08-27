@@ -15,15 +15,8 @@
 
 #[cfg(test)]
 mod imports {
-	pub use codec::Encode;
-
 	// Substrate
-	pub use frame_support::{
-		assert_ok,
-		pallet_prelude::Weight,
-		sp_runtime::{AccountId32, DispatchResult},
-		traits::fungibles::Inspect,
-	};
+	pub use frame_support::{assert_ok, sp_runtime::DispatchResult, traits::fungibles::Inspect};
 
 	// Polkadot
 	pub use xcm::prelude::*;
@@ -37,15 +30,21 @@ mod imports {
 	pub use parachains_common::Balance;
 	pub use rococo_system_emulated_network::{
 		people_rococo_emulated_chain::{
-			genesis::ED as PEOPLE_ROCOCO_ED, PeopleRococoParaPallet as PeopleRococoPallet,
+			people_rococo_runtime::{
+				xcm_config::XcmConfig as PeopleRococoXcmConfig,
+				ExistentialDeposit as PeopleRococoExistentialDeposit,
+			},
+			PeopleRococoParaPallet as PeopleRococoPallet,
 		},
-		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+		rococo_emulated_chain::{
+			genesis::ED as ROCOCO_ED, rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig,
+			RococoRelayPallet as RococoPallet,
+		},
 		PeopleRococoPara as PeopleRococo, PeopleRococoParaReceiver as PeopleRococoReceiver,
 		PeopleRococoParaSender as PeopleRococoSender, RococoRelay as Rococo,
 		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
 
-	pub type RelayToSystemParaTest = Test<Rococo, PeopleRococo>;
 	pub type SystemParaToRelayTest = Test<PeopleRococo, Rococo>;
 }
 

@@ -195,68 +195,71 @@ mod tests {
 	#[test]
 	fn reserve_space() {
 		let rpc_connections = RpcConnections::new(2);
-		let reserved = rpc_connections.reserve_space(1);
+		let conn_id = ConnectionId(1);
+		let reserved = rpc_connections.reserve_space(conn_id);
+
 		assert!(reserved.is_some());
-		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_identifiers);
+		assert_eq!(1, rpc_connections.data.lock().get(&conn_id).unwrap().num_identifiers);
 		assert_eq!(rpc_connections.data.lock().len(), 1);
 
 		let reserved = reserved.unwrap();
 		let registered = reserved.register("identifier1".to_string()).unwrap();
-		assert!(rpc_connections.contains_identifier(1, "identifier1"));
-		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_identifiers);
+		assert!(rpc_connections.contains_identifier(conn_id, "identifier1"));
+		assert_eq!(1, rpc_connections.data.lock().get(&conn_id).unwrap().num_identifiers);
 		drop(registered);
 
 		// Data is dropped.
-		assert!(rpc_connections.data.lock().get(&1).is_none());
+		assert!(rpc_connections.data.lock().get(&conn_id).is_none());
 		assert!(rpc_connections.data.lock().is_empty());
 		// Checks can still happen.
-		assert!(!rpc_connections.contains_identifier(1, "identifier1"));
+		assert!(!rpc_connections.contains_identifier(conn_id, "identifier1"));
 	}
 
 	#[test]
 	fn reserve_space_capacity_reached() {
 		let rpc_connections = RpcConnections::new(2);
+		let conn_id = ConnectionId(1);
 
 		// Reserve identifier for connection 1.
-		let reserved = rpc_connections.reserve_space(1);
+		let reserved = rpc_connections.reserve_space(conn_id);
 		assert!(reserved.is_some());
-		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_identifiers);
+		assert_eq!(1, rpc_connections.data.lock().get(&conn_id).unwrap().num_identifiers);
 
 		// Add identifier for connection 1.
 		let reserved = reserved.unwrap();
 		let registered = reserved.register("identifier1".to_string()).unwrap();
-		assert!(rpc_connections.contains_identifier(1, "identifier1"));
-		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_identifiers);
+		assert!(rpc_connections.contains_identifier(conn_id, "identifier1"));
+		assert_eq!(1, rpc_connections.data.lock().get(&conn_id).unwrap().num_identifiers);
 
 		// Reserve identifier for connection 1 again.
-		let reserved = rpc_connections.reserve_space(1);
+		let reserved = rpc_connections.reserve_space(conn_id);
 		assert!(reserved.is_some());
-		assert_eq!(2, rpc_connections.data.lock().get(&1).unwrap().num_identifiers);
+		assert_eq!(2, rpc_connections.data.lock().get(&conn_id).unwrap().num_identifiers);
 
 		// Add identifier for connection 1 again.
 		let reserved = reserved.unwrap();
 		let registered_second = reserved.register("identifier2".to_string()).unwrap();
-		assert!(rpc_connections.contains_identifier(1, "identifier2"));
-		assert_eq!(2, rpc_connections.data.lock().get(&1).unwrap().num_identifiers);
+		assert!(rpc_connections.contains_identifier(conn_id, "identifier2"));
+		assert_eq!(2, rpc_connections.data.lock().get(&conn_id).unwrap().num_identifiers);
 
 		// Cannot reserve more identifiers.
-		let reserved = rpc_connections.reserve_space(1);
+		let reserved = rpc_connections.reserve_space(conn_id);
 		assert!(reserved.is_none());
 
 		// Drop the first identifier.
 		drop(registered);
-		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_identifiers);
-		assert!(rpc_connections.contains_identifier(1, "identifier2"));
-		assert!(!rpc_connections.contains_identifier(1, "identifier1"));
+		assert_eq!(1, rpc_connections.data.lock().get(&conn_id).unwrap().num_identifiers);
+		assert!(rpc_connections.contains_identifier(conn_id, "identifier2"));
+		assert!(!rpc_connections.contains_identifier(conn_id, "identifier1"));
 
 		// Can reserve again after clearing the space.
-		let reserved = rpc_connections.reserve_space(1);
+		let reserved = rpc_connections.reserve_space(conn_id);
 		assert!(reserved.is_some());
-		assert_eq!(2, rpc_connections.data.lock().get(&1).unwrap().num_identifiers);
+		assert_eq!(2, rpc_connections.data.lock().get(&conn_id).unwrap().num_identifiers);
 
 		// Ensure data is cleared.
 		drop(reserved);
 		drop(registered_second);
-		assert!(rpc_connections.data.lock().get(&1).is_none());
+		assert!(rpc_connections.data.lock().get(&conn_id).is_none());
 	}
 }

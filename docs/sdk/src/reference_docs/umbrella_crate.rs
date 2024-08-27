@@ -25,11 +25,12 @@
 //! - `runtime`: As described above, enable all `no-std` crates.
 //! - `node`: As described above, enable all `std` crates.
 //! - There does *not* exist a dedicated docs feature. To generate docs, enable the `runtime` and
-//!   `node` feature. For docs.rs the manifest contains specific configuration to make it show up
+//!   `node` feature. For `docs.rs` the manifest contains specific configuration to make it show up
 //!   all re-exports.
 //!
-//! There is a specific `zepter` check in place to ensure that the features of the umbrella are
-//! correctly configured. This check is run in CI and locally when running `zepter`.
+//! There is a specific [`zepter`](https://github.com/ggwpez/zepter) check in place to ensure that
+//! the features of the umbrella are correctly configured. This check is run in CI and locally when
+//! running `zepter`.
 //!
 //! ## Generation
 //!
@@ -76,7 +77,7 @@
 //! ```
 //!
 //! Apart from this, no issues are known. There could be some bugs with how macros locate their own
-//! re-exports. Please compile issues that arise from using this crate.
+//! re-exports. Please [report issues](https://github.com/paritytech/polkadot-sdk/issues) that arise from using this crate.
 //!
 //! ## Dependencies
 //!

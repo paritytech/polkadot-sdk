@@ -37,6 +37,7 @@ use crate as pallet_beefy_mmr;
 pub use sp_consensus_beefy::{
 	ecdsa_crypto::AuthorityId as BeefyId, mmr::BeefyDataProvider, ConsensusLog, BEEFY_ENGINE_ID,
 };
+use sp_core::offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -93,6 +94,9 @@ impl pallet_mmr::Config for Test {
 	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Test>;
 
 	type WeightInfo = ();
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_beefy::Config for Test {
@@ -101,6 +105,7 @@ impl pallet_beefy::Config for Test {
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = ConstU64<100>;
 	type OnNewValidatorSet = BeefyMmr;
+	type AncestryHelper = BeefyMmr;
 	type WeightInfo = ();
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
@@ -118,6 +123,7 @@ impl pallet_beefy_mmr::Config for Test {
 	type LeafExtra = Vec<u8>;
 
 	type BeefyDataProvider = DummyDataProvider;
+	type WeightInfo = ();
 }
 
 pub struct DummyDataProvider;
@@ -183,9 +189,14 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<(u64, BeefyId)>) -> TestExt
 		}
 	});
 
-	pallet_session::GenesisConfig::<Test> { keys: session_keys }
+	pallet_session::GenesisConfig::<Test> { keys: session_keys, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	t.into()
+	let mut ext: TestExternalities = t.into();
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	ext
 }

@@ -241,6 +241,49 @@ fn mutate_operations_work() {
 }
 
 #[test]
+fn mutate_operations_work_with_partitioned_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let (region1, _region2) = Broker::do_partition(region, None, 2).unwrap();
+		let record_1 = Regions::<Test>::get(region1).unwrap();
+
+		// 'withdraw' the region from user 1:
+		assert_ok!(<Broker as Mutate<_>>::burn(&region1.into(), Some(&1)));
+		assert_eq!(Regions::<Test>::get(region1).unwrap().owner, None);
+
+		// `mint_into` works after burning:
+		assert_ok!(<Broker as Mutate<_>>::mint_into(&region1.into(), &1));
+
+		// Ensure the region minted is the same as the one we burned previously:
+		assert_eq!(Regions::<Test>::get(region1).unwrap(), record_1);
+	});
+}
+
+#[test]
+fn mutate_operations_work_with_interlaced_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let (region1, _region2) =
+			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 40)).unwrap();
+		let record_1 = Regions::<Test>::get(region1).unwrap();
+
+		// 'withdraw' the region from user 1:
+		assert_ok!(<Broker as Mutate<_>>::burn(&region1.into(), Some(&1)));
+		assert_eq!(Regions::<Test>::get(region1).unwrap().owner, None);
+
+		// `mint_into` works after burning:
+		assert_ok!(<Broker as Mutate<_>>::mint_into(&region1.into(), &1));
+
+		// Ensure the region minted is the same as the one we burned previously:
+		assert_eq!(Regions::<Test>::get(region1).unwrap(), record_1);
+	});
+}
+
+#[test]
 fn permanent_is_not_reassignable() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
@@ -451,6 +494,8 @@ fn renewals_affect_price() {
 
 #[test]
 fn instapool_payouts_work() {
+	// Commented out code is from the reference test implementation and should be uncommented as
+	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
@@ -458,11 +503,13 @@ fn instapool_payouts_work() {
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_pool(region, None, 2, Final));
-		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+		// assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
-		assert_eq!(pot(), 14);
+		// Should get revenue amount 10 from RC, from which 6 is system payout (goes to account0
+		// instantly) and the rest is private (kept in the pot until claimed)
+		assert_eq!(pot(), 4);
 		assert_eq!(revenue(), 106);
 
 		// Cannot claim for 0 timeslices.
@@ -470,13 +517,15 @@ fn instapool_payouts_work() {
 
 		// Revenue can be claimed.
 		assert_ok!(Broker::do_claim_revenue(region, 100));
-		assert_eq!(pot(), 10);
+		assert_eq!(pot(), 0);
 		assert_eq!(balance(2), 4);
 	});
 }
 
 #[test]
 fn instapool_partial_core_payouts_work() {
+	// Commented out code is from the reference test implementation and should be uncommented as
+	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
@@ -487,7 +536,7 @@ fn instapool_partial_core_payouts_work() {
 			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 20)).unwrap();
 		assert_ok!(Broker::do_pool(region1, None, 2, Final));
 		assert_ok!(Broker::do_pool(region2, None, 3, Final));
-		assert_ok!(Broker::do_purchase_credit(1, 40, 1));
+		// assert_ok!(Broker::do_purchase_credit(1, 40, 1));
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 40));
 		advance_to(11);
@@ -502,6 +551,8 @@ fn instapool_partial_core_payouts_work() {
 
 #[test]
 fn instapool_core_payouts_work_with_partitioned_region() {
+	// Commented out code is from the reference test implementation and should be uncommented as
+	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
@@ -514,14 +565,14 @@ fn instapool_core_payouts_work_with_partitioned_region() {
 		// coretime will be purchased from `region2`.
 		assert_ok!(Broker::do_pool(region1, None, 2, Final));
 		assert_ok!(Broker::do_pool(region2, None, 3, Final));
-		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+		// assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 10);
 		assert_eq!(revenue(), 100);
 		assert_ok!(Broker::do_claim_revenue(region1, 100));
-		assert_eq!(pot(), 10);
+		assert_eq!(pot(), 0);
 		assert_eq!(balance(2), 10);
 		advance_to(12);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
@@ -1475,6 +1526,294 @@ fn renewal_works_leases_ended_before_start_sales() {
 					},
 				),
 			]
+		);
+	});
+}
+
+#[test]
+fn enable_auto_renew_works() {
+	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 5));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let record = Regions::<Test>::get(region_id).unwrap();
+
+		// Cannot enable auto renewal with provisional finality:
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Provisional));
+		assert_noop!(
+			Broker::do_enable_auto_renew(1001, region_id.core, 1001, Some(7)),
+			Error::<Test>::NotAllowed
+		);
+
+		// Eligible for renewal after final assignment:
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
+			core: region_id.core,
+			when: record.end
+		})
+		.is_some());
+
+		// Only the task's sovereign account can enable auto renewal.
+		assert_noop!(
+			Broker::enable_auto_renew(RuntimeOrigin::signed(1), region_id.core, 1001, Some(7)),
+			Error::<Test>::NoPermission
+		);
+
+		// Works when calling with the sovereign account:
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, Some(7)));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 }]
+		);
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalEnabled { core: region_id.core, task: 1001 }.into(),
+		);
+
+		// Enabling auto-renewal for more cores to ensure they are sorted based on core index.
+		let region_2 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_3 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
+		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
+		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, 1003, Some(7)));
+		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(7)));
+
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![
+				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 },
+				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 7 },
+				AutoRenewalRecord { core: 2, task: 1003, next_renewal: 7 },
+			]
+		);
+
+		// Ensure that we cannot enable more auto renewals than `MaxAutoRenewals`.
+		// We already enabled it for three cores, and the limit is set to 3.
+		let region_4 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_4, Some(1), 1004, Final));
+
+		assert_noop!(
+			Broker::do_enable_auto_renew(1004, region_4.core, 1004, Some(7)),
+			Error::<Test>::TooManyAutoRenewals
+		);
+	});
+}
+
+#[test]
+fn enable_auto_renewal_works_for_legacy_leases() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// With this test, we ensure that we don't renew unnecessarily if the task has Coretime
+		// reserved (due to having a lease)
+
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let record = PotentialRenewalRecord {
+			price: 100,
+			completion: CompletionStatus::Complete(
+				vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(1001) }]
+					.try_into()
+					.unwrap(),
+			),
+		};
+		// For lease holding tasks, the renewal record is set for when the lease expires, which is
+		// likely further in the future than the start of the next sale.
+		PotentialRenewals::<Test>::insert(PotentialRenewalId { core: 0, when: 10 }, &record);
+
+		endow(1001, 1000);
+
+		// Will fail if we don't provide the end hint since it expects renewal record to be at next
+		// sale start.
+		assert_noop!(Broker::do_enable_auto_renew(1001, 0, 1001, None), Error::<Test>::NotAllowed);
+
+		assert_ok!(Broker::do_enable_auto_renew(1001, 0, 1001, Some(10)));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 },]
+		);
+		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 0, task: 1001 }.into());
+
+		// Next cycle starting at 7.
+		advance_to(7);
+
+		// Ensure that the renewal didn't happen by checking that the balance remained the same, as
+		// there is still no need to renew.
+		assert_eq!(balance(1001), 1000);
+
+		// The next sale starts at 13. The renewal should happen now and the account should be
+		// charged.
+		advance_to(13);
+		assert_eq!(balance(1001), 900);
+
+		// Make sure that the renewal happened:
+		System::assert_has_event(
+			Event::<Test>::Renewed {
+				who: 1001, // sovereign account
+				old_core: 0,
+				core: 0,
+				price: 100,
+				begin: 10,
+				duration: 3,
+				workload: Schedule::truncate_from(vec![ScheduleItem {
+					assignment: Task(1001),
+					mask: CoreMask::complete(),
+				}]),
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn enable_auto_renew_renews() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+		// advance to next bulk sale:
+		advance_to(6);
+
+		// Since we didn't renew for the next bulk period, enabling auto-renewal will renew,
+		// ensuring the task continues execution.
+
+		// Will fail because we didn't fund the sovereign account:
+		assert_noop!(
+			Broker::do_enable_auto_renew(1001, region_id.core, 1001, None),
+			TokenError::FundsUnavailable
+		);
+
+		// Will succeed after funding the sovereign account:
+		endow(1001, 1000);
+
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, None));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 }]
+		);
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
+			core: region_id.core,
+			when: 10
+		})
+		.is_some());
+
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalEnabled { core: region_id.core, task: 1001 }.into(),
+		);
+	});
+}
+
+#[test]
+fn auto_renewal_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 3));
+		advance_to(2);
+		let region_1 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_2 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_3 = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+		// Eligible for renewal after final assignment:
+		assert_ok!(Broker::do_assign(region_1, Some(1), 1001, Final));
+		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
+		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, Some(7)));
+		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(7)));
+		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, 1003, Some(7)));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![
+				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 },
+				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 7 },
+				AutoRenewalRecord { core: 2, task: 1003, next_renewal: 7 },
+			]
+		);
+
+		// We have to fund the sovereign account:
+		endow(1001, 1000);
+		// We skip funding the sovereign account of task 1002 on purpose.
+		endow(1003, 1000);
+
+		// Next cycle starting at 7.
+		advance_to(7);
+		System::assert_has_event(
+			Event::<Test>::Renewed {
+				who: 1001, // sovereign account
+				old_core: 0,
+				core: 0,
+				price: 100,
+				begin: 7,
+				duration: 3,
+				workload: Schedule::truncate_from(vec![ScheduleItem {
+					assignment: Task(1001),
+					mask: CoreMask::complete(),
+				}]),
+			}
+			.into(),
+		);
+		// Sovereign account wasn't funded so it fails:
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalFailed { core: 1, payer: Some(1002) }.into(),
+		);
+		System::assert_has_event(
+			Event::<Test>::Renewed {
+				who: 1003, // sovereign account
+				old_core: 2,
+				core: 1, // Core #1 didn't get renewed, so core #2 will take its place.
+				price: 100,
+				begin: 7,
+				duration: 3,
+				workload: Schedule::truncate_from(vec![ScheduleItem {
+					assignment: Task(1003),
+					mask: CoreMask::complete(),
+				}]),
+			}
+			.into(),
+		);
+
+		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
+		// Task (1003) will now be assigned to that core instead of core #2.
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![
+				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 },
+				AutoRenewalRecord { core: 1, task: 1003, next_renewal: 10 },
+			]
+		);
+	});
+}
+
+#[test]
+fn disable_auto_renew_works() {
+	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 3));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+		// Eligible for renewal after final assignment:
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+
+		// Cannot disable auto-renewal if we don't have it enabled.
+		assert_noop!(
+			Broker::do_disable_auto_renew(region_id.core, 1001),
+			Error::<Test>::AutoRenewalNotEnabled
+		);
+
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, Some(7)));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 }]
+		);
+
+		// Only the sovereign account can disable:
+		assert_noop!(
+			Broker::disable_auto_renew(RuntimeOrigin::signed(1), 0, 1001),
+			Error::<Test>::NoPermission
+		);
+		assert_ok!(Broker::do_disable_auto_renew(0, 1001));
+
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![]);
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalDisabled { core: region_id.core, task: 1001 }.into(),
 		);
 	});
 }

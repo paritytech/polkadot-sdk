@@ -4,7 +4,7 @@ version = "24.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Substrate runtime interface"
 documentation = "https://docs.rs/sp-runtime-interface/"
@@ -17,28 +17,28 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-bytes = { version = "1.1.0", default-features = false }
-sp-wasm-interface = { path = "../wasm-interface", default-features = false }
-sp-std = { path = "../std", default-features = false }
-sp-tracing = { path = "../tracing", default-features = false }
-sp-runtime-interface-proc-macro = { path = "proc-macro" }
-sp-externalities = { path = "../externalities", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bytes"] }
-static_assertions = "1.0.0"
-primitive-types = { version = "0.12.0", default-features = false }
-sp-storage = { path = "../storage", default-features = false }
-impl-trait-for-tuples = "0.2.2"
+bytes = { workspace = true }
+sp-wasm-interface = { workspace = true }
+sp-std = { workspace = true }
+sp-tracing = { workspace = true }
+sp-runtime-interface-proc-macro = { workspace = true, default-features = true }
+sp-externalities = { workspace = true }
+codec = { features = ["bytes"], workspace = true }
+static_assertions = { workspace = true, default-features = true }
+primitive-types = { workspace = true }
+sp-storage = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
 
 [target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
 polkavm-derive = { workspace = true }
 
 [dev-dependencies]
-sp-runtime-interface-test-wasm = { path = "test-wasm" }
-sp-state-machine = { path = "../state-machine" }
-sp-core = { path = "../core" }
-sp-io = { path = "../io" }
-rustversion = "1.0.6"
-trybuild = "1.0.88"
+sp-runtime-interface-test-wasm = { workspace = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+rustversion = { workspace = true }
+trybuild = { workspace = true }
 
 [features]
 default = ["std"]

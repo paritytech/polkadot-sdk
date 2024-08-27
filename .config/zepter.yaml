@@ -27,7 +27,7 @@ workflows:
       ]
   # The umbrella crate uses more features, so we to check those too:
   check_umbrella:
-    - [ $check.0, '--features=serde,experimental,with-tracing,tuples-96,with-tracing', '-p=polkadot-sdk' ]
+    - [ $check.0, '--features=serde,experimental,riscv,runtime,with-tracing,tuples-96,with-tracing', '-p=polkadot-sdk' ]
   # Same as `check_*`, but with the `--fix` flag.
   default:
     - [ $check.0, '--fix' ]

@@ -4,7 +4,7 @@ version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Collection of allocator implementations."
 documentation = "https://docs.rs/sc-allocator"
@@ -19,5 +19,5 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 log = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-sp-core = { path = "../../primitives/core" }
-sp-wasm-interface = { path = "../../primitives/wasm-interface" }
+sp-core = { workspace = true, default-features = true }
+sp-wasm-interface = { workspace = true, default-features = true }

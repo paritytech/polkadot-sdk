@@ -231,15 +231,15 @@ parameter_types! {
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct PalletInfo {
 	#[codec(compact)]
-	index: u32,
-	name: BoundedVec<u8, MaxPalletNameLen>,
-	module_name: BoundedVec<u8, MaxPalletNameLen>,
+	pub index: u32,
+	pub name: BoundedVec<u8, MaxPalletNameLen>,
+	pub module_name: BoundedVec<u8, MaxPalletNameLen>,
 	#[codec(compact)]
-	major: u32,
+	pub major: u32,
 	#[codec(compact)]
-	minor: u32,
+	pub minor: u32,
 	#[codec(compact)]
-	patch: u32,
+	pub patch: u32,
 }
 
 impl TryInto<OldPalletInfo> for PalletInfo {
