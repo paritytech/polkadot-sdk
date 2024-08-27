@@ -16,6 +16,12 @@
 
 //! Types relevant for approval.
 
+/// Criteria for assignment.
+pub mod criteria;
+
+/// Time utilities for approval voting.
+pub mod time;
+
 /// A list of primitives introduced in v1.
 pub mod v1 {
 	use sp_consensus_babe as babe_primitives;

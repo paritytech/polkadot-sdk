@@ -140,8 +140,8 @@ impl HeadSupportsParachains for MockSupportsParachains {
 	}
 }
 
-fn slot_to_tick(t: impl Into<Slot>) -> crate::time::Tick {
-	crate::time::slot_number_to_tick(SLOT_DURATION_MILLIS, t.into())
+fn slot_to_tick(t: impl Into<Slot>) -> Tick {
+	slot_number_to_tick(SLOT_DURATION_MILLIS, t.into())
 }
 
 #[derive(Default, Clone)]
