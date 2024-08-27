@@ -7,4 +7,4 @@ doc:
 
 crates:
   - name: frame-support-procedural
-    bump: path
+    bump: patch
