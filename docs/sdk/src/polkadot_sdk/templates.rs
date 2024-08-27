@@ -18,7 +18,7 @@
 //!   FRAME pallets. This template can act as a good starting point for those who want to launch 
 //!   a solochain.
 //! - [`parachain-template`](https://github.com/paritytech/polkadot-sdk-parachain-template): 
-// A parachain template ready to be connected to a relay-chain, such as [Paseo]
+//! A parachain template ready to be connected to a relay-chain, such as [Paseo]
 //! (https://github.com/paseo-network/.github), Kusama  or Polkadot.
 //!
 //! Note that these templates are mirrored automatically from [this](https://github.com/paritytech/polkadot-sdk/blob/master/templates) 
