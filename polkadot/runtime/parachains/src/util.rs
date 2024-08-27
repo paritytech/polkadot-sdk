@@ -83,7 +83,7 @@ pub fn split_active_subset<T: Clone>(active: &[ValidatorIndex], all: &[T]) -> (V
 	if active_result.len() != active.len() {
 		log::warn!(
 			target: "runtime::parachains",
-			"Took active validators from set with wrong size.",
+			"Took active validators from set with wrong size active_result = {}, active = {}", active_result.len(), active.len()
 		);
 	}
 
@@ -108,7 +108,7 @@ pub fn take_active_subset<T: Clone>(active: &[ValidatorIndex], set: &[T]) -> Vec
 	if subset.len() != active.len() {
 		log::warn!(
 			target: "runtime::parachains",
-			"Took active validators from set with wrong size",
+			"Took active validators from set with wrong size active_len = {}, subset = {}", active.len(), subset.len()
 		);
 	}
 

@@ -172,6 +172,11 @@ impl<T: Config> Pallet<T> {
 		let active_account_ids = take_active_subset(&active_set, &account_ids);
 		AccountKeys::<T>::insert(&new_session_index, &active_account_ids);
 
+		log::info!(
+			"Initialized now! with discovery_keys = {}, active_set = {}",
+			discovery_keys.len(),
+			active_set.len()
+		);
 		// create a new entry in `Sessions` with information about the current session
 		let new_session_info = SessionInfo {
 			validators, // these are from the notification and are thus already correct.

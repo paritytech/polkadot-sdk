@@ -1303,7 +1303,7 @@ impl<T: Config> Pallet<T> {
 		// No pending configuration changes, so we're done.
 		if pending_configs.is_empty() {
 			log::info!("Returning here for the lulz");
-			log::info!("{prev_config:?}");
+			log::info!("{:?}", prev_config.scheduler_params.num_cores);
 			return SessionChangeOutcome { prev_config, new_config: None }
 		}
 

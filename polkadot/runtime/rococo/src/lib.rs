@@ -1488,7 +1488,6 @@ construct_runtime! {
 		Offences: pallet_offences = 7,
 		Historical: session_historical = 34,
 
-		Session: pallet_session = 8,
 		Grandpa: pallet_grandpa = 10,
 		AuthorityDiscovery: pallet_authority_discovery = 12,
 
@@ -1552,7 +1551,6 @@ construct_runtime! {
 		ParaInherent: parachains_paras_inherent = 54,
 		ParaScheduler: parachains_scheduler = 55,
 		Paras: parachains_paras = 56,
-		Initializer: parachains_initializer = 57,
 		Dmp: parachains_dmp = 58,
 		Hrmp: parachains_hrmp = 60,
 		ParaSessionInfo: parachains_session_info = 61,
@@ -1561,6 +1559,8 @@ construct_runtime! {
 		MessageQueue: pallet_message_queue = 64,
 		OnDemandAssignmentProvider: parachains_on_demand = 66,
 		CoretimeAssignmentProvider: parachains_assigner_coretime = 68,
+		Initializer: parachains_initializer = 57,
+		Session: pallet_session = 8,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
 		Registrar: paras_registrar = 70,

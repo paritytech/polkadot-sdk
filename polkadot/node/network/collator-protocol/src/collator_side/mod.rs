@@ -564,6 +564,7 @@ async fn determine_our_validators<Context>(
 	let current_validators =
 		groups.get(current_group_index).map(|v| v.as_slice()).unwrap_or_default();
 
+	gum::info!(target: "skunert", "session_info: {info:?}");
 	let validators = &info.discovery_keys;
 
 	let current_validators =
