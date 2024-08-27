@@ -42,6 +42,7 @@ crates:
     note: |
       In `Assets`, assets status can now be "live and no privileges", and there is a new call
       `revoke_all_privileges`.
+      There is also a minor migration for assets.
   - name: pallet-asset-conversion-tx-payment
     bump: none
   - name: pallet-assets-freezer
@@ -55,16 +56,21 @@ crates:
     note: |
       In `TrustBackedAssets`, `PoolAssets` and `ForeignAssets`, assets status can now be
       "live and no privileges", and there is a new call `revoke_all_privileges`.
+      There is also some minor migration for assets.
   - name: asset-hub-westend-runtime
     bump: major
     note: |
       In `TrustBackedAssets`, `PoolAssets` and `ForeignAssets`, assets status can now be
       "live and no privileges", and there is a new call `revoke_all_privileges`.
+      There is also a minor migration for assets.
   - name: penpal-runtime
     bump: major
     note: |
       In `ForeignAssets` and `Assets`, assets status can now be "live and no privileges", and there
       is a new call `revoke_all_privileges`.
+      There is also some minor migration for assets.
+  - name: pallet-revive-mock-network
+    bump: major
 
 migrations:
   runtime:
