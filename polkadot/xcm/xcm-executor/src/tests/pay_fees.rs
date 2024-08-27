@@ -35,13 +35,13 @@ const RECIPIENT: [u8; 32] = [1; 32];
 #[test]
 fn works_for_execution_fees() {
 	// Make sure the sender has enough funds to withdraw.
-	add_asset(SENDER.clone(), (Here, 100u128));
+	add_asset(SENDER, (Here, 100u128));
 
 	// Build xcm.
 	let xcm = Xcm::<TestCall>::builder()
 		.withdraw_asset((Here, 100u128))
 		.pay_fees((Here, 10u128)) // 10% destined for fees, not more.
-		.deposit_asset(All, RECIPIENT.clone())
+		.deposit_asset(All, RECIPIENT)
 		.build();
 
 	let (mut vm, weight) = instantiate_executor(SENDER, xcm.clone());
@@ -68,7 +68,7 @@ fn works_for_execution_fees() {
 #[test]
 fn works_for_delivery_fees() {
 	// Make sure the sender has enough funds to withdraw.
-	add_asset(SENDER.clone(), (Here, 100u128));
+	add_asset(SENDER, (Here, 100u128));
 
 	// Information to send messages.
 	// We don't care about the specifics since we're not actually sending them.
@@ -83,10 +83,10 @@ fn works_for_delivery_fees() {
 		.report_error(query_response_info.clone())
 		.report_error(query_response_info.clone())
 		.report_error(query_response_info)
-		.deposit_asset(All, RECIPIENT.clone())
+		.deposit_asset(All, RECIPIENT)
 		.build();
 
-	let (mut vm, _) = instantiate_executor(SENDER.clone(), xcm.clone());
+	let (mut vm, _) = instantiate_executor(SENDER, xcm.clone());
 
 	// Program runs successfully.
 	assert!(vm.bench_process(xcm).is_ok());
@@ -127,7 +127,7 @@ fn works_for_delivery_fees() {
 #[test]
 fn buy_execution_works_as_before() {
 	// Make sure the sender has enough funds to withdraw.
-	add_asset(SENDER.clone(), (Here, 100u128));
+	add_asset(SENDER, (Here, 100u128));
 
 	// Build xcm.
 	let xcm = Xcm::<TestCall>::builder()
@@ -136,7 +136,7 @@ fn buy_execution_works_as_before() {
 		// We have to specify `Limited` here to actually work, it's normally
 		// set in the `AllowTopLevelPaidExecutionFrom` barrier.
 		.buy_execution((Here, 100u128), Limited(Weight::from_parts(2, 2)))
-		.deposit_asset(All, RECIPIENT.clone())
+		.deposit_asset(All, RECIPIENT)
 		.build();
 
 	let (mut vm, _) = instantiate_executor(SENDER, xcm.clone());
@@ -158,18 +158,18 @@ fn buy_execution_works_as_before() {
 #[test]
 fn fees_can_be_refunded() {
 	// Make sure the sender has enough funds to withdraw.
-	add_asset(SENDER.clone(), (Here, 100u128));
+	add_asset(SENDER, (Here, 100u128));
 
 	// Build xcm.
 	let xcm = Xcm::<TestCall>::builder()
 		.withdraw_asset((Here, 100u128))
 		.pay_fees((Here, 10u128)) // 10% destined for fees, not more.
-		.deposit_asset(All, RECIPIENT.clone())
+		.deposit_asset(All, RECIPIENT)
 		.refund_surplus()
-		.deposit_asset(All, SENDER.clone())
+		.deposit_asset(All, SENDER)
 		.build();
 
-	let (mut vm, _) = instantiate_executor(SENDER.clone(), xcm.clone());
+	let (mut vm, _) = instantiate_executor(SENDER, xcm.clone());
 
 	// Program runs successfully.
 	assert!(vm.bench_process(xcm).is_ok());
@@ -192,16 +192,16 @@ fn fees_can_be_refunded() {
 #[test]
 fn putting_all_assets_in_pay_fees() {
 	// Make sure the sender has enough funds to withdraw.
-	add_asset(SENDER.clone(), (Here, 100u128));
+	add_asset(SENDER, (Here, 100u128));
 
 	// Build xcm.
 	let xcm = Xcm::<TestCall>::builder()
 		.withdraw_asset((Here, 100u128))
 		.pay_fees((Here, 100u128)) // 100% destined for fees, this is not going to end well...
-		.deposit_asset(All, RECIPIENT.clone())
+		.deposit_asset(All, RECIPIENT)
 		.build();
 
-	let (mut vm, _) = instantiate_executor(SENDER.clone(), xcm.clone());
+	let (mut vm, _) = instantiate_executor(SENDER, xcm.clone());
 
 	// Program runs successfully.
 	assert!(vm.bench_process(xcm).is_ok());
@@ -218,7 +218,7 @@ fn putting_all_assets_in_pay_fees() {
 #[test]
 fn refunding_too_early() {
 	// Make sure the sender has enough funds to withdraw.
-	add_asset(SENDER.clone(), (Here, 100u128));
+	add_asset(SENDER, (Here, 100u128));
 
 	// Information to send messages.
 	// We don't care about the specifics since we're not actually sending them.
@@ -229,16 +229,16 @@ fn refunding_too_early() {
 	let xcm = Xcm::<TestCall>::builder()
 		.withdraw_asset((Here, 100u128))
 		.pay_fees((Here, 10u128)) // 10% destined for fees, not more.
-		.deposit_asset(All, RECIPIENT.clone())
+		.deposit_asset(All, RECIPIENT)
 		.refund_surplus()
-		.deposit_asset(All, SENDER.clone())
+		.deposit_asset(All, SENDER)
 		// `refund_surplus` cleared the `fees` register.
 		// `holding` is used as a fallback, but we also cleared that.
 		// The instruction will error and the message won't be sent :(.
 		.report_error(query_response_info)
 		.build();
 
-	let (mut vm, _) = instantiate_executor(SENDER.clone(), xcm.clone());
+	let (mut vm, _) = instantiate_executor(SENDER, xcm.clone());
 
 	// Program fails to run.
 	assert!(vm.bench_process(xcm).is_err());
