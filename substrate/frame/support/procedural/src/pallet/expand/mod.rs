@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 /// Helper to generate better error in case of internal error.
 macro_rules! msg {
 	($t:literal) => {
