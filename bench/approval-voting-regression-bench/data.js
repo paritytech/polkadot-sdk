@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724723768857,
+  "lastUpdate": 1724753445004,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -16167,6 +16167,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.604041739390037,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f0323d529615de0de121a87eb1c8c6da82bd0ff8",
+          "message": "Remove deprecated calls in cumulus-parachain-system (#5439)\n\nCalls were written to be removed after June 2024. This PR removes them.\n\nThis PR will break users using those calls. The call won't be decodable\nby the runtime, so it should fail early with no consequences. The\nfunctionality must be same as before, users will just need to use the\ncalls in `System`.",
+          "timestamp": "2024-08-27T09:28:52Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f0323d529615de0de121a87eb1c8c6da82bd0ff8"
+        },
+        "date": 1724753417489,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63998.66000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.398562626889959,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.288501460940085,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.397132808970126,
             "unit": "seconds"
           }
         ]
