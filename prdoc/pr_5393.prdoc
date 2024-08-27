@@ -11,5 +11,5 @@ doc:
       SDK version must be used.
 
 crates:
-  - name: polkadot
+  - name: cumulus-client-consensus-aura
     bump: minor
