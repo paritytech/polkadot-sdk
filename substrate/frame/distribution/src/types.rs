@@ -83,11 +83,10 @@ impl<T: Config> SpendInfo<T> {
 		let spend = SpendInfo { amount, valid_from, whitelisted_project, claimed };
 
 		// Get the Spend index
-		let index = SpendsCount::<T>::get();
+		let index = SpendsCount::<T>::count();
 		//Add it to the Spends storage
 		Spends::<T>::insert(index, spend.clone());
-		let new_index = index.checked_add(1).expect("Failed Operation");
-		SpendsCount::<T>::put(new_index);
+		SpendsCount::<T>::insert(whitelisted.project_account.clone(), index);
 
 		spend
 	}

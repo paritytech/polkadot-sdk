@@ -121,9 +121,9 @@ pub mod pallet {
 
 	/// Number of Spends that have been executed so far.
 	#[pallet::storage]
-	pub(super) type SpendsCount<T: Config> = StorageValue<_, SpendIndex, ValueQuery>;
+	pub(super) type SpendsCount<T: Config> = CountedStorageMap<_,Twox64Concat, ProjectId<T>, SpendIndex,ValueQuery>;
 
-	/// Spends that still have to be completed.
+	/// Spends that still have to be claimed.
 	#[pallet::storage]
 	pub(super) type Spends<T: Config> =
 		StorageMap<_, Twox64Concat, SpendIndex, SpendInfo<T>, OptionQuery>;
@@ -209,7 +209,7 @@ pub mod pallet {
 			project_account: ProjectId<T>,
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
-			let spend_indexes = Self::get_spend(project_account);
+			let spend_indexes = Self::get_spend(&project_account);
 			let pot = Self::pot_account();
 			for i in spend_indexes {
 				let info = Spends::<T>::get(i).ok_or(Error::<T>::InexistentSpend)?;

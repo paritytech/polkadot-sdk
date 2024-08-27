@@ -26,16 +26,18 @@ impl<T: Config> Pallet<T> {
 		pot_account
 	}
 
-	pub fn get_spend(project_account: ProjectId<T>) -> Vec<SpendIndex> {
+	pub fn get_spend(project_account: &ProjectId<T>) -> Vec<SpendIndex> {
 		let mut spends: Vec<SpendIndex> = Vec::new();
-		for (index, info) in Spends::<T>::iter() {
-			if info.whitelisted_project == Some(project_account.clone()) {
-				spends.push(index);
-			}
+		if SpendsCount::<T>::contains_key(project_account){
+			let index = SpendsCount::<T>::get(project_account);
+		spends.push(index);
+		}
+		
+		spends
 		}
 
-		spends
-	}
+		
+	
 
 	/// Series of checks on the Pot, to ensure that we have enough funds
 	/// before executing a Spend

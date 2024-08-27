@@ -62,7 +62,7 @@ fn spends_creation_works() {
 		create_project(DAVE, amount3);
 
 		// The Spends Storage should be empty
-		assert_eq!(SpendsCount::<Test>::get(), 0);
+		assert_eq!(SpendsCount::<Test>::count(), 0);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
@@ -71,7 +71,7 @@ fn spends_creation_works() {
 		run_to_block(now);
 
 		// We should have 3 Spends
-		assert!(SpendsCount::<Test>::get() == 3);
+		assert!(SpendsCount::<Test>::count() == 3);
 
 		// The 3 Spends are known
 		let alice_spend: types::SpendInfo<Test> = SpendInfo {
@@ -135,7 +135,7 @@ fn funds_are_locked() {
 		create_project(DAVE, amount3);
 
 		// The Spends Storage should be empty
-		assert_eq!(SpendsCount::<Test>::get(), 0);
+		assert_eq!(SpendsCount::<Test>::count(), 0);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
@@ -182,7 +182,7 @@ fn funds_claim_works() {
 		create_project(DAVE, amount3);
 
 		// The Spends Storage should be empty
-		assert_eq!(SpendsCount::<Test>::get(), 0);
+		assert_eq!(SpendsCount::<Test>::count(), 0);
 
 		assert_eq!(Projects::<Test>::get().len(), 3);
 
@@ -225,7 +225,7 @@ fn funds_claim_fails_before_claim_period() {
 		create_project(DAVE, amount3);
 
 		// The Spends Storage should be empty
-		assert_eq!(SpendsCount::<Test>::get(), 0);
+		assert_eq!(SpendsCount::<Test>::count(), 0);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
