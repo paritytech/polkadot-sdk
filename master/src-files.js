@@ -322,7 +322,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["polkadot_node_subsystem_types",["",[["messages",[],["network_bridge_event.rs"]]],["errors.rs","lib.rs","messages.rs","runtime_client.rs"]]],\
 ["polkadot_node_subsystem_util",["",[["inclusion_emulator",[],["mod.rs"]],["runtime",[],["error.rs","mod.rs"]]],["availability_chunks.rs","backing_implicit_view.rs","database.rs","determine_new_blocks.rs","lib.rs","nesting_sender.rs","reputation.rs","vstaging.rs"]]],\
 ["polkadot_overseer",["",[],["dummy.rs","lib.rs","memory_stats.rs","metrics.rs"]]],\
-["polkadot_parachain",["",[["chain_spec",[],["asset_hubs.rs","bridge_hubs.rs","collectives.rs","contracts.rs","coretime.rs","glutton.rs","mod.rs","penpal.rs","people.rs","rococo_parachain.rs","seedling.rs","shell.rs"]]],["main.rs"]]],\
+["polkadot_parachain",["",[["chain_spec",[],["asset_hubs.rs","bridge_hubs.rs","collectives.rs","coretime.rs","glutton.rs","mod.rs","penpal.rs","people.rs","rococo_parachain.rs","seedling.rs","shell.rs"]]],["main.rs"]]],\
 ["polkadot_parachain_lib",["",[["common",[],["aura.rs","chain_spec.rs","mod.rs","runtime.rs"]],["fake_runtime_api",[],["asset_hub_polkadot_aura.rs","aura.rs","mod.rs"]]],["cli.rs","command.rs","lib.rs","rpc.rs","service.rs"]]],\
 ["polkadot_parachain_primitives",["",[],["lib.rs","primitives.rs"]]],\
 ["polkadot_prepare_worker",["",[],["prepare-worker.rs"]]],\

@@ -526,22 +526,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -571,7 +555,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>asset_hubs;
 <span class="kw">pub mod </span>bridge_hubs;
 <span class="kw">pub mod </span>collectives;
-<span class="kw">pub mod </span>contracts;
 <span class="kw">pub mod </span>coretime;
 <span class="kw">pub mod </span>glutton;
 <span class="kw">pub mod </span>penpal;
@@ -692,14 +675,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/collectives-westend.json"</span>)[..],
 			)<span class="question-mark">?</span>),
 
-			<span class="comment">// -- Contracts on Rococo
-			</span><span class="string">"contracts-rococo-dev" </span>=&gt; Box::new(contracts::contracts_rococo_development_config()),
-			<span class="string">"contracts-rococo-local" </span>=&gt; Box::new(contracts::contracts_rococo_local_config()),
-			<span class="string">"contracts-rococo-genesis" </span>=&gt; Box::new(contracts::contracts_rococo_config()),
-			<span class="string">"contracts-rococo" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/contracts-rococo.json"</span>)[..],
-			)<span class="question-mark">?</span>),
-
 			<span class="comment">// -- BridgeHub
 			</span>bridge_like_id
 				<span class="kw">if </span>bridge_like_id.starts_with(bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) =&gt;
@@ -782,7 +757,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AssetHubPolkadot,
 	AssetHub,
 	Penpal,
-	ContractsRococo,
 	Collectives,
 	Glutton,
 	BridgeHub(bridge_hubs::BridgeHubRuntimeType),
@@ -810,8 +784,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			LegacyRuntime::AssetHub
 		} <span class="kw">else if </span>id.starts_with(<span class="string">"penpal"</span>) {
 			LegacyRuntime::Penpal
-		} <span class="kw">else if </span>id.starts_with(<span class="string">"contracts-rococo"</span>) {
-			LegacyRuntime::ContractsRococo
 		} <span class="kw">else if </span>id.starts_with(<span class="string">"collectives-polkadot"</span>) || id.starts_with(<span class="string">"collectives-westend"</span>) {
 			LegacyRuntime::Collectives
 		} <span class="kw">else if </span>id.starts_with(bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) {
@@ -851,7 +823,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			LegacyRuntime::Collectives |
 			LegacyRuntime::Coretime(<span class="kw">_</span>) |
 			LegacyRuntime::People(<span class="kw">_</span>) |
-			LegacyRuntime::ContractsRococo |
 			LegacyRuntime::Glutton |
 			LegacyRuntime::Penpal |
 			LegacyRuntime::Omni =&gt; Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519)),
@@ -926,9 +897,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>chain_spec =
 			create_default_with_extensions(<span class="string">"penpal-rococo-1000"</span>, Extensions2::default());
 		<span class="macro">assert_eq!</span>(LegacyRuntime::Penpal, LegacyRuntime::from_id(chain_spec.id()));
-
-		<span class="kw">let </span>chain_spec = <span class="kw">crate</span>::chain_spec::contracts::contracts_rococo_local_config();
-		<span class="macro">assert_eq!</span>(LegacyRuntime::ContractsRococo, LegacyRuntime::from_id(chain_spec.id()));
 
 		<span class="kw">let </span>chain_spec = <span class="kw">crate</span>::chain_spec::rococo_parachain::rococo_parachain_local_config();
 		<span class="macro">assert_eq!</span>(LegacyRuntime::Omni, LegacyRuntime::from_id(chain_spec.id()));
