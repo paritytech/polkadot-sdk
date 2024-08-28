@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724862427115,
+  "lastUpdate": 1724883186129,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -16496,6 +16496,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.93296096622012,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "56201964f9184004ca17992a3b4778de855b1a35",
+          "message": "CI: Add backporting bot (#4795)\n\nAdds a bot that automatically opens MRs into the `stable2407` branch\nwhen the `A4-needs-backport` label is applied to a merged MR.\n\nTODO:\n- [x] ~~Settle on label vs error message trade-off~~ (resolved)\n\ndocs:\n\n# Backporting\n\nThis document explains how to backport a merged PR from `master` to one\nof the `stable*` branches. Backports should only be used to fix bugs or\nsecurity issues - never to introduce new features.\n\n## Steps\n\n1. Fix a bug through a PR that targets `master`.\n2. Add label `A4-needs-backport` to the PR.\n4. Merge the PR into `master`.\n5. Wait for the bot to open the backport PR.\n6. Ensure the change is audited or does not need audit.\n7. Merge the backport PR. \n\nThe label can also be added after the PR is merged.\n\n## Example\n\nFor example here where the dev triggered the process by adding the label\nafter merging:\n\n\n![backport-ex2](https://github.com/user-attachments/assets/c7b686db-a0fe-41f1-9d6f-959a5a7097b1)\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-28T21:32:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/56201964f9184004ca17992a3b4778de855b1a35"
+        },
+        "date": 1724883157931,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64034.69,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.281007897269939,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3860919654300927,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.607974343340022,
             "unit": "seconds"
           }
         ]
