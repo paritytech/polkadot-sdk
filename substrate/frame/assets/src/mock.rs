@@ -132,16 +132,16 @@ impl BalanceOnHold<u32, u64, u64> for TestHolder {
 
 pub(crate) fn set_held_balance(asset: u32, who: u64, amount: u64) {
 	Held::mutate(|v| {
-		let held_amount = v.get(&(asset, who)).unwrap_or(&0);
+		let amount_on_hold = v.get(&(asset, who)).unwrap_or(&0);
 
-		if &amount > held_amount {
+		if &amount > amount_on_hold {
 			// Hold more funds
-			let amount = amount - held_amount;
+			let amount = amount - amount_on_hold;
 			let f = DebitFlags { keep_alive: true, best_effort: false };
 			assert_ok!(Assets::decrease_balance(asset, &who, amount, f, |_, _| Ok(())));
 		} else {
-			// Release held funds
-			let amount = held_amount - amount;
+			// Release funds on hold
+			let amount = amount_on_hold - amount;
 			assert_ok!(Assets::increase_balance(asset, &who, amount, |_| Ok(())));
 		}
 

@@ -4,13 +4,13 @@ doc:
   - audience: Runtime Dev
     description: |
         This change creates the `pallet-assets-holder` pallet, as well as changes `pallet-assets`
-        to support querying held balances via a new trait: `HeldBalance`.
+        to support querying held balances via a new trait: `BalanceOnHold`.
         
         It also adjusts the balance model implementation for fungible
         sets (see [sdk docs](https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/index.html#visualising-balance-components-together-)).
 
         The `pallet-assets-holder` implements `hold` traits for `pallet-assets`, by extending this
-        pallet and implementing the `HeldBalance` trait so the held balance can be queried by
+        pallet and implementing the `BalanceOnHold` trait so the held balance can be queried by
         `pallet-assets` to calculate the reducible (a.k.a. spendable) balance.
         
         These changes imply adding a configuration type in `pallet-assets` for `Holder`

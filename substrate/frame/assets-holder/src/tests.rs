@@ -185,7 +185,7 @@ mod impl_hold_unbalanced {
 		new_test_ext(|| {
 			assert_eq!(Holds::<Test>::get(ASSET_ID, WHO).to_vec(), vec![]);
 			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, WHO), None);
-			// Adding held balance works
+			// Adding balance on hold works
 			assert_ok!(AssetsHolder::set_balance_on_hold(
 				ASSET_ID,
 				&DummyHoldReason::Governance,
@@ -209,7 +209,7 @@ mod impl_hold_unbalanced {
 				vec![IdAmount { id: DummyHoldReason::Governance, amount: 3 }]
 			);
 			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, WHO), Some(3));
-			// Adding new held balance works
+			// Adding new balance on hold works
 			assert_ok!(AssetsHolder::set_balance_on_hold(
 				ASSET_ID,
 				&DummyHoldReason::Staking,
@@ -233,7 +233,7 @@ mod impl_hold_unbalanced {
 			// 	Error::<Test>::TooManyHolds
 			// );
 
-			// Decreasing held balance works
+			// Decreasing balance on hold works
 			assert_ok!(AssetsHolder::set_balance_on_hold(
 				ASSET_ID,
 				&DummyHoldReason::Staking,
@@ -248,7 +248,7 @@ mod impl_hold_unbalanced {
 				]
 			);
 			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, WHO), Some(4));
-			// Decreasing until removal of held balance works
+			// Decreasing until removal of balance on hold works
 			assert_ok!(AssetsHolder::set_balance_on_hold(
 				ASSET_ID,
 				&DummyHoldReason::Governance,
@@ -309,9 +309,9 @@ mod impl_hold_mutate {
 			// Holding preserves `total_issuance`
 			assert_eq!(Assets::total_issuance(ASSET_ID), 100);
 
-			// Increasing the amount held for the same reason has the same effect as described above
-			// in `set_balance_on_hold_works`, while total issuance is preserved.
-			// Consideration: holding for an amount `x` will increase the already held amount by
+			// Increasing the amount on hold for the same reason has the same effect as described
+			// above in `set_balance_on_hold_works`, while total issuance is preserved.
+			// Consideration: holding for an amount `x` will increase the already amount on hold by
 			// `x`.
 			assert_ok!(AssetsHolder::hold(ASSET_ID, &DummyHoldReason::Governance, &WHO, 20));
 			assert_eq!(Assets::balance(ASSET_ID, &WHO), 70);
@@ -373,8 +373,8 @@ mod impl_hold_mutate {
 			assert_eq!(Assets::balance(ASSET_ID, WHO), 70);
 		});
 
-		// Releasing over the max held amount with `BestEffort` will increase the
-		// balance by the previously held amount, while preserving total issuance.
+		// Releasing over the max amount on hold with `BestEffort` will increase the
+		// balance by the previously amount on hold, while preserving total issuance.
 		new_test_ext().execute_with(|| {
 			assert_ok!(AssetsHolder::release(
 				ASSET_ID,
@@ -394,7 +394,7 @@ mod impl_hold_mutate {
 			assert_eq!(Assets::balance(ASSET_ID, WHO), 80);
 		});
 
-		// Releasing over the max held amount with `Exact` will fail.
+		// Releasing over the max amount on hold with `Exact` will fail.
 		new_test_ext().execute_with(|| {
 			assert_noop!(
 				AssetsHolder::release(
@@ -425,8 +425,8 @@ mod impl_hold_mutate {
 			assert_eq!(Assets::total_issuance(ASSET_ID), 99);
 		});
 
-		// Burning by an amount up to the held balance with `Exact` works, reducing held balance up
-		// to the given amount.
+		// Burning by an amount up to the balance on hold with `Exact` works, reducing balance on
+		// hold up to the given amount.
 		new_test_ext().execute_with(|| {
 			assert_ok!(AssetsHolder::burn_held(
 				ASSET_ID,
@@ -440,8 +440,8 @@ mod impl_hold_mutate {
 			assert_eq!(Assets::balance(ASSET_ID, WHO), 50);
 		});
 
-		// Burning by an amount over the held balance with `BestEffort` works, reducing held balance
-		// up to the given amount.
+		// Burning by an amount over the balance on hold with `BestEffort` works, reducing balance
+		// on hold up to the given amount.
 		new_test_ext().execute_with(|| {
 			assert_ok!(AssetsHolder::burn_held(
 				ASSET_ID,
@@ -455,7 +455,7 @@ mod impl_hold_mutate {
 			assert_eq!(Assets::balance(ASSET_ID, WHO), 50);
 		});
 
-		// Burning by an amount over the held balance with `Exact` fails.
+		// Burning by an amount over the balance on hold with `Exact` fails.
 		new_test_ext().execute_with(|| {
 			assert_noop!(
 				AssetsHolder::burn_held(
@@ -474,8 +474,7 @@ mod impl_hold_mutate {
 	#[test]
 	fn burn_all_held_works() {
 		new_test_ext().execute_with(|| {
-			// Burning all held works as burning giving the held balance
-			// as amount with `BestEffort`
+			// Burning all balance on hold works as burning passing it as amount with `BestEffort`
 			assert_ok!(AssetsHolder::burn_all_held(
 				ASSET_ID,
 				&DummyHoldReason::Governance,

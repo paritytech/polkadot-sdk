@@ -34,8 +34,8 @@
 //!
 //! This pallet provides the following functionality:
 //!
-//! - Pallet hooks allowing [`pallet-assets`] to know the held balance for an account on a given
-//!   asset (see [`pallet_assets::HeldBalance`]).
+//! - Pallet hooks allowing [`pallet-assets`] to know the balance on hold for an account on a given
+//!   asset (see [`pallet_assets::BalanceOnHold`](pallet_assets::BalanceOnHold)).
 //! - An implementation of
 //!   [`fungibles::hold::Inspect`](frame_support::traits::fungibles::hold::Inspect),
 //!   [`fungibles::hold::Mutate`](frame_support::traits::fungibles::hold::Mutate) and
@@ -90,21 +90,21 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		// `who`s held balance was increased by `amount`.
+		// `who`s balance on hold was increased by `amount`.
 		Held {
 			who: T::AccountId,
 			asset_id: T::AssetId,
 			reason: T::RuntimeHoldReason,
 			amount: T::Balance,
 		},
-		// `who`s held balance was decreased by `amount`.
+		// `who`s balance on hold was decreased by `amount`.
 		Released {
 			who: T::AccountId,
 			asset_id: T::AssetId,
 			reason: T::RuntimeHoldReason,
 			amount: T::Balance,
 		},
-		// `who`s held balance was burned by `amount`.
+		// `who`s balance on hold was burned by `amount`.
 		Slashed {
 			who: T::AccountId,
 			asset_id: T::AssetId,
@@ -128,7 +128,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// A map that stores the current total held balance for every account on a given AssetId.
+	/// A map that stores the current total balance on hold for every account on a given AssetId.
 	#[pallet::storage]
 	pub(super) type BalancesOnHold<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,

@@ -29,9 +29,9 @@ use sp_runtime::{
 	ArithmeticError,
 };
 
-// Implements [`HeldBalance`] from [`pallet-assets`], so it can understand whether there's a held
-// amount for an asset account, and is able to signal to this pallet when to clear the state of an
-// account.
+// Implements [`BalanceOnHold`] from [`pallet-assets`], so it can understand whether there's some
+// balance on hold for an asset account, and is able to signal to this pallet when to clear the
+// state of an account.
 impl<T: Config<I>, I: 'static> BalanceOnHold<T::AssetId, T::AccountId, T::Balance>
 	for Pallet<T, I>
 {
@@ -195,19 +195,19 @@ impl<T: Config<I>, I: 'static> UnbalancedHold<T::AccountId> for Pallet<T, I> {
 			(true, amount)
 		};
 
-		let held_amount =
+		let amount_on_hold =
 			BalancesOnHold::<T, I>::get(asset.clone(), who).unwrap_or_else(Zero::zero);
 
-		let held_amount = if increase {
-			held_amount.checked_add(&delta).ok_or(ArithmeticError::Overflow)?
+		let amount_on_hold = if increase {
+			amount_on_hold.checked_add(&delta).ok_or(ArithmeticError::Overflow)?
 		} else {
-			held_amount.checked_sub(&delta).ok_or(ArithmeticError::Underflow)?
+			amount_on_hold.checked_sub(&delta).ok_or(ArithmeticError::Underflow)?
 		};
 
-		if held_amount.is_zero() {
+		if amount_on_hold.is_zero() {
 			BalancesOnHold::<T, I>::remove(asset.clone(), who);
 		} else {
-			BalancesOnHold::<T, I>::insert(asset.clone(), who, held_amount);
+			BalancesOnHold::<T, I>::insert(asset.clone(), who, amount_on_hold);
 		}
 
 		if !holds.is_empty() {
