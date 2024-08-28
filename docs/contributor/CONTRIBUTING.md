@@ -42,13 +42,13 @@ The set of labels and their description can be found [here](https://paritytech.g
 3. If you’re still working on your PR, please submit as “Draft”. Once a PR is ready for review change the status to
    “Open”, so that the maintainers get to review your PR. Generally PRs should sit for 48 hours in order to garner
    feedback. It may be merged before if all relevant parties had a look at it.
-4. With respect to auditing, please see [AUDIT.md](../AUDIT.md). In general, merging to master can happen independent of
+4. With respect to auditing, please see [AUDIT.md](../AUDIT.md). In general, merging to master can happen independently of
    audit.
 5. PRs will be able to be merged once all reviewers' comments are addressed and CI is successful.
 
 **Noting breaking changes:** When breaking APIs, the PR description should mention what was changed alongside some
 examples on how to change the code to make it work/compile. It should also mention potential storage migrations and if
-they require some special setup aside adding it to the list of migrations in the runtime.
+they require some special setup aside from adding it to the list of migrations in the runtime.
 
 ## Reviewing pull requests
 
