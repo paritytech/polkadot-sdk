@@ -324,10 +324,9 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 /// validators provided by [`decision`].
 fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
     DisabledValidators::<T>::mutate(|disabled| {
-        let (offender, reenable) =
-            T::DisablingStrategy::decision(params.stash, params.slash_era, &disabled);
+        let decision = T::DisablingStrategy::decision(params.stash, params.slash, params.slash_era, &disabled);
 
-        match (offender, reenable) {
+        match (decision.disable, decision.reenable) {
             (None, None) => {
                 // Do nothing
             }
@@ -346,8 +345,7 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
                 if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
                     disabled.remove(index);
                     // Propagate re-enablement to session level
-                    // Placeholder for enabling a validator, to be implemented later
-					todo!("T::SessionInterface::enable_validator(reenable_idx)");
+					T::SessionInterface::enable_validator(reenable_idx);
                 }
 
                 // Add the validator to `DisabledValidators` and disable it. Do nothing if it is
@@ -361,7 +359,7 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
             }
             _ => {
                 // This case should not happen, but we handle it defensively
-                log!(error, "Unexpected decision result: {:?}", (offender, reenable));
+                log!(error, "Unexpected decision result: {:?}", decision);
             }
         }
     });

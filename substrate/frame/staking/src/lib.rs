@@ -848,6 +848,9 @@ pub trait SessionInterface<AccountId> {
 	/// Disable the validator at the given index, returns `false` if the validator was already
 	/// disabled or the index is out of bounds.
 	fn disable_validator(validator_index: u32) -> bool;
+	/// Re-enable a validator that was previously disabled. Returns `false` if the validator was
+	/// already enabled or the index is out of bounds.
+	fn enable_validator(validator_index: u32) -> bool;
 	/// Get the validators from session.
 	fn validators() -> Vec<AccountId>;
 	/// Prune historical session tries up to but not including the given index.
@@ -872,6 +875,10 @@ where
 		<pallet_session::Pallet<T>>::disable_index(validator_index)
 	}
 
+	fn enable_validator(validator_index: u32) -> bool {
+		<pallet_session::Pallet<T>>::enable_index(validator_index)
+	}
+
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
 		<pallet_session::Pallet<T>>::validators()
 	}
@@ -883,6 +890,9 @@ where
 
 impl<AccountId> SessionInterface<AccountId> for () {
 	fn disable_validator(_: u32) -> bool {
+		true
+	}
+	fn enable_validator(_: u32) -> bool {
 		true
 	}
 	fn validators() -> Vec<AccountId> {
@@ -1278,9 +1288,16 @@ pub trait DisablingStrategy<T: Config> {
 	/// (Some(x), Some(y)) disable x instead of y
 	fn decision(
 		offender_stash: &T::AccountId,
+		offender_slash_severity: Perbill,
 		slash_era: EraIndex,
 		currently_disabled: &Vec<(u32, Perbill)>,
-	) -> (Option<u32>, Option<u32>);
+	) -> DisablingDecision;
+}
+
+#[derive(Debug)]
+pub struct DisablingDecision {
+	pub disable: Option<u32>,
+	pub reenable: Option<u32>,
 }
 
 /// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
@@ -1309,9 +1326,10 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 {
 	fn decision(
 		offender_stash: &T::AccountId,
+		offender_slash_severity: Perbill,
 		slash_era: EraIndex,
 		currently_disabled: &Vec<(u32, Perbill)>,
-	) -> (Option<u32>, Option<u32>) {
+	) -> DisablingDecision {
 		let active_set = T::SessionInterface::validators();
 
 		// We don't disable more than the limit
@@ -1321,7 +1339,7 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 				"Won't disable: reached disabling limit {:?}",
 				Self::disable_limit(active_set.len())
 			);
-			return (None, None)
+			return DisablingDecision { disable: None, reenable: None }
 		}
 
 		// We don't disable for offences in previous eras
@@ -1374,9 +1392,10 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 {
 	fn decision(
 		offender_stash: &T::AccountId,
+		offender_slash_severity: Perbill,
 		slash_era: EraIndex,
 		currently_disabled: &Vec<(u32, Perbill)>,
-	) -> (Option<u32>, Option<u32>) {
+	) -> DisablingDecision {
 		let active_set = T::SessionInterface::validators();
 
 		// We don't disable for offences in previous eras
@@ -1389,7 +1408,6 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 			);
 			return (None, None)
 		}
-
 		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
 			idx as u32
 		} else {
@@ -1397,7 +1415,7 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 			return (None, None)
 		};
 
-		// We don't disable more than the limit
+		// We don't disable more than the limit (but we can re-enable a smaller offender)
 		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
 			log!(
 				debug,
@@ -1405,8 +1423,12 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 				Self::disable_limit(active_set.len())
 			);
 
-			// Find the smallest offender to re-enable
-			if let Some((smallest_idx, _)) = currently_disabled.iter().min_by_key(|(_, perbill)| *perbill) {
+			// Find the smallest offender to re-enable that is not higher than offender_slash_severity
+			if let Some((smallest_idx, _)) = currently_disabled
+				.iter()
+				.filter(|(_, perbill)| *perbill <= offender_slash_severity)
+				.min_by_key(|(_, perbill)| *perbill) 
+			{
 				log!(debug, "Will disable {:?} and re-enable {:?}", offender_idx, smallest_idx);
 				return (Some(offender_idx), Some(*smallest_idx));
 			} else {
@@ -1415,8 +1437,8 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 			}
 		}
 
+		// If we are not at the limit, just disable the new offender and dont re-enable anyone
 		log!(debug, "Will disable {:?}", offender_idx);
-
 		(Some(offender_idx), None)
 	}
 }
