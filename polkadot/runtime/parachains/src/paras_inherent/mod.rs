@@ -984,6 +984,30 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	};
 
+	// Check session index in the receipt. As we drop allowed relay parents at session change
+	// we only allow here candidates that have the session index equal to the current session.
+	let Some(session_index) = candidate.descriptor().session_index() else {
+		log::debug!(
+			target: LOG_TARGET,
+			"Invalid V2 candidate receipt {:?} for paraid {:?}, missing session index.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id(),
+		);
+		return false
+	};
+
+	if session_index != shared::CurrentSessionIndex::<T>::get() {
+		log::debug!(
+			target: LOG_TARGET,
+			"Dropping V2 candidate receipt {:?} for paraid {:?}, invalid session index {}, current session {}",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id(),
+			session_index,
+			shared::CurrentSessionIndex::<T>::get()
+		);
+		return false
+	}
+
 	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
 	// any v1 descendants of v2 candidates are dropped.
 	if !allow_v2_receipts {

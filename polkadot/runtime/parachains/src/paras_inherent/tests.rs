@@ -62,7 +62,9 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-		vstaging::{InternalVersion, SchedulerParams},
+		vstaging::{
+			CandidateDescriptorV2, CommittedCandidateReceiptV2, InternalVersion, SchedulerParams,
+		},
 		AvailabilityBitfield, CandidateDescriptor, UncheckedSigned,
 	};
 	use sp_runtime::Perbill;
@@ -1549,7 +1551,6 @@ mod enter {
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				fill_claimqueue: true,
-				// 8 cores !
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
@@ -1627,7 +1628,6 @@ mod enter {
 				num_validators_per_core: 1,
 				code_upgrade: None,
 				fill_claimqueue: true,
-				// 8 cores !
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: false,
@@ -1711,6 +1711,101 @@ mod enter {
 			assert_eq!(inherent_data.backed_candidates.len(), 5);
 
 			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data).unwrap();
+		});
+	}
+
+	// A test to ensure that the paras_inherent filters out candidates
+	// with invalid sesison index in the descriptor.
+	#[test]
+	fn invalid_session_index() {
+		let config = default_config();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+		new_test_ext(config).execute_with(|| {
+			// Set the elastic scaling MVP feature.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::ElasticScalingMVP as u8,
+				true,
+			)
+			.unwrap();
+
+			// Enable the v2 receipts.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let unavailable_cores = vec![];
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				fill_claimqueue: true,
+				elastic_paras: [(2, 3)].into_iter().collect(),
+				unavailable_cores,
+				v2_descriptor: true,
+			});
+
+			let mut inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (2 validators per core, 5 backed candidates)
+			assert_eq!(inherent_data.bitfields.len(), 5);
+			// * 5 v2 candidate descriptors passed, 1 is invalid
+			assert_eq!(inherent_data.backed_candidates.len(), 5);
+
+			let index = inherent_data.backed_candidates.len() - 1;
+
+			// Put invalid session index in last candidate
+			let backed_candidate = inherent_data.backed_candidates[index].clone();
+
+			let candidate = CommittedCandidateReceiptV2 {
+				descriptor: CandidateDescriptorV2::new(
+					backed_candidate.descriptor().para_id(),
+					backed_candidate.descriptor().relay_parent(),
+					backed_candidate.descriptor().core_index().unwrap(),
+					100,
+					backed_candidate.descriptor().persisted_validation_data_hash(),
+					backed_candidate.descriptor().pov_hash(),
+					backed_candidate.descriptor().erasure_root(),
+					backed_candidate.descriptor().para_head(),
+					backed_candidate.descriptor().validation_code_hash(),
+				),
+				commitments: backed_candidate.candidate().commitments.clone(),
+			};
+
+			inherent_data.backed_candidates[index] = BackedCandidate::new(
+				candidate,
+				backed_candidate.validity_votes().to_vec(),
+				backed_candidate.validator_indices_and_core_index(false).0.into(),
+				None,
+			);
+
+			let mut expected_inherent_data = inherent_data.clone();
+			expected_inherent_data.backed_candidates.truncate(index);
+
+			let mut create_inherent_data = InherentData::new();
+			create_inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &inherent_data)
+				.unwrap();
+
+			// 1 candidate with invalid session is filtered out
+			assert_eq!(
+				Pallet::<Test>::create_inherent_inner(&create_inherent_data).unwrap(),
+				expected_inherent_data
+			);
+
+			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data).unwrap_err();
 		});
 	}
 }
