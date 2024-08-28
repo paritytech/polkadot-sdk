@@ -211,6 +211,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -247,12 +256,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Aura(AuraConsensusId),
 }
 
+<span class="doccomment">/// The choice of block number for the parachain omni-node.
+</span><span class="attr">#[derive(PartialEq)]
+</span><span class="kw">pub enum </span>BlockNumber {
+	<span class="doccomment">/// u32
+	</span>U32,
+	<span class="doccomment">/// u64
+	</span>U64,
+}
+
 <span class="doccomment">/// Helper enum listing the supported Runtime types
 </span><span class="attr">#[derive(PartialEq)]
 </span><span class="kw">pub enum </span>Runtime {
 	<span class="doccomment">/// None of the system-chain runtimes, rather the node will act agnostic to the runtime ie. be
 	/// an omni-node, and simply run a node with the given consensus algorithm.
-	</span>Omni(Consensus),
+	</span>Omni(BlockNumber, Consensus),
 	<span class="doccomment">/// Shell
 	</span>Shell,
 }
@@ -264,12 +282,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Default implementation for `RuntimeResolver` that just returns
-/// `Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519))`.
+/// `Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519))`.
 </span><span class="kw">pub struct </span>DefaultRuntimeResolver;
 
 <span class="kw">impl </span>RuntimeResolver <span class="kw">for </span>DefaultRuntimeResolver {
 	<span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>, _chain_spec: <span class="kw-2">&amp;</span><span class="kw">dyn </span>ChainSpec) -&gt; sc_cli::Result&lt;Runtime&gt; {
-		<span class="prelude-val">Ok</span>(Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519)))
+		<span class="prelude-val">Ok</span>(Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)))
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

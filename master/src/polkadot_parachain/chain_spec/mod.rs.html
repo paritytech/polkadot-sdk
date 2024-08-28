@@ -526,6 +526,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -546,7 +549,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>parachains_common::{AccountId, Signature};
 <span class="kw">use </span>polkadot_parachain_lib::{
 	chain_spec::{GenericChainSpec, LoadSpec},
-	runtime::{AuraConsensusId, Consensus, Runtime, RuntimeResolver <span class="kw">as </span>RuntimeResolverT},
+	runtime::{
+		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver <span class="kw">as </span>RuntimeResolverT,
+	},
 };
 <span class="kw">use </span>sc_chain_spec::ChainSpec;
 <span class="kw">use </span>sp_core::{Pair, Public};
@@ -817,7 +822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>legacy_runtime = LegacyRuntime::from_id(chain_spec.id());
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>legacy_runtime {
 			LegacyRuntime::AssetHubPolkadot =&gt;
-				Runtime::Omni(Consensus::Aura(AuraConsensusId::Ed25519)),
+				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Ed25519)),
 			LegacyRuntime::AssetHub |
 			LegacyRuntime::BridgeHub(<span class="kw">_</span>) |
 			LegacyRuntime::Collectives |
@@ -825,7 +830,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			LegacyRuntime::People(<span class="kw">_</span>) |
 			LegacyRuntime::Glutton |
 			LegacyRuntime::Penpal |
-			LegacyRuntime::Omni =&gt; Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519)),
+			LegacyRuntime::Omni =&gt;
+				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)),
 			LegacyRuntime::Shell | LegacyRuntime::Seedling =&gt; Runtime::Shell,
 		})
 	}

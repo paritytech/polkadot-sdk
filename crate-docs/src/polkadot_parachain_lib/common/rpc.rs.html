@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/polkadot-parachain-lib/src/rpc.rs`."><title>rpc.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/polkadot-parachain-lib/src/common/rpc.rs`."><title>rpc.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_parachain_lib" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_parachain_lib" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -150,7 +150,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
-    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_parachain_lib/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_parachain_lib/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -243,6 +243,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -263,13 +265,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![warn(missing_docs)]
 
-</span><span class="kw">use crate</span>::{
-	common::ConstructNodeRuntimeApi,
-	service::{ParachainBackend, ParachainClient},
+</span><span class="kw">use </span><span class="kw">crate</span>::common::{
+	types::{AccountId, Balance, Nonce, ParachainBackend, ParachainClient},
+	ConstructNodeRuntimeApi,
 };
 <span class="kw">use </span>pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-<span class="kw">use </span>parachains_common::{AccountId, Balance, Block, Nonce};
 <span class="kw">use </span>sc_rpc::dev::{Dev, DevApiServer};
+<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 <span class="kw">use </span>substrate_frame_rpc_system::{System, SystemApiServer};
 <span class="kw">use </span>substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
@@ -285,43 +287,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; sc_service::error::Result&lt;RpcExtension&gt;;
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BuildEmptyRpcExtensions&lt;RuntimeApi&gt;(PhantomData&lt;RuntimeApi&gt;);
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BuildEmptyRpcExtensions&lt;Block, RuntimeApi&gt;(PhantomData&lt;(Block, RuntimeApi)&gt;);
 
-<span class="kw">impl</span>&lt;RuntimeApi&gt;
+<span class="kw">impl</span>&lt;Block: BlockT, RuntimeApi&gt;
 	BuildRpcExtensions&lt;
-		ParachainClient&lt;RuntimeApi&gt;,
-		ParachainBackend,
-		sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
-	&gt; <span class="kw">for </span>BuildEmptyRpcExtensions&lt;RuntimeApi&gt;
+		ParachainClient&lt;Block, RuntimeApi&gt;,
+		ParachainBackend&lt;Block&gt;,
+		sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;Block, RuntimeApi&gt;&gt;,
+	&gt; <span class="kw">for </span>BuildEmptyRpcExtensions&lt;Block, RuntimeApi&gt;
 <span class="kw">where
-	</span>RuntimeApi: ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	</span>RuntimeApi:
+		ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;Block, RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
 	<span class="kw">fn </span>build_rpc_extensions(
-		_client: Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
-		_backend: Arc&lt;ParachainBackend&gt;,
-		_pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;&gt;,
+		_client: Arc&lt;ParachainClient&lt;Block, RuntimeApi&gt;&gt;,
+		_backend: Arc&lt;ParachainBackend&lt;Block&gt;&gt;,
+		_pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;Block, RuntimeApi&gt;&gt;&gt;,
 	) -&gt; sc_service::error::Result&lt;RpcExtension&gt; {
 		<span class="prelude-val">Ok</span>(RpcExtension::new(()))
 	}
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BuildParachainRpcExtensions&lt;RuntimeApi&gt;(PhantomData&lt;RuntimeApi&gt;);
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BuildParachainRpcExtensions&lt;Block, RuntimeApi&gt;(PhantomData&lt;(Block, RuntimeApi)&gt;);
 
-<span class="kw">impl</span>&lt;RuntimeApi&gt;
+<span class="kw">impl</span>&lt;Block: BlockT, RuntimeApi&gt;
 	BuildRpcExtensions&lt;
-		ParachainClient&lt;RuntimeApi&gt;,
-		ParachainBackend,
-		sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
-	&gt; <span class="kw">for </span>BuildParachainRpcExtensions&lt;RuntimeApi&gt;
+		ParachainClient&lt;Block, RuntimeApi&gt;,
+		ParachainBackend&lt;Block&gt;,
+		sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;Block, RuntimeApi&gt;&gt;,
+	&gt; <span class="kw">for </span>BuildParachainRpcExtensions&lt;Block, RuntimeApi&gt;
 <span class="kw">where
-	</span>RuntimeApi: ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	</span>RuntimeApi:
+		ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;Block, RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	RuntimeApi::RuntimeApi: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;
 		+ substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
 {
 	<span class="kw">fn </span>build_rpc_extensions(
-		client: Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
-		backend: Arc&lt;ParachainBackend&gt;,
-		pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;&gt;,
+		client: Arc&lt;ParachainClient&lt;Block, RuntimeApi&gt;&gt;,
+		backend: Arc&lt;ParachainBackend&lt;Block&gt;&gt;,
+		pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;Block, RuntimeApi&gt;&gt;&gt;,
 	) -&gt; sc_service::error::Result&lt;RpcExtension&gt; {
 		<span class="kw">let </span>build = || -&gt; <span class="prelude-ty">Result</span>&lt;RpcExtension, Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt; {
 			<span class="kw">let </span><span class="kw-2">mut </span>module = RpcExtension::new(());

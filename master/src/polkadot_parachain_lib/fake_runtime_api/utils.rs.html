@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/polkadot-parachain-lib/src/fake_runtime_api/asset_hub_polkadot_aura.rs`."><title>asset_hub_polkadot_aura.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/polkadot-parachain-lib/src/fake_runtime_api/utils.rs`."><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
 data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_parachain_lib" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
@@ -347,6 +347,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -363,187 +386,210 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! These are used to provide a type that implements these runtime APIs without requiring to import
-//! the native runtimes.
-
-</span><span class="kw">use </span>parachains_common::{AccountId, AssetHubPolkadotAuraId, Balance, Block, Nonce};
-<span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-<span class="kw">use </span>sp_runtime::{
-	traits::Block <span class="kw">as </span>BlockT,
-	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
-};
-<span class="kw">use </span>sp_weights::Weight;
-
-<span class="kw">pub struct </span>Runtime;
-
-<span class="macro">sp_api::impl_runtime_apis! </span>{
-	<span class="kw">impl </span>sp_api::Core&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>version() -&gt; sp_version::RuntimeVersion {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>execute_block(<span class="kw">_</span>: Block) {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>initialize_block(<span class="kw">_</span>: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) -&gt; sp_runtime::ExtrinsicInclusionMode {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="kw">impl </span>sp_api::Metadata&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>metadata() -&gt; OpaqueMetadata {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>metadata_at_version(<span class="kw">_</span>: u32) -&gt; <span class="prelude-ty">Option</span>&lt;OpaqueMetadata&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>metadata_versions() -&gt; Vec&lt;u32&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="kw">impl </span>sp_consensus_aura::AuraApi&lt;Block, AssetHubPolkadotAuraId&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>slot_duration() -&gt; sp_consensus_aura::SlotDuration {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>authorities() -&gt; Vec&lt;AssetHubPolkadotAuraId&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="kw">impl </span>cumulus_primitives_aura::AuraUnincludedSegmentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>can_build_upon(
-			<span class="kw">_</span>: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
-			<span class="kw">_</span>: cumulus_primitives_aura::Slot,
-		) -&gt; bool {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="kw">impl </span>sp_block_builder::BlockBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>apply_extrinsic(<span class="kw">_</span>: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; ApplyExtrinsicResult {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>finalize_block() -&gt; &lt;Block <span class="kw">as </span>BlockT&gt;::Header {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>inherent_extrinsics(<span class="kw">_</span>: sp_inherents::InherentData) -&gt; Vec&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>check_inherents(<span class="kw">_</span>: Block, <span class="kw">_</span>: sp_inherents::InherentData) -&gt; sp_inherents::CheckInherentsResult {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="kw">impl </span>sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>validate_transaction(
-			<span class="kw">_</span>: TransactionSource,
-			<span class="kw">_</span>: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
-			<span class="kw">_</span>: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
-		) -&gt; TransactionValidity {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="kw">impl </span>sp_session::SessionKeys&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>generate_session_keys(<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; Vec&lt;u8&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>decode_session_keys(
-			<span class="kw">_</span>: Vec&lt;u8&gt;,
-		) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;(Vec&lt;u8&gt;, KeyTypeId)&gt;&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="kw">impl </span>pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi&lt;Block, Balance&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>query_info(
-			<span class="kw">_</span>: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
-			<span class="kw">_</span>: u32,
-		) -&gt; pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo&lt;Balance&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-		<span class="kw">fn </span>query_fee_details(
-			<span class="kw">_</span>: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
-			<span class="kw">_</span>: u32,
-		) -&gt; pallet_transaction_payment::FeeDetails&lt;Balance&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-		<span class="kw">fn </span>query_weight_to_fee(<span class="kw">_</span>: Weight) -&gt; Balance {
-			<span class="macro">unimplemented!</span>()
-		}
-		<span class="kw">fn </span>query_length_to_fee(<span class="kw">_</span>: u32) -&gt; Balance {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="kw">impl </span>cumulus_primitives_core::CollectCollationInfo&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>collect_collation_info(<span class="kw">_</span>: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) -&gt; cumulus_primitives_core::CollationInfo {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">impl </span>frame_try_runtime::TryRuntime&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>on_runtime_upgrade(<span class="kw">_</span>: frame_try_runtime::UpgradeCheckSelect) -&gt; (Weight, Weight) {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>execute_block(
-			<span class="kw">_</span>: Block,
-			<span class="kw">_</span>: bool,
-			<span class="kw">_</span>: bool,
-			<span class="kw">_</span>: frame_try_runtime::TryStateSelect,
-		) -&gt; Weight {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="kw">impl </span>frame_system_rpc_runtime_api::AccountNonceApi&lt;Block, AccountId, Nonce&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>account_nonce(<span class="kw">_</span>: AccountId) -&gt; Nonce {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">impl </span>frame_benchmarking::Benchmark&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>benchmark_metadata(<span class="kw">_</span>: bool) -&gt; (
-			Vec&lt;frame_benchmarking::BenchmarkList&gt;,
-			Vec&lt;frame_support::traits::StorageInfo&gt;,
-		) {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>dispatch_benchmark(
-			<span class="kw">_</span>: frame_benchmarking::BenchmarkConfig
-		) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;frame_benchmarking::BenchmarkBatch&gt;, sp_runtime::RuntimeString&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
-
-	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>build_state(<span class="kw">_</span>: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>get_preset(_id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;sp_genesis_builder::PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-
-		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;sp_genesis_builder::PresetId&gt; {
-			<span class="macro">unimplemented!</span>()
-		}
-	}
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>imports {
+	<span class="kw">pub use </span>parachains_common::{AccountId, Balance, Nonce};
+	<span class="kw">pub use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+	<span class="kw">pub use </span>sp_runtime::{
+		traits::Block <span class="kw">as </span>BlockT,
+		transaction_validity::{TransactionSource, TransactionValidity},
+		ApplyExtrinsicResult,
+	};
+	<span class="kw">pub use </span>sp_weights::Weight;
 }
+
+<span class="macro">macro_rules! </span>impl_node_runtime_apis {
+	(<span class="macro-nonterminal">$runtime</span>: ty, <span class="macro-nonterminal">$block</span>: tt, <span class="macro-nonterminal">$aura_id</span>: ty) =&gt; {
+		<span class="macro">sp_api::impl_runtime_apis! </span>{
+			<span class="kw">impl </span>sp_api::Core&lt;<span class="macro-nonterminal">$block</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>version() -&gt; sp_version::RuntimeVersion {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>execute_block(<span class="kw">_</span>: <span class="macro-nonterminal">$block</span>) {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>initialize_block(
+					<span class="kw">_</span>: <span class="kw-2">&amp;</span>&lt;<span class="macro-nonterminal">$block </span><span class="kw">as </span>BlockT&gt;::Header
+				) -&gt; sp_runtime::ExtrinsicInclusionMode {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="kw">impl </span>sp_api::Metadata&lt;<span class="macro-nonterminal">$block</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>metadata() -&gt; OpaqueMetadata {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>metadata_at_version(<span class="kw">_</span>: u32) -&gt; <span class="prelude-ty">Option</span>&lt;OpaqueMetadata&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>metadata_versions() -&gt; Vec&lt;u32&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="kw">impl </span>sp_consensus_aura::AuraApi&lt;<span class="macro-nonterminal">$block</span>, <span class="macro-nonterminal">$aura_id</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>slot_duration() -&gt; sp_consensus_aura::SlotDuration {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>authorities() -&gt; Vec&lt;<span class="macro-nonterminal">$aura_id</span>&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="kw">impl </span>cumulus_primitives_aura::AuraUnincludedSegmentApi&lt;<span class="macro-nonterminal">$block</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>can_build_upon(
+					<span class="kw">_</span>: &lt;<span class="macro-nonterminal">$block </span><span class="kw">as </span>BlockT&gt;::Hash,
+					<span class="kw">_</span>: cumulus_primitives_aura::Slot,
+				) -&gt; bool {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="kw">impl </span>sp_block_builder::BlockBuilder&lt;<span class="macro-nonterminal">$block</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>apply_extrinsic(<span class="kw">_</span>: &lt;<span class="macro-nonterminal">$block </span><span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; ApplyExtrinsicResult {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>finalize_block() -&gt; &lt;<span class="macro-nonterminal">$block </span><span class="kw">as </span>BlockT&gt;::Header {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>inherent_extrinsics(
+					<span class="kw">_</span>: sp_inherents::InherentData
+				) -&gt; Vec&lt;&lt;<span class="macro-nonterminal">$block </span><span class="kw">as </span>BlockT&gt;::Extrinsic&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>check_inherents(
+					<span class="kw">_</span>: <span class="macro-nonterminal">$block</span>,
+					<span class="kw">_</span>: sp_inherents::InherentData
+				) -&gt; sp_inherents::CheckInherentsResult {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="kw">impl </span>sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;<span class="macro-nonterminal">$block</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>validate_transaction(
+					<span class="kw">_</span>: TransactionSource,
+					<span class="kw">_</span>: &lt;<span class="macro-nonterminal">$block </span><span class="kw">as </span>BlockT&gt;::Extrinsic,
+					<span class="kw">_</span>: &lt;<span class="macro-nonterminal">$block </span><span class="kw">as </span>BlockT&gt;::Hash,
+				) -&gt; TransactionValidity {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="kw">impl </span>sp_session::SessionKeys&lt;<span class="macro-nonterminal">$block</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>generate_session_keys(<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; Vec&lt;u8&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>decode_session_keys(
+					<span class="kw">_</span>: Vec&lt;u8&gt;,
+				) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;(Vec&lt;u8&gt;, KeyTypeId)&gt;&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="kw">impl
+				</span>pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi&lt;
+					<span class="macro-nonterminal">$block</span>,
+					Balance,
+				&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime
+			</span>{
+				<span class="kw">fn </span>query_info(
+					<span class="kw">_</span>: &lt;<span class="macro-nonterminal">$block </span><span class="kw">as </span>BlockT&gt;::Extrinsic,
+					<span class="kw">_</span>: u32,
+				) -&gt; pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo&lt;Balance&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+				<span class="kw">fn </span>query_fee_details(
+					<span class="kw">_</span>: &lt;<span class="macro-nonterminal">$block </span><span class="kw">as </span>BlockT&gt;::Extrinsic,
+					<span class="kw">_</span>: u32,
+				) -&gt; pallet_transaction_payment::FeeDetails&lt;Balance&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+				<span class="kw">fn </span>query_weight_to_fee(<span class="kw">_</span>: Weight) -&gt; Balance {
+					<span class="macro">unimplemented!</span>()
+				}
+				<span class="kw">fn </span>query_length_to_fee(<span class="kw">_</span>: u32) -&gt; Balance {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="kw">impl </span>cumulus_primitives_core::CollectCollationInfo&lt;<span class="macro-nonterminal">$block</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>collect_collation_info(
+					<span class="kw">_</span>: <span class="kw-2">&amp;</span>&lt;<span class="macro-nonterminal">$block </span><span class="kw">as </span>BlockT&gt;::Header
+				) -&gt; cumulus_primitives_core::CollationInfo {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+			</span><span class="kw">impl </span>frame_try_runtime::TryRuntime&lt;<span class="macro-nonterminal">$block</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>on_runtime_upgrade(
+					<span class="kw">_</span>: frame_try_runtime::UpgradeCheckSelect
+				) -&gt; (Weight, Weight) {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>execute_block(
+					<span class="kw">_</span>: <span class="macro-nonterminal">$block</span>,
+					<span class="kw">_</span>: bool,
+					<span class="kw">_</span>: bool,
+					<span class="kw">_</span>: frame_try_runtime::TryStateSelect,
+				) -&gt; Weight {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="kw">impl </span>frame_system_rpc_runtime_api::AccountNonceApi&lt;
+				<span class="macro-nonterminal">$block</span>,
+				AccountId,
+				Nonce
+			&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>account_nonce(<span class="kw">_</span>: AccountId) -&gt; Nonce {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+			</span><span class="kw">impl </span>frame_benchmarking::Benchmark&lt;<span class="macro-nonterminal">$block</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>benchmark_metadata(<span class="kw">_</span>: bool) -&gt; (
+					Vec&lt;frame_benchmarking::BenchmarkList&gt;,
+					Vec&lt;frame_support::traits::StorageInfo&gt;,
+				) {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>dispatch_benchmark(
+					<span class="kw">_</span>: frame_benchmarking::BenchmarkConfig
+				) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;frame_benchmarking::BenchmarkBatch&gt;, sp_runtime::RuntimeString&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+
+			<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;<span class="macro-nonterminal">$block</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$runtime </span>{
+				<span class="kw">fn </span>build_state(<span class="kw">_</span>: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>get_preset(_id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;sp_genesis_builder::PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+
+				<span class="kw">fn </span>preset_names() -&gt; Vec&lt;sp_genesis_builder::PresetId&gt; {
+					<span class="macro">unimplemented!</span>()
+				}
+			}
+		}
+	};
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>impl_node_runtime_apis;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

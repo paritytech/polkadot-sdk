@@ -171,6 +171,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
 <a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -190,8 +204,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! In an ideal world this would be one runtime which would simplify the code massively.
 //! This is not an ideal world - Polkadot Asset Hub has a different key type.
 
-</span><span class="kw">pub mod </span>asset_hub_polkadot_aura;
-<span class="kw">pub mod </span>aura;
+</span><span class="kw">mod </span>utils;
+
+<span class="kw">use </span>utils::{impl_node_runtime_apis, imports::<span class="kw-2">*</span>};
+
+<span class="kw">type </span>CustomBlock = <span class="kw">crate</span>::common::types::Block&lt;u32&gt;;
+<span class="kw">pub mod </span>aura_sr25519 {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">struct </span>FakeRuntime;
+	<span class="macro">impl_node_runtime_apis!</span>(FakeRuntime, CustomBlock, sp_consensus_aura::sr25519::AuthorityId);
+}
+
+<span class="kw">pub mod </span>aura_ed25519 {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">struct </span>FakeRuntime;
+	<span class="macro">impl_node_runtime_apis!</span>(FakeRuntime, CustomBlock, sp_consensus_aura::ed25519::AuthorityId);
+}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

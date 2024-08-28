@@ -152,45 +152,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../staging_xcm_executor/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">staging_xcm_executor</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">OnResponse</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/staging_xcm_executor/traits/on_response.rs.html#28-42">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait OnResponse {
     // Required methods
     fn <a href="#tymethod.expecting_response" class="fn">expecting_response</a>(
-        origin: &amp;Location,
+        origin: &amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>,
         query_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
-        querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Location&gt;
+        querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>&gt;
     ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.on_response" class="fn">on_response</a>(
-        origin: &amp;Location,
+        origin: &amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>,
         query_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
-        querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Location&gt;,
-        response: Response,
+        querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>&gt;,
+        response: <a class="enum" href="../../staging_xcm/v4/enum.Response.html" title="enum staging_xcm::v4::Response">Response</a>,
         max_weight: Weight,
-        context: &amp;XcmContext
+        context: &amp;<a class="struct" href="../../staging_xcm/v4/struct.XcmContext.html" title="struct staging_xcm::v4::XcmContext">XcmContext</a>
     ) -&gt; Weight;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Define what needs to be done upon receiving a query response.</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.expecting_response" class="method"><a class="src rightside" href="../../src/staging_xcm_executor/traits/on_response.rs.html#31">source</a><h4 class="code-header">fn <a href="#tymethod.expecting_response" class="fn">expecting_response</a>(
-    origin: &amp;Location,
+    origin: &amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>,
     query_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
-    querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Location&gt;
+    querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>&gt;
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns <code>true</code> if we are expecting a response from <code>origin</code> for query <code>query_id</code> that was
 queried by <code>querier</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_response" class="method"><a class="src rightside" href="../../src/staging_xcm_executor/traits/on_response.rs.html#34-41">source</a><h4 class="code-header">fn <a href="#tymethod.on_response" class="fn">on_response</a>(
-    origin: &amp;Location,
+    origin: &amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>,
     query_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
-    querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Location&gt;,
-    response: Response,
+    querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>&gt;,
+    response: <a class="enum" href="../../staging_xcm/v4/enum.Response.html" title="enum staging_xcm::v4::Response">Response</a>,
     max_weight: Weight,
-    context: &amp;XcmContext
+    context: &amp;<a class="struct" href="../../staging_xcm/v4/struct.XcmContext.html" title="struct staging_xcm::v4::XcmContext">XcmContext</a>
 ) -&gt; Weight</h4></section></summary><div class="docblock"><p>Handler for receiving a <code>response</code> from <code>origin</code> relating to <code>query_id</code> initiated by
 <code>querier</code>.</p>
 </div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-OnResponse-for-()" class="impl"><a class="src rightside" href="../../src/staging_xcm_executor/traits/on_response.rs.html#43-57">source</a><a href="#impl-OnResponse-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.OnResponse.html" title="trait staging_xcm_executor::traits::OnResponse">OnResponse</a> for <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="method.expecting_response" class="method trait-impl"><a class="src rightside" href="../../src/staging_xcm_executor/traits/on_response.rs.html#44-46">source</a><a href="#method.expecting_response" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.expecting_response" class="fn">expecting_response</a>(
-    _origin: &amp;Location,
+    _origin: &amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>,
     _query_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
-    _querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Location&gt;
+    _querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>&gt;
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section><section id="method.on_response" class="method trait-impl"><a class="src rightside" href="../../src/staging_xcm_executor/traits/on_response.rs.html#47-56">source</a><a href="#method.on_response" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.on_response" class="fn">on_response</a>(
-    _origin: &amp;Location,
+    _origin: &amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>,
     _query_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
-    _querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Location&gt;,
-    _response: Response,
+    _querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>&gt;,
+    _response: <a class="enum" href="../../staging_xcm/v4/enum.Response.html" title="enum staging_xcm::v4::Response">Response</a>,
     _max_weight: Weight,
-    _context: &amp;XcmContext
+    _context: &amp;<a class="struct" href="../../staging_xcm/v4/struct.XcmContext.html" title="struct staging_xcm::v4::XcmContext">XcmContext</a>
 ) -&gt; Weight</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/staging_xcm_executor/traits/on_response/trait.OnResponse.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

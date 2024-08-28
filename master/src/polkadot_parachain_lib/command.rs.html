@@ -443,6 +443,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -459,9 +481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::service::Block;
-<span class="kw">use crate</span>::{
+</span><span class="kw">use crate</span>::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
 		chain_spec::{Extensions, LoadSpec},
@@ -469,30 +489,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver <span class="kw">as </span>RuntimeResolverT,
 			RuntimeResolver,
 		},
-		NodeExtraArgs,
+		spec::DynNodeSpec,
+		types::Block,
+		NodeBlock, NodeExtraArgs,
 	},
-	fake_runtime_api::{
-		asset_hub_polkadot_aura::RuntimeApi <span class="kw">as </span>AssetHubPolkadotRuntimeApi,
-		aura::RuntimeApi <span class="kw">as </span>AuraRuntimeApi,
-	},
-	service::{new_aura_node_spec, DynNodeSpec, ShellNode},
+	fake_runtime_api,
+	runtime::BlockNumber,
+	service::ShellNode,
 };
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 <span class="kw">use </span>log::info;
-<span class="kw">use </span>parachains_common::{AssetHubPolkadotAuraId, AuraId};
 <span class="kw">use </span>sc_cli::{<span class="prelude-ty">Result</span>, SubstrateCli};
 <span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">use </span>sp_runtime::traits::HashingFor;
+<span class="kw">use </span>std::panic::{RefUnwindSafe, UnwindSafe};
 
 <span class="doccomment">/// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
 </span><span class="kw">pub struct </span>RunConfig {
-	<span class="kw">pub </span>chain_spec_loader: Box&lt;<span class="kw">dyn </span>LoadSpec&gt;,
-	<span class="kw">pub </span>runtime_resolver: Box&lt;<span class="kw">dyn </span>RuntimeResolver&gt;,
+	<span class="doccomment">/// A custom chain spec loader.
+	</span><span class="kw">pub </span>chain_spec_loader: Box&lt;<span class="kw">dyn </span>LoadSpec&gt;,
+	<span class="doccomment">/// A custom runtime resolver.
+	</span><span class="kw">pub </span>runtime_resolver: Box&lt;<span class="kw">dyn </span>RuntimeResolver&gt;,
+}
+
+<span class="kw">pub fn </span>new_aura_node_spec&lt;Block&gt;(
+	aura_id: AuraConsensusId,
+	extra_args: <span class="kw-2">&amp;</span>NodeExtraArgs,
+) -&gt; Box&lt;<span class="kw">dyn </span>DynNodeSpec&gt;
+<span class="kw">where
+	</span>Block: NodeBlock + UnwindSafe + RefUnwindSafe,
+	Block::BoundedHeader: UnwindSafe + RefUnwindSafe,
+{
+	<span class="kw">match </span>aura_id {
+		AuraConsensusId::Sr25519 =&gt; <span class="kw">crate</span>::service::new_aura_node_spec::&lt;
+			Block,
+			fake_runtime_api::aura_sr25519::RuntimeApi,
+			sp_consensus_aura::sr25519::AuthorityId,
+		&gt;(extra_args),
+		AuraConsensusId::Ed25519 =&gt; <span class="kw">crate</span>::service::new_aura_node_spec::&lt;
+			Block,
+			fake_runtime_api::aura_ed25519::RuntimeApi,
+			sp_consensus_aura::ed25519::AuthorityId,
+		&gt;(extra_args),
+	}
 }
 
 <span class="kw">fn </span>new_node_spec(
@@ -504,11 +548,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="prelude-val">Ok</span>(<span class="kw">match </span>runtime {
 		Runtime::Shell =&gt; Box::new(ShellNode),
-		Runtime::Omni(consensus) =&gt; <span class="kw">match </span>consensus {
-			Consensus::Aura(AuraConsensusId::Sr25519) =&gt;
-				new_aura_node_spec::&lt;AuraRuntimeApi, AuraId&gt;(extra_args),
-			Consensus::Aura(AuraConsensusId::Ed25519) =&gt;
-				new_aura_node_spec::&lt;AssetHubPolkadotRuntimeApi, AssetHubPolkadotAuraId&gt;(extra_args),
+		Runtime::Omni(block_number, consensus) =&gt; <span class="kw">match </span>(block_number, consensus) {
+			(BlockNumber::U32, Consensus::Aura(aura_id)) =&gt;
+				new_aura_node_spec::&lt;Block&lt;u32&gt;&gt;(aura_id, extra_args),
+			(BlockNumber::U64, Consensus::Aura(aura_id)) =&gt;
+				new_aura_node_spec::&lt;Block&lt;u64&gt;&gt;(aura_id, extra_args),
 		},
 	})
 }
@@ -601,7 +645,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">match </span>cmd {
 				<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 				</span>BenchmarkCmd::Pallet(cmd) =&gt; runner.sync_run(|config| {
-					cmd.run_with_spec::&lt;HashingFor&lt;Block&gt;, ReclaimHostFunctions&gt;(<span class="prelude-val">Some</span>(
+					cmd.run_with_spec::&lt;HashingFor&lt;Block&lt;u32&gt;&gt;, ReclaimHostFunctions&gt;(<span class="prelude-val">Some</span>(
 						config.chain_spec,
 					))
 				}),

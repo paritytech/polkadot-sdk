@@ -541,6 +541,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -579,9 +584,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The related info is shown to the customer as part of logs or help messages.
 /// It does not impact functionality.
 </span><span class="kw">pub trait </span>CliConfig {
-	<span class="kw">fn </span>impl_version() -&gt; String;
+	<span class="doccomment">/// The version of the resulting node binary.
+	</span><span class="kw">fn </span>impl_version() -&gt; String;
 
-	<span class="kw">fn </span>description(executable_name: String) -&gt; String {
+	<span class="doccomment">/// The description of the resulting node binary.
+	</span><span class="kw">fn </span>description(executable_name: String) -&gt; String {
 		<span class="macro">format!</span>(
 			<span class="string">"The command-line arguments provided first will be passed to the parachain node, \n\
 			and the arguments provided after -- will be passed to the relay chain node. \n\
@@ -593,11 +600,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	}
 
-	<span class="kw">fn </span>author() -&gt; String;
+	<span class="doccomment">/// The author of the resulting node binary.
+	</span><span class="kw">fn </span>author() -&gt; String;
 
-	<span class="kw">fn </span>support_url() -&gt; String;
+	<span class="doccomment">/// The support URL for the resulting node binary.
+	</span><span class="kw">fn </span>support_url() -&gt; String;
 
-	<span class="kw">fn </span>copyright_start_year() -&gt; u16;
+	<span class="doccomment">/// The starting copyright year of the resulting node binary.
+	</span><span class="kw">fn </span>copyright_start_year() -&gt; u16;
 }
 
 <span class="doccomment">/// Sub-commands supported by the collator.

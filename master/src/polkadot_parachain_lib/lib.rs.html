@@ -201,6 +201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -242,11 +243,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! For an example, see the `polkadot-parachain-bin` crate.
 
+</span><span class="attr">#![deny(missing_docs)]
+
 </span><span class="kw">mod </span>cli;
 <span class="kw">mod </span>command;
 <span class="kw">mod </span>common;
 <span class="kw">mod </span>fake_runtime_api;
-<span class="kw">mod </span>rpc;
 <span class="kw">mod </span>service;
 
 <span class="kw">pub use </span>cli::CliConfig;

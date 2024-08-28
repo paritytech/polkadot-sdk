@@ -228,6 +228,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -250,15 +278,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>aura;
 <span class="kw">pub mod </span>chain_spec;
+<span class="kw">pub mod </span>command;
+<span class="kw">pub mod </span>rpc;
 <span class="kw">pub mod </span>runtime;
+<span class="kw">pub mod </span>spec;
+<span class="kw">pub mod </span>types;
 
 <span class="kw">use </span>cumulus_primitives_core::CollectCollationInfo;
+<span class="kw">use </span>sc_client_db::DbHash;
 <span class="kw">use </span>sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 <span class="kw">use </span>sp_block_builder::BlockBuilder;
-<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
+<span class="kw">use </span>sp_runtime::{
+	traits::{Block <span class="kw">as </span>BlockT, BlockNumber, Header <span class="kw">as </span>HeaderT, NumberFor},
+	OpaqueExtrinsic,
+};
 <span class="kw">use </span>sp_session::SessionKeys;
 <span class="kw">use </span>sp_transaction_pool::runtime_api::TaggedTransactionQueue;
-<span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::{fmt::Debug, path::PathBuf, str::FromStr};
+
+<span class="kw">pub trait </span>NodeBlock:
+	BlockT&lt;Extrinsic = OpaqueExtrinsic, Header = <span class="self">Self</span>::BoundedHeader, Hash = DbHash&gt;
+	+ <span class="kw">for</span>&lt;<span class="lifetime">'de</span>&gt; serde::Deserialize&lt;<span class="lifetime">'de</span>&gt;
+{
+	<span class="kw">type </span>BoundedFromStrErr: Debug;
+	<span class="kw">type </span>BoundedNumber: FromStr&lt;<span class="prelude-val">Err </span>= <span class="self">Self</span>::BoundedFromStrErr&gt; + BlockNumber;
+	<span class="kw">type </span>BoundedHeader: HeaderT&lt;Number = <span class="self">Self</span>::BoundedNumber&gt; + Unpin;
+}
+
+<span class="kw">impl</span>&lt;T&gt; NodeBlock <span class="kw">for </span>T
+<span class="kw">where
+	</span>T: BlockT&lt;Extrinsic = OpaqueExtrinsic, Hash = DbHash&gt; + <span class="kw">for</span>&lt;<span class="lifetime">'de</span>&gt; serde::Deserialize&lt;<span class="lifetime">'de</span>&gt;,
+	&lt;T <span class="kw">as </span>BlockT&gt;::Header: Unpin,
+	&lt;NumberFor&lt;T&gt; <span class="kw">as </span>FromStr&gt;::Err: Debug,
+{
+	<span class="kw">type </span>BoundedFromStrErr = &lt;NumberFor&lt;T&gt; <span class="kw">as </span>FromStr&gt;::Err;
+	<span class="kw">type </span>BoundedNumber = NumberFor&lt;T&gt;;
+	<span class="kw">type </span>BoundedHeader = &lt;T <span class="kw">as </span>BlockT&gt;::Header;
+}
 
 <span class="doccomment">/// Convenience trait that defines the basic bounds for the `RuntimeApi` of a parachain node.
 </span><span class="kw">pub trait </span>NodeRuntimeApi&lt;Block: BlockT&gt;:
