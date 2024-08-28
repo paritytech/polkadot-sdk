@@ -92,7 +92,7 @@ where
 		// reward rate per block
 		min_reward_balance,
 		pool_lifetime::<T>(),
-		None,
+		Some(caller),
 	));
 
 	Ok(caller_origin)
@@ -147,13 +147,13 @@ mod benchmarks {
 			Box::new(reward_asset.clone()),
 			min_balance,
 			pool_lifetime::<T>(),
-			None,
+			Some(caller.clone()),
 		);
 
 		assert_last_event::<T>(
 			Event::PoolCreated {
 				creator: caller.clone(),
-				admin: caller,
+				admin: Some(caller),
 				staked_asset_id: staked_asset,
 				reward_asset_id: reward_asset,
 				reward_rate_per_block: min_balance,
@@ -255,9 +255,11 @@ mod benchmarks {
 		let new_admin: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
-		_(caller_origin as T::RuntimeOrigin, 0, new_admin.clone());
+		_(caller_origin as T::RuntimeOrigin, 0, Some(new_admin.clone()));
 
-		assert_last_event::<T>(Event::PoolAdminModified { pool_id: 0, new_admin }.into());
+		assert_last_event::<T>(
+			Event::PoolAdminModified { pool_id: 0, new_admin: Some(new_admin) }.into(),
+		);
 
 		Ok(())
 	}

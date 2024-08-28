@@ -147,8 +147,10 @@ pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	reward_rate_per_block: Balance,
 	/// The block the pool will cease distributing rewards.
 	expiry_block: BlockNumber,
-	/// The account that can manage this pool.
-	admin: AccountId,
+	/// The account authorized to manage this pool.
+	///
+	/// If set to `None`, the pool cannot be altered after creation.
+	admin: Option<AccountId>,
 	/// The total amount of tokens staked in this pool.
 	total_tokens_staked: Balance,
 	/// Total rewards accumulated per token, up to the `last_update_block`.
@@ -328,7 +330,7 @@ pub mod pallet {
 			/// The block the pool will cease to accumulate rewards.
 			expiry_block: BlockNumberFor<T>,
 			/// The account allowed to modify the pool.
-			admin: T::AccountId,
+			admin: Option<T::AccountId>,
 		},
 		/// A pool reward rate was modified by the admin.
 		PoolRewardRateModified {
@@ -342,7 +344,9 @@ pub mod pallet {
 			/// The modified pool.
 			pool_id: PoolId,
 			/// The new admin.
-			new_admin: T::AccountId,
+			///
+			/// If `None`, the pool cannot be altered anymore.
+			new_admin: Option<T::AccountId>,
 		},
 		/// A pool expiry block was modified by the admin.
 		PoolExpiryBlockModified {
@@ -391,7 +395,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Create a new reward pool.
 		///
-		/// If an explicity admin is not specified, it defaults to the caller.
+		/// If an admin is not specified, the pool cannot be altered after creation.
 		///
 		/// The initial pool expiry will be calculated by summing `lifetime` with the block
 		/// number at the time of execution.
@@ -405,7 +409,7 @@ pub mod pallet {
 			admin: Option<T::AccountId>,
 		) -> DispatchResult {
 			// Check the origin.
-			let creator = T::CreatePoolOrigin::ensure_origin(origin.clone())?;
+			let creator = T::CreatePoolOrigin::ensure_origin(origin)?;
 
 			// Ensure the assets exist.
 			ensure!(
@@ -429,9 +433,6 @@ pub mod pallet {
 			let footprint = Self::pool_creation_footprint();
 			let cost = T::Consideration::new(&creator, footprint)?;
 			PoolCost::<T>::insert(pool_id, (creator.clone(), cost));
-
-			// Get the admin, defaulting to the origin.
-			let admin = admin.unwrap_or(creator.clone());
 
 			// Create the pool.
 			let pool = PoolInfoFor::<T> {
@@ -592,7 +593,7 @@ pub mod pallet {
 				.or_else(|_| ensure_signed(origin))?;
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(caller == pool_info.admin, BadOrigin);
+			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
 
 			// Always start by updating the pool rewards.
 			let rewards_per_token = Self::reward_per_token(&pool_info)?;
@@ -616,13 +617,14 @@ pub mod pallet {
 		pub fn set_pool_admin(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
-			new_admin: T::AccountId,
+			new_admin: Option<T::AccountId>,
 		) -> DispatchResult {
 			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
 
 			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin == caller, BadOrigin);
+			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
+
 			pool_info.admin = new_admin.clone();
 			Pools::<T>::insert(pool_id, pool_info);
 
@@ -649,7 +651,7 @@ pub mod pallet {
 			);
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin == caller, BadOrigin);
+			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
 
 			// Always start by updating the pool rewards.
 			let reward_per_token = Self::reward_per_token(&pool_info)?;
@@ -701,7 +703,7 @@ pub mod pallet {
 				.or_else(|_| ensure_signed(origin))?;
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin == caller, BadOrigin);
+			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
 
 			T::Assets::transfer(
 				pool_info.reward_asset_id,

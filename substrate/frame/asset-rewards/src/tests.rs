@@ -60,7 +60,7 @@ pub fn create_default_pool_permissioned_admin() {
 		Box::new(DEFAULT_REWARD_ASSET_ID.clone()),
 		DEFAULT_REWARD_RATE_PER_BLOCK,
 		DEFAULT_LIFETIME,
-		None
+		Some(PermissionedAccountId::get()),
 	));
 }
 
@@ -129,7 +129,7 @@ mod create_pool {
 				Box::new(DEFAULT_REWARD_ASSET_ID),
 				DEFAULT_REWARD_RATE_PER_BLOCK,
 				DEFAULT_LIFETIME,
-				None
+				Some(PermissionedAccountId::get())
 			));
 
 			// Event is emitted.
@@ -142,7 +142,7 @@ mod create_pool {
 					reward_asset_id: DEFAULT_REWARD_ASSET_ID,
 					reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
 					expiry_block: expected_expiry_block,
-					admin: PermissionedAccountId::get(),
+					admin: Some(PermissionedAccountId::get()),
 				}]
 			);
 
@@ -157,7 +157,7 @@ mod create_pool {
 						reward_asset_id: DEFAULT_REWARD_ASSET_ID,
 						reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
 						expiry_block: expected_expiry_block,
-						admin: PermissionedAccountId::get(),
+						admin: Some(PermissionedAccountId::get()),
 						total_tokens_staked: 0,
 						reward_per_token_stored: 0,
 						last_update_block: 0
@@ -190,7 +190,7 @@ mod create_pool {
 					staked_asset_id: staked_asset_id.clone(),
 					reward_asset_id: reward_asset_id.clone(),
 					reward_rate_per_block,
-					admin,
+					admin: Some(admin),
 					expiry_block: expected_expiry_block,
 				}]
 			);
@@ -206,7 +206,7 @@ mod create_pool {
 							staked_asset_id: DEFAULT_STAKED_ASSET_ID,
 							reward_asset_id: DEFAULT_REWARD_ASSET_ID,
 							reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
-							admin: PermissionedAccountId::get(),
+							admin: Some(PermissionedAccountId::get()),
 							expiry_block: DEFAULT_LIFETIME + 10,
 							total_tokens_staked: 0,
 							reward_per_token_stored: 0,
@@ -219,7 +219,7 @@ mod create_pool {
 							staked_asset_id,
 							reward_asset_id,
 							reward_rate_per_block,
-							admin,
+							admin: Some(admin),
 							total_tokens_staked: 0,
 							expiry_block: expected_expiry_block,
 							reward_per_token_stored: 0,
@@ -247,7 +247,7 @@ mod create_pool {
 				Box::new(asset.clone()),
 				DEFAULT_REWARD_RATE_PER_BLOCK,
 				DEFAULT_LIFETIME,
-				None
+				Some(PermissionedAccountId::get())
 			));
 
 			// Event is emitted.
@@ -260,7 +260,7 @@ mod create_pool {
 					reward_asset_id: asset.clone(),
 					reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
 					expiry_block: expected_expiry_block,
-					admin: PermissionedAccountId::get(),
+					admin: Some(PermissionedAccountId::get()),
 				}]
 			);
 
@@ -275,7 +275,7 @@ mod create_pool {
 						reward_asset_id: asset,
 						reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
 						expiry_block: expected_expiry_block,
-						admin: PermissionedAccountId::get(),
+						admin: Some(PermissionedAccountId::get()),
 						total_tokens_staked: 0,
 						reward_per_token_stored: 0,
 						last_update_block: 0
@@ -613,15 +613,15 @@ mod set_pool_admin {
 			assert_ok!(StakingRewards::set_pool_admin(
 				RuntimeOrigin::signed(admin),
 				pool_id,
-				new_admin
+				Some(new_admin),
 			));
 
 			// Check state
 			assert_eq!(
 				*events().last().unwrap(),
-				Event::<MockRuntime>::PoolAdminModified { pool_id, new_admin }
+				Event::<MockRuntime>::PoolAdminModified { pool_id, new_admin: Some(new_admin) }
 			);
-			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().admin, new_admin);
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().admin, Some(new_admin));
 		});
 	}
 
@@ -633,14 +633,18 @@ mod set_pool_admin {
 			create_default_pool_permissioned_admin();
 
 			// Modify the pool admin
-			assert_ok!(StakingRewards::set_pool_admin(RuntimeOrigin::root(), pool_id, new_admin));
+			assert_ok!(StakingRewards::set_pool_admin(
+				RuntimeOrigin::root(),
+				pool_id,
+				Some(new_admin)
+			));
 
 			// Check state
 			assert_eq!(
 				*events().last().unwrap(),
-				Event::<MockRuntime>::PoolAdminModified { pool_id, new_admin }
+				Event::<MockRuntime>::PoolAdminModified { pool_id, new_admin: Some(new_admin) }
 			);
-			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().admin, new_admin);
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().admin, Some(new_admin));
 		});
 	}
 
@@ -655,7 +659,7 @@ mod set_pool_admin {
 				StakingRewards::set_pool_admin(
 					RuntimeOrigin::signed(admin),
 					non_existent_pool_id,
-					new_admin
+					Some(new_admin)
 				),
 				Error::<MockRuntime>::NonExistentPool
 			);
@@ -674,7 +678,7 @@ mod set_pool_admin {
 				StakingRewards::set_pool_admin(
 					RuntimeOrigin::signed(non_admin),
 					pool_id,
-					new_admin
+					Some(new_admin)
 				),
 				BadOrigin
 			);
@@ -1356,7 +1360,7 @@ fn integration() {
 					reward_asset_id,
 					reward_rate_per_block: 100,
 					expiry_block: 25,
-					admin
+					admin: Some(admin),
 				},
 				Event::Staked { caller: staker1, pool_id, amount: 100 },
 				Event::Staked { caller: staker2, pool_id, amount: 100 },
