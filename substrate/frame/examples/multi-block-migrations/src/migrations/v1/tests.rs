@@ -63,7 +63,7 @@ fn lazy_migration_works() {
 					assert_eq!(value, i as u64);
 					decodable += 1;
 				} else {
-					assert_eq!(u32::decode(&mut &value[..]).expect("not migrated yet"), i as u32);
+					assert_eq!(u32::decode(&mut &value[..]).expect("not migrated yet"), i);
 				}
 			}
 
