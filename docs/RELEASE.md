@@ -55,9 +55,10 @@ The Westend testnet will be updated to a new runtime every two weeks with the la
 
 **From `master` to `stable`**
 
-Backports in this direction can be anything that is audited and either a `minor` or a `patch` bump. See [BACKPORT.md](./BACKPORT.md) for more explanation. [Security
-fixes](#bug-and-security-fix) should be prioritized over additions or improvements. Crates that are declared as internal
-API can also have `major` version bumps through backports.
+Backports in this direction can be anything that is audited and either a `minor` or a `patch` bump.
+See [BACKPORT.md](./BACKPORT.md) for more explanation. [Security fixes](#bug-and-security-fix)
+should be prioritized over additions or improvements. Crates that are declared as internal API can
+also have `major` version bumps through backports.
 
 **From `stable` to `master`**
 
