@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add `MaxRank` Config to `pallet-core-fellowship` 
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR adds a new Config `MaxRank` to the core fellowship pallet. Initially, the maximum rank was set to IX (Grand Master) on the core-fellowship pallet, corresponding to the establishment of the Technical Fellowship and setting the default member count to nine. However, with the introduction of new collectives, this maximum rank is expected to evolve.
+
+crates:
+  - name: pallet-core-fellowship

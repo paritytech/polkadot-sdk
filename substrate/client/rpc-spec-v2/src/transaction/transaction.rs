@@ -26,10 +26,11 @@ use crate::{
 	},
 	SubscriptionTaskExecutor,
 };
+
 use codec::Decode;
 use futures::{StreamExt, TryFutureExt};
-use jsonrpsee::{core::async_trait, types::error::ErrorObject, PendingSubscriptionSink};
-use sc_rpc::utils::pipe_from_stream;
+use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
+use sc_rpc::utils::{RingBuffer, Subscription};
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatus,
@@ -38,6 +39,8 @@ use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
+
+pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
 
 /// An API for transaction RPC calls.
 pub struct Transaction<Pool, Client> {
@@ -63,13 +66,6 @@ impl<Pool, Client> Transaction<Pool, Client> {
 /// some unique transactions via RPC and have them included in the pool.
 const TX_SOURCE: TransactionSource = TransactionSource::External;
 
-/// Extrinsic has an invalid format.
-///
-/// # Note
-///
-/// This is similar to the old `author` API error code.
-const BAD_FORMAT: i32 = 1001;
-
 #[async_trait]
 impl<Pool, Client> TransactionApiServer<BlockHash<Pool>> for Transaction<Pool, Client>
 where
@@ -83,17 +79,19 @@ where
 		let pool = self.pool.clone();
 
 		let fut = async move {
-			// This is the only place where the RPC server can return an error for this
-			// subscription. Other defects must be signaled as events to the sink.
 			let decoded_extrinsic = match TransactionFor::<Pool>::decode(&mut &xt[..]) {
 				Ok(decoded_extrinsic) => decoded_extrinsic,
 				Err(e) => {
-					let err = ErrorObject::owned(
-						BAD_FORMAT,
-						format!("Extrinsic has invalid format: {}", e),
-						None::<()>,
-					);
-					let _ = pending.reject(err).await;
+					log::debug!(target: LOG_TARGET, "Extrinsic bytes cannot be decoded: {:?}", e);
+
+					let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
+
+					// The transaction is invalid.
+					let _ = sink
+						.send(&TransactionEvent::Invalid::<BlockHash<Pool>>(TransactionError {
+							error: "Extrinsic bytes cannot be decoded".into(),
+						}))
+						.await;
 					return
 				},
 			};
@@ -108,16 +106,23 @@ where
 						.unwrap_or_else(|e| Error::Verification(Box::new(e)))
 				});
 
+			let Ok(sink) = pending.accept().await.map(Subscription::from) else {
+				return;
+			};
+
 			match submit.await {
 				Ok(stream) => {
-					let stream = stream.filter_map(move |event| async move { handle_event(event) });
-					pipe_from_stream(pending, stream.boxed()).await;
+					let stream =
+						stream.filter_map(move |event| async move { handle_event(event) }).boxed();
+
+					// If the subscription is too slow older events will be overwritten.
+					sink.pipe_from_stream(stream, RingBuffer::new(3)).await;
 				},
 				Err(err) => {
 					// We have not created an `Watcher` for the tx. Make sure the
 					// error is still propagated as an event.
 					let event: TransactionEvent<<Pool::Block as BlockT>::Hash> = err.into();
-					pipe_from_stream(pending, futures::stream::once(async { event }).boxed()).await;
+					_ = sink.send(&event).await;
 				},
 			};
 		};
@@ -147,7 +152,7 @@ pub fn handle_event<Hash: Clone, BlockHash: Clone>(
 		TransactionStatus::Usurped(_) => Some(TransactionEvent::Invalid(TransactionError {
 			error: "Extrinsic was rendered invalid by another extrinsic".into(),
 		})),
-		TransactionStatus::Dropped => Some(TransactionEvent::Invalid(TransactionError {
+		TransactionStatus::Dropped => Some(TransactionEvent::Dropped(TransactionDropped {
 			error: "Extrinsic dropped from the pool due to exceeding limits".into(),
 		})),
 		TransactionStatus::Invalid => Some(TransactionEvent::Invalid(TransactionError {

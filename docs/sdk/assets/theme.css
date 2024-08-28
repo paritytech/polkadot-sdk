@@ -1,0 +1,17 @@
+:root {
+	--polkadot-pink: #E6007A;
+	--polkadot-green: #56F39A;
+	--polkadot-lime: #D3FF33;
+	--polkadot-cyan: #00B2FF;
+	--polkadot-purple: #552BBF;
+}
+
+body.sdk-docs {
+	nav.sidebar>div.sidebar-crate>a>img {
+		width: 190px;
+	}
+
+	nav.sidebar {
+		flex: 0 0 250px;
+	}
+}

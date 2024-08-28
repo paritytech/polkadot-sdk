@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{biguint::BigUint, helpers_128bit, Rounding};
+use core::cmp::Ordering;
 use num_traits::{Bounded, One, Zero};
-use sp_std::{cmp::Ordering, prelude::*};
 
 /// A wrapper for any rational number with infinitely large numerator and denominator.
 ///
@@ -92,15 +92,15 @@ impl From<Rational128> for RationalInfinite {
 pub struct Rational128(u128, u128);
 
 #[cfg(feature = "std")]
-impl sp_std::fmt::Debug for Rational128 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for Rational128 {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "Rational128({} / {} ≈ {:.8})", self.0, self.1, self.0 as f64 / self.1 as f64)
 	}
 }
 
 #[cfg(not(feature = "std"))]
-impl sp_std::fmt::Debug for Rational128 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for Rational128 {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "Rational128({} / {})", self.0, self.1)
 	}
 }

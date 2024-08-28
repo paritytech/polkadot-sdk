@@ -3,7 +3,7 @@
 use snowbridge_core::{inbound::Log, ChannelId};
 
 use sp_core::{RuntimeDebug, H160, H256};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 use alloy_primitives::B256;
 use alloy_sol_types::{sol, SolEvent};

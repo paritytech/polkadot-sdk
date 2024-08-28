@@ -1,0 +1,14 @@
+title: "[pallet_contracts] Update Host fn benchnmarks"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Update how the host functions are benchmarked.
+      Instead of benchnarking a contract that calls the host functions, we now benchmark the host functions directly.
+
+crates:
+  - name: pallet-contracts
+    bump: minor
+  - name: pallet-contracts-proc-macro
+    bump: minor
+

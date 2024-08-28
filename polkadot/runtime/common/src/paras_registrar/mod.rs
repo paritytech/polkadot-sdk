@@ -19,6 +19,8 @@
 
 pub mod migration;
 
+use alloc::{vec, vec::Vec};
+use core::result;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -26,18 +28,19 @@ use frame_support::{
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
-use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
-use runtime_parachains::{
+use polkadot_primitives::{
+	HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE,
+};
+use polkadot_runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, ParaGenesisArgs, SetGoAhead},
+	paras::{self, ParaGenesisArgs, UpgradeStrategy},
 	Origin, ParaLifecycle,
 };
-use sp_std::{prelude::*, result};
 
 use crate::traits::{OnSwap, Registrar};
+use codec::{Decode, Encode};
 pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
-use runtime_parachains::paras::{OnNewHead, ParaKind};
+use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
@@ -106,7 +109,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -208,7 +211,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 		pub next_free_para_id: ParaId,
 	}
 
@@ -408,6 +411,13 @@ pub mod pallet {
 
 		/// Schedule a parachain upgrade.
 		///
+		/// This will kick off a check of `new_code` by all validators. After the majority of the
+		/// validators have reported on the validity of the code, the code will either be enacted
+		/// or the upgrade will be rejected. If the code will be enacted, the current code of the
+		/// parachain will be overwritten directly. This means that any PoV will be checked by this
+		/// new code. The parachain itself will not be informed explicitly that the validation code
+		/// has changed.
+		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
 		#[pallet::call_index(7)]
@@ -418,7 +428,11 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
-			runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
+			polkadot_runtime_parachains::schedule_code_upgrade::<T>(
+				para,
+				new_code,
+				UpgradeStrategy::ApplyAtExpectedBlock,
+			)?;
 			Ok(())
 		}
 
@@ -434,7 +448,7 @@ pub mod pallet {
 			new_head: HeadData,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
-			runtime_parachains::set_current_head::<T>(para, new_head);
+			polkadot_runtime_parachains::set_current_head::<T>(para, new_head);
 			Ok(())
 		}
 	}
@@ -451,7 +465,7 @@ impl<T: Config> Registrar for Pallet<T> {
 	// All lease holding parachains. Ordered ascending by ParaId. On-demand parachains are not
 	// included.
 	fn parachains() -> Vec<ParaId> {
-		paras::Pallet::<T>::parachains()
+		paras::Parachains::<T>::get()
 	}
 
 	// Return if a para is a parathread (on-demand parachain)
@@ -499,7 +513,7 @@ impl<T: Config> Registrar for Pallet<T> {
 			paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parathread),
 			Error::<T>::NotParathread
 		);
-		runtime_parachains::schedule_parathread_upgrade::<T>(id)
+		polkadot_runtime_parachains::schedule_parathread_upgrade::<T>(id)
 			.map_err(|_| Error::<T>::CannotUpgrade)?;
 
 		Ok(())
@@ -512,21 +526,21 @@ impl<T: Config> Registrar for Pallet<T> {
 			paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parachain),
 			Error::<T>::NotParachain
 		);
-		runtime_parachains::schedule_parachain_downgrade::<T>(id)
+		polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id)
 			.map_err(|_| Error::<T>::CannotDowngrade)?;
 		Ok(())
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn worst_head_data() -> HeadData {
-		let max_head_size = configuration::Pallet::<T>::config().max_head_data_size;
+		let max_head_size = configuration::ActiveConfig::<T>::get().max_head_data_size;
 		assert!(max_head_size > 0, "max_head_data can't be zero for generating worst head data.");
 		vec![0u8; max_head_size as usize].into()
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn worst_validation_code() -> ValidationCode {
-		let max_code_size = configuration::Pallet::<T>::config().max_code_size;
+		let max_code_size = configuration::ActiveConfig::<T>::get().max_code_size;
 		assert!(max_code_size > 0, "max_code_size can't be zero for generating worst code data.");
 		let validation_code = vec![0u8; max_code_size as usize];
 		validation_code.into()
@@ -534,7 +548,7 @@ impl<T: Config> Registrar for Pallet<T> {
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn execute_pending_transitions() {
-		use runtime_parachains::shared;
+		use polkadot_runtime_parachains::shared;
 		shared::Pallet::<T>::set_session_index(shared::Pallet::<T>::scheduled_session());
 		paras::Pallet::<T>::test_on_new_session();
 	}
@@ -623,7 +637,7 @@ impl<T: Config> Pallet<T> {
 
 		Paras::<T>::insert(id, info);
 		// We check above that para has no lifecycle, so this should not fail.
-		let res = runtime_parachains::schedule_para_initialize::<T>(id, genesis);
+		let res = polkadot_runtime_parachains::schedule_para_initialize::<T>(id, genesis);
 		debug_assert!(res.is_ok());
 		Self::deposit_event(Event::<T>::Registered { para_id: id, manager: who });
 		Ok(())
@@ -636,7 +650,7 @@ impl<T: Config> Pallet<T> {
 			Some(ParaLifecycle::Parathread) | None => {},
 			_ => return Err(Error::<T>::NotParathread.into()),
 		}
-		runtime_parachains::schedule_para_cleanup::<T>(id)
+		polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
 			.map_err(|_| Error::<T>::CannotDeregister)?;
 
 		if let Some(info) = Paras::<T>::take(&id) {
@@ -656,7 +670,7 @@ impl<T: Config> Pallet<T> {
 		validation_code: ValidationCode,
 		para_kind: ParaKind,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
-		let config = configuration::Pallet::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		ensure!(validation_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
 		ensure!(validation_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
 		ensure!(
@@ -675,9 +689,9 @@ impl<T: Config> Pallet<T> {
 	/// Swap a lease holding parachain and parathread (on-demand parachain), which involves
 	/// scheduling an appropriate lifecycle update.
 	fn do_thread_and_chain_swap(to_downgrade: ParaId, to_upgrade: ParaId) {
-		let res1 = runtime_parachains::schedule_parachain_downgrade::<T>(to_downgrade);
+		let res1 = polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(to_downgrade);
 		debug_assert!(res1.is_ok());
-		let res2 = runtime_parachains::schedule_parathread_upgrade::<T>(to_upgrade);
+		let res2 = polkadot_runtime_parachains::schedule_parathread_upgrade::<T>(to_upgrade);
 		debug_assert!(res2.is_ok());
 		T::OnSwap::on_swap(to_upgrade, to_downgrade);
 	}
@@ -704,25 +718,23 @@ mod tests {
 	use crate::{
 		mock::conclude_pvf_checking, paras_registrar, traits::Registrar as RegistrarTrait,
 	};
+	use alloc::collections::btree_map::BTreeMap;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl,
-		error::BadOrigin,
-		parameter_types,
-		traits::{ConstU32, OnFinalize, OnInitialize},
+		assert_noop, assert_ok, derive_impl, parameter_types,
+		traits::{OnFinalize, OnInitialize},
 	};
 	use frame_system::limits;
 	use pallet_balances::Error as BalancesError;
-	use primitives::{Balance, BlockNumber, SessionIndex, MAX_CODE_SIZE};
-	use runtime_parachains::{configuration, origin, shared};
+	use polkadot_primitives::{Balance, BlockNumber, SessionIndex, MAX_CODE_SIZE};
+	use polkadot_runtime_parachains::{configuration, origin, shared};
 	use sp_core::H256;
 	use sp_io::TestExternalities;
 	use sp_keyring::Sr25519Keyring;
 	use sp_runtime::{
-		traits::{BlakeTwo256, IdentityLookup},
+		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};
-	use sp_std::collections::btree_map::BTreeMap;
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -750,14 +762,13 @@ mod tests {
 
 	const NORMAL_RATIO: Perbill = Perbill::from_percent(75);
 	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
 		pub BlockWeights: limits::BlockWeights =
 			frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
 		pub BlockLength: limits::BlockLength =
 			limits::BlockLength::max_with_normal_ratio(4 * 1024 * 1024, NORMAL_RATIO);
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
@@ -769,7 +780,6 @@ mod tests {
 		type Lookup = IdentityLookup<u64>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type DbWeight = ();
 		type BlockWeights = BlockWeights;
 		type BlockLength = BlockLength;
@@ -788,20 +798,11 @@ mod tests {
 		pub const ExistentialDeposit: Balance = 1;
 	}
 
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u128;
-		type DustRemoval = ();
-		type RuntimeEvent = RuntimeEvent;
+		type Balance = Balance;
 		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
-		type MaxLocks = ();
-		type MaxReserves = ();
-		type ReserveIdentifier = [u8; 8];
-		type WeightInfo = ();
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	impl shared::Config for Test {
@@ -904,7 +905,7 @@ mod tests {
 			}
 			// Session change every 3 blocks.
 			if (b + 1) % BLOCKS_PER_SESSION == 0 {
-				let session_index = shared::Pallet::<Test>::session_index() + 1;
+				let session_index = shared::CurrentSessionIndex::<Test>::get() + 1;
 				let validators_pub_keys = VALIDATORS.iter().map(|v| v.public().into()).collect();
 
 				shared::Pallet::<Test>::set_session_index(session_index);
@@ -932,15 +933,15 @@ mod tests {
 	}
 
 	fn para_origin(id: ParaId) -> RuntimeOrigin {
-		runtime_parachains::Origin::Parachain(id).into()
+		polkadot_runtime_parachains::Origin::Parachain(id).into()
 	}
 
 	fn max_code_size() -> u32 {
-		Configuration::config().max_code_size
+		configuration::ActiveConfig::<Test>::get().max_code_size
 	}
 
 	fn max_head_size() -> u32 {
-		Configuration::config().max_head_data_size
+		configuration::ActiveConfig::<Test>::get().max_head_data_size
 	}
 
 	#[test]
@@ -1518,8 +1519,8 @@ mod benchmarking {
 	use crate::traits::Registrar as RegistrarT;
 	use frame_support::assert_ok;
 	use frame_system::RawOrigin;
-	use primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MIN_CODE_SIZE};
-	use runtime_parachains::{paras, shared, Origin as ParaOrigin};
+	use polkadot_primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MIN_CODE_SIZE};
+	use polkadot_runtime_parachains::{paras, shared, Origin as ParaOrigin};
 	use sp_runtime::traits::Bounded;
 
 	use frame_benchmarking::{account, benchmarks, whitelisted_caller};
@@ -1545,7 +1546,7 @@ mod benchmarking {
 			genesis_head,
 			validation_code.clone()
 		));
-		assert_ok!(runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
+		assert_ok!(polkadot_runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
 			frame_system::Origin::<T>::Root.into(),
 			validation_code,
 		));
@@ -1586,7 +1587,7 @@ mod benchmarking {
 		verify {
 			assert_last_event::<T>(Event::<T>::Registered{ para_id: para, manager: caller }.into());
 			assert_eq!(paras::Pallet::<T>::lifecycle(para), Some(ParaLifecycle::Onboarding));
-			assert_ok!(runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
+			assert_ok!(polkadot_runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
 				frame_system::Origin::<T>::Root.into(),
 				validation_code,
 			));
@@ -1604,7 +1605,7 @@ mod benchmarking {
 		verify {
 			assert_last_event::<T>(Event::<T>::Registered { para_id: para, manager }.into());
 			assert_eq!(paras::Pallet::<T>::lifecycle(para), Some(ParaLifecycle::Onboarding));
-			assert_ok!(runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
+			assert_ok!(polkadot_runtime_parachains::paras::Pallet::<T>::add_trusted_validation_code(
 				frame_system::Origin::<T>::Root.into(),
 				validation_code,
 			));

@@ -18,11 +18,10 @@ use std::time::Duration;
 
 use assert_matches::assert_matches;
 
+use codec::Encode;
 use futures::future::join;
-use parity_scale_codec::Encode;
 use sp_core::testing::TaskExecutor;
 
-use ::test_helpers::{dummy_collator, dummy_collator_signature, dummy_hash};
 use polkadot_node_primitives::DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION;
 use polkadot_node_subsystem::{
 	messages::{
@@ -40,6 +39,7 @@ use polkadot_primitives::{
 	BlakeTwo256, BlockNumber, CandidateDescriptor, CandidateEvent, CandidateReceipt, CoreIndex,
 	GroupIndex, Hash, HashT, HeadData, Id as ParaId,
 };
+use polkadot_primitives_test_helpers::{dummy_collator, dummy_collator_signature, dummy_hash};
 
 use crate::{scraping::Inclusions, LOG_TARGET};
 
@@ -542,8 +542,8 @@ fn scraper_handles_backed_but_not_included_candidate() {
 }
 
 #[test]
-fn scraper_handles_the_same_candidate_incuded_in_two_different_block_heights() {
-	// Same candidate will be inclued in these two leaves
+fn scraper_handles_the_same_candidate_included_in_two_different_block_heights() {
+	// Same candidate will be included in these two leaves
 	let test_targets = vec![2, 3];
 
 	// How many blocks should we skip before sending a leaf update.

@@ -25,14 +25,13 @@
 use futures::channel::oneshot;
 use polkadot_cli::{
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
-		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
-		ParachainHost, ProvideRuntimeApi,
+		AuxStore, Error, ExtendedOverseerGenArgs, Overseer, OverseerConnector, OverseerGen,
+		OverseerGenArgs, OverseerHandle,
 	},
 	validator_overseer_builder, Cli,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
-use polkadot_node_subsystem_types::DefaultSubsystemClient;
+use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_primitives::{CandidateDescriptor, CandidateReceipt};
 
 use polkadot_node_subsystem_util::request_validators;
@@ -52,7 +51,7 @@ use crate::{
 
 // Import extra types relevant to the particular
 // subsystem.
-use polkadot_node_subsystem::{messages::CandidateBackingMessage, SpawnGlue};
+use polkadot_node_subsystem::SpawnGlue;
 
 use std::sync::Arc;
 
@@ -198,13 +197,13 @@ where
 
 					let pov_hash = pov.hash();
 					let erasure_root = {
-						let chunks = erasure::obtain_chunks_v1(
+						let chunks = polkadot_erasure_coding::obtain_chunks_v1(
 							n_validators as usize,
 							&malicious_available_data,
 						)
 						.unwrap();
 
-						let branches = erasure::branches(chunks.as_ref());
+						let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 						branches.root()
 					};
 
@@ -296,13 +295,9 @@ impl OverseerGen for SuggestGarbageCandidates {
 		connector: OverseerConnector,
 		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
-	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
-		Error,
-	>
+	) -> Result<(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
-		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		gum::info!(

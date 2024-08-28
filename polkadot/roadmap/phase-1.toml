@@ -34,7 +34,7 @@ requires = ["two-phase-inclusion"]
 items = [
 	{ label = "Submit secondary checks to runtime", port = "submitsecondary", requires = ["secondary-checking"] },
 	{ label = "Track all candidates within the slash period as well as their session" },
-	{ label = "Track reports and attestatations for candidates" },
+	{ label = "Track reports and attestations for candidates" },
 ]
 
 [[group]]

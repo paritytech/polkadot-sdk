@@ -8,31 +8,19 @@ description = "Coretime Rococo runtime integration tests with xcm-emulator"
 publish = false
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
-assert_matches = "1.5.0"
-
 # Substrate
-sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
-frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
-pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
-pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
-pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
-pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
-pallet-broker = { path = "../../../../../../../substrate/frame/broker", default-features = false }
+frame-support = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-identity = { workspace = true }
+sp-runtime = { workspace = true }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
-pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
-rococo-runtime = { path = "../../../../../../../polkadot/runtime/rococo" }
-rococo-runtime-constants = { path = "../../../../../../../polkadot/runtime/rococo/constants" }
-polkadot-primitives = { path = "../../../../../../../polkadot/primitives" }
-polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common" }
+polkadot-runtime-common = { workspace = true, default-features = true }
+rococo-runtime-constants = { workspace = true, default-features = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
 
 # Cumulus
-asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
-parachains-common = { path = "../../../../../../parachains/common" }
-coretime-rococo-runtime = { path = "../../../../../runtimes/coretime/coretime-rococo" }
-emulated-integration-tests-common = { path = "../../../common", default-features = false }
-penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }
-rococo-system-emulated-network = { path = "../../../networks/rococo-system" }
+emulated-integration-tests-common = { workspace = true }
+rococo-system-emulated-network = { workspace = true }

@@ -19,7 +19,11 @@
 #![cfg(test)]
 
 use crate::{mock::*, Numbers};
+#[cfg(feature = "experimental")]
+use codec::Decode;
 use frame_support::traits::Task;
+#[cfg(feature = "experimental")]
+use sp_core::offchain::{testing, OffchainWorkerExt, TransactionPoolExt};
 use sp_runtime::BuildStorage;
 
 #[cfg(feature = "experimental")]
@@ -128,5 +132,31 @@ fn task_execution_fails_for_invalid_task() {
 			),
 			frame_system::Error::<Runtime>::InvalidTask
 		);
+	});
+}
+
+#[cfg(feature = "experimental")]
+#[test]
+fn task_with_offchain_worker() {
+	let (offchain, _offchain_state) = testing::TestOffchainExt::new();
+	let (pool, pool_state) = testing::TestTransactionPoolExt::new();
+
+	let mut t = sp_io::TestExternalities::default();
+	t.register_extension(OffchainWorkerExt::new(offchain));
+	t.register_extension(TransactionPoolExt::new(pool));
+
+	t.execute_with(|| {
+		advance_to(1);
+		assert!(pool_state.read().transactions.is_empty());
+
+		Numbers::<Runtime>::insert(0, 10);
+		assert_eq!(crate::Total::<Runtime>::get(), (0, 0));
+
+		advance_to(2);
+
+		let tx = pool_state.write().transactions.pop().unwrap();
+		assert!(pool_state.read().transactions.is_empty());
+		let tx = Extrinsic::decode(&mut &*tx).unwrap();
+		assert_eq!(tx.signature, None);
 	});
 }

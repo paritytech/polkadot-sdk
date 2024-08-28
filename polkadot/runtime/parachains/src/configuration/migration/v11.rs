@@ -17,17 +17,127 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
-	migrations::VersionedMigration, pallet_prelude::*, traits::Defensive, weights::Weight,
+	migrations::VersionedMigration,
+	pallet_prelude::*,
+	traits::{Defensive, UncheckedOnRuntimeUpgrade},
+	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{vstaging::ApprovalVotingParams, SessionIndex};
-use sp_std::vec::Vec;
+use polkadot_primitives::{
+	ApprovalVotingParams, AsyncBackingParams, ExecutorParams, NodeFeatures, SessionIndex,
+	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+};
 
-use frame_support::traits::OnRuntimeUpgrade;
+use polkadot_core_primitives::Balance;
+use sp_arithmetic::Perbill;
 
 use super::v10::V10HostConfiguration;
-type V11HostConfiguration<BlockNumber> = configuration::HostConfiguration<BlockNumber>;
+
+#[derive(Clone, Encode, PartialEq, Decode, Debug)]
+pub struct V11HostConfiguration<BlockNumber> {
+	pub max_code_size: u32,
+	pub max_head_data_size: u32,
+	pub max_upward_queue_count: u32,
+	pub max_upward_queue_size: u32,
+	pub max_upward_message_size: u32,
+	pub max_upward_message_num_per_candidate: u32,
+	pub hrmp_max_message_num_per_candidate: u32,
+	pub validation_upgrade_cooldown: BlockNumber,
+	pub validation_upgrade_delay: BlockNumber,
+	pub async_backing_params: AsyncBackingParams,
+	pub max_pov_size: u32,
+	pub max_downward_message_size: u32,
+	pub hrmp_max_parachain_outbound_channels: u32,
+	pub hrmp_sender_deposit: Balance,
+	pub hrmp_recipient_deposit: Balance,
+	pub hrmp_channel_max_capacity: u32,
+	pub hrmp_channel_max_total_size: u32,
+	pub hrmp_max_parachain_inbound_channels: u32,
+	pub hrmp_channel_max_message_size: u32,
+	pub executor_params: ExecutorParams,
+	pub code_retention_period: BlockNumber,
+	pub coretime_cores: u32,
+	pub on_demand_retries: u32,
+	pub on_demand_queue_max_size: u32,
+	pub on_demand_target_queue_utilization: Perbill,
+	pub on_demand_fee_variability: Perbill,
+	pub on_demand_base_fee: Balance,
+	pub on_demand_ttl: BlockNumber,
+	pub group_rotation_frequency: BlockNumber,
+	pub paras_availability_period: BlockNumber,
+	pub scheduling_lookahead: u32,
+	pub max_validators_per_core: Option<u32>,
+	pub max_validators: Option<u32>,
+	pub dispute_period: SessionIndex,
+	pub dispute_post_conclusion_acceptance_period: BlockNumber,
+	pub no_show_slots: u32,
+	pub n_delay_tranches: u32,
+	pub zeroth_delay_tranche_width: u32,
+	pub needed_approvals: u32,
+	pub relay_vrf_modulo_samples: u32,
+	pub pvf_voting_ttl: SessionIndex,
+	pub minimum_validation_upgrade_delay: BlockNumber,
+	pub minimum_backing_votes: u32,
+	pub node_features: NodeFeatures,
+	pub approval_voting_params: ApprovalVotingParams,
+}
+
+impl<BlockNumber: Default + From<u32>> Default for V11HostConfiguration<BlockNumber> {
+	fn default() -> Self {
+		Self {
+			async_backing_params: AsyncBackingParams {
+				max_candidate_depth: 0,
+				allowed_ancestry_len: 0,
+			},
+			group_rotation_frequency: 1u32.into(),
+			paras_availability_period: 1u32.into(),
+			no_show_slots: 1u32.into(),
+			validation_upgrade_cooldown: Default::default(),
+			validation_upgrade_delay: 2u32.into(),
+			code_retention_period: Default::default(),
+			max_code_size: Default::default(),
+			max_pov_size: Default::default(),
+			max_head_data_size: Default::default(),
+			coretime_cores: Default::default(),
+			on_demand_retries: Default::default(),
+			scheduling_lookahead: 1,
+			max_validators_per_core: Default::default(),
+			max_validators: None,
+			dispute_period: 6,
+			dispute_post_conclusion_acceptance_period: 100.into(),
+			n_delay_tranches: Default::default(),
+			zeroth_delay_tranche_width: Default::default(),
+			needed_approvals: Default::default(),
+			relay_vrf_modulo_samples: Default::default(),
+			max_upward_queue_count: Default::default(),
+			max_upward_queue_size: Default::default(),
+			max_downward_message_size: Default::default(),
+			max_upward_message_size: Default::default(),
+			max_upward_message_num_per_candidate: Default::default(),
+			hrmp_sender_deposit: Default::default(),
+			hrmp_recipient_deposit: Default::default(),
+			hrmp_channel_max_capacity: Default::default(),
+			hrmp_channel_max_total_size: Default::default(),
+			hrmp_max_parachain_inbound_channels: Default::default(),
+			hrmp_channel_max_message_size: Default::default(),
+			hrmp_max_parachain_outbound_channels: Default::default(),
+			hrmp_max_message_num_per_candidate: Default::default(),
+			pvf_voting_ttl: 2u32.into(),
+			minimum_validation_upgrade_delay: 2.into(),
+			executor_params: Default::default(),
+			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
+			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+			on_demand_base_fee: 10_000_000u128,
+			on_demand_fee_variability: Perbill::from_percent(3),
+			on_demand_target_queue_utilization: Perbill::from_percent(25),
+			on_demand_ttl: 5u32.into(),
+			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
+			node_features: NodeFeatures::EMPTY,
+		}
+	}
+}
 
 mod v10 {
 	use super::*;
@@ -67,8 +177,8 @@ pub type MigrateToV11<T> = VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-pub struct UncheckedMigrateToV11<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV11<T> {
+pub struct UncheckedMigrateToV11<T>(core::marker::PhantomData<T>);
+impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV11<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running pre_upgrade() for HostConfiguration MigrateToV11");
@@ -179,7 +289,7 @@ approval_voting_params                   : ApprovalVotingParams {
 
 #[cfg(test)]
 mod tests {
-	use primitives::LEGACY_MIN_BACKING_VOTES;
+	use polkadot_primitives::LEGACY_MIN_BACKING_VOTES;
 
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
@@ -211,7 +321,8 @@ mod tests {
 	];
 
 		let v11 =
-			V11HostConfiguration::<primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
+			V11HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..])
+				.unwrap();
 
 		// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -238,7 +349,7 @@ mod tests {
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		let v10 = V10HostConfiguration::<primitives::BlockNumber> {
+		let v10 = V10HostConfiguration::<polkadot_primitives::BlockNumber> {
 			needed_approvals: 69,
 			paras_availability_period: 55,
 			hrmp_recipient_deposit: 1337,
@@ -314,7 +425,7 @@ mod tests {
 	// pallet's storage.
 	#[test]
 	fn test_migrate_to_v11_no_pending() {
-		let v10 = V10HostConfiguration::<primitives::BlockNumber>::default();
+		let v10 = V10HostConfiguration::<polkadot_primitives::BlockNumber>::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			// Implant the v10 version in the state.

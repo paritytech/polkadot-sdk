@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Permissioned contract deployment
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces two new config types that specify the origins allowed to
+      upload and instantiate contract code. However, this check is not enforced when
+      a contract instantiates another contract.
+
+crates: 
+- name: pallet-contracts

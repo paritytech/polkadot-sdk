@@ -309,3 +309,156 @@ fn suspension_should_work() {
 	);
 	assert_eq!(r, Ok(()));
 }
+
+#[test]
+fn allow_subscriptions_from_should_work() {
+	// allow only parent
+	AllowSubsFrom::set(vec![Location::parent()]);
+
+	// closure for (xcm, origin) testing with `AllowSubscriptionsFrom`
+	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			AllowSubscriptionsFrom::<IsInVec<AllowSubsFrom>>::should_execute(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+
+	// invalid origin
+	assert_should_execute(
+		vec![SubscribeVersion {
+			query_id: Default::default(),
+			max_response_weight: Default::default(),
+		}],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	assert_should_execute(
+		vec![UnsubscribeVersion],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// invalid XCM (unexpected instruction before)
+	assert_should_execute(
+		vec![
+			SetAppendix(Xcm(vec![])),
+			SubscribeVersion {
+				query_id: Default::default(),
+				max_response_weight: Default::default(),
+			},
+		],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![])), UnsubscribeVersion],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction after)
+	assert_should_execute(
+		vec![
+			SubscribeVersion {
+				query_id: Default::default(),
+				max_response_weight: Default::default(),
+			},
+			SetTopic([0; 32]),
+		],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	assert_should_execute(
+		vec![UnsubscribeVersion, SetTopic([0; 32])],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction)
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![]))],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+
+	// ok
+	assert_should_execute(
+		vec![SubscribeVersion {
+			query_id: Default::default(),
+			max_response_weight: Default::default(),
+		}],
+		Location::parent(),
+		Ok(()),
+	);
+	assert_should_execute(vec![UnsubscribeVersion], Location::parent(), Ok(()));
+}
+
+#[test]
+fn allow_hrmp_notifications_from_relay_chain_should_work() {
+	// closure for (xcm, origin) testing with `AllowHrmpNotificationsFromRelayChain`
+	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			AllowHrmpNotificationsFromRelayChain::should_execute(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+
+	// invalid origin
+	assert_should_execute(
+		vec![HrmpChannelAccepted { recipient: Default::default() }],
+		Location::new(1, [Parachain(1)]),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// invalid XCM (unexpected instruction before)
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![])), HrmpChannelAccepted { recipient: Default::default() }],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction after)
+	assert_should_execute(
+		vec![HrmpChannelAccepted { recipient: Default::default() }, SetTopic([0; 32])],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction)
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![]))],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+
+	// ok
+	assert_should_execute(
+		vec![HrmpChannelAccepted { recipient: Default::default() }],
+		Location::parent(),
+		Ok(()),
+	);
+	assert_should_execute(
+		vec![HrmpNewChannelOpenRequest {
+			max_capacity: Default::default(),
+			sender: Default::default(),
+			max_message_size: Default::default(),
+		}],
+		Location::parent(),
+		Ok(()),
+	);
+	assert_should_execute(
+		vec![HrmpChannelClosing {
+			recipient: Default::default(),
+			sender: Default::default(),
+			initiator: Default::default(),
+		}],
+		Location::parent(),
+		Ok(()),
+	);
+}

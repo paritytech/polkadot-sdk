@@ -17,7 +17,7 @@
 
 //! Substrate tracing primitives and macros.
 //!
-//! To trace functions or invidual code in Substrate, this crate provides [`within_span`]
+//! To trace functions or individual code in Substrate, this crate provides [`within_span`]
 //! and [`enter_span`]. See the individual docs for how to use these macros.
 //!
 //! Note that to allow traces from wasm execution environment there are
@@ -37,12 +37,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "std")]
-use tracing;
+pub use tracing;
 pub use tracing::{
 	debug, debug_span, error, error_span, event, info, info_span, span, trace, trace_span, warn,
 	warn_span, Level, Span,
 };
+
+#[cfg(feature = "std")]
+pub use tracing_subscriber;
 
 pub use crate::types::{
 	WasmEntryAttributes, WasmFieldName, WasmFields, WasmLevel, WasmMetadata, WasmValue,
@@ -68,7 +73,7 @@ pub use crate::types::{WASM_NAME_KEY, WASM_TARGET_KEY, WASM_TRACE_IDENTIFIER};
 /// directly as they yield nothing without the feature present. Instead you should use
 /// `enter_span!` and `within_span!` – which would strip away even any parameter conversion
 /// you do within the span-definition (and thus optimise your performance). For your
-/// convineience you directly specify the `Level` and name of the span or use the full
+/// convenience you directly specify the `Level` and name of the span or use the full
 /// feature set of `span!`/`span_*!` on it:
 ///
 /// # Example
@@ -96,7 +101,7 @@ pub use crate::types::{WASM_NAME_KEY, WASM_TARGET_KEY, WASM_TRACE_IDENTIFIER};
 /// This project only provides the macros and facilities to manage tracing
 /// it doesn't implement the tracing subscriber or backend directly – that is
 /// up to the developer integrating it into a specific environment. In native
-/// this can and must be done through the regular `tracing`-facitilies, please
+/// this can and must be done through the regular `tracing`-facilities, please
 /// see their documentation for details.
 ///
 /// On the wasm-side we've adopted a similar approach of having a global
@@ -137,7 +142,7 @@ pub fn init_for_tests() {
 /// Runs given code within a tracing span, measuring it's execution time.
 ///
 /// If tracing is not enabled, the code is still executed. Pass in level and name or
-/// use any valid `sp_tracing::Span`followe by `;` and the code to execute,
+/// use any valid `sp_tracing::Span`followed by `;` and the code to execute,
 ///
 /// # Example
 ///

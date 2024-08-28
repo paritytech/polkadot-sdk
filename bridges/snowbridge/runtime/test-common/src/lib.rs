@@ -7,7 +7,6 @@ use frame_support::{
 	traits::{fungible::Mutate, OnFinalize, OnInitialize},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom,
 };
@@ -40,6 +39,7 @@ where
 }
 
 pub fn send_transfer_token_message<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	assethub_parachain_id: u32,
 	weth_contract_address: H160,
 	destination_address: H160,
@@ -89,7 +89,7 @@ where
 		WithdrawAsset(Assets::from(vec![fee.clone()])),
 		BuyExecution { fees: fee, weight_limit: Unlimited },
 		ExportMessage {
-			network: Ethereum { chain_id: 11155111 },
+			network: Ethereum { chain_id: ethereum_chain_id },
 			destination: Here,
 			xcm: inner_xcm,
 		},
@@ -107,6 +107,7 @@ where
 }
 
 pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -149,6 +150,7 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 			initial_fund::<Runtime>(assethub_parachain_id, 5_000_000_000_000);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,
@@ -205,6 +207,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
 	XcmConfig,
 	AllPalletsWithoutSystem,
 >(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -249,6 +252,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
 			initial_fund::<Runtime>(assethub_parachain_id, 5_000_000_000_000);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,
@@ -290,6 +294,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
 }
 
 pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -353,7 +358,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 			let xcm = Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				ExportMessage {
-					network: Ethereum { chain_id: 11155111 },
+					network: Ethereum { chain_id: ethereum_chain_id },
 					destination: Here,
 					xcm: inner_xcm,
 				},
@@ -375,6 +380,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 
 #[allow(clippy::too_many_arguments)]
 pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -414,6 +420,7 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 			initial_fund::<Runtime>(assethub_parachain_id, initial_amount);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,
@@ -459,7 +466,6 @@ pub fn ethereum_extrinsic<Runtime>(
 			let initial_checkpoint = make_checkpoint();
 			let update = make_finalized_header_update();
 			let sync_committee_update = make_sync_committee_update();
-			let execution_header_update = make_execution_header_update();
 
 			let alice = Alice;
 			let alice_account = alice.to_account_id();
@@ -486,22 +492,12 @@ pub fn ethereum_extrinsic<Runtime>(
 				}
 				.into();
 
-			let execution_header_call: <Runtime as pallet_utility::Config>::RuntimeCall =
-				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit_execution_header {
-					update: Box::new(*execution_header_update),
-				}
-				.into();
-
 			let update_outcome = construct_and_apply_extrinsic(alice, update_call.into());
 			assert_ok!(update_outcome);
 
 			let sync_committee_outcome =
 				construct_and_apply_extrinsic(alice, update_sync_committee_call.into());
 			assert_ok!(sync_committee_outcome);
-
-			let execution_header_outcome =
-				construct_and_apply_extrinsic(alice, execution_header_call.into());
-			assert_ok!(execution_header_outcome);
 		});
 }
 
@@ -540,7 +536,6 @@ pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 		.execute_with(|| {
 			let initial_checkpoint = make_checkpoint();
 			let sync_committee_update = make_sync_committee_update();
-			let execution_header_update = make_execution_header_update();
 
 			let alice = Alice;
 			let alice_account = alice.to_account_id();
@@ -561,18 +556,8 @@ pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 				}
 				.into();
 
-			let execution_header_call: <Runtime as pallet_utility::Config>::RuntimeCall =
-				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit_execution_header {
-					update: Box::new(*execution_header_update),
-				}
-				.into();
-
 			let sync_committee_outcome =
 				construct_and_apply_extrinsic(alice, update_sync_committee_call.into());
 			assert_ok!(sync_committee_outcome);
-
-			let execution_header_outcome =
-				construct_and_apply_extrinsic(alice, execution_header_call.into());
-			assert_ok!(execution_header_outcome);
 		});
 }

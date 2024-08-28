@@ -55,12 +55,14 @@ use crate::{
 	slot_range::SlotRange,
 	traits::{Auctioneer, Registrar},
 };
+use alloc::{vec, vec::Vec};
+use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchResult, Weight},
 	storage::{child, ChildTriePrefixIterator},
 	traits::{
-		Currency,
+		Currency, Defensive,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
 		Get, ReservableCurrency,
 	},
@@ -68,8 +70,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
-use primitives::Id as ParaId;
+use polkadot_primitives::Id as ParaId;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
@@ -77,15 +78,10 @@ use sp_runtime::{
 	},
 	MultiSignature, MultiSigner, RuntimeDebug,
 };
-use sp_std::vec::Vec;
 
 type CurrencyOf<T> = <<T as Config>::Auctioneer as Auctioneer<BlockNumberFor<T>>>::Currency;
 type LeasePeriodOf<T> = <<T as Config>::Auctioneer as Auctioneer<BlockNumberFor<T>>>::LeasePeriod;
 type BalanceOf<T> = <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-#[allow(dead_code)]
-type NegativeImbalanceOf<T> =
-	<CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 type FundIndex = u32;
 
@@ -180,7 +176,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
@@ -229,8 +225,7 @@ pub mod pallet {
 
 	/// Info on all of the funds.
 	#[pallet::storage]
-	#[pallet::getter(fn funds)]
-	pub(crate) type Funds<T: Config> = StorageMap<
+	pub type Funds<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ParaId,
@@ -240,18 +235,15 @@ pub mod pallet {
 	/// The funds that have had additional contributions during the last block. This is used
 	/// in order to determine which funds should submit new or updated bids.
 	#[pallet::storage]
-	#[pallet::getter(fn new_raise)]
-	pub(super) type NewRaise<T> = StorageValue<_, Vec<ParaId>, ValueQuery>;
+	pub type NewRaise<T> = StorageValue<_, Vec<ParaId>, ValueQuery>;
 
 	/// The number of auctions that have entered into their ending period so far.
 	#[pallet::storage]
-	#[pallet::getter(fn endings_count)]
-	pub(super) type EndingsCount<T> = StorageValue<_, u32, ValueQuery>;
+	pub type EndingsCount<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Tracker for the next available fund index
 	#[pallet::storage]
-	#[pallet::getter(fn next_fund_index)]
-	pub(super) type NextFundIndex<T> = StorageValue<_, u32, ValueQuery>;
+	pub type NextFundIndex<T> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -342,7 +334,7 @@ pub mod pallet {
 				let new_raise = NewRaise::<T>::take();
 				let new_raise_len = new_raise.len() as u32;
 				for (fund, para_id) in
-					new_raise.into_iter().filter_map(|i| Self::funds(i).map(|f| (f, i)))
+					new_raise.into_iter().filter_map(|i| Funds::<T>::get(i).map(|f| (f, i)))
 				{
 					// Care needs to be taken by the crowdloan creator that this function will
 					// succeed given the crowdloaning configuration. We do some checks ahead of time
@@ -416,7 +408,7 @@ pub mod pallet {
 			ensure!(depositor == manager, Error::<T>::InvalidOrigin);
 			ensure!(T::Registrar::is_registered(index), Error::<T>::InvalidParaId);
 
-			let fund_index = Self::next_fund_index();
+			let fund_index = NextFundIndex::<T>::get();
 			let new_fund_index = fund_index.checked_add(1).ok_or(Error::<T>::Overflow)?;
 
 			let deposit = T::SubmissionDeposit::get();
@@ -486,7 +478,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 
-			let mut fund = Self::funds(index).ok_or(Error::<T>::InvalidParaId)?;
+			let mut fund = Funds::<T>::get(index).ok_or(Error::<T>::InvalidParaId)?;
 			let now = frame_system::Pallet::<T>::block_number();
 			let fund_account = Self::fund_account_id(fund.fund_index);
 			Self::ensure_crowdloan_ended(now, &fund_account, &fund)?;
@@ -519,7 +511,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 
-			let mut fund = Self::funds(index).ok_or(Error::<T>::InvalidParaId)?;
+			let mut fund = Funds::<T>::get(index).ok_or(Error::<T>::InvalidParaId)?;
 			let now = frame_system::Pallet::<T>::block_number();
 			let fund_account = Self::fund_account_id(fund.fund_index);
 			Self::ensure_crowdloan_ended(now, &fund_account, &fund)?;
@@ -562,7 +554,8 @@ pub mod pallet {
 		pub fn dissolve(origin: OriginFor<T>, #[pallet::compact] index: ParaId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let fund = Self::funds(index).ok_or(Error::<T>::InvalidParaId)?;
+			let fund = Funds::<T>::get(index).ok_or(Error::<T>::InvalidParaId)?;
+			let pot = Self::fund_account_id(fund.fund_index);
 			let now = frame_system::Pallet::<T>::block_number();
 
 			// Only allow dissolution when the raised funds goes to zero,
@@ -576,7 +569,10 @@ pub mod pallet {
 			// can take care of that.
 			debug_assert!(Self::contribution_iterator(fund.fund_index).count().is_zero());
 
-			frame_system::Pallet::<T>::dec_providers(&Self::fund_account_id(fund.fund_index))?;
+			// Crowdloan over, burn all funds.
+			let _imba = CurrencyOf::<T>::make_free_balance_be(&pot, Zero::zero());
+			let _ = frame_system::Pallet::<T>::dec_providers(&pot).defensive();
+
 			CurrencyOf::<T>::unreserve(&fund.depositor, fund.deposit);
 			Funds::<T>::remove(index);
 			Self::deposit_event(Event::<T>::Dissolved { para_id: index });
@@ -599,7 +595,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			let fund = Self::funds(index).ok_or(Error::<T>::InvalidParaId)?;
+			let fund = Funds::<T>::get(index).ok_or(Error::<T>::InvalidParaId)?;
 
 			Funds::<T>::insert(
 				index,
@@ -630,7 +626,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(memo.len() <= T::MaxMemoLength::get().into(), Error::<T>::MemoTooLarge);
-			let fund = Self::funds(index).ok_or(Error::<T>::InvalidParaId)?;
+			let fund = Funds::<T>::get(index).ok_or(Error::<T>::InvalidParaId)?;
 
 			let (balance, _) = Self::contribution_get(fund.fund_index, &who);
 			ensure!(balance > Zero::zero(), Error::<T>::NoContributions);
@@ -647,7 +643,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::poke())]
 		pub fn poke(origin: OriginFor<T>, index: ParaId) -> DispatchResult {
 			ensure_signed(origin)?;
-			let fund = Self::funds(index).ok_or(Error::<T>::InvalidParaId)?;
+			let fund = Funds::<T>::get(index).ok_or(Error::<T>::InvalidParaId)?;
 			ensure!(!fund.raised.is_zero(), Error::<T>::NoContributions);
 			ensure!(!NewRaise::<T>::get().contains(&index), Error::<T>::AlreadyInNewRaise);
 			NewRaise::<T>::append(index);
@@ -757,12 +753,12 @@ impl<T: Config> Pallet<T> {
 		existence: ExistenceRequirement,
 	) -> DispatchResult {
 		ensure!(value >= T::MinContribution::get(), Error::<T>::ContributionTooSmall);
-		let mut fund = Self::funds(index).ok_or(Error::<T>::InvalidParaId)?;
+		let mut fund = Funds::<T>::get(index).ok_or(Error::<T>::InvalidParaId)?;
 		fund.raised = fund.raised.checked_add(&value).ok_or(Error::<T>::Overflow)?;
 		ensure!(fund.raised <= fund.cap, Error::<T>::CapExceeded);
 
 		// Make sure crowdloan has not ended
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		ensure!(now < fund.end, Error::<T>::ContributionPeriodOver);
 
 		// Make sure crowdloan is in a valid lease period
@@ -811,7 +807,7 @@ impl<T: Config> Pallet<T> {
 				},
 			}
 		} else {
-			let endings_count = Self::endings_count();
+			let endings_count = EndingsCount::<T>::get();
 			match fund.last_contribution {
 				LastContribution::PreEnding(a) if a == endings_count => {
 					// Not in ending period and no auctions have ended ending since our
@@ -836,16 +832,16 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
-		Funds::<T>::mutate(one, |x| Funds::<T>::mutate(other, |y| sp_std::mem::swap(x, y)))
+		Funds::<T>::mutate(one, |x| Funds::<T>::mutate(other, |y| core::mem::swap(x, y)))
 	}
 }
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod crypto {
+	use alloc::vec::Vec;
 	use sp_core::ed25519;
 	use sp_io::crypto::{ed25519_generate, ed25519_sign};
 	use sp_runtime::{MultiSignature, MultiSigner};
-	use sp_std::vec::Vec;
 
 	pub fn create_ed25519_pubkey(seed: Vec<u8>) -> MultiSigner {
 		ed25519_generate(0.into(), Some(seed)).into()
@@ -864,19 +860,19 @@ mod tests {
 
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl, parameter_types,
-		traits::{ConstU32, OnFinalize, OnInitialize},
+		traits::{OnFinalize, OnInitialize},
 	};
-	use primitives::Id as ParaId;
+	use polkadot_primitives::Id as ParaId;
 	use sp_core::H256;
 	use std::{cell::RefCell, collections::BTreeMap, sync::Arc};
 	// The testing primitives are very useful for avoiding having to work with signatures
-	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are requried.
+	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::{
 		crowdloan,
 		mock::TestRegistrar,
 		traits::{AuctionStatus, OnSwap},
 	};
-	use ::test_helpers::{dummy_head_data, dummy_validation_code};
+	use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code};
 	use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput},
@@ -894,13 +890,9 @@ mod tests {
 		}
 	);
 
-	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
-	}
-
 	type BlockNumber = u64;
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -915,7 +907,6 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type Version = ();
 		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
@@ -927,24 +918,9 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
-	parameter_types! {
-		pub const ExistentialDeposit: u64 = 1;
-	}
-
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
-		type MaxLocks = ();
-		type MaxReserves = ();
-		type ReserveIdentifier = [u8; 8];
-		type WeightInfo = ();
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	#[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -989,7 +965,7 @@ mod tests {
 		let fund = Funds::<Test>::get(para).unwrap();
 		let account_id = Crowdloan::fund_account_id(fund.fund_index);
 		if winner {
-			let ed = <Test as pallet_balances::Config>::ExistentialDeposit::get();
+			let ed: u64 = <Test as pallet_balances::Config>::ExistentialDeposit::get();
 			let free_balance = Balances::free_balance(&account_id);
 			Balances::reserve(&account_id, free_balance - ed)
 				.expect("should be able to reserve free balance minus ED");
@@ -1155,11 +1131,11 @@ mod tests {
 	fn basic_setup_works() {
 		new_test_ext().execute_with(|| {
 			assert_eq!(System::block_number(), 0);
-			assert_eq!(Crowdloan::funds(ParaId::from(0)), None);
+			assert_eq!(crowdloan::Funds::<Test>::get(ParaId::from(0)), None);
 			let empty: Vec<ParaId> = Vec::new();
-			assert_eq!(Crowdloan::new_raise(), empty);
+			assert_eq!(crowdloan::NewRaise::<Test>::get(), empty);
 			assert_eq!(Crowdloan::contribution_get(0u32, &1).0, 0);
-			assert_eq!(Crowdloan::endings_count(), 0);
+			assert_eq!(crowdloan::EndingsCount::<Test>::get(), 0);
 
 			assert_ok!(TestAuctioneer::new_auction(5, 0));
 
@@ -1201,14 +1177,14 @@ mod tests {
 				last_period: 4,
 				fund_index: 0,
 			};
-			assert_eq!(Crowdloan::funds(para), Some(fund_info));
+			assert_eq!(crowdloan::Funds::<Test>::get(para), Some(fund_info));
 			// User has deposit removed from their free balance
 			assert_eq!(Balances::free_balance(1), 999);
 			// Deposit is placed in reserved
 			assert_eq!(Balances::reserved_balance(1), 1);
 			// No new raise until first contribution
 			let empty: Vec<ParaId> = Vec::new();
-			assert_eq!(Crowdloan::new_raise(), empty);
+			assert_eq!(crowdloan::NewRaise::<Test>::get(), empty);
 		});
 	}
 
@@ -1241,14 +1217,14 @@ mod tests {
 				last_period: 4,
 				fund_index: 0,
 			};
-			assert_eq!(Crowdloan::funds(ParaId::from(0)), Some(fund_info));
+			assert_eq!(crowdloan::Funds::<Test>::get(ParaId::from(0)), Some(fund_info));
 			// User has deposit removed from their free balance
 			assert_eq!(Balances::free_balance(1), 999);
 			// Deposit is placed in reserved
 			assert_eq!(Balances::reserved_balance(1), 1);
 			// No new raise until first contribution
 			let empty: Vec<ParaId> = Vec::new();
-			assert_eq!(Crowdloan::new_raise(), empty);
+			assert_eq!(crowdloan::NewRaise::<Test>::get(), empty);
 		});
 	}
 
@@ -1321,9 +1297,9 @@ mod tests {
 			// Contributions appear in free balance of crowdloan
 			assert_eq!(Balances::free_balance(Crowdloan::fund_account_id(index)), 49);
 			// Crowdloan is added to NewRaise
-			assert_eq!(Crowdloan::new_raise(), vec![para]);
+			assert_eq!(crowdloan::NewRaise::<Test>::get(), vec![para]);
 
-			let fund = Crowdloan::funds(para).unwrap();
+			let fund = crowdloan::Funds::<Test>::get(para).unwrap();
 
 			// Last contribution time recorded
 			assert_eq!(fund.last_contribution, LastContribution::PreEnding(0));
@@ -1418,7 +1394,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(Crowdloan::fund_account_id(index)), 59);
 
 			// Contribution amount is correct
-			let fund = Crowdloan::funds(para).unwrap();
+			let fund = crowdloan::Funds::<Test>::get(para).unwrap();
 			assert_eq!(fund.raised, 59);
 		});
 	}
@@ -1570,7 +1546,7 @@ mod tests {
 			);
 
 			// Endings count incremented
-			assert_eq!(Crowdloan::endings_count(), 1);
+			assert_eq!(crowdloan::EndingsCount::<Test>::get(), 1);
 		});
 	}
 
@@ -1609,6 +1585,7 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let para = new_para();
 			let index = NextFundIndex::<Test>::get();
+			let issuance = Balances::total_issuance();
 
 			// Set up a crowdloan
 			assert_ok!(Crowdloan::create(RuntimeOrigin::signed(1), para, 1000, 1, 1, 9, None));
@@ -1629,9 +1606,10 @@ mod tests {
 
 			// Some funds are left over
 			assert_eq!(Balances::free_balance(&account_id), 10);
-			// They wil be left in the account at the end
+			// Remaining funds will be burned
 			assert_ok!(Crowdloan::dissolve(RuntimeOrigin::signed(1), para));
-			assert_eq!(Balances::free_balance(&account_id), 10);
+			assert_eq!(Balances::free_balance(&account_id), 0);
+			assert_eq!(Balances::total_issuance(), issuance - 10);
 		});
 	}
 
@@ -1740,6 +1718,41 @@ mod tests {
 		});
 	}
 
+	// Regression test to check that a pot account with just one provider can be dissolved.
+	#[test]
+	fn dissolve_provider_refs_total_issuance_works() {
+		new_test_ext().execute_with(|| {
+			let para = new_para();
+			let issuance = Balances::total_issuance();
+
+			// Set up a crowdloan
+			assert_ok!(Crowdloan::create(RuntimeOrigin::signed(1), para, 1000, 1, 1, 9, None));
+			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 100, None));
+			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(3), para, 50, None));
+
+			run_to_block(10);
+
+			// We test the historic case where crowdloan accounts only have one provider:
+			{
+				let fund = crowdloan::Funds::<Test>::get(para).unwrap();
+				let pot = Crowdloan::fund_account_id(fund.fund_index);
+				System::dec_providers(&pot).unwrap();
+				assert_eq!(System::providers(&pot), 1);
+			}
+
+			// All funds are refunded
+			assert_ok!(Crowdloan::refund(RuntimeOrigin::signed(2), para));
+
+			// Now that `fund.raised` is zero, it can be dissolved.
+			assert_ok!(Crowdloan::dissolve(RuntimeOrigin::signed(1), para));
+
+			assert_eq!(Balances::free_balance(1), 1000);
+			assert_eq!(Balances::free_balance(2), 2000);
+			assert_eq!(Balances::free_balance(3), 3000);
+			assert_eq!(Balances::total_issuance(), issuance);
+		});
+	}
+
 	#[test]
 	fn dissolve_works() {
 		new_test_ext().execute_with(|| {
@@ -1787,7 +1800,8 @@ mod tests {
 	#[test]
 	fn withdraw_from_finished_works() {
 		new_test_ext().execute_with(|| {
-			assert_eq!(<Test as pallet_balances::Config>::ExistentialDeposit::get(), 1);
+			let ed: u64 = <Test as pallet_balances::Config>::ExistentialDeposit::get();
+			assert_eq!(ed, 1);
 			let para = new_para();
 			let index = NextFundIndex::<Test>::get();
 			let account_id = Crowdloan::fund_account_id(index);
@@ -1873,10 +1887,10 @@ mod tests {
 
 			assert_ok!(Crowdloan::create(RuntimeOrigin::signed(1), para_1, 1000, 1, 1, 9, None));
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para_1, 100, None));
-			let old_crowdloan = Crowdloan::funds(para_1).unwrap();
+			let old_crowdloan = crowdloan::Funds::<Test>::get(para_1).unwrap();
 
 			assert_ok!(Crowdloan::edit(RuntimeOrigin::root(), para_1, 1234, 2, 3, 4, None));
-			let new_crowdloan = Crowdloan::funds(para_1).unwrap();
+			let new_crowdloan = crowdloan::Funds::<Test>::get(para_1).unwrap();
 
 			// Some things stay the same
 			assert_eq!(old_crowdloan.depositor, new_crowdloan.depositor);
@@ -1937,7 +1951,7 @@ mod tests {
 			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para_1, 100, None));
 			run_to_block(6);
 			assert_ok!(Crowdloan::poke(RuntimeOrigin::signed(1), para_1));
-			assert_eq!(Crowdloan::new_raise(), vec![para_1]);
+			assert_eq!(crowdloan::NewRaise::<Test>::get(), vec![para_1]);
 			assert_noop!(
 				Crowdloan::poke(RuntimeOrigin::signed(1), para_1),
 				Error::<Test>::AlreadyInNewRaise
@@ -1951,10 +1965,9 @@ mod benchmarking {
 	use super::{Pallet as Crowdloan, *};
 	use frame_support::{assert_ok, traits::OnInitialize};
 	use frame_system::RawOrigin;
-	use runtime_parachains::paras;
+	use polkadot_runtime_parachains::paras;
 	use sp_core::crypto::UncheckedFrom;
 	use sp_runtime::traits::{Bounded, CheckedSub};
-	use sp_std::prelude::*;
 
 	use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 

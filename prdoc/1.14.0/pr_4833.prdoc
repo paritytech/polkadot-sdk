@@ -1,0 +1,12 @@
+title: "Reinitialize should allow to override existing config in collationGeneration"
+
+doc:
+  - audience: Node Dev
+    description: |
+      The Reinitialize collationGeneration subsystem message currently fails if no other config is already set.
+      As it is difficult to query the collationGeneration subsystem to check when to call Initialize or Reinitialize, this PR
+      proposes that Reinitialize overrides the configuration regardless if there was one already set.
+
+crates:
+  - name: polkadot-node-collation-generation
+    bump: minor

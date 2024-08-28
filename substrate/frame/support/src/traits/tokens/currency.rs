@@ -16,6 +16,9 @@
 // limitations under the License.
 
 //! The Currency trait and associated types.
+//!
+//! Note Currency and related traits are deprecated, instead
+//! [`fungible`](frame_support::traits::fungible) traits should be used.
 
 use super::{
 	imbalance::{Imbalance, SignedImbalance},
@@ -27,7 +30,7 @@ use sp_runtime::{traits::MaybeSerializeDeserialize, DispatchError};
 mod reservable;
 pub use reservable::{NamedReservableCurrency, ReservableCurrency};
 mod lockable;
-pub use lockable::{LockIdentifier, LockableCurrency, VestingSchedule};
+pub use lockable::{InspectLockableCurrency, LockIdentifier, LockableCurrency, VestingSchedule};
 
 /// Abstraction over a fungible assets system.
 pub trait Currency<AccountId> {

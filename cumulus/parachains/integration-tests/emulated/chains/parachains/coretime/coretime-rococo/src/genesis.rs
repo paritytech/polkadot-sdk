@@ -17,57 +17,51 @@
 use sp_core::storage::Storage;
 
 // Cumulus
-use coretime_rococo_runtime::{
-	BalancesConfig, CollatorSelectionConfig, ParachainInfoConfig, PolkadotXcmConfig,
-	RuntimeGenesisConfig, SessionConfig, SessionKeys, SystemConfig, WASM_BINARY,
-};
-use cumulus_primitives_core::ParaId;
 use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
 };
 use parachains_common::Balance;
-use rococo_runtime_constants::currency::UNITS as ROC;
 
 pub const PARA_ID: u32 = 1005;
 pub const ED: Balance = testnet_parachains_constants::rococo::currency::EXISTENTIAL_DEPOSIT;
-const ENDOWMENT: u128 = 1_000_000 * ROC;
 
 pub fn genesis() -> Storage {
-	let genesis_config = RuntimeGenesisConfig {
-		system: SystemConfig::default(),
-		parachain_info: ParachainInfoConfig {
-			parachain_id: ParaId::from(PARA_ID),
+	let genesis_config = coretime_rococo_runtime::RuntimeGenesisConfig {
+		system: coretime_rococo_runtime::SystemConfig::default(),
+		balances: coretime_rococo_runtime::BalancesConfig {
+			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+		},
+		parachain_info: coretime_rococo_runtime::ParachainInfoConfig {
+			parachain_id: PARA_ID.into(),
 			..Default::default()
 		},
-		collator_selection: CollatorSelectionConfig {
+		collator_selection: coretime_rococo_runtime::CollatorSelectionConfig {
 			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},
-		balances: BalancesConfig {
-			balances: accounts::init_balances().iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
-		},
-		session: SessionConfig {
+		session: coretime_rococo_runtime::SessionConfig {
 			keys: collators::invulnerables()
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
-						acc.clone(),          // account id
-						acc,                  // validator id
-						SessionKeys { aura }, // session keys
+						acc.clone(),                                   // account id
+						acc,                                           // validator id
+						coretime_rococo_runtime::SessionKeys { aura }, // session keys
 					)
 				})
 				.collect(),
+			..Default::default()
 		},
-		polkadot_xcm: PolkadotXcmConfig {
+		polkadot_xcm: coretime_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		},
 		..Default::default()
 	};
-
+  
 	build_genesis_storage(
 		&genesis_config,
-		WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		coretime_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }

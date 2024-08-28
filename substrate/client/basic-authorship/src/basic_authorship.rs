@@ -38,7 +38,7 @@ use sp_core::traits::SpawnNamed;
 use sp_inherents::InherentData;
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
-	Digest, Percent, SaturatedConversion,
+	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
 
@@ -180,7 +180,7 @@ impl<A, C, PR> ProposerFactory<A, C, PR> {
 	/// The soft deadline indicates where we should stop attempting to add transactions
 	/// to the block, which exhaust resources. After soft deadline is reached,
 	/// we switch to a fixed-amount mode, in which after we see `MAX_SKIPPED_TRANSACTIONS`
-	/// transactions which exhaust resrouces, we will conclude that the block is full.
+	/// transactions which exhaust resources, we will conclude that the block is full.
 	///
 	/// Setting the value too low will significantly limit the amount of transactions
 	/// we try in case they exhaust resources. Setting the value too high can
@@ -205,7 +205,11 @@ where
 	) -> Proposer<Block, C, A, PR> {
 		let parent_hash = parent_header.hash();
 
-		info!("🙌 Starting consensus session on top of parent {:?}", parent_hash);
+		info!(
+			"🙌 Starting consensus session on top of parent {:?} (#{})",
+			parent_hash,
+			parent_header.number()
+		);
 
 		let proposer = Proposer::<_, _, _, PR> {
 			spawn_handle: self.spawn_handle.clone(),
@@ -335,11 +339,12 @@ where
 
 		self.apply_inherents(&mut block_builder, inherent_data)?;
 
-		// TODO call `after_inherents` and check if we should apply extrinsincs here
-		// <https://github.com/paritytech/substrate/pull/14275/>
-
-		let end_reason =
-			self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?;
+		let mode = block_builder.extrinsic_inclusion_mode();
+		let end_reason = match mode {
+			ExtrinsicInclusionMode::AllExtrinsics =>
+				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
+			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
+		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
 
@@ -847,7 +852,7 @@ mod tests {
 			block
 		};
 
-		let import_and_maintain = |mut client: Arc<TestClient>, block: TestBlock| {
+		let import_and_maintain = |client: Arc<TestClient>, block: TestBlock| {
 			let hash = block.hash();
 			block_on(client.import(BlockOrigin::Own, block)).unwrap();
 			block_on(txpool.maintain(chain_event(

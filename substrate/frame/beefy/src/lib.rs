@@ -17,33 +17,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Encode, MaxEncodedLen};
-
-use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, Pays},
-	pallet_prelude::*,
-	traits::{Get, OneSessionHandler},
-	weights::Weight,
-	BoundedSlice, BoundedVec, Parameter,
-};
-use frame_system::{
-	ensure_none, ensure_signed,
-	pallet_prelude::{BlockNumberFor, OriginFor},
-};
-use log;
-use sp_runtime::{
-	generic::DigestItem,
-	traits::{IsMember, Member, One},
-	RuntimeAppPublic,
-};
-use sp_session::{GetSessionNumber, GetValidatorCount};
-use sp_staking::{offence::OffenceReportSystem, SessionIndex};
-use sp_std::prelude::*;
-
-use sp_consensus_beefy::{
-	AuthorityIndex, BeefyAuthorityId, ConsensusLog, EquivocationProof, OnNewValidatorSet,
-	ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
-};
+extern crate alloc;
 
 mod default_weights;
 mod equivocation;
@@ -52,10 +26,37 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub use crate::equivocation::{EquivocationOffence, EquivocationReportSystem, TimeSlot};
-pub use pallet::*;
+use alloc::{boxed::Box, vec::Vec};
+use codec::{Encode, MaxEncodedLen};
+use log;
+
+use frame_support::{
+	dispatch::{DispatchResultWithPostInfo, Pays},
+	pallet_prelude::*,
+	traits::{Get, OneSessionHandler},
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
+	BoundedSlice, BoundedVec, Parameter,
+};
+use frame_system::{
+	ensure_none, ensure_signed,
+	pallet_prelude::{BlockNumberFor, HeaderFor, OriginFor},
+};
+use sp_consensus_beefy::{
+	AncestryHelper, AncestryHelperWeightInfo, AuthorityIndex, BeefyAuthorityId, ConsensusLog,
+	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet,
+	BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+};
+use sp_runtime::{
+	generic::DigestItem,
+	traits::{IsMember, Member, One},
+	RuntimeAppPublic,
+};
+use sp_session::{GetSessionNumber, GetValidatorCount};
+use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 
 use crate::equivocation::EquivocationEvidenceFor;
+pub use crate::equivocation::{EquivocationOffence, EquivocationReportSystem, TimeSlot};
+pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::beefy";
 
@@ -98,6 +99,10 @@ pub mod pallet {
 		/// weight MMR root over validators and make it available for Light Clients.
 		type OnNewValidatorSet: OnNewValidatorSet<<Self as Config>::BeefyId>;
 
+		/// Hook for checking commitment canonicity.
+		type AncestryHelper: AncestryHelper<HeaderFor<Self>>
+			+ AncestryHelperWeightInfo<HeaderFor<Self>>;
+
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
 
@@ -120,20 +125,17 @@ pub mod pallet {
 
 	/// The current authorities set
 	#[pallet::storage]
-	#[pallet::getter(fn authorities)]
-	pub(super) type Authorities<T: Config> =
+	pub type Authorities<T: Config> =
 		StorageValue<_, BoundedVec<T::BeefyId, T::MaxAuthorities>, ValueQuery>;
 
 	/// The current validator set id
 	#[pallet::storage]
-	#[pallet::getter(fn validator_set_id)]
-	pub(super) type ValidatorSetId<T: Config> =
+	pub type ValidatorSetId<T: Config> =
 		StorageValue<_, sp_consensus_beefy::ValidatorSetId, ValueQuery>;
 
 	/// Authorities set scheduled to be used with the next session
 	#[pallet::storage]
-	#[pallet::getter(fn next_authorities)]
-	pub(super) type NextAuthorities<T: Config> =
+	pub type NextAuthorities<T: Config> =
 		StorageValue<_, BoundedVec<T::BeefyId, T::MaxAuthorities>, ValueQuery>;
 
 	/// A mapping from BEEFY set ID to the index of the *most recent* session for which its
@@ -147,17 +149,14 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: `ValidatorSetId` is not under user control.
 	#[pallet::storage]
-	#[pallet::getter(fn session_for_set)]
-	pub(super) type SetIdSession<T: Config> =
+	pub type SetIdSession<T: Config> =
 		StorageMap<_, Twox64Concat, sp_consensus_beefy::ValidatorSetId, SessionIndex>;
 
 	/// Block number where BEEFY consensus is enabled/started.
 	/// By changing this (through privileged `set_new_genesis()`), BEEFY consensus is effectively
 	/// restarted from the newly set block number.
 	#[pallet::storage]
-	#[pallet::getter(fn genesis_block)]
-	pub(super) type GenesisBlock<T: Config> =
-		StorageValue<_, Option<BlockNumberFor<T>>, ValueQuery>;
+	pub type GenesisBlock<T: Config> = StorageValue<_, Option<BlockNumberFor<T>>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -186,7 +185,7 @@ pub mod pallet {
 				// we panic here as runtime maintainers can simply reconfigure genesis and restart
 				// the chain easily
 				.expect("Authorities vec too big");
-			<GenesisBlock<T>>::put(&self.genesis_block);
+			GenesisBlock::<T>::put(&self.genesis_block);
 		}
 	}
 
@@ -194,8 +193,14 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// A key ownership proof provided as part of an equivocation report is invalid.
 		InvalidKeyOwnershipProof,
-		/// An equivocation proof provided as part of an equivocation report is invalid.
-		InvalidEquivocationProof,
+		/// A double voting proof provided as part of an equivocation report is invalid.
+		InvalidDoubleVotingProof,
+		/// A fork voting proof provided as part of an equivocation report is invalid.
+		InvalidForkVotingProof,
+		/// A future block voting proof provided as part of an equivocation report is invalid.
+		InvalidFutureBlockVotingProof,
+		/// The session of the equivocation proof is invalid
+		InvalidEquivocationProofSession,
 		/// A given equivocation report is valid but already previously reported.
 		DuplicateOffenceReport,
 		/// Submitted configuration is invalid.
@@ -209,14 +214,14 @@ pub mod pallet {
 		/// against the extracted offender. If both are valid, the offence
 		/// will be reported.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::report_equivocation(
+		#[pallet::weight(T::WeightInfo::report_double_voting(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
-		pub fn report_equivocation(
+		pub fn report_double_voting(
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
-				EquivocationProof<
+				DoubleVotingProof<
 					BlockNumberFor<T>,
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
@@ -228,7 +233,7 @@ pub mod pallet {
 
 			T::EquivocationReportSystem::process_evidence(
 				Some(reporter),
-				(*equivocation_proof, key_owner_proof),
+				EquivocationEvidenceFor::DoubleVotingProof(*equivocation_proof, key_owner_proof),
 			)?;
 			// Waive the fee since the report is valid and beneficial
 			Ok(Pays::No.into())
@@ -244,14 +249,14 @@ pub mod pallet {
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::report_equivocation(
+		#[pallet::weight(T::WeightInfo::report_double_voting(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
-		pub fn report_equivocation_unsigned(
+		pub fn report_double_voting_unsigned(
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
-				EquivocationProof<
+				DoubleVotingProof<
 					BlockNumberFor<T>,
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
@@ -263,7 +268,7 @@ pub mod pallet {
 
 			T::EquivocationReportSystem::process_evidence(
 				None,
-				(*equivocation_proof, key_owner_proof),
+				EquivocationEvidenceFor::DoubleVotingProof(*equivocation_proof, key_owner_proof),
 			)?;
 			Ok(Pays::No.into())
 		}
@@ -284,6 +289,136 @@ pub mod pallet {
 			GenesisBlock::<T>::put(Some(genesis_block));
 			Ok(())
 		}
+
+		/// Report fork voting equivocation. This method will verify the equivocation proof
+		/// and validate the given key ownership proof against the extracted offender.
+		/// If both are valid, the offence will be reported.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::report_fork_voting::<T>(
+			key_owner_proof.validator_count(),
+			T::MaxNominators::get(),
+			&equivocation_proof.ancestry_proof
+		))]
+		pub fn report_fork_voting(
+			origin: OriginFor<T>,
+			equivocation_proof: Box<
+				ForkVotingProof<
+					HeaderFor<T>,
+					T::BeefyId,
+					<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
+				>,
+			>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			let reporter = ensure_signed(origin)?;
+
+			T::EquivocationReportSystem::process_evidence(
+				Some(reporter),
+				EquivocationEvidenceFor::ForkVotingProof(*equivocation_proof, key_owner_proof),
+			)?;
+			// Waive the fee since the report is valid and beneficial
+			Ok(Pays::No.into())
+		}
+
+		/// Report fork voting equivocation. This method will verify the equivocation proof
+		/// and validate the given key ownership proof against the extracted offender.
+		/// If both are valid, the offence will be reported.
+		///
+		/// This extrinsic must be called unsigned and it is expected that only
+		/// block authors will call it (validated in `ValidateUnsigned`), as such
+		/// if the block author is defined it will be defined as the equivocation
+		/// reporter.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::report_fork_voting::<T>(
+			key_owner_proof.validator_count(),
+			T::MaxNominators::get(),
+			&equivocation_proof.ancestry_proof
+		))]
+		pub fn report_fork_voting_unsigned(
+			origin: OriginFor<T>,
+			equivocation_proof: Box<
+				ForkVotingProof<
+					HeaderFor<T>,
+					T::BeefyId,
+					<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
+				>,
+			>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			ensure_none(origin)?;
+
+			T::EquivocationReportSystem::process_evidence(
+				None,
+				EquivocationEvidenceFor::ForkVotingProof(*equivocation_proof, key_owner_proof),
+			)?;
+			// Waive the fee since the report is valid and beneficial
+			Ok(Pays::No.into())
+		}
+
+		/// Report future block voting equivocation. This method will verify the equivocation proof
+		/// and validate the given key ownership proof against the extracted offender.
+		/// If both are valid, the offence will be reported.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::report_future_block_voting(
+			key_owner_proof.validator_count(),
+			T::MaxNominators::get(),
+		))]
+		pub fn report_future_block_voting(
+			origin: OriginFor<T>,
+			equivocation_proof: Box<FutureBlockVotingProof<BlockNumberFor<T>, T::BeefyId>>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			let reporter = ensure_signed(origin)?;
+
+			T::EquivocationReportSystem::process_evidence(
+				Some(reporter),
+				EquivocationEvidenceFor::FutureBlockVotingProof(
+					*equivocation_proof,
+					key_owner_proof,
+				),
+			)?;
+			// Waive the fee since the report is valid and beneficial
+			Ok(Pays::No.into())
+		}
+
+		/// Report future block voting equivocation. This method will verify the equivocation proof
+		/// and validate the given key ownership proof against the extracted offender.
+		/// If both are valid, the offence will be reported.
+		///
+		/// This extrinsic must be called unsigned and it is expected that only
+		/// block authors will call it (validated in `ValidateUnsigned`), as such
+		/// if the block author is defined it will be defined as the equivocation
+		/// reporter.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::report_future_block_voting(
+			key_owner_proof.validator_count(),
+			T::MaxNominators::get(),
+		))]
+		pub fn report_future_block_voting_unsigned(
+			origin: OriginFor<T>,
+			equivocation_proof: Box<FutureBlockVotingProof<BlockNumberFor<T>, T::BeefyId>>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			ensure_none(origin)?;
+
+			T::EquivocationReportSystem::process_evidence(
+				None,
+				EquivocationEvidenceFor::FutureBlockVotingProof(
+					*equivocation_proof,
+					key_owner_proof,
+				),
+			)?;
+			// Waive the fee since the report is valid and beneficial
+			Ok(Pays::No.into())
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::validate_unsigned]
@@ -298,47 +433,178 @@ pub mod pallet {
 			Self::validate_unsigned(source, call)
 		}
 	}
+
+	impl<T: Config> Call<T> {
+		pub fn to_equivocation_evidence_for(&self) -> Option<EquivocationEvidenceFor<T>> {
+			match self {
+				Call::report_double_voting_unsigned { equivocation_proof, key_owner_proof } =>
+					Some(EquivocationEvidenceFor::<T>::DoubleVotingProof(
+						*equivocation_proof.clone(),
+						key_owner_proof.clone(),
+					)),
+				Call::report_fork_voting_unsigned { equivocation_proof, key_owner_proof } =>
+					Some(EquivocationEvidenceFor::<T>::ForkVotingProof(
+						*equivocation_proof.clone(),
+						key_owner_proof.clone(),
+					)),
+				_ => None,
+			}
+		}
+	}
+
+	impl<T: Config> From<EquivocationEvidenceFor<T>> for Call<T> {
+		fn from(evidence: EquivocationEvidenceFor<T>) -> Self {
+			match evidence {
+				EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, key_owner_proof) =>
+					Call::report_double_voting_unsigned {
+						equivocation_proof: Box::new(equivocation_proof),
+						key_owner_proof,
+					},
+				EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, key_owner_proof) =>
+					Call::report_fork_voting_unsigned {
+						equivocation_proof: Box::new(equivocation_proof),
+						key_owner_proof,
+					},
+				EquivocationEvidenceFor::FutureBlockVotingProof(
+					equivocation_proof,
+					key_owner_proof,
+				) => Call::report_future_block_voting_unsigned {
+					equivocation_proof: Box::new(equivocation_proof),
+					key_owner_proof,
+				},
+			}
+		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_authorities()?;
+		Self::try_state_validators()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * `Authorities` should not exceed the `MaxAuthorities` capacity.
+	/// * `NextAuthorities` should not exceed the `MaxAuthorities` capacity.
+	fn try_state_authorities() -> Result<(), sp_runtime::TryRuntimeError> {
+		if let Some(authorities_len) = <Authorities<T>>::decode_len() {
+			ensure!(
+				authorities_len as u32 <= T::MaxAuthorities::get(),
+				"Authorities number exceeds what the pallet config allows."
+			);
+		} else {
+			return Err(sp_runtime::TryRuntimeError::Other(
+				"Failed to decode length of authorities",
+			));
+		}
+
+		if let Some(next_authorities_len) = <NextAuthorities<T>>::decode_len() {
+			ensure!(
+				next_authorities_len as u32 <= T::MaxAuthorities::get(),
+				"Next authorities number exceeds what the pallet config allows."
+			);
+		} else {
+			return Err(sp_runtime::TryRuntimeError::Other(
+				"Failed to decode length of next authorities",
+			));
+		}
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// `ValidatorSetId` must be present in `SetIdSession`
+	fn try_state_validators() -> Result<(), sp_runtime::TryRuntimeError> {
+		let validator_set_id = <ValidatorSetId<T>>::get();
+		ensure!(
+			SetIdSession::<T>::get(validator_set_id).is_some(),
+			"Validator set id must be present in SetIdSession"
+		);
+		Ok(())
+	}
 }
 
 impl<T: Config> Pallet<T> {
 	/// Return the current active BEEFY validator set.
 	pub fn validator_set() -> Option<ValidatorSet<T::BeefyId>> {
-		let validators: BoundedVec<T::BeefyId, T::MaxAuthorities> = Self::authorities();
-		let id: sp_consensus_beefy::ValidatorSetId = Self::validator_set_id();
+		let validators: BoundedVec<T::BeefyId, T::MaxAuthorities> = Authorities::<T>::get();
+		let id: sp_consensus_beefy::ValidatorSetId = ValidatorSetId::<T>::get();
 		ValidatorSet::<T::BeefyId>::new(validators, id)
 	}
 
-	/// Submits an extrinsic to report an equivocation. This method will create
-	/// an unsigned extrinsic with a call to `report_equivocation_unsigned` and
+	/// Submits an extrinsic to report a double voting equivocation. This method will create
+	/// an unsigned extrinsic with a call to `report_double_voting_unsigned` and
 	/// will push the transaction to the pool. Only useful in an offchain context.
-	pub fn submit_unsigned_equivocation_report(
-		equivocation_proof: EquivocationProof<
+	pub fn submit_unsigned_double_voting_report(
+		equivocation_proof: DoubleVotingProof<
 			BlockNumberFor<T>,
 			T::BeefyId,
 			<T::BeefyId as RuntimeAppPublic>::Signature,
 		>,
 		key_owner_proof: T::KeyOwnerProof,
 	) -> Option<()> {
-		T::EquivocationReportSystem::publish_evidence((equivocation_proof, key_owner_proof)).ok()
+		T::EquivocationReportSystem::publish_evidence(EquivocationEvidenceFor::DoubleVotingProof(
+			equivocation_proof,
+			key_owner_proof,
+		))
+		.ok()
+	}
+
+	/// Submits an extrinsic to report a fork voting equivocation. This method will create
+	/// an unsigned extrinsic with a call to `report_fork_voting_unsigned` and
+	/// will push the transaction to the pool. Only useful in an offchain context.
+	pub fn submit_unsigned_fork_voting_report(
+		equivocation_proof: ForkVotingProof<
+			HeaderFor<T>,
+			T::BeefyId,
+			<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
+		>,
+		key_owner_proof: T::KeyOwnerProof,
+	) -> Option<()> {
+		T::EquivocationReportSystem::publish_evidence(EquivocationEvidenceFor::ForkVotingProof(
+			equivocation_proof,
+			key_owner_proof,
+		))
+		.ok()
+	}
+
+	/// Submits an extrinsic to report a future block voting equivocation. This method will create
+	/// an unsigned extrinsic with a call to `report_future_block_voting_unsigned` and
+	/// will push the transaction to the pool. Only useful in an offchain context.
+	pub fn submit_unsigned_future_block_voting_report(
+		equivocation_proof: FutureBlockVotingProof<BlockNumberFor<T>, T::BeefyId>,
+		key_owner_proof: T::KeyOwnerProof,
+	) -> Option<()> {
+		T::EquivocationReportSystem::publish_evidence(
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, key_owner_proof),
+		)
+		.ok()
 	}
 
 	fn change_authorities(
 		new: BoundedVec<T::BeefyId, T::MaxAuthorities>,
 		queued: BoundedVec<T::BeefyId, T::MaxAuthorities>,
 	) {
-		<Authorities<T>>::put(&new);
+		Authorities::<T>::put(&new);
 
-		let new_id = Self::validator_set_id() + 1u64;
-		<ValidatorSetId<T>>::put(new_id);
+		let new_id = ValidatorSetId::<T>::get() + 1u64;
+		ValidatorSetId::<T>::put(new_id);
 
-		<NextAuthorities<T>>::put(&queued);
+		NextAuthorities::<T>::put(&queued);
 
 		if let Some(validator_set) = ValidatorSet::<T::BeefyId>::new(new, new_id) {
 			let log = DigestItem::Consensus(
 				BEEFY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(validator_set.clone()).encode(),
 			);
-			<frame_system::Pallet<T>>::deposit_log(log);
+			frame_system::Pallet::<T>::deposit_log(log);
 
 			let next_id = new_id + 1;
 			if let Some(next_validator_set) = ValidatorSet::<T::BeefyId>::new(queued, next_id) {
@@ -355,7 +621,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(())
 		}
 
-		if !<Authorities<T>>::get().is_empty() {
+		if !Authorities::<T>::get().is_empty() {
 			return Err(())
 		}
 
@@ -364,10 +630,10 @@ impl<T: Config> Pallet<T> {
 				.map_err(|_| ())?;
 
 		let id = GENESIS_AUTHORITY_SET_ID;
-		<Authorities<T>>::put(bounded_authorities);
-		<ValidatorSetId<T>>::put(id);
+		Authorities::<T>::put(bounded_authorities);
+		ValidatorSetId::<T>::put(id);
 		// Like `pallet_session`, initialize the next validator set as well.
-		<NextAuthorities<T>>::put(bounded_authorities);
+		NextAuthorities::<T>::put(bounded_authorities);
 
 		if let Some(validator_set) = ValidatorSet::<T::BeefyId>::new(authorities.clone(), id) {
 			let next_id = id + 1;
@@ -442,9 +708,9 @@ where
 		// We want to have at least one BEEFY mandatory block per session.
 		Self::change_authorities(bounded_next_authorities, bounded_next_queued_authorities);
 
-		let validator_set_id = Self::validator_set_id();
+		let validator_set_id = ValidatorSetId::<T>::get();
 		// Update the mapping for the new set id that corresponds to the latest session (i.e. now).
-		let session_index = <pallet_session::Pallet<T>>::current_index();
+		let session_index = pallet_session::Pallet::<T>::current_index();
 		SetIdSession::<T>::insert(validator_set_id, &session_index);
 		// Prune old entry if limit reached.
 		let max_set_id_session_entries = T::MaxSetIdSessionEntries::get().max(1);
@@ -459,17 +725,68 @@ where
 			ConsensusLog::<T::BeefyId>::OnDisabled(i as AuthorityIndex).encode(),
 		);
 
-		<frame_system::Pallet<T>>::deposit_log(log);
+		frame_system::Pallet::<T>::deposit_log(log);
 	}
 }
 
 impl<T: Config> IsMember<T::BeefyId> for Pallet<T> {
 	fn is_member(authority_id: &T::BeefyId) -> bool {
-		Self::authorities().iter().any(|id| id == authority_id)
+		Authorities::<T>::get().iter().any(|id| id == authority_id)
 	}
 }
 
 pub trait WeightInfo {
-	fn report_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight;
+	fn report_voting_equivocation(
+		votes_count: u32,
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+	) -> Weight;
+
 	fn set_new_genesis() -> Weight;
 }
+
+pub(crate) trait WeightInfoExt: WeightInfo {
+	fn report_double_voting(validator_count: u32, max_nominators_per_validator: u32) -> Weight {
+		Self::report_voting_equivocation(2, validator_count, max_nominators_per_validator)
+	}
+
+	fn report_fork_voting<T: Config>(
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+		ancestry_proof: &<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
+	) -> Weight {
+		let _weight = <T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::extract_validation_context()
+			.saturating_add(
+				<T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::is_non_canonical(
+					ancestry_proof,
+				),
+			)
+			.saturating_add(Self::report_voting_equivocation(
+				1,
+				validator_count,
+				max_nominators_per_validator,
+			));
+
+		// TODO: https://github.com/paritytech/polkadot-sdk/issues/4523 - return `_weight` here.
+		// We return `Weight::MAX` currently in order to disallow this extrinsic for the moment.
+		// We need to check that the proof is optimal.
+		Weight::MAX
+	}
+
+	fn report_future_block_voting(
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+	) -> Weight {
+		// checking if the report is for a future block
+		DbWeight::get()
+			.reads(1)
+			// check and report the equivocated vote
+			.saturating_add(Self::report_voting_equivocation(
+				1,
+				validator_count,
+				max_nominators_per_validator,
+			))
+	}
+}
+
+impl<T> WeightInfoExt for T where T: WeightInfo {}

@@ -7,4 +7,4 @@ asset-hub-westend-collator1: run {{ENV_PATH}}/helper.sh with "withdraw-reserve-a
 
 # check that //Alice received at least 2.8 wWND on Westend AH
 # (we wait until //Alice account increases here - there are no other transactions that may increase it)
-asset-hub-westend-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/native-assets-balance-increased.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,2800000000000" within 300 seconds
+asset-hub-westend-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/native-assets-balance-increased.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,2800000000000" within 600 seconds

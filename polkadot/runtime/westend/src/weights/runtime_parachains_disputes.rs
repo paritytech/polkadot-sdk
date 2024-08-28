@@ -49,7 +49,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_parachains::disputes`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_parachains::disputes::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_parachains::disputes::WeightInfo for WeightInfo<T> {
 	/// Storage: ParasDisputes Frozen (r:0 w:1)
 	/// Proof Skipped: ParasDisputes Frozen (max_values: Some(1), max_size: None, mode: Measured)
 	fn force_unfreeze() -> Weight {

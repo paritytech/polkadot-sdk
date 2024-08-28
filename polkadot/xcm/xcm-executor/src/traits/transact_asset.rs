@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::AssetsInHolding;
-use sp_std::result::Result;
+use core::result::Result;
 use xcm::latest::{Asset, Error as XcmError, Location, Result as XcmResult, XcmContext};
 
 /// Facility for asset transacting.
@@ -148,12 +148,12 @@ impl TransactAsset for Tuple {
 				r => return r,
 			}
 		)* );
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::TransactAsset::can_check_in",
-			"asset not found: what: {:?}, origin: {:?}, context: {:?}",
-			what,
-			origin,
-			context,
+			?what,
+			?origin,
+			?context,
+			"asset not found",
 		);
 		Err(XcmError::AssetNotFound)
 	}
@@ -171,12 +171,12 @@ impl TransactAsset for Tuple {
 				r => return r,
 			}
 		)* );
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::TransactAsset::can_check_out",
-			"asset not found: what: {:?}, dest: {:?}, context: {:?}",
-			what,
-			dest,
-			context,
+			?what,
+			?dest,
+			?context,
+			"asset not found",
 		);
 		Err(XcmError::AssetNotFound)
 	}
@@ -194,12 +194,12 @@ impl TransactAsset for Tuple {
 				r => return r,
 			}
 		)* );
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::TransactAsset::deposit_asset",
-			"did not deposit asset: what: {:?}, who: {:?}, context: {:?}",
-			what,
-			who,
-			context,
+			?what,
+			?who,
+			?context,
+			"did not deposit asset",
 		);
 		Err(XcmError::AssetNotFound)
 	}
@@ -215,12 +215,12 @@ impl TransactAsset for Tuple {
 				r => return r,
 			}
 		)* );
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::TransactAsset::withdraw_asset",
-			"did not withdraw asset: what: {:?}, who: {:?}, maybe_context: {:?}",
-			what,
-			who,
-			maybe_context,
+			?what,
+			?who,
+			?maybe_context,
+			"did not withdraw asset",
 		);
 		Err(XcmError::AssetNotFound)
 	}
@@ -237,13 +237,13 @@ impl TransactAsset for Tuple {
 				r => return r,
 			}
 		)* );
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::TransactAsset::internal_transfer_asset",
-			"did not transfer asset: what: {:?}, from: {:?}, to: {:?}, context: {:?}",
-			what,
-			from,
-			to,
-			context,
+			?what,
+			?from,
+			?to,
+			?context,
+			"did not transfer asset",
 		);
 		Err(XcmError::AssetNotFound)
 	}

@@ -18,11 +18,8 @@
 
 use super::{traits::Reanchorable, Junction, Junctions};
 use crate::{v3::MultiLocation as OldLocation, VersionedLocation};
-use core::{
-	convert::{TryFrom, TryInto},
-	result,
-};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
+use core::result;
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
@@ -210,7 +207,7 @@ impl Location {
 	}
 
 	/// Consumes `self` and returns a `Location` suffixed with `new`, or an `Err` with
-	/// theoriginal value of `self` in case of overflow.
+	/// the original value of `self` in case of overflow.
 	pub fn pushed_with_interior(
 		self,
 		new: impl Into<Junction>,
@@ -530,12 +527,25 @@ impl<Interior: Into<Junctions>> From<AncestorThen<Interior>> for Location {
 	}
 }
 
+impl From<[u8; 32]> for Location {
+	fn from(bytes: [u8; 32]) -> Self {
+		let junction: Junction = bytes.into();
+		junction.into()
+	}
+}
+
+impl From<sp_runtime::AccountId32> for Location {
+	fn from(id: sp_runtime::AccountId32) -> Self {
+		Junction::AccountId32 { network: None, id: id.into() }.into()
+	}
+}
+
 xcm_procedural::impl_conversion_functions_for_location_v4!();
 
 #[cfg(test)]
 mod tests {
 	use crate::v4::prelude::*;
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	#[test]
 	fn conversion_works() {
@@ -716,7 +726,6 @@ mod tests {
 	#[test]
 	fn conversion_from_other_types_works() {
 		use crate::v3;
-		use core::convert::TryInto;
 
 		fn takes_location<Arg: Into<Location>>(_arg: Arg) {}
 

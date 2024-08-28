@@ -15,6 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Contains an interface for enumerating assets in existence or owned by a given account.
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
+
 /// Interface for enumerating assets in existence or owned by a given account.
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	type AssetsIterator;

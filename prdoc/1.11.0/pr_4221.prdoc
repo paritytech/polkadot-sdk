@@ -1,0 +1,15 @@
+title: "pallet_broker::start_sales: Take `extra_cores` and not total cores"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Change `pallet_broker::start_sales` to take `extra_cores` and not total cores.
+      It will calculate the total number of cores to offer based on number of
+      reservations plus number of leases plus `extra_cores`. Internally it will
+      also notify the relay chain of the required number of cores.
+
+      Thus, starting the first sales with `pallet-broker` requires less brain power ;)
+
+crates:
+- name: pallet-broker
+  bump: minor

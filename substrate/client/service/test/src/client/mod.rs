@@ -17,8 +17,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use async_channel::TryRecvError;
+use codec::{Decode, Encode, Joiner};
 use futures::executor::block_on;
-use parity_scale_codec::{Decode, Encode, Joiner};
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{
 	in_mem, BlockBackend, BlockchainEvents, ExecutorProvider, FinalityNotifications, HeaderBackend,
@@ -28,6 +28,7 @@ use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, DatabaseSource, Pru
 use sc_consensus::{
 	BlockCheckParams, BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult,
 };
+use sc_executor::WasmExecutor;
 use sc_service::client::{new_in_mem, Client, LocalCallExecutor};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
@@ -42,8 +43,6 @@ use sp_storage::{ChildInfo, StorageKey};
 use std::{collections::HashSet, sync::Arc};
 use substrate_test_runtime::TestAPI;
 use substrate_test_runtime_client::{
-	new_native_or_wasm_executor,
-	prelude::*,
 	runtime::{
 		currency::DOLLARS,
 		genesismap::{insert_genesis_block, GenesisStorageBuilder},
@@ -79,7 +78,7 @@ fn construct_block(
 	StateMachine::new(
 		backend,
 		&mut overlay,
-		&new_native_or_wasm_executor(),
+		&WasmExecutor::default(),
 		"Core_initialize_block",
 		&header.encode(),
 		&mut Default::default(),
@@ -93,7 +92,7 @@ fn construct_block(
 		StateMachine::new(
 			backend,
 			&mut overlay,
-			&new_native_or_wasm_executor(),
+			&WasmExecutor::default(),
 			"BlockBuilder_apply_extrinsic",
 			&tx.encode(),
 			&mut Default::default(),
@@ -107,7 +106,7 @@ fn construct_block(
 	let ret_data = StateMachine::new(
 		backend,
 		&mut overlay,
-		&new_native_or_wasm_executor(),
+		&WasmExecutor::default(),
 		"BlockBuilder_finalize_block",
 		&[],
 		&mut Default::default(),
@@ -175,7 +174,7 @@ fn construct_genesis_should_work_with_native() {
 	let _ = StateMachine::new(
 		&backend,
 		&mut overlay,
-		&new_native_or_wasm_executor(),
+		&WasmExecutor::default(),
 		"Core_execute_block",
 		&b1data,
 		&mut Default::default(),
@@ -206,7 +205,7 @@ fn construct_genesis_should_work_with_wasm() {
 	let _ = StateMachine::new(
 		&backend,
 		&mut overlay,
-		&new_native_or_wasm_executor(),
+		&WasmExecutor::default(),
 		"Core_execute_block",
 		&b1data,
 		&mut Default::default(),
@@ -239,7 +238,7 @@ fn client_initializes_from_genesis_ok() {
 
 #[test]
 fn block_builder_works_with_no_transactions() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let block = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -257,7 +256,7 @@ fn block_builder_works_with_no_transactions() {
 
 #[test]
 fn block_builder_works_with_transactions() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let mut builder = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -317,7 +316,7 @@ fn block_builder_works_with_transactions() {
 
 #[test]
 fn block_builder_does_not_include_invalid() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 	let mut builder = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
 		.with_parent_block_number(0)
@@ -391,7 +390,7 @@ fn best_containing_with_genesis_block() {
 fn uncles_with_only_ancestors() {
 	// block tree:
 	// G -> A1 -> A2
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -425,7 +424,7 @@ fn uncles_with_multiple_forks() {
 	//      A1 -> B2 -> B3 -> B4
 	//	          B2 -> C3
 	//	    A1 -> D2
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -585,7 +584,7 @@ fn finality_target_on_longest_chain_with_single_chain_3_blocks() {
 	// block tree:
 	// G -> A1 -> A2
 
-	let (mut client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -626,7 +625,7 @@ fn finality_target_on_longest_chain_with_multiple_forks() {
 	//      A1 -> B2 -> B3 -> B4
 	// 	          B2 -> C3
 	// 	    A1 -> D2
-	let (mut client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -878,7 +877,7 @@ fn finality_target_on_longest_chain_with_max_depth_higher_than_best() {
 	// block tree:
 	// G -> A1 -> A2
 
-	let (mut client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
 	let chain = client.chain_info();
 
 	// G -> A1
@@ -915,7 +914,7 @@ fn finality_target_with_best_not_on_longest_chain() {
 	//         -> B2 -> (B3) -> B4
 	//                   ^best
 
-	let (mut client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
 	let chain = client.chain_info();
 
 	// G -> A1
@@ -1046,7 +1045,7 @@ fn finality_target_with_best_not_on_longest_chain() {
 fn import_with_justification() {
 	// block tree:
 	// G -> A1 -> A2 -> A3
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let mut finality_notifications = client.finality_notification_stream();
 
@@ -1100,7 +1099,7 @@ fn import_with_justification() {
 
 #[test]
 fn importing_diverged_finalized_block_should_trigger_reorg() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1 -> A2
 	//   \
@@ -1161,11 +1160,11 @@ fn importing_diverged_finalized_block_should_trigger_reorg() {
 
 #[test]
 fn finalizing_diverged_block_should_trigger_reorg() {
-	let (mut client, select_chain) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, select_chain) = TestClientBuilder::new().build_with_longest_chain();
 
 	// G -> A1 -> A2
 	//   \
-	//    -> B1 -> B2
+	//    -> B1 -> B2 -> B3
 
 	let mut finality_notifications = client.finality_notification_stream();
 
@@ -1250,15 +1249,15 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 
 	ClientExt::finalize_block(&client, b3.hash(), None).unwrap();
 
-	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[]);
-	finality_notification_check(&mut finality_notifications, &[b2.hash(), b3.hash()], &[a2.hash()]);
+	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[a2.hash()]);
+	finality_notification_check(&mut finality_notifications, &[b2.hash(), b3.hash()], &[]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
 
 #[test]
 fn finality_notifications_content() {
 	sp_tracing::try_init_simple();
-	let (mut client, _select_chain) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, _select_chain) = TestClientBuilder::new().build_with_longest_chain();
 
 	//               -> D3 -> D4
 	// G -> A1 -> A2 -> A3
@@ -1372,8 +1371,12 @@ fn finality_notifications_content() {
 	// Import and finalize D4
 	block_on(client.import_as_final(BlockOrigin::Own, d4.clone())).unwrap();
 
-	finality_notification_check(&mut finality_notifications, &[a1.hash(), a2.hash()], &[c1.hash()]);
-	finality_notification_check(&mut finality_notifications, &[d3.hash(), d4.hash()], &[b2.hash()]);
+	finality_notification_check(
+		&mut finality_notifications,
+		&[a1.hash(), a2.hash()],
+		&[c1.hash(), b2.hash()],
+	);
+	finality_notification_check(&mut finality_notifications, &[d3.hash(), d4.hash()], &[a3.hash()]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
 
@@ -1407,7 +1410,7 @@ fn get_hash_by_block_number_doesnt_panic() {
 #[test]
 fn state_reverted_on_reorg() {
 	sp_tracing::try_init_simple();
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let current_balance = |client: &substrate_test_runtime_client::TestClient| {
 		client
@@ -1489,7 +1492,7 @@ fn doesnt_import_blocks_that_revert_finality() {
 		.unwrap(),
 	);
 
-	let mut client = TestClientBuilder::with_backend(backend).build();
+	let client = TestClientBuilder::with_backend(backend).build();
 
 	let mut finality_notifications = client.finality_notification_stream();
 
@@ -1602,9 +1605,9 @@ fn doesnt_import_blocks_that_revert_finality() {
 	block_on(client.import(BlockOrigin::Own, a3.clone())).unwrap();
 	ClientExt::finalize_block(&client, a3.hash(), None).unwrap();
 
-	finality_notification_check(&mut finality_notifications, &[a1.hash(), a2.hash()], &[]);
+	finality_notification_check(&mut finality_notifications, &[a1.hash(), a2.hash()], &[b2.hash()]);
 
-	finality_notification_check(&mut finality_notifications, &[a3.hash()], &[b2.hash()]);
+	finality_notification_check(&mut finality_notifications, &[a3.hash()], &[]);
 
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
@@ -1616,7 +1619,7 @@ fn respects_block_rules() {
 		known_bad: &mut HashSet<H256>,
 		fork_rules: &mut Vec<(u64, H256)>,
 	) {
-		let mut client = if record_only {
+		let client = if record_only {
 			TestClientBuilder::new().build()
 		} else {
 			TestClientBuilder::new()
@@ -1768,7 +1771,7 @@ fn returns_status_for_pruned_blocks() {
 		.unwrap(),
 	);
 
-	let mut client = TestClientBuilder::with_backend(backend).build();
+	let client = TestClientBuilder::with_backend(backend).build();
 
 	let a1 = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -2072,7 +2075,7 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 	use substrate_test_runtime_client::GenesisInit;
 
 	let backend = Arc::new(sc_client_api::in_mem::Backend::new());
-	let executor = new_native_or_wasm_executor();
+	let executor = WasmExecutor::default();
 	let client_config = sc_service::ClientConfig::default();
 
 	let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
@@ -2099,11 +2102,7 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 
 	type TestClient = Client<
 		in_mem::Backend<Block>,
-		LocalCallExecutor<
-			Block,
-			in_mem::Backend<Block>,
-			sc_executor::NativeElseWasmExecutor<LocalExecutorDispatch>,
-		>,
+		LocalCallExecutor<Block, in_mem::Backend<Block>, WasmExecutor>,
 		Block,
 		RuntimeApi,
 	>;
@@ -2161,7 +2160,7 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 /// Test that ensures that we always send an import notification for re-orgs.
 #[test]
 fn reorg_triggers_a_notification_even_for_sources_that_should_not_trigger_notifications() {
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	let mut notification_stream =
 		futures::executor::block_on_stream(client.import_notification_stream());
@@ -2226,14 +2225,14 @@ fn reorg_triggers_a_notification_even_for_sources_that_should_not_trigger_notifi
 #[test]
 fn use_dalek_ext_works() {
 	fn zero_ed_pub() -> sp_core::ed25519::Public {
-		sp_core::ed25519::Public([0u8; 32])
+		sp_core::ed25519::Public::default()
 	}
 
 	fn zero_ed_sig() -> sp_core::ed25519::Signature {
-		sp_core::ed25519::Signature::from_raw([0u8; 64])
+		sp_core::ed25519::Signature::default()
 	}
 
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	client.execution_extensions().set_extensions_factory(
 		sc_client_api::execution_extensions::ExtensionBeforeBlock::<Block, sp_io::UseDalekExt>::new(
@@ -2264,7 +2263,7 @@ fn use_dalek_ext_works() {
 
 #[test]
 fn finalize_after_best_block_updates_best() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)

@@ -15,7 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::prepare::{PrepareSuccess, PrepareWorkerSuccess};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
+pub use sc_executor_common::error::Error as ExecuteError;
 
 /// Result of PVF preparation from a worker, with checksum of the compiled PVF and stats of the
 /// preparation if successful.
@@ -93,6 +94,10 @@ pub enum PrepareError {
 	#[codec(index = 11)]
 	#[error("prepare: error interfacing with the kernel: {0}")]
 	Kernel(String),
+	/// Code blob failed to decompress
+	#[codec(index = 12)]
+	#[error("prepare: could not decompress code blob: {0}")]
+	CouldNotDecompressCodeBlob(String),
 }
 
 impl PrepareError {
@@ -105,7 +110,11 @@ impl PrepareError {
 	pub fn is_deterministic(&self) -> bool {
 		use PrepareError::*;
 		match self {
-			Prevalidation(_) | Preparation(_) | JobError(_) | OutOfMemory => true,
+			Prevalidation(_) |
+			Preparation(_) |
+			JobError(_) |
+			OutOfMemory |
+			CouldNotDecompressCodeBlob(_) => true,
 			IoErr(_) |
 			JobDied { .. } |
 			CreateTmpFile(_) |
@@ -135,6 +144,9 @@ pub enum InternalValidationError {
 	/// Could not find or open compiled artifact file.
 	#[error("validation: could not find or open compiled artifact file: {0}")]
 	CouldNotOpenFile(String),
+	/// Could not create a pipe between the worker and a child process.
+	#[error("validation: could not create pipe: {0}")]
+	CouldNotCreatePipe(String),
 	/// Host could not clear the worker cache after a job.
 	#[error("validation: host could not clear the worker cache ({path:?}) after a job: {err}")]
 	CouldNotClearWorkerDir {

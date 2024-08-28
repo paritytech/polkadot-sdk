@@ -540,7 +540,7 @@ pub trait OriginTrait: Sized {
 		})
 	}
 
-	/// Extract a reference to the sytsem origin, if that's what the caller is.
+	/// Extract a reference to the system origin, if that's what the caller is.
 	fn as_system_ref(&self) -> Option<&RawOrigin<Self::AccountId>> {
 		self.caller().as_system_ref()
 	}

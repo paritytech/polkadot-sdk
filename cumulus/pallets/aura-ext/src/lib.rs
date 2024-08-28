@@ -16,7 +16,7 @@
 
 //! Cumulus extension pallet for AuRa
 //!
-//! This pallets extends the Substrate AuRa pallet to make it compatible with parachains. It
+//! This pallet extends the Substrate AuRa pallet to make it compatible with parachains. It
 //! provides the [`Pallet`], the [`Config`] and the [`GenesisConfig`].
 //!
 //! It is also required that the parachain runtime uses the provided [`BlockExecutor`] to properly
@@ -63,14 +63,14 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_: BlockNumberFor<T>) {
 			// Update to the latest AuRa authorities.
-			Authorities::<T>::put(Aura::<T>::authorities());
+			Authorities::<T>::put(pallet_aura::Authorities::<T>::get());
 		}
 
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			// Fetch the authorities once to get them into the storage proof of the PoV.
 			Authorities::<T>::get();
 
-			let new_slot = Aura::<T>::current_slot();
+			let new_slot = pallet_aura::CurrentSlot::<T>::get();
 
 			let (new_slot, authored) = match SlotInfo::<T>::get() {
 				Some((slot, authored)) if slot == new_slot => (slot, authored + 1),
@@ -83,7 +83,7 @@ pub mod pallet {
 
 			SlotInfo::<T>::put((new_slot, authored));
 
-			T::DbWeight::get().reads_writes(2, 1)
+			T::DbWeight::get().reads_writes(4, 2)
 		}
 	}
 
@@ -103,20 +103,19 @@ pub mod pallet {
 	///
 	/// Updated on each block initialization.
 	#[pallet::storage]
-	#[pallet::getter(fn slot_info)]
 	pub(crate) type SlotInfo<T: Config> = StorageValue<_, (Slot, u32), OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			let authorities = Aura::<T>::authorities();
+			let authorities = pallet_aura::Authorities::<T>::get();
 			Authorities::<T>::put(authorities);
 		}
 	}
@@ -126,7 +125,7 @@ pub mod pallet {
 ///
 /// When executing the block it will verify the block seal to ensure that the correct author created
 /// the block.
-pub struct BlockExecutor<T, I>(sp_std::marker::PhantomData<(T, I)>);
+pub struct BlockExecutor<T, I>(core::marker::PhantomData<(T, I)>);
 
 impl<Block, T, I> ExecuteBlock<Block> for BlockExecutor<T, I>
 where

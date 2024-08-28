@@ -1,0 +1,37 @@
+title: "[sc-chain-spec] Remove deprecated code"
+
+doc:
+  - audience: Node Dev
+    description: |
+      The RuntimeGenesisConfig generic type parameter was removed from GenericChainSpec struct.
+      ChainSpec::from_genesis method was removed.
+      Removed related deprecated code from `sc-chain-spec`.
+      This change simplifies the codebase and ensures the use of up-to-date definitions.
+
+crates:
+  - name: sc-service
+    bump: minor
+  - name: minimal-template-node
+    bump: minor
+  - name: sc-cli
+    bump: patch
+  - name: polkadot-test-service
+    bump: major
+  - name: sc-service-test
+    bump: major
+  - name: staging-node-cli
+    bump: major
+  - name: parachain-template-node
+    bump: minor
+  - name: solochain-template-node
+    bump: minor
+  - name: polkadot-parachain-bin
+    bump: major
+  - name: polkadot-service
+    bump: major
+  - name: sc-consensus-grandpa
+    bump: patch
+  - name: cumulus-test-service
+    bump: minor
+  - name: sc-chain-spec
+    bump: major

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for transction-storage pallet.
+//! Tests for transaction-storage pallet.
 
 use super::{Pallet as TransactionStorage, *};
 use crate::mock::*;
@@ -40,9 +40,9 @@ fn discards_data() {
 			vec![0u8; 2000 as usize]
 		));
 		let proof_provider = || {
-			let block_num = <frame_system::Pallet<Test>>::block_number();
+			let block_num = frame_system::Pallet::<Test>::block_number();
 			if block_num == 11 {
-				let parent_hash = <frame_system::Pallet<Test>>::parent_hash();
+				let parent_hash = frame_system::Pallet::<Test>::parent_hash();
 				Some(
 					build_proof(parent_hash.as_ref(), vec![vec![0u8; 2000], vec![0u8; 2000]])
 						.unwrap(),
@@ -53,8 +53,8 @@ fn discards_data() {
 		};
 		run_to_block(11, proof_provider);
 		assert!(Transactions::<Test>::get(1).is_some());
-		let transctions = Transactions::<Test>::get(1).unwrap();
-		assert_eq!(transctions.len(), 2);
+		let transactions = Transactions::<Test>::get(1).unwrap();
+		assert_eq!(transactions.len(), 2);
 		assert_eq!(ChunkCount::<Test>::get(1), 16);
 		run_to_block(12, proof_provider);
 		assert!(Transactions::<Test>::get(1).is_none());
@@ -92,7 +92,7 @@ fn checks_proof() {
 			vec![0u8; MAX_DATA_SIZE as usize]
 		));
 		run_to_block(10, || None);
-		let parent_hash = <frame_system::Pallet<Test>>::parent_hash();
+		let parent_hash = frame_system::Pallet::<Test>::parent_hash();
 		let proof =
 			build_proof(parent_hash.as_ref(), vec![vec![0u8; MAX_DATA_SIZE as usize]]).unwrap();
 		assert_noop!(
@@ -100,7 +100,7 @@ fn checks_proof() {
 			Error::<Test>::UnexpectedProof,
 		);
 		run_to_block(11, || None);
-		let parent_hash = <frame_system::Pallet<Test>>::parent_hash();
+		let parent_hash = frame_system::Pallet::<Test>::parent_hash();
 
 		let invalid_proof = build_proof(parent_hash.as_ref(), vec![vec![0u8; 1000]]).unwrap();
 		assert_noop!(
@@ -132,9 +132,9 @@ fn renews_data() {
 		));
 		assert_eq!(Balances::free_balance(1), 1_000_000_000 - 4000 * 2 - 200 * 2);
 		let proof_provider = || {
-			let block_num = <frame_system::Pallet<Test>>::block_number();
+			let block_num = frame_system::Pallet::<Test>::block_number();
 			if block_num == 11 || block_num == 16 {
-				let parent_hash = <frame_system::Pallet<Test>>::parent_hash();
+				let parent_hash = frame_system::Pallet::<Test>::parent_hash();
 				Some(build_proof(parent_hash.as_ref(), vec![vec![0u8; 2000]]).unwrap())
 			} else {
 				None

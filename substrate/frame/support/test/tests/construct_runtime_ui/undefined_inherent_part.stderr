@@ -53,8 +53,9 @@ error[E0599]: no function or associated item named `is_inherent` found for struc
    | |_^ function or associated item not found in `Pallet<Runtime>`
    |
    = help: items from traits can only be used if the trait is implemented and in scope
-   = note: the following trait defines an item `is_inherent`, perhaps you need to implement it:
+   = note: the following traits define an item `is_inherent`, perhaps you need to implement one of them:
            candidate #1: `ProvideInherent`
+           candidate #2: `IsInherent`
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: no function or associated item named `check_inherent` found for struct `pallet::Pallet` in the current scope
@@ -118,4 +119,24 @@ error[E0599]: no function or associated item named `is_inherent_required` found 
    = help: items from traits can only be used if the trait is implemented and in scope
    = note: the following trait defines an item `is_inherent_required`, perhaps you need to implement it:
            candidate #1: `ProvideInherent`
+   = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `pallet::Pallet<Runtime>: ProvideInherent` is not satisfied
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:70:3
+   |
+70 |         Pallet: pallet expanded::{}::{Pallet, Inherent},
+   |         ^^^^^^ the trait `ProvideInherent` is not implemented for `pallet::Pallet<Runtime>`
+
+error[E0277]: the trait bound `pallet::Pallet<Runtime>: ProvideInherent` is not satisfied
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:66:1
+   |
+66 | / construct_runtime! {
+67 | |     pub struct Runtime
+68 | |     {
+69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+70 | |         Pallet: pallet expanded::{}::{Pallet, Inherent},
+71 | |     }
+72 | | }
+   | |_^ the trait `ProvideInherent` is not implemented for `pallet::Pallet<Runtime>`
+   |
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)

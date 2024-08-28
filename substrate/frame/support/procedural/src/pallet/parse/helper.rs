@@ -55,16 +55,16 @@ pub(crate) fn take_first_item_pallet_attr<Attr>(
 where
 	Attr: syn::parse::Parse,
 {
-	let attrs = if let Some(attrs) = item.mut_item_attrs() { attrs } else { return Ok(None) };
+	let Some(attrs) = item.mut_item_attrs() else { return Ok(None) };
 
-	if let Some(index) = attrs.iter().position(|attr| {
+	let Some(index) = attrs.iter().position(|attr| {
 		attr.path().segments.first().map_or(false, |segment| segment.ident == "pallet")
-	}) {
-		let pallet_attr = attrs.remove(index);
-		Ok(Some(syn::parse2(pallet_attr.into_token_stream())?))
-	} else {
-		Ok(None)
-	}
+	}) else {
+		return Ok(None)
+	};
+
+	let pallet_attr = attrs.remove(index);
+	Ok(Some(syn::parse2(pallet_attr.into_token_stream())?))
 }
 
 /// Take all the pallet attributes (e.g. attribute like `#[pallet..]`) and decode them to `Attr`
@@ -143,6 +143,12 @@ impl MutItemAttrs for syn::ItemMod {
 }
 
 impl MutItemAttrs for syn::ImplItemFn {
+	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
+		Some(&mut self.attrs)
+	}
+}
+
+impl MutItemAttrs for syn::ItemType {
 	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
 		Some(&mut self.attrs)
 	}

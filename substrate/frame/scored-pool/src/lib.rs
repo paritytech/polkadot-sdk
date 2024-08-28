@@ -98,7 +98,11 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{FullCodec, MaxEncodedLen};
+use core::{cmp::Reverse, fmt::Debug};
 use frame_support::{
 	ensure,
 	traits::{ChangeMembers, Currency, Get, InitializeMembers, ReservableCurrency},
@@ -106,7 +110,6 @@ use frame_support::{
 };
 pub use pallet::*;
 use sp_runtime::traits::{AtLeast32Bit, StaticLookup, Zero};
-use sp_std::{fmt::Debug, prelude::*};
 
 type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

@@ -1,0 +1,23 @@
+title: Generate test functions for each benchmark with benchmarking v2
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR fixes an issue where using `impl_benchmark_test_suite` macro
+      within modules that use the benchmarking v2 macros (`#[benchmarks]`
+      and `#[instance_benchmarks]`) always produced a single test called
+      `test_benchmarks` instead of a separate benchmark test for every
+      benchmark (noted with the `#[benchmark]` macro).
+
+      By using this macro from now on, new tests will be created named
+      `test_benchmark_{name}` where `name` is the name of the benchmark
+      function. Those tests will be nested inside the module intended for
+      benchmark functions.
+
+      Also, when using `impl_benchmark_test_suite` inside the module,
+      the import of such marco will not be necessary, so any explicit
+      import of it will be marked as unused, the same way it works for
+      v1 macros so far.
+
+crates:
+  - name: frame-support-procedural

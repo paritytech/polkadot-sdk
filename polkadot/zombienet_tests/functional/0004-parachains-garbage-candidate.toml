@@ -2,8 +2,10 @@
 timeout = 1000
 bootnode = true
 
-[relaychain.genesis.runtimeGenesis.patch.configuration.config]
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
   max_validators_per_core = 1
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config]
   needed_approvals = 2
 
 [relaychain]

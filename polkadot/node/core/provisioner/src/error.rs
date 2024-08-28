@@ -44,14 +44,17 @@ pub enum Error {
 	#[error("failed to get block number")]
 	CanceledBlockNumber(#[source] oneshot::Canceled),
 
+	#[error("failed to get session index")]
+	CanceledSessionIndex(#[source] oneshot::Canceled),
+
 	#[error("failed to get backed candidates")]
 	CanceledBackedCandidates(#[source] oneshot::Canceled),
 
 	#[error("failed to get votes on dispute")]
 	CanceledCandidateVotes(#[source] oneshot::Canceled),
 
-	#[error("failed to get backable candidate from prospective parachains")]
-	CanceledBackableCandidate(#[source] oneshot::Canceled),
+	#[error("failed to get backable candidates from prospective parachains")]
+	CanceledBackableCandidates(#[source] oneshot::Canceled),
 
 	#[error(transparent)]
 	ChainApi(#[from] ChainApiError),
@@ -70,11 +73,6 @@ pub enum Error {
 
 	#[error("failed to send return message with Inherents")]
 	InherentDataReturnChannel,
-
-	#[error(
-		"backed candidate does not correspond to selected candidate; check logic in provisioner"
-	)]
-	BackedCandidateOrderingProblem,
 
 	#[fatal]
 	#[error("Failed to spawn background task")]

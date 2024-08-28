@@ -50,7 +50,7 @@ pub struct VerifyNothing;
 #[async_trait::async_trait]
 impl<Block: BlockT> Verifier<Block> for VerifyNothing {
 	async fn verify(
-		&mut self,
+		&self,
 		params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		Ok(params)
@@ -63,7 +63,7 @@ impl<Block: BlockT> Verifier<Block> for VerifyNothing {
 pub fn verify_nothing_import_queue<Block: BlockT, I>(
 	block_import: I,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
-	registry: Option<&substrate_prometheus_endpoint::Registry>,
+	registry: Option<&prometheus_endpoint::Registry>,
 ) -> BasicQueue<Block>
 where
 	I: BlockImport<Block, Error = ConsensusError>

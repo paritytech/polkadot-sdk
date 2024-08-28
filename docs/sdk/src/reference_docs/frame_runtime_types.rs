@@ -36,7 +36,7 @@
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_bar)]
 //!
 //! Let's explore how each of these affect the [`RuntimeCall`], [`RuntimeOrigin`] and
-//! [`RuntimeGenesisConfig`] generated in [`runtime`] by respectively.
+//! [`RuntimeGenesisConfig`] generated in [`runtime`] respectively.
 //!
 //! As observed, [`RuntimeCall`] has 3 variants, one for each pallet and one for `frame_system`. If
 //! you explore further, you will soon realize that each variant is merely a pointer to the `Call`
@@ -101,6 +101,10 @@
 //! Now, within this pallet, this new `RuntimeCall` can be used, and it can use its new trait
 //! bounds, such as being [`frame::traits::IsSubType`]:
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call_usages)]
+//!
+//! > Once Rust's "_Associated Type Bounds RFC_" is usable, this syntax can be used to
+//! > simplify the above scenario. See [this](https://github.com/paritytech/polkadot-sdk/issues/3743)
+//! > issue for more information.
 //!
 //! ### Asserting Equality of Multiple Runtime Composite Enums
 //!
@@ -228,7 +232,7 @@ pub mod runtime {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type Block = MockBlock<Self>;
 	}
@@ -293,7 +297,7 @@ pub mod runtime_with_specific_runtime_call {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type Block = MockBlock<Self>;
 	}

@@ -44,7 +44,7 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
+		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into()).max(1u32.into());
 		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&caller, balance);
 
 		// Transfer `e - 1` existential deposits + 1 unit, which guarantees to create one account,
@@ -288,13 +288,51 @@ mod benchmarks {
 
 	#[benchmark]
 	fn force_adjust_total_issuance() {
-		let ti = Balances::<T, I>::total_issuance();
+		let ti = TotalIssuance::<T, I>::get();
 		let delta = 123u32.into();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, AdjustmentDirection::Increase, delta);
 
-		assert_eq!(Balances::<T, I>::total_issuance(), ti + delta);
+		assert_eq!(TotalIssuance::<T, I>::get(), ti + delta);
+	}
+
+	/// Benchmark `burn` extrinsic with the worst possible condition - burn kills the account.
+	#[benchmark]
+	fn burn_allow_death() {
+		let existential_deposit = T::ExistentialDeposit::get();
+		let caller = whitelisted_caller();
+
+		// Give some multiple of the existential deposit
+		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
+		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&caller, balance);
+
+		// Burn enough to kill the account.
+		let burn_amount = balance - existential_deposit + 1u32.into();
+
+		#[extrinsic_call]
+		burn(RawOrigin::Signed(caller.clone()), burn_amount, false);
+
+		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+	}
+
+	// Benchmark `burn` extrinsic with the case where account is kept alive.
+	#[benchmark]
+	fn burn_keep_alive() {
+		let existential_deposit = T::ExistentialDeposit::get();
+		let caller = whitelisted_caller();
+
+		// Give some multiple of the existential deposit
+		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
+		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&caller, balance);
+
+		// Burn minimum possible amount which should not kill the account.
+		let burn_amount = 1u32.into();
+
+		#[extrinsic_call]
+		burn(RawOrigin::Signed(caller.clone()), burn_amount, true);
+
+		assert_eq!(Balances::<T, I>::free_balance(&caller), balance - burn_amount);
 	}
 
 	impl_benchmark_test_suite! {

@@ -7,16 +7,18 @@ license = "Apache-2.0"
 description = "Coretime Rococo emulated chain"
 publish = false
 
-[dependencies]
-serde_json = "1.0.104"
+[lints]
+workspace = true
 
-sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../../../../substrate/primitives/runtime", default-features = false }
-frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
-parachains-common = { path = "../../../../../../../parachains/common" }
-cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
-emulated-integration-tests-common = { path = "../../../../common", default-features = false }
-coretime-rococo-runtime = { path = "../../../../../../runtimes/coretime/coretime-rococo" }
-rococo-emulated-chain = { path = "../../../relays/rococo" }
-testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }
-rococo-runtime-constants = { path = "../../../../../../../../polkadot/runtime/rococo/constants", default-features = false }
+[dependencies]
+
+# Substrate
+sp-core = { workspace = true }
+frame-support = { workspace = true }
+
+# Cumulus
+parachains-common = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true }
+coretime-rococo-runtime = { workspace = true, default-features = true }
+emulated-integration-tests-common = { workspace = true }
+testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }

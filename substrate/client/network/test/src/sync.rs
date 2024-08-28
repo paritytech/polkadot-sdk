@@ -749,7 +749,7 @@ async fn sync_blocks_when_block_announce_validator_says_it_is_new_best() {
 	}
 }
 
-/// Waits for some time until the validation is successfull.
+/// Waits for some time until the validation is successful.
 struct DeferredBlockAnnounceValidator;
 
 impl BlockAnnounceValidator<Block> for DeferredBlockAnnounceValidator {
@@ -1049,7 +1049,7 @@ async fn syncs_all_forks_from_single_peer() {
 		})
 		.await;
 
-		if net.peer(1).sync_service().best_seen_block().await.unwrap() == Some(12) {
+		if net.peer(1).sync_service().status().await.unwrap().best_seen_block == Some(12) {
 			break
 		}
 	}
@@ -1298,7 +1298,7 @@ async fn warp_sync_to_target_block() {
 
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
-		target_block: Some(target_block),
+		target_header: Some(target_block),
 		..Default::default()
 	});
 

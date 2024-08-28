@@ -85,7 +85,7 @@ benchmarks! {
 
 	empty_on_idle {
 	}: {
-		// Enough weight do do nothing.
+		// Enough weight to do nothing.
 		Glutton::<T>::on_idle(System::<T>::block_number(), T::WeightInfo::empty_on_idle());
 	}
 

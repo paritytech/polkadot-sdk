@@ -38,9 +38,7 @@ pub use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
-	prelude::{Location, OriginKind, Outcome, VersionedXcm, XcmVersion},
-	v3,
-	v4::Error as XcmError,
+	prelude::{Location, OriginKind, Outcome, VersionedXcm, XcmError, XcmVersion},
 	DoubleEncoded,
 };
 
@@ -114,7 +112,7 @@ where
 					.expect("Bridge message does not exist")
 					.into();
 				let payload = Vec::<u8>::decode(&mut &encoded_payload[..])
-					.expect("Decodign XCM message failed");
+					.expect("Decoding XCM message failed");
 				let id: u32 = LaneIdWrapper(*lane).into();
 				let message = BridgeMessage { id, nonce, payload };
 
@@ -265,7 +263,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							// XCM is succesfully received and proccessed
+							// XCM is successfully received and processed
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed {
 								origin: $crate::impls::AggregateMessageOrigin::Ump($crate::impls::UmpQueueId::Para(id)),
 								weight_used,
@@ -343,7 +341,7 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 							<Self as Chain>::Runtime,
 						>::contains_key(&channel_id);
 
-						// Check the HRMP channel has been successfully registrered
+						// Check the HRMP channel has been successfully registered
 						assert!(hrmp_channel_exist)
 					});
 				}
@@ -592,7 +590,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 }
 
 #[macro_export]
-macro_rules! impl_assets_helpers_for_parachain {
+macro_rules! impl_assets_helpers_for_system_parachain {
 	( $chain:ident, $relay_chain:ident ) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
@@ -628,38 +626,6 @@ macro_rules! impl_assets_helpers_for_parachain {
 				) -> $crate::impls::VersionedXcm<()> {
 					let call = Self::force_create_asset_call(asset_id, owner, is_sufficient, min_balance);
 					$crate::impls::xcm_transact_unpaid_execution(call, origin_kind)
-				}
-
-				/// Mint assets making use of the assets pallet
-				pub fn mint_asset(
-					signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
-					id: u32,
-					beneficiary: $crate::impls::AccountId,
-					amount_to_mint: u128,
-				) {
-					<Self as $crate::impls::TestExt>::execute_with(|| {
-						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::Assets::mint(
-							signed_origin,
-							id.clone().into(),
-							beneficiary.clone().into(),
-							amount_to_mint
-						));
-
-						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
-
-						$crate::impls::assert_expected_events!(
-							Self,
-							vec![
-								RuntimeEvent::<N>::Assets(
-									$crate::impls::pallet_assets::Event::Issued { asset_id, owner, amount }
-								) => {
-									asset_id: *asset_id == id,
-									owner: *owner == beneficiary.clone().into(),
-									amount: *amount == amount_to_mint,
-								},
-							]
-						);
-					});
 				}
 
 				/// Force create and mint assets making use of the assets pallet
@@ -727,13 +693,115 @@ macro_rules! impl_assets_helpers_for_parachain {
 }
 
 #[macro_export]
+macro_rules! impl_assets_helpers_for_parachain {
+	($chain:ident) => {
+		$crate::impls::paste::paste! {
+			impl<N: $crate::impls::Network> $chain<N> {
+				/// Create assets using sudo `Assets::force_create()`
+				pub fn force_create_asset(
+					id: u32,
+					owner: $crate::impls::AccountId,
+					is_sufficient: bool,
+					min_balance: u128,
+					prefund_accounts: Vec<($crate::impls::AccountId, u128)>,
+				) {
+					use $crate::impls::Inspect;
+					let sudo_origin = <$chain<N> as $crate::impls::Chain>::RuntimeOrigin::root();
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(
+							<Self as [<$chain ParaPallet>]>::Assets::force_create(
+								sudo_origin,
+								id.clone().into(),
+								owner.clone().into(),
+								is_sufficient,
+								min_balance,
+							)
+						);
+						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(id.clone()));
+						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
+						$crate::impls::assert_expected_events!(
+							Self,
+							vec![
+								RuntimeEvent::<N>::Assets(
+									$crate::impls::pallet_assets::Event::ForceCreated {
+										asset_id,
+										..
+									}
+								) => { asset_id: *asset_id == id, },
+							]
+						);
+					});
+					for (beneficiary, amount) in prefund_accounts.into_iter() {
+						let signed_origin =
+							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
+						Self::mint_asset(signed_origin, id.clone(), beneficiary, amount);
+					}
+				}
+
+				/// Mint assets making use of the assets pallet
+				pub fn mint_asset(
+					signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
+					id: u32,
+					beneficiary: $crate::impls::AccountId,
+					amount_to_mint: u128,
+				) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::Assets::mint(
+							signed_origin,
+							id.clone().into(),
+							beneficiary.clone().into(),
+							amount_to_mint
+						));
+
+						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
+
+						$crate::impls::assert_expected_events!(
+							Self,
+							vec![
+								RuntimeEvent::<N>::Assets(
+									$crate::impls::pallet_assets::Event::Issued { asset_id, owner, amount }
+								) => {
+									asset_id: *asset_id == id,
+									owner: *owner == beneficiary.clone().into(),
+									amount: *amount == amount_to_mint,
+								},
+							]
+						);
+					});
+				}
+
+				/// Returns the encoded call for `create` from the assets pallet
+				pub fn create_asset_call(
+					asset_id: u32,
+					min_balance: $crate::impls::Balance,
+					admin: $crate::impls::AccountId,
+				) -> $crate::impls::DoubleEncoded<()> {
+					use $crate::impls::{Chain, Encode};
+
+					<Self as Chain>::RuntimeCall::Assets($crate::impls::pallet_assets::Call::<
+						<Self as Chain>::Runtime,
+						$crate::impls::pallet_assets::Instance1,
+					>::create {
+						id: asset_id.into(),
+						min_balance,
+						admin: admin.into(),
+					})
+					.encode()
+					.into()
+				}
+			}
+		}
+	};
+}
+
+#[macro_export]
 macro_rules! impl_foreign_assets_helpers_for_parachain {
-	( $chain:ident, $relay_chain:ident ) => {
+	($chain:ident, $asset_id_type:ty) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
 				/// Create foreign assets using sudo `ForeignAssets::force_create()`
 				pub fn force_create_foreign_asset(
-					id: $crate::impls::v3::Location,
+					id: $asset_id_type,
 					owner: $crate::impls::AccountId,
 					is_sufficient: bool,
 					min_balance: u128,
@@ -775,7 +843,7 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 				/// Mint assets making use of the ForeignAssets pallet-assets instance
 				pub fn mint_foreign_asset(
 					signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
-					id: $crate::impls::v3::Location,
+					id: $asset_id_type,
 					beneficiary: $crate::impls::AccountId,
 					amount_to_mint: u128,
 				) {
@@ -802,6 +870,26 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 							]
 						);
 					});
+				}
+
+				/// Returns the encoded call for `create` from the foreign assets pallet
+				pub fn create_foreign_asset_call(
+					asset_id: $asset_id_type,
+					min_balance: $crate::impls::Balance,
+					admin: $crate::impls::AccountId,
+				) -> $crate::impls::DoubleEncoded<()> {
+					use $crate::impls::{Chain, Encode};
+
+					<Self as Chain>::RuntimeCall::ForeignAssets($crate::impls::pallet_assets::Call::<
+						<Self as Chain>::Runtime,
+						$crate::impls::pallet_assets::Instance2,
+					>::create {
+						id: asset_id.into(),
+						min_balance,
+						admin: admin.into(),
+					})
+					.encode()
+					.into()
 				}
 			}
 		}

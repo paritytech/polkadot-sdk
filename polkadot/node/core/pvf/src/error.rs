@@ -52,6 +52,9 @@ pub enum InvalidCandidate {
 	/// PVF execution (compilation is not included) took more time than was allotted.
 	#[error("invalid: hard timeout")]
 	HardTimeout,
+	/// Proof-of-validity failed to decompress correctly
+	#[error("invalid: PoV failed to decompress")]
+	PoVDecompressionFailure,
 }
 
 /// Possibly transient issue that may resolve after retries.
@@ -86,6 +89,10 @@ pub enum PossiblyInvalidError {
 	/// vote invalid.
 	#[error("possibly invalid: job error: {0}")]
 	JobError(String),
+	/// Instantiation of the WASM module instance failed during an execution.
+	/// Possibly related to local issues or dirty node update. May be retried with re-preparation.
+	#[error("possibly invalid: runtime construction: {0}")]
+	RuntimeConstruction(String),
 }
 
 impl From<PrepareError> for ValidationError {

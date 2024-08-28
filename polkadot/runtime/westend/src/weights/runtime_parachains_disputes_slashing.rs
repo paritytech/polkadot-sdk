@@ -49,7 +49,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_parachains::disputes::slashing`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_parachains::disputes::slashing::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_parachains::disputes::slashing::WeightInfo for WeightInfo<T> {
 	/// Storage: Session CurrentIndex (r:1 w:0)
 	/// Proof Skipped: Session CurrentIndex (max_values: Some(1), max_size: None, mode: Measured)
 	/// Storage: Historical HistoricalSessions (r:1 w:0)

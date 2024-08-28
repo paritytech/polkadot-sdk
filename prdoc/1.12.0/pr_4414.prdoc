@@ -1,0 +1,10 @@
+title: "Rococo Asset Hub: undeploy state-trie migration"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The state-trie migration on the Rococo Asset Hub is completed and is now removed.
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: major

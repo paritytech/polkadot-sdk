@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-outbound-queue-runtime-api"
 description = "Snowbridge Outbound Queue Runtime API"
-version = "0.0.0"
+version = "0.2.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -15,14 +15,12 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { version = "3.1.5", package = "parity-scale-codec", features = ["derive"], default-features = false }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
-snowbridge-outbound-queue-merkle-tree = { path = "../merkle-tree", default-features = false }
-snowbridge-core = { path = "../../../primitives/core", default-features = false }
+codec = { features = ["derive"], workspace = true }
+sp-std = { workspace = true }
+sp-api = { workspace = true }
+frame-support = { workspace = true }
+snowbridge-outbound-queue-merkle-tree = { workspace = true }
+snowbridge-core = { workspace = true }
 
 [features]
 default = ["std"]
@@ -32,7 +30,5 @@ std = [
 	"snowbridge-core/std",
 	"snowbridge-outbound-queue-merkle-tree/std",
 	"sp-api/std",
-	"sp-core/std",
 	"sp-std/std",
-	"xcm/std",
 ]

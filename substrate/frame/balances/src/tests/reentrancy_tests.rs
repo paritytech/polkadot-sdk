@@ -44,7 +44,7 @@ fn transfer_dust_removal_tst1_should_work() {
 			assert_eq!(Balances::free_balance(&2), 0);
 
 			// As expected beneficiary account 3
-			// received the transfered fund.
+			// received the transferred fund.
 			assert_eq!(Balances::free_balance(&3), 450);
 
 			// Dust balance is deposited to account 1
@@ -52,7 +52,7 @@ fn transfer_dust_removal_tst1_should_work() {
 			assert_eq!(Balances::free_balance(&1), 1050);
 
 			// Verify the events
-			assert_eq!(System::events().len(), 12);
+			assert_eq!(System::events().len(), 14);
 
 			System::assert_has_event(RuntimeEvent::Balances(crate::Event::Transfer {
 				from: 2,
@@ -93,7 +93,7 @@ fn transfer_dust_removal_tst2_should_work() {
 			assert_eq!(Balances::free_balance(&1), 1500);
 
 			// Verify the events
-			assert_eq!(System::events().len(), 10);
+			assert_eq!(System::events().len(), 12);
 
 			System::assert_has_event(RuntimeEvent::Balances(crate::Event::Transfer {
 				from: 2,
@@ -123,7 +123,7 @@ fn repatriating_reserved_balance_dust_removal_should_work() {
 
 			// Reserve a value on account 2,
 			// Such that free balance is lower than
-			// Exestintial deposit.
+			// Existential deposit.
 			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), 1, 450));
 
 			// Since free balance of account 2 is lower than
@@ -139,7 +139,7 @@ fn repatriating_reserved_balance_dust_removal_should_work() {
 			assert_eq!(Balances::free_balance(1), 1500);
 
 			// Verify the events
-			assert_eq!(System::events().len(), 10);
+			assert_eq!(System::events().len(), 12);
 
 			System::assert_has_event(RuntimeEvent::Balances(crate::Event::Transfer {
 				from: 2,
@@ -167,6 +167,7 @@ fn emit_events_with_no_existential_deposit_suicide_with_dust() {
 			[
 				RuntimeEvent::System(system::Event::NewAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::Endowed { account: 1, free_balance: 100 }),
+				RuntimeEvent::Balances(crate::Event::Issued { amount: 100 }),
 				RuntimeEvent::Balances(crate::Event::BalanceSet { who: 1, free: 100 }),
 			]
 		);

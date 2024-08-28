@@ -29,8 +29,8 @@ mod aux_schema;
 mod slots;
 
 pub use aux_schema::{check_equivocation, MAX_SLOT_CAPACITY, PRUNING_BOUND};
-pub use slots::SlotInfo;
 use slots::Slots;
+pub use slots::{time_until_next_slot, SlotInfo};
 
 use futures::{future::Either, Future, TryFutureExt};
 use futures_timer::Delay;
@@ -517,16 +517,15 @@ pub async fn start_slot_worker<B, C, W, SO, CIDP, Proof>(
 	CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 {
-	let mut slots = Slots::new(slot_duration.as_duration(), create_inherent_data_providers, client);
+	let mut slots = Slots::new(
+		slot_duration.as_duration(),
+		create_inherent_data_providers,
+		client,
+		sync_oracle,
+	);
 
 	loop {
 		let slot_info = slots.next_slot().await;
-
-		if sync_oracle.is_major_syncing() {
-			debug!(target: LOG_TARGET, "Skipping proposal slot due to sync.");
-			continue
-		}
-
 		let _ = worker.on_slot(slot_info).await;
 	}
 }
@@ -555,7 +554,7 @@ impl SlotProportion {
 		Self(inner.clamp(0.0, 1.0))
 	}
 
-	/// Returns the inner that is guaranted to be in the range `[0,1]`.
+	/// Returns the inner that is guaranteed to be in the range `[0,1]`.
 	pub fn get(&self) -> f32 {
 		self.0
 	}
@@ -648,7 +647,7 @@ pub fn proposing_remaining_duration<Block: BlockT>(
 }
 
 /// Calculate a slot duration lenience based on the number of missed slots from current
-/// to parent. If the number of skipped slots is greated than 0 this method will apply
+/// to parent. If the number of skipped slots is greater than 0 this method will apply
 /// an exponential backoff of at most `2^7 * slot_duration`, if no slots were skipped
 /// this method will return `None.`
 pub fn slot_lenience_exponential<Block: BlockT>(
@@ -680,7 +679,7 @@ pub fn slot_lenience_exponential<Block: BlockT>(
 }
 
 /// Calculate a slot duration lenience based on the number of missed slots from current
-/// to parent. If the number of skipped slots is greated than 0 this method will apply
+/// to parent. If the number of skipped slots is greater than 0 this method will apply
 /// a linear backoff of at most `20 * slot_duration`, if no slots were skipped
 /// this method will return `None.`
 pub fn slot_lenience_linear<Block: BlockT>(

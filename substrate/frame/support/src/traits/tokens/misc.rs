@@ -17,14 +17,15 @@
 
 //! Miscellaneous types.
 
+use crate::{traits::Contains, TypeInfo};
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use core::fmt::Debug;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_core::RuntimeDebug;
 use sp_runtime::{
 	traits::{Convert, MaybeSerializeDeserialize},
 	ArithmeticError, DispatchError, TokenError,
 };
-use sp_std::fmt::Debug;
 
 /// The origin of funds to be used for a deposit operation.
 #[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
@@ -97,7 +98,7 @@ pub enum WithdrawConsequence<Balance> {
 	/// There has been an overflow in the system. This is indicative of a corrupt state and
 	/// likely unrecoverable.
 	Overflow,
-	/// Not enough of the funds in the account are unavailable for withdrawal.
+	/// Not enough of the funds in the account are available for withdrawal.
 	Frozen,
 	/// Account balance would reduce to zero, potentially destroying it. The parameter is the
 	/// amount of balance which is destroyed.
@@ -130,7 +131,7 @@ impl<Balance: Zero> WithdrawConsequence<Balance> {
 pub enum DepositConsequence {
 	/// Deposit couldn't happen due to the amount being too low. This is usually because the
 	/// account doesn't yet exist and the deposit wouldn't bring it to at least the minimum needed
-	/// for existance.
+	/// for existence.
 	BelowMinimum,
 	/// Deposit cannot happen since the account cannot be created (usually because it's a consumer
 	/// and there exists no provider reference).
@@ -299,6 +300,33 @@ where
 	fn ensure_successful(_: AssetId) {}
 }
 
+/// Implements [`ConversionFromAssetBalance`], allowing for a 1:1 balance conversion of the asset
+/// when it meets the conditions specified by `C`. If the conditions are not met, the conversion is
+/// delegated to `O`.
+pub struct UnityOrOuterConversion<C, O>(core::marker::PhantomData<(C, O)>);
+impl<AssetBalance, AssetId, OutBalance, C, O>
+	ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance> for UnityOrOuterConversion<C, O>
+where
+	C: Contains<AssetId>,
+	O: ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance>,
+	AssetBalance: Into<OutBalance>,
+{
+	type Error = O::Error;
+	fn from_asset_balance(
+		balance: AssetBalance,
+		asset_id: AssetId,
+	) -> Result<OutBalance, Self::Error> {
+		if C::contains(&asset_id) {
+			return Ok(balance.into());
+		}
+		O::from_asset_balance(balance, asset_id)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(asset_id: AssetId) {
+		O::ensure_successful(asset_id)
+	}
+}
+
 /// Trait to handle NFT locking mechanism to ensure interactions with the asset can be implemented
 /// downstream to extend logic of Uniques/Nfts current functionality.
 pub trait Locker<CollectionId, ItemId> {
@@ -323,9 +351,18 @@ pub trait GetSalary<Rank, AccountId, Balance> {
 }
 
 /// Adapter for a rank-to-salary `Convert` implementation into a `GetSalary` implementation.
-pub struct ConvertRank<C>(sp_std::marker::PhantomData<C>);
+pub struct ConvertRank<C>(core::marker::PhantomData<C>);
 impl<A, R, B, C: Convert<R, B>> GetSalary<R, A, B> for ConvertRank<C> {
 	fn get_salary(rank: R, _: &A) -> B {
 		C::convert(rank)
 	}
+}
+
+/// An identifier and balance.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub struct IdAmount<Id, Balance> {
+	/// An identifier for this item.
+	pub id: Id,
+	/// Some amount for this item.
+	pub amount: Balance,
 }

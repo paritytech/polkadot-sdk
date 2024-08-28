@@ -462,7 +462,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<Activa
 	}
 }
 
-/// Check wheter a dispute for the given candidate could be spam.
+/// Check whether a dispute for the given candidate could be spam.
 ///
 /// That is the candidate could be made up.
 pub fn is_potential_spam(
@@ -477,6 +477,18 @@ pub fn is_potential_spam(
 	let is_confirmed = vote_state.is_confirmed();
 	let all_invalid_votes_disabled = vote_state.invalid_votes_all_disabled(is_disabled);
 	let ignore_disabled = !is_confirmed && all_invalid_votes_disabled;
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?candidate_hash,
+		?is_disputed,
+		?is_included,
+		?is_backed,
+		?is_confirmed,
+		?all_invalid_votes_disabled,
+		?ignore_disabled,
+		"Checking for potential spam"
+	);
 
 	(is_disputed && !is_included && !is_backed && !is_confirmed) || ignore_disabled
 }

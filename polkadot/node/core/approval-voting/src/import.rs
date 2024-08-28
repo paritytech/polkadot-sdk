@@ -45,8 +45,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{determine_new_blocks, runtime::RuntimeInfo};
 use polkadot_primitives::{
-	vstaging::node_features, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt,
-	ConsensusLog, CoreIndex, GroupIndex, Hash, Header, SessionIndex,
+	node_features, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ConsensusLog,
+	CoreIndex, GroupIndex, Hash, Header, SessionIndex,
 };
 use sc_keystore::LocalKeystore;
 use sp_consensus_slots::Slot;
@@ -91,7 +91,7 @@ enum ImportedBlockInfoError {
 	#[error(transparent)]
 	RuntimeError(RuntimeApiError),
 
-	#[error("future cancalled while requesting {0}")]
+	#[error("future cancelled while requesting {0}")]
 	FutureCancelled(&'static str, futures::channel::oneshot::Canceled),
 
 	#[error(transparent)]
@@ -607,9 +607,8 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::{
 		approval_db::common::{load_block_entry, DbBackend},
-		RuntimeInfo, RuntimeInfoConfig,
+		RuntimeInfo, RuntimeInfoConfig, MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 	};
-	use ::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	use assert_matches::assert_matches;
 	use polkadot_node_primitives::{
 		approval::v1::{VrfSignature, VrfTranscript},
@@ -619,9 +618,11 @@ pub(crate) mod tests {
 	use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 	use polkadot_node_subsystem_util::database::Database;
 	use polkadot_primitives::{
-		vstaging::{node_features::FeatureIndex, NodeFeatures},
-		ExecutorParams, Id as ParaId, IndexedVec, SessionInfo, ValidatorId, ValidatorIndex,
+		node_features::FeatureIndex, ExecutorParams, Id as ParaId, IndexedVec, NodeFeatures,
+		SessionInfo, ValidatorId, ValidatorIndex,
 	};
+	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+	use schnellru::{ByLength, LruMap};
 	pub(crate) use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
 		AllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
@@ -658,6 +659,10 @@ pub(crate) mod tests {
 			clock: Box::new(MockClock::default()),
 			assignment_criteria: Box::new(MockAssignmentCriteria::default()),
 			spans: HashMap::new(),
+			per_block_assignments_gathering_times: LruMap::new(ByLength::new(
+				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+			)),
+			no_show_stats: Default::default(),
 		}
 	}
 

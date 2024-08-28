@@ -52,7 +52,7 @@ fn decl_runtime_version_impl_inner(item: ItemConst) -> Result<TokenStream> {
 /// enable `std` feature even for `no_std` wasm runtime builds.
 ///
 /// One difference from the original definition is the `apis` field. Since we don't actually parse
-/// `apis` from this macro it will always be emitteed as empty. An empty vector can be encoded as
+/// `apis` from this macro it will always be emitted as empty. An empty vector can be encoded as
 /// a zero-byte, thus `u8` is sufficient here.
 #[derive(Encode)]
 struct RuntimeVersion {

@@ -18,7 +18,7 @@
 //! Tests for the module.
 
 use super::*;
-use migrations::old;
+use migrations::v0;
 use mock::*;
 
 use frame_support::{assert_noop, assert_ok};
@@ -32,41 +32,41 @@ use RuntimeOrigin as Origin;
 #[test]
 fn migration_works() {
 	EnvBuilder::new().founded(false).execute(|| {
-		use old::Vote::*;
+		use v0::Vote::*;
 
 		// Initialise the old storage items.
 		Founder::<Test>::put(10);
 		Head::<Test>::put(30);
-		old::Members::<Test, ()>::put(vec![10, 20, 30]);
-		old::Vouching::<Test, ()>::insert(30, Vouching);
-		old::Vouching::<Test, ()>::insert(40, Banned);
-		old::Strikes::<Test, ()>::insert(20, 1);
-		old::Strikes::<Test, ()>::insert(30, 2);
-		old::Strikes::<Test, ()>::insert(40, 5);
-		old::Payouts::<Test, ()>::insert(20, vec![(1, 1)]);
-		old::Payouts::<Test, ()>::insert(
+		v0::Members::<Test, ()>::put(vec![10, 20, 30]);
+		v0::Vouching::<Test, ()>::insert(30, Vouching);
+		v0::Vouching::<Test, ()>::insert(40, Banned);
+		v0::Strikes::<Test, ()>::insert(20, 1);
+		v0::Strikes::<Test, ()>::insert(30, 2);
+		v0::Strikes::<Test, ()>::insert(40, 5);
+		v0::Payouts::<Test, ()>::insert(20, vec![(1, 1)]);
+		v0::Payouts::<Test, ()>::insert(
 			30,
 			(0..=<Test as Config>::MaxPayouts::get())
 				.map(|i| (i as u64, i as u64))
 				.collect::<Vec<_>>(),
 		);
-		old::SuspendedMembers::<Test, ()>::insert(40, true);
+		v0::SuspendedMembers::<Test, ()>::insert(40, true);
 
-		old::Defender::<Test, ()>::put(20);
-		old::DefenderVotes::<Test, ()>::insert(10, Approve);
-		old::DefenderVotes::<Test, ()>::insert(20, Approve);
-		old::DefenderVotes::<Test, ()>::insert(30, Reject);
+		v0::Defender::<Test, ()>::put(20);
+		v0::DefenderVotes::<Test, ()>::insert(10, Approve);
+		v0::DefenderVotes::<Test, ()>::insert(20, Approve);
+		v0::DefenderVotes::<Test, ()>::insert(30, Reject);
 
-		old::SuspendedCandidates::<Test, ()>::insert(50, (10, Deposit(100)));
+		v0::SuspendedCandidates::<Test, ()>::insert(50, (10, Deposit(100)));
 
-		old::Candidates::<Test, ()>::put(vec![
+		v0::Candidates::<Test, ()>::put(vec![
 			Bid { who: 60, kind: Deposit(100), value: 200 },
 			Bid { who: 70, kind: Vouch(30, 30), value: 100 },
 		]);
-		old::Votes::<Test, ()>::insert(60, 10, Approve);
-		old::Votes::<Test, ()>::insert(70, 10, Reject);
-		old::Votes::<Test, ()>::insert(70, 20, Approve);
-		old::Votes::<Test, ()>::insert(70, 30, Approve);
+		v0::Votes::<Test, ()>::insert(60, 10, Approve);
+		v0::Votes::<Test, ()>::insert(70, 10, Reject);
+		v0::Votes::<Test, ()>::insert(70, 20, Approve);
+		v0::Votes::<Test, ()>::insert(70, 30, Approve);
 
 		let bids = (0..=<Test as Config>::MaxBids::get())
 			.map(|i| Bid {
@@ -75,7 +75,7 @@ fn migration_works() {
 				value: 10u64 + i as u64,
 			})
 			.collect::<Vec<_>>();
-		old::Bids::<Test, ()>::put(bids);
+		v0::Bids::<Test, ()>::put(bids);
 
 		migrations::from_original::<Test, ()>(&mut [][..]).expect("migration failed");
 		migrations::assert_internal_consistency::<Test, ()>();
@@ -541,7 +541,7 @@ fn suspended_candidate_rejected_works() {
 			assert_ok!(Society::vote(Origin::signed(30), x, true));
 		}
 
-		// Voting continues, as no canidate is clearly accepted yet and the founder chooses not to
+		// Voting continues, as no candidate is clearly accepted yet and the founder chooses not to
 		// act.
 		conclude_intake(false, None);
 		assert_eq!(members(), vec![10, 20, 30]);
@@ -558,7 +558,7 @@ fn suspended_candidate_rejected_works() {
 		assert_eq!(Balances::reserved_balance(40), 0);
 		assert_eq!(Balances::free_balance(Society::account_id()), 9990);
 
-		// Founder manually bestows membership on 50 and and kicks 70.
+		// Founder manually bestows membership on 50 and kicks 70.
 		assert_ok!(Society::bestow_membership(Origin::signed(10), 50));
 		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
 		assert_eq!(candidates(), vec![60, 70]);

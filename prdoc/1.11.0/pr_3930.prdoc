@@ -1,0 +1,30 @@
+title: "test runtimes: allow local origins to execute arbitrary XCMs"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Allow arbitrary XCM execution for local origins on all test chains.
+
+crates:
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: contracts-rococo-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor

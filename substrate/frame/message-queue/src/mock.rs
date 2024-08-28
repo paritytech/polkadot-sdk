@@ -23,9 +23,9 @@ pub use super::mock_helpers::*;
 use super::*;
 
 use crate as pallet_message_queue;
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{derive_impl, parameter_types};
 use sp_runtime::BuildStorage;
-use sp_std::collections::btree_map::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -37,7 +37,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -56,6 +56,7 @@ impl Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ServiceWeight;
 }
 
 /// Mocked `WeightInfo` impl with allows to set the weight per call.
@@ -197,6 +198,7 @@ impl ProcessMessage for RecordingMessageProcessor {
 
 parameter_types! {
 	pub static Callback: Box<fn (&MessageOrigin, u32)> = Box::new(|_, _| {});
+	pub static IgnoreStackOvError: bool = false;
 }
 
 /// Processed a mocked message. Messages that end with `badformat`, `corrupt`, `unsupported` or
@@ -215,6 +217,8 @@ fn processing_message(msg: &[u8], origin: &MessageOrigin) -> Result<(), ProcessM
 		Err(ProcessMessageError::Unsupported)
 	} else if msg.ends_with("yield") {
 		Err(ProcessMessageError::Yield)
+	} else if msg.ends_with("stacklimitreached") && !IgnoreStackOvError::get() {
+		Err(ProcessMessageError::StackLimitReached)
 	} else {
 		Ok(())
 	}
@@ -355,8 +359,8 @@ pub fn num_overweight_enqueued_events() -> u32 {
 		.count() as u32
 }
 
-pub fn fp(pages: u32, count: u64, size: u64) -> QueueFootprint {
-	QueueFootprint { storage: Footprint { count, size }, pages }
+pub fn fp(pages: u32, ready_pages: u32, count: u64, size: u64) -> QueueFootprint {
+	QueueFootprint { storage: Footprint { count, size }, pages, ready_pages }
 }
 
 /// A random seed that can be overwritten with `MQ_SEED`.

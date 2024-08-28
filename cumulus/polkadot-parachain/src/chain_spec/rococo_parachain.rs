@@ -16,10 +16,11 @@
 
 //! ChainSpecs dedicated to Rococo parachain setups (for testing and example purposes)
 
-use crate::chain_spec::{get_from_seed, Extensions, GenericChainSpec, SAFE_XCM_VERSION};
+use crate::chain_spec::{get_from_seed, SAFE_XCM_VERSION};
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::AccountId;
+use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 use polkadot_service::chain_spec::get_account_id_from_seed;
 use rococo_parachain_runtime::AuraId;
 use sc_chain_spec::ChainType;

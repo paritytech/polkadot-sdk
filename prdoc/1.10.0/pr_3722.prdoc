@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix kusama 0 backing rewards when entering active set
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR fixes getting 0 backing rewards the first session when
+      a node enters the active set.
+
+crates:
+ - name: pallet-authority-discovery

@@ -21,6 +21,43 @@ jobs:
       - name: Skip merge queue
         if: ${{ contains(github.ref, 'gh-readonly-queue') }}
         run: exit 0
+      - name: Get PR data
+        id: comments
+        run: |
+          echo "bodies=$(gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json comments --jq '[.comments[].body]')" >> "$GITHUB_OUTPUT"
+          echo "reviews=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --jq '[.[].state]')" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Fail when author pushes new code
+        # Require new reviews when the author is pushing and he is not a member
+        if: |
+          contains(fromJson(steps.comments.outputs.reviews), 'APPROVED') &&
+          github.event_name == 'pull_request_target' &&
+          github.event.action == 'synchronize' && 
+          github.event.sender.login == github.event.pull_request.user.login && 
+          github.event.pull_request.author_association != 'CONTRIBUTOR' && 
+          github.event.pull_request.author_association != 'MEMBER'
+        run: |
+          echo "User's association is ${{ github.event.pull_request.author_association }}"
+          # We get the list of reviewers who approved the PR
+          REVIEWERS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+          --jq '{reviewers: [.[] | select(.state == "APPROVED") | .user.login]}')
+
+          # We request them to review again
+          echo $REVIEWERS | gh api --method POST repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers --input -
+
+          echo "::error::Project needs to be reviewed again"
+          exit 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Comment requirements
+        # If the previous step failed and github-actions hasn't commented yet we comment instructions
+        if: failure() && !contains(fromJson(steps.comments.outputs.bodies), 'Review required! Latest push from author must always be reviewed')
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "Review required! Latest push from author must always be reviewed"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTS: ${{ steps.comments.outputs.users }}
       - name: Get PR number
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -28,7 +65,7 @@ jobs:
           echo "Saving PR number: $PR_NUMBER"
           mkdir -p ./pr
           echo $PR_NUMBER > ./pr/pr_number
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         name: Save PR number
         with:
           name: pr_number

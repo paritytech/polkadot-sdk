@@ -17,7 +17,7 @@
 
 /// Version 4.
 ///
-/// For backward compatability reasons, pallet-tips uses `Treasury` for storage module prefix
+/// For backward compatibility reasons, pallet-tips uses `Treasury` for storage module prefix
 /// before calling this migration. After calling this migration, it will get replaced with
 /// own storage identifier.
 pub mod v4;

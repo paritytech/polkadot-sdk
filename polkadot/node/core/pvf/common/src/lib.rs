@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Contains functionality related to PVFs that is shared by the PVF host and the PVF workers.
+#![deny(unused_crate_dependencies)]
 
 pub mod error;
 pub mod execute;
@@ -31,7 +32,7 @@ pub use sp_tracing;
 
 const LOG_TARGET: &str = "parachain::pvf-common";
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use std::{
 	io::{self, Read, Write},
 	mem,

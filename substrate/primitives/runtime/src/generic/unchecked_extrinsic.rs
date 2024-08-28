@@ -26,12 +26,13 @@ use crate::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
 };
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::format;
+use alloc::{vec, vec::Vec};
 use codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
+use core::fmt;
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::format;
-use sp_std::{fmt, prelude::*};
 
 /// Current version of the [`UncheckedExtrinsic`] encoded format.
 ///
@@ -40,7 +41,7 @@ use sp_std::{fmt, prelude::*};
 /// the decoding fails.
 const EXTRINSIC_FORMAT_VERSION: u8 = 4;
 
-/// The `SingaturePayload` of `UncheckedExtrinsic`.
+/// The `SignaturePayload` of `UncheckedExtrinsic`.
 type UncheckedSignaturePayload<Address, Signature, Extra> = (Address, Signature, Extra);
 
 /// An extrinsic right from the external world. This is unchecked and so can contain a signature.
@@ -57,7 +58,7 @@ type UncheckedSignaturePayload<Address, Signature, Extra> = (Address, Signature,
 /// could in principle be any other interaction. Transactions are either signed or unsigned. A
 /// sensible transaction pool should ensure that only transactions that are worthwhile are
 /// considered for block-building.
-#[cfg_attr(feature = "std", doc = simple_mermaid::mermaid!("../../docs/mermaid/extrinsics.mmd"))]
+#[cfg_attr(all(feature = "std", not(windows)), doc = simple_mermaid::mermaid!("../../docs/mermaid/extrinsics.mmd"))]
 /// This type is by no means enforced within Substrate, but given its genericness, it is highly
 /// likely that for most use-cases it will suffice. Thus, the encoding of this type will dictate
 /// exactly what bytes should be sent to a runtime to transact with it.
@@ -316,7 +317,7 @@ where
 	Extra: SignedExtension,
 {
 	fn encode(&self) -> Vec<u8> {
-		let mut tmp = Vec::with_capacity(sp_std::mem::size_of::<Self>());
+		let mut tmp = Vec::with_capacity(core::mem::size_of::<Self>());
 
 		// 1 byte version id.
 		match self.signature.as_ref() {
@@ -437,7 +438,7 @@ mod tests {
 		type AdditionalSigned = ();
 		type Pre = ();
 
-		fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+		fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 			Ok(())
 		}
 

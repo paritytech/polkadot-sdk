@@ -4,7 +4,7 @@ default_command = "polkadot"
 
 chain = "rococo-local"
 
-[relaychain.genesis.runtimeGenesis.patch.configuration.config]
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
 # set parameters such that collators only connect to 1 validator as a backing group
 max_validators_per_core = 1
 group_rotation_frequency = 100 # 10 mins

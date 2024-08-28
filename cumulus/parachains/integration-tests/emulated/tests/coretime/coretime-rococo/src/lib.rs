@@ -13,52 +13,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use codec::Encode;
+#[cfg(test)]
+mod imports {
 
-// Substrate
-pub use frame_support::{
-	assert_err, assert_ok,
-	pallet_prelude::Weight,
-	sp_runtime::{AccountId32, DispatchError, DispatchResult},
-	traits::fungibles::Inspect,
-};
+	// Substrate
+	pub use frame_support::assert_ok;
 
-// Polkadot
-pub use xcm::{
-	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
-};
+	// Polkadot
+	pub use xcm::prelude::*;
 
-// Cumulus
-pub use asset_test_utils::xcm_helpers;
-pub use emulated_integration_tests_common::{
-	test_parachain_is_trusted_teleporter,
-	xcm_emulator::{
-		assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
-		RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
-	},
-	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
-};
-pub use parachains_common::{AccountId, Balance};
-pub use rococo_system_emulated_network::{
-	coretime_rococo_emulated_chain::{
-		genesis::ED as CORETIME_ROCOCO_ED, CoretimeRococoParaPallet as CoretimeRococoPallet,
-	},
-	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
-	CoretimeRococoPara as CoretimeRococo, CoretimeRococoParaReceiver as CoretimeRococoReceiver,
-	CoretimeRococoParaSender as CoretimeRococoSender, PenpalAPara as PenpalA,
-	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
-	RococoRelaySender as RococoSender,
-};
-
-// pub const ASSET_ID: u32 = 1;
-// pub const ASSET_MIN_BALANCE: u128 = 1000;
-pub type RelayToSystemParaTest = Test<Rococo, CoretimeRococo>;
-pub type RelayToParaTest = Test<Rococo, PenpalA>;
-pub type SystemParaToRelayTest = Test<CoretimeRococo, Rococo>;
-pub type SystemParaToParaTest = Test<CoretimeRococo, PenpalA>;
-pub type ParaToSystemParaTest = Test<PenpalA, CoretimeRococo>;
+	// Cumulus
+	pub use emulated_integration_tests_common::xcm_emulator::{
+		assert_expected_events, bx, TestExt,
+	};
+	pub use rococo_system_emulated_network::{
+		coretime_rococo_emulated_chain::{
+			coretime_rococo_runtime::ExistentialDeposit as CoretimeRococoExistentialDeposit,
+			CoretimeRococoParaPallet as CoretimeRococoPallet,
+		},
+		CoretimeRococoPara as CoretimeRococo, CoretimeRococoParaReceiver as CoretimeRococoReceiver,
+		CoretimeRococoParaSender as CoretimeRococoSender,
+	};
+}
 
 #[cfg(test)]
 mod tests;
