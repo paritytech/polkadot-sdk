@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724789190083,
+  "lastUpdate": 1724836243055,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -16355,6 +16355,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.3778496417501813,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Arsham Teymouri",
+            "username": "ArshamTeymouri",
+            "email": "75425316+ArshamTeymouri@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f4be48cf678e1aadabaf11e1642d757cf6c8260b",
+          "message": "change try-runtime rpc domains (#5443)\n\nas part of paritytech/devops/3502, try-runtime nodes were migrated to a\nnew provider with a new domain address. The PR fixes all the references\nto try-runtime nodes on rococo, westend, kusama and polkadot networks.\n\n---------\n\nCo-authored-by: ArshamTeymouri <ArshamTeymouri@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Niklas Adolfsson <niklasadolfsson1@gmail.com>",
+          "timestamp": "2024-08-28T08:27:32Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f4be48cf678e1aadabaf11e1642d757cf6c8260b"
+        },
+        "date": 1724836214358,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64063.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 11.45391432117012,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.013253421880198,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.166716688489958,
             "unit": "seconds"
           }
         ]
