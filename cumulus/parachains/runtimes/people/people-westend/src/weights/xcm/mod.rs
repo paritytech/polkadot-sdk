@@ -152,6 +152,11 @@ impl<Call> XcmWeightInfo<Call> for PeopleWestendXcmWeight<Call> {
 	fn clear_error() -> Weight {
 		XcmGeneric::<Runtime>::clear_error()
 	}
+
+	fn set_asset_claimer(location: &Location) -> Weight {
+		todo!()
+	}
+
 	fn claim_asset(_assets: &Assets, _ticket: &Location) -> Weight {
 		XcmGeneric::<Runtime>::claim_asset()
 	}
@@ -230,5 +235,9 @@ impl<Call> XcmWeightInfo<Call> for PeopleWestendXcmWeight<Call> {
 	}
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()
+	}
+
+	fn pay_fees(asset: &Asset) -> Weight {
+		todo!()
 	}
 }
