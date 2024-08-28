@@ -106,6 +106,14 @@ impl Metric {
 			Self::DiskRndWrite => "Rnd Write",
 		}
 	}
+
+	/// The number of cores used in the parallel BLAKE2-256 hashing.
+	pub fn num_cores(&self) -> Option<usize> {
+		match self {
+			Self::Blake2256Parallel { num_cores } => Some(*num_cores),
+			_ => None,
+		}
+	}
 }
 
 /// The unit in which the [`Throughput`] (bytes per second) is denoted.
@@ -260,12 +268,8 @@ pub struct Requirement {
 	pub minimum: Throughput,
 	/// Check this requirement only for relay chain authority nodes.
 	#[serde(default)]
-	#[serde(skip_serializing_if = "is_false")]
+	#[serde(skip_serializing_if = "core::ops::Not::not")]
 	pub check_on_rc_authority: bool,
-}
-
-fn is_false(value: &bool) -> bool {
-	!value
 }
 
 #[inline(always)]
@@ -356,8 +360,18 @@ fn clobber_value<T>(input: &mut T) {
 pub const DEFAULT_CPU_EXECUTION_LIMIT: ExecutionLimit =
 	ExecutionLimit::Both { max_iterations: 4 * 1024, max_duration: Duration::from_millis(100) };
 
-// This benchmarks the CPU speed as measured by calculating BLAKE2b-256 hashes, in bytes per second.
+// This benchmarks the single core CPU speed as measured by calculating BLAKE2b-256 hashes, in bytes
+// per second.
 pub fn benchmark_cpu(limit: ExecutionLimit) -> Throughput {
+	benchmark_cpu_parallelism(limit, 1)
+}
+
+// This benchmarks the entire CPU speed as measured by calculating BLAKE2b-256 hashes, in bytes per
+// second. It spawns multiple threads to measure the throughput of the entire CPU and averages the
+// score obtained by each thread. If we have at least `refhw_num_cores` available then the
+// average throughput should be relatively close to the single core performance as measured by
+// calling this function with refhw_num_cores equal to 1.
+pub fn benchmark_cpu_parallelism(limit: ExecutionLimit, refhw_num_cores: usize) -> Throughput {
 	// In general the results of this benchmark are somewhat sensitive to how much
 	// data we hash at the time. The smaller this is the *less* B/s we can hash,
 	// the bigger this is the *more* B/s we can hash, up until a certain point
@@ -370,30 +384,6 @@ pub fn benchmark_cpu(limit: ExecutionLimit) -> Throughput {
 	// possible speed that the hasher can achieve, so the size set here should be
 	// picked in such a way as to still measure how fast the hasher is at hashing,
 	// but without hitting its theoretical maximum speed.
-	const SIZE: usize = 32 * 1024;
-
-	let mut buffer = Vec::new();
-	buffer.resize(SIZE, 0x66);
-	let mut hash = Default::default();
-
-	let run = || -> Result<(), ()> {
-		clobber_slice(&mut buffer);
-		hash = sp_crypto_hashing::blake2_256(&buffer);
-		clobber_slice(&mut hash);
-
-		Ok(())
-	};
-
-	benchmark("CPU score", SIZE, limit.max_iterations(), limit.max_duration(), run)
-		.expect("benchmark cannot fail; qed")
-}
-
-// This benchmarks the entire CPU speed as measured by calculating BLAKE2b-256 hashes, in bytes per
-// second. It spawns multiple threads to measure the throughput of the entire CPU and averages the
-// score obtained by each thread. If we have at least `refhw_num_cores` available then the
-// average throughput should be relatively close to the single core performance as measured by
-// `benchmark_cpu`.
-pub fn benchmark_cpu_parallelism(limit: ExecutionLimit, refhw_num_cores: usize) -> Throughput {
 	const SIZE: usize = 32 * 1024;
 
 	let ready_to_run_benchmark = Arc::new(Barrier::new(refhw_num_cores));
@@ -424,7 +414,7 @@ pub fn benchmark_cpu_parallelism(limit: ExecutionLimit, refhw_num_cores: usize) 
 
 	let average_score = benchmark_threads
 		.into_iter()
-		.map(|thread| thread.join().map(|throughput| throughput.as_kibs()).unwrap_or(f64::MIN))
+		.map(|thread| thread.join().map(|throughput| throughput.as_kibs()).unwrap_or(0.0))
 		.sum::<f64>() /
 		refhw_num_cores as f64;
 	Throughput::from_kibs(average_score)
@@ -683,10 +673,7 @@ pub fn gather_hwbench(scratch_directory: Option<&Path>, requirements: &Requireme
 	let parallel_num_cores = requirements
 		.0
 		.iter()
-		.filter_map(|requirement| match requirement.metric {
-			Metric::Blake2256Parallel { num_cores } => Some(num_cores),
-			_ => None,
-		})
+		.filter_map(|requirement| requirement.metric.num_cores())
 		.next()
 		.unwrap_or(1);
 	#[allow(unused_mut)]

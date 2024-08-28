@@ -137,8 +137,11 @@ pub fn print_sysinfo(sysinfo: &sc_telemetry::SysInfo) {
 
 /// Prints out the results of the hardware benchmarks in the logs.
 pub fn print_hwbench(hwbench: &HwBench) {
-	log::info!("🏁 CPU score: {}", hwbench.cpu_hashrate_score);
-	log::info!("🏁 CPU parallelism score: {}", hwbench.parallel_cpu_hashrate_score);
+	log::info!(
+		"🏁 CPU single core score: {}, parallelism score: {}",
+		hwbench.cpu_hashrate_score,
+		hwbench.parallel_cpu_hashrate_score,
+	);
 	log::info!("🏁 Memory score: {}", hwbench.memory_memcpy_score);
 
 	if let Some(score) = hwbench.disk_sequential_write_score {
