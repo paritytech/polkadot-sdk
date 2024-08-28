@@ -13,36 +13,51 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
-use coretime_rococo_runtime::RuntimeEvent;
-use frame_support::traits::{Get, OnInitialize};
-use pallet_broker::{ConfigRecord, CoreMask, Finality, RegionId};
-use parachains_common::BlockNumber;
+use crate::imports::*;
+use frame_support::traits::OnInitialize;
+use pallet_broker::{ConfigRecord, Configuration, CoreAssignment, CoreMask, ScheduleItem};
+use rococo_runtime_constants::system_parachain::coretime::TIMESLICE_PERIOD;
 use sp_runtime::Perbill;
 
-fn advance_to(b: BlockNumber) {
-	type CoretimeSystem = <CoretimeRococo as Chain>::System;
-
-	while CoretimeSystem::block_number() < b {
-		CoretimeSystem::set_block_number(CoretimeSystem::block_number() + 1);
-		<CoretimeRococo as CoretimeRococoPallet>::Broker::on_initialize(
-			CoretimeSystem::block_number(),
-		);
-	}
-}
-
 #[test]
-fn assign_core_transact_has_correct_weight() {
-	type BrokerPallet = <CoretimeRococo as CoretimeRococoPallet>::Broker;
+fn transact_hardcoded_weights_are_sane() {
+	// There are three transacts with hardcoded weights sent from the Coretime Chain to the Relay
+	// Chain across the CoretimeInterface which are triggered at various points in the sales cycle.
+	// - Request core count - triggered directly by `start_sales` or `request_core_count`
+	//   extrinsics.
+	// - Request revenue info - triggered when each timeslice is committed.
+	// - Assign core - triggered when an entry is encountered in the workplan for the next
+	//   timeslice.
 
-	let coretime_root_origin = <CoretimeRococo as Chain>::RuntimeOrigin::root();
-	let sender_origin =
-		<CoretimeRococo as Chain>::RuntimeOrigin::signed(CoretimeRococoSender::get().into());
+	// RuntimeEvent aliases to avoid warning from usage of qualified paths in assertions due to
+	// <https://github.com/rust-lang/rust/issues/86935>
+	type CoretimeEvent = <CoretimeRococo as Chain>::RuntimeEvent;
+	type RelayEvent = <Rococo as Chain>::RuntimeEvent;
 
-	let timeslice_period: u32 =
-		<<CoretimeRococo as Chain>::Runtime as pallet_broker::Config>::TimeslicePeriod::get();
-
+	// Reserve a workload, configure broker and start sales.
 	CoretimeRococo::execute_with(|| {
+		// Hooks don't run in emulated tests - workaround as we need `on_initialize` to tick things
+		// along and have no concept of time passing otherwise.
+		<CoretimeRococo as CoretimeRococoPallet>::Broker::on_initialize(
+			<CoretimeRococo as Chain>::System::block_number(),
+		);
+
+		let coretime_root_origin = <CoretimeRococo as Chain>::RuntimeOrigin::root();
+
+		// Create and populate schedule with the worst case assignment on this core.
+		let mut schedule = Vec::new();
+		for i in 0..27 {
+			schedule.push(ScheduleItem {
+				mask: CoreMask::void().set(i),
+				assignment: CoreAssignment::Task(2000 + i),
+			})
+		}
+
+		assert_ok!(<CoretimeRococo as CoretimeRococoPallet>::Broker::reserve(
+			coretime_root_origin.clone(),
+			schedule.try_into().expect("Vector is within bounds."),
+		));
+
 		// Configure broker and start sales.
 		let config = ConfigRecord {
 			advance_notice: 1,
@@ -54,42 +69,155 @@ fn assign_core_transact_has_correct_weight() {
 			renewal_bump: Perbill::from_percent(2),
 			contribution_timeout: 1,
 		};
-		assert_ok!(BrokerPallet::configure(coretime_root_origin.clone(), config.clone()));
-		assert_ok!(BrokerPallet::start_sales(coretime_root_origin, 100, 1));
-
-		// Advance past interlude of first sale.
-		advance_to(config.interlude_length * timeslice_period);
-
-		// Purchase region.
-		let region_id = RegionId { begin: 1, core: 0, mask: CoreMask::complete() };
-		assert_ok!(BrokerPallet::purchase(sender_origin.clone(), 200));
-
-		// Assign the region, this sends the XCM with a `Transact`
-		assert_ok!(BrokerPallet::assign(
-			sender_origin,
-			region_id,
-			PenpalA::para_id().into(),
-			Finality::Final
+		assert_ok!(<CoretimeRococo as CoretimeRococoPallet>::Broker::configure(
+			coretime_root_origin.clone(),
+			config
 		));
+		assert_ok!(<CoretimeRococo as CoretimeRococoPallet>::Broker::start_sales(
+			coretime_root_origin,
+			100,
+			0
+		));
+		assert_eq!(
+			pallet_broker::Status::<<CoretimeRococo as Chain>::Runtime>::get()
+				.unwrap()
+				.core_count,
+			1
+		);
 
 		assert_expected_events!(
 			CoretimeRococo,
 			vec![
-				RuntimeEvent::Broker(pallet_broker::Event::Assigned { region_id, duration, task }) => {
-					region_id: region_id == region_id,
-					duration: *duration == 1,
-					task: *task == u32::from(PenpalA::para_id()),
-				},
+				CoretimeEvent::Broker(
+					pallet_broker::Event::ReservationMade { .. }
+				) => {},
+				CoretimeEvent::Broker(
+					pallet_broker::Event::CoreCountRequested { core_count: 1 }
+				) => {},
+				CoretimeEvent::ParachainSystem(
+					cumulus_pallet_parachain_system::Event::UpwardMessageSent { .. }
+				) => {},
 			]
 		);
-		CoretimeRococo::assert_xcm_pallet_sent();
 	});
 
+	// Check that the request_core_count message was processed successfully. This will fail if the
+	// weights are misconfigured.
 	Rococo::execute_with(|| {
-		Rococo::assert_ump_queue_processed(
-			true,
-			Some(CoretimeRococo::para_id()),
-			None, // for now
-		)
+		Rococo::assert_ump_queue_processed(true, Some(CoretimeRococo::para_id()), None);
+
+		assert_expected_events!(
+			Rococo,
+			vec![
+				RelayEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+			]
+		);
+	});
+
+	// Keep track of the relay chain block number so we can fast forward while still checking the
+	// right block.
+	let mut block_number_cursor = Rococo::ext_wrapper(<Rococo as Chain>::System::block_number);
+
+	let config = CoretimeRococo::ext_wrapper(|| {
+		Configuration::<<CoretimeRococo as Chain>::Runtime>::get()
+			.expect("Pallet was configured earlier.")
+	});
+
+	// Now run up to the block before the sale is rotated.
+	while block_number_cursor < TIMESLICE_PERIOD - config.advance_notice - 1 {
+		CoretimeRococo::execute_with(|| {
+			// Hooks don't run in emulated tests - workaround.
+			<CoretimeRococo as CoretimeRococoPallet>::Broker::on_initialize(
+				<CoretimeRococo as Chain>::System::block_number(),
+			);
+		});
+
+		Rococo::ext_wrapper(|| {
+			block_number_cursor = <Rococo as Chain>::System::block_number();
+		});
+	}
+
+	// In this block we trigger assign core.
+	CoretimeRococo::execute_with(|| {
+		// Hooks don't run in emulated tests - workaround.
+		<CoretimeRococo as CoretimeRococoPallet>::Broker::on_initialize(
+			<CoretimeRococo as Chain>::System::block_number(),
+		);
+
+		assert_expected_events!(
+			CoretimeRococo,
+			vec![
+				CoretimeEvent::Broker(
+					pallet_broker::Event::SaleInitialized { .. }
+				) => {},
+				CoretimeEvent::Broker(
+					pallet_broker::Event::CoreAssigned { .. }
+				) => {},
+				CoretimeEvent::ParachainSystem(
+					cumulus_pallet_parachain_system::Event::UpwardMessageSent { .. }
+				) => {},
+			]
+		);
+	});
+
+	// In this block we trigger request revenue.
+	CoretimeRococo::execute_with(|| {
+		// Hooks don't run in emulated tests - workaround.
+		<CoretimeRococo as CoretimeRococoPallet>::Broker::on_initialize(
+			<CoretimeRococo as Chain>::System::block_number(),
+		);
+
+		assert_expected_events!(
+			CoretimeRococo,
+			vec![
+				CoretimeEvent::ParachainSystem(
+					cumulus_pallet_parachain_system::Event::UpwardMessageSent { .. }
+				) => {},
+			]
+		);
+	});
+
+	// Check that the assign_core and request_revenue_info_at messages were processed successfully.
+	// This will fail if the weights are misconfigured.
+	Rococo::execute_with(|| {
+		Rococo::assert_ump_queue_processed(true, Some(CoretimeRococo::para_id()), None);
+
+		assert_expected_events!(
+			Rococo,
+			vec![
+				RelayEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				RelayEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				RelayEvent::Coretime(
+					polkadot_runtime_parachains::coretime::Event::CoreAssigned { .. }
+				) => {},
+			]
+		);
+	});
+
+	// Here we receive and process the notify_revenue XCM with zero revenue.
+	CoretimeRococo::execute_with(|| {
+		// Hooks don't run in emulated tests - workaround.
+		<CoretimeRococo as CoretimeRococoPallet>::Broker::on_initialize(
+			<CoretimeRococo as Chain>::System::block_number(),
+		);
+
+		assert_expected_events!(
+			CoretimeRococo,
+			vec![
+				CoretimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				// Zero revenue in first timeslice so history is immediately dropped.
+				CoretimeEvent::Broker(
+					pallet_broker::Event::HistoryDropped { when: 0, revenue: 0 }
+				) => {},
+			]
+		);
 	});
 }
