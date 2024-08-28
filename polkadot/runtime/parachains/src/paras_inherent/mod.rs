@@ -958,8 +958,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 
 /// Perform required checks for given candidate receipt.
 ///
-/// Returns `true` if candidate descriptor is version 1 without `UMPSignal`
-/// commitments.
+/// Returns `true` if candidate descriptor is version 1.
 ///
 /// Otherwise returns `false` if:
 /// - version 2 descriptors are not allowed
@@ -970,18 +969,11 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	allow_v2_receipts: bool,
 ) -> bool {
-	// We move forward only if the candidate commits to a core selector and claim queue offset.
-	// If parachain runtime already makes use of `UMPSignal::SelectCore`, and the collator does not,
-	// we can expect v1 candidate receipts with `UMPSignal::SelectCore` commitments.
-	//
-	// It is important that we use these commitments of v1 receipts and not rely on injected cores.
-	// Parachain runtime upgrade is enough to enable both validators and the runtime to validate
-	// the core index the candidate has committed to.
-	let Some((core_selector, cq_offset)) = candidate.candidate().commitments.selected_core() else {
-		if candidate.descriptor().version() == CandidateDescriptorVersion::V1 {
-			return true
-		}
+	if candidate.descriptor().version() == CandidateDescriptorVersion::V1 {
+		return true
+	}
 
+	let Some((core_selector, cq_offset)) = candidate.candidate().commitments.selected_core() else {
 		log::debug!(
 			target: LOG_TARGET,
 			"Dropping V2 candidate receipt {:?} for paraid {:?}, no `SelectCore` commitment.",
@@ -992,8 +984,6 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	};
 
-	// Drop any candidate receipts with `UMPSignal::SelectCore` commitments if nodes are not allowed
-	// to use them.
 	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
 	// any v1 descendants of v2 candidates are dropped.
 	if !allow_v2_receipts {
@@ -1034,8 +1024,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		.collect::<Vec<_>>();
 	let assigned_cores = assigned_cores.as_slice();
 
-	// Check if core index in descriptor matches the one in the commitments
-	// No-op for v1 candidate receipts.
+	// Check if core index in descriptor matches the one in the commitments.
 	if let Err(err) = candidate.candidate().check(assigned_cores) {
 		log::debug!(
 			target: LOG_TARGET,
@@ -1490,11 +1479,6 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 				// We must preserve the dependency order given in the input.
 				let mut temp_backed_candidates = Vec::with_capacity(scheduled_cores.len());
 
-				// We need to keep a copy of all the cores assigned to the para at top of the claim
-				// queue. It is required input to compute the core index from the
-				// `UMPSignal::SelectCore` message.
-				let assigned_cores = scheduled_cores.clone();
-
 				for candidate in backed_candidates {
 					if scheduled_cores.len() == 0 {
 						// We've got candidates for all of this para's assigned cores. Move on to
@@ -1508,7 +1492,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 					}
 
 					if let Some(core_index) =
-						get_core_index::<T>(allowed_relay_parents, &candidate, &assigned_cores)
+						get_core_index::<T>(allowed_relay_parents, &candidate)
 					{
 						if scheduled_cores.remove(&core_index) {
 							temp_backed_candidates.push((candidate, core_index));
@@ -1573,15 +1557,11 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 fn get_core_index<T: configuration::Config + scheduler::Config + inclusion::Config>(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	candidate: &BackedCandidate<T::Hash>,
-	assigned_cores: &BTreeSet<CoreIndex>,
 ) -> Option<CoreIndex> {
-	// Use the committed core index. It could be available even if descriptor is v1.
-	// We've already sanitized the candidate so it should be ok to trust it is valid.
-	// Fall back to injected core index.
 	candidate
 		.candidate()
-		.commitments
-		.committed_core_index(assigned_cores.iter().collect::<Vec<_>>().as_slice())
+		.descriptor
+		.core_index()
 		.or_else(|| get_injected_core_index::<T>(allowed_relay_parents, &candidate))
 }
 

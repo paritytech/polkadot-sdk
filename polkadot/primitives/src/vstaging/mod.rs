@@ -527,9 +527,8 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Input `assigned_cores` must contain the sorted cores assigned to the para at
 	/// the committed claim queue offset.
 	pub fn check(&self, assigned_cores: &[&CoreIndex]) -> Result<(), CandidateReceiptError> {
-		// Don't check v1 descriptors without any `SelectCore` commitments.
-		if self.descriptor.version() == CandidateDescriptorVersion::V1 &&
-			self.commitments.selected_core().is_none()
+		// Don't check v1 descriptors.
+		if self.descriptor.version() == CandidateDescriptorVersion::V1
 		{
 			return Ok(())
 		}
@@ -547,13 +546,9 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			.committed_core_index(assigned_cores)
 			.ok_or(CandidateReceiptError::NoAssignment)?;
 
-		// Only check descriptor `core_index` field of v2 descriptors. If it is v1, that field
-		// will be garbage.
-		if self.descriptor.version() == CandidateDescriptorVersion::V2 {
-			let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
-			if core_index != descriptor_core_index {
-				return Err(CandidateReceiptError::CoreIndexMismatch)
-			}
+		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
+		if core_index != descriptor_core_index {
+			return Err(CandidateReceiptError::CoreIndexMismatch)
 		}
 
 		Ok(())
