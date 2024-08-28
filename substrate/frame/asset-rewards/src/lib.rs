@@ -157,6 +157,8 @@ pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	reward_per_token_stored: Balance,
 	/// Last block number the pool was updated.
 	last_update_block: BlockNumber,
+	/// The account that holds the pool's rewards.
+	account: AccountId,
 }
 
 sp_api::decl_runtime_apis! {
@@ -210,7 +212,9 @@ pub mod pallet {
 		/// Overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The pallet's id, used for deriving pool account IDs.
+		/// The pallet's unique identifier, used to derive the pool's account ID.
+		///
+		/// The account ID is derived once during pool creation and stored in the storage.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
@@ -444,6 +448,7 @@ pub mod pallet {
 				last_update_block: 0u32.into(),
 				expiry_block,
 				admin: admin.clone(),
+				account: Self::pool_account_id(&pool_id),
 			};
 
 			// Insert it into storage.
@@ -556,10 +561,9 @@ pub mod pallet {
 				Self::update_pool_and_staker_rewards(&pool_info, &staker_info)?;
 
 			// Transfer unclaimed rewards from the pool to the staker.
-			let pool_account_id = Self::pool_account_id(&pool_id)?;
 			T::Assets::transfer(
 				pool_info.reward_asset_id,
-				&pool_account_id,
+				&pool_info.account,
 				&staker,
 				staker_info.rewards,
 				// Could kill the account, but only if the pool was already almost empty.
@@ -678,11 +682,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let pool_account_id = Self::pool_account_id(&pool_id)?;
 			T::Assets::transfer(
 				pool_info.reward_asset_id,
 				&caller,
-				&pool_account_id,
+				&pool_info.account,
 				amount,
 				Preservation::Preserve,
 			)?;
@@ -707,7 +710,7 @@ pub mod pallet {
 
 			T::Assets::transfer(
 				pool_info.reward_asset_id,
-				&Self::pool_account_id(&pool_id)?,
+				&pool_info.account,
 				&dest,
 				amount,
 				// Allow completely draining the account.
@@ -728,12 +731,8 @@ pub mod pallet {
 		}
 
 		/// Derive a pool account ID from the pool's ID.
-		pub fn pool_account_id(id: &PoolId) -> Result<T::AccountId, DispatchError> {
-			if Pools::<T>::contains_key(id) {
-				Ok(T::PalletId::get().into_sub_account_truncating(id))
-			} else {
-				Err(Error::<T>::NonExistentPool.into())
-			}
+		pub fn pool_account_id(id: &PoolId) -> T::AccountId {
+			T::PalletId::get().into_sub_account_truncating(id)
 		}
 
 		/// Computes update pool and staker reward state.

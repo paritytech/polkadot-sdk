@@ -210,7 +210,7 @@ mod benchmarks {
 	fn harvest_rewards() -> Result<(), BenchmarkError> {
 		create_reward_pool::<T>()?;
 
-		let pool_acc = AssetRewards::<T>::pool_account_id(&0u32).unwrap();
+		let pool_acc = AssetRewards::<T>::pool_account_id(&0u32);
 		let min_reward_balance = mint_into::<T>(&pool_acc, &T::BenchmarkHelper::reward_asset());
 
 		let staker = whitelisted_caller();
@@ -286,7 +286,7 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 
 		let reward_asset = T::BenchmarkHelper::reward_asset();
-		let pool_acc = AssetRewards::<T>::pool_account_id(&0u32).unwrap();
+		let pool_acc = AssetRewards::<T>::pool_account_id(&0u32);
 		let min_balance = mint_into::<T>(&caller, &reward_asset);
 
 		let balance_before = T::Assets::balance(reward_asset.clone(), &pool_acc);
@@ -315,7 +315,7 @@ mod benchmarks {
 			min_balance,
 		));
 
-		let pool_acc = AssetRewards::<T>::pool_account_id(&0).unwrap();
+		let pool_acc = AssetRewards::<T>::pool_account_id(&0);
 		let balance_before = T::Assets::balance(reward_asset.clone(), &pool_acc);
 
 		#[extrinsic_call]

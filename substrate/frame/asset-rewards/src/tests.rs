@@ -160,7 +160,8 @@ mod create_pool {
 						admin: Some(PermissionedAccountId::get()),
 						total_tokens_staked: 0,
 						reward_per_token_stored: 0,
-						last_update_block: 0
+						last_update_block: 0,
+						account: StakingRewards::pool_account_id(&0),
 					}
 				)]
 			);
@@ -210,7 +211,8 @@ mod create_pool {
 							expiry_block: DEFAULT_LIFETIME + 10,
 							total_tokens_staked: 0,
 							reward_per_token_stored: 0,
-							last_update_block: 0
+							last_update_block: 0,
+							account: StakingRewards::pool_account_id(&0),
 						}
 					),
 					(
@@ -223,7 +225,8 @@ mod create_pool {
 							total_tokens_staked: 0,
 							expiry_block: expected_expiry_block,
 							reward_per_token_stored: 0,
-							last_update_block: 0
+							last_update_block: 0,
+							account: StakingRewards::pool_account_id(&1),
 						}
 					)
 				]
@@ -278,7 +281,8 @@ mod create_pool {
 						admin: Some(PermissionedAccountId::get()),
 						total_tokens_staked: 0,
 						reward_per_token_stored: 0,
-						last_update_block: 0
+						last_update_block: 0,
+						account: StakingRewards::pool_account_id(&0),
 					}
 				)]
 			);
@@ -1109,7 +1113,7 @@ mod deposit_reward_tokens {
 			let amount = 1000;
 			let reward_asset_id = NativeOrWithId::<u32>::Native;
 			create_default_pool();
-			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
+			let pool_account_id = StakingRewards::pool_account_id(&pool_id);
 
 			let depositor_balance_before =
 				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &depositor);
@@ -1167,7 +1171,7 @@ mod withdraw_reward_tokens {
 			let withdraw_amount = 5;
 			let dest = 10u128;
 			create_default_pool_permissioned_admin();
-			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
+			let pool_account_id = StakingRewards::pool_account_id(&pool_id);
 
 			// Deposit initial reward tokens
 			assert_ok!(StakingRewards::deposit_reward_tokens(
@@ -1211,7 +1215,7 @@ mod withdraw_reward_tokens {
 			let withdraw_amount = 5;
 			let dest = 10u128;
 			create_default_pool();
-			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
+			let pool_account_id = StakingRewards::pool_account_id(&pool_id);
 
 			// Deposit initial reward tokens
 			assert_ok!(StakingRewards::deposit_reward_tokens(
@@ -1277,7 +1281,7 @@ mod withdraw_reward_tokens {
 			create_default_pool();
 
 			// Deposit initial reward tokens
-			let pool_account = StakingRewards::pool_account_id(&pool_id).unwrap();
+			let pool_account = StakingRewards::pool_account_id(&pool_id);
 			<<MockRuntime as Config>::Assets>::set_balance(
 				reward_asset_id,
 				&pool_account,
