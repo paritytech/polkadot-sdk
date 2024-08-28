@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724789490896,
+  "lastUpdate": 1724842602457,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23763,6 +23763,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022174675793333338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Niklas Adolfsson",
+            "username": "niklasad1",
+            "email": "niklasadolfsson1@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "09254eb9f8670f942c68914ff6fc0ffb503aaf23",
+          "message": "rpc server: listen to `ipv6 socket` if available and `--experimental-rpc-endpoint` CLI option (#4792)\n\nClose https://github.com/paritytech/polkadot-sdk/issues/3488,\nhttps://github.com/paritytech/polkadot-sdk/issues/4331\n\nThis changes/adds the following:\n\n1. The default setting is that substrate starts a rpc server that\nlistens to localhost both Ipv4 and Ipv6 on the same port. Ipv6 is\nallowed to fail because some platforms may not support it\n2. A new RPC CLI option `--experimental-rpc-endpoint` which allow to\nconfigure arbitrary listen addresses including the port, if this is\nenabled no other interfaces are enabled.\n3. If the local addr is not found for any of the sockets the server is\nnot started throws an error.\n4. Remove the deny_unsafe from the RPC implementations instead this is\nan extension to allow different polices for different interfaces/sockets\nsuch one may enable unsafe on local interface and safe on only the\nexternal interface.\n\nSo for instance in this PR it's now possible to start up three RPC\nendpoints as follows:\n```\n$ polkadot --experimental-rpc-endpoint \"listen-addr=127.0.0.1:9944,rpc-methods=unsafe\" --experimental-rpc-endpoint \"listen-addr=0.0.0.0:9945,rpc-methods=safe,rate-limit=100\" --experimental-rpc-endpoint \"listen-addr=[::1]:9944,optional=true\"\n```\n\n#### Needs to be addressed\n\n~1. Support binding to a random port if it's fails with the default\nstuff for backward compatible reasons~\n~2. How to sync that the rpc CLI params and that the rpc-listen-addr\nalign, hard to maintain...~\n~3. Add similar warning prints for exposing unsafe methods on external\ninterfaces..~\n~4. Inline todos + the hacky String conversion from rpc params.~\n\n#### Cons with this PR\n\nManual strings parsing impl more error-prone than relying on clap....\n\n//cc @jsdw @BulatSaif @PierreBesson @bkchr\n\n---------\n\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
+          "timestamp": "2024-08-28T10:12:50Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/09254eb9f8670f942c68914ff6fc0ffb503aaf23"
+        },
+        "date": 1724842573798,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01207958866,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16959205945999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02217436058,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00982147849333334,
             "unit": "seconds"
           }
         ]
