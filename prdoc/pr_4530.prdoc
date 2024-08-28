@@ -27,11 +27,37 @@ doc:
         wanted in the runtime implementation.
 
 crates:
-  - name: pallet-assets
-    bump: major
-  - name: pallet-assets-holder
-    bump: major
   - name: asset-hub-rococo-runtime
     bump: minor
   - name: asset-hub-westend-runtime
     bump: minor
+  - name: pallet-asset-tx-payment
+    bump: patch
+  - name: pallet-asset-conversion-ops
+    bump: patch
+  - name: pallet-asset-conversion-tx-payment
+    bump: patch
+  - name: pallet-assets
+    bump: major
+  - name: pallet-assets-holder
+    bump: major
+  - name: pallet-assets-freezer
+    bump: patch
+  - name: pallet-contracts-mock-network
+    bump: patch
+  - name: pallet-nft-fractionalization
+    bump: patch
+  - name: pallet-revive-mock-network
+    bump: patch
+  - name: pallet-xcm
+    bump: patch
+  - name: penpal-runtime
+    bump: patch
+  - name: rococo-parachain-runtime
+    bump: patch
+  - name: polkadot-sdk
+    bump: minor
+  - name: staging-xcm-builder
+    bump: patch
+  - name: xcm-runtime-apis
+    bump: patch
