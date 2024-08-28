@@ -89,6 +89,8 @@
 //! > to-finish
 
 #![cfg_attr(not(feature = "std"), no_std)]
+// TODO: remove
+#![allow(dead_code)]
 
 // TODO(gpestana): clean imports
 use codec::MaxEncodedLen;

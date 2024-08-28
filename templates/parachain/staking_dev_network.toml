@@ -17,7 +17,7 @@ cumulus_based = true
 # will generate chainspec on the fly:
 chain_spec_command = "~/cargo_target/debug/staking-node build-spec --disable-default-bootnode --raw"
 # or set a fixed chainspec (needs to be raw).
-# chain_spec_path = "./chain-specs/staking-raw-2k5kstakers.spec"
+#chain_spec_path = "./chain-specs/staking-raw-large.spec"
 
 # run charlie as parachain collator
 [[parachains.collators]]

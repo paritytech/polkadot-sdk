@@ -489,6 +489,7 @@ impl<
 	TypeInfo,
 	Default,
 	MaxEncodedLen,
+	Copy,
 )]
 pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	/// The total balance backing this validator.
@@ -501,6 +502,28 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub nominator_count: u32,
 	/// Number of pages of nominators.
 	pub page_count: Page,
+}
+
+impl<Balance> PagedExposureMetadata<Balance>
+where
+	Balance: HasCompact
+		+ codec::MaxEncodedLen
+		+ sp_std::ops::Add<Output = Balance>
+		+ sp_std::ops::Sub<Output = Balance>
+		+ PartialEq
+		+ Copy,
+{
+	pub fn merge(self, other: Self) -> Self {
+		debug_assert!(self.own == other.own);
+
+		Self {
+			total: self.total + other.total - self.own,
+			own: self.own,
+			nominator_count: self.nominator_count + other.nominator_count,
+			// TODO: merge the pages correctly.
+			page_count: self.page_count + other.page_count,
+		}
+	}
 }
 
 /// A type that belongs only in the context of an `Agent`.

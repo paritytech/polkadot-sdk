@@ -291,6 +291,8 @@ pub mod benchmarking;
 pub mod testing_utils;
 
 #[cfg(test)]
+mod fast_tests;
+#[cfg(test)]
 pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
@@ -1262,9 +1264,21 @@ impl<T: Config> EraInfo<T> {
 		let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
 		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
 
-		<ErasStakersOverview<T>>::insert(era, &validator, &exposure_metadata);
-		exposure_pages.iter().enumerate().for_each(|(page, paged_exposure)| {
-			<ErasStakersPaged<T>>::insert((era, &validator, page as Page), &paged_exposure);
+		// insert or update validator's overview.
+		let append_from = ErasStakersOverview::<T>::mutate(era, &validator, |stored| {
+			if let Some(stored_overview) = stored {
+				let append_from = stored_overview.page_count;
+				*stored = Some(stored_overview.merge(exposure_metadata));
+				append_from
+			} else {
+				*stored = Some(exposure_metadata);
+				Zero::zero()
+			}
+		});
+
+		exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
+			let append_at = (append_from + idx as u32) as Page;
+			<ErasStakersPaged<T>>::insert((era, &validator, append_at), &paged_exposure);
 		});
 	}
 

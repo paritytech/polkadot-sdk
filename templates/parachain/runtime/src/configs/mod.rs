@@ -437,11 +437,11 @@ parameter_types! {
 	pub Lookhaead: BlockNumber = 5;
 	pub ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
 
-	pub Pages: PageIndex = 2;
-	pub MaxWinnersPerPage: u32 = 2048;
-	pub MaxBackersPerWinner: u32 = 10_000;
-	pub VoterSnapshotPerBlock: VoterIndex = 1024;
-	pub TargetSnapshotPerBlock: TargetIndex = 2048;
+	pub Pages: PageIndex = 3;
+	pub MaxWinnersPerPage: u32 = 1_500;
+	pub MaxBackersPerWinner: u32 = 2_000;
+	pub VoterSnapshotPerBlock: VoterIndex = 9_000; // 9K * 4 = 36K max nominators in the snapshot.
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 
 	pub const SignedMaxSubmissions: u32 = 32;
 	pub const SignedMaxRefunds: u32 = 128 / 4;

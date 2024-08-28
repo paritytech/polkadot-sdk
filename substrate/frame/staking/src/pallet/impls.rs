@@ -17,6 +17,9 @@
 
 //! Implementations for the Staking FRAME Pallet.
 
+// TODO: remove
+#![allow(dead_code)]
+
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -731,11 +734,16 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		let _ = Self::store_stakers_info_paged(Self::collect_exposures(paged_result))
+		log!(info, "Paged results for page {:?}", paged_result);
+		let exposures = Self::collect_exposures(paged_result);
+
+		log!(info, "> Exposures: {:?}", exposures);
+
+		let _ = Self::store_stakers_info_paged(exposures)
 			.iter()
 			.map(|s| {
+				log!(info, "about to append stashes: {:?}", s);
 				ElectableStashes::<T>::try_append(s)
-					.map_err(|e| log!(error, "error appending the elected slashes {:?}", e))
 			})
 			.collect::<Vec<_>>();
 	}
@@ -752,7 +760,7 @@ impl<T: Config> Pallet<T> {
 		// Populate elected stash, stakers, exposures, and the snapshot of validator prefs.
 		let mut total_stake: BalanceOf<T> = Zero::zero();
 		let mut elected_stashes = Vec::with_capacity(exposures.len());
-		let (_, new_planned_era) = ElectingStartedAt::<T>::get().unwrap_or_default();
+		let (_, planned_era) = ElectingStartedAt::<T>::get().unwrap_or_default();
 
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			// build elected stash
@@ -760,27 +768,28 @@ impl<T: Config> Pallet<T> {
 			// accumulate total stake
 			total_stake = total_stake.saturating_add(exposure.total);
 			// store staker exposure for this era
-			EraInfo::<T>::set_exposure(new_planned_era, &stash, exposure);
+			EraInfo::<T>::set_exposure(planned_era, &stash, exposure);
 		});
 
+		// TODO: correct??
 		let elected_stashes: BoundedVec<_, MaxExposuresPerPageOf<T>> = elected_stashes
 			.try_into()
 			.expect("elected_stashes.len() always equal to exposures.len(); qed");
 
-		EraInfo::<T>::add_total_stake(new_planned_era, total_stake);
+		EraInfo::<T>::add_total_stake(planned_era, total_stake);
 
 		// Collect the pref of all winners.
 		for stash in &elected_stashes {
 			let pref = Self::validators(stash);
-			<ErasValidatorPrefs<T>>::insert(&new_planned_era, stash, pref);
+			<ErasValidatorPrefs<T>>::insert(&planned_era, stash, pref);
 		}
 
-		if new_planned_era > 0 {
+		if planned_era > 0 {
 			log!(
 				info,
 				"new validator set of size {:?} has been processed for era {:?}",
 				elected_stashes.len(),
-				new_planned_era,
+				planned_era,
 			);
 		}
 
