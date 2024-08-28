@@ -253,14 +253,15 @@ pub mod pallet {
 
 			// Check the total amount locked in other projects
 			let voter_holds = BalanceOf::<T>::zero();
-
-			let all_votes = Votes::<T>::iter();
-			for (project, voter_id, infos) in all_votes {
-				if project != project_account.clone() && voter_id == voter.clone() {
+			let projects = WhiteListedProjectAccounts::<T>::get();
+			for project in projects{
+				if Votes::<T>::contains_key(&project,&voter){
+					let infos = Votes::<T>::get(&project,&voter).ok_or(Error::<T>::NoVoteData)?;
 					let this_amount = infos.amount;
 					voter_holds.saturating_add(this_amount);
 				}
 			}
+			
 			let available_funds = voter_balance.saturating_sub(voter_holds);
 			ensure!(available_funds > amount, Error::<T>::NotEnoughFunds);
 
