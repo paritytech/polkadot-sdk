@@ -248,9 +248,8 @@ pub(crate) trait NodeSpec {
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 
-				Box::new(move |deny_unsafe, _| {
+				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
-						deny_unsafe,
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),

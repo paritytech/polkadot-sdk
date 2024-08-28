@@ -25,10 +25,10 @@ use clap::{Command, CommandFactory, FromArgMatches};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
-	SharedParams, SubstrateCli,
+	RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::{config::PrometheusConfig, BasePath};
-use std::{fmt::Debug, marker::PhantomData, net::SocketAddr, path::PathBuf};
+use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
@@ -305,7 +305,7 @@ impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<SocketAddr>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<Vec<RpcEndpoint>>> {
 		self.base.base.rpc_addr(default_listen_port)
 	}
 

@@ -23,10 +23,7 @@ use crate::common::{
 	ConstructNodeRuntimeApi,
 };
 use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-use sc_rpc::{
-	dev::{Dev, DevApiServer},
-	DenyUnsafe,
-};
+use sc_rpc::dev::{Dev, DevApiServer};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -37,7 +34,6 @@ pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
 pub(crate) trait BuildRpcExtensions<Client, Backend, Pool> {
 	fn build_rpc_extensions(
-		deny_unsafe: DenyUnsafe,
 		client: Arc<Client>,
 		backend: Arc<Backend>,
 		pool: Arc<Pool>,
@@ -57,7 +53,6 @@ where
 		ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>> + Send + Sync + 'static,
 {
 	fn build_rpc_extensions(
-		_deny_unsafe: DenyUnsafe,
 		_client: Arc<ParachainClient<Block, RuntimeApi>>,
 		_backend: Arc<ParachainBackend<Block>>,
 		_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<Block, RuntimeApi>>>,
@@ -81,7 +76,6 @@ where
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 {
 	fn build_rpc_extensions(
-		deny_unsafe: DenyUnsafe,
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		backend: Arc<ParachainBackend<Block>>,
 		pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<Block, RuntimeApi>>>,
@@ -89,10 +83,10 @@ where
 		let build = || -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>> {
 			let mut module = RpcExtension::new(());
 
-			module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
+			module.merge(System::new(client.clone(), pool).into_rpc())?;
 			module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-			module.merge(StateMigration::new(client.clone(), backend, deny_unsafe).into_rpc())?;
-			module.merge(Dev::new(client, deny_unsafe).into_rpc())?;
+			module.merge(StateMigration::new(client.clone(), backend).into_rpc())?;
+			module.merge(Dev::new(client).into_rpc())?;
 
 			Ok(module)
 		};
