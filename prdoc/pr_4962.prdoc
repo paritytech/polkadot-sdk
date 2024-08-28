@@ -7,7 +7,7 @@ doc:
   - audience: Runtime Dev
     description: |
       This PR removed `pallet::getter`s from `pallet-treasury`s storage items.
-      When accessed inside the pallet, use the syntax `StorageItem::<T, I>::get()`.
+      Instead use the syntax `StorageItem::<T, I>::get()`.
 
 crates:
   - name: pallet-treasury
