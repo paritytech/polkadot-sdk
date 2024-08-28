@@ -518,8 +518,6 @@ pub mod pallet {
 		PrimeAccountNotMember,
 		/// Proposal is still active.
 		ProposalActive,
-		/// No associated cost for the proposal.
-		NoCost,
 	}
 
 	#[pallet::hooks]
@@ -862,6 +860,8 @@ pub mod pallet {
 
 		/// Release the cost held for storing a proposal once the given proposal is completed.
 		///
+		/// If there is no associated cost for the given proposal, this call will have no effect.
+		///
 		/// Parameters:
 		/// - `origin`: must be `Signed` or `Root`.
 		/// - `proposal_hash`: The hash of the proposal.
@@ -872,17 +872,18 @@ pub mod pallet {
 		pub fn release_proposal_cost(
 			origin: OriginFor<T>,
 			proposal_hash: T::Hash,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let _ = ensure_signed_or_root(origin)?;
 			ensure!(
 				ProposalOf::<T, I>::get(&proposal_hash).is_none(),
 				Error::<T, I>::ProposalActive
 			);
-			let (who, cost) = <CostOf<T, I>>::take(proposal_hash).ok_or(Error::<T, I>::NoCost)?;
-			let _ = cost.drop(&who)?;
-			Self::deposit_event(Event::ProposalCostReleased { proposal_hash, who });
+			if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
+				let _ = cost.drop(&who)?;
+				Self::deposit_event(Event::ProposalCostReleased { proposal_hash, who });
+			}
 
-			Ok(Some(T::WeightInfo::release_proposal_cost()).into())
+			Ok(())
 		}
 	}
 }

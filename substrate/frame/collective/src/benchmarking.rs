@@ -875,13 +875,17 @@ mod benchmarks {
 		let _ = Collective::<T, I>::remove_proposal(last_hash);
 		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
 
+		let cost_present = CostOf::<T, I>::get(last_hash).is_some();
+
 		#[extrinsic_call]
 		_(SystemOrigin::Signed(caller.clone()), last_hash);
 
 		assert_eq!(CostOf::<T, I>::get(last_hash), None);
-		assert_last_event::<T, I>(
-			Event::ProposalCostReleased { proposal_hash: last_hash, who: caller }.into(),
-		);
+		if cost_present {
+			assert_last_event::<T, I>(
+				Event::ProposalCostReleased { proposal_hash: last_hash, who: caller }.into(),
+			);
+		}
 		Ok(())
 	}
 
