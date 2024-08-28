@@ -361,8 +361,7 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
 	/// A shared transaction pool.
 	pub transaction_pool: Arc<TExPool>,
 	/// Builds additional [`RpcModule`]s that should be added to the server
-	pub rpc_builder:
-		Box<dyn Fn(DenyUnsafe, SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>>,
+	pub rpc_builder: Box<dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>>,
 	/// A shared network instance.
 	pub network: Arc<dyn sc_network::service::traits::NetworkService>,
 	/// A Sender for RPC requests.
@@ -491,9 +490,8 @@ where
 	let rpc_id_provider = config.rpc_id_provider.take();
 
 	// jsonrpsee RPC
-	let gen_rpc_module = |deny_unsafe: DenyUnsafe| {
+	let gen_rpc_module = || {
 		gen_rpc_module(
-			deny_unsafe,
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
@@ -505,8 +503,14 @@ where
 		)
 	};
 
-	let rpc = start_rpc_servers(&config, gen_rpc_module, rpc_id_provider)?;
-	let rpc_handlers = RpcHandlers::new(Arc::new(gen_rpc_module(sc_rpc::DenyUnsafe::No)?.into()));
+	let rpc_server_handle = start_rpc_servers(&config, gen_rpc_module, rpc_id_provider)?;
+	let in_memory_rpc = {
+		let mut module = gen_rpc_module()?;
+		module.extensions_mut().insert(DenyUnsafe::No);
+		module
+	};
+
+	let in_memory_rpc_handle = RpcHandlers::new(Arc::new(in_memory_rpc));
 
 	// Spawn informant task
 	spawn_handle.spawn(
@@ -515,9 +519,9 @@ where
 		sc_informant::build(client.clone(), network, sync_service.clone()),
 	);
 
-	task_manager.keep_alive((config.base_path, rpc));
+	task_manager.keep_alive((config.base_path, rpc_server_handle));
 
-	Ok(rpc_handlers)
+	Ok(in_memory_rpc_handle)
 }
 
 /// Returns a future that forwards imported transactions to the transaction networking protocol.
@@ -590,7 +594,6 @@ where
 
 /// Generate RPC module using provided configuration
 pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
-	deny_unsafe: DenyUnsafe,
 	spawn_handle: SpawnTaskHandle,
 	client: Arc<TCl>,
 	transaction_pool: Arc<TExPool>,
@@ -598,7 +601,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 	system_rpc_tx: TracingUnboundedSender<sc_rpc::system::Request<TBl>>,
 	config: &Configuration,
 	backend: Arc<TBackend>,
-	rpc_builder: &(dyn Fn(DenyUnsafe, SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
+	rpc_builder: &(dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
@@ -633,8 +636,7 @@ where
 
 	let (chain, state, child_state) = {
 		let chain = sc_rpc::chain::new_full(client.clone(), task_executor.clone()).into_rpc();
-		let (state, child_state) =
-			sc_rpc::state::new_full(client.clone(), task_executor.clone(), deny_unsafe);
+		let (state, child_state) = sc_rpc::state::new_full(client.clone(), task_executor.clone());
 		let state = state.into_rpc();
 		let child_state = child_state.into_rpc();
 
@@ -698,15 +700,14 @@ where
 		client.clone(),
 		transaction_pool,
 		keystore,
-		deny_unsafe,
 		task_executor.clone(),
 	)
 	.into_rpc();
 
-	let system = sc_rpc::system::System::new(system_info, system_rpc_tx, deny_unsafe).into_rpc();
+	let system = sc_rpc::system::System::new(system_info, system_rpc_tx).into_rpc();
 
 	if let Some(storage) = backend.offchain_storage() {
-		let offchain = sc_rpc::offchain::Offchain::new(storage, deny_unsafe).into_rpc();
+		let offchain = sc_rpc::offchain::Offchain::new(storage).into_rpc();
 
 		rpc_api.merge(offchain).map_err(|e| Error::Application(e.into()))?;
 	}
@@ -726,7 +727,7 @@ where
 	rpc_api.merge(state).map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(child_state).map_err(|e| Error::Application(e.into()))?;
 	// Additional [`RpcModule`]s defined in the node to fit the specific blockchain
-	let extra_rpcs = rpc_builder(deny_unsafe, task_executor.clone())?;
+	let extra_rpcs = rpc_builder(task_executor.clone())?;
 	rpc_api.merge(extra_rpcs).map_err(|e| Error::Application(e.into()))?;
 
 	Ok(rpc_api)

@@ -281,9 +281,8 @@ pub(crate) trait NodeSpec {
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 
-				Box::new(move |deny_unsafe, _| {
+				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
-						deny_unsafe,
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
@@ -837,11 +836,13 @@ where
 			},
 		};
 
-		let fut =
-			async move {
-				wait_for_aura(client).await;
-				aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params).await;
-			};
+		let fut = async move {
+			wait_for_aura(client).await;
+			aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(
+				params,
+			)
+			.await;
+		};
 		task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 		Ok(())
