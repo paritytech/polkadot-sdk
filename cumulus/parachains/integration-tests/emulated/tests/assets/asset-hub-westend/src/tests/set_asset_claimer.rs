@@ -1,0 +1,106 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Tests related to claiming assets trapped during XCM execution.
+
+use crate::imports::*;
+
+use frame_support::{
+    dispatch::RawOrigin,
+    sp_runtime::{traits::Dispatchable, DispatchResult},
+};
+use emulated_integration_tests_common::test_chain_can_claim_assets;
+use xcm_executor::traits::DropAssets;
+use xcm_runtime_apis::{
+    dry_run::runtime_decl_for_dry_run_api::DryRunApiV1,
+    fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+};
+
+#[test]
+fn azs() {
+    let bob = Location::new(0, [AccountId32 { id: [2; 32], network: None }]);
+    let destination = PenpalA::sibling_location_of(PenpalB::para_id());
+    let sender = PenpalASender::get();
+    let beneficiary_id = PenpalBReceiver::get();
+    let amount_to_send = 1_000_000_000_000;
+    let assets: Assets = (Parent, amount_to_send).into();
+
+    // Fund accounts again.
+    PenpalA::mint_foreign_asset(
+        <PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+        Location::parent().clone(),
+        sender.clone(),
+        amount_to_send * 2,
+    );
+
+    let test_args = TestContext {
+        sender: PenpalASender::get(),     // Bob in PenpalB.
+        receiver: PenpalBReceiver::get(), // Alice.
+        args: TestArgs::new_para(
+            destination,
+            beneficiary_id.clone(),
+            amount_to_send,
+            assets,
+            None,
+            0,
+        ),
+    };
+    let mut test = ParaToParaThroughAHTest::new(test_args);
+    transfer_assets(test.clone(), bob.clone());
+    // let call = transfer_assets(test.clone(), bob.clone());
+
+
+    // test.set_assertion::<PenpalA>(sender_assertions);
+    // test.set_call(call);
+    // test.assert();
+}
+
+fn transfer_assets(
+    test: ParaToParaThroughAHTest,
+    claimer: Location
+) -> <PenpalA as Chain>::RuntimeCall {
+    type RuntimeCall = <PenpalA as Chain>::RuntimeCall;
+
+
+
+    let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
+        .clear_origin()
+        .set_asset_claimer(claimer.clone())
+        .withdraw_asset(test.args.assets.clone())
+        .pay_fees((Parent, 0))
+        .build();
+
+    RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
+        message: bx!(VersionedXcm::from(local_xcm)),
+        max_weight: Weight::from_parts(3_000_000_000, 200_000),
+    })
+}
+
+fn sender_assertions(test: ParaToParaThroughAHTest) {
+    type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
+    // PenpalA::assert_xcm_pallet_attempted_complete(None);
+    assert_expected_events!(
+		PenpalA,
+		vec![
+			RuntimeEvent::ForeignAssets(
+				pallet_assets::Event::Burned { asset_id, owner, balance }
+			) => {
+				asset_id: *asset_id == Location::new(1, []),
+				owner: *owner == test.sender.account_id,
+				balance: *balance == test.args.amount,
+			},
+		]
+	);
+}
