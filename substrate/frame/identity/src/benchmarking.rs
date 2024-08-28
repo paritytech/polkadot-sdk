@@ -605,7 +605,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_username_for() -> Result<(), BenchmarkError> {
+	fn set_username_for(p: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		// Set up a username authority.
 		let auth_origin =
 			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
@@ -613,6 +613,7 @@ mod benchmarks {
 		let authority_lookup = T::Lookup::unlookup(authority.clone());
 		let suffix = bench_suffix();
 		let allocation = 10;
+		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
 
 		Identity::<T>::add_username_authority(
 			auth_origin,
@@ -634,14 +635,19 @@ mod benchmarks {
 
 		// Verify signature here to avoid surprise errors at runtime
 		assert!(signature.verify(&bounded_username[..], &public.into()));
+		let use_allocation = match p {
+			0 => false,
+			1 => true,
+			_ => unreachable!(),
+		};
 
 		#[extrinsic_call]
-		_(
+		set_username_for(
 			RawOrigin::Signed(authority.clone()),
 			who_lookup,
 			bounded_username.clone().into(),
 			Some(signature.into()),
-			true,
+			use_allocation,
 		);
 
 		assert_has_event::<T>(
@@ -654,6 +660,15 @@ mod benchmarks {
 		assert_has_event::<T>(
 			Event::<T>::PrimaryUsernameSet { who: who_account, username: bounded_username }.into(),
 		);
+		if use_allocation {
+			let suffix: Suffix<T> = suffix.try_into().unwrap();
+			assert_eq!(UsernameAuthorities::<T>::get(&suffix).unwrap().allocation, 9);
+		} else {
+			assert_eq!(
+				T::Currency::free_balance(&authority),
+				BalanceOf::<T>::max_value() - T::UsernameDeposit::get()
+			);
+		}
 		Ok(())
 	}
 
@@ -672,10 +687,35 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn remove_expired_approval() -> Result<(), BenchmarkError> {
+	fn remove_expired_approval(p: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		// Set up a username authority.
+		let auth_origin =
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let authority_lookup = T::Lookup::unlookup(authority.clone());
+		let suffix = bench_suffix();
+		let allocation = 10;
+		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+
+		Identity::<T>::add_username_authority(
+			auth_origin,
+			authority_lookup,
+			suffix.clone(),
+			allocation,
+		)?;
+
 		let caller: T::AccountId = whitelisted_caller();
-		let username = bounded_username::<T>(bench_username(), bench_suffix());
-		Identity::<T>::queue_acceptance(&caller, username.clone(), Provider::Governance);
+		let username = bounded_username::<T>(bench_username(), suffix.clone());
+		let username_deposit = T::UsernameDeposit::get();
+		let provider = match p {
+			0 => {
+				let _ = T::Currency::reserve(&authority, username_deposit);
+				Provider::Authority(username_deposit)
+			},
+			1 => Provider::Governance,
+			_ => unreachable!(),
+		};
+		Identity::<T>::queue_acceptance(&caller, username.clone(), provider);
 
 		let expected_expiration =
 			frame_system::Pallet::<T>::block_number() + T::PendingUsernameExpiration::get();
@@ -686,6 +726,16 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), username);
 
 		assert_last_event::<T>(Event::<T>::PreapprovalExpired { whose: caller }.into());
+		match p {
+			0 => {
+				assert_eq!(T::Currency::free_balance(&authority), BalanceOf::<T>::max_value());
+			},
+			1 => {
+				let suffix: Suffix<T> = suffix.try_into().unwrap();
+				assert_eq!(UsernameAuthorities::<T>::get(&suffix).unwrap().allocation, 10);
+			},
+			_ => unreachable!(),
+		}
 		Ok(())
 	}
 
@@ -727,6 +777,120 @@ mod benchmarks {
 		assert_last_event::<T>(
 			Event::<T>::DanglingUsernameRemoved { who: caller, username: second_username }.into(),
 		);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn unbind_username() -> Result<(), BenchmarkError> {
+		// Set up a username authority.
+		let auth_origin =
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let authority_lookup = T::Lookup::unlookup(authority.clone());
+		let suffix = bench_suffix();
+		let allocation = 10;
+		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+
+		Identity::<T>::add_username_authority(
+			auth_origin,
+			authority_lookup,
+			suffix.clone(),
+			allocation,
+		)?;
+
+		let caller: T::AccountId = whitelisted_caller();
+		let username = bounded_username::<T>(bench_username(), suffix.clone());
+
+		let username_deposit = T::UsernameDeposit::get();
+		Identity::<T>::insert_username(
+			&caller,
+			username.clone(),
+			Provider::Authority(username_deposit),
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(authority), username.clone());
+
+		assert_last_event::<T>(Event::<T>::UsernameUnbound { username }.into());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_username() -> Result<(), BenchmarkError> {
+		// Set up a username authority.
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let suffix = bench_suffix();
+		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+		let caller: T::AccountId = whitelisted_caller();
+		let username = bounded_username::<T>(bench_username(), suffix.clone());
+
+		let username_deposit = T::UsernameDeposit::get();
+		Identity::<T>::insert_username(
+			&caller,
+			username.clone(),
+			Provider::Authority(username_deposit),
+		);
+		let now = frame_system::Pallet::<T>::block_number();
+		UnbindingUsernames::<T>::insert(&username, now);
+
+		frame_system::Pallet::<T>::set_block_number(now + T::UsernameGracePeriod::get());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), username.clone());
+
+		assert_last_event::<T>(Event::<T>::UsernameRemoved { username }.into());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn kill_username(p: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		// Set up a username authority.
+		let auth_origin =
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let authority_lookup = T::Lookup::unlookup(authority.clone());
+		let suffix = bench_suffix();
+		let allocation = 10;
+		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+
+		Identity::<T>::add_username_authority(
+			auth_origin,
+			authority_lookup,
+			suffix.clone(),
+			allocation,
+		)?;
+
+		let caller: T::AccountId = whitelisted_caller();
+		let username = bounded_username::<T>(bench_username(), suffix.clone());
+		let username_deposit = T::UsernameDeposit::get();
+		let provider = match p {
+			0 => {
+				let _ = T::Currency::reserve(&authority, username_deposit);
+				Provider::Authority(username_deposit)
+			},
+			1 => Provider::Governance,
+			_ => unreachable!(),
+		};
+		Identity::<T>::insert_username(&caller, username.clone(), provider);
+		UnbindingUsernames::<T>::insert(&username, frame_system::Pallet::<T>::block_number());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, username.clone());
+
+		assert_last_event::<T>(Event::<T>::UsernameKilled { username }.into());
+		match p {
+			0 => {
+				assert_eq!(
+					T::Currency::free_balance(&authority),
+					BalanceOf::<T>::max_value() - username_deposit
+				);
+			},
+			1 => {
+				let suffix: Suffix<T> = suffix.try_into().unwrap();
+				assert_eq!(UsernameAuthorities::<T>::get(&suffix).unwrap().allocation, 10);
+			},
+			_ => unreachable!(),
+		}
 		Ok(())
 	}
 

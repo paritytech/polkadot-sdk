@@ -416,6 +416,12 @@ pub mod pallet {
 		/// A dangling username (as in, a username corresponding to an account that has removed its
 		/// identity) has been removed.
 		DanglingUsernameRemoved { who: T::AccountId, username: Username<T> },
+		/// A username has been unbound.
+		UsernameUnbound { username: Username<T> },
+		/// A username has been removed.
+		UsernameRemoved { username: Username<T> },
+		/// A username has been killed.
+		UsernameKilled { username: Username<T> },
 	}
 
 	#[pallet::call]
@@ -1078,7 +1084,7 @@ pub mod pallet {
 		///   - When combined with the suffix of the issuing authority be _less than_ the
 		///     `MaxUsernameLength`.
 		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::set_username_for())]
+		#[pallet::weight(T::WeightInfo::set_username_for(if *use_allocation { 1 } else { 0 }))]
 		pub fn set_username_for(
 			origin: OriginFor<T>,
 			who: AccountIdLookupOf<T>,
@@ -1156,7 +1162,7 @@ pub mod pallet {
 		/// accepted by the user and must now be beyond its expiration. The call must include the
 		/// full username, as in `username.suffix`.
 		#[pallet::call_index(19)]
-		#[pallet::weight(T::WeightInfo::remove_expired_approval())]
+		#[pallet::weight(T::WeightInfo::remove_expired_approval(0))]
 		pub fn remove_expired_approval(
 			origin: OriginFor<T>,
 			username: Username<T>,
@@ -1165,7 +1171,7 @@ pub mod pallet {
 			if let Some((who, expiration, provider)) = PendingUsernames::<T>::take(&username) {
 				let now = frame_system::Pallet::<T>::block_number();
 				ensure!(now > expiration, Error::<T>::NotExpired);
-				match provider {
+				let actual_weight = match provider {
 					Provider::Authority(deposit) => {
 						let suffix = Self::suffix_of_username(&username)
 							.ok_or(Error::<T>::InvalidUsername)?;
@@ -1174,17 +1180,19 @@ pub mod pallet {
 							.ok_or(Error::<T>::NotUsernameAuthority)?;
 						let err_amount = T::Currency::unreserve(&authority_account, deposit);
 						debug_assert!(err_amount.is_zero());
+						T::WeightInfo::remove_expired_approval(0)
 					},
 					Provider::Governance => {
-						// We don't refund the allocation, it is lost.
+						// We don't refund the allocation, it is lost, but we refund some weight.
+						T::WeightInfo::remove_expired_approval(1)
 					},
 					Provider::System => {
 						// Usernames added by the system shouldn't ever be expired.
 						return Err(Error::<T>::InvalidTarget.into());
 					},
-				}
+				};
 				Self::deposit_event(Event::PreapprovalExpired { whose: who.clone() });
-				Ok(Pays::No.into())
+				Ok((Some(actual_weight), Pays::No).into())
 			} else {
 				Err(Error::<T>::NoUsername.into())
 			}
@@ -1247,7 +1255,7 @@ pub mod pallet {
 		/// Once the grace period has passed, the username can be permanently deleted by calling
 		/// [remove_username](crate::Call::remove_username).
 		#[pallet::call_index(22)]
-		#[pallet::weight(T::WeightInfo::remove_dangling_username())]
+		#[pallet::weight(T::WeightInfo::unbind_username())]
 		pub fn unbind_username(
 			origin: OriginFor<T>,
 			username: Username<T>,
@@ -1273,12 +1281,13 @@ pub mod pallet {
 				},
 				Provider::System => return Err(Error::<T>::InvalidTarget.into()),
 			}
+			Self::deposit_event(Event::UsernameUnbound { username });
 			Ok(Pays::Yes.into())
 		}
 
 		/// Permanently delete a username which has been unbinding for longer than the grace period.
 		#[pallet::call_index(23)]
-		#[pallet::weight(T::WeightInfo::remove_dangling_username())]
+		#[pallet::weight(T::WeightInfo::remove_username())]
 		pub fn remove_username(
 			origin: OriginFor<T>,
 			username: Username<T>,
@@ -1319,13 +1328,14 @@ pub mod pallet {
 				},
 				Provider::System => return Err(Error::<T>::InvalidTarget.into()),
 			}
+			Self::deposit_event(Event::UsernameRemoved { username });
 			Ok(Pays::No.into())
 		}
 
 		/// Call with [ForceOrigin](crate::Config::ForceOrigin) privileges which deletes a username
 		/// and slashes any deposit associated with it.
 		#[pallet::call_index(24)]
-		#[pallet::weight(T::WeightInfo::remove_dangling_username())]
+		#[pallet::weight(T::WeightInfo::kill_username(0))]
 		pub fn kill_username(
 			origin: OriginFor<T>,
 			username: Username<T>,
@@ -1343,7 +1353,7 @@ pub mod pallet {
 				}
 			});
 			let _ = UnbindingUsernames::<T>::take(&username);
-			match username_info.provider {
+			let actual_weight = match username_info.provider {
 				Provider::Authority(username_deposit) => {
 					let suffix =
 						Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
@@ -1354,15 +1364,19 @@ pub mod pallet {
 							T::Currency::slash_reserved(&authority_account, username_deposit).0,
 						);
 					}
+					T::WeightInfo::kill_username(0)
 				},
 				Provider::Governance => {
-					// We don't refund the allocation, it is lost.
+					// We don't refund the allocation, it is lost, but we do refund some weight.
+					T::WeightInfo::kill_username(1)
 				},
 				Provider::System => {
 					// Force origin can remove system usernames.
+					T::WeightInfo::kill_username(1)
 				},
-			}
-			Ok(Pays::No.into())
+			};
+			Self::deposit_event(Event::UsernameKilled { username });
+			Ok((Some(actual_weight), Pays::No).into())
 		}
 	}
 }
