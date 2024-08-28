@@ -17,15 +17,8 @@ Alternatively to adding the label, you can also comment `/backport`. It should n
 
 For example here where the dev triggered the process manually with a comment after the PR is merged:
 
-![backport](./.assets/backport-ex1.png)
+![backport](./images/backport-ex1.png)
 
 Or triggering the process with a label after merging:
 
-![backport](./.assets/backport-ex2.png)
-
-## Known Issue
-
-The bot has a bug and will always try to also backport the backport. It will make a comment in the backport that you can ignore.
-
-
-![backport](./.assets/backport-ex3.png)
+![backport](./images/backport-ex2.png)
