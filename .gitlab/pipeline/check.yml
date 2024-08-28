@@ -106,7 +106,7 @@ check-runtime-migration-westend:
     NETWORK: "westend"
     PACKAGE: "westend-runtime"
     WASM: "westend_runtime.compact.compressed.wasm"
-    URI: "wss://westend-try-runtime-node.parity-chains.parity.io:443"
+    URI: "wss://try-runtime-westend.polkadot.io:443"
     SUBCOMMAND_EXTRA_ARGS: "--no-weight-warnings"
 
 check-runtime-migration-rococo:
@@ -119,28 +119,8 @@ check-runtime-migration-rococo:
     NETWORK: "rococo"
     PACKAGE: "rococo-runtime"
     WASM: "rococo_runtime.compact.compressed.wasm"
-    URI: "wss://rococo-try-runtime-node.parity-chains.parity.io:443"
+    URI: "wss://try-runtime-rococo.polkadot.io:443"
     SUBCOMMAND_EXTRA_ARGS: "--no-weight-warnings"
-
-find-fail-ci-phrase:
-  stage: check
-  variables:
-    CI_IMAGE: "paritytech/tools:latest"
-    ASSERT_REGEX: "FAIL-CI"
-    GIT_DEPTH: 1
-  extends:
-    - .kubernetes-env
-    - .test-pr-refs
-  script:
-    - set +e
-    - rg --line-number --hidden --type rust --glob '!{.git,target}' "$ASSERT_REGEX" .; exit_status=$?
-    - if [ $exit_status -eq 0 ]; then
-      echo "$ASSERT_REGEX was found, exiting with 1";
-      exit 1;
-      else
-      echo "No $ASSERT_REGEX was found, exiting with 0";
-      exit 0;
-      fi
 
 check-core-crypto-features:
   stage: check

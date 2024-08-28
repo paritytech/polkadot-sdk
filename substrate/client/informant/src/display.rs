@@ -65,11 +65,11 @@ impl<B: BlockT> InformantDisplay<B> {
 		info: &ClientInfo<B>,
 		net_status: NetworkStatus,
 		sync_status: SyncStatus<B>,
+		num_connected_peers: usize,
 	) {
 		let best_number = info.chain.best_number;
 		let best_hash = info.chain.best_hash;
 		let finalized_number = info.chain.finalized_number;
-		let num_connected_peers = sync_status.num_connected_peers;
 		let speed = speed::<B>(best_number, self.last_number, self.last_update);
 		let total_bytes_inbound = net_status.total_bytes_inbound;
 		let total_bytes_outbound = net_status.total_bytes_outbound;
@@ -101,17 +101,9 @@ impl<B: BlockT> InformantDisplay<B> {
 					_,
 					Some(WarpSyncProgress { phase: WarpSyncPhase::DownloadingBlocks(n), .. }),
 				) if !sync_status.is_major_syncing() => ("⏩", "Block history".into(), format!(", #{}", n)),
-				(
-					_,
-					_,
-					Some(WarpSyncProgress { phase: WarpSyncPhase::AwaitingTargetBlock, .. }),
-				) => ("⏩", "Waiting for pending target block".into(), "".into()),
 				// Handle all phases besides the two phases we already handle above.
 				(_, _, Some(warp))
-					if !matches!(
-						warp.phase,
-						WarpSyncPhase::AwaitingTargetBlock | WarpSyncPhase::DownloadingBlocks(_)
-					) =>
+					if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) =>
 					(
 						"⏩",
 						"Warping".into(),
