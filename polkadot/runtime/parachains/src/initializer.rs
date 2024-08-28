@@ -286,6 +286,8 @@ impl<T: Config> Pallet<T> {
 		dmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		hrmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		T::CoretimeOnNewSession::on_new_session(&notification);
+
+		scheduler::Pallet::<T>::post_new_session();
 	}
 
 	/// Should be called when a new session occurs. Buffers the session notification to be applied
@@ -327,6 +329,11 @@ impl<T: Config> Pallet<T> {
 		I: Iterator<Item = (&'a T::AccountId, ValidatorId)>,
 	{
 		Self::on_new_session(changed, session_index, validators, queued)
+	}
+
+	/// Return whether at the end of this block a new session will be initialized.
+	pub(crate) fn upcoming_session_change() -> bool {
+		!BufferedSessionChanges::<T>::get().is_empty()
 	}
 }
 

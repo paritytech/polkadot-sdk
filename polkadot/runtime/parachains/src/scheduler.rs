@@ -155,13 +155,25 @@ impl<T: Config> Pallet<T> {
 	/// Called by the initializer to finalize the scheduler pallet.
 	pub(crate) fn initializer_finalize() {}
 
-	/// Called before the initializer notifies of a new session.
+	/// Called before the initializer notifies any modules of a new session.
 	pub(crate) fn pre_new_session(occupied_cores: impl Iterator<Item = (CoreIndex, ParaId)>) {
 		Self::push_claim_queue_items_to_assignment_provider();
-		Self::push_occupied_cores_to_assignment_provider(occupied_cores);
+		// The formerly occupied cores will have their candidates dropped in the inclusion module.
+		// We only need to report them as processed. These are candidates that took longer then 1
+		// block to become available and unfortunately they happened to be right before the session
+		// change.
+		for (core_index, para_id) in occupied_cores {
+			// TODO: can we assume a pool assignment for simplicity?
+			T::AssignmentProvider::report_processed(Assignment::Pool { para_id, core_index });
+		}
+	}
+
+	/// Called after the initializer notifies all modules of a new session.
+	pub(crate) fn post_new_session() {
 		Self::populate_claim_queue();
 	}
 
+	/// Retrieve the number of cores of the current session, from the assigner.
 	pub(crate) fn num_cores() -> u32 {
 		T::AssignmentProvider::session_core_count()
 	}
@@ -174,7 +186,7 @@ impl<T: Config> Pallet<T> {
 		let config = new_config;
 
 		let n_cores = core::cmp::max(
-			T::AssignmentProvider::session_core_count(),
+			Self::num_cores(),
 			match config.scheduler_params.max_validators_per_core {
 				Some(x) if x != 0 => validators.len() as u32 / x,
 				_ => 0,
@@ -343,16 +355,6 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Pushes occupied cores to the assignment provider.
-	fn push_occupied_cores_to_assignment_provider(
-		occupied_cores: impl Iterator<Item = (CoreIndex, ParaId)>,
-	) {
-		for (core_index, para_id) in occupied_cores {
-			// TODO: can we assume a pool assignment for simplicity?
-			Self::push_assignment(Assignment::Pool { para_id, core_index });
-		}
-	}
-
 	// on new session
 	fn push_claim_queue_items_to_assignment_provider() {
 		for (_, claim_queue) in ClaimQueue::<T>::take() {
@@ -364,9 +366,10 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	// on new session
+	// Populate the claim queue. To be called on new session, after all the other modules were
+	// initialized.
 	fn populate_claim_queue() {
-		let n_session_cores = T::AssignmentProvider::session_core_count();
+		let n_session_cores = Self::num_cores();
 		let config = configuration::ActiveConfig::<T>::get();
 		// Extra sanity, config should already never be smaller than 1:
 		let n_lookahead = config.scheduler_params.lookahead.max(1);
@@ -389,14 +392,15 @@ impl<T: Config> Pallet<T> {
 		T::AssignmentProvider::push_back_assignment(assignment);
 	}
 
-	/// Frees cores and fills the free claim queue spots by popping from the `AssignmentProvider`.
-	pub fn advance_claim_queue(except_for: &BTreeSet<CoreIndex>) {
+	/// For each core that isn't part of the `except_for` set, pop the first item of the claim queue
+	/// and fill the queue from the assignment provider.
+	pub(crate) fn advance_claim_queue(except_for: &BTreeSet<CoreIndex>) {
 		// This can only happen on new sessions at which we move all assignments back to the
 		// provider. Hence, there's nothing we need to do here.
 		if ValidatorGroups::<T>::decode_len().map_or(true, |l| l == 0) {
 			return
 		}
-		let n_session_cores = T::AssignmentProvider::session_core_count();
+		let n_session_cores = Self::num_cores();
 		let config = configuration::ActiveConfig::<T>::get();
 		// Extra sanity, config should already never be smaller than 1:
 		let n_lookahead = config.scheduler_params.lookahead.max(1);
@@ -443,6 +447,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// 1. The para must be scheduled on core.
 	/// 2. Core needs to be free, otherwise backing is not possible.
+	///
+	/// We get a set of the occupied cores as input.
 	pub(crate) fn eligible_paras<'a>(
 		occupied_cores: &'a BTreeSet<CoreIndex>,
 	) -> impl Iterator<Item = (CoreIndex, ParaId)> + 'a {

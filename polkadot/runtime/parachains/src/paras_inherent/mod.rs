@@ -552,6 +552,8 @@ impl<T: Config> Pallet<T> {
 			log::debug!(target: LOG_TARGET, "Evicted timed out cores: {:?}", freed_timeout);
 		}
 
+		let upcoming_new_session = initializer::Pallet::<T>::upcoming_session_change();
+
 		// We'll schedule paras again, given freed cores, and reasons for freeing.
 		let occupied_cores =
 			inclusion::Pallet::<T>::get_occupied_cores().map(|(core, _para)| core).collect();
@@ -567,48 +569,58 @@ impl<T: Config> Pallet<T> {
 			eligible.entry(para_id).or_default().insert(core_idx);
 		}
 
-		let core_index_enabled = configuration::ActiveConfig::<T>::get()
-			.node_features
-			.get(FeatureIndex::ElasticScalingMVP as usize)
-			.map(|b| *b)
-			.unwrap_or(false);
+		let (candidate_receipt_with_backing_validator_indices, backed_candidates_with_core) =
+			if !upcoming_new_session {
+				let core_index_enabled = configuration::ActiveConfig::<T>::get()
+					.node_features
+					.get(FeatureIndex::ElasticScalingMVP as usize)
+					.map(|b| *b)
+					.unwrap_or(false);
 
-		let initial_candidate_count = backed_candidates.len();
-		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
-			backed_candidates,
-			&allowed_relay_parents,
-			concluded_invalid_hashes,
-			eligible,
-			core_index_enabled,
-		);
-		let count = count_backed_candidates(&backed_candidates_with_core);
+				let initial_candidate_count = backed_candidates.len();
+				let backed_candidates_with_core = sanitize_backed_candidates::<T>(
+					backed_candidates,
+					&allowed_relay_parents,
+					concluded_invalid_hashes,
+					eligible,
+					core_index_enabled,
+				);
+				let count = count_backed_candidates(&backed_candidates_with_core);
 
-		ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
+				ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
 
-		METRICS.on_candidates_sanitized(count as u64);
+				METRICS.on_candidates_sanitized(count as u64);
 
-		// In `Enter` context (invoked during execution) no more candidates should be filtered,
-		// because they have already been filtered during `ProvideInherent` context. Abort in such
-		// cases.
-		if context == ProcessInherentDataContext::Enter {
-			ensure!(
-				initial_candidate_count == count,
-				Error::<T>::CandidatesFilteredDuringExecution
-			);
-		}
+				// In `Enter` context (invoked during execution) no more candidates should be
+				// filtered, because they have already been filtered during `ProvideInherent`
+				// context. Abort in such cases.
+				if context == ProcessInherentDataContext::Enter {
+					ensure!(
+						initial_candidate_count == count,
+						Error::<T>::CandidatesFilteredDuringExecution
+					);
+				}
 
-		// Process backed candidates according to scheduled cores.
-		let candidate_receipt_with_backing_validator_indices =
-			inclusion::Pallet::<T>::process_candidates(
-				&allowed_relay_parents,
-				&backed_candidates_with_core,
-				scheduler::Pallet::<T>::group_validators,
-				core_index_enabled,
-			)?;
+				// Process backed candidates according to scheduled cores.
+				let candidate_receipt_with_backing_validator_indices =
+					inclusion::Pallet::<T>::process_candidates(
+						&allowed_relay_parents,
+						&backed_candidates_with_core,
+						scheduler::Pallet::<T>::group_validators,
+						core_index_enabled,
+					)?;
 
-		// We need to advance the claim queue on all cores, except for the ones that did not get
-		// freed in this block. The ones that did not get freed also cannot be newly occupied.
-		scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
+				// We need to advance the claim queue on all cores, except for the ones that did not
+				// get freed in this block. The ones that did not get freed also cannot be newly
+				// occupied.
+				scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
+
+				(candidate_receipt_with_backing_validator_indices, backed_candidates_with_core)
+			} else {
+				// If we'll initialize a new session at the end of the block, we don't want to
+				// advance the claim queue.
+				(vec![], BTreeMap::new())
+			};
 
 		set_scrapable_on_chain_backings::<T>(
 			current_session,
@@ -622,6 +634,7 @@ impl<T: Config> Pallet<T> {
 
 		let bitfields = bitfields.into_iter().map(|v| v.into_unchecked()).collect();
 
+		let count = backed_candidates_with_core.len();
 		let processed = ParachainsInherentData {
 			bitfields,
 			backed_candidates: backed_candidates_with_core.into_iter().fold(
