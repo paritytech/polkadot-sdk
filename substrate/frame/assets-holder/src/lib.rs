@@ -130,7 +130,7 @@ pub mod pallet {
 
 	/// A map that stores the current total held balance for every account on a given AssetId.
 	#[pallet::storage]
-	pub(super) type HeldBalances<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub(super) type BalancesOnHold<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
@@ -153,14 +153,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		use sp_runtime::traits::{Saturating, Zero};
 
-		for (asset, who, _) in HeldBalances::<T, I>::iter() {
+		for (asset, who, _) in BalancesOnHold::<T, I>::iter() {
 			let held_amount: T::Balance = Holds::<T, I>::get(asset.clone(), who.clone())
 				.iter()
 				.map(|l| l.amount)
 				.fold(Zero::zero(), |prev, amount| prev.saturating_add(amount));
 
 			frame_support::ensure!(
-				HeldBalances::<T, I>::get(asset, who).unwrap_or_else(Zero::zero) == held_amount,
+				BalancesOnHold::<T, I>::get(asset, who).unwrap_or_else(Zero::zero) == held_amount,
 				"The `HeldAmount` is not equal to the sum of `Holds` for (`asset`, `who`)"
 			);
 		}

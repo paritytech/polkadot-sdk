@@ -81,7 +81,7 @@ mod impl_balance_on_hold {
 		new_test_ext(|| {
 			test_hold(DummyHoldReason::Governance, 1);
 			AssetsHolder::died(ASSET_ID, &WHO);
-			assert!(HeldBalances::<Test>::get(ASSET_ID, WHO).is_none());
+			assert!(BalancesOnHold::<Test>::get(ASSET_ID, WHO).is_none());
 			assert!(Holds::<Test>::get(ASSET_ID, WHO).is_empty());
 		});
 	}
@@ -184,7 +184,7 @@ mod impl_hold_unbalanced {
 	fn set_balance_on_hold_works() {
 		new_test_ext(|| {
 			assert_eq!(Holds::<Test>::get(ASSET_ID, WHO).to_vec(), vec![]);
-			assert_eq!(HeldBalances::<Test>::get(ASSET_ID, WHO), None);
+			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, WHO), None);
 			// Adding held balance works
 			assert_ok!(AssetsHolder::set_balance_on_hold(
 				ASSET_ID,
@@ -196,7 +196,7 @@ mod impl_hold_unbalanced {
 				Holds::<Test>::get(ASSET_ID, WHO).to_vec(),
 				vec![IdAmount { id: DummyHoldReason::Governance, amount: 1 }]
 			);
-			assert_eq!(HeldBalances::<Test>::get(ASSET_ID, WHO), Some(1));
+			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, WHO), Some(1));
 			// Increasing hold works
 			assert_ok!(AssetsHolder::set_balance_on_hold(
 				ASSET_ID,
@@ -208,7 +208,7 @@ mod impl_hold_unbalanced {
 				Holds::<Test>::get(ASSET_ID, WHO).to_vec(),
 				vec![IdAmount { id: DummyHoldReason::Governance, amount: 3 }]
 			);
-			assert_eq!(HeldBalances::<Test>::get(ASSET_ID, WHO), Some(3));
+			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, WHO), Some(3));
 			// Adding new held balance works
 			assert_ok!(AssetsHolder::set_balance_on_hold(
 				ASSET_ID,
@@ -223,7 +223,7 @@ mod impl_hold_unbalanced {
 					IdAmount { id: DummyHoldReason::Staking, amount: 2 }
 				]
 			);
-			assert_eq!(HeldBalances::<Test>::get(ASSET_ID, WHO), Some(5));
+			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, WHO), Some(5));
 
 			// Note: Assertion skipped to meet @gavofyork's suggestion of matching the number of
 			// variant count with the number of enum's variants.
@@ -247,7 +247,7 @@ mod impl_hold_unbalanced {
 					IdAmount { id: DummyHoldReason::Staking, amount: 1 }
 				]
 			);
-			assert_eq!(HeldBalances::<Test>::get(ASSET_ID, WHO), Some(4));
+			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, WHO), Some(4));
 			// Decreasing until removal of held balance works
 			assert_ok!(AssetsHolder::set_balance_on_hold(
 				ASSET_ID,
@@ -259,7 +259,7 @@ mod impl_hold_unbalanced {
 				Holds::<Test>::get(ASSET_ID, WHO).to_vec(),
 				vec![IdAmount { id: DummyHoldReason::Staking, amount: 1 }]
 			);
-			assert_eq!(HeldBalances::<Test>::get(ASSET_ID, WHO), Some(1));
+			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, WHO), Some(1));
 			// Clearing ol all holds works
 			assert_ok!(AssetsHolder::set_balance_on_hold(
 				ASSET_ID,
@@ -268,7 +268,7 @@ mod impl_hold_unbalanced {
 				0
 			));
 			assert_eq!(Holds::<Test>::get(ASSET_ID, WHO).to_vec(), vec![]);
-			assert_eq!(HeldBalances::<Test>::get(ASSET_ID, WHO), None);
+			assert_eq!(BalancesOnHold::<Test>::get(ASSET_ID, WHO), None);
 		});
 	}
 }

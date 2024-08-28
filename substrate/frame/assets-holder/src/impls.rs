@@ -36,11 +36,11 @@ impl<T: Config<I>, I: 'static> BalanceOnHold<T::AssetId, T::AccountId, T::Balanc
 	for Pallet<T, I>
 {
 	fn balance_on_hold(asset: T::AssetId, who: &T::AccountId) -> Option<T::Balance> {
-		HeldBalances::<T, I>::get(asset, who)
+		BalancesOnHold::<T, I>::get(asset, who)
 	}
 
 	fn died(asset: T::AssetId, who: &T::AccountId) {
-		HeldBalances::<T, I>::remove(asset.clone(), who);
+		BalancesOnHold::<T, I>::remove(asset.clone(), who);
 		Holds::<T, I>::remove(asset, who);
 	}
 }
@@ -104,7 +104,7 @@ impl<T: Config<I>, I: 'static> InspectHold<T::AccountId> for Pallet<T, I> {
 	type Reason = T::RuntimeHoldReason;
 
 	fn total_balance_on_hold(asset: Self::AssetId, who: &T::AccountId) -> Self::Balance {
-		HeldBalances::<T, I>::get(asset, who).unwrap_or_else(Zero::zero)
+		BalancesOnHold::<T, I>::get(asset, who).unwrap_or_else(Zero::zero)
 	}
 
 	fn balance_on_hold(
@@ -174,28 +174,29 @@ impl<T: Config<I>, I: 'static> UnbalancedHold<T::AccountId> for Pallet<T, I> {
 		amount: Self::Balance,
 	) -> DispatchResult {
 		let mut holds = Holds::<T, I>::get(asset.clone(), who);
-		let increase;
-		let delta;
 
-		if let Some(pos) = holds.iter().position(|x| &x.id == reason) {
+		let (increase, delta) = if let Some(pos) = holds.iter().position(|x| &x.id == reason) {
 			let item = &mut holds[pos];
-			delta = item.amount.max(amount) - item.amount.min(amount);
-			increase = amount > item.amount;
+			let (increase, delta) =
+				(amount > item.amount, item.amount.max(amount) - item.amount.min(amount));
+
 			item.amount = amount;
 			if item.amount.is_zero() {
 				holds.swap_remove(pos);
 			}
+
+			(increase, delta)
 		} else {
-			increase = true;
-			delta = amount;
 			if !amount.is_zero() {
 				holds
 					.try_push(IdAmount { id: *reason, amount })
 					.map_err(|_| Error::<T, I>::TooManyHolds)?;
 			}
-		}
+			(true, amount)
+		};
 
-		let held_amount = HeldBalances::<T, I>::get(asset.clone(), who).unwrap_or_else(Zero::zero);
+		let held_amount =
+			BalancesOnHold::<T, I>::get(asset.clone(), who).unwrap_or_else(Zero::zero);
 
 		let held_amount = if increase {
 			held_amount.checked_add(&delta).ok_or(ArithmeticError::Overflow)?
@@ -204,9 +205,9 @@ impl<T: Config<I>, I: 'static> UnbalancedHold<T::AccountId> for Pallet<T, I> {
 		};
 
 		if held_amount.is_zero() {
-			HeldBalances::<T, I>::remove(asset.clone(), who);
+			BalancesOnHold::<T, I>::remove(asset.clone(), who);
 		} else {
-			HeldBalances::<T, I>::insert(asset.clone(), who, held_amount);
+			BalancesOnHold::<T, I>::insert(asset.clone(), who, held_amount);
 		}
 
 		if !holds.is_empty() {
