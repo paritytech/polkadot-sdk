@@ -96,7 +96,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{CheckedAdd, MaybeDisplay, Zero},
+	traits::{MaybeDisplay, Zero},
 	DispatchError,
 };
 use sp_std::boxed::Box;
@@ -184,7 +184,10 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
-		traits::{AccountIdConversion, BadOrigin, EnsureDiv, Saturating},
+		traits::{
+			AccountIdConversion, BadOrigin, EnsureAdd, EnsureAddAssign, EnsureDiv, EnsureMul,
+			EnsureSub, EnsureSubAssign, Saturating,
+		},
 		DispatchResult,
 	};
 
@@ -375,8 +378,6 @@ pub mod pallet {
 		BlockNumberConversionError,
 		/// The expiry block must be in the future.
 		ExpiryBlockMustBeInTheFuture,
-		/// An amount overflowed.
-		Overflow,
 		/// Insufficient funds to create the freeze.
 		InsufficientFunds,
 	}
@@ -454,7 +455,7 @@ pub mod pallet {
 			// Insert it into storage.
 			Pools::<T>::insert(pool_id, pool);
 
-			NextPoolId::<T>::put(pool_id.checked_add(1).ok_or(Error::<T>::Overflow)?);
+			NextPoolId::<T>::put(pool_id.ensure_add(1)?);
 
 			// Emit created event.
 			Self::deposit_event(Event::PoolCreated {
@@ -491,13 +492,12 @@ pub mod pallet {
 			)?;
 
 			// Update Pools.
-			pool_info.total_tokens_staked =
-				pool_info.total_tokens_staked.checked_add(&amount).ok_or(Error::<T>::Overflow)?;
+			pool_info.total_tokens_staked.ensure_add_assign(amount)?;
 
 			Pools::<T>::insert(pool_id, pool_info);
 
 			// Update PoolStakers.
-			staker_info.amount.saturating_accrue(amount);
+			staker_info.amount.ensure_add_assign(amount)?;
 			PoolStakers::<T>::insert(pool_id, &caller, staker_info);
 
 			// Emit event.
@@ -535,11 +535,11 @@ pub mod pallet {
 			)?;
 
 			// Update Pools.
-			pool_info.total_tokens_staked.saturating_reduce(amount);
+			pool_info.total_tokens_staked.ensure_sub_assign(amount)?;
 			Pools::<T>::insert(pool_id, pool_info);
 
 			// Update PoolStakers.
-			staker_info.amount.saturating_reduce(amount);
+			staker_info.amount.ensure_sub_assign(amount)?;
 			PoolStakers::<T>::insert(pool_id, &caller, staker_info);
 
 			// Emit event.
@@ -785,20 +785,20 @@ pub mod pallet {
 
 			let rewardable_blocks_elapsed: u32 =
 				match Self::last_block_reward_applicable(pool_info.expiry_block)
-					.saturating_sub(pool_info.last_update_block)
+					.ensure_sub(pool_info.last_update_block)?
 					.try_into()
 				{
 					Ok(b) => b,
 					Err(_) => return Err(Error::<T>::BlockNumberConversionError.into()),
 				};
 
-			Ok(pool_info.reward_per_token_stored.saturating_add(
+			Ok(pool_info.reward_per_token_stored.ensure_add(
 				pool_info
 					.reward_rate_per_block
-					.saturating_mul(rewardable_blocks_elapsed.into())
-					.saturating_mul(PRECISION_SCALING_FACTOR.into())
+					.ensure_mul(rewardable_blocks_elapsed.into())?
+					.ensure_mul(PRECISION_SCALING_FACTOR.into())?
 					.ensure_div(pool_info.total_tokens_staked)?,
-			))
+			)?)
 		}
 
 		/// Derives the amount of rewards earned by a staker.
@@ -810,9 +810,9 @@ pub mod pallet {
 		) -> Result<T::Balance, DispatchError> {
 			Ok(staker_info
 				.amount
-				.saturating_mul(reward_per_token.saturating_sub(staker_info.reward_per_token_paid))
+				.ensure_mul(reward_per_token.ensure_sub(staker_info.reward_per_token_paid)?)?
 				.ensure_div(PRECISION_SCALING_FACTOR.into())?
-				.saturating_add(staker_info.rewards))
+				.ensure_add(staker_info.rewards)?)
 		}
 
 		fn last_block_reward_applicable(pool_expiry_block: BlockNumberFor<T>) -> BlockNumberFor<T> {
