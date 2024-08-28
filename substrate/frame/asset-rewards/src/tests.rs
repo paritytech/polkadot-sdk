@@ -17,7 +17,7 @@
 
 use crate::{mock::*, *};
 use frame_support::{
-	assert_err, assert_ok, hypothetically,
+	assert_err, assert_noop, assert_ok, hypothetically,
 	traits::{
 		fungible::NativeOrWithId,
 		fungibles,
@@ -52,7 +52,7 @@ pub fn create_default_pool() {
 	));
 }
 
-/// The same as [`create_default_pool`], but with the admin parameter set to `None`.
+/// The same as [`create_default_pool`], but with the admin parameter set to the creator.
 pub fn create_default_pool_permissioned_admin() {
 	assert_ok!(StakingRewards::create_pool(
 		RuntimeOrigin::root(),
@@ -346,6 +346,44 @@ mod create_pool {
 					expiry_block,
 					None
 				),
+				BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn create_pool_without_admin() {
+		new_test_ext().execute_with(|| {
+			assert_eq!(NextPoolId::<MockRuntime>::get(), 0);
+
+			System::set_block_number(10);
+			let expected_expiry_block = DEFAULT_LIFETIME + 10;
+
+			assert_ok!(StakingRewards::create_pool(
+				RuntimeOrigin::root(),
+				Box::new(DEFAULT_STAKED_ASSET_ID),
+				Box::new(DEFAULT_REWARD_ASSET_ID),
+				DEFAULT_REWARD_RATE_PER_BLOCK,
+				DEFAULT_LIFETIME,
+				None,
+			));
+
+			assert_eq!(
+				events(),
+				[Event::<MockRuntime>::PoolCreated {
+					creator: PermissionedAccountId::get(),
+					pool_id: 0,
+					staked_asset_id: DEFAULT_STAKED_ASSET_ID,
+					reward_asset_id: DEFAULT_REWARD_ASSET_ID,
+					reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
+					expiry_block: expected_expiry_block,
+					admin: None,
+				}]
+			);
+
+			assert_eq!(Pools::<MockRuntime>::get(0).unwrap().admin, None);
+			assert_noop!(
+				StakingRewards::set_pool_admin(RuntimeOrigin::root(), 0, None,),
 				BadOrigin
 			);
 		});
@@ -684,6 +722,25 @@ mod set_pool_admin {
 			);
 		});
 	}
+
+	#[test]
+	fn clear_admin() {
+		new_test_ext().execute_with(|| {
+			let admin = 1;
+			let pool_id = 0;
+			create_default_pool();
+
+			assert_ok!(
+				StakingRewards::set_pool_admin(RuntimeOrigin::signed(admin), pool_id, None,)
+			);
+
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().admin, None);
+			assert_noop!(
+				StakingRewards::set_pool_admin(RuntimeOrigin::signed(admin), pool_id, None,),
+				BadOrigin
+			);
+		});
+	}
 }
 
 mod set_pool_expiry_block {
@@ -864,6 +921,25 @@ mod set_pool_expiry_block {
 			);
 		});
 	}
+
+	#[test]
+	fn fails_for_pool_without_admin() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(StakingRewards::create_pool(
+				RuntimeOrigin::root(),
+				Box::new(DEFAULT_STAKED_ASSET_ID.clone()),
+				Box::new(DEFAULT_REWARD_ASSET_ID.clone()),
+				DEFAULT_REWARD_RATE_PER_BLOCK,
+				DEFAULT_LIFETIME,
+				None,
+			));
+
+			assert_err!(
+				StakingRewards::set_pool_expiry_block(RuntimeOrigin::root(), 0, 200),
+				BadOrigin
+			);
+		});
+	}
 }
 
 mod set_pool_reward_rate_per_block {
@@ -997,6 +1073,25 @@ mod set_pool_reward_rate_per_block {
 					pool_id,
 					new_reward_rate
 				),
+				BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn fails_for_pool_without_admin() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(StakingRewards::create_pool(
+				RuntimeOrigin::root(),
+				Box::new(DEFAULT_STAKED_ASSET_ID.clone()),
+				Box::new(DEFAULT_REWARD_ASSET_ID.clone()),
+				DEFAULT_REWARD_RATE_PER_BLOCK,
+				DEFAULT_LIFETIME,
+				None,
+			));
+
+			assert_err!(
+				StakingRewards::set_pool_reward_rate_per_block(RuntimeOrigin::root(), 0, 200),
 				BadOrigin
 			);
 		});
@@ -1197,6 +1292,25 @@ mod withdraw_reward_tokens {
 					admin
 				),
 				TokenError::FundsUnavailable
+			);
+		});
+	}
+
+	#[test]
+	fn fails_for_pool_without_admin() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(StakingRewards::create_pool(
+				RuntimeOrigin::root(),
+				Box::new(DEFAULT_STAKED_ASSET_ID.clone()),
+				Box::new(DEFAULT_REWARD_ASSET_ID.clone()),
+				DEFAULT_REWARD_RATE_PER_BLOCK,
+				DEFAULT_LIFETIME,
+				None,
+			));
+
+			assert_noop!(
+				StakingRewards::withdraw_reward_tokens(RuntimeOrigin::root(), 0, 100, 1u128),
+				BadOrigin
 			);
 		});
 	}
