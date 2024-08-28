@@ -226,16 +226,10 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(staker.clone()), 0, None);
+		_(RawOrigin::Signed(staker.clone()), 0);
 
 		assert_last_event::<T>(
-			Event::RewardsHarvested {
-				caller: staker.clone(),
-				staker,
-				pool_id: 0,
-				amount: min_reward_balance,
-			}
-			.into(),
+			Event::RewardsHarvested { staker, pool_id: 0, amount: min_reward_balance }.into(),
 		);
 
 		Ok(())

@@ -306,8 +306,6 @@ pub mod pallet {
 		},
 		/// An account harvested some rewards.
 		RewardsHarvested {
-			/// The caller.
-			caller: T::AccountId,
 			/// The staker whos rewards were harvested.
 			staker: T::AccountId,
 			/// The pool.
@@ -379,13 +377,12 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			// The AccountId is at least 8 bytes to contain the unique PalletId.
-			match <frame_support::PalletId as AccountIdConversion<T::AccountId>>::try_into_account(
-				&T::PalletId::get(),
-			) {
-				// Some(_) => (),
-				Some(_) => (),
-				None => panic!("pallet_asset_rewards: PalletId must be at least 8 bytes"),
-			}
+			assert!(
+				<frame_support::PalletId as AccountIdConversion<T::AccountId>>::try_into_account(
+					&T::PalletId::get(),
+				)
+				.is_some()
+			);
 		}
 	}
 
@@ -545,19 +542,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Harvest unclaimed pool rewards for a staker.
-		///
-		/// Anyone may harvest rewards on behalf of a staker. If an explicit staker is not provided,
-		/// the caller is assumed to be the staker.
+		/// Harvest unclaimed pool rewards for the caller.
 		#[pallet::call_index(3)]
-		pub fn harvest_rewards(
-			origin: OriginFor<T>,
-			pool_id: PoolId,
-			staker: Option<T::AccountId>,
-		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
-
-			let staker = staker.unwrap_or(caller.clone());
+		pub fn harvest_rewards(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
+			let staker = ensure_signed(origin)?;
 
 			// Always start by updating the pool and staker rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
@@ -579,15 +567,14 @@ pub mod pallet {
 
 			// Emit event.
 			Self::deposit_event(Event::RewardsHarvested {
-				caller: caller.clone(),
-				staker,
+				staker: staker.clone(),
 				pool_id,
 				amount: staker_info.rewards,
 			});
 
 			// Reset staker rewards.
 			staker_info.rewards = 0u32.into();
-			PoolStakers::<T>::insert(pool_id, &caller, staker_info);
+			PoolStakers::<T>::insert(pool_id, &staker, staker_info);
 
 			Ok(())
 		}
