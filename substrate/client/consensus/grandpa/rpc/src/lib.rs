@@ -275,7 +275,7 @@ mod tests {
 	#[tokio::test]
 	async fn uninitialized_rpc_handler() {
 		let (rpc, _) = setup_io_handler(EmptyVoterState);
-		let expected_response = r#"{"jsonrpc":"2.0","error":{"code":1,"message":"GRANDPA RPC endpoint not ready"},"id":0}"#.to_string();
+		let expected_response = r#"{"jsonrpc":"2.0","id":0,"error":{"code":1,"message":"GRANDPA RPC endpoint not ready"}}"#.to_string();
 		let request = r#"{"jsonrpc":"2.0","method":"grandpa_roundState","params":[],"id":0}"#;
 		let (response, _) = rpc.raw_json_request(&request, 1).await.unwrap();
 
@@ -285,7 +285,7 @@ mod tests {
 	#[tokio::test]
 	async fn working_rpc_handler() {
 		let (rpc, _) = setup_io_handler(TestVoterState);
-		let expected_response = "{\"jsonrpc\":\"2.0\",\"result\":{\
+		let expected_response = "{\"jsonrpc\":\"2.0\",\"id\":0,\"result\":{\
 			\"setId\":1,\
 			\"best\":{\
 				\"round\":2,\"totalWeight\":100,\"thresholdWeight\":67,\
@@ -297,7 +297,7 @@ mod tests {
 				\"prevotes\":{\"currentWeight\":100,\"missing\":[]},\
 				\"precommits\":{\"currentWeight\":100,\"missing\":[]}\
 			}]\
-		},\"id\":0}".to_string();
+		}}".to_string();
 
 		let request = r#"{"jsonrpc":"2.0","method":"grandpa_roundState","params":[],"id":0}"#;
 		let (response, _) = rpc.raw_json_request(&request, 1).await.unwrap();
@@ -321,7 +321,7 @@ mod tests {
 			)
 			.await
 			.unwrap();
-		let expected = r#"{"jsonrpc":"2.0","result":false,"id":1}"#;
+		let expected = r#"{"jsonrpc":"2.0","id":1,"result":false}"#;
 
 		assert_eq!(response, expected);
 	}
