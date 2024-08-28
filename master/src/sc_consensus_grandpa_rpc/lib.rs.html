@@ -842,7 +842,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>uninitialized_rpc_handler() {
 		<span class="kw">let </span>(rpc, <span class="kw">_</span>) = setup_io_handler(EmptyVoterState);
-		<span class="kw">let </span>expected_response = <span class="string">r#"{"jsonrpc":"2.0","error":{"code":1,"message":"GRANDPA RPC endpoint not ready"},"id":0}"#</span>.to_string();
+		<span class="kw">let </span>expected_response = <span class="string">r#"{"jsonrpc":"2.0","id":0,"error":{"code":1,"message":"GRANDPA RPC endpoint not ready"}}"#</span>.to_string();
 		<span class="kw">let </span>request = <span class="string">r#"{"jsonrpc":"2.0","method":"grandpa_roundState","params":[],"id":0}"#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
 
@@ -852,7 +852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>working_rpc_handler() {
 		<span class="kw">let </span>(rpc, <span class="kw">_</span>) = setup_io_handler(TestVoterState);
-		<span class="kw">let </span>expected_response = <span class="string">"{\"jsonrpc\":\"2.0\",\"result\":{\
+		<span class="kw">let </span>expected_response = <span class="string">"{\"jsonrpc\":\"2.0\",\"id\":0,\"result\":{\
 			\"setId\":1,\
 			\"best\":{\
 				\"round\":2,\"totalWeight\":100,\"thresholdWeight\":67,\
@@ -864,7 +864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				\"prevotes\":{\"currentWeight\":100,\"missing\":[]},\
 				\"precommits\":{\"currentWeight\":100,\"missing\":[]}\
 			}]\
-		},\"id\":0}"</span>.to_string();
+		}}"</span>.to_string();
 
 		<span class="kw">let </span>request = <span class="string">r#"{"jsonrpc":"2.0","method":"grandpa_roundState","params":[],"id":0}"#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
@@ -888,7 +888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.<span class="kw">await
 			</span>.unwrap();
-		<span class="kw">let </span>expected = <span class="string">r#"{"jsonrpc":"2.0","result":false,"id":1}"#</span>;
+		<span class="kw">let </span>expected = <span class="string">r#"{"jsonrpc":"2.0","id":1,"result":false}"#</span>;
 
 		<span class="macro">assert_eq!</span>(response, expected);
 	}

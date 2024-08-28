@@ -481,7 +481,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="kw">use </span>futures::FutureExt;
@@ -696,9 +695,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>client = client.clone();
 		<span class="kw">let </span>pool = transaction_pool.clone();
 
-		Box::new(<span class="kw">move </span>|deny_unsafe, <span class="kw">_</span>| {
-			<span class="kw">let </span>deps =
-				<span class="kw">crate</span>::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
+		Box::new(<span class="kw">move </span>|<span class="kw">_</span>| {
+			<span class="kw">let </span>deps = <span class="kw">crate</span>::rpc::FullDeps { client: client.clone(), pool: pool.clone() };
 			<span class="kw">crate</span>::rpc::create_full(deps).map_err(Into::into)
 		})
 	};

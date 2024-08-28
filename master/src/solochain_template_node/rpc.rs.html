@@ -210,10 +210,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A collection of node-specific RPC methods.
 //! Substrate provides the `sc-rpc` crate, which defines the core RPC layer
 //! used by Substrate nodes. This file extends those RPC definitions with
@@ -230,16 +226,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_block_builder::BlockBuilder;
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata};
 
-<span class="kw">pub use </span>sc_rpc_api::DenyUnsafe;
-
 <span class="doccomment">/// Full client dependencies.
 </span><span class="kw">pub struct </span>FullDeps&lt;C, P&gt; {
 	<span class="doccomment">/// The client instance to use.
 	</span><span class="kw">pub </span>client: Arc&lt;C&gt;,
 	<span class="doccomment">/// Transaction pool instance.
 	</span><span class="kw">pub </span>pool: Arc&lt;P&gt;,
-	<span class="doccomment">/// Whether to deny unsafe calls
-	</span><span class="kw">pub </span>deny_unsafe: DenyUnsafe,
 }
 
 <span class="doccomment">/// Instantiate all full RPC extensions.
@@ -259,9 +251,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>substrate_frame_rpc_system::{System, SystemApiServer};
 
 	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(());
-	<span class="kw">let </span>FullDeps { client, pool, deny_unsafe } = deps;
+	<span class="kw">let </span>FullDeps { client, pool } = deps;
 
-	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())<span class="question-mark">?</span>;
+	module.merge(System::new(client.clone(), pool).into_rpc())<span class="question-mark">?</span>;
 	module.merge(TransactionPayment::new(client).into_rpc())<span class="question-mark">?</span>;
 
 	<span class="comment">// Extend this RPC with a custom API by using the following syntax.

@@ -220,7 +220,7 @@ RPC-api, then a custom RPC server has to be defined.</p>
 	<span class="kw">async fn </span>nonce(<span class="kw-2">&amp;</span><span class="self">self</span>, account: AccountId) -&gt; RpcResult&lt;Nonce&gt;;
 
 	<span class="doccomment">/// Dry run an extrinsic at a given block. Return SCALE encoded ApplyExtrinsicResult.
-	</span><span class="attr">#[method(name = <span class="string">"system_dryRun"</span>, aliases = [<span class="string">"system_dryRunAt"</span>]</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"system_dryRun"</span>, aliases = [<span class="string">"system_dryRunAt"</span>]</span>, with_extensions)]
 	<span class="kw">async fn </span>dry_run(<span class="kw-2">&amp;</span><span class="self">self</span>, extrinsic: Bytes, at: <span class="prelude-ty">Option</span>&lt;BlockHash&gt;) -&gt; RpcResult&lt;Bytes&gt;;
 }</code></pre></div>
 <h3 id="add-a-new-rpc-to-the-node-legacy"><a class="doc-anchor" href="#add-a-new-rpc-to-the-node-legacy">§</a>Add a new RPC to the node (Legacy)</h3>
@@ -244,9 +244,9 @@ RPC-api, then a custom RPC server has to be defined.</p>
 {
 	<span class="kw">use </span>substrate_frame_rpc_system::{System, SystemApiServer};
 	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(());
-	<span class="kw">let </span>FullDeps { client, pool, deny_unsafe } = deps;
+	<span class="kw">let </span>FullDeps { client, pool } = deps;
 
-	module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())<span class="question-mark">?</span>;
+	module.merge(System::new(client.clone(), pool.clone()).into_rpc())<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(module)
 }</code></pre></div>

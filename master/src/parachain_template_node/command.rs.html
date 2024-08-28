@@ -533,18 +533,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::net::SocketAddr;
-
-<span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
+</pre></div><pre class="rust"><code><span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 <span class="kw">use </span>log::info;
 <span class="kw">use </span>parachain_template_runtime::Block;
 <span class="kw">use </span>sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
-	NetworkParams, <span class="prelude-ty">Result</span>, SharedParams, SubstrateCli,
+	NetworkParams, <span class="prelude-ty">Result</span>, RpcEndpoint, SharedParams, SubstrateCli,
 };
 <span class="kw">use </span>sc_service::config::{BasePath, PrometheusConfig};
 
@@ -834,7 +830,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.or_else(|| <span class="self">self</span>.base_path.clone().map(Into::into)))
 	}
 
-	<span class="kw">fn </span>rpc_addr(<span class="kw-2">&amp;</span><span class="self">self</span>, default_listen_port: u16) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SocketAddr&gt;&gt; {
+	<span class="kw">fn </span>rpc_addr(<span class="kw-2">&amp;</span><span class="self">self</span>, default_listen_port: u16) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;RpcEndpoint&gt;&gt;&gt; {
 		<span class="self">self</span>.base.base.rpc_addr(default_listen_port)
 	}
 

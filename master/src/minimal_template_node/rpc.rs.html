@@ -213,10 +213,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -247,16 +243,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata};
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">pub use </span>sc_rpc_api::DenyUnsafe;
-
 <span class="doccomment">/// Full client dependencies.
 </span><span class="kw">pub struct </span>FullDeps&lt;C, P&gt; {
 	<span class="doccomment">/// The client instance to use.
 	</span><span class="kw">pub </span>client: Arc&lt;C&gt;,
 	<span class="doccomment">/// Transaction pool instance.
 	</span><span class="kw">pub </span>pool: Arc&lt;P&gt;,
-	<span class="doccomment">/// Whether to deny unsafe calls
-	</span><span class="kw">pub </span>deny_unsafe: DenyUnsafe,
 }
 
 <span class="attr">#[docify::export]
@@ -278,9 +270,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">use </span>substrate_frame_rpc_system::{System, SystemApiServer};
 	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(());
-	<span class="kw">let </span>FullDeps { client, pool, deny_unsafe } = deps;
+	<span class="kw">let </span>FullDeps { client, pool } = deps;
 
-	module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())<span class="question-mark">?</span>;
+	module.merge(System::new(client.clone(), pool.clone()).into_rpc())<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(module)
 }

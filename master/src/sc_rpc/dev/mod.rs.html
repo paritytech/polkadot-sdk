@@ -262,6 +262,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -286,8 +290,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
+<span class="kw">use </span>jsonrpsee::Extensions;
 <span class="kw">use </span>sc_client_api::{BlockBackend, HeaderBackend};
-<span class="kw">use </span>sc_rpc_api::{dev::error::Error, DenyUnsafe};
+<span class="kw">use </span>sc_rpc_api::{check_if_safe, dev::error::Error};
 <span class="kw">use </span>sp_api::{ApiExt, Core, ProvideRuntimeApi};
 <span class="kw">use </span>sp_core::Encode;
 <span class="kw">use </span>sp_runtime::{
@@ -306,14 +311,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The Dev API. All methods are unsafe.
 </span><span class="kw">pub struct </span>Dev&lt;Block: BlockT, Client&gt; {
 	client: Arc&lt;Client&gt;,
-	deny_unsafe: DenyUnsafe,
 	_phantom: PhantomData&lt;Block&gt;,
 }
 
 <span class="kw">impl</span>&lt;Block: BlockT, Client&gt; Dev&lt;Block, Client&gt; {
 	<span class="doccomment">/// Create a new Dev API.
-	</span><span class="kw">pub fn </span>new(client: Arc&lt;Client&gt;, deny_unsafe: DenyUnsafe) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ client, deny_unsafe, _phantom: PhantomData::default() }
+	</span><span class="kw">pub fn </span>new(client: Arc&lt;Client&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ client, _phantom: PhantomData::default() }
 	}
 }
 
@@ -328,8 +332,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ <span class="lifetime">'static</span>,
 	Client::Api: Core&lt;Block&gt;,
 {
-	<span class="kw">fn </span>block_stats(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockStats&gt;, Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">fn </span>block_stats(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
+		hash: Block::Hash,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockStats&gt;, Error&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>block = {
 			<span class="kw">let </span>block = <span class="self">self</span>.client.block(hash).map_err(|e| Error::BlockQueryError(Box::new(e)))<span class="question-mark">?</span>;

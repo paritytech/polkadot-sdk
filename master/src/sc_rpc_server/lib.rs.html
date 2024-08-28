@@ -418,6 +418,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -443,246 +452,255 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>middleware;
 <span class="kw">pub mod </span>utils;
 
-<span class="kw">use </span>std::{error::Error <span class="kw">as </span>StdError, net::SocketAddr, num::NonZeroU32, sync::Arc, time::Duration};
+<span class="kw">use </span>std::{error::Error <span class="kw">as </span>StdError, time::Duration};
 
 <span class="kw">use </span>jsonrpsee::{
 	core::BoxError,
-	server::{
-		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
-	},
+	server::{serve_with_graceful_shutdown, stop_channel, ws, PingConfig, StopHandle},
 	Methods, RpcModule,
 };
 <span class="kw">use </span>middleware::NodeHealthProxyLayer;
-<span class="kw">use </span>tokio::net::TcpListener;
 <span class="kw">use </span>tower::Service;
-<span class="kw">use </span>utils::{build_rpc_api, format_cors, get_proxy_ip, host_filtering, try_into_cors};
+<span class="kw">use </span>utils::{
+	build_rpc_api, deny_unsafe, format_listen_addrs, get_proxy_ip, ListenAddrError, RpcSettings,
+};
 
 <span class="kw">pub use </span>ip_network::IpNetwork;
 <span class="kw">pub use </span>jsonrpsee::{
-	core::{
-		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
-		traits::IdProvider,
-	},
+	core::id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
 <span class="kw">pub use </span>middleware::{Metrics, MiddlewareLayer, RpcMetrics};
+<span class="kw">pub use </span>utils::{RpcEndpoint, RpcMethods};
 
 <span class="kw">const </span>MEGABYTE: u32 = <span class="number">1024 </span>* <span class="number">1024</span>;
 
 <span class="doccomment">/// Type alias for the JSON-RPC server.
 </span><span class="kw">pub type </span>Server = jsonrpsee::server::ServerHandle;
 
+<span class="doccomment">/// Trait for providing subscription IDs that can be cloned.
+</span><span class="kw">pub trait </span>SubscriptionIdProvider:
+	jsonrpsee::core::traits::IdProvider + dyn_clone::DynClone
+{
+}
+
+<span class="macro">dyn_clone::clone_trait_object!</span>(SubscriptionIdProvider);
+
 <span class="doccomment">/// RPC server configuration.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>Config&lt;<span class="lifetime">'a</span>, M: Send + Sync + <span class="lifetime">'static</span>&gt; {
-	<span class="doccomment">/// Socket addresses.
-	</span><span class="kw">pub </span>addrs: [SocketAddr; <span class="number">2</span>],
-	<span class="doccomment">/// CORS.
-	</span><span class="kw">pub </span>cors: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;String&gt;&gt;,
-	<span class="doccomment">/// Maximum connections.
-	</span><span class="kw">pub </span>max_connections: u32,
-	<span class="doccomment">/// Maximum subscriptions per connection.
-	</span><span class="kw">pub </span>max_subs_per_conn: u32,
-	<span class="doccomment">/// Maximum rpc request payload size.
-	</span><span class="kw">pub </span>max_payload_in_mb: u32,
-	<span class="doccomment">/// Maximum rpc response payload size.
-	</span><span class="kw">pub </span>max_payload_out_mb: u32,
+</span><span class="kw">pub struct </span>Config&lt;M: Send + Sync + <span class="lifetime">'static</span>&gt; {
+	<span class="doccomment">/// RPC interfaces to start.
+	</span><span class="kw">pub </span>endpoints: Vec&lt;RpcEndpoint&gt;,
 	<span class="doccomment">/// Metrics.
 	</span><span class="kw">pub </span>metrics: <span class="prelude-ty">Option</span>&lt;RpcMetrics&gt;,
-	<span class="doccomment">/// Message buffer size
-	</span><span class="kw">pub </span>message_buffer_capacity: u32,
 	<span class="doccomment">/// RPC API.
 	</span><span class="kw">pub </span>rpc_api: RpcModule&lt;M&gt;,
 	<span class="doccomment">/// Subscription ID provider.
-	</span><span class="kw">pub </span>id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>IdProvider&gt;&gt;,
+	</span><span class="kw">pub </span>id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>SubscriptionIdProvider&gt;&gt;,
 	<span class="doccomment">/// Tokio runtime handle.
 	</span><span class="kw">pub </span>tokio_handle: tokio::runtime::Handle,
-	<span class="doccomment">/// Batch request config.
-	</span><span class="kw">pub </span>batch_config: BatchRequestConfig,
-	<span class="doccomment">/// Rate limit calls per minute.
-	</span><span class="kw">pub </span>rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
-	<span class="doccomment">/// Disable rate limit for certain ips.
-	</span><span class="kw">pub </span>rate_limit_whitelisted_ips: Vec&lt;IpNetwork&gt;,
-	<span class="doccomment">/// Trust proxy headers for rate limiting.
-	</span><span class="kw">pub </span>rate_limit_trust_proxy_headers: bool,
 }
 
 <span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">struct </span>PerConnection&lt;RpcMiddleware, HttpMiddleware&gt; {
+</span><span class="kw">struct </span>PerConnection {
 	methods: Methods,
 	stop_handle: StopHandle,
 	metrics: <span class="prelude-ty">Option</span>&lt;RpcMetrics&gt;,
 	tokio_handle: tokio::runtime::Handle,
-	service_builder: TowerServiceBuilder&lt;RpcMiddleware, HttpMiddleware&gt;,
-	rate_limit_whitelisted_ips: Arc&lt;Vec&lt;IpNetwork&gt;&gt;,
 }
 
 <span class="doccomment">/// Start RPC server listening on given address.
-</span><span class="kw">pub async fn </span>start_server&lt;M&gt;(
-	config: Config&lt;<span class="lifetime">'_</span>, M&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Server, Box&lt;<span class="kw">dyn </span>StdError + Send + Sync&gt;&gt;
+</span><span class="kw">pub async fn </span>start_server&lt;M&gt;(config: Config&lt;M&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Server, Box&lt;<span class="kw">dyn </span>StdError + Send + Sync&gt;&gt;
 <span class="kw">where
 	</span>M: Send + Sync,
 {
-	<span class="kw">let </span>Config {
-		addrs,
-		batch_config,
-		cors,
-		max_payload_in_mb,
-		max_payload_out_mb,
-		max_connections,
-		max_subs_per_conn,
-		metrics,
-		message_buffer_capacity,
-		id_provider,
-		tokio_handle,
-		rpc_api,
-		rate_limit,
-		rate_limit_whitelisted_ips,
-		rate_limit_trust_proxy_headers,
-	} = config;
-
-	<span class="kw">let </span>listener = TcpListener::bind(addrs.as_slice()).<span class="kw">await</span><span class="question-mark">?</span>;
-	<span class="kw">let </span>local_addr = listener.local_addr().ok();
-	<span class="kw">let </span>host_filter = host_filtering(cors.is_some(), local_addr);
-
-	<span class="kw">let </span>http_middleware = tower::ServiceBuilder::new()
-		.option_layer(host_filter)
-		<span class="comment">// Proxy `GET /health, /health/readiness` requests to the internal `system_health` method.
-		</span>.layer(NodeHealthProxyLayer::default())
-		.layer(try_into_cors(cors)<span class="question-mark">?</span>);
-
-	<span class="kw">let </span><span class="kw-2">mut </span>builder = jsonrpsee::server::Server::builder()
-		.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
-		.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
-		.max_connections(max_connections)
-		.max_subscriptions_per_connection(max_subs_per_conn)
-		.enable_ws_ping(
-			PingConfig::new()
-				.ping_interval(Duration::from_secs(<span class="number">30</span>))
-				.inactive_limit(Duration::from_secs(<span class="number">60</span>))
-				.max_failures(<span class="number">3</span>),
-		)
-		.set_http_middleware(http_middleware)
-		.set_message_buffer_capacity(message_buffer_capacity)
-		.set_batch_request_config(batch_config)
-		.custom_tokio_runtime(tokio_handle.clone());
-
-	<span class="kw">if let </span><span class="prelude-val">Some</span>(provider) = id_provider {
-		builder = builder.set_id_provider(provider);
-	} <span class="kw">else </span>{
-		builder = builder.set_id_provider(RandomStringIdProvider::new(<span class="number">16</span>));
-	};
+	<span class="kw">let </span>Config { endpoints, metrics, tokio_handle, rpc_api, id_provider } = config;
 
 	<span class="kw">let </span>(stop_handle, server_handle) = stop_channel();
 	<span class="kw">let </span>cfg = PerConnection {
 		methods: build_rpc_api(rpc_api).into(),
-		service_builder: builder.to_service_builder(),
 		metrics,
 		tokio_handle: tokio_handle.clone(),
 		stop_handle,
-		rate_limit_whitelisted_ips: Arc::new(rate_limit_whitelisted_ips),
 	};
 
-	tokio_handle.spawn(<span class="kw">async move </span>{
-		<span class="kw">loop </span>{
-			<span class="kw">let </span>(sock, remote_addr) = <span class="macro">tokio::select! </span>{
-				res = listener.accept() =&gt; {
-					<span class="kw">match </span>res {
-						<span class="prelude-val">Ok</span>(s) =&gt; s,
-						<span class="prelude-val">Err</span>(e) =&gt; {
-							<span class="macro">log::debug!</span>(target: <span class="string">"rpc"</span>, <span class="string">"Failed to accept ipv4 connection: {:?}"</span>, e);
-							<span class="kw">continue</span>;
+	<span class="kw">let </span><span class="kw-2">mut </span>local_addrs = Vec::new();
+
+	<span class="kw">for </span>endpoint <span class="kw">in </span>endpoints {
+		<span class="kw">let </span>allowed_to_fail = endpoint.is_optional;
+		<span class="kw">let </span>local_addr = endpoint.listen_addr;
+
+		<span class="kw">let </span><span class="kw-2">mut </span>listener = <span class="kw">match </span>endpoint.bind().<span class="kw">await </span>{
+			<span class="prelude-val">Ok</span>(l) =&gt; l,
+			<span class="prelude-val">Err</span>(e) <span class="kw">if </span>allowed_to_fail =&gt; {
+				<span class="macro">log::debug!</span>(target: <span class="string">"rpc"</span>, <span class="string">"JSON-RPC server failed to bind optional address: {:?}, error: {:?}"</span>, local_addr, e);
+				<span class="kw">continue</span>;
+			},
+			<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e),
+		};
+		<span class="kw">let </span>local_addr = listener.local_addr();
+		local_addrs.push(local_addr);
+		<span class="kw">let </span>cfg = cfg.clone();
+
+		<span class="kw">let </span><span class="kw-2">mut </span>id_provider2 = id_provider.clone();
+
+		tokio_handle.spawn(<span class="kw">async move </span>{
+			<span class="kw">loop </span>{
+				<span class="kw">let </span>(sock, remote_addr, rpc_cfg) = <span class="macro">tokio::select! </span>{
+					res = listener.accept() =&gt; {
+						<span class="kw">match </span>res {
+							<span class="prelude-val">Ok</span>(s) =&gt; s,
+							<span class="prelude-val">Err</span>(e) =&gt; {
+								<span class="macro">log::debug!</span>(target: <span class="string">"rpc"</span>, <span class="string">"Failed to accept connection: {:?}"</span>, e);
+								<span class="kw">continue</span>;
+							}
 						}
 					}
-				}
-				<span class="kw">_ </span>= cfg.stop_handle.clone().shutdown() =&gt; <span class="kw">break</span>,
-			};
+					<span class="kw">_ </span>= cfg.stop_handle.clone().shutdown() =&gt; <span class="kw">break</span>,
+				};
 
-			<span class="kw">let </span>ip = remote_addr.ip();
-			<span class="kw">let </span>cfg2 = cfg.clone();
-			<span class="kw">let </span>svc = tower::service_fn(<span class="kw">move </span>|req: http::Request&lt;hyper::body::Incoming&gt;| {
-				<span class="kw">let </span>PerConnection {
-					methods,
-					service_builder,
-					metrics,
-					tokio_handle,
-					stop_handle,
+				<span class="kw">let </span>RpcSettings {
+					batch_config,
+					max_connections,
+					max_payload_in_mb,
+					max_payload_out_mb,
+					max_buffer_capacity_per_connection,
+					max_subscriptions_per_connection,
+					rpc_methods,
+					rate_limit_trust_proxy_headers,
 					rate_limit_whitelisted_ips,
-				} = cfg2.clone();
+					host_filter,
+					cors,
+					rate_limit,
+				} = rpc_cfg;
 
-				<span class="kw">let </span>proxy_ip =
-					<span class="kw">if </span>rate_limit_trust_proxy_headers { get_proxy_ip(<span class="kw-2">&amp;</span>req) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
+				<span class="kw">let </span>http_middleware = tower::ServiceBuilder::new()
+					.option_layer(host_filter)
+					<span class="comment">// Proxy `GET /health, /health/readiness` requests to the internal
+					// `system_health` method.
+					</span>.layer(NodeHealthProxyLayer::default())
+					.layer(cors);
 
-				<span class="kw">let </span>rate_limit_cfg = <span class="kw">if </span>rate_limit_whitelisted_ips
-					.iter()
-					.any(|ips| ips.contains(proxy_ip.unwrap_or(ip)))
-				{
-					<span class="macro">log::debug!</span>(target: <span class="string">"rpc"</span>, <span class="string">"ip={ip}, proxy_ip={:?} is trusted, disabling rate-limit"</span>, proxy_ip);
-					<span class="prelude-val">None
-				</span>} <span class="kw">else </span>{
-					<span class="kw">if </span>!rate_limit_whitelisted_ips.is_empty() {
-						<span class="macro">log::debug!</span>(target: <span class="string">"rpc"</span>, <span class="string">"ip={ip}, proxy_ip={:?} is not trusted, rate-limit enabled"</span>, proxy_ip);
-					}
-					rate_limit
+				<span class="kw">let </span><span class="kw-2">mut </span>builder = jsonrpsee::server::Server::builder()
+					.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
+					.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
+					.max_connections(max_connections)
+					.max_subscriptions_per_connection(max_subscriptions_per_connection)
+					.enable_ws_ping(
+						PingConfig::new()
+							.ping_interval(Duration::from_secs(<span class="number">30</span>))
+							.inactive_limit(Duration::from_secs(<span class="number">60</span>))
+							.max_failures(<span class="number">3</span>),
+					)
+					.set_http_middleware(http_middleware)
+					.set_message_buffer_capacity(max_buffer_capacity_per_connection)
+					.set_batch_request_config(batch_config)
+					.custom_tokio_runtime(cfg.tokio_handle.clone())
+					.set_id_provider(RandomStringIdProvider::new(<span class="number">16</span>));
+
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(provider) = id_provider2.take() {
+					builder = builder.set_id_provider(provider);
+				} <span class="kw">else </span>{
+					builder = builder.set_id_provider(RandomStringIdProvider::new(<span class="number">16</span>));
 				};
 
-				<span class="kw">let </span>is_websocket = ws::is_upgrade_request(<span class="kw-2">&amp;</span>req);
-				<span class="kw">let </span>transport_label = <span class="kw">if </span>is_websocket { <span class="string">"ws" </span>} <span class="kw">else </span>{ <span class="string">"http" </span>};
+				<span class="kw">let </span>service_builder = builder.to_service_builder();
+				<span class="kw">let </span>deny_unsafe = deny_unsafe(<span class="kw-2">&amp;</span>local_addr, <span class="kw-2">&amp;</span>rpc_methods);
 
-				<span class="kw">let </span>middleware_layer = <span class="kw">match </span>(metrics, rate_limit_cfg) {
-					(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">None</span>,
-					(<span class="prelude-val">Some</span>(metrics), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Some</span>(
-						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
-					),
-					(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(rate_limit)) =&gt;
-						<span class="prelude-val">Some</span>(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit)),
-					(<span class="prelude-val">Some</span>(metrics), <span class="prelude-val">Some</span>(rate_limit)) =&gt; <span class="prelude-val">Some</span>(
-						MiddlewareLayer::new()
-							.with_metrics(Metrics::new(metrics, transport_label))
-							.with_rate_limit_per_minute(rate_limit),
-					),
-				};
+				<span class="kw">let </span>ip = remote_addr.ip();
+				<span class="kw">let </span>cfg2 = cfg.clone();
+				<span class="kw">let </span>service_builder2 = service_builder.clone();
 
-				<span class="kw">let </span>rpc_middleware = RpcServiceBuilder::new()
-					.rpc_logger(<span class="number">1024</span>)
-					.option_layer(middleware_layer.clone());
-				<span class="kw">let </span><span class="kw-2">mut </span>svc =
-					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
+				<span class="kw">let </span>svc =
+					tower::service_fn(<span class="kw">move </span>|<span class="kw-2">mut </span>req: http::Request&lt;hyper::body::Incoming&gt;| {
+						req.extensions_mut().insert(deny_unsafe);
 
-				<span class="kw">async move </span>{
-					<span class="kw">if </span>is_websocket {
-						<span class="kw">let </span>on_disconnect = svc.on_session_closed();
+						<span class="kw">let </span>PerConnection { methods, metrics, tokio_handle, stop_handle } =
+							cfg2.clone();
+						<span class="kw">let </span>service_builder = service_builder2.clone();
 
-						<span class="comment">// Spawn a task to handle when the connection is closed.
-						</span>tokio_handle.spawn(<span class="kw">async move </span>{
-							<span class="kw">let </span>now = std::time::Instant::now();
-							middleware_layer.as_ref().map(|m| m.ws_connect());
-							on_disconnect.<span class="kw">await</span>;
-							middleware_layer.as_ref().map(|m| m.ws_disconnect(now));
-						});
-					}
+						<span class="kw">let </span>proxy_ip =
+							<span class="kw">if </span>rate_limit_trust_proxy_headers { get_proxy_ip(<span class="kw-2">&amp;</span>req) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
 
-					<span class="comment">// https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
-					// to be `Box&lt;dyn std::error::Error + Send + Sync&gt;` so we need to convert it to
-					// a concrete type as workaround.
-					</span>svc.call(req).<span class="kw">await</span>.map_err(|e| BoxError::from(e))
-				}
-			});
+						<span class="kw">let </span>rate_limit_cfg = <span class="kw">if </span>rate_limit_whitelisted_ips
+							.iter()
+							.any(|ips| ips.contains(proxy_ip.unwrap_or(ip)))
+						{
+							<span class="macro">log::debug!</span>(target: <span class="string">"rpc"</span>, <span class="string">"ip={ip}, proxy_ip={:?} is trusted, disabling rate-limit"</span>, proxy_ip);
+							<span class="prelude-val">None
+						</span>} <span class="kw">else </span>{
+							<span class="kw">if </span>!rate_limit_whitelisted_ips.is_empty() {
+								<span class="macro">log::debug!</span>(target: <span class="string">"rpc"</span>, <span class="string">"ip={ip}, proxy_ip={:?} is not trusted, rate-limit enabled"</span>, proxy_ip);
+							}
+							rate_limit
+						};
 
-			cfg.tokio_handle.spawn(serve_with_graceful_shutdown(
-				sock,
-				svc,
-				cfg.stop_handle.clone().shutdown(),
-			));
-		}
-	});
+						<span class="kw">let </span>is_websocket = ws::is_upgrade_request(<span class="kw-2">&amp;</span>req);
+						<span class="kw">let </span>transport_label = <span class="kw">if </span>is_websocket { <span class="string">"ws" </span>} <span class="kw">else </span>{ <span class="string">"http" </span>};
 
-	<span class="macro">log::info!</span>(
-		<span class="string">"Running JSON-RPC server: addr={}, allowed origins={}"</span>,
-		local_addr.map_or_else(|| <span class="string">"unknown"</span>.to_string(), |a| a.to_string()),
-		format_cors(cors)
-	);
+						<span class="kw">let </span>middleware_layer = <span class="kw">match </span>(metrics, rate_limit_cfg) {
+							(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">None</span>,
+							(<span class="prelude-val">Some</span>(metrics), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Some</span>(
+								MiddlewareLayer::new()
+									.with_metrics(Metrics::new(metrics, transport_label)),
+							),
+							(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(rate_limit)) =&gt;
+								<span class="prelude-val">Some</span>(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit)),
+							(<span class="prelude-val">Some</span>(metrics), <span class="prelude-val">Some</span>(rate_limit)) =&gt; <span class="prelude-val">Some</span>(
+								MiddlewareLayer::new()
+									.with_metrics(Metrics::new(metrics, transport_label))
+									.with_rate_limit_per_minute(rate_limit),
+							),
+						};
+
+						<span class="kw">let </span>rpc_middleware =
+							RpcServiceBuilder::new().option_layer(middleware_layer.clone());
+						<span class="kw">let </span><span class="kw-2">mut </span>svc = service_builder
+							.set_rpc_middleware(rpc_middleware)
+							.build(methods, stop_handle);
+
+						<span class="kw">async move </span>{
+							<span class="kw">if </span>is_websocket {
+								<span class="kw">let </span>on_disconnect = svc.on_session_closed();
+
+								<span class="comment">// Spawn a task to handle when the connection is closed.
+								</span>tokio_handle.spawn(<span class="kw">async move </span>{
+									<span class="kw">let </span>now = std::time::Instant::now();
+									middleware_layer.as_ref().map(|m| m.ws_connect());
+									on_disconnect.<span class="kw">await</span>;
+									middleware_layer.as_ref().map(|m| m.ws_disconnect(now));
+								});
+							}
+
+							<span class="comment">// https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
+							// to be `Box&lt;dyn std::error::Error + Send + Sync&gt;` so we need to
+							// convert it to a concrete type as workaround.
+							</span>svc.call(req).<span class="kw">await</span>.map_err(|e| BoxError::from(e))
+						}
+					});
+
+				cfg.tokio_handle.spawn(serve_with_graceful_shutdown(
+					sock,
+					svc,
+					cfg.stop_handle.clone().shutdown(),
+				));
+			}
+		});
+	}
+
+	<span class="kw">if </span>local_addrs.is_empty() {
+		<span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(ListenAddrError));
+	}
+
+	<span class="comment">// The previous logging format was before
+	// `Running JSON-RPC server: addr=127.0.0.1:9944, allowed origins=["*"]`
+	//
+	// The new format is `Running JSON-RPC server: addr=&lt;addr1, addr2, .. addr_n&gt;`
+	// with the exception that for a single address it will be `Running JSON-RPC server: addr=addr,`
+	// with a trailing comma.
+	//
+	// This is to make it work with old scripts/utils that parse the logs.
+	</span><span class="macro">log::info!</span>(<span class="string">"Running JSON-RPC server: addr={}"</span>, format_listen_addrs(<span class="kw-2">&amp;</span>local_addrs));
 
 	<span class="prelude-val">Ok</span>(server_handle)
 }

@@ -265,11 +265,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>submit_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>, extrinsic: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;Hash, Error&gt;;
 
 	<span class="doccomment">/// Insert a key into the keystore.
-	</span><span class="attr">#[method(name = <span class="string">"author_insertKey"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"author_insertKey"</span>, with_extensions)]
 	</span><span class="kw">fn </span>insert_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: String, suri: String, public: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Generate new session keys and returns the corresponding public keys.
-	</span><span class="attr">#[method(name = <span class="string">"author_rotateKeys"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"author_rotateKeys"</span>, with_extensions)]
 	</span><span class="kw">fn </span>rotate_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt;;
 
 	<span class="doccomment">/// Checks if the keystore has private keys for the given session public keys.
@@ -277,13 +277,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `session_keys` is the SCALE encoded session keys object from the runtime.
 	///
 	/// Returns `true` iff all private keys could be found.
-	</span><span class="attr">#[method(name = <span class="string">"author_hasSessionKeys"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"author_hasSessionKeys"</span>, with_extensions)]
 	</span><span class="kw">fn </span>has_session_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, session_keys: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt;;
 
 	<span class="doccomment">/// Checks if the keystore has private keys for the given public key and key type.
 	///
 	/// Returns `true` if a private key could be found.
-	</span><span class="attr">#[method(name = <span class="string">"author_hasKey"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"author_hasKey"</span>, with_extensions)]
 	</span><span class="kw">fn </span>has_key(<span class="kw-2">&amp;</span><span class="self">self</span>, public_key: Bytes, key_type: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt;;
 
 	<span class="doccomment">/// Returns all pending extrinsics, potentially grouped by sender.
@@ -291,7 +291,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>pending_extrinsics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Bytes&gt;, Error&gt;;
 
 	<span class="doccomment">/// Remove given extrinsic from the pool and temporarily ban it to prevent reimporting.
-	</span><span class="attr">#[method(name = <span class="string">"author_removeExtrinsic"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"author_removeExtrinsic"</span>, with_extensions)]
 	</span><span class="kw">fn </span>remove_extrinsic(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		bytes_or_hash: Vec&lt;hash::ExtrinsicOrHash&lt;Hash&gt;&gt;,

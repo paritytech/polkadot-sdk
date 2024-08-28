@@ -164,6 +164,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.storage_pairs" class="fn">storage_pairs</a>(
         &amp;self,
+        ext: &amp;Extensions,
         prefix: <a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>,
         hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>, <a class="struct" href="../../sp_storage/struct.StorageData.html" title="struct sp_storage::StorageData">StorageData</a>)&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;;
@@ -184,13 +185,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         key: <a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>,
         hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;;
-<span class="item-spacer"></span>    fn <a href="#tymethod.storage_size" class="fn">storage_size</a>&lt;'life0, 'async_trait&gt;(
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage_size" class="fn">storage_size</a>&lt;'life0, 'life1, 'async_trait&gt;(
         &amp;'life0 self,
+        ext: &amp;'life1 Extensions,
         key: <a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>,
         hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;
     ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.77.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
        <span class="where">where Self: 'async_trait,
-             'life0: 'async_trait</span>;
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
 <span class="item-spacer"></span>    fn <a href="#tymethod.metadata" class="fn">metadata</a>(&amp;self, hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.runtime_version" class="fn">runtime_version</a>(
         &amp;self,
@@ -198,6 +201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_version/struct.RuntimeVersion.html" title="struct sp_version::RuntimeVersion">RuntimeVersion</a>, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.query_storage" class="fn">query_storage</a>(
         &amp;self,
+        ext: &amp;Extensions,
         keys: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>&gt;,
         block: Hash,
         hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;
@@ -214,6 +218,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="helpers/struct.ReadProof.html" title="struct sc_rpc_api::state::helpers::ReadProof">ReadProof</a>&lt;Hash&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.trace_block" class="fn">trace_block</a>(
         &amp;self,
+        ext: &amp;Extensions,
         block: Hash,
         targets: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
         storage_keys: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
@@ -226,6 +231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="item-spacer"></span>    fn <a href="#tymethod.subscribe_storage" class="fn">subscribe_storage</a>(
         &amp;self,
         subscription_sink: PendingSubscriptionSink,
+        ext: &amp;Extensions,
         keys: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>&gt;&gt;
     );
 
@@ -246,6 +252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the keys with prefix, leave empty to get all the keys.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_pairs" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#52-56">source</a><h4 class="code-header">fn <a href="#tymethod.storage_pairs" class="fn">storage_pairs</a>(
     &amp;self,
+    ext: &amp;Extensions,
     prefix: <a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>,
     hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>, <a class="struct" href="../../sp_storage/struct.StorageData.html" title="struct sp_storage::StorageData">StorageData</a>)&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the keys with prefix, leave empty to get all the keys</p>
@@ -268,17 +275,20 @@ If <code>start_key</code> is passed, return next keys in storage in lexicographi
     key: <a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>,
     hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the hash of a storage entry at a block’s state.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_size" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#80-81">source</a><h4 class="code-header">fn <a href="#tymethod.storage_size" class="fn">storage_size</a>&lt;'life0, 'async_trait&gt;(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_size" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#80-81">source</a><h4 class="code-header">fn <a href="#tymethod.storage_size" class="fn">storage_size</a>&lt;'life0, 'life1, 'async_trait&gt;(
     &amp;'life0 self,
+    ext: &amp;'life1 Extensions,
     key: <a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>,
     hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;
 ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.77.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
     Self: 'async_trait,
-    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns the size of a storage entry at a block’s state.</p>
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns the size of a storage entry at a block’s state.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.metadata" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#85">source</a><h4 class="code-header">fn <a href="#tymethod.metadata" class="fn">metadata</a>(&amp;self, hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the runtime metadata as an opaque blob.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.runtime_version" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#89">source</a><h4 class="code-header">fn <a href="#tymethod.runtime_version" class="fn">runtime_version</a>(&amp;self, hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_version/struct.RuntimeVersion.html" title="struct sp_version::RuntimeVersion">RuntimeVersion</a>, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get the runtime version.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.query_storage" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#99-104">source</a><h4 class="code-header">fn <a href="#tymethod.query_storage" class="fn">query_storage</a>(
     &amp;self,
+    ext: &amp;Extensions,
     keys: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>&gt;,
     block: Hash,
     hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;
@@ -300,8 +310,9 @@ the storage value under an input key at the input block hash.</p>
     keys: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>&gt;,
     hash: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="helpers/struct.ReadProof.html" title="struct sc_rpc_api::state::helpers::ReadProof">ReadProof</a>&lt;Hash&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::state::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Returns proof of storage entries at a specific block’s state.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.trace_block" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#295-301">source</a><h4 class="code-header">fn <a href="#tymethod.trace_block" class="fn">trace_block</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.trace_block" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#296-302">source</a><h4 class="code-header">fn <a href="#tymethod.trace_block" class="fn">trace_block</a>(
     &amp;self,
+    ext: &amp;Extensions,
     block: Hash,
     targets: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
     storage_keys: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
@@ -435,9 +446,10 @@ narrow down the traces using a smaller set of targets and/or storage keys.</p>
 <p>If you are having issues with maximum payload size you can use the flag
 <code>-ltracing=trace</code> to get some logging during tracing.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.subscribe_runtime_version" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#132">source</a><h4 class="code-header">fn <a href="#tymethod.subscribe_runtime_version" class="fn">subscribe_runtime_version</a>(&amp;self, subscription_sink: PendingSubscriptionSink)</h4></section></summary><div class="docblock"><p>New runtime version subscription</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.subscribe_storage" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#140">source</a><h4 class="code-header">fn <a href="#tymethod.subscribe_storage" class="fn">subscribe_storage</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.subscribe_storage" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#141">source</a><h4 class="code-header">fn <a href="#tymethod.subscribe_storage" class="fn">subscribe_storage</a>(
     &amp;self,
     subscription_sink: PendingSubscriptionSink,
+    ext: &amp;Extensions,
     keys: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>&gt;&gt;
 )</h4></section></summary><div class="docblock"><p>New storage subscription</p>
 </div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.into_rpc" class="method"><a class="src rightside" href="../../src/sc_rpc_api/state/mod.rs.html#35">source</a><h4 class="code-header">fn <a href="#method.into_rpc" class="fn">into_rpc</a>(self) -&gt; RpcModule&lt;Self&gt;<div class="where">where

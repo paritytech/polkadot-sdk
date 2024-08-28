@@ -337,6 +337,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -361,8 +364,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">use </span>futures::channel::oneshot;
-<span class="kw">use </span>jsonrpsee::core::{async_trait, JsonValue};
-<span class="kw">use </span>sc_rpc_api::DenyUnsafe;
+<span class="kw">use </span>jsonrpsee::{
+	core::{async_trait, JsonValue},
+	Extensions,
+};
+<span class="kw">use </span>sc_rpc_api::check_if_safe;
 <span class="kw">use </span>sc_tracing::logging;
 <span class="kw">use </span>sc_utils::mpsc::TracingUnboundedSender;
 <span class="kw">use </span>sp_runtime::traits::{<span class="self">self</span>, Header <span class="kw">as </span>HeaderT};
@@ -374,7 +380,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>System&lt;B: traits::Block&gt; {
 	info: SystemInfo,
 	send_back: TracingUnboundedSender&lt;Request&lt;B&gt;&gt;,
-	deny_unsafe: DenyUnsafe,
 }
 
 <span class="doccomment">/// Request to be processed.
@@ -407,12 +412,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The `send_back` will be used to transmit some of the requests. The user is responsible for
 	/// reading from that channel and answering the requests.
-	</span><span class="kw">pub fn </span>new(
-		info: SystemInfo,
-		send_back: TracingUnboundedSender&lt;Request&lt;B&gt;&gt;,
-		deny_unsafe: DenyUnsafe,
-	) -&gt; <span class="self">Self </span>{
-		System { info, send_back, deny_unsafe }
+	</span><span class="kw">pub fn </span>new(info: SystemInfo, send_back: TracingUnboundedSender&lt;Request&lt;B&gt;&gt;) -&gt; <span class="self">Self </span>{
+		System { info, send_back }
 	}
 }
 
@@ -458,22 +459,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>system_peers(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerInfo&lt;B::Hash, &lt;B::Header <span class="kw">as </span>HeaderT&gt;::Number&gt;&gt;, Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+		check_if_safe(ext)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::Peers(tx));
 		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	<span class="kw">async fn </span>system_network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;JsonValue, Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">async fn </span>system_network_state(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: <span class="kw-2">&amp;</span>Extensions) -&gt; <span class="prelude-ty">Result</span>&lt;JsonValue, Error&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::NetworkState(tx));
 		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	<span class="kw">async fn </span>system_add_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">async fn </span>system_add_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: <span class="kw-2">&amp;</span>Extensions, peer: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::NetworkAddReservedPeer(peer, tx));
 		<span class="kw">match </span>rx.<span class="kw">await </span>{
@@ -483,8 +485,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">async fn </span>system_remove_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">async fn </span>system_remove_reserved_peer(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
+		peer: String,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::NetworkRemoveReservedPeer(peer, tx));
 		<span class="kw">match </span>rx.<span class="kw">await </span>{
@@ -512,15 +518,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	<span class="kw">fn </span>system_add_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>, directives: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">fn </span>system_add_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: <span class="kw-2">&amp;</span>Extensions, directives: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 
 		logging::add_directives(<span class="kw-2">&amp;</span>directives);
 		logging::reload_filter().map_err(|e| Error::Internal(e))
 	}
 
-	<span class="kw">fn </span>system_reset_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">fn </span>system_reset_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: <span class="kw-2">&amp;</span>Extensions) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 		logging::reset_log_filter().map_err(|e| Error::Internal(e))
 	}
 }

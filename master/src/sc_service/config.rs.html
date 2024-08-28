@@ -475,22 +475,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -526,7 +510,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	Multiaddr,
 };
-<span class="kw">pub use </span>sc_rpc_server::IpNetwork;
+<span class="kw">pub use </span>sc_rpc_server::{
+	IpNetwork, RpcEndpoint, RpcMethods, SubscriptionIdProvider <span class="kw">as </span>RpcSubscriptionIdProvider,
+};
 <span class="kw">pub use </span>sc_telemetry::TelemetryEndpoints;
 <span class="kw">pub use </span>sc_transaction_pool::Options <span class="kw">as </span>TransactionPoolOptions;
 <span class="kw">use </span>sp_core::crypto::SecretString;
@@ -575,8 +561,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// over on-chain runtimes when the spec version matches. Set to `None` to
 	/// disable overrides (default).
 	</span><span class="kw">pub </span>wasm_runtime_overrides: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-	<span class="doccomment">/// JSON-RPC server binding address.
-	</span><span class="kw">pub </span>rpc_addr: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
+	<span class="doccomment">/// JSON-RPC server endpoints.
+	</span><span class="kw">pub </span>rpc_addr: <span class="prelude-ty">Option</span>&lt;Vec&lt;RpcEndpoint&gt;&gt;,
 	<span class="doccomment">/// Maximum number of connections for JSON-RPC server.
 	</span><span class="kw">pub </span>rpc_max_connections: u32,
 	<span class="doccomment">/// CORS settings for HTTP &amp; WS servers. `None` if all origins are allowed.
@@ -590,7 +576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Custom JSON-RPC subscription ID provider.
 	///
 	/// Default: [`crate::RandomStringSubscriptionId`].
-	</span><span class="kw">pub </span>rpc_id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::RpcSubscriptionIdProvider&gt;&gt;,
+	</span><span class="kw">pub </span>rpc_id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>RpcSubscriptionIdProvider&gt;&gt;,
 	<span class="doccomment">/// Maximum allowed subscriptions per rpc connection
 	</span><span class="kw">pub </span>rpc_max_subs_per_conn: u32,
 	<span class="doccomment">/// JSON-RPC server default port.
@@ -745,24 +731,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			source: <span class="self">self</span>.database.clone(),
 			blocks_pruning: <span class="self">self</span>.blocks_pruning,
 		}
-	}
-}
-
-<span class="doccomment">/// Available RPC methods.
-</span><span class="attr">#[derive(Debug, Copy, Clone)]
-</span><span class="kw">pub enum </span>RpcMethods {
-	<span class="doccomment">/// Expose every RPC method only when RPC is listening on `localhost`,
-	/// otherwise serve only safe RPC methods.
-	</span>Auto,
-	<span class="doccomment">/// Allow only a safe subset of RPC methods.
-	</span>Safe,
-	<span class="doccomment">/// Expose every RPC method (even potentially unsafe ones).
-	</span>Unsafe,
-}
-
-<span class="kw">impl </span>Default <span class="kw">for </span>RpcMethods {
-	<span class="kw">fn </span>default() -&gt; RpcMethods {
-		RpcMethods::Auto
 	}
 }
 

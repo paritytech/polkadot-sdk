@@ -217,11 +217,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>OffchainApi {
 	<span class="doccomment">/// Set offchain local storage under given key and prefix.
-	</span><span class="attr">#[method(name = <span class="string">"offchain_localStorageSet"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"offchain_localStorageSet"</span>, with_extensions)]
 	</span><span class="kw">fn </span>set_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes, value: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Get offchain local storage under given key and prefix.
-	</span><span class="attr">#[method(name = <span class="string">"offchain_localStorageGet"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"offchain_localStorageGet"</span>, with_extensions)]
 	</span><span class="kw">fn </span>get_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Bytes&gt;, Error&gt;;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

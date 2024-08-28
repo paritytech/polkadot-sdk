@@ -1228,6 +1228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1076" id="1076">1076</a>
 <a href="#1077" id="1077">1077</a>
 <a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1591,8 +1592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A shared transaction pool.
 	</span><span class="kw">pub </span>transaction_pool: Arc&lt;TExPool&gt;,
 	<span class="doccomment">/// Builds additional [`RpcModule`]s that should be added to the server
-	</span><span class="kw">pub </span>rpc_builder:
-		Box&lt;<span class="kw">dyn </span>Fn(DenyUnsafe, SubscriptionTaskExecutor) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;TRpc&gt;, Error&gt;&gt;,
+	</span><span class="kw">pub </span>rpc_builder: Box&lt;<span class="kw">dyn </span>Fn(SubscriptionTaskExecutor) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;TRpc&gt;, Error&gt;&gt;,
 	<span class="doccomment">/// A shared network instance.
 	</span><span class="kw">pub </span>network: Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 	<span class="doccomment">/// A Sender for RPC requests.
@@ -1721,9 +1721,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>rpc_id_provider = config.rpc_id_provider.take();
 
 	<span class="comment">// jsonrpsee RPC
-	</span><span class="kw">let </span>gen_rpc_module = |deny_unsafe: DenyUnsafe| {
+	</span><span class="kw">let </span>gen_rpc_module = || {
 		gen_rpc_module(
-			deny_unsafe,
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
@@ -1735,8 +1734,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	};
 
-	<span class="kw">let </span>rpc = start_rpc_servers(<span class="kw-2">&amp;</span>config, gen_rpc_module, rpc_id_provider)<span class="question-mark">?</span>;
-	<span class="kw">let </span>rpc_handlers = RpcHandlers::new(Arc::new(gen_rpc_module(sc_rpc::DenyUnsafe::No)<span class="question-mark">?</span>.into()));
+	<span class="kw">let </span>rpc_server_handle = start_rpc_servers(<span class="kw-2">&amp;</span>config, gen_rpc_module, rpc_id_provider)<span class="question-mark">?</span>;
+	<span class="kw">let </span>in_memory_rpc = {
+		<span class="kw">let </span><span class="kw-2">mut </span>module = gen_rpc_module()<span class="question-mark">?</span>;
+		module.extensions_mut().insert(DenyUnsafe::No);
+		module
+	};
+
+	<span class="kw">let </span>in_memory_rpc_handle = RpcHandlers::new(Arc::new(in_memory_rpc));
 
 	<span class="comment">// Spawn informant task
 	</span>spawn_handle.spawn(
@@ -1745,9 +1750,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sc_informant::build(client.clone(), network, sync_service.clone()),
 	);
 
-	task_manager.keep_alive((config.base_path, rpc));
+	task_manager.keep_alive((config.base_path, rpc_server_handle));
 
-	<span class="prelude-val">Ok</span>(rpc_handlers)
+	<span class="prelude-val">Ok</span>(in_memory_rpc_handle)
 }
 
 <span class="doccomment">/// Returns a future that forwards imported transactions to the transaction networking protocol.
@@ -1820,7 +1825,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Generate RPC module using provided configuration
 </span><span class="kw">pub fn </span>gen_rpc_module&lt;TBl, TBackend, TCl, TRpc, TExPool&gt;(
-	deny_unsafe: DenyUnsafe,
 	spawn_handle: SpawnTaskHandle,
 	client: Arc&lt;TCl&gt;,
 	transaction_pool: Arc&lt;TExPool&gt;,
@@ -1828,7 +1832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	system_rpc_tx: TracingUnboundedSender&lt;sc_rpc::system::Request&lt;TBl&gt;&gt;,
 	config: <span class="kw-2">&amp;</span>Configuration,
 	backend: Arc&lt;TBackend&gt;,
-	rpc_builder: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Fn(DenyUnsafe, SubscriptionTaskExecutor) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;TRpc&gt;, Error&gt;),
+	rpc_builder: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Fn(SubscriptionTaskExecutor) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;TRpc&gt;, Error&gt;),
 ) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;()&gt;, Error&gt;
 <span class="kw">where
 	</span>TBl: BlockT,
@@ -1863,8 +1867,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>(chain, state, child_state) = {
 		<span class="kw">let </span>chain = sc_rpc::chain::new_full(client.clone(), task_executor.clone()).into_rpc();
-		<span class="kw">let </span>(state, child_state) =
-			sc_rpc::state::new_full(client.clone(), task_executor.clone(), deny_unsafe);
+		<span class="kw">let </span>(state, child_state) = sc_rpc::state::new_full(client.clone(), task_executor.clone());
 		<span class="kw">let </span>state = state.into_rpc();
 		<span class="kw">let </span>child_state = child_state.into_rpc();
 
@@ -1928,15 +1931,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		client.clone(),
 		transaction_pool,
 		keystore,
-		deny_unsafe,
 		task_executor.clone(),
 	)
 	.into_rpc();
 
-	<span class="kw">let </span>system = sc_rpc::system::System::new(system_info, system_rpc_tx, deny_unsafe).into_rpc();
+	<span class="kw">let </span>system = sc_rpc::system::System::new(system_info, system_rpc_tx).into_rpc();
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(storage) = backend.offchain_storage() {
-		<span class="kw">let </span>offchain = sc_rpc::offchain::Offchain::new(storage, deny_unsafe).into_rpc();
+		<span class="kw">let </span>offchain = sc_rpc::offchain::Offchain::new(storage).into_rpc();
 
 		rpc_api.merge(offchain).map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
 	}
@@ -1956,7 +1958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	rpc_api.merge(state).map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
 	rpc_api.merge(child_state).map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
 	<span class="comment">// Additional [`RpcModule`]s defined in the node to fit the specific blockchain
-	</span><span class="kw">let </span>extra_rpcs = rpc_builder(deny_unsafe, task_executor.clone())<span class="question-mark">?</span>;
+	</span><span class="kw">let </span>extra_rpcs = rpc_builder(task_executor.clone())<span class="question-mark">?</span>;
 	rpc_api.merge(extra_rpcs).map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(rpc_api)

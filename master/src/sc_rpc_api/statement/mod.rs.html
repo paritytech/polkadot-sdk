@@ -239,7 +239,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>StatementApi {
 	<span class="doccomment">/// Return all statements, SCALE-encoded.
-	</span><span class="attr">#[method(name = <span class="string">"statement_dump"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"statement_dump"</span>, with_extensions)]
 	</span><span class="kw">fn </span>dump(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;Bytes&gt;&gt;;
 
 	<span class="doccomment">/// Return the data of all known statements which include all topics and have no `DecryptionKey`

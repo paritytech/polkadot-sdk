@@ -224,6 +224,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -248,11 +258,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">use </span><span class="self">self</span>::error::Error;
-<span class="kw">use </span>jsonrpsee::core::async_trait;
+<span class="kw">use </span>jsonrpsee::{core::async_trait, Extensions};
 <span class="kw">use </span>parking_lot::RwLock;
+<span class="kw">use </span>sc_rpc_api::check_if_safe;
 <span class="doccomment">/// Re-export the API for backward compatibility.
 </span><span class="kw">pub use </span>sc_rpc_api::offchain::<span class="kw-2">*</span>;
-<span class="kw">use </span>sc_rpc_api::DenyUnsafe;
 <span class="kw">use </span>sp_core::{
 	offchain::{OffchainStorage, StorageKind},
 	Bytes,
@@ -264,20 +274,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>Offchain&lt;T: OffchainStorage&gt; {
 	<span class="doccomment">/// Offchain storage
 	</span>storage: Arc&lt;RwLock&lt;T&gt;&gt;,
-	deny_unsafe: DenyUnsafe,
 }
 
 <span class="kw">impl</span>&lt;T: OffchainStorage&gt; Offchain&lt;T&gt; {
 	<span class="doccomment">/// Create new instance of Offchain API.
-	</span><span class="kw">pub fn </span>new(storage: T, deny_unsafe: DenyUnsafe) -&gt; <span class="self">Self </span>{
-		Offchain { storage: Arc::new(RwLock::new(storage)), deny_unsafe }
+	</span><span class="kw">pub fn </span>new(storage: T) -&gt; <span class="self">Self </span>{
+		Offchain { storage: Arc::new(RwLock::new(storage)) }
 	}
 }
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;T: OffchainStorage + <span class="lifetime">'static</span>&gt; OffchainApiServer <span class="kw">for </span>Offchain&lt;T&gt; {
-	<span class="kw">fn </span>set_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes, value: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">fn </span>set_local_storage(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
+		kind: StorageKind,
+		key: Bytes,
+		value: Bytes,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>prefix = <span class="kw">match </span>kind {
 			StorageKind::PERSISTENT =&gt; sp_offchain::STORAGE_PREFIX,
@@ -287,8 +302,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>get_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Bytes&gt;, Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">fn </span>get_local_storage(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
+		kind: StorageKind,
+		key: Bytes,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Bytes&gt;, Error&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>prefix = <span class="kw">match </span>kind {
 			StorageKind::PERSISTENT =&gt; sp_offchain::STORAGE_PREFIX,

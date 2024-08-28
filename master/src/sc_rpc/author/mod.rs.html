@@ -362,6 +362,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -394,8 +398,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>futures::TryFutureExt;
-<span class="kw">use </span>jsonrpsee::{core::async_trait, types::ErrorObject, PendingSubscriptionSink};
-<span class="kw">use </span>sc_rpc_api::DenyUnsafe;
+<span class="kw">use </span>jsonrpsee::{core::async_trait, types::ErrorObject, Extensions, PendingSubscriptionSink};
+<span class="kw">use </span>sc_rpc_api::check_if_safe;
 <span class="kw">use </span>sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
 	TransactionSource, TxHash,
@@ -419,8 +423,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>pool: Arc&lt;P&gt;,
 	<span class="doccomment">/// The key store.
 	</span>keystore: KeystorePtr,
-	<span class="doccomment">/// Whether to deny unsafe calls
-	</span>deny_unsafe: DenyUnsafe,
 	<span class="doccomment">/// Executor to spawn subscriptions.
 	</span>executor: SubscriptionTaskExecutor,
 }
@@ -431,10 +433,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		client: Arc&lt;Client&gt;,
 		pool: Arc&lt;P&gt;,
 		keystore: KeystorePtr,
-		deny_unsafe: DenyUnsafe,
 		executor: SubscriptionTaskExecutor,
 	) -&gt; <span class="self">Self </span>{
-		Author { client, pool, keystore, deny_unsafe, executor }
+		Author { client, pool, keystore, executor }
 	}
 }
 
@@ -468,8 +469,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="kw">fn </span>insert_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: String, suri: String, public: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">fn </span>insert_key(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
+		key_type: String,
+		suri: String,
+		public: Bytes,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>key_type = key_type.as_str().try_into().map_err(|<span class="kw">_</span>| Error::BadKeyType)<span class="question-mark">?</span>;
 		<span class="self">self</span>.keystore
@@ -478,8 +485,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>rotate_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">fn </span>rotate_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: <span class="kw-2">&amp;</span>Extensions) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>best_block_hash = <span class="self">self</span>.client.info().best_hash;
 		<span class="kw">let </span><span class="kw-2">mut </span>runtime_api = <span class="self">self</span>.client.runtime_api();
@@ -492,8 +499,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|api_err| Error::Client(Box::new(api_err)).into())
 	}
 
-	<span class="kw">fn </span>has_session_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, session_keys: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">fn </span>has_session_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: <span class="kw-2">&amp;</span>Extensions, session_keys: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>best_block_hash = <span class="self">self</span>.client.info().best_hash;
 		<span class="kw">let </span>keys = <span class="self">self
@@ -506,8 +513,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.keystore.has_keys(<span class="kw-2">&amp;</span>keys))
 	}
 
-	<span class="kw">fn </span>has_key(<span class="kw-2">&amp;</span><span class="self">self</span>, public_key: Bytes, key_type: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">fn </span>has_key(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: <span class="kw-2">&amp;</span>Extensions, public_key: Bytes, key_type: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>key_type = key_type.as_str().try_into().map_err(|<span class="kw">_</span>| Error::BadKeyType)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.keystore.has_keys(<span class="kw-2">&amp;</span>[(public_key.to_vec(), key_type)]))
@@ -519,9 +526,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>remove_extrinsic(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		bytes_or_hash: Vec&lt;hash::ExtrinsicOrHash&lt;TxHash&lt;P&gt;&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;TxHash&lt;P&gt;&gt;&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+		check_if_safe(ext)<span class="question-mark">?</span>;
 		<span class="kw">let </span>hashes = bytes_or_hash
 			.into_iter()
 			.map(|x| <span class="kw">match </span>x {

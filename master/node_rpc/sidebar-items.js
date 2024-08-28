@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DenyUnsafe"],"fn":["create_full"],"struct":["BabeDeps","BeefyDeps","FullDeps","GrandpaDeps"],"type":["SubscriptionTaskExecutor"]};
+window.SIDEBAR_ITEMS = {"fn":["create_full"],"struct":["BabeDeps","BeefyDeps","FullDeps","GrandpaDeps"],"type":["SubscriptionTaskExecutor"]};

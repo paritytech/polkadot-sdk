@@ -331,6 +331,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -360,7 +363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BeefyBestBlockStream, BeefyVersionedFinalityProofStream,
 };
 <span class="kw">use </span>sc_consensus_grandpa::FinalityProofProvider;
-<span class="kw">pub use </span>sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
+<span class="kw">pub use </span>sc_rpc::SubscriptionTaskExecutor;
 <span class="kw">use </span>sc_transaction_pool_api::TransactionPool;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
@@ -416,8 +419,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>select_chain: SC,
 	<span class="doccomment">/// A copy of the chain spec.
 	</span><span class="kw">pub </span>chain_spec: Box&lt;<span class="kw">dyn </span>sc_chain_spec::ChainSpec&gt;,
-	<span class="doccomment">/// Whether to deny unsafe calls
-	</span><span class="kw">pub </span>deny_unsafe: DenyUnsafe,
 	<span class="doccomment">/// BABE specific dependencies.
 	</span><span class="kw">pub </span>babe: BabeDeps,
 	<span class="doccomment">/// GRANDPA specific dependencies.
@@ -430,7 +431,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Instantiate all RPC extensions.
 </span><span class="kw">pub fn </span>create_full&lt;C, P, SC, B, AuthorityId&gt;(
-	FullDeps { client, pool, select_chain, chain_spec, deny_unsafe, babe, grandpa, beefy, backend } : FullDeps&lt;C, P, SC, B, AuthorityId&gt;,
+	FullDeps { client, pool, select_chain, chain_spec, babe, grandpa, beefy, backend }: FullDeps&lt;
+		C,
+		P,
+		SC,
+		B,
+		AuthorityId,
+	&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;RpcExtension, Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt;
 <span class="kw">where
 	</span>C: ProvideRuntimeApi&lt;Block&gt;
@@ -471,8 +478,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		finality_provider,
 	} = grandpa;
 
-	io.merge(StateMigration::new(client.clone(), backend.clone(), deny_unsafe).into_rpc())<span class="question-mark">?</span>;
-	io.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())<span class="question-mark">?</span>;
+	io.merge(StateMigration::new(client.clone(), backend.clone()).into_rpc())<span class="question-mark">?</span>;
+	io.merge(System::new(client.clone(), pool.clone()).into_rpc())<span class="question-mark">?</span>;
 	io.merge(TransactionPayment::new(client.clone()).into_rpc())<span class="question-mark">?</span>;
 	io.merge(
 		Mmr::new(
@@ -484,8 +491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.into_rpc(),
 	)<span class="question-mark">?</span>;
 	io.merge(
-		Babe::new(client.clone(), babe_worker_handle.clone(), keystore, select_chain, deny_unsafe)
-			.into_rpc(),
+		Babe::new(client.clone(), babe_worker_handle.clone(), keystore, select_chain).into_rpc(),
 	)<span class="question-mark">?</span>;
 	io.merge(
 		Grandpa::new(

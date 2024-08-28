@@ -212,6 +212,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -236,6 +245,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! RPC when accessed externally.
 
 </span><span class="kw">use </span>jsonrpsee::types::{error::ErrorCode, ErrorObject, ErrorObjectOwned};
+
+<span class="doccomment">/// Checks if the RPC call is safe to be called externally.
+</span><span class="kw">pub fn </span>check_if_safe(ext: <span class="kw-2">&amp;</span>jsonrpsee::Extensions) -&gt; <span class="prelude-ty">Result</span>&lt;(), UnsafeRpcError&gt; {
+	<span class="kw">match </span>ext.get::&lt;DenyUnsafe&gt;().map(|deny_unsafe| deny_unsafe.check_if_safe()) {
+		<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(())) =&gt; <span class="prelude-val">Ok</span>(()),
+		<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(e)) =&gt; <span class="prelude-val">Err</span>(e),
+		<span class="prelude-val">None </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"DenyUnsafe extension is always set by the substrate rpc server; qed"</span>),
+	}
+}
 
 <span class="doccomment">/// Signifies whether a potentially unsafe RPC should be denied.
 </span><span class="attr">#[derive(Clone, Copy, Debug)]

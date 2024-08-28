@@ -427,6 +427,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
 <a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -454,12 +457,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	core::async_trait,
 	proc_macros::rpc,
 	types::{ErrorObject, ErrorObjectOwned},
+	Extensions,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span>sc_consensus_babe::{authorship, BabeWorkerHandle};
 <span class="kw">use </span>sc_consensus_epochs::Epoch <span class="kw">as </span>EpochT;
-<span class="kw">use </span>sc_rpc_api::{DenyUnsafe, UnsafeRpcError};
+<span class="kw">use </span>sc_rpc_api::{check_if_safe, UnsafeRpcError};
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_application_crypto::AppCrypto;
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata};
@@ -476,7 +480,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>BabeApi {
 	<span class="doccomment">/// Returns data about which slots (primary or secondary) can be claimed in the current epoch
 	/// with the keys in the keystore.
-	</span><span class="attr">#[method(name = <span class="string">"babe_epochAuthorship"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"babe_epochAuthorship"</span>, with_extensions)]
 	</span><span class="kw">async fn </span>epoch_authorship(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;AuthorityId, EpochAuthorship&gt;, Error&gt;;
 }
 
@@ -490,8 +494,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>keystore: KeystorePtr,
 	<span class="doccomment">/// The SelectChain strategy
 	</span>select_chain: SC,
-	<span class="doccomment">/// Whether to deny unsafe calls
-	</span>deny_unsafe: DenyUnsafe,
 }
 
 <span class="kw">impl</span>&lt;B: BlockT, C, SC&gt; Babe&lt;B, C, SC&gt; {
@@ -501,9 +503,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		babe_worker_handle: BabeWorkerHandle&lt;B&gt;,
 		keystore: KeystorePtr,
 		select_chain: SC,
-		deny_unsafe: DenyUnsafe,
 	) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ client, babe_worker_handle, keystore, select_chain, deny_unsafe }
+		<span class="self">Self </span>{ client, babe_worker_handle, keystore, select_chain }
 	}
 }
 
@@ -518,8 +519,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C::Api: BabeRuntimeApi&lt;B&gt;,
 	SC: SelectChain&lt;B&gt; + Clone + <span class="lifetime">'static</span>,
 {
-	<span class="kw">async fn </span>epoch_authorship(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;AuthorityId, EpochAuthorship&gt;, Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">async fn </span>epoch_authorship(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;AuthorityId, EpochAuthorship&gt;, Error&gt; {
+		check_if_safe(ext)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>best_header = <span class="self">self</span>.select_chain.best_chain().map_err(Error::SelectChain).<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -622,6 +626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sc_consensus_babe::ImportQueueParams;
+	<span class="kw">use </span>sc_rpc_api::DenyUnsafe;
 	<span class="kw">use </span>sc_transaction_pool_api::{OffchainTransactionPoolFactory, RejectAllTxPool};
 	<span class="kw">use </span>sp_consensus_babe::inherents::InherentDataProvider;
 	<span class="kw">use </span>sp_core::{crypto::key_types::BABE, testing::TaskExecutor};
@@ -640,9 +645,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		keystore.into()
 	}
 
-	<span class="kw">fn </span>test_babe_rpc_module(
-		deny_unsafe: DenyUnsafe,
-	) -&gt; Babe&lt;Block, TestClient, sc_consensus::LongestChain&lt;Backend, Block&gt;&gt; {
+	<span class="kw">fn </span>test_babe_rpc_module() -&gt; Babe&lt;Block, TestClient, sc_consensus::LongestChain&lt;Backend, Block&gt;&gt;
+	{
 		<span class="kw">let </span>builder = TestClientBuilder::new();
 		<span class="kw">let </span>(client, longest_chain) = builder.build_with_longest_chain();
 		<span class="kw">let </span>client = Arc::new(client);
@@ -677,29 +681,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 		.unwrap();
 
-		Babe::new(client.clone(), babe_worker_handle, keystore, longest_chain, deny_unsafe)
+		Babe::new(client.clone(), babe_worker_handle, keystore, longest_chain)
 	}
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>epoch_authorship_works() {
-		<span class="kw">let </span>babe_rpc = test_babe_rpc_module(DenyUnsafe::No);
-		<span class="kw">let </span>api = babe_rpc.into_rpc();
+		<span class="kw">let </span>babe_rpc = test_babe_rpc_module();
+		<span class="kw">let </span><span class="kw-2">mut </span>api = babe_rpc.into_rpc();
+		api.extensions_mut().insert(DenyUnsafe::No);
 
-		<span class="kw">let </span>request = <span class="string">r#"{"jsonrpc":"2.0","method":"babe_epochAuthorship","params": [],"id":1}"#</span>;
+		<span class="kw">let </span>request = <span class="string">r#"{"jsonrpc":"2.0","id":1,"method":"babe_epochAuthorship","params":[]}"#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = api.raw_json_request(request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>expected = <span class="string">r#"{"jsonrpc":"2.0","result":{"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY":{"primary":[0],"secondary":[],"secondary_vrf":[1,2,4]}},"id":1}"#</span>;
+		<span class="kw">let </span>expected = <span class="string">r#"{"jsonrpc":"2.0","id":1,"result":{"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY":{"primary":[0],"secondary":[],"secondary_vrf":[1,2,4]}}}"#</span>;
 
 		<span class="macro">assert_eq!</span>(response, expected);
 	}
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>epoch_authorship_is_unsafe() {
-		<span class="kw">let </span>babe_rpc = test_babe_rpc_module(DenyUnsafe::Yes);
-		<span class="kw">let </span>api = babe_rpc.into_rpc();
+		<span class="kw">let </span>babe_rpc = test_babe_rpc_module();
+		<span class="kw">let </span><span class="kw-2">mut </span>api = babe_rpc.into_rpc();
+		api.extensions_mut().insert(DenyUnsafe::Yes);
 
 		<span class="kw">let </span>request = <span class="string">r#"{"jsonrpc":"2.0","method":"babe_epochAuthorship","params":[],"id":1}"#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = api.raw_json_request(request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>expected = <span class="string">r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"RPC call is unsafe to be called externally"},"id":1}"#</span>;
+		<span class="kw">let </span>expected = <span class="string">r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"RPC call is unsafe to be called externally"}}"#</span>;
 
 		<span class="macro">assert_eq!</span>(response, expected);
 	}

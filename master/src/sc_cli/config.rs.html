@@ -872,6 +872,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#720" id="720">720</a>
 <a href="#721" id="721">721</a>
 <a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -894,7 +899,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{
 	arg_enums::Database, error::Result, DatabaseParams, ImportParams, KeystoreParams,
-	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, SharedParams, SubstrateCli,
+	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, RpcEndpoint, SharedParams,
+	SubstrateCli,
 };
 <span class="kw">use </span>log::warn;
 <span class="kw">use </span>names::{Generator, Name};
@@ -908,7 +914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 <span class="kw">use </span>sc_tracing::logging::LoggerBuilder;
-<span class="kw">use </span>std::{net::SocketAddr, num::NonZeroU32, path::PathBuf};
+<span class="kw">use </span>std::{num::NonZeroU32, path::PathBuf};
 
 <span class="doccomment">/// The maximum number of characters for a node name.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NODE_NAME_MAX_LENGTH: usize = <span class="number">64</span>;
@@ -1175,7 +1181,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get the RPC address.
-	</span><span class="kw">fn </span>rpc_addr(<span class="kw-2">&amp;</span><span class="self">self</span>, _default_listen_port: u16) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SocketAddr&gt;&gt; {
+	</span><span class="kw">fn </span>rpc_addr(<span class="kw-2">&amp;</span><span class="self">self</span>, _default_listen_port: u16) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;RpcEndpoint&gt;&gt;&gt; {
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 	}
 
@@ -1378,6 +1384,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>telemetry_endpoints = <span class="self">self</span>.telemetry_endpoints(<span class="kw-2">&amp;</span>chain_spec)<span class="question-mark">?</span>;
 		<span class="kw">let </span>runtime_cache_size = <span class="self">self</span>.runtime_cache_size()<span class="question-mark">?</span>;
 
+		<span class="kw">let </span>rpc_addrs: <span class="prelude-ty">Option</span>&lt;Vec&lt;sc_service::config::RpcEndpoint&gt;&gt; = <span class="self">self
+			</span>.rpc_addr(DCV::rpc_listen_port())<span class="question-mark">?
+			</span>.map(|addrs| addrs.into_iter().map(Into::into).collect());
+
 		<span class="prelude-val">Ok</span>(Configuration {
 			impl_name: C::impl_name(),
 			impl_version: C::impl_version(),
@@ -1401,7 +1411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			blocks_pruning: <span class="self">self</span>.blocks_pruning()<span class="question-mark">?</span>,
 			wasm_method: <span class="self">self</span>.wasm_method()<span class="question-mark">?</span>,
 			wasm_runtime_overrides: <span class="self">self</span>.wasm_runtime_overrides(),
-			rpc_addr: <span class="self">self</span>.rpc_addr(DCV::rpc_listen_port())<span class="question-mark">?</span>,
+			rpc_addr: rpc_addrs,
 			rpc_methods: <span class="self">self</span>.rpc_methods()<span class="question-mark">?</span>,
 			rpc_max_connections: <span class="self">self</span>.rpc_max_connections()<span class="question-mark">?</span>,
 			rpc_cors: <span class="self">self</span>.rpc_cors(is_dev)<span class="question-mark">?</span>,

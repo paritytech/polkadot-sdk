@@ -153,12 +153,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     // Required methods
     fn <a href="#tymethod.set_local_storage" class="fn">set_local_storage</a>(
         &amp;self,
+        ext: &amp;Extensions,
         kind: <a class="enum" href="../../sp_core/offchain/enum.StorageKind.html" title="enum sp_core::offchain::StorageKind">StorageKind</a>,
         key: <a class="struct" href="../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>,
         value: <a class="struct" href="../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::offchain::error::Error">Error</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.get_local_storage" class="fn">get_local_storage</a>(
         &amp;self,
+        ext: &amp;Extensions,
         kind: <a class="enum" href="../../sp_core/offchain/enum.StorageKind.html" title="enum sp_core::offchain::StorageKind">StorageKind</a>,
         key: <a class="struct" href="../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::offchain::error::Error">Error</a>&gt;;
@@ -168,12 +170,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Server trait implementation for the <code>OffchainApi</code> RPC API.</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.set_local_storage" class="method"><a class="src rightside" href="../../src/sc_rpc_api/offchain/mod.rs.html#32">source</a><h4 class="code-header">fn <a href="#tymethod.set_local_storage" class="fn">set_local_storage</a>(
     &amp;self,
+    ext: &amp;Extensions,
     kind: <a class="enum" href="../../sp_core/offchain/enum.StorageKind.html" title="enum sp_core::offchain::StorageKind">StorageKind</a>,
     key: <a class="struct" href="../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>,
     value: <a class="struct" href="../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::offchain::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Set offchain local storage under given key and prefix.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_local_storage" class="method"><a class="src rightside" href="../../src/sc_rpc_api/offchain/mod.rs.html#36">source</a><h4 class="code-header">fn <a href="#tymethod.get_local_storage" class="fn">get_local_storage</a>(
     &amp;self,
+    ext: &amp;Extensions,
     kind: <a class="enum" href="../../sp_core/offchain/enum.StorageKind.html" title="enum sp_core::offchain::StorageKind">StorageKind</a>,
     key: <a class="struct" href="../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>&gt;, <a class="enum" href="error/enum.Error.html" title="enum sc_rpc_api::offchain::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get offchain local storage under given key and prefix.</p>

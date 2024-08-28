@@ -452,6 +452,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -502,7 +503,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the keys with prefix, leave empty to get all the keys
-	</span><span class="attr">#[method(name = <span class="string">"state_getPairs"</span>, blocking)]
+	</span><span class="attr">#[method(name = <span class="string">"state_getPairs"</span>, blocking, with_extensions)]
 	</span><span class="kw">fn </span>storage_pairs(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		prefix: StorageKey,
@@ -530,7 +531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Hash&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the size of a storage entry at a block's state.
-	</span><span class="attr">#[method(name = <span class="string">"state_getStorageSize"</span>, aliases = [<span class="string">"state_getStorageSizeAt"</span>]</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"state_getStorageSize"</span>, aliases = [<span class="string">"state_getStorageSizeAt"</span>]</span>, with_extensions)]
 	<span class="kw">async fn </span>storage_size(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;)
 		-&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;, Error&gt;;
 
@@ -549,7 +550,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Subsequent values in the vector represent changes to the previous state (diffs).
 	/// WARNING: The time complexity of this query is O(|keys|*dist(block, hash)), and the
 	/// memory complexity is O(dist(block, hash)) -- use with caution.
-	</span><span class="attr">#[method(name = <span class="string">"state_queryStorage"</span>, blocking)]
+	</span><span class="attr">#[method(name = <span class="string">"state_queryStorage"</span>, blocking, with_extensions)]
 	</span><span class="kw">fn </span>query_storage(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		keys: Vec&lt;StorageKey&gt;,
@@ -590,6 +591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		name = <span class="string">"state_subscribeStorage" </span>=&gt; <span class="string">"state_storage"</span>,
 		unsubscribe = <span class="string">"state_unsubscribeStorage"</span>,
 		item = StorageChangeSet&lt;Hash&gt;,
+		with_extensions,
 	)]
 	</span><span class="kw">fn </span>subscribe_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, keys: <span class="prelude-ty">Option</span>&lt;Vec&lt;StorageKey&gt;&gt;);
 
@@ -745,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// If you are having issues with maximum payload size you can use the flag
 	/// `-ltracing=trace` to get some logging during tracing.
-	</span><span class="attr">#[method(name = <span class="string">"state_traceBlock"</span>, blocking)]
+	</span><span class="attr">#[method(name = <span class="string">"state_traceBlock"</span>, blocking, with_extensions)]
 	</span><span class="kw">fn </span>trace_block(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block: Hash,

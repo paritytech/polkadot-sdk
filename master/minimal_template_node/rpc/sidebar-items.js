@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DenyUnsafe"],"fn":["create_full"],"struct":["FullDeps"]};
+window.SIDEBAR_ITEMS = {"fn":["create_full"],"struct":["FullDeps"]};

@@ -635,6 +635,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
 <a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -662,11 +673,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">use </span><span class="kw">crate</span>::SubscriptionTaskExecutor;
-<span class="kw">use </span>jsonrpsee::{core::async_trait, PendingSubscriptionSink};
+<span class="kw">use </span>jsonrpsee::{core::async_trait, Extensions, PendingSubscriptionSink};
 <span class="kw">use </span>sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, ExecutorProvider, ProofProvider, StorageProvider,
 };
-<span class="kw">use </span>sc_rpc_api::DenyUnsafe;
+<span class="kw">use </span>sc_rpc_api::{check_if_safe, DenyUnsafe};
 <span class="kw">use </span>sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
 <span class="kw">use </span>sp_blockchain::{HeaderBackend, HeaderMetadata};
 <span class="kw">use </span>sp_core::{
@@ -801,7 +812,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>new_full&lt;BE, Block: BlockT, Client&gt;(
 	client: Arc&lt;Client&gt;,
 	executor: SubscriptionTaskExecutor,
-	deny_unsafe: DenyUnsafe,
 ) -&gt; (State&lt;Block, Client&gt;, ChildState&lt;Block, Client&gt;)
 <span class="kw">where
 	</span>Block: BlockT + <span class="lifetime">'static</span>,
@@ -824,14 +834,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>child_backend =
 		Box::new(<span class="self">self</span>::state_full::FullState::new(client.clone(), executor.clone()));
 	<span class="kw">let </span>backend = Box::new(<span class="self">self</span>::state_full::FullState::new(client, executor));
-	(State { backend, deny_unsafe }, ChildState { backend: child_backend })
+	(State { backend }, ChildState { backend: child_backend })
 }
 
 <span class="doccomment">/// State API with subscriptions support.
 </span><span class="kw">pub struct </span>State&lt;Block, Client&gt; {
 	backend: Box&lt;<span class="kw">dyn </span>StateBackend&lt;Block, Client&gt;&gt;,
-	<span class="doccomment">/// Whether to deny unsafe calls
-	</span>deny_unsafe: DenyUnsafe,
 }
 
 <span class="attr">#[async_trait]
@@ -859,10 +867,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>storage_pairs(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		key_prefix: StorageKey,
 		block: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(StorageKey, StorageData)&gt;, Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+		check_if_safe(ext)<span class="question-mark">?</span>;
 		<span class="self">self</span>.backend.storage_pairs(block, key_prefix).map_err(Into::into)
 	}
 
@@ -899,13 +908,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>storage_size(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		key: StorageKey,
 		block: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;, Error&gt; {
-		<span class="self">self</span>.backend
-			.storage_size(block, key, <span class="self">self</span>.deny_unsafe)
-			.<span class="kw">await
-			</span>.map_err(Into::into)
+		<span class="kw">let </span>deny_unsafe = ext
+			.get::&lt;DenyUnsafe&gt;()
+			.cloned()
+			.expect(<span class="string">"DenyUnsafe extension is always set by the substrate rpc server; qed"</span>);
+		<span class="self">self</span>.backend.storage_size(block, key, deny_unsafe).<span class="kw">await</span>.map_err(Into::into)
 	}
 
 	<span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, block: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt; {
@@ -918,11 +929,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>query_storage(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		keys: Vec&lt;StorageKey&gt;,
 		from: Block::Hash,
 		to: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageChangeSet&lt;Block::Hash&gt;&gt;, Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+		check_if_safe(ext)<span class="question-mark">?</span>;
 		<span class="self">self</span>.backend.query_storage(from, to, keys).map_err(Into::into)
 	}
 
@@ -949,12 +961,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Note: requires runtimes compiled with wasm tracing support, `--features with-tracing`.
 	</span><span class="kw">fn </span>trace_block(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		block: Block::Hash,
 		targets: <span class="prelude-ty">Option</span>&lt;String&gt;,
 		storage_keys: <span class="prelude-ty">Option</span>&lt;String&gt;,
 		methods: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;sp_rpc::tracing::TraceBlockResponse, Error&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+		check_if_safe(ext)<span class="question-mark">?</span>;
 		<span class="self">self</span>.backend
 			.trace_block(block, targets, storage_keys, methods)
 			.map_err(Into::into)
@@ -964,8 +977,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.backend.subscribe_runtime_version(pending)
 	}
 
-	<span class="kw">fn </span>subscribe_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink, keys: <span class="prelude-ty">Option</span>&lt;Vec&lt;StorageKey&gt;&gt;) {
-		<span class="self">self</span>.backend.subscribe_storage(pending, keys, <span class="self">self</span>.deny_unsafe)
+	<span class="kw">fn </span>subscribe_storage(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		pending: PendingSubscriptionSink,
+		ext: <span class="kw-2">&amp;</span>Extensions,
+		keys: <span class="prelude-ty">Option</span>&lt;Vec&lt;StorageKey&gt;&gt;,
+	) {
+		<span class="kw">let </span>deny_unsafe = ext
+			.get::&lt;DenyUnsafe&gt;()
+			.cloned()
+			.expect(<span class="string">"DenyUnsafe extension is always set by the substrate rpc server; qed"</span>);
+		<span class="self">self</span>.backend.subscribe_storage(pending, keys, deny_unsafe)
 	}
 }
 

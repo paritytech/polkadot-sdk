@@ -735,6 +735,100 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
 <a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -757,8 +851,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	arg_enums::{Cors, RpcMethods},
 	error::{Error, <span class="prelude-ty">Result</span>},
 	params::{
-		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, SharedParams,
-		TransactionPoolParams,
+		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, RpcEndpoint,
+		SharedParams, TransactionPoolParams,
 	},
 	CliConfiguration, PrometheusParams, RuntimeParams, TelemetryParams,
 	RPC_DEFAULT_MAX_CONNECTIONS, RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB,
@@ -774,7 +868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sc_telemetry::TelemetryEndpoints;
 <span class="kw">use </span>std::{
-	net::{IpAddr, Ipv4Addr, SocketAddr},
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	num::NonZeroU32,
 };
 
@@ -864,6 +958,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Specify JSON-RPC server TCP port.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">"PORT"</span>)]
 	</span><span class="kw">pub </span>rpc_port: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+
+	<span class="doccomment">/// EXPERIMENTAL: Specify the JSON-RPC server interface and this option which can be enabled
+	/// several times if you want expose several RPC interfaces with different configurations.
+	///
+	/// The format for this option is:
+	/// `--experimental-rpc-endpoint" listen-addr=&lt;ip:port&gt;,&lt;key=value&gt;,..."` where each option is
+	/// separated by a comma and `listen-addr` is the only required param.
+	///
+	/// The following options are available:
+	///  • listen-addr: The socket address (ip:port) to listen on. Be careful to not expose the
+	///    server to the public internet unless you know what you're doing. (required)
+	///  • disable-batch-requests: Disable batch requests (optional)
+	///  • max-connections: The maximum number of concurrent connections that the server will
+	///    accept (optional)
+	///  • max-request-size: The maximum size of a request body in megabytes (optional)
+	///  • max-response-size: The maximum size of a response body in megabytes (optional)
+	///  • max-subscriptions-per-connection: The maximum number of subscriptions per connection
+	///    (optional)
+	///  • max-buffer-capacity-per-connection: The maximum buffer capacity per connection
+	///    (optional)
+	///  • max-batch-request-len: The maximum number of requests in a batch (optional)
+	///  • cors: The CORS allowed origins, this can enabled more than once (optional)
+	///  • methods: Which RPC methods to allow, valid values are "safe", "unsafe" and "auto"
+	///    (optional)
+	///  • optional: If the listen address is optional i.e the interface is not required to be
+	///    available For example this may be useful if some platforms doesn't support ipv6
+	///    (optional)
+	///  • rate-limit: The rate limit in calls per minute for each connection (optional)
+	///  • rate-limit-trust-proxy-headers: Trust proxy headers for disable rate limiting (optional)
+	///  • rate-limit-whitelisted-ips: Disable rate limiting for certain ip addresses, this can be
+	/// enabled more than once (optional)  • retry-random-port: If the port is already in use,
+	/// retry with a random port (optional)
+	///
+	/// Use with care, this flag is unstable and subject to change.
+	</span><span class="attr">#[arg(
+		long,
+		num_args = <span class="number">1</span>..,
+		verbatim_doc_comment,
+		conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"rpc_external"</span>, <span class="string">"unsafe_rpc_external"</span>, <span class="string">"rpc_port"</span>, <span class="string">"rpc_cors"</span>, <span class="string">"rpc_rate_limit_trust_proxy_headers"</span>, <span class="string">"rpc_rate_limit"</span>, <span class="string">"rpc_rate_limit_whitelisted_ips"</span>, <span class="string">"rpc_message_buffer_capacity_per_connection"</span>, <span class="string">"rpc_disable_batch_requests"</span>, <span class="string">"rpc_max_subscriptions_per_connection"</span>, <span class="string">"rpc_max_request_size"</span>, <span class="string">"rpc_max_response_size"</span>]
+	</span>)]
+	<span class="kw">pub </span>experimental_rpc_endpoint: Vec&lt;RpcEndpoint&gt;,
 
 	<span class="doccomment">/// Maximum number of RPC server connections.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">"COUNT"</span>, default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
@@ -1147,15 +1282,68 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.into())
 	}
 
-	<span class="kw">fn </span>rpc_addr(<span class="kw-2">&amp;</span><span class="self">self</span>, default_listen_port: u16) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SocketAddr&gt;&gt; {
-		<span class="kw">let </span>interface = rpc_interface(
+	<span class="kw">fn </span>rpc_addr(<span class="kw-2">&amp;</span><span class="self">self</span>, default_listen_port: u16) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;RpcEndpoint&gt;&gt;&gt; {
+		<span class="kw">if </span>!<span class="self">self</span>.experimental_rpc_endpoint.is_empty() {
+			<span class="kw">for </span>endpoint <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.experimental_rpc_endpoint {
+				<span class="comment">// Technically, `0.0.0.0` isn't a public IP address, but it's a way to listen on
+				// all interfaces. Thus, we consider it as a public endpoint and warn about it.
+				</span><span class="kw">if </span>endpoint.rpc_methods == RpcMethods::Unsafe &amp;&amp; endpoint.is_global() ||
+					endpoint.listen_addr.ip().is_unspecified()
+				{
+					<span class="macro">log::warn!</span>(
+						<span class="string">"It isn't safe to expose RPC publicly without a proxy server that filters \
+						 available set of RPC methods."
+					</span>);
+				}
+			}
+
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">self</span>.experimental_rpc_endpoint.clone()));
+		}
+
+		<span class="kw">let </span>(ipv4, ipv6) = rpc_interface(
 			<span class="self">self</span>.rpc_external,
 			<span class="self">self</span>.unsafe_rpc_external,
 			<span class="self">self</span>.rpc_methods,
 			<span class="self">self</span>.validator,
 		)<span class="question-mark">?</span>;
 
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(SocketAddr::new(interface, <span class="self">self</span>.rpc_port.unwrap_or(default_listen_port))))
+		<span class="kw">let </span>cors = <span class="self">self</span>.rpc_cors(<span class="self">self</span>.is_dev()<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>port = <span class="self">self</span>.rpc_port.unwrap_or(default_listen_port);
+
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[
+			RpcEndpoint {
+				batch_config: <span class="self">self</span>.rpc_batch_config()<span class="question-mark">?</span>,
+				max_connections: <span class="self">self</span>.rpc_max_connections,
+				listen_addr: SocketAddr::new(std::net::IpAddr::V4(ipv4), port),
+				rpc_methods: <span class="self">self</span>.rpc_methods,
+				rate_limit: <span class="self">self</span>.rpc_rate_limit,
+				rate_limit_trust_proxy_headers: <span class="self">self</span>.rpc_rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: <span class="self">self</span>.rpc_rate_limit_whitelisted_ips.clone(),
+				max_payload_in_mb: <span class="self">self</span>.rpc_max_request_size,
+				max_payload_out_mb: <span class="self">self</span>.rpc_max_response_size,
+				max_subscriptions_per_connection: <span class="self">self</span>.rpc_max_subscriptions_per_connection,
+				max_buffer_capacity_per_connection: <span class="self">self</span>.rpc_message_buffer_capacity_per_connection,
+				cors: cors.clone(),
+				retry_random_port: <span class="bool-val">true</span>,
+				is_optional: <span class="bool-val">false</span>,
+			},
+			RpcEndpoint {
+				batch_config: <span class="self">self</span>.rpc_batch_config()<span class="question-mark">?</span>,
+				max_connections: <span class="self">self</span>.rpc_max_connections,
+				listen_addr: SocketAddr::new(std::net::IpAddr::V6(ipv6), port),
+				rpc_methods: <span class="self">self</span>.rpc_methods,
+				rate_limit: <span class="self">self</span>.rpc_rate_limit,
+				rate_limit_trust_proxy_headers: <span class="self">self</span>.rpc_rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: <span class="self">self</span>.rpc_rate_limit_whitelisted_ips.clone(),
+				max_payload_in_mb: <span class="self">self</span>.rpc_max_request_size,
+				max_payload_out_mb: <span class="self">self</span>.rpc_max_response_size,
+				max_subscriptions_per_connection: <span class="self">self</span>.rpc_max_subscriptions_per_connection,
+				max_buffer_capacity_per_connection: <span class="self">self</span>.rpc_message_buffer_capacity_per_connection,
+				cors: cors.clone(),
+				retry_random_port: <span class="bool-val">true</span>,
+				is_optional: <span class="bool-val">true</span>,
+			},
+		]))
 	}
 
 	<span class="kw">fn </span>rpc_methods(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;sc_service::config::RpcMethods&gt; {
@@ -1260,7 +1448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	is_unsafe_external: bool,
 	rpc_methods: RpcMethods,
 	is_validator: bool,
-) -&gt; <span class="prelude-ty">Result</span>&lt;IpAddr&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Ipv4Addr, Ipv6Addr)&gt; {
 	<span class="kw">if </span>is_external &amp;&amp; is_validator &amp;&amp; rpc_methods != RpcMethods::Unsafe {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Input(
 			<span class="string">"--rpc-external option shouldn't be used if the node is running as \
@@ -1278,9 +1466,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>);
 		}
 
-		<span class="prelude-val">Ok</span>(Ipv4Addr::UNSPECIFIED.into())
+		<span class="prelude-val">Ok</span>((Ipv4Addr::UNSPECIFIED, Ipv6Addr::UNSPECIFIED))
 	} <span class="kw">else </span>{
-		<span class="prelude-val">Ok</span>(Ipv4Addr::LOCALHOST.into())
+		<span class="prelude-val">Ok</span>((Ipv4Addr::LOCALHOST, Ipv6Addr::LOCALHOST))
 	}
 }
 

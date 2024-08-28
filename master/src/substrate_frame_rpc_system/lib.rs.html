@@ -487,6 +487,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -513,9 +533,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,
 	types::error::ErrorObject,
+	Extensions,
 };
 
-<span class="kw">use </span>sc_rpc_api::DenyUnsafe;
 <span class="kw">use </span>sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 <span class="kw">use </span>sp_api::ApiExt;
 <span class="kw">use </span>sp_block_builder::BlockBuilder;
@@ -538,7 +558,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>nonce(<span class="kw-2">&amp;</span><span class="self">self</span>, account: AccountId) -&gt; RpcResult&lt;Nonce&gt;;
 
 	<span class="doccomment">/// Dry run an extrinsic at a given block. Return SCALE encoded ApplyExtrinsicResult.
-	</span><span class="attr">#[method(name = <span class="string">"system_dryRun"</span>, aliases = [<span class="string">"system_dryRunAt"</span>]</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"system_dryRun"</span>, aliases = [<span class="string">"system_dryRunAt"</span>]</span>, with_extensions)]
 	<span class="kw">async fn </span>dry_run(<span class="kw-2">&amp;</span><span class="self">self</span>, extrinsic: Bytes, at: <span class="prelude-ty">Option</span>&lt;BlockHash&gt;) -&gt; RpcResult&lt;Bytes&gt;;
 }
 
@@ -563,14 +583,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>System&lt;P: TransactionPool, C, B&gt; {
 	client: Arc&lt;C&gt;,
 	pool: Arc&lt;P&gt;,
-	deny_unsafe: DenyUnsafe,
 	_marker: std::marker::PhantomData&lt;B&gt;,
 }
 
 <span class="kw">impl</span>&lt;P: TransactionPool, C, B&gt; System&lt;P, C, B&gt; {
 	<span class="doccomment">/// Create new `FullSystem` given client and transaction pool.
-	</span><span class="kw">pub fn </span>new(client: Arc&lt;C&gt;, pool: Arc&lt;P&gt;, deny_unsafe: DenyUnsafe) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ client, pool, deny_unsafe, _marker: Default::default() }
+	</span><span class="kw">pub fn </span>new(client: Arc&lt;C&gt;, pool: Arc&lt;P&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ client, pool, _marker: Default::default() }
 	}
 }
 
@@ -604,10 +623,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>dry_run(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		extrinsic: Bytes,
 		at: <span class="prelude-ty">Option</span>&lt;&lt;Block <span class="kw">as </span>traits::Block&gt;::Hash&gt;,
 	) -&gt; RpcResult&lt;Bytes&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+		sc_rpc_api::check_if_safe(ext)<span class="question-mark">?</span>;
+
 		<span class="kw">let </span>api = <span class="self">self</span>.client.runtime_api();
 		<span class="kw">let </span>best_hash = at.unwrap_or_else(||
 			<span class="comment">// If the block hash is not supplied assume the best block.
@@ -706,12 +727,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>futures::executor::block_on;
+	<span class="kw">use </span>sc_rpc_api::DenyUnsafe;
 	<span class="kw">use </span>sc_transaction_pool::BasicPool;
 	<span class="kw">use </span>sp_runtime::{
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
 		ApplyExtrinsicResult,
 	};
 	<span class="kw">use </span>substrate_test_runtime_client::{runtime::Transfer, AccountKeyring};
+
+	<span class="kw">fn </span>deny_unsafe() -&gt; Extensions {
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = Extensions::new();
+		ext.insert(DenyUnsafe::Yes);
+		ext
+	}
+
+	<span class="kw">fn </span>allow_unsafe() -&gt; Extensions {
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = Extensions::new();
+		ext.insert(DenyUnsafe::No);
+		ext
+	}
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>should_return_next_nonce_for_some_account() {
@@ -740,7 +774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>ext1 = new_transaction(<span class="number">1</span>);
 		block_on(pool.submit_one(hash_of_block0, source, ext1)).unwrap();
 
-		<span class="kw">let </span>accounts = System::new(client, pool, DenyUnsafe::Yes);
+		<span class="kw">let </span>accounts = System::new(client, pool);
 
 		<span class="comment">// when
 		</span><span class="kw">let </span>nonce = accounts.nonce(AccountKeyring::Alice.into()).<span class="kw">await</span>;
@@ -759,10 +793,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>pool =
 			BasicPool::new_full(Default::default(), <span class="bool-val">true</span>.into(), <span class="prelude-val">None</span>, spawner, client.clone());
 
-		<span class="kw">let </span>accounts = System::new(client, pool, DenyUnsafe::Yes);
+		<span class="kw">let </span>accounts = System::new(client, pool);
 
 		<span class="comment">// when
-		</span><span class="kw">let </span>res = accounts.dry_run(<span class="macro">vec!</span>[].into(), <span class="prelude-val">None</span>).<span class="kw">await</span>;
+		</span><span class="kw">let </span>res = accounts.dry_run(<span class="kw-2">&amp;</span>deny_unsafe(), <span class="macro">vec!</span>[].into(), <span class="prelude-val">None</span>).<span class="kw">await</span>;
 		<span class="macro">assert_matches!</span>(res, <span class="prelude-val">Err</span>(e) =&gt; {
 			<span class="macro">assert!</span>(e.message().contains(<span class="string">"RPC call is unsafe to be called externally"</span>));
 		});
@@ -778,7 +812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>pool =
 			BasicPool::new_full(Default::default(), <span class="bool-val">true</span>.into(), <span class="prelude-val">None</span>, spawner, client.clone());
 
-		<span class="kw">let </span>accounts = System::new(client, pool, DenyUnsafe::No);
+		<span class="kw">let </span>accounts = System::new(client, pool);
 
 		<span class="kw">let </span>tx = Transfer {
 			from: AccountKeyring::Alice.into(),
@@ -789,7 +823,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.into_unchecked_extrinsic();
 
 		<span class="comment">// when
-		</span><span class="kw">let </span>bytes = accounts.dry_run(tx.encode().into(), <span class="prelude-val">None</span>).<span class="kw">await</span>.expect(<span class="string">"Call is successful"</span>);
+		</span><span class="kw">let </span>bytes = accounts
+			.dry_run(<span class="kw-2">&amp;</span>allow_unsafe(), tx.encode().into(), <span class="prelude-val">None</span>)
+			.<span class="kw">await
+			</span>.expect(<span class="string">"Call is successful"</span>);
 
 		<span class="comment">// then
 		</span><span class="kw">let </span>apply_res: ApplyExtrinsicResult = Decode::decode(<span class="kw-2">&amp;mut </span>bytes.as_ref()).unwrap();
@@ -806,7 +843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>pool =
 			BasicPool::new_full(Default::default(), <span class="bool-val">true</span>.into(), <span class="prelude-val">None</span>, spawner, client.clone());
 
-		<span class="kw">let </span>accounts = System::new(client, pool, DenyUnsafe::No);
+		<span class="kw">let </span>accounts = System::new(client, pool);
 
 		<span class="kw">let </span>tx = Transfer {
 			from: AccountKeyring::Alice.into(),
@@ -817,7 +854,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.into_unchecked_extrinsic();
 
 		<span class="comment">// when
-		</span><span class="kw">let </span>bytes = accounts.dry_run(tx.encode().into(), <span class="prelude-val">None</span>).<span class="kw">await</span>.expect(<span class="string">"Call is successful"</span>);
+		</span><span class="kw">let </span>bytes = accounts
+			.dry_run(<span class="kw-2">&amp;</span>allow_unsafe(), tx.encode().into(), <span class="prelude-val">None</span>)
+			.<span class="kw">await
+			</span>.expect(<span class="string">"Call is successful"</span>);
 
 		<span class="comment">// then
 		</span><span class="kw">let </span>apply_res: ApplyExtrinsicResult = Decode::decode(<span class="kw-2">&amp;mut </span>bytes.as_ref()).unwrap();

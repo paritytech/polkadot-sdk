@@ -468,6 +468,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -636,6 +649,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Safe,
 	<span class="doccomment">/// Expose every RPC method (even potentially unsafe ones).
 	</span>Unsafe,
+}
+
+<span class="kw">impl </span>FromStr <span class="kw">for </span>RpcMethods {
+	<span class="kw">type </span><span class="prelude-val">Err </span>= String;
+
+	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
+		<span class="kw">match </span>s {
+			<span class="string">"safe" </span>=&gt; <span class="prelude-val">Ok</span>(RpcMethods::Safe),
+			<span class="string">"unsafe" </span>=&gt; <span class="prelude-val">Ok</span>(RpcMethods::Unsafe),
+			<span class="string">"auto" </span>=&gt; <span class="prelude-val">Ok</span>(RpcMethods::Auto),
+			invalid =&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Invalid rpc methods {invalid}"</span>)),
+		}
+	}
 }
 
 <span class="kw">impl </span>Into&lt;sc_service::config::RpcMethods&gt; <span class="kw">for </span>RpcMethods {

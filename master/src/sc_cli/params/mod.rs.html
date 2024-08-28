@@ -351,6 +351,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -378,6 +380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>offchain_worker_params;
 <span class="kw">mod </span>prometheus_params;
 <span class="kw">mod </span>pruning_params;
+<span class="kw">mod </span>rpc_params;
 <span class="kw">mod </span>runtime_params;
 <span class="kw">mod </span>shared_params;
 <span class="kw">mod </span>telemetry_params;
@@ -385,6 +388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">crate</span>::arg_enums::{CryptoScheme, OutputType};
 <span class="kw">use </span>clap::Args;
+<span class="kw">use </span>sc_service::config::{IpNetwork, RpcBatchRequestConfig};
 <span class="kw">use </span>sp_core::crypto::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 <span class="kw">use </span>sp_runtime::{
 	generic::BlockId,
@@ -395,7 +399,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span><span class="kw">crate</span>::params::{
 	database_params::<span class="kw-2">*</span>, import_params::<span class="kw-2">*</span>, keystore_params::<span class="kw-2">*</span>, message_params::<span class="kw-2">*</span>, mixnet_params::<span class="kw-2">*</span>,
 	network_params::<span class="kw-2">*</span>, node_key_params::<span class="kw-2">*</span>, offchain_worker_params::<span class="kw-2">*</span>, prometheus_params::<span class="kw-2">*</span>,
-	pruning_params::<span class="kw-2">*</span>, runtime_params::<span class="kw-2">*</span>, shared_params::<span class="kw-2">*</span>, telemetry_params::<span class="kw-2">*</span>,
+	pruning_params::<span class="kw-2">*</span>, rpc_params::<span class="kw-2">*</span>, runtime_params::<span class="kw-2">*</span>, shared_params::<span class="kw-2">*</span>, telemetry_params::<span class="kw-2">*</span>,
 	transaction_pool_params::<span class="kw-2">*</span>,
 };
 

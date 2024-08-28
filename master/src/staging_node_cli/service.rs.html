@@ -1269,8 +1269,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1117" id="1117">1117</a>
 <a href="#1118" id="1118">1118</a>
 <a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1450,7 +1448,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sc_transaction_pool::FullPool&lt;Block, FullClient&gt;,
 		(
 			<span class="kw">impl </span>Fn(
-				node_rpc::DenyUnsafe,
 				sc_rpc::SubscriptionTaskExecutor,
 			) -&gt; <span class="prelude-ty">Result</span>&lt;jsonrpsee::RpcModule&lt;()&gt;, sc_service::Error&gt;,
 			(
@@ -1591,13 +1588,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>rpc_backend = backend.clone();
 		<span class="kw">let </span>rpc_statement_store = statement_store.clone();
 		<span class="kw">let </span>rpc_extensions_builder =
-			<span class="kw">move </span>|deny_unsafe, subscription_executor: node_rpc::SubscriptionTaskExecutor| {
+			<span class="kw">move </span>|subscription_executor: node_rpc::SubscriptionTaskExecutor| {
 				<span class="kw">let </span>deps = node_rpc::FullDeps {
 					client: client.clone(),
 					pool: pool.clone(),
 					select_chain: select_chain.clone(),
 					chain_spec: chain_spec.cloned_box(),
-					deny_unsafe,
 					babe: node_rpc::BabeDeps {
 						keystore: keystore.clone(),
 						babe_worker_handle: babe_worker_handle.clone(),

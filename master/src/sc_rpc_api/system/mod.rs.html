@@ -342,7 +342,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>system_local_listen_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns currently connected peers
-	</span><span class="attr">#[method(name = <span class="string">"system_peers"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"system_peers"</span>, with_extensions)]
 	</span><span class="kw">async fn </span>system_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerInfo&lt;Hash, Number&gt;&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns current state of the network.
@@ -351,7 +351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// as its format might change at any time.
 	</span><span class="comment">// TODO: the future of this call is uncertain: https://github.com/paritytech/substrate/issues/1890
 	// https://github.com/paritytech/substrate/issues/5541
-	</span><span class="attr">#[method(name = <span class="string">"system_unstable_networkState"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"system_unstable_networkState"</span>, with_extensions)]
 	</span><span class="kw">async fn </span>system_network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;JsonValue, Error&gt;;
 
 	<span class="doccomment">/// Adds a reserved peer. Returns the empty string or an error. The string
@@ -359,12 +359,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// `/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV`
 	/// is an example of a valid, passing multiaddr with PeerId attached.
-	</span><span class="attr">#[method(name = <span class="string">"system_addReservedPeer"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"system_addReservedPeer"</span>, with_extensions)]
 	</span><span class="kw">async fn </span>system_add_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Remove a reserved peer. Returns the empty string or an error. The string
 	/// should encode only the PeerId e.g. `QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV`.
-	</span><span class="attr">#[method(name = <span class="string">"system_removeReservedPeer"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"system_removeReservedPeer"</span>, with_extensions)]
 	</span><span class="kw">async fn </span>system_remove_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Returns the list of reserved peers
@@ -385,11 +385,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The syntax is identical to the CLI `&lt;target&gt;=&lt;level&gt;`:
 	///
 	/// `sync=debug,state=trace`
-	</span><span class="attr">#[method(name = <span class="string">"system_addLogFilter"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"system_addLogFilter"</span>, with_extensions)]
 	</span><span class="kw">fn </span>system_add_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>, directives: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Resets the log filter to Substrate defaults
-	</span><span class="attr">#[method(name = <span class="string">"system_resetLogFilter"</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"system_resetLogFilter"</span>, with_extensions)]
 	</span><span class="kw">fn </span>system_reset_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

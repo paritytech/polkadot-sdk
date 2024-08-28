@@ -731,6 +731,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -767,7 +787,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>metrics;
 <span class="kw">mod </span>task_manager;
 
-<span class="kw">use </span>std::{collections::HashMap, net::SocketAddr};
+<span class="kw">use </span>std::{
+	collections::HashMap,
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+};
 
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>futures::{pin_mut, FutureExt, StreamExt};
@@ -818,9 +841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>sc_network_sync::WarpSyncConfig;
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
-<span class="kw">pub use </span>sc_rpc::{
-	RandomIntegerSubscriptionId, RandomStringSubscriptionId, RpcSubscriptionIdProvider,
-};
+<span class="kw">pub use </span>sc_rpc::{RandomIntegerSubscriptionId, RandomStringSubscriptionId};
 <span class="kw">pub use </span>sc_tracing::TracingReceiver;
 <span class="kw">pub use </span>sc_transaction_pool::Options <span class="kw">as </span>TransactionPoolOptions;
 <span class="kw">pub use </span>sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
@@ -1110,45 +1131,64 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>start_rpc_servers&lt;R&gt;(
 	config: <span class="kw-2">&amp;</span>Configuration,
 	gen_rpc_module: R,
-	rpc_id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>RpcSubscriptionIdProvider&gt;&gt;,
+	rpc_id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>sc_rpc_server::SubscriptionIdProvider&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>std::any::Any + Send + Sync&gt;, error::Error&gt;
 <span class="kw">where
-	</span>R: Fn(sc_rpc::DenyUnsafe) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;()&gt;, Error&gt;,
+	</span>R: Fn() -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;()&gt;, Error&gt;,
 {
-	<span class="kw">fn </span>deny_unsafe(addr: SocketAddr, methods: <span class="kw-2">&amp;</span>RpcMethods) -&gt; sc_rpc::DenyUnsafe {
-		<span class="kw">let </span>is_exposed_addr = !addr.ip().is_loopback();
-		<span class="kw">match </span>(is_exposed_addr, methods) {
-			| (<span class="kw">_</span>, RpcMethods::Unsafe) | (<span class="bool-val">false</span>, RpcMethods::Auto) =&gt; sc_rpc::DenyUnsafe::No,
-			<span class="kw">_ </span>=&gt; sc_rpc::DenyUnsafe::Yes,
-		}
-	}
+	<span class="kw">let </span>endpoints: Vec&lt;sc_rpc_server::RpcEndpoint&gt; = <span class="kw">if let </span><span class="prelude-val">Some</span>(endpoints) =
+		config.rpc_addr.as_ref()
+	{
+		endpoints.clone()
+	} <span class="kw">else </span>{
+		<span class="kw">let </span>ipv6 = SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, config.rpc_port, <span class="number">0</span>, <span class="number">0</span>));
+		<span class="kw">let </span>ipv4 = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, config.rpc_port));
 
-	<span class="comment">// if binding the specified port failed then a random port is assigned by the OS.
-	</span><span class="kw">let </span>backup_port = |<span class="kw-2">mut </span>addr: SocketAddr| {
-		addr.set_port(<span class="number">0</span>);
-		addr
+		<span class="macro">vec!</span>[
+			sc_rpc_server::RpcEndpoint {
+				batch_config: config.rpc_batch_config,
+				cors: config.rpc_cors.clone(),
+				listen_addr: ipv4,
+				max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
+				max_connections: config.rpc_max_connections,
+				max_payload_in_mb: config.rpc_max_request_size,
+				max_payload_out_mb: config.rpc_max_response_size,
+				max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
+				rpc_methods: config.rpc_methods.into(),
+				rate_limit: config.rpc_rate_limit,
+				rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+				retry_random_port: <span class="bool-val">true</span>,
+				is_optional: <span class="bool-val">false</span>,
+			},
+			sc_rpc_server::RpcEndpoint {
+				batch_config: config.rpc_batch_config,
+				cors: config.rpc_cors.clone(),
+				listen_addr: ipv6,
+				max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
+				max_connections: config.rpc_max_connections,
+				max_payload_in_mb: config.rpc_max_request_size,
+				max_payload_out_mb: config.rpc_max_response_size,
+				max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
+				rpc_methods: config.rpc_methods.into(),
+				rate_limit: config.rpc_rate_limit,
+				rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+				retry_random_port: <span class="bool-val">true</span>,
+				is_optional: <span class="bool-val">true</span>,
+			},
+		]
 	};
 
-	<span class="kw">let </span>addr = config.rpc_addr.unwrap_or_else(|| ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], config.rpc_port).into());
-	<span class="kw">let </span>backup_addr = backup_port(addr);
 	<span class="kw">let </span>metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())<span class="question-mark">?</span>;
+	<span class="kw">let </span>rpc_api = gen_rpc_module()<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>server_config = sc_rpc_server::Config {
-		addrs: [addr, backup_addr],
-		batch_config: config.rpc_batch_config,
-		max_connections: config.rpc_max_connections,
-		max_payload_in_mb: config.rpc_max_request_size,
-		max_payload_out_mb: config.rpc_max_response_size,
-		max_subs_per_conn: config.rpc_max_subs_per_conn,
-		message_buffer_capacity: config.rpc_message_buffer_capacity,
-		rpc_api: gen_rpc_module(deny_unsafe(addr, <span class="kw-2">&amp;</span>config.rpc_methods))<span class="question-mark">?</span>,
+		endpoints,
+		rpc_api,
 		metrics,
 		id_provider: rpc_id_provider,
-		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
-		rate_limit: config.rpc_rate_limit,
-		rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
-		rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
 	};
 
 	<span class="comment">// TODO: https://github.com/paritytech/substrate/issues/13773

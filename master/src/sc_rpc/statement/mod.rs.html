@@ -256,8 +256,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -279,10 +277,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Substrate statement store API.
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>jsonrpsee::core::{async_trait, RpcResult};
+<span class="kw">use </span>jsonrpsee::{
+	core::{async_trait, RpcResult},
+	Extensions,
+};
 <span class="doccomment">/// Re-export the API for backward compatibility.
 </span><span class="kw">pub use </span>sc_rpc_api::statement::{error::Error, StatementApiServer};
-<span class="kw">use </span>sc_rpc_api::DenyUnsafe;
 <span class="kw">use </span>sp_core::Bytes;
 <span class="kw">use </span>sp_statement_store::{StatementSource, SubmitResult};
 <span class="kw">use </span>std::sync::Arc;
@@ -290,23 +290,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Statement store API
 </span><span class="kw">pub struct </span>StatementStore {
 	store: Arc&lt;<span class="kw">dyn </span>sp_statement_store::StatementStore&gt;,
-	deny_unsafe: DenyUnsafe,
 }
 
 <span class="kw">impl </span>StatementStore {
 	<span class="doccomment">/// Create new instance of Offchain API.
-	</span><span class="kw">pub fn </span>new(
-		store: Arc&lt;<span class="kw">dyn </span>sp_statement_store::StatementStore&gt;,
-		deny_unsafe: DenyUnsafe,
-	) -&gt; <span class="self">Self </span>{
-		StatementStore { store, deny_unsafe }
+	</span><span class="kw">pub fn </span>new(store: Arc&lt;<span class="kw">dyn </span>sp_statement_store::StatementStore&gt;) -&gt; <span class="self">Self </span>{
+		StatementStore { store }
 	}
 }
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl </span>StatementApiServer <span class="kw">for </span>StatementStore {
-	<span class="kw">fn </span>dump(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;Bytes&gt;&gt; {
-		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
+	<span class="kw">fn </span>dump(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: <span class="kw-2">&amp;</span>Extensions) -&gt; RpcResult&lt;Vec&lt;Bytes&gt;&gt; {
+		sc_rpc_api::check_if_safe(ext)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>statements =
 			<span class="self">self</span>.store.statements().map_err(|e| Error::StatementStore(e.to_string()))<span class="question-mark">?</span>;

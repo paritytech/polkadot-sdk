@@ -642,13 +642,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>std::{
 	fs,
 	io::{<span class="self">self</span>, Write},
-	net::SocketAddr,
 	path::PathBuf,
 	sync::Arc,
 };
 
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>sc_chain_spec::ChainSpec;
+<span class="kw">use </span>sc_cli::RpcEndpoint;
 <span class="kw">use </span>sc_client_api::HeaderBackend;
 <span class="kw">use </span>sc_service::{
 	config::{PrometheusConfig, RpcBatchRequestConfig, TelemetryEndpoints},
@@ -1044,7 +1044,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.base.rpc_cors(is_dev)
 	}
 
-	<span class="kw">fn </span>rpc_addr(<span class="kw-2">&amp;</span><span class="self">self</span>, default_listen_port: u16) -&gt; sc_cli::Result&lt;<span class="prelude-ty">Option</span>&lt;SocketAddr&gt;&gt; {
+	<span class="kw">fn </span>rpc_addr(<span class="kw-2">&amp;</span><span class="self">self</span>, default_listen_port: u16) -&gt; sc_cli::Result&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;RpcEndpoint&gt;&gt;&gt; {
 		<span class="self">self</span>.base.rpc_addr(default_listen_port)
 	}
 
