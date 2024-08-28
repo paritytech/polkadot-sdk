@@ -8259,13 +8259,15 @@ mod ledger_recovery {
 
 mod byzantine_threshold_disabling_strategy {
 	use crate::{
-		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitDisablingStrategy,
+		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitDisablingStrategy, UpToLimitWithReEnablingDisablingStrategy,
 	};
-	use sp_staking::EraIndex;
+	use sp_runtime::Perbill;
+use sp_staking::EraIndex;
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
 	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
+	const OFFENDER_SLASH: Perbill = Perbill::from_percent(100);
 	const SLASH_ERA: EraIndex = 1;
 	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
 	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
@@ -8277,48 +8279,134 @@ mod byzantine_threshold_disabling_strategy {
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 			ActiveEra::<Test>::put(ActiveEraInfo { index: 2, start: None });
 
-			let disable_offender =
+			let disabling_decision =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
+					OFFENDER_SLASH,
 					SLASH_ERA,
 					&initially_disabled,
 				);
 
-			assert!(disable_offender.is_none());
+			assert!(disabling_decision.0.is_none() && disabling_decision.1.is_none());
 		});
 	}
 
 	#[test]
 	fn dont_disable_beyond_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![1, 2];
+			let max_slash = Perbill::from_percent(100);
+			let initially_disabled = vec![(1, max_slash), (2, max_slash)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
-			let disable_offender =
+			let disabling_decision =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
+					OFFENDER_SLASH,
 					SLASH_ERA,
 					&initially_disabled,
 				);
 
-			assert!(disable_offender.is_none());
+			assert!(disabling_decision.0.is_none() && disabling_decision.1.is_none());
 		});
 	}
 
 	#[test]
 	fn disable_when_below_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![1];
+			let max_slash = Perbill::from_percent(100);
+			let initially_disabled = vec![(1, max_slash)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
-			let disable_offender =
+			let disabling_decision =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
+					OFFENDER_SLASH,
 					SLASH_ERA,
 					&initially_disabled,
 				);
 
-			assert_eq!(disable_offender, Some(OFFENDER_VALIDATOR_IDX));
+			assert_eq!(disabling_decision.0, Some(OFFENDER_VALIDATOR_IDX));
+		});
+	}
+
+	
+}
+
+mod disabling_strategy_with_reenabling {
+	use crate::{
+		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitWithReEnablingDisablingStrategy,
+	};
+	use sp_runtime::Perbill;
+use sp_staking::EraIndex;
+
+	// Common test data - the stash of the offending validator, the era of the offence and the
+	// active set
+	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
+	const OFFENDER_SLASH_MINOR: Perbill = Perbill::from_percent(10);
+	const OFFENDER_SLASH_MAJOR: Perbill = Perbill::from_percent(100);
+	const SLASH_ERA: EraIndex = 1;
+	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
+	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
+
+	#[test]
+	fn dont_disable_for_ancient_offence() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+			ActiveEra::<Test>::put(ActiveEraInfo { index: 2, start: None });
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					OFFENDER_SLASH_MAJOR,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.0.is_none() && disabling_decision.1.is_none());
+		});
+	}
+
+	#[test]
+	fn disable_when_below_byzantine_threshold() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let max_slash = Perbill::from_percent(100);
+			let initially_disabled = vec![(1, max_slash)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					OFFENDER_SLASH_MAJOR,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			// Disable Offender and do not re-enable anyone
+			assert_eq!(disabling_decision.0, Some(OFFENDER_VALIDATOR_IDX));
+			assert_eq!(disabling_decision.1, None);
+		});
+	}
+
+	#[test]
+	fn reenable_arbitrary_on_equal_severity() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let max_slash = Perbill::from_percent(100);
+			let initially_disabled = vec![(1, max_slash), (2, max_slash)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					OFFENDER_SLASH_MAJOR,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.0.is_some() && disabling_decision.1.is_some());
+			// Disable 7 and enable 1
+			assert_eq!(disabling_decision.0.unwrap(), OFFENDER_VALIDATOR_IDX);
+			assert_eq!(disabling_decision.1.unwrap(), 1);
 		});
 	}
 }
