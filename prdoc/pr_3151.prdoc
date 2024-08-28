@@ -35,15 +35,13 @@ doc:
 crates:
   - name: pallet-collective
     bump: major
-  - name: frame-support
-    bump: major
   - name: collectives-westend-runtime
     bump: major
   - name: kitchensink-runtime
     bump: major
   - name: pallet-alliance
     bump: patch
-  - name: pallet-preimage
+  - name: pallet-balances
     bump: patch
   - name: pallet-utility
     bump: patch
