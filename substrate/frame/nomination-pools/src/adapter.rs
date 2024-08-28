@@ -262,7 +262,8 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		pool_account: Pool<Self::AccountId>,
 		_: Member<Self::AccountId>,
 	) -> BalanceOf<T> {
-		T::Currency::balance(&pool_account.0).saturating_sub(Self::active_stake(pool_account))
+		// free/liquid balance of the pool account.
+		T::Currency::balance(&pool_account.0)
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<BalanceOf<T>> {
