@@ -20,6 +20,8 @@
 //!
 //! The View represents the state of the transaction pool at given block. The view is created when
 //! new block is notified to transaction pool. Views are removed on finalization.
+//!
+//! Refer to [*View*](../index.html#view) section for more details.
 
 use super::metrics::MetricsLink as PrometheusMetrics;
 use crate::{
@@ -62,8 +64,8 @@ pub(super) struct FinishRevalidationLocalChannels<ChainApi: graph::ChainApi> {
 	revalidation_result_rx: RevalidationResultReceiver<ChainApi>,
 }
 
-/// Endpoints of channels used on RevalidationWorker side (background thread)
 impl<ChainApi: graph::ChainApi> FinishRevalidationLocalChannels<ChainApi> {
+	/// Creates a new instance of endpoints for channels used on View side
 	fn new(
 		finish_revalidation_request_tx: FinishRevalidationRequestSender,
 		revalidation_result_rx: RevalidationResultReceiver<ChainApi>,
@@ -74,12 +76,16 @@ impl<ChainApi: graph::ChainApi> FinishRevalidationLocalChannels<ChainApi> {
 		}
 	}
 
+	/// Removes a finish revalidation sender
+	///
+	/// Should be called when revalidation was already terminated and finish revalidation message is
+	/// no longer expected.
 	fn remove_sender(&mut self) {
 		self.finish_revalidation_request_tx = None;
 	}
 }
 
-/// Endpoints of channels used on RevalidationWorker side (background thread)
+/// Endpoints of channels used on `RevalidationWorker` side (background thread)
 pub(super) struct FinishRevalidationWorkerChannels<ChainApi: graph::ChainApi> {
 	/// Used to receive finish revalidation request.
 	finish_revalidation_request_rx: FinishRevalidationRequestReceiver,
@@ -88,6 +94,7 @@ pub(super) struct FinishRevalidationWorkerChannels<ChainApi: graph::ChainApi> {
 }
 
 impl<ChainApi: graph::ChainApi> FinishRevalidationWorkerChannels<ChainApi> {
+	/// Creates a new instance of endpoints for channels used on `RevalidationWorker` side
 	fn new(
 		finish_revalidation_request_rx: FinishRevalidationRequestReceiver,
 		revalidation_result_tx: RevalidationResultSender<ChainApi>,
@@ -97,6 +104,9 @@ impl<ChainApi: graph::ChainApi> FinishRevalidationWorkerChannels<ChainApi> {
 }
 
 /// Represents the state of transaction pool for given block.
+///
+/// Refer to [*View*](../index.html#view) section for more details on the purpose and life cycle of
+/// the `View`.
 pub(super) struct View<ChainApi: graph::ChainApi> {
 	/// The internal pool keeping the set of ready and future transaction at the given block.
 	pub(super) pool: graph::Pool<ChainApi>,
@@ -167,10 +177,14 @@ where
 	}
 
 	/// Creates a watcher for given transaction.
+	///
+	/// Intended to be called for the transaction that already exists in the pool
 	pub(super) fn create_watcher(
 		&self,
 		tx_hash: ExtrinsicHash<ChainApi>,
 	) -> Watcher<ExtrinsicHash<ChainApi>, ExtrinsicHash<ChainApi>> {
+		//todo(minor): some assert could be added here - to make sure that transaction actually
+		// exists in the view.
 		self.pool.validated_pool().create_watcher(tx_hash)
 	}
 
@@ -179,6 +193,10 @@ where
 	/// Intended to run from revalidation worker. Revalidation can be terminated by sending message
 	/// to the rx channel provided within `finish_revalidation_worker_channels`. Results are sent
 	/// back over tx channels and shall be applied in maintain thread.
+	///
+	/// View revalidation currently is not throttled, and until not terminated it will revalidate
+	/// all the transactions. Note: this can be improved if CPU usage due to revalidation becomes a
+	/// problem.
 	pub(super) async fn revalidate(
 		&self,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<ChainApi>,
@@ -291,8 +309,12 @@ where
 
 	/// Sends revalidation request to the background worker.
 	///
-	/// Also creates communication channels.
-	/// Intended to ba called from maintain thread.
+	/// Creates communication channels required to stop revalidation request and receive the
+	/// revalidation results and sends the revalidation request to the background worker.
+	///
+	/// Intended to be called from maintain thread, at the very end of the maintain process.
+	///
+	/// Refer to [*View revalidation*](../index.html#view-revalidation) for more details.
 	pub(super) async fn start_background_revalidation(
 		view: Arc<Self>,
 		revalidation_queue: Arc<
@@ -320,10 +342,14 @@ where
 			.await;
 	}
 
-	/// Terminates background revalidation.
+	/// Terminates a background view revalidation.
 	///
-	/// Receives the results from the worker and applies them to the internal pool.
-	/// Intended to ba called from maintain thread.
+	/// Receives the results from the background worker and applies them to the internal pool.
+	/// Intended to be called from the maintain thread, at the very beginning of the maintain
+	/// process, before the new view is cloned and updated. Applying results before cloning ensures
+	/// that view contains up-to-date set of revalidated transactions.
+	///
+	/// Refer to [*View revalidation*](../index.html#view-revalidation) for more details.
 	pub(super) async fn finish_revalidation(&self) {
 		log::trace!(target:LOG_TARGET,"view::finish_revalidation: at {}", self.at.hash);
 		let Some(revalidation_worker_channels) = self.revalidation_worker_channels.lock().take()

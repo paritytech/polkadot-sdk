@@ -22,8 +22,9 @@
 //! - empty pool (no views yet)
 //! - potential races between creation of view and submitting transaction (w/o intermediary buffer
 //!   some transactions could be lost)
-//! - on some forks transaction can be invalid (view does not contain it), on other for tx can be
-//!   valid.
+//! - the transaction can be invalid on some forks (and thus the associated views may not contain
+//!   it), while on other forks tx can be valid. Depending on which view is choosen to be cloned,
+//!   such transaction could not be present in the newly created view.
 
 use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
 use crate::{
@@ -72,7 +73,7 @@ where
 	tx: ExtrinsicFor<ChainApi>,
 	/// Transaction source.
 	pub(crate) source: TransactionSource,
-	/// When transaction was revalidated, used to periodically revalidate mem pool buffer.
+	/// When the transaction was revalidated, used to periodically revalidate the mem pool buffer.
 	validated_at: AtomicU64,
 }
 
@@ -88,42 +89,62 @@ where
 		self.watched
 	}
 
+	/// Creates a new instance of wrapper for unwatched transaction.
 	fn new_unwatched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>) -> Self {
 		Self { watched: false, tx, source, validated_at: AtomicU64::new(0) }
 	}
 
+	/// Creates a new instance of wrapper for watched transaction.
 	fn new_watched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>) -> Self {
 		Self { watched: true, tx, source, validated_at: AtomicU64::new(0) }
 	}
 
+	/// Provides a clone of actual transaction body.
+	///
+	/// Operation is cheap, as the body is `Arc`.
 	pub(crate) fn tx(&self) -> ExtrinsicFor<ChainApi> {
 		self.tx.clone()
 	}
 }
 
-type InternalMap<ChainApi, Block> =
+type InternalTxMemPoolMap<ChainApi, Block> =
 	HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>>;
-type InternalMapEntry<'a, ChainApi, Block> =
+type InternalTxMemPoolMapEntry<'a, ChainApi, Block> =
 	Entry<'a, ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>>;
 
-/// Intermediary transactions buffer.
+/// An intermediary transactions buffer.
 ///
 /// Keeps all the transaction which are potentially valid. Transactions that were finalized or
-/// transaction that are invalid at finalized blocks are removed.
+/// transactions that are invalid at finalized blocks are removed, either while handling the
+/// `Finalized` event, or during revalidation process.
 ///
-/// All transactions from `TxMemPool` are submitted to newly created views.
+/// All transactions from  a`TxMemPool` are submitted the to newly created views.
 ///
-/// All newly submitted transactions goes into `TxMemPool`.
+/// All newly submitted transactions goes into the `TxMemPool`.
 pub(super) struct TxMemPool<ChainApi, Block>
 where
 	Block: BlockT,
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
+	/// A shared API instance necessary for blockchain related operations.
 	api: Arc<ChainApi>,
+
+	/// A shared instance of the `MultiViewListener`.
+	///
+	/// Provides a side-channel allowing to send per-transaction state changes notification.
 	//todo: could be removed after removing watched field (and adding listener into tx) [#5495]
 	listener: Arc<MultiViewListener<ChainApi>>,
-	transactions: RwLock<InternalMap<ChainApi, Block>>,
+
+	///  A map that stores the transactions currently in the memory pool.
+	///
+	///  The key is the hash of the transaction, and the value is an wrapper
+	///  structure, which contains the details of the transaction.
+	transactions: RwLock<InternalTxMemPoolMap<ChainApi, Block>>,
+
+	/// Prometheus's metrics endpoint.
 	metrics: PrometheusMetrics,
+
+	/// Indicates the maximum number of transactions that can be maintained in the memory pool.
 	max_transactions_count: usize,
 }
 
@@ -133,6 +154,8 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
+	/// Creates a new `TxMemPool` instance with the given API, listener, metrics,
+	/// and max transaction count.
 	pub(super) fn new(
 		api: Arc<ChainApi>,
 		listener: Arc<MultiViewListener<ChainApi>>,
@@ -153,6 +176,7 @@ where
 		}
 	}
 
+	/// Retrieves a transaction by its hash if it exists in the memory pool.
 	pub(super) fn get_by_hash(
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
@@ -160,16 +184,19 @@ where
 		self.transactions.read().get(&hash).map(|t| t.tx())
 	}
 
+	/// Returns a tuple with the count of unwatched and watched transactions in the memory pool.
 	pub(super) fn unwatched_and_watched_count(&self) -> (usize, usize) {
 		let transactions = self.transactions.read();
 		let watched_count = transactions.values().filter(|t| t.is_watched()).count();
 		(transactions.len() - watched_count, watched_count)
 	}
 
+	/// Attempts to insert a transaction into the memory pool, ensuring it does not
+	/// exceed the maximum allowed transaction count.
 	fn try_insert(
 		&self,
 		current_len: usize,
-		entry: InternalMapEntry<'_, ChainApi, Block>,
+		entry: InternalTxMemPoolMapEntry<'_, ChainApi, Block>,
 		hash: ExtrinsicHash<ChainApi>,
 		tx: TxInMemPool<ChainApi, Block>,
 	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
@@ -185,7 +212,7 @@ where
 		}
 	}
 
-	/// Adds new unwatched transactions to the internal buffer not exceeding the limit.
+	/// Adds a new unwatched transactions to the internal buffer not exceeding the limit.
 	///
 	/// Returns the vector of results for each transaction, the order corresponds to the input
 	/// vector.
@@ -210,6 +237,8 @@ where
 		result
 	}
 
+	/// Adds a new watched transaction to the memory pool if it does not exceed the maximum allowed
+	/// transaction count.
 	pub(super) fn push_watched(
 		&self,
 		source: TransactionSource,
@@ -226,6 +255,8 @@ where
 		.map(|_| ())
 	}
 
+	/// Removes transactions from the memory pool which are specified by the given list of hashes
+	/// and send the `Dropped` event to the listeners of these ransactions.
 	pub(super) async fn remove_dropped_transactions(
 		&self,
 		to_be_removed: &Vec<ExtrinsicHash<ChainApi>>,
@@ -240,6 +271,8 @@ where
 		self.listener.transactions_dropped(to_be_removed);
 	}
 
+	/// Clones and returns a `HashMap` of references to all unwatched transactions in the memory
+	/// pool.
 	pub(super) fn clone_unwatched(
 		&self,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>> {
@@ -250,6 +283,7 @@ where
 			.collect::<HashMap<_, _>>()
 	}
 
+	/// Clones and returns a `HashMap` of references to all watched transactions in the memory pool.
 	pub(super) fn clone_watched(
 		&self,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>> {
@@ -260,13 +294,14 @@ where
 			.collect::<HashMap<_, _>>()
 	}
 
+	/// Removes a watched transaction from the memory pool based on a given raw extrinsic.
 	pub(super) fn remove_watched(&self, xt: &RawExtrinsicFor<ChainApi>) {
 		self.transactions.write().retain(|_, t| *t.tx != *xt);
 	}
 
-	/// Revalidates a batch of transactions.
+	/// Revalidates a batch of transactions agains the provided finalized block.
 	///
-	/// Returns vec of invalid hashes.
+	/// Returns a vector of invalid transaction hashes.
 	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
 		log::debug!(target: LOG_TARGET, "mempool::revalidate at:{:?} {}", finalized_block, line!());
 		let start = Instant::now();
@@ -331,6 +366,7 @@ where
 		invalid_hashes
 	}
 
+	/// Removes the finalized transactions from the memory pool, using a provided list of hashes.
 	pub(super) async fn purge_finalized_transactions(
 		&self,
 		finalized_xts: &Vec<ExtrinsicHash<ChainApi>>,
@@ -343,6 +379,8 @@ where
 		});
 	}
 
+	/// Revalidates transactions in the memory pool against a given finalized block and removes
+	/// invalid ones.
 	pub(super) async fn revalidate(&self, finalized_block: HashAndNumber<Block>) {
 		log::debug!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
 		let invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;

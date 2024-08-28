@@ -113,9 +113,9 @@
 //! Once the view is created, all transactions from *mempool* are submitted to and validated at this
 //! view.
 //!
-//! The *mempool* removes its transactions when they get finalized. The transactions in *mempool* are
-//! also periodically verified at every finalized block and removed from the *mempool* if no longer
-//! valid. This is process is called [*mempool* revalidation](#mempool-pruningrevalidation).
+//! The *mempool* removes its transactions when they get finalized. The transactions in *mempool*
+//! are also periodically verified at every finalized block and removed from the *mempool* if no
+//! longer valid. This is process is called [*mempool* revalidation](#mempool-pruningrevalidation).
 //!
 //! ## Flows
 //!
@@ -192,11 +192,11 @@
 //! build few blocks in the raw, not giving the pool enough time to accomplish possible ongoing
 //! maintain process.
 //!
-//! To address this, there is a [light version][`ready_light`] of the maintain procedure. It [finds
-//! the best view][find_best_view], clones it and prunes all the transactions that were included in
-//! enacted part of [tree route][`TreeRoute`] from the base view to the block at which a ready
-//! iterator was requested. No new [transaction validations][runtime_api::validate] are required to
-//! accomplish it.
+//! To address this, there is a [light version][`ready_at_light`] of the maintain procedure. It
+//! [finds the best view][find_best_view], clones it and prunes all the transactions that were
+//! included in enacted part of [tree route][`TreeRoute`] from the base view to the block at which a
+//! ready iterator was requested. No new [transaction validations][runtime_api::validate] are
+//! required to accomplish it.
 //!
 //! ### Providing ready transactions: `ready_at`
 //! The [`ready_at`] function returns a [future][`crate::PolledIterator`] that resolves to the
@@ -322,7 +322,7 @@
 //! [`ReadyTransactions`]:sc_transaction_pool_api::ReadyTransactions
 //! [`dropped_monitor_task`]: ForkAwareTxPool::dropped_monitor_task
 //! [`ready_poll`]: ForkAwareTxPool::ready_poll
-//! [`ready_light`]: ForkAwareTxPool::ready_light
+//! [`ready_at_light`]: ForkAwareTxPool::ready_at_light
 //! [`ready_at`]: ../struct.ForkAwareTxPool.html#method.ready_at
 //! [`import_notification_stream`]: ../struct.ForkAwareTxPool.html#method.import_notification_stream
 //! [`maintain`]: ../struct.ForkAwareTxPool.html#method.maintain

@@ -53,8 +53,9 @@ where
 	/// build new blocks upon them.
 	pub(super) retracted_views: RwLock<HashMap<Block::Hash, Arc<View<ChainApi>>>>,
 	/// Listener for controlling external watchers of transactions.
+	///
+	/// Provides a side-channel allowing to send per-transaction state changes notification.
 	pub(super) listener: Arc<MultiViewListener<ChainApi>>,
-
 	/// Most recent block processed by tx-pool. Used in the API functions that were not changed to
 	/// add `at` parameter.
 	pub(super) most_recent_view: RwLock<Option<Block::Hash>>,
@@ -84,7 +85,7 @@ where
 		}
 	}
 
-	/// Imports a bunch of unverified extrinsics to every view.
+	/// Imports a bunch of unverified extrinsics to every active view.
 	pub(super) async fn submit_at(
 		&self,
 		source: TransactionSource,
@@ -108,6 +109,12 @@ where
 	}
 
 	/// Import a single extrinsic and starts to watch its progress in the pool.
+	///
+	/// The extrinsic is imported to every view, and the individual streams providing the progress
+	/// of this transaction within every view are added to the multi view listener.
+	///
+	/// The external stream of aggregated/processed events provided by the `MultiViewListener`
+	/// instance is returned.
 	pub(super) async fn submit_and_watch(
 		&self,
 		_at: Block::Hash,
@@ -159,18 +166,17 @@ where
 		Ok(external_watcher)
 	}
 
+	/// Returns the pool status for every active view.
 	pub(super) fn status(&self) -> HashMap<Block::Hash, PoolStatus> {
 		self.views.read().iter().map(|(h, v)| (*h, v.status())).collect()
 	}
 
+	/// Returns true if there are no active views.
 	pub(super) fn is_empty(&self) -> bool {
-		self.views.read().is_empty()
+		self.views.read().is_empty() && self.retracted_views.read().is_empty()
 	}
 
-	/// Finds the best existing view to clone from along the path.
-	/// Allows to include all the transactions from the imported blocks (that are on the retracted
-	/// path) without additional validation. Tip of retracted fork is usually the most recent block
-	/// processed by txpool.
+	/// Finds the best existing active view to clone from along the path.
 	///
 	/// ```text
 	/// Tree route from R1 to E2.
@@ -202,17 +208,11 @@ where
 		})
 	}
 
+	/// Returns an iterator for ready transactions for the most recently notified best block.
+	///
+	/// The iterator for future transactions is returned if the most recently notified best block,
+	/// for which maintain process was accomplished, exists.
 	pub(super) fn ready(&self) -> ReadyIteratorFor<ChainApi> {
-		// let views = self.views.read();
-		// let most_filled_view = views.values().max_by(|x, y| {
-		// 	x.pool
-		// 		.validated_pool()
-		// 		.ready()
-		// 		.count()
-		// 		.cmp(&y.pool.validated_pool().ready().count())
-		// });
-		//
-		// let ready_iterator = most_filled_view.map(|v| v.pool.validated_pool().ready());
 		let ready_iterator = self
 			.most_recent_view
 			.read()
@@ -227,6 +227,10 @@ where
 		}
 	}
 
+	/// Returns a list of future transactions for the most recently notified best block.
+	///
+	/// The set of future transactions is returned if the most recently notified best block, for
+	/// which maintain process was accomplished, exists.
 	pub(super) fn futures(
 		&self,
 	) -> Vec<Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>> {
@@ -244,6 +248,12 @@ where
 		}
 	}
 
+	/// Collects all the transactions included in the blocks on the provided `tree_route` and
+	/// triggers finalization event for them.
+	///
+	/// The finalization event is sent using side-channel of the multi view `listener`.
+	///
+	/// Returns the list of finalized transactions hashes.
 	pub(super) async fn finalize_route(
 		&self,
 		finalized_hash: Block::Hash,
@@ -278,6 +288,10 @@ where
 		finalized_transactions
 	}
 
+	/// Return specific ready transaction by hash, if there is one.
+	///
+	/// Currently the ready transaction is returned if it exists for the most recently notified best
+	/// block (for which maintain process was accomplished).
 	pub(super) fn ready_transaction(
 		&self,
 		at: Block::Hash,
@@ -289,6 +303,14 @@ where
 			.and_then(|v| v.pool.validated_pool().ready_by_hash(tx_hash))
 	}
 
+	/// Inserts new view into the view store.
+	///
+	/// All the views associated with the blocks which are on enacted path (including common
+	/// ancestor) will be:
+	/// - moved to the inactive views set (`retracted_views`),
+	/// - removed from the multi view listeners.
+	///
+	/// The `most_recent_view` is update with the reference to the newly inserted view.
 	pub(super) async fn insert_new_view(
 		&self,
 		view: Arc<View<ChainApi>>,
@@ -327,6 +349,11 @@ where
 		}
 	}
 
+	/// Returns an optional reference to the view at given hash.
+	///
+	/// If `allow_retracted` flag is set, inactive views are alse searched.
+	///
+	/// If the view at provided hash does not exist `None` is returned.
 	pub(super) fn get_view_at(
 		&self,
 		at: Block::Hash,
@@ -343,6 +370,19 @@ where
 		None
 	}
 
+	/// The finalization event handle for the view store.
+	///
+	/// Views that have associated block number less then finalized block number are removed from
+	/// both active and inactive set.
+	///
+	/// Note: the views with the associated number greater then finalized block number on the forks
+	/// that are not finalized will stay in the view store. They will be removed in the future, once
+	/// new finalized blocks will be notified. This is to avoid scanning for common ancestors.
+	///
+	/// All watched transactions in the blocks from the tree_route will be notified with `Finalized`
+	/// event.
+	///
+	/// Returns the list of hashes of all finalized transactions along the provided `tree_route`.
 	pub(crate) async fn handle_finalized(
 		&self,
 		finalized_hash: Block::Hash,
@@ -377,6 +417,10 @@ where
 		finalized_xts
 	}
 
+	/// Terminates all the ongoing background views revalidations triggered at the end of maintain
+	/// process.
+	///
+	/// Refer to [*View revalidation*](../index.html#view-revalidation) for more details.
 	pub(crate) async fn finish_background_revalidations(&self) {
 		let start = Instant::now();
 		let finish_revalidation_futures = {
