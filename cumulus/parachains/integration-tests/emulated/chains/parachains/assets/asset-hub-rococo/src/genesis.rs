@@ -70,7 +70,7 @@ pub fn genesis() -> Storage {
 		},
 		assets: asset_hub_rococo_runtime::AssetsConfig {
 			assets: vec![
-				(RESERVABLE_ASSET_ID, AssetHubRococoAssetOwner::get(), true, ED),
+				(RESERVABLE_ASSET_ID, AssetHubRococoAssetOwner::get(), false, ED),
 				(USDT_ID, AssetHubRococoAssetOwner::get(), true, ED),
 			],
 			..Default::default()
@@ -81,7 +81,7 @@ pub fn genesis() -> Storage {
 				(
 					PenpalTeleportableAssetLocation::get(),
 					PenpalSiblingSovereignAccount::get(),
-					true,
+					false,
 					ED,
 				),
 			],

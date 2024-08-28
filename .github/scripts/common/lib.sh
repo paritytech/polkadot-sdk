@@ -315,6 +315,7 @@ function import_gpg_keys() {
     ) &
   done
   wait
+  gpg -k $SEC
 }
 
 # Check the GPG signature for a given binary
@@ -456,4 +457,16 @@ function get_polkadot_node_version_from_code() {
   sed 's/"//g' |
   # Remove the semicolon
   sed 's/;//g'
+}
+
+validate_stable_tag() {
+    tag="$1"
+    pattern='^stable[0-9]+(-[0-9]+)?$'
+
+    if [[ $tag =~ $pattern ]]; then
+        echo $tag
+    else
+        echo "The input '$tag' does not match the pattern."
+        exit 1
+    fi
 }
