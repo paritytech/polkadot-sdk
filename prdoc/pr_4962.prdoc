@@ -11,4 +11,4 @@ doc:
 
 crates:
   - name: pallet-treasury
-    bump: minor
+    bump: major
