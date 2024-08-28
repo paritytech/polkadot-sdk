@@ -471,15 +471,6 @@ where
 		))
 	}
 
-	/// Report Prometheus metrics.
-	pub fn report_metrics(&self) {
-		if let Some(metrics) = &self.metrics {
-			let n = u64::try_from(self.peers.len()).unwrap_or(std::u64::MAX);
-			metrics.peers.set(n);
-		}
-		self.strategy.report_metrics();
-	}
-
 	fn update_peer_info(
 		&mut self,
 		peer_id: &PeerId,
@@ -606,7 +597,11 @@ where
 	pub async fn run(mut self) {
 		loop {
 			tokio::select! {
-				_ = self.tick_timeout.tick() => self.perform_periodic_actions(),
+				_ = self.tick_timeout.tick() => {
+					// TODO: This tick should not be necessary, but
+					//  `self.process_strategy_actions()` is not called in some cases otherwise and
+					//  some tests fail because of this
+				},
 				command = self.service_rx.select_next_some() =>
 					self.process_service_command(command),
 				notification_event = self.notification_service.next_event() => match notification_event {
@@ -620,7 +615,6 @@ where
 			}
 
 			// Update atomic variables
-			self.num_connected.store(self.peers.len(), Ordering::Relaxed);
 			self.is_major_syncing.store(self.strategy.is_major_syncing(), Ordering::Relaxed);
 
 			// Process actions requested by a syncing strategy.
@@ -724,10 +718,6 @@ where
 		Ok(())
 	}
 
-	fn perform_periodic_actions(&mut self) {
-		self.report_metrics();
-	}
-
 	fn process_service_command(&mut self, command: ToServiceCommand<B>) {
 		match command {
 			ToServiceCommand::SetSyncForkRequest(peers, hash, number) => {
@@ -770,24 +760,10 @@ where
 				);
 			},
 			ToServiceCommand::Status(tx) => {
-				let mut status = self.strategy.status();
-				status.num_connected_peers = self.peers.len() as u32;
-				let _ = tx.send(status);
+				let _ = tx.send(self.strategy.status());
 			},
 			ToServiceCommand::NumActivePeers(tx) => {
 				let _ = tx.send(self.num_active_peers());
-			},
-			ToServiceCommand::SyncState(tx) => {
-				let _ = tx.send(self.strategy.status());
-			},
-			ToServiceCommand::BestSeenBlock(tx) => {
-				let _ = tx.send(self.strategy.status().best_seen_block);
-			},
-			ToServiceCommand::NumSyncPeers(tx) => {
-				let _ = tx.send(self.strategy.status().num_peers);
-			},
-			ToServiceCommand::NumQueuedBlocks(tx) => {
-				let _ = tx.send(self.strategy.status().queued_blocks);
 			},
 			ToServiceCommand::NumDownloadedBlocks(tx) => {
 				let _ = tx.send(self.strategy.num_downloaded_blocks());
@@ -796,11 +772,8 @@ where
 				let _ = tx.send(self.strategy.num_sync_requests());
 			},
 			ToServiceCommand::PeersInfo(tx) => {
-				let peers_info = self
-					.peers
-					.iter()
-					.map(|(peer_id, peer)| (*peer_id, peer.info.clone()))
-					.collect();
+				let peers_info =
+					self.peers.iter().map(|(peer_id, peer)| (*peer_id, peer.info)).collect();
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::OnBlockFinalized(hash, header) =>
@@ -873,6 +846,10 @@ where
 			log::debug!(target: LOG_TARGET, "{peer_id} does not exist in `SyncingEngine`");
 			return
 		};
+		if let Some(metrics) = &self.metrics {
+			metrics.peers.dec();
+		}
+		self.num_connected.fetch_sub(1, Ordering::AcqRel);
 
 		if self.important_peers.contains(&peer_id) {
 			log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
@@ -1048,7 +1025,12 @@ where
 
 		log::debug!(target: LOG_TARGET, "Connected {peer_id}");
 
-		self.peers.insert(peer_id, peer);
+		if self.peers.insert(peer_id, peer).is_none() {
+			if let Some(metrics) = &self.metrics {
+				metrics.peers.inc();
+			}
+			self.num_connected.fetch_add(1, Ordering::AcqRel);
+		}
 		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
 		if self.default_peers_set_no_slot_peers.contains(&peer_id) {
