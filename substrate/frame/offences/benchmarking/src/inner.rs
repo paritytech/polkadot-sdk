@@ -20,7 +20,7 @@
 use alloc::{vec, vec::Vec};
 
 use frame_benchmarking::v1::{account, benchmarks};
-use frame_support::traits::{Currency, Get};
+use frame_support::traits::Get;
 use frame_system::{Config as SystemConfig, Pallet as System, RawOrigin};
 
 use sp_runtime::{
@@ -89,7 +89,7 @@ struct Offender<T: Config> {
 }
 
 fn bond_amount<T: Config>() -> BalanceOf<T> {
-	T::Currency::minimum_balance().saturating_mul(10_000u32.into())
+	pallet_staking::asset::existential_deposit::<T>().saturating_mul(10_000u32.into())
 }
 
 fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'static str> {
@@ -99,7 +99,7 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 	let amount = bond_amount::<T>();
 	// add twice as much balance to prevent the account from being killed.
 	let free_amount = amount.saturating_mul(2u32.into());
-	T::Currency::make_free_balance_be(&stash, free_amount);
+	pallet_staking::asset::set_stakeable_balance::<T>(&stash, free_amount);
 	Staking::<T>::bond(
 		RawOrigin::Signed(stash.clone()).into(),
 		amount,
@@ -116,7 +116,7 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 	for i in 0..nominators {
 		let nominator_stash: T::AccountId =
 			account("nominator stash", n * MAX_NOMINATORS + i, SEED);
-		T::Currency::make_free_balance_be(&nominator_stash, free_amount);
+		pallet_staking::asset::set_stakeable_balance::<T>(&nominator_stash, free_amount);
 
 		Staking::<T>::bond(
 			RawOrigin::Signed(nominator_stash.clone()).into(),
