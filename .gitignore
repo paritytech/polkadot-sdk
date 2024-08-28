@@ -23,6 +23,7 @@
 **/node_modules
 **/target/
 **/wip/*.stderr
+**/__pycache__/
 /.cargo/config
 /.envrc
 artifacts
