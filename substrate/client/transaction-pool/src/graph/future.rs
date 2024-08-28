@@ -106,7 +106,7 @@ impl<Hash, Ex> WaitingTransaction<Hash, Ex> {
 
 /// A pool of transactions that are not yet ready to be included in the block.
 ///
-/// Contains transactions that are still awaiting for some other transactions that
+/// Contains transactions that are still awaiting some other transactions that
 /// could provide a tag that they require.
 #[derive(Clone, Debug)]
 pub struct FutureTransactions<Hash: hash::Hash + Eq, Ex> {

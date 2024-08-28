@@ -447,7 +447,7 @@ where
 	/// completes. This provides a best-effort, ready set of transactions as a result light
 	/// maintain.
 	///
-	/// Returns a  uture resolving to a ready iterator of transactions.
+	/// Returns a future resolving to a ready iterator of transactions.
 	fn ready_at_with_timeout_internal(
 		&self,
 		at: Block::Hash,

@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Prometheus metrics for a fork-aware transaction pool.
+//! Prometheus's metrics for a fork-aware transaction pool.
 
 use crate::common::metrics::{GenericMetricsLink, MetricsRegistrant};
 use prometheus_endpoint::{

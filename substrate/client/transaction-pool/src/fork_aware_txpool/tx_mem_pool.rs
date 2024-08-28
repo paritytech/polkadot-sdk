@@ -23,7 +23,7 @@
 //! - potential races between creation of view and submitting transaction (w/o intermediary buffer
 //!   some transactions could be lost)
 //! - the transaction can be invalid on some forks (and thus the associated views may not contain
-//!   it), while on other forks tx can be valid. Depending on which view is choosen to be cloned,
+//!   it), while on other forks tx can be valid. Depending on which view is chosen to be cloned,
 //!   such transaction could not be present in the newly created view.
 
 use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
@@ -118,7 +118,7 @@ type InternalTxMemPoolMapEntry<'a, ChainApi, Block> =
 /// transactions that are invalid at finalized blocks are removed, either while handling the
 /// `Finalized` event, or during revalidation process.
 ///
-/// All transactions from  a`TxMemPool` are submitted the to newly created views.
+/// All transactions from  a`TxMemPool` are submitted to the newly created views.
 ///
 /// All newly submitted transactions goes into the `TxMemPool`.
 pub(super) struct TxMemPool<ChainApi, Block>
@@ -137,8 +137,8 @@ where
 
 	///  A map that stores the transactions currently in the memory pool.
 	///
-	///  The key is the hash of the transaction, and the value is an wrapper
-	///  structure, which contains the details of the transaction.
+	///  The key is the hash of the transaction, and the value is a wrapper
+	///  structure, which contains the mempool specific details of the transaction.
 	transactions: RwLock<InternalTxMemPoolMap<ChainApi, Block>>,
 
 	/// Prometheus's metrics endpoint.
@@ -256,7 +256,7 @@ where
 	}
 
 	/// Removes transactions from the memory pool which are specified by the given list of hashes
-	/// and send the `Dropped` event to the listeners of these ransactions.
+	/// and send the `Dropped` event to the listeners of these transactions.
 	pub(super) async fn remove_dropped_transactions(
 		&self,
 		to_be_removed: &Vec<ExtrinsicHash<ChainApi>>,
@@ -299,7 +299,7 @@ where
 		self.transactions.write().retain(|_, t| *t.tx != *xt);
 	}
 
-	/// Revalidates a batch of transactions agains the provided finalized block.
+	/// Revalidates a batch of transactions against the provided finalized block.
 	///
 	/// Returns a vector of invalid transaction hashes.
 	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {

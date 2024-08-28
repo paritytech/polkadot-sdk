@@ -71,7 +71,7 @@ impl<K, I: Send + Sync> Debug for Command<K, I> {
 	}
 }
 
-/// A context used to unfold the single aggreagted stream of items aggregated from the multiple
+/// A context used to unfold the single aggregated stream of items aggregated from the multiple
 /// streams.
 ///
 /// The `AggregatedStreamContext` continuously monitors both the command receiver and the stream
@@ -147,7 +147,7 @@ pub struct MultiViewImportNotificationSink<K, I: Send + Sync> {
 	/// A vector of the external sinks, each receiving a copy of the merged stream of ready
 	/// transaction hashes.
 	external_sinks: Arc<RwLock<Vec<ExternalSink<I>>>>,
-	/// A set of already notified items, ensuring that each item (tranasction hash) is only
+	/// A set of already notified items, ensuring that each item (transaction hash) is only
 	/// sent out once.
 	already_notified_items: Arc<RwLock<HashSet<I>>>,
 }
@@ -164,7 +164,7 @@ where
 	/// Creates a new [`MultiViewImportNotificationSink`] along with its associated worker task.
 	///
 	/// This function initializes the sink and provides the worker task that listens for events from
-	/// the the aggregated stream, relaying them to the external sinks. The task shall be polled by
+	/// the aggregated stream, relaying them to the external sinks. The task shall be polled by
 	/// caller.
 	///
 	/// Returns a tuple containing the [`MultiViewImportNotificationSink`] and the

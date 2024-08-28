@@ -192,8 +192,8 @@ where
 
 	/// Revalidates some part of transaction from the internal pool.
 	///
-	/// Intended to called from the revalidation worker. The evalidation process can be terminated
-	/// by sending a message to the `rx` channel provided within
+	/// Intended to be called from the revalidation worker. The revalidation process can be
+	/// terminated by sending a message to the `rx` channel provided within
 	/// `finish_revalidation_worker_channels`. Revalidation results are sent back over the `tx`
 	/// channels and shall be applied in maintain thread.
 	///
@@ -204,8 +204,6 @@ where
 		&self,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<ChainApi>,
 	) {
-		use sp_runtime::SaturatedConversion;
-
 		let FinishRevalidationWorkerChannels {
 			mut finish_revalidation_request_rx,
 			revalidation_result_tx,

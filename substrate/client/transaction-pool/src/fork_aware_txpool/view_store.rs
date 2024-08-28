@@ -351,7 +351,7 @@ where
 
 	/// Returns an optional reference to the view at given hash.
 	///
-	/// If `allow_retracted` flag is set, inactive views are alse searched.
+	/// If `allow_retracted` flag is set, inactive views are also searched.
 	///
 	/// If the view at provided hash does not exist `None` is returned.
 	pub(super) fn get_view_at(
@@ -372,10 +372,10 @@ where
 
 	/// The finalization event handle for the view store.
 	///
-	/// Views that have associated block number less then finalized block number are removed from
+	/// Views that have associated block number less than finalized block number are removed from
 	/// both active and inactive set.
 	///
-	/// Note: the views with the associated number greater then finalized block number on the forks
+	/// Note: the views with the associated number greater than finalized block number on the forks
 	/// that are not finalized will stay in the view store. They will be removed in the future, once
 	/// new finalized blocks will be notified. This is to avoid scanning for common ancestors.
 	///

@@ -41,7 +41,7 @@ use tokio_stream::StreamMap;
 /// Set of instances of [`Controller`] lives within the [`MultiViewListener`].
 type Controller<T> = mpsc::TracingUnboundedSender<T>;
 
-/// A recevier of [`ControllerCommand`] instances allowing to control the external stream.
+/// A receiver of [`ControllerCommand`] instances allowing to control the external stream.
 ///
 /// Lives within the [`ExternalWatcherContext`] instance.
 type CommandReceiver<T> = mpsc::TracingUnboundedReceiver<T>;
@@ -109,12 +109,12 @@ where
 ///
 /// For every transaction the view's stream generating its own events can be added. The events are
 /// flattened and sent out to the external listener. (The *external*  term here means that it can be
-/// exposed to [`sc_transaction_pool_api::TransactionPool`] API client e.g over RPC.)
+/// exposed to [`sc_transaction_pool_api::TransactionPool`] API client e.g. over RPC.)
 ///
 /// The listener allows to add and remove view's stream (per transaction).
 ///
 /// The listener provides a side channel that allows triggering specific events (finalized, dropped,
-/// invalid) independently from the view's stream.
+/// invalid) independently of the view's stream.
 pub struct MultiViewListener<ChainApi: graph::ChainApi> {
 	/// Provides the set of controllers for the events streams corresponding to individual
 	/// transactions identified by transaction hashes.
@@ -290,7 +290,7 @@ where
 	///
 	/// This method initializes an `ExternalWatcherContext` for the provided transaction hash, sets
 	/// up the necessary communication channels, and unfolds an external (meaning that it can be
-	/// exposed to [`sc_transaction_pool_api::TransactionPool`] API client e.g rpc) stream of
+	/// exposed to [`sc_transaction_pool_api::TransactionPool`] API client e.g. rpc) stream of
 	/// transaction status events. If an external watcher is already present for the given
 	/// transaction, it returns `None`.
 	pub(crate) fn create_external_watcher_for_tx(

@@ -151,7 +151,7 @@ where
 	/// Creates a new `StreamOfDropped` and its associated event stream controller.
 	///
 	/// This method initializes the internal structures and unfolds the stream of dropped
-	/// transactions. Returns a tuple containing this stream and the controller for managing the
+	/// transactions. Returns a tuple containing this stream and the controller for managing
 	/// this stream.
 	fn event_stream() -> (StreamOfDropped<C>, Controller<Command<C>>) {
 		//note: 64 allows to avoid warning messages during execution of unit tests.
@@ -213,7 +213,7 @@ where
 /// stream.
 pub struct MultiViewDroppedWatcherController<C: ChainApi> {
 	/// A controller allowing to update the state of the associated [`StreamOfDropped`].
-	contoller: Controller<Command<C>>,
+	controller: Controller<Command<C>>,
 }
 
 impl<C> MultiViewDroppedWatcherController<C>
@@ -224,12 +224,12 @@ where
 	/// Creates new [`StreamOfDropped`] and its controller.
 	pub fn new() -> (MultiViewDroppedWatcherController<C>, StreamOfDropped<C>) {
 		let (stream_map, ctrl) = MultiViewDropWatcherContext::<C>::event_stream();
-		(Self { contoller: ctrl }, stream_map.boxed())
+		(Self { controller: ctrl }, stream_map.boxed())
 	}
 
 	/// Notifies the [`StreamOfDropped`] that new view was created.
 	pub fn add_view(&self, key: BlockHash<C>, view: ViewStream<C>) {
-		let _ = self.contoller.unbounded_send(Command::AddView(key, view)).map_err(|e| {
+		let _ = self.controller.unbounded_send(Command::AddView(key, view)).map_err(|e| {
 			debug!(target: LOG_TARGET, "dropped_watcher: add_view {key:?} send message failed: {e}");
 		});
 	}
@@ -237,7 +237,7 @@ where
 	/// Notifies the [`StreamOfDropped`] that the view was destroyed and shall be removed the
 	/// stream map.
 	pub fn remove_view(&self, key: BlockHash<C>) {
-		let _ = self.contoller.unbounded_send(Command::RemoveView(key)).map_err(|e| {
+		let _ = self.controller.unbounded_send(Command::RemoveView(key)).map_err(|e| {
 			debug!(target: LOG_TARGET, "dropped_watcher: remove_view {key:?} send message failed: {e}");
 		});
 	}
