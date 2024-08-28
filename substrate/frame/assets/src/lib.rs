@@ -396,7 +396,7 @@ pub mod pallet {
 
 		/// A hook to inspect a per-asset, per-account balance that is held. This goes in
 		/// accordance with balance model.
-		type Holder: HeldBalance<Self::AssetId, Self::AccountId, Self::Balance>;
+		type Holder: BalanceOnHold<Self::AssetId, Self::AccountId, Self::Balance>;
 
 		/// Additional data to be stored with an account's asset balance.
 		type Extra: Member + Parameter + Default + MaxEncodedLen;

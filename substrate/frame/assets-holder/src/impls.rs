@@ -23,7 +23,7 @@ use frame_support::traits::{
 		DepositConsequence, Fortitude, Precision, Preservation, Provenance, WithdrawConsequence,
 	},
 };
-use pallet_assets::HeldBalance;
+use pallet_assets::BalanceOnHold;
 use sp_runtime::{
 	traits::{CheckedAdd, CheckedSub, Zero},
 	ArithmeticError,
@@ -32,8 +32,10 @@ use sp_runtime::{
 // Implements [`HeldBalance`] from [`pallet-assets`], so it can understand whether there's a held
 // amount for an asset account, and is able to signal to this pallet when to clear the state of an
 // account.
-impl<T: Config<I>, I: 'static> HeldBalance<T::AssetId, T::AccountId, T::Balance> for Pallet<T, I> {
-	fn held_balance(asset: T::AssetId, who: &T::AccountId) -> Option<T::Balance> {
+impl<T: Config<I>, I: 'static> BalanceOnHold<T::AssetId, T::AccountId, T::Balance>
+	for Pallet<T, I>
+{
+	fn balance_on_hold(asset: T::AssetId, who: &T::AccountId) -> Option<T::Balance> {
 		HeldBalances::<T, I>::get(asset, who)
 	}
 

@@ -23,7 +23,7 @@ use frame_support::{
 	assert_noop, assert_ok,
 	traits::tokens::fungibles::{Inspect, InspectHold, MutateHold, UnbalancedHold},
 };
-use pallet_assets::HeldBalance;
+use pallet_assets::BalanceOnHold;
 
 const WHO: AccountId = 1;
 const ASSET_ID: AssetId = 1;
@@ -36,25 +36,43 @@ fn test_release(id: DummyHoldReason) {
 	assert_ok!(AssetsHolder::set_balance_on_hold(ASSET_ID, &id, &WHO, 0));
 }
 
-mod impl_held_balance {
+mod impl_balance_on_hold {
 	use super::*;
 
 	#[test]
-	fn held_balance_works() {
+	fn balance_on_hold_works() {
 		new_test_ext(|| {
-			assert_eq!(AssetsHolder::held_balance(ASSET_ID, &WHO), None);
+			assert_eq!(
+				<AssetsHolder as BalanceOnHold<_, _, _>>::balance_on_hold(ASSET_ID, &WHO),
+				None
+			);
 			test_hold(DummyHoldReason::Governance, 1);
-			assert_eq!(AssetsHolder::held_balance(ASSET_ID, &WHO), Some(1u64));
+			assert_eq!(
+				<AssetsHolder as BalanceOnHold<_, _, _>>::balance_on_hold(ASSET_ID, &WHO),
+				Some(1u64)
+			);
 			test_hold(DummyHoldReason::Staking, 3);
-			assert_eq!(AssetsHolder::held_balance(ASSET_ID, &WHO), Some(4u64));
+			assert_eq!(
+				<AssetsHolder as BalanceOnHold<_, _, _>>::balance_on_hold(ASSET_ID, &WHO),
+				Some(4u64)
+			);
 			test_hold(DummyHoldReason::Governance, 2);
-			assert_eq!(AssetsHolder::held_balance(ASSET_ID, &WHO), Some(5u64));
+			assert_eq!(
+				<AssetsHolder as BalanceOnHold<_, _, _>>::balance_on_hold(ASSET_ID, &WHO),
+				Some(5u64)
+			);
 			// also test releasing works to reduce a balance, and finally releasing everything
 			// resets to None
 			test_release(DummyHoldReason::Governance);
-			assert_eq!(AssetsHolder::held_balance(ASSET_ID, &WHO), Some(3u64));
+			assert_eq!(
+				<AssetsHolder as BalanceOnHold<_, _, _>>::balance_on_hold(ASSET_ID, &WHO),
+				Some(3u64)
+			);
 			test_release(DummyHoldReason::Staking);
-			assert_eq!(AssetsHolder::held_balance(ASSET_ID, &WHO), None);
+			assert_eq!(
+				<AssetsHolder as BalanceOnHold<_, _, _>>::balance_on_hold(ASSET_ID, &WHO),
+				None
+			);
 		});
 	}
 
@@ -95,34 +113,58 @@ mod impl_hold_inspect {
 	fn balance_on_hold_works() {
 		new_test_ext(|| {
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Governance, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO
+				),
 				0u64
 			);
 			test_hold(DummyHoldReason::Governance, 1);
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Governance, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO
+				),
 				1u64
 			);
 			test_hold(DummyHoldReason::Staking, 3);
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Staking, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Staking,
+					&WHO
+				),
 				3u64
 			);
 			test_hold(DummyHoldReason::Staking, 2);
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Staking, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Staking,
+					&WHO
+				),
 				2u64
 			);
 			// also test release to reduce a balance, and finally releasing everything resets to
 			// 0
 			test_release(DummyHoldReason::Governance);
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Governance, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO
+				),
 				0u64
 			);
 			test_release(DummyHoldReason::Staking);
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Staking, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Staking,
+					&WHO
+				),
 				0u64
 			);
 		});
@@ -254,7 +296,11 @@ mod impl_hold_mutate {
 				89
 			);
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Governance, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO
+				),
 				10
 			);
 			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &WHO), 10);
@@ -270,7 +316,11 @@ mod impl_hold_mutate {
 			assert_ok!(AssetsHolder::hold(ASSET_ID, &DummyHoldReason::Governance, &WHO, 20));
 			assert_eq!(Assets::balance(ASSET_ID, &WHO), 70);
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Governance, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO
+				),
 				30
 			);
 			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &WHO), 30);
@@ -281,7 +331,11 @@ mod impl_hold_mutate {
 			assert_ok!(AssetsHolder::hold(ASSET_ID, &DummyHoldReason::Staking, &WHO, 20));
 			assert_eq!(Assets::balance(ASSET_ID, &WHO), 50);
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Staking, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Staking,
+					&WHO
+				),
 				20
 			);
 			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &WHO), 50);
@@ -309,7 +363,11 @@ mod impl_hold_mutate {
 				Precision::Exact,
 			));
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Governance, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO
+				),
 				10
 			);
 			assert_eq!(Assets::balance(ASSET_ID, WHO), 70);
@@ -326,7 +384,11 @@ mod impl_hold_mutate {
 				Precision::BestEffort,
 			));
 			assert_eq!(
-				AssetsHolder::balance_on_hold(ASSET_ID, &DummyHoldReason::Governance, &WHO),
+				<AssetsHolder as InspectHold<_>>::balance_on_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO
+				),
 				0
 			);
 			assert_eq!(Assets::balance(ASSET_ID, WHO), 80);

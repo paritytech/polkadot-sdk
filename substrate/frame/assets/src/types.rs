@@ -236,14 +236,14 @@ impl<AssetId, AccountId, Balance> FrozenBalance<AssetId, AccountId, Balance> for
 /// This balance is then summed up with the balance of the account, and the
 /// `minimum_balance` (and frozen balance, if any) of the asset to calculate
 /// the reducible balance.
-pub trait HeldBalance<AssetId, AccountId, Balance> {
+pub trait BalanceOnHold<AssetId, AccountId, Balance> {
 	/// Return the held balance.
 	///
 	/// If `Some`, it means some balance is suspended, and it can be infallibly
 	/// slashed.
 	///
 	/// If `None` is returned, then nothing special is enforced.
-	fn held_balance(asset: AssetId, who: &AccountId) -> Option<Balance>;
+	fn balance_on_hold(asset: AssetId, who: &AccountId) -> Option<Balance>;
 
 	/// Called after an account has been removed.
 	///
@@ -251,8 +251,8 @@ pub trait HeldBalance<AssetId, AccountId, Balance> {
 	fn died(asset: AssetId, who: &AccountId);
 }
 
-impl<AssetId, AccountId, Balance> HeldBalance<AssetId, AccountId, Balance> for () {
-	fn held_balance(_: AssetId, _: &AccountId) -> Option<Balance> {
+impl<AssetId, AccountId, Balance> BalanceOnHold<AssetId, AccountId, Balance> for () {
+	fn balance_on_hold(_: AssetId, _: &AccountId) -> Option<Balance> {
 		None
 	}
 	fn died(_: AssetId, _: &AccountId) {}

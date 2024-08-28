@@ -194,7 +194,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		if let Some(rest) = account.balance.checked_sub(&amount) {
 			match (
-				T::Holder::held_balance(id.clone(), who),
+				T::Holder::balance_on_hold(id.clone(), who),
 				T::Freezer::frozen_balance(id.clone(), who),
 			) {
 				(None, None) =>
@@ -238,7 +238,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
 
 		let untouchable = match (
-			T::Holder::held_balance(id.clone(), who),
+			T::Holder::balance_on_hold(id.clone(), who),
 			T::Freezer::frozen_balance(id.clone(), who),
 			keep_alive,
 		) {

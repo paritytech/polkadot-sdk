@@ -1385,7 +1385,7 @@ fn freezing_and_holds_work() {
 		// Hold 50 of it
 		set_held_balance(0, 1, 50);
 		assert_eq!(Assets::balance(0, 1), 50);
-		assert_eq!(TestHolder::held_balance(0, &1), Some(50));
+		assert_eq!(TestHolder::balance_on_hold(0, &1), Some(50));
 
 		// Can freeze up to held + min_balance without affecting reducible
 		set_frozen_balance(0, 1, 59);

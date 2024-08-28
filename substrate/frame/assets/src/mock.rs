@@ -120,8 +120,8 @@ parameter_types! {
 }
 
 pub struct TestHolder;
-impl HeldBalance<u32, u64, u64> for TestHolder {
-	fn held_balance(asset: u32, who: &u64) -> Option<u64> {
+impl BalanceOnHold<u32, u64, u64> for TestHolder {
+	fn balance_on_hold(asset: u32, who: &u64) -> Option<u64> {
 		Held::get().get(&(asset, *who)).cloned()
 	}
 
