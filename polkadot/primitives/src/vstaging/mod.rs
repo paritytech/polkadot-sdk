@@ -422,8 +422,6 @@ impl CandidateCommitments {
 /// CandidateReceipt construction errors.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum CandidateReceiptError {
-	/// The specified core index is invalid.
-	InvalidCoreIndex,
 	/// The core index in commitments doesnt match the one in descriptor
 	CoreIndexMismatch,
 	/// The core selector or claim queue offset is invalid.
