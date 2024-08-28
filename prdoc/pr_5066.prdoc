@@ -8,4 +8,4 @@ doc:
 
 crates:
 - name: pallet-staking
-  bump: minor
+  bump: major
