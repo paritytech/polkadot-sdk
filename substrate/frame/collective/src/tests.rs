@@ -31,7 +31,7 @@ use frame_system::{EnsureRoot, EventRecord, Phase};
 use sp_core::{ConstU128, H256};
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, Convert},
+	traits::{BlakeTwo256, Convert, Zero},
 	BuildStorage, FixedU128,
 };
 
@@ -129,7 +129,6 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
-	// type ProposalDeposit = CollectiveDeposit;
 	type DisapproveOrigin = EnsureRoot<AccountId>;
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Consideration =
@@ -1598,6 +1597,10 @@ fn kill_proposal_with_deposit() {
 				Box::new(proposal.clone()),
 				proposal_len
 			));
+			assert_eq!(
+				CostOf::<Test, Instance1>::get(last_hash.unwrap()).is_none(),
+				deposit.is_zero()
+			);
 		}
 		let balance = Balances::total_balance(&1);
 		System::reset_events();

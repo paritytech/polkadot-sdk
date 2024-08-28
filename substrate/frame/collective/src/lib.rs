@@ -60,7 +60,7 @@ use frame_support::{
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
 		Backing, ChangeMembers, Consideration, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
-		InitializeMembers, StorageVersion,
+		InitializeMembers, MaybeConsideration, StorageVersion,
 	},
 	weights::Weight,
 };
@@ -386,7 +386,7 @@ pub mod pallet {
 		/// Note: If the resulting deposits are excessively high and cause benchmark failures,
 		/// consider using a constant cost (e.g., [`crate::deposit::Constant`]) equal to the minimum
 		/// balance under the `runtime-benchmarks` feature.
-		type Consideration: Consideration<Self::AccountId, u32>;
+		type Consideration: MaybeConsideration<Self::AccountId, u32>;
 	}
 
 	#[pallet::genesis_config]
@@ -955,7 +955,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			})?;
 
 		let cost = T::Consideration::new(&who, active_proposals as u32 - 1)?;
-		<CostOf<T, I>>::insert(proposal_hash, (who.clone(), cost));
+		if !cost.is_none() {
+			<CostOf<T, I>>::insert(proposal_hash, (who.clone(), cost));
+		}
 
 		let index = ProposalCount::<T, I>::get();
 
