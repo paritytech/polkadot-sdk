@@ -31,7 +31,7 @@ use frame_support::{
 	weights::Weight,
 	BoundedVec,
 };
-use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
+use frame_system::{ensure_root, ensure_signed, pallet_prelude::*, RawOrigin};
 use sp_runtime::{
 	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
@@ -863,6 +863,8 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
+		/// Restore ledger resulted in a force unbound.
+		RestoreLedgerKill { new_locked: BalanceOf<T>, free_balance: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -2060,13 +2062,17 @@ pub mod pallet {
 		/// ledger associated with the stash. If the input parameters are not set, the ledger will
 		/// be reset values from on-chain state.
 		#[pallet::call_index(29)]
-		#[pallet::weight(T::WeightInfo::restore_ledger())]
+		#[pallet::weight(
+            T::WeightInfo::restore_ledger() +
+            <T::WeightInfo>::force_unstake(maybe_slashing_spans.unwrap_or_default())
+        )]
 		pub fn restore_ledger(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
 			maybe_controller: Option<T::AccountId>,
 			maybe_total: Option<BalanceOf<T>>,
 			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
+			maybe_slashing_spans: Option<u32>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 
@@ -2140,7 +2146,7 @@ pub mod pallet {
 			// re-bond stash and controller tuple.
 			Bonded::<T>::insert(&stash, &new_controller);
 
-			// resoter ledger state.
+			// restore the ledger state.
 			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
 			ledger.controller = Some(new_controller);
 			ledger.unlocking = maybe_unlocking.unwrap_or_default();
@@ -2150,6 +2156,20 @@ pub mod pallet {
 				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
 				Error::<T>::BadState
 			);
+
+			// if the current stash free balance does not cover the staking lock after ledger
+			// restore, force unstake the ledger and clear all the data associated with the ledger.
+			let stash_free_balance = T::Currency::free_balance(&stash);
+			if stash_free_balance < new_total {
+				let slashing_spans = maybe_slashing_spans.unwrap_or_default();
+				Self::force_unstake(RawOrigin::Root.into(), stash, slashing_spans)?;
+
+				Self::deposit_event(Event::<T>::RestoreLedgerKill {
+					new_locked: new_total,
+					free_balance: stash_free_balance,
+				});
+			}
+
 			Ok(())
 		}
 	}
