@@ -172,15 +172,20 @@ impl<T: Config<I>, I: 'static> UnbalancedHold<T::AccountId> for Pallet<T, I> {
 		amount: Self::Balance,
 	) -> DispatchResult {
 		let mut holds = Holds::<T, I>::get(asset.clone(), who);
-		let mut increase = true;
-		let mut delta = amount;
+		let increase;
+		let delta;
 
-		if let Some(item) = holds.iter_mut().find(|x| &x.id == reason) {
+		if let Some(pos) = holds.iter().position(|x| &x.id == reason) {
+			let item = &mut holds[pos];
 			delta = item.amount.max(amount) - item.amount.min(amount);
 			increase = amount > item.amount;
 			item.amount = amount;
-			holds.retain(|x| !x.amount.is_zero());
+			if item.amount.is_zero() {
+				holds.swap_remove(pos);
+			}
 		} else {
+			increase = true;
+			delta = amount;
 			if !amount.is_zero() {
 				holds
 					.try_push(IdAmount { id: *reason, amount })
@@ -202,7 +207,11 @@ impl<T: Config<I>, I: 'static> UnbalancedHold<T::AccountId> for Pallet<T, I> {
 			HeldBalances::<T, I>::insert(asset.clone(), who, held_amount);
 		}
 
-		Holds::<T, I>::insert(asset, who, holds);
+		if !holds.is_empty() {
+			Holds::<T, I>::insert(asset, who, holds);
+		} else {
+			Holds::<T, I>::remove(asset, who);
+		}
 
 		Ok(())
 	}
