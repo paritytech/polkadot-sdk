@@ -31,16 +31,12 @@ use polkadot_sdk::{
 };
 use std::sync::Arc;
 
-pub use polkadot_sdk::sc_rpc_api::DenyUnsafe;
-
 /// Full client dependencies.
 pub struct FullDeps<C, P> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
-	/// Whether to deny unsafe calls
-	pub deny_unsafe: DenyUnsafe,
 }
 
 #[docify::export]
@@ -62,9 +58,9 @@ where
 {
 	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 	let mut module = RpcModule::new(());
-	let FullDeps { client, pool, deny_unsafe } = deps;
+	let FullDeps { client, pool } = deps;
 
-	module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
+	module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
 
 	Ok(module)
 }

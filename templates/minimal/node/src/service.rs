@@ -171,9 +171,8 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		let client = client.clone();
 		let pool = transaction_pool.clone();
 
-		Box::new(move |deny_unsafe, _| {
-			let deps =
-				crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
+		Box::new(move |_| {
+			let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone() };
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
 	};
