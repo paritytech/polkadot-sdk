@@ -238,6 +238,6 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 	}
 
 	fn pay_fees(asset: &Asset) -> Weight {
-		todo!()
+		XcmGeneric::<Runtime>::pay_fees()
 	}
 }
