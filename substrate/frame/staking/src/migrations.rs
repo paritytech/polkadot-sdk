@@ -60,12 +60,46 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+/// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, PerBill)>` to track offense severity for re-enabling purposes.
+pub mod v16 {
+	use super::*;
+
+	// The disabling strategy used by staking pallet
+	type DefaultDisablingStrategy = UpToLimitWithReEnablingDisablingStrategy;
+	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
+		fn on_runtime_upgrade() -> Weight {
+			// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, PerBill)>`.
+			// Using max severity (PerBill) for the migration which effectively makes it so offenders before the migration will never be re-enabled.
+			let max_perbill = Perbill::from_percent(100);
+			// Inject severity
+			let migrated = v15::DisabledValidators::<T>::take().into_iter().map(|v| (v, max_perbill)).collect::<Vec<_>>();
+
+			DisabledValidators::<T>::set(migrated);
+
+			log!(info, "v16 applied successfully.");
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+	}
+
+	pub type MigrateV14ToV15<T> = VersionedMigration<
+		15,
+		16,
+		VersionUncheckedMigrateV15ToV16<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
 /// Migrating `OffendingValidators` from `Vec<(u32, bool)>` to `Vec<u32>`
 pub mod v15 {
 	use super::*;
 
 	// The disabling strategy used by staking pallet
 	type DefaultDisablingStrategy = UpToLimitDisablingStrategy;
+
+	#[storage_alias]
+	pub(crate) type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
 
 	pub struct VersionUncheckedMigrateV14ToV15<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {

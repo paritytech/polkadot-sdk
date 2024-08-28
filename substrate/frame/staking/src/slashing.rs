@@ -334,24 +334,27 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
             (Some(offender_idx), None) => {
                 // Add the validator to `DisabledValidators` and disable it. Do nothing if it is
                 // already disabled.
-                if let Err(index) = disabled.binary_search_by_key(&offender_idx, |index| *index) {
-                    disabled.insert(index, offender_idx);
+                if let Err(index) = disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
+					let severity = params.slash;
+                    disabled.insert(index, (offender_idx, severity));
                     // Propagate disablement to session level
                     T::SessionInterface::disable_validator(offender_idx);
                 }
             }
             (Some(offender_idx), Some(reenable_idx)) => {
                 // Remove the validator from `DisabledValidators` and re-enable it.
-                if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |index| *index) {
+                if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
                     disabled.remove(index);
                     // Propagate re-enablement to session level
-                    T::SessionInterface::enable_validator(reenable_idx);
+                    // Placeholder for enabling a validator, to be implemented later
+					todo!("T::SessionInterface::enable_validator(reenable_idx)");
                 }
 
                 // Add the validator to `DisabledValidators` and disable it. Do nothing if it is
                 // already disabled.
-                if let Err(index) = disabled.binary_search_by_key(&offender_idx, |index| *index) {
-                    disabled.insert(index, offender_idx);
+                if let Err(index) = disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
+					let severity = params.slash;
+                    disabled.insert(index, (offender_idx, severity));
                     // Propagate disablement to session level
                     T::SessionInterface::disable_validator(offender_idx);
                 }
