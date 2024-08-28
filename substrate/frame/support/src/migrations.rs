@@ -504,6 +504,15 @@ pub trait SteppedMigration {
 		None
 	}
 
+	/// The maximum number of blocks that this migration can take.
+	///
+	/// This can be used to enforce progress and prevent migrations becoming stuck forever. A
+	/// migration that exceeds its max blocks is treated as failed. `None` means that there is no
+	/// limit.
+	fn max_blocks() -> Option<u32> {
+		None
+	}
+
 	/// Try to migrate as much as possible with the given weight.
 	///
 	/// **ANY STORAGE CHANGES MUST BE ROLLED-BACK BY THE CALLER UPON ERROR.** This is necessary
@@ -581,7 +590,7 @@ pub trait FailedMigrationHandler {
 	/// Infallibly handle a failed runtime migration.
 	///
 	/// Gets passed in the optional index of the migration in the batch that caused the failure.
-	/// Returning `None` means that no automatic handling should take place and the callee decides
+	/// Returning `Ignore` means that no automatic handling should take place and the callee decides
 	/// in the implementation what to do.
 	fn failed(migration: Option<u32>) -> FailedMigrationHandling;
 }
@@ -681,6 +690,11 @@ pub trait SteppedMigrations {
 	/// Is guaranteed to return `Some` if `n < Self::len()`.
 	fn nth_max_steps(n: u32) -> Option<Option<u32>>;
 
+	/// The [`SteppedMigration::max_blocks`] of the `n`th migration.
+	///
+	/// Is guaranteed to return `Some` if `n < Self::len()`.
+	fn nth_max_blocks(n: u32) -> Option<Option<u32>>;
+
 	/// Do a [`SteppedMigration::step`] on the `n`th migration.
 	///
 	/// Is guaranteed to return `Some` if `n < Self::len()`.
@@ -717,15 +731,16 @@ pub trait SteppedMigrations {
 		for n in 0..l {
 			ensure!(Self::nth_id(n).is_some(), "id is None");
 			ensure!(Self::nth_max_steps(n).is_some(), "steps is None");
+			ensure!(Self::nth_max_blocks(n).is_some(), "blocks is None");
 
 			// The cursor that we use does not matter. Hence use empty.
 			ensure!(
 				Self::nth_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(),
-				"steps is None"
+				"The migration as to advance when called with infinite weight",
 			);
 			ensure!(
 				Self::nth_transactional_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(),
-				"steps is None"
+				"The migration as to advance when called with infinite weight",
 			);
 		}
 
@@ -743,6 +758,10 @@ impl SteppedMigrations for () {
 	}
 
 	fn nth_max_steps(_n: u32) -> Option<Option<u32>> {
+		None
+	}
+
+	fn nth_max_blocks(_n: u32) -> Option<Option<u32>> {
 		None
 	}
 
@@ -786,6 +805,13 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 		n.is_zero()
 			.then_some(T::max_steps())
 			.defensive_proof("nth_max_steps should only be called with n==0")
+	}
+
+	fn nth_max_blocks(n: u32) -> Option<Option<u32>> {
+		// It should be generally fine to call with n>0, but the code should not attempt to.
+		n.is_zero()
+			.then_some(T::max_steps())
+			.defensive_proof("nth_max_blocks should only be called with n==0")
 	}
 
 	fn nth_step(
@@ -911,6 +937,20 @@ impl SteppedMigrations for Tuple {
 		None
 	}
 
+	fn nth_max_blocks(n: u32) -> Option<Option<u32>> {
+		let mut i = 0;
+
+		for_tuples!( #(
+			if (i + Tuple::len()) > n {
+				return Tuple::nth_max_blocks(n - i)
+			}
+
+			i += Tuple::len();
+		)* );
+
+		None
+	}
+
 	fn cursor_max_encoded_len() -> usize {
 		let mut max_len = 0;
 
@@ -983,6 +1023,10 @@ mod tests {
 		fn max_steps() -> Option<u32> {
 			Some(1)
 		}
+
+		fn max_blocks() -> Option<u32> {
+			Some(1)
+		}
 	}
 
 	pub struct M2;
@@ -1004,6 +1048,10 @@ mod tests {
 		}
 
 		fn max_steps() -> Option<u32> {
+			Some(2)
+		}
+
+		fn max_blocks() -> Option<u32> {
 			Some(2)
 		}
 	}
@@ -1036,7 +1084,7 @@ mod tests {
 	fn singular_migrations_work() {
 		assert_eq!(M0::max_steps(), None);
 		assert_eq!(M1::max_steps(), Some(1));
-		assert_eq!(M2::max_steps(), Some(2));
+		assert_eq!(M2::max_steps(), Some(2)); // TODO FAIL-CI
 
 		assert_eq!(<(M0, M1)>::nth_max_steps(0), Some(None));
 		assert_eq!(<(M0, M1)>::nth_max_steps(1), Some(Some(1)));

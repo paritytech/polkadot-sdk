@@ -46,8 +46,7 @@ mod benches {
 
 		// Check that the new storage is decodable:
 		assert_eq!(crate::MyMap::<T>::get(0), Some(0));
-		// uses twice the weight once for migration and then for checking if there is another key.
-		assert_eq!(meter.consumed(), weights::SubstrateWeight::<T>::step() * 2);
+		assert_eq!(meter.consumed(), weights::SubstrateWeight::<T>::step());
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Runtime);

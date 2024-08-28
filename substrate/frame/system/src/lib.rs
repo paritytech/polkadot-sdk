@@ -203,6 +203,8 @@ pub use pallet::*;
 /// Do something when we should be setting the code.
 pub trait SetCode<T: Config> {
 	/// Set the code to the given blob.
+	///
+	/// This does not perform any checks! Ensure that it is safe to set the code at this time.
 	fn set_code(code: Vec<u8>) -> DispatchResult;
 }
 

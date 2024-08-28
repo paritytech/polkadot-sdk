@@ -20,7 +20,7 @@
 use crate::{
 	mock::{Test as T, *},
 	mock_helpers::{MockedMigrationKind::*, *},
-	Cursor, Event, FailedMigrationHandling, MigrationCursor,
+	Config, Cursor, Event, FailedMigrationHandling, MigrationCursor,
 };
 use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
 
@@ -29,33 +29,69 @@ use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
 fn simple_works() {
 	use Event::*;
 	test_closure(|| {
-		// Add three migrations, each taking one block longer than the previous.
-		MockedMigrations::set(vec![(SucceedAfter, 0), (SucceedAfter, 1), (SucceedAfter, 2)]);
+		sp_tracing::try_init_simple();
+		// Add three migrations, each taking one step longer than the previous.
+		MockedMigrations::set(vec![
+			(SucceedAfter, 10, 1),
+			(SucceedAfter, 10, 2),
+			(SucceedAfter, 10, 3),
+		]);
 
-		System::set_block_number(1);
+		run_to_block(1);
 		Migrations::on_runtime_upgrade();
-		run_to_block(10);
+		// Running to block two will execute all migrations.
+		run_to_block(2);
 
 		// Check that the executed migrations are recorded in `Historical`.
 		assert_eq!(
 			historic(),
 			vec![
-				mocked_id(SucceedAfter, 0),
-				mocked_id(SucceedAfter, 1),
-				mocked_id(SucceedAfter, 2),
+				mocked_id(SucceedAfter, 10, 1),
+				mocked_id(SucceedAfter, 10, 2),
+				mocked_id(SucceedAfter, 10, 3),
 			]
 		);
 
 		// Check that we got all events.
 		assert_events(vec![
 			UpgradeStarted { migrations: 3 },
-			MigrationCompleted { index: 0, took: 1 },
-			MigrationAdvanced { index: 1, took: 0 },
-			MigrationCompleted { index: 1, took: 1 },
-			MigrationAdvanced { index: 2, took: 0 },
-			MigrationAdvanced { index: 2, took: 1 },
-			MigrationCompleted { index: 2, took: 2 },
+			MigrationCompleted { index: 0, took_blocks: 1, took_steps: 1 },
+			MigrationCompleted { index: 1, took_blocks: 0, took_steps: 2 },
+			MigrationCompleted { index: 2, took_blocks: 0, took_steps: 3 },
 			UpgradeCompleted,
+		]);
+	});
+}
+
+/// Check that migrations reaching their `max_blocks` before the `max_steps`.
+#[test]
+fn simple_works_limited_by_blocks() {
+	use Event::*;
+	test_closure(|| {
+		sp_tracing::try_init_simple();
+		// Add two migrations, both with 10 max steps but different max blocks.
+		MockedMigrations::set(vec![(SucceedAfter, 2, 8), (SucceedAfter, 1, 8)]);
+		// These limits (minus overhead) give us enough weight for 4 steps per block:
+		let limit = <Test as Config>::MaxServiceWeight::get().div(5);
+		MockedMigrations::set_step_weight(limit);
+
+		run_to_block(1);
+		Migrations::on_runtime_upgrade();
+		// Running to block two will execute all migrations.
+		run_to_block(10);
+
+		// Only the first migration executed correctly and was recorded in `Historical`.
+		assert_eq!(historic(), vec![mocked_id(SucceedAfter, 2, 8),]);
+
+		// Check that we got all events.
+		assert_events(vec![
+			UpgradeStarted { migrations: 2 },
+			MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 5 },
+			MigrationCompleted { index: 0, took_blocks: 2, took_steps: 8 },
+			MigrationAdvanced { index: 1, took_blocks: 0, took_steps: 1 },
+			MigrationAdvanced { index: 1, took_blocks: 1, took_steps: 5 },
+			MigrationFailed { index: 1, took_blocks: 2, took_steps: 5 },
+			UpgradeFailed,
 		]);
 	});
 }
@@ -64,7 +100,7 @@ fn simple_works() {
 fn failing_migration_sets_cursor_to_stuck() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedMigrationHandling::KeepStuck);
-		MockedMigrations::set(vec![(FailAfter, 2)]);
+		MockedMigrations::set(vec![(FailAfter, 2, 2)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -75,9 +111,7 @@ fn failing_migration_sets_cursor_to_stuck() {
 		// Check that we got all events.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took: 1 },
-			Event::MigrationAdvanced { index: 0, took: 2 },
-			Event::MigrationFailed { index: 0, took: 3 },
+			Event::MigrationFailed { index: 0, took_blocks: 1, took_steps: 2 },
 			Event::UpgradeFailed,
 		]);
 
@@ -94,7 +128,7 @@ fn failing_migration_sets_cursor_to_stuck() {
 fn failing_migration_force_unstuck_works() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedMigrationHandling::ForceUnstuck);
-		MockedMigrations::set(vec![(FailAfter, 2)]);
+		MockedMigrations::set(vec![(FailAfter, 2, 2)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -105,9 +139,7 @@ fn failing_migration_force_unstuck_works() {
 		// Check that we got all events.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took: 1 },
-			Event::MigrationAdvanced { index: 0, took: 2 },
-			Event::MigrationFailed { index: 0, took: 3 },
+			Event::MigrationFailed { index: 0, took_blocks: 1, took_steps: 2 },
 			Event::UpgradeFailed,
 		]);
 
@@ -125,7 +157,7 @@ fn failing_migration_force_unstuck_works() {
 #[test]
 fn high_weight_migration_singular_fails() {
 	test_closure(|| {
-		MockedMigrations::set(vec![(HighWeightAfter(Weight::zero()), 2)]);
+		MockedMigrations::set(vec![(HighWeightAfter(Weight::zero()), 0, 4)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -136,9 +168,7 @@ fn high_weight_migration_singular_fails() {
 		// Check that we got all events.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took: 1 },
-			Event::MigrationAdvanced { index: 0, took: 2 },
-			Event::MigrationFailed { index: 0, took: 3 },
+			Event::MigrationFailed { index: 0, took_blocks: 1, took_steps: 1 },
 			Event::UpgradeFailed,
 		]);
 
@@ -153,19 +183,20 @@ fn high_weight_migration_singular_fails() {
 #[test]
 fn high_weight_migration_retries_once() {
 	test_closure(|| {
-		MockedMigrations::set(vec![(SucceedAfter, 0), (HighWeightAfter(Weight::zero()), 0)]);
+		MockedMigrations::set(vec![(SucceedAfter, 0, 1), (HighWeightAfter(Weight::zero()), 0, 1)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
 		run_to_block(10);
 
-		assert_eq!(historic(), vec![mocked_id(SucceedAfter, 0)]);
+		assert_eq!(historic(), vec![mocked_id(SucceedAfter, 0, 1)]);
 		// Check that we got all events.
 		assert_events::<Event<T>>(vec![
 			Event::UpgradeStarted { migrations: 2 },
-			Event::MigrationCompleted { index: 0, took: 1 },
-			// `took=1` means that it was retried once.
-			Event::MigrationFailed { index: 1, took: 1 },
+			Event::MigrationCompleted { index: 0, took_blocks: 1, took_steps: 1 },
+			// `took_blocks=1`, took_steps: 0 means that it was retried once. FAIL-CI comment
+			Event::MigrationAdvanced { index: 1, took_blocks: 0, took_steps: 1 },
+			Event::MigrationFailed { index: 1, took_blocks: 1, took_steps: 1 },
 			Event::UpgradeFailed,
 		]);
 
@@ -182,19 +213,19 @@ fn high_weight_migration_retries_once() {
 #[test]
 fn high_weight_migration_permanently_overweight_fails() {
 	test_closure(|| {
-		MockedMigrations::set(vec![(SucceedAfter, 0), (HighWeightAfter(Weight::MAX), 0)]);
+		MockedMigrations::set(vec![(SucceedAfter, 0, 1), (HighWeightAfter(Weight::MAX), 0, 1)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
 		run_to_block(10);
 
-		assert_eq!(historic(), vec![mocked_id(SucceedAfter, 0)]);
+		assert_eq!(historic(), vec![mocked_id(SucceedAfter, 0, 1)]);
 		// Check that we got all events.
 		assert_events::<Event<T>>(vec![
 			Event::UpgradeStarted { migrations: 2 },
-			Event::MigrationCompleted { index: 0, took: 1 },
+			Event::MigrationCompleted { index: 0, took_blocks: 1, took_steps: 1 },
 			// `blocks=0` means that it was not retried.
-			Event::MigrationFailed { index: 1, took: 0 },
+			Event::MigrationFailed { index: 1, took_blocks: 0, took_steps: 1 },
 			Event::UpgradeFailed,
 		]);
 
@@ -208,11 +239,11 @@ fn high_weight_migration_permanently_overweight_fails() {
 fn historic_skipping_works() {
 	test_closure(|| {
 		MockedMigrations::set(vec![
-			(SucceedAfter, 0),
-			(SucceedAfter, 0), // duplicate
-			(SucceedAfter, 1),
-			(SucceedAfter, 2),
-			(SucceedAfter, 1), // duplicate
+			(SucceedAfter, 0, 1),
+			(SucceedAfter, 0, 1), // duplicate
+			(SucceedAfter, 1, 2),
+			(SucceedAfter, 2, 3),
+			(SucceedAfter, 1, 2), // duplicate
 		]);
 
 		System::set_block_number(1);
@@ -223,21 +254,18 @@ fn historic_skipping_works() {
 		assert_eq!(
 			historic(),
 			vec![
-				mocked_id(SucceedAfter, 0),
-				mocked_id(SucceedAfter, 1),
-				mocked_id(SucceedAfter, 2),
+				mocked_id(SucceedAfter, 0, 1),
+				mocked_id(SucceedAfter, 1, 2),
+				mocked_id(SucceedAfter, 2, 3),
 			]
 		);
 		// Events received.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 5 },
-			Event::MigrationCompleted { index: 0, took: 1 },
+			Event::MigrationCompleted { index: 0, took_blocks: 1, took_steps: 1 },
 			Event::MigrationSkipped { index: 1 },
-			Event::MigrationAdvanced { index: 2, took: 0 },
-			Event::MigrationCompleted { index: 2, took: 1 },
-			Event::MigrationAdvanced { index: 3, took: 0 },
-			Event::MigrationAdvanced { index: 3, took: 1 },
-			Event::MigrationCompleted { index: 3, took: 2 },
+			Event::MigrationCompleted { index: 2, took_blocks: 0, took_steps: 2 },
+			Event::MigrationCompleted { index: 3, took_blocks: 0, took_steps: 3 },
 			Event::MigrationSkipped { index: 4 },
 			Event::UpgradeCompleted,
 		]);
@@ -252,9 +280,9 @@ fn historic_skipping_works() {
 		assert_eq!(
 			historic(),
 			vec![
-				mocked_id(SucceedAfter, 0),
-				mocked_id(SucceedAfter, 1),
-				mocked_id(SucceedAfter, 2),
+				mocked_id(SucceedAfter, 0, 1),
+				mocked_id(SucceedAfter, 1, 2),
+				mocked_id(SucceedAfter, 2, 3),
 			]
 		);
 
@@ -275,9 +303,11 @@ fn historic_skipping_works() {
 /// When another upgrade happens while a migration is still running, it should set the cursor to
 /// stuck.
 #[test]
-fn upgrade_fails_when_migration_active() {
+fn runtime_upgrade_fails_when_mbm_in_progress() {
 	test_closure(|| {
-		MockedMigrations::set(vec![(SucceedAfter, 10)]);
+		MockedMigrations::set(vec![(SucceedAfter, 2, 10)]);
+		// Set up the weight so that it will not finish in a single block:
+		MockedMigrations::set_step_weight(<Test as crate::Config>::MaxServiceWeight::get() / 2);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -286,8 +316,8 @@ fn upgrade_fails_when_migration_active() {
 		// Events received.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took: 1 },
-			Event::MigrationAdvanced { index: 0, took: 2 },
+			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 2 },
+			Event::MigrationAdvanced { index: 0, took_blocks: 2, took_steps: 3 },
 		]);
 		assert_eq!(upgrades_started_completed_failed(), (1, 0, 0));
 
@@ -300,10 +330,11 @@ fn upgrade_fails_when_migration_active() {
 	});
 }
 
+/// Migration takes more than `max_steps` steps.
 #[test]
-fn migration_timeout_errors() {
+fn migration_timeout_steps_errors() {
 	test_closure(|| {
-		MockedMigrations::set(vec![(TimeoutAfter, 3)]);
+		MockedMigrations::set(vec![(TimeoutAfter, 3, 3)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -312,11 +343,41 @@ fn migration_timeout_errors() {
 		// Times out after taking more than 3 steps.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took: 1 },
-			Event::MigrationAdvanced { index: 0, took: 2 },
-			Event::MigrationAdvanced { index: 0, took: 3 },
-			Event::MigrationAdvanced { index: 0, took: 4 },
-			Event::MigrationFailed { index: 0, took: 4 },
+			Event::MigrationFailed { index: 0, took_blocks: 1, took_steps: 4 },
+			Event::UpgradeFailed,
+		]);
+		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));
+
+		// Failed migrations are not black-listed.
+		assert!(historic().is_empty());
+		assert_eq!(Cursor::<T>::get(), Some(MigrationCursor::Stuck));
+
+		Migrations::on_runtime_upgrade();
+		run_to_block(6);
+
+		assert_events(vec![Event::UpgradeFailed]);
+		assert_eq!(Cursor::<T>::get(), Some(MigrationCursor::Stuck));
+		assert_eq!(upgrades_started_completed_failed(), (0, 0, 1));
+	});
+}
+
+/// Migration takes more than `max_blocks` blocks.
+#[test]
+fn migration_timeout_blocks_errors() {
+	test_closure(|| {
+		MockedMigrations::set(vec![(TimeoutAfter, 1, 2)]);
+		// Set up the weight so that it will not finish in a single block:
+		MockedMigrations::set_step_weight(<Test as crate::Config>::MaxServiceWeight::get() / 2);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		run_to_block(5);
+
+		// Times out after taking more than 3 steps.
+		assert_events(vec![
+			Event::UpgradeStarted { migrations: 1 },
+			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 2 },
+			Event::MigrationFailed { index: 0, took_blocks: 2, took_steps: 2 },
 			Event::UpgradeFailed,
 		]);
 		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));

@@ -1,0 +1,22 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Multi-Block-Migrations: Support mini steps"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Multi block migrations now also support mini steps. So far, migrations would only run one
+      iteration per block and would require the migration internally to do repetition. This was
+      done to allow for more efficient weight usage via batching.  
+      Now, the migration will be called until the block weight is exhausted. This means that the old
+      approach stays fully functions and additionally it is possible to write migrations in a more
+      idiomatic way without inner iterations.
+
+crates:
+  - name: frame-support
+    bump: major
+  - name: pallet-migrations
+    bump: major
+  - name: frame-system
+    bump: patch

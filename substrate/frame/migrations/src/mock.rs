@@ -25,7 +25,6 @@ use frame_support::{
 	derive_impl,
 	migrations::*,
 	traits::{OnFinalize, OnInitialize},
-	weights::Weight,
 };
 use frame_system::EventRecord;
 use sp_core::H256;
@@ -45,10 +44,6 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type PalletInfo = PalletInfo;
 	type MultiBlockMigrator = Migrations;
-}
-
-frame_support::parameter_types! {
-	pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
 }
 
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
@@ -117,6 +112,7 @@ pub fn run_to_block(n: u32) {
 	while System::block_number() < n as u64 {
 		log::debug!("Block {}", System::block_number());
 		System::set_block_number(System::block_number() + 1);
+		MockedBlockNumber::set(&(System::block_number() as u32));
 		System::on_initialize(System::block_number());
 		Migrations::on_initialize(System::block_number());
 		// Executive calls this:

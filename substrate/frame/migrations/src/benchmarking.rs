@@ -61,7 +61,7 @@ mod benches {
 	fn exec_migration_completed() -> Result<(), BenchmarkError> {
 		T::Migrations::set_fail_after(0); // Should not be called anyway.
 		assert_eq!(T::Migrations::len(), 1, "Setup failed");
-		let c = ActiveCursor { index: 1, inner_cursor: None, started_at: 0u32.into() };
+		let c = ActiveCursor { index: 1, ..Default::default() };
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
 
@@ -80,7 +80,7 @@ mod benches {
 	fn exec_migration_skipped_historic() -> Result<(), BenchmarkError> {
 		T::Migrations::set_fail_after(0); // Should not be called anyway.
 		assert_eq!(T::Migrations::len(), 1, "Setup failed");
-		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
+		let c = ActiveCursor::default();
 
 		let id: IdentifierOf<T> = T::Migrations::nth_id(0).unwrap().try_into().unwrap();
 		Historic::<T>::insert(id, ());
@@ -103,7 +103,8 @@ mod benches {
 	fn exec_migration_advance() -> Result<(), BenchmarkError> {
 		T::Migrations::set_success_after(1);
 		assert_eq!(T::Migrations::len(), 1, "Setup failed");
-		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
+		let c = ActiveCursor::default();
+
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
 
@@ -112,7 +113,10 @@ mod benches {
 			Pallet::<T>::exec_migration(c, false, &mut meter);
 		}
 
-		assert_last_event::<T>(Event::MigrationAdvanced { index: 0, took: One::one() }.into());
+		assert_last_event::<T>(
+			Event::MigrationAdvanced { index: 0, took_blocks: One::one(), took_steps: One::one() }
+				.into(),
+		);
 
 		Ok(())
 	}
@@ -122,7 +126,8 @@ mod benches {
 	fn exec_migration_complete() -> Result<(), BenchmarkError> {
 		T::Migrations::set_success_after(0);
 		assert_eq!(T::Migrations::len(), 1, "Setup failed");
-		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
+		let c = ActiveCursor::default();
+
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
 
@@ -131,7 +136,10 @@ mod benches {
 			Pallet::<T>::exec_migration(c, false, &mut meter);
 		}
 
-		assert_last_event::<T>(Event::MigrationCompleted { index: 0, took: One::one() }.into());
+		assert_last_event::<T>(
+			Event::MigrationCompleted { index: 0, took_blocks: One::one(), took_steps: One::one() }
+				.into(),
+		);
 
 		Ok(())
 	}
@@ -140,7 +148,8 @@ mod benches {
 	fn exec_migration_fail() -> Result<(), BenchmarkError> {
 		T::Migrations::set_fail_after(0);
 		assert_eq!(T::Migrations::len(), 1, "Setup failed");
-		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
+		let c = ActiveCursor::default();
+
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
 
@@ -175,7 +184,7 @@ mod benches {
 	#[benchmark]
 	fn force_set_active_cursor() {
 		#[extrinsic_call]
-		_(RawOrigin::Root, 0, None, None);
+		_(RawOrigin::Root, 0, None, None, 0);
 	}
 
 	#[benchmark]
@@ -209,11 +218,7 @@ mod benches {
 		// `Cursor` is a user provided type. Now instead of requiring something like `Cursor:
 		// From<u32>`, we instead rely on the fact that it is MEL and the PoV benchmarking will
 		// therefore already take the MEL bound, even when the cursor in storage is `None`.
-		MigrationCursor::Active(ActiveCursor {
-			index: u32::MAX,
-			inner_cursor: None,
-			started_at: 0u32.into(),
-		})
+		MigrationCursor::Active(ActiveCursor { index: u32::MAX, ..Default::default() })
 	}
 
 	// Implements a test for each benchmark. Execute with:

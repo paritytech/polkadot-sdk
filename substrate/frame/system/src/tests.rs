@@ -694,9 +694,9 @@ fn set_code_rejects_during_mbm() {
 			RawOrigin::Root.into(),
 			substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
 		);
-		assert_eq!(
+		assert_noop!(
 			res,
-			Err(DispatchErrorWithPostInfo::from(Error::<Test>::MultiBlockMigrationsOngoing))
+			DispatchErrorWithPostInfo::from(Error::<Test>::MultiBlockMigrationsOngoing)
 		);
 
 		assert!(System::events().is_empty());
