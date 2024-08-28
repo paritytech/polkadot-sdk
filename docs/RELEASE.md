@@ -165,6 +165,6 @@ Describes how developers should merge bug and security fixes.
 2. The Pull Request is marked as priority fix.
 3. Audit happens with priority.
 4. It is merged into `master`.
-5. Dev comments `/backport` or adds the `A4-needs-backport` label.
+5. Dev adds the `A4-needs-backport` label.
 6. It is automatically back-ported to `stable`.
 7. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
