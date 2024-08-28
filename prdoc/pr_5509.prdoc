@@ -1,0 +1,17 @@
+title: Add `pallet_proxy` to People Chain and Coretime Chain testnet runtimes.
+
+doc:
+  - audience: Runtime User
+    description: |
+      Proxies can now be used on `coretime-rococo`, `coretime-westend`, `people-rococo` and
+      `people-westend` in the same way as they can be on Kusama and Polkadot chains.
+
+crates:
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
