@@ -8726,47 +8726,18 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk-frame",
- "sc-basic-authorship",
- "sc-cli",
- "sc-client-api",
- "sc-consensus",
- "sc-consensus-manual-seal",
- "sc-executor",
- "sc-network",
- "sc-offchain",
- "sc-service",
- "sc-telemetry",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
+ "polkadot-sdk",
  "serde_json",
- "sp-api",
- "sp-block-builder",
- "sp-blockchain",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
- "sp-timestamp",
- "substrate-build-script-utils",
- "substrate-frame-rpc-system",
 ]
 
 [[package]]
 name = "minimal-template-runtime"
 version = "0.0.0"
 dependencies = [
- "pallet-balances",
  "pallet-minimal-template",
- "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
- "polkadot-sdk-frame",
+ "polkadot-sdk",
  "scale-info",
- "sp-genesis-builder",
- "sp-runtime",
- "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -10957,7 +10928,7 @@ name = "pallet-minimal-template"
 version = "0.0.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk-frame",
+ "polkadot-sdk",
  "scale-info",
 ]
 
