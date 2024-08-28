@@ -941,16 +941,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 				Self::deposit_event(Event::DecisionDepositContributionDecreased {
 					index,
-					who: contributor,
+					who: contributor.clone(),
 					decreased_by: old_deposit - deposit,
 				});
 			} else {
-				Self::take_deposit(contributor, deposit - old_deposit);
+				Self::take_deposit(contributor.clone(), deposit - old_deposit)?;
 				status.decision_deposit.collected_deposit += deposit - old_deposit;
 
 				Self::deposit_event(Event::DecisionDepositContributionIncreased {
 					index,
-					who: contributor,
+					who: contributor.clone(),
 					increased_by: deposit - old_deposit,
 				});
 			}
@@ -998,14 +998,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		if status.decision_deposit.collected_deposit < track.decision_deposit {
-			return Ok(())
+			return Ok(().into())
 		}
 
 		let now = frame_system::Pallet::<T>::block_number();
 		let (info, _, branch) = Self::service_referendum(now, index, status);
 		ReferendumInfoFor::<T, I>::insert(index, info);
+
 		let e = Event::<T, I>::DecisionDepositPlaced { index, amount: track.decision_deposit };
 		Self::deposit_event(e);
+
 		Ok(branch.weight_of_deposit::<T, I>().into())
 	}
 

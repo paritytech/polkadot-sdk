@@ -28,11 +28,57 @@ use sp_runtime::TryRuntimeError;
 /// Initial version of storage types.
 pub mod v0 {
 	use super::*;
-	// ReferendumStatus and its dependency types referenced from the latest version while staying
-	// unchanged. [`super::test::referendum_status_v0()`] checks its immutability between v0 and
-	// latest version.
+
 	#[cfg(test)]
-	pub(super) use super::{ReferendumStatus, ReferendumStatusOf};
+	pub type ReferendumStatusOf<T, I> = ReferendumStatus<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		BlockNumberFor<T>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+	>;
+
+	/// Info regarding an ongoing referendum.
+	#[derive(
+		Encode, Decode, Clone, PartialEqNoBound, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	)]
+	pub struct ReferendumStatus<
+		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Moment: Parameter + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+	> {
+		/// The track of this referendum.
+		pub track: TrackId,
+		/// The origin for this referendum.
+		pub origin: RuntimeOrigin,
+		/// The hash of the proposal up for referendum.
+		pub proposal: Call,
+		/// The time the proposal should be scheduled for enactment.
+		pub enactment: DispatchTime<Moment>,
+		/// The time of submission. Once `UndecidingTimeout` passes, it may be closed by anyone if
+		/// `deciding` is `None`.
+		pub submitted: Moment,
+		/// The deposit reserved for the submission of this referendum.
+		pub submission_deposit: Deposit<AccountId, Balance>,
+		/// The deposit reserved for this referendum to be decided.
+		pub decision_deposit: Option<Deposit<AccountId, Balance>>,
+		/// The status of a decision being made. If `None`, it has not entered the deciding period.
+		pub deciding: Option<DecidingStatus<Moment>>,
+		/// The current tally of votes in this referendum.
+		pub tally: Tally,
+		/// Whether we have been placed in the queue for being decided or not.
+		pub in_queue: bool,
+		/// The next scheduled wake-up, if `Some`.
+		pub alarm: Option<(Moment, ScheduleAddress)>,
+	}
 
 	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 		TrackIdOf<T, I>,
@@ -92,6 +138,57 @@ pub mod v1 {
 
 	/// The log target.
 	const TARGET: &'static str = "runtime::referenda::migration::v1";
+
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub enum ReferendumInfo<
+		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+	> {
+		/// Referendum has been submitted and is being voted on.
+		Ongoing(
+			v0::ReferendumStatus<
+				TrackId,
+				RuntimeOrigin,
+				Moment,
+				Call,
+				Balance,
+				Tally,
+				AccountId,
+				ScheduleAddress,
+			>,
+		),
+		/// Referendum finished with approval. Submission deposit is held.
+		Approved(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+		/// Referendum finished with rejection. Submission deposit is held.
+		Rejected(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+		/// Referendum finished with cancellation. Submission deposit is held.
+		Cancelled(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+		/// Referendum finished and was never decided. Submission deposit is held.
+		TimedOut(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+		/// Referendum finished with a kill.
+		Killed(Moment),
+	}
+
+	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		frame_system::pallet_prelude::BlockNumberFor<T>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+	>;
+
+	#[storage_alias]
+	pub type ReferendumInfoFor<T: Config<I>, I: 'static> =
+		StorageMap<Pallet<T, I>, Blake2_128Concat, ReferendumIndex, ReferendumInfoOf<T, I>>;
 
 	/// Transforms a submission deposit of ReferendumInfo(Approved|Rejected|Cancelled|TimedOut) to
 	/// optional value, making it refundable.

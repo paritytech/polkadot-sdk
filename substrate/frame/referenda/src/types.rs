@@ -22,7 +22,7 @@ use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{fmt::Debug, mem};
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
-	EqNoBound, Parameter, PartialEqNoBound,
+	Parameter, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
@@ -154,9 +154,10 @@ impl<AccountId: PartialEq, Balance: PartialEq, MaxContributors: Get<u32>> Partia
 	}
 }
 
-impl<AccountId, Balance: PartialOrd + Default, MaxDecisionContributors: Get<u32>>
+impl<AccountId, Balance: PartialOrd + Default + Clone, MaxDecisionContributors: Get<u32>>
 	DecisionDeposit<AccountId, Balance, MaxDecisionContributors>
 {
+	/// Create a new decision deposit instance.
 	pub fn new(required_track_deposit: Balance) -> Self {
 		Self {
 			collected_deposit: Default::default(),
@@ -168,6 +169,15 @@ impl<AccountId, Balance: PartialOrd + Default, MaxDecisionContributors: Get<u32>
 	/// Are enough funds collected to pay for the decision deposit?
 	pub fn is_fully_collected(&self) -> bool {
 		self.collected_deposit >= self.required_track_deposit
+	}
+
+	/// Take the decision deposit, only leaving the `required_track_deposit`.
+	pub fn take(&mut self) -> Self {
+		Self {
+			collected_deposit: mem::take(&mut self.collected_deposit),
+			required_track_deposit: self.required_track_deposit.clone(),
+			contributors: mem::take(&mut self.contributors),
+		}
 	}
 }
 
@@ -335,7 +345,7 @@ impl<
 		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		Moment: Parameter + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
 		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
-		Balance: Default + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Balance: Default + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + PartialOrd,
 		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -360,13 +370,13 @@ impl<
 	) -> Result<Option<DecisionDeposit<AccountId, Balance, MaxContributors>>, ()> {
 		use ReferendumInfo::*;
 		match self {
-			Ongoing { status } if !status.decision_deposit.completely_collected => Ok(None),
+			Ongoing { status } if !status.decision_deposit.is_fully_collected() => Ok(None),
 			// Cannot refund deposit if Ongoing as this breaks assumptions.
 			Ongoing { .. } => Err(()),
 			Approved { decision_deposit, .. } |
 			Rejected { decision_deposit, .. } |
 			TimedOut { decision_deposit, .. } |
-			Cancelled { decision_deposit, .. } => Ok(Some(mem::take(decision_deposit))),
+			Cancelled { decision_deposit, .. } => Ok(Some(decision_deposit.take())),
 			Killed { .. } => Ok(None),
 		}
 	}
