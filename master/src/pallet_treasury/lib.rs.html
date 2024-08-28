@@ -1137,6 +1137,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#985" id="985">985</a>
 <a href="#986" id="986">986</a>
 <a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1239,7 +1251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
-	PalletId,
+	BoundedVec, PalletId,
 };
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -1417,12 +1429,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Number of proposals that have been made.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>proposal_count)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ProposalCount&lt;T, I = ()&gt; = StorageValue&lt;<span class="kw">_</span>, ProposalIndex, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>ProposalCount&lt;T, I = ()&gt; = StorageValue&lt;<span class="kw">_</span>, ProposalIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// Proposals that have been made.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>proposals)]
 	</span><span class="kw">pub type </span>Proposals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -1438,7 +1448,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Proposal indices that have been approved but not yet awarded.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>approvals)]
 	</span><span class="kw">pub type </span>Approvals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;ProposalIndex, T::MaxApprovals&gt;, ValueQuery&gt;;
 
@@ -1474,7 +1483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="comment">// Create Treasury account
-			</span><span class="kw">let </span>account_id = &lt;Pallet&lt;T, I&gt;&gt;::account_id();
+			</span><span class="kw">let </span>account_id = Pallet::&lt;T, I&gt;::account_id();
 			<span class="kw">let </span>min = T::Currency::minimum_balance();
 			<span class="kw">if </span>T::Currency::free_balance(<span class="kw-2">&amp;</span>account_id) &lt; min {
 				<span class="kw">let _ </span>= T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>account_id, min);
@@ -1640,7 +1649,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap_or(<span class="prelude-val">Ok</span>(()))<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>beneficiary = T::Lookup::lookup(beneficiary)<span class="question-mark">?</span>;
-			<span class="kw">let </span>proposal_index = <span class="self">Self</span>::proposal_count();
+			<span class="kw">let </span>proposal_index = ProposalCount::&lt;T, I&gt;::get();
 			Approvals::&lt;T, I&gt;::try_append(proposal_index)
 				.map_err(|<span class="kw">_</span>| Error::&lt;T, I&gt;::TooManyApprovals)<span class="question-mark">?</span>;
 			<span class="kw">let </span>proposal = Proposal {
@@ -1933,6 +1942,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::PalletId::get().into_account_truncating()
 	}
 
+	<span class="doccomment">/// Public function to proposal_count storage.
+	</span><span class="kw">pub fn </span>proposal_count() -&gt; ProposalIndex {
+		ProposalCount::&lt;T, I&gt;::get()
+	}
+
+	<span class="doccomment">/// Public function to proposals storage.
+	</span><span class="kw">pub fn </span>proposals(index: ProposalIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;T::AccountId, BalanceOf&lt;T, I&gt;&gt;&gt; {
+		Proposals::&lt;T, I&gt;::get(index)
+	}
+
+	<span class="doccomment">/// Public function to approvals storage.
+	</span><span class="kw">pub fn </span>approvals() -&gt; BoundedVec&lt;ProposalIndex, T::MaxApprovals&gt; {
+		Approvals::&lt;T, I&gt;::get()
+	}
+
 	<span class="doccomment">/// Spend some money! returns number of approvals before spend.
 	</span><span class="kw">pub fn </span>spend_funds() -&gt; Weight {
 		<span class="kw">let </span><span class="kw-2">mut </span>total_weight = Weight::zero();
@@ -1942,15 +1966,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>account_id = <span class="self">Self</span>::account_id();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>missed_any = <span class="bool-val">false</span>;
-		<span class="kw">let </span><span class="kw-2">mut </span>imbalance = &lt;PositiveImbalanceOf&lt;T, I&gt;&gt;::zero();
+		<span class="kw">let </span><span class="kw-2">mut </span>imbalance = PositiveImbalanceOf::&lt;T, I&gt;::zero();
 		<span class="kw">let </span>proposals_len = Approvals::&lt;T, I&gt;::mutate(|v| {
 			<span class="kw">let </span>proposals_approvals_len = v.len() <span class="kw">as </span>u32;
 			v.retain(|<span class="kw-2">&amp;</span>index| {
 				<span class="comment">// Should always be true, but shouldn't panic if false or we're screwed.
-				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(p) = <span class="self">Self</span>::proposals(index) {
+				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(p) = Proposals::&lt;T, I&gt;::get(index) {
 					<span class="kw">if </span>p.value &lt;= budget_remaining {
 						budget_remaining -= p.value;
-						&lt;Proposals&lt;T, I&gt;&gt;::remove(index);
+						Proposals::&lt;T, I&gt;::remove(index);
 
 						<span class="comment">// return their deposit.
 						</span><span class="kw">let </span>err_amount = T::Currency::unreserve(<span class="kw-2">&amp;</span>p.proposer, p.bond);
@@ -2121,7 +2145,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">type </span>Type = &lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId;
 	<span class="kw">fn </span>get() -&gt; <span class="self">Self</span>::Type {
-		&lt;<span class="kw">crate</span>::Pallet&lt;R&gt;&gt;::account_id()
+		<span class="kw">crate</span>::Pallet::&lt;R&gt;::account_id()
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

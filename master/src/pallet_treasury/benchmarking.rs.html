@@ -512,7 +512,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw">_</span>, value, lookup) = setup_proposal::&lt;T, I&gt;(i);
 		Treasury::&lt;T, I&gt;::spend_local(origin.clone(), value, lookup)<span class="question-mark">?</span>;
 	}
-	<span class="macro">ensure!</span>(&lt;Approvals&lt;T, I&gt;&gt;::get().len() == n <span class="kw">as </span>usize, <span class="string">"Not all approved"</span>);
+	<span class="macro">ensure!</span>(Approvals::&lt;T, I&gt;::get().len() == n <span class="kw">as </span>usize, <span class="string">"Not all approved"</span>);
 	<span class="prelude-val">Ok</span>(())
 }
 
@@ -564,7 +564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(<span class="kw">_</span>, value, beneficiary_lookup) = setup_proposal::&lt;T, <span class="kw">_</span>&gt;(SEED);
 		Treasury::&lt;T, <span class="kw">_</span>&gt;::spend_local(origin, value, beneficiary_lookup)<span class="question-mark">?</span>;
-		<span class="kw">let </span>proposal_id = Treasury::&lt;T, <span class="kw">_</span>&gt;::proposal_count() - <span class="number">1</span>;
+		<span class="kw">let </span>proposal_id = ProposalCount::&lt;T, <span class="kw">_</span>&gt;::get() - <span class="number">1</span>;
 		<span class="kw">let </span>reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 

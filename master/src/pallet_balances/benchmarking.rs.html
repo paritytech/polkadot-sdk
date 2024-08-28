@@ -493,6 +493,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -526,6 +534,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// existential deposit multiplier
 </span><span class="kw">const </span>ED_MULTIPLIER: u32 = <span class="number">10</span>;
 
+<span class="kw">fn </span>minimum_balance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() -&gt; T::Balance {
+	<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"insecure_zero_ed"</span>) {
+		<span class="number">100u32</span>.into()
+	} <span class="kw">else </span>{
+		T::ExistentialDeposit::get()
+	}
+}
+
 <span class="attr">#[instance_benchmarks]
 </span><span class="kw">mod </span>benchmarks {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -535,7 +551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// * Transfer will create the recipient account.
 	</span><span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>transfer_allow_death() {
-		<span class="kw">let </span>existential_deposit = T::ExistentialDeposit::get();
+		<span class="kw">let </span>existential_deposit: T::Balance = minimum_balance::&lt;T, I&gt;();
 		<span class="kw">let </span>caller = whitelisted_caller();
 
 		<span class="comment">// Give some multiple of the existential deposit
@@ -570,7 +586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;Balances&lt;T, I&gt; <span class="kw">as </span>Currency&lt;<span class="kw">_</span>&gt;&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>caller, T::Balance::max_value());
 
 		<span class="comment">// Give the recipient account existential deposit (thus their account already exists).
-		</span><span class="kw">let </span>existential_deposit = T::ExistentialDeposit::get();
+		</span><span class="kw">let </span>existential_deposit: T::Balance = minimum_balance::&lt;T, I&gt;();
 		<span class="kw">let _ </span>=
 			&lt;Balances&lt;T, I&gt; <span class="kw">as </span>Currency&lt;<span class="kw">_</span>&gt;&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>recipient, existential_deposit);
 		<span class="kw">let </span>transfer_amount = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
@@ -593,7 +609,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Give the sender account max funds, thus a transfer will not kill account.
 		</span><span class="kw">let _ </span>=
 			&lt;Balances&lt;T, I&gt; <span class="kw">as </span>Currency&lt;<span class="kw">_</span>&gt;&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>caller, T::Balance::max_value());
-		<span class="kw">let </span>existential_deposit = T::ExistentialDeposit::get();
+		<span class="kw">let </span>existential_deposit: T::Balance = minimum_balance::&lt;T, I&gt;();
 		<span class="kw">let </span>transfer_amount = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
 
 		<span class="attr">#[extrinsic_call]
@@ -610,7 +626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>user_lookup = T::Lookup::unlookup(user.clone());
 
 		<span class="comment">// Give the user some initial balance.
-		</span><span class="kw">let </span>existential_deposit = T::ExistentialDeposit::get();
+		</span><span class="kw">let </span>existential_deposit: T::Balance = minimum_balance::&lt;T, I&gt;();
 		<span class="kw">let </span>balance_amount = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
 		<span class="kw">let _ </span>= &lt;Balances&lt;T, I&gt; <span class="kw">as </span>Currency&lt;<span class="kw">_</span>&gt;&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>user, balance_amount);
 
@@ -627,7 +643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>user_lookup = T::Lookup::unlookup(user.clone());
 
 		<span class="comment">// Give the user some initial balance.
-		</span><span class="kw">let </span>existential_deposit = T::ExistentialDeposit::get();
+		</span><span class="kw">let </span>existential_deposit: T::Balance = minimum_balance::&lt;T, I&gt;();
 		<span class="kw">let </span>balance_amount = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
 		<span class="kw">let _ </span>= &lt;Balances&lt;T, I&gt; <span class="kw">as </span>Currency&lt;<span class="kw">_</span>&gt;&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>user, balance_amount);
 
@@ -642,7 +658,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// * Transfer will create the recipient account.
 	</span><span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>force_transfer() {
-		<span class="kw">let </span>existential_deposit = T::ExistentialDeposit::get();
+		<span class="kw">let </span>existential_deposit: T::Balance = minimum_balance::&lt;T, I&gt;();
 		<span class="kw">let </span>source: T::AccountId = account(<span class="string">"source"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>source_lookup = T::Lookup::unlookup(source.clone());
 
@@ -670,7 +686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[benchmark(extra)]
 	</span><span class="kw">fn </span>transfer_increasing_users(u: Linear&lt;<span class="number">0</span>, <span class="number">1_000</span>&gt;) {
 		<span class="comment">// 1_000 is not very much, but this upper bound can be controlled by the CLI.
-		</span><span class="kw">let </span>existential_deposit = T::ExistentialDeposit::get();
+		</span><span class="kw">let </span>existential_deposit: T::Balance = minimum_balance::&lt;T, I&gt;();
 		<span class="kw">let </span>caller = whitelisted_caller();
 
 		<span class="comment">// Give some multiple of the existential deposit
@@ -709,7 +725,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>recipient_lookup = T::Lookup::unlookup(recipient.clone());
 
 		<span class="comment">// Give some multiple of the existential deposit
-		</span><span class="kw">let </span>existential_deposit = T::ExistentialDeposit::get();
+		</span><span class="kw">let </span>existential_deposit: T::Balance = minimum_balance::&lt;T, I&gt;();
 		<span class="kw">let </span>balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
 		<span class="kw">let _ </span>= &lt;Balances&lt;T, I&gt; <span class="kw">as </span>Currency&lt;<span class="kw">_</span>&gt;&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>caller, balance);
 
@@ -726,7 +742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>user_lookup = T::Lookup::unlookup(user.clone());
 
 		<span class="comment">// Give some multiple of the existential deposit
-		</span><span class="kw">let </span>ed = T::ExistentialDeposit::get();
+		</span><span class="kw">let </span>ed = minimum_balance::&lt;T, I&gt;();
 		<span class="kw">let </span>balance = ed + ed;
 		<span class="kw">let _ </span>= &lt;Balances&lt;T, I&gt; <span class="kw">as </span>Currency&lt;<span class="kw">_</span>&gt;&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>user, balance);
 
@@ -752,8 +768,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|i| -&gt; T::AccountId {
 				<span class="kw">let </span>user = account(<span class="string">"old_user"</span>, i, SEED);
 				<span class="kw">let </span>account = AccountData {
-					free: T::ExistentialDeposit::get(),
-					reserved: T::ExistentialDeposit::get(),
+					free: minimum_balance::&lt;T, I&gt;(),
+					reserved: minimum_balance::&lt;T, I&gt;(),
 					frozen: Zero::zero(),
 					flags: ExtraFlags::old_logic(),
 				};
