@@ -187,7 +187,12 @@ impl ProcessMessage for RecordingMessageProcessor {
 				if let Err(()) = Callback::get()(&origin, s.parse().expect("Expected an u32")) {
 					return Err(ProcessMessageError::Corrupt)
 				}
+
+				if s.contains("000") {
+					return Ok(false)
+				}
 			}
+
 			let mut m = MessagesProcessed::get();
 			m.push((message.to_vec(), origin));
 			MessagesProcessed::set(m);

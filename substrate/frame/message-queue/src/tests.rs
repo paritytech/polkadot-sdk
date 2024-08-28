@@ -2002,10 +2002,34 @@ fn process_message_error_reverts_storage_changes() {
 
 #[test]
 fn process_message_ok_false_keeps_storage_changes() {
-	// FAIL-CI TODO
+	build_and_execute::<Test>(|| {
+		assert!(!sp_io::storage::exists(b"key"), "Key should not exist");
+
+		Callback::set(Box::new(|_, _| {
+			sp_io::storage::set(b"key", b"value");
+			Ok(())
+		}));
+
+		MessageQueue::enqueue_message(msg("callback=000"), MessageOrigin::Here);
+		MessageQueue::service_queues(10.into_weight());
+
+		assert_eq!(sp_io::storage::exists(b"key"), true);
+	});
 }
 
 #[test]
 fn process_message_ok_true_keeps_storage_changes() {
-	// FAIL-CI TODO
+	build_and_execute::<Test>(|| {
+		assert!(!sp_io::storage::exists(b"key"), "Key should not exist");
+
+		Callback::set(Box::new(|_, _| {
+			sp_io::storage::set(b"key", b"value");
+			Ok(())
+		}));
+
+		MessageQueue::enqueue_message(msg("callback=0"), MessageOrigin::Here);
+		MessageQueue::service_queues(10.into_weight());
+
+		assert_eq!(sp_io::storage::exists(b"key"), true);
+	});
 }

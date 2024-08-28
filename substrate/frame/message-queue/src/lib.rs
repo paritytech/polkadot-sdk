@@ -1459,7 +1459,7 @@ impl<T: Config> Pallet<T> {
 
 		let transaction = match transaction {
 			Ok(result) => result,
-			_ => unreachable!(),
+			_ => return MessageExecutionStatus::Unprocessable { permanent: false },
 		};
 
 		match transaction {
