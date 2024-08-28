@@ -25,7 +25,7 @@ use frame_support::traits::{
 		Preservation::{Expendable, Preserve, Protect},
 		Restriction::Free,
 	},
-	Consideration, Footprint, LinearStoragePrice,
+	Consideration, Footprint, LinearStoragePrice, MaybeConsideration,
 };
 use fungible::{
 	FreezeConsideration, HoldConsideration, Inspect, InspectFreeze, InspectHold,
@@ -518,20 +518,13 @@ fn freeze_consideration_works() {
 			let who = 4;
 			// freeze amount taken somewhere outside of our (Consideration) scope.
 			let extend_freeze = 15;
-			let zero = 0;
-			let zero_ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
 
-			println!("zero_ticket: {:?}", zero_ticket.encode());
-			println!("zero: {:?}", zero.encode());
-
+			let ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
+			assert!(ticket.is_none());
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0);
 
 			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 10);
-
-			let ten = 10;
-			println!("ten: {:?}", ten.encode());
-			println!("ten: {:?}", ticket.encode());
 
 			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 4);
@@ -542,7 +535,8 @@ fn freeze_consideration_works() {
 			let ticket = ticket.update(&who, Footprint::from_parts(8, 1)).unwrap();
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 8 + extend_freeze);
 
-			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), zero_ticket);
+			let ticket = ticket.update(&who, Footprint::from_parts(0, 0)).unwrap();
+			assert!(ticket.is_none());
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0 + extend_freeze);
 
 			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
@@ -572,6 +566,7 @@ fn hold_consideration_works() {
 			let extend_hold = 15;
 
 			let ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
+			assert!(ticket.is_none());
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0);
 
 			let ticket = ticket.update(&who, Footprint::from_parts(10, 1)).unwrap();
@@ -586,8 +581,8 @@ fn hold_consideration_works() {
 			let ticket = ticket.update(&who, Footprint::from_parts(8, 1)).unwrap();
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 8 + extend_hold);
 
-			let zero_ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
-			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), zero_ticket);
+			let ticket = ticket.update(&who, Footprint::from_parts(0, 0)).unwrap();
+			assert!(ticket.is_none());
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0 + extend_hold);
 
 			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();

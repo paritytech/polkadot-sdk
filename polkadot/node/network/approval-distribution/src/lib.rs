@@ -161,7 +161,7 @@ impl ApprovalEntry {
 		Self {
 			validator_index: assignment.validator,
 			assignment,
-			approvals: HashMap::with_capacity(candidates.len()),
+			approvals: HashMap::new(),
 			assignment_claimed_candidates: candidates,
 			routing_info,
 		}
@@ -2508,7 +2508,9 @@ impl ApprovalDistribution {
 					};
 
 
-					self.handle_from_orchestra(message, &mut approval_voting_sender, &mut network_sender, state, rng).await;
+					if self.handle_from_orchestra(message, &mut approval_voting_sender, &mut network_sender, state, rng).await {
+						return;
+					}
 
 				},
 			}
@@ -2516,6 +2518,8 @@ impl ApprovalDistribution {
 	}
 
 	/// Handles a from orchestra message received by approval distribution subystem.
+	///
+	/// Returns `true` if the subsystem should be stopped.
 	pub async fn handle_from_orchestra<
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
@@ -2526,7 +2530,7 @@ impl ApprovalDistribution {
 		network_sender: &mut N,
 		state: &mut State,
 		rng: &mut (impl CryptoRng + Rng),
-	) {
+	) -> bool {
 		match message {
 			FromOrchestra::Communication { msg } =>
 				Self::handle_incoming(
@@ -2555,8 +2559,9 @@ impl ApprovalDistribution {
 				gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
 				state.handle_block_finalized(network_sender, &self.metrics, number).await;
 			},
-			FromOrchestra::Signal(OverseerSignal::Conclude) => return,
+			FromOrchestra::Signal(OverseerSignal::Conclude) => return true,
 		}
+		false
 	}
 
 	async fn handle_incoming<
