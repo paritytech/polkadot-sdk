@@ -88,6 +88,10 @@ impl frame_system::Config for Runtime {
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	/// The weight information of this pallet.
+	///
+	/// TODO: you want to provide real type before deploying this to production.
+	type SystemWeightInfo = ();
 }
 
 impl pallet_aura::Config for Runtime {

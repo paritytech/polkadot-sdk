@@ -30,7 +30,7 @@ use frame::{
 	deps::frame_support::{
 		genesis_builder_helper::{build_state, get_preset},
 		runtime,
-		weights::{FixedFee, NoFee},
+		weights::{constants::RocksDbWeight, FixedFee, NoFee},
 	},
 	prelude::*,
 	runtime::{
@@ -136,6 +136,12 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	// Use the account data from the balances pallet
 	type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
+	// You would probably want to override these before ever using this template in production.
+	type SystemWeightInfo = ();
+	type DbWeight = RocksDbWeight;
+	type SS58Prefix = ();
+	type BlockLength = ();
+	type BlockWeights = ();
 }
 
 // Implements the types required for the balances pallet.
