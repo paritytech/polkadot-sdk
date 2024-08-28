@@ -161,7 +161,7 @@ access to the value stored in the dispatch context.</p>
 <a href="../traits/trait.UnfilteredDispatchable.html" title="trait frame_support::traits::UnfilteredDispatchable"><code>UnfilteredDispatchable</code></a> for each pallet <code>Call</code>
 enum. Part of this implementation is the call to <a href="fn.run_in_context.html" title="fn frame_support::dispatch_context::run_in_context"><code>run_in_context</code></a>, so that each call to
 <a href="../traits/trait.UnfilteredDispatchable.html#tymethod.dispatch_bypass_filter" title="method frame_support::traits::UnfilteredDispatchable::dispatch_bypass_filter"><code>UnfilteredDispatchable::dispatch_bypass_filter</code></a>
-or <a href="sp_runtime::traits::Dispatchable::dispatch"><code>Dispatchable::dispatch</code></a> will run in a dispatch
+or <a href="../../sp_runtime/traits/trait.Dispatchable.html#tymethod.dispatch" title="method sp_runtime::traits::Dispatchable::dispatch"><code>Dispatchable::dispatch</code></a> will run in a dispatch
 context.</p>
 <h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>frame_support::dispatch_context::{with_context, run_in_context};
