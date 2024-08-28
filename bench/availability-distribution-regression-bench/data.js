@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724842602457,
+  "lastUpdate": 1724862727712,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23815,6 +23815,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.00982147849333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "97fa922c85976523f755acdd104fdc77ed63dae9",
+          "message": "Refactor verbose test (#5506)\n\nA test is triggering a log error. But is correct and successful. This is\na refactor without triggering the log error.",
+          "timestamp": "2024-08-28T14:42:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/97fa922c85976523f755acdd104fdc77ed63dae9"
+        },
+        "date": 1724862698469,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022140752433333324,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012320153666666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17059940802,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010519729600000001,
             "unit": "seconds"
           }
         ]
