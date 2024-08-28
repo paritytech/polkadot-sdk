@@ -205,13 +205,14 @@ benchmarks! {
 	}
 	verify {
 		// make sure that all slashes have been applied
-		// (n+1) * (slash + unlocked) + deposit + endowment + rescinded
+		// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
+		// account endowed + some funds rescinded from issuance.
 		assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
-		// (n+1) * slashed + Slash Reported
+		// (n nominators + one validator) * slashed + Slash Reported
 		assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
 		// offence
 		assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
-		// new account
+		// reporter new account
 		assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
 	}
 
@@ -240,13 +241,14 @@ benchmarks! {
 	}
 	verify {
 		// make sure that all slashes have been applied
-		// (n+1) * (slash + unlocked) + deposit + endowment + rescinded
+		// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
+		// account endowed + some funds rescinded from issuance.
 		assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
-		// (n+1) * slashed + Slash Reported
+		// (n nominators + one validator) * slashed + Slash Reported
 		assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
 		// offence
 		assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
-		// new account
+		// reporter new account
 		assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
 	}
 
