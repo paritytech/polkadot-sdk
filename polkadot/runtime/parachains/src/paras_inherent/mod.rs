@@ -1491,8 +1491,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 						break;
 					}
 
-					if let Some(core_index) =
-						get_core_index::<T>(allowed_relay_parents, &candidate)
+					if let Some(core_index) = get_core_index::<T>(allowed_relay_parents, &candidate)
 					{
 						if scheduled_cores.remove(&core_index) {
 							temp_backed_candidates.push((candidate, core_index));

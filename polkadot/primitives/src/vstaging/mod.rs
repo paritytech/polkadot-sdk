@@ -528,8 +528,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// the committed claim queue offset.
 	pub fn check(&self, assigned_cores: &[&CoreIndex]) -> Result<(), CandidateReceiptError> {
 		// Don't check v1 descriptors.
-		if self.descriptor.version() == CandidateDescriptorVersion::V1
-		{
+		if self.descriptor.version() == CandidateDescriptorVersion::V1 {
 			return Ok(())
 		}
 
