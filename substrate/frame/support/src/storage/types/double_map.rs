@@ -132,8 +132,7 @@ impl<Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues>
 			OnEmpty,
 			MaxValues,
 		>,
-	>
-where
+	> where
 	Prefix: StorageInstance,
 	Hasher1: crate::hash::StorageHasher,
 	Hasher2: crate::hash::StorageHasher,
