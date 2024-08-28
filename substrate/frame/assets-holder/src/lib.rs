@@ -153,15 +153,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		use sp_runtime::traits::{Saturating, Zero};
 
-		for (asset, who, _) in BalancesOnHold::<T, I>::iter() {
-			let held_amount: T::Balance = Holds::<T, I>::get(asset.clone(), who.clone())
-				.iter()
-				.map(|l| l.amount)
-				.fold(Zero::zero(), |prev, amount| prev.saturating_add(amount));
+		for (asset, who, balance_on_hold) in BalancesOnHold::<T, I>::iter() {
+			ensure!(balance_on_hold != Zero::zero(), "zero on hold must not be in state");
+
+			let mut amount_from_holds: T::Balance = Zero::zero();
+			for l in Holds::<T, I>::get(asset.clone(), who.clone()).iter() {
+				ensure!(l.amount != Zero::zero(), "zero amount is invalid");
+				amount_from_holds = amount_from_holds.saturating_add(l.amount);
+			}
 
 			frame_support::ensure!(
-				BalancesOnHold::<T, I>::get(asset, who).unwrap_or_else(Zero::zero) == held_amount,
-				"The `HeldAmount` is not equal to the sum of `Holds` for (`asset`, `who`)"
+				balance_on_hold == amount_from_holds,
+				"The `BalancesOnHold` amount is not equal to the sum of `Holds` for (`asset`, `who`)"
 			);
 		}
 
