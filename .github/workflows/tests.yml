@@ -42,6 +42,7 @@ jobs:
             echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
           fi
 
+  # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
   quick-benchmarks:
     needs: [set-image]
     # if: ${{ needs.changes.outputs.rust }}
