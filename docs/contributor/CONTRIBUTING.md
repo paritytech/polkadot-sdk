@@ -161,9 +161,11 @@ test output there is a script
 * `./scripts/update-ui-tests.sh`   to update the tests for a current rust version locally
 * `./scripts/update-ui-tests.sh 1.70` # to update the tests for a specific rust version locally
 
-Or if you have opened PR and you're member of `paritytech` - you can use [/cmd](./commands-readme.md) to run the tests for you in CI:
+Or if you have opened PR and you're member of `paritytech` - you can use [/cmd](./commands-readme.md)
+to run the tests for you in CI:
 * `/cmd update-ui` - will run the tests for the current rust version
-* `/cmd update-ui --image docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23` - will run the tests for the specified rust version and specified image
+* `/cmd update-ui --image docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23` -
+will run the tests for the specified rust version and specified image
 
 ## Feature Propagation
 
