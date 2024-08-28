@@ -2,9 +2,9 @@ name: Backport into stable
 
 on:
   pull_request_target:
-    types: [closed]
+    types: [ closed, labeled ]
   issue_comment:
-    types: [created]
+    types: [ created ]
 permissions:
   contents: write # so it can comment
   pull-requests: write # so it can create pull requests
@@ -15,28 +15,54 @@ jobs:
 
     # Excluding CI action user id `97796249`:
     if: >
-      (
+      ( !startsWith(github.event.pull_request.base.ref, 'stable') ) &&
+      ((
         github.event_name == 'pull_request_target' &&
-        github.event.pull_request.merged
+        github.event.pull_request.merged &&
+        contains(github.event.pull_request.labels.*.name, 'A4-needs-backport')
       ) || (
         github.event_name == 'issue_comment' &&
         github.event.issue.pull_request &&
         github.event.comment.user.id != 97796249 &&
         (
-          startsWith(github.event.comment.body, '/backport')
-          || contains(toJson(github.event.comment.body), '\n/backport')
+          startsWith(github.event.comment.body, '/backport') ||
+          contains(toJson(github.event.comment.body), '\n/backport')
         )
-      )
+      ))
     steps:
       - uses: actions/checkout@v4
+      - name: Log
+        run: |
+          echo "base_ref=${{ github.event.pull_request.base.ref }}"
       - name: Create backport pull requests
         uses: korthout/backport-action@v3
+        id: backport
         with:
-          target_branches: stable2407
+          target_branches: stable2407 stable2410
           merge_commits: skip
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          label_pattern: "A4-needs-backport"
           pull_description: |
             Backport #${pull_number} into `${target_branch}` (cc @${pull_author}).
+
+            <!--
+              # To be used by other automation, do not modify:
+              original-pr-number: #${pull_number}
+            -->
           pull_title: |
             [${target_branch}] Backport #${pull_number}
+
+      - if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
+            
+            for (const pullNumber of pullNumbers) {
+              await github.rest.issues.addLabels({
+                issue_number: parseInt(pullNumber),
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: ['A3-backport']
+              });
+              console.log(`Added A3-backport label to PR #${pullNumber}`);
+            }
