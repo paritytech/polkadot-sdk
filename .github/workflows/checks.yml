@@ -104,4 +104,4 @@ jobs:
     # If any new job gets added, be sure to add it to this array
     needs: [cargo-clippy, check-try-runtime, check-core-crypto-features]
     steps:
-      - run: echo '### Good job! All the tests passed 🚀' >> $GITHUB_STEP_SUMMARY
+      - run: echo '### Good job! All the checks passed 🚀' >> $GITHUB_STEP_SUMMARY
