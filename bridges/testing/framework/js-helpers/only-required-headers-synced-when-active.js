@@ -65,8 +65,12 @@ async function run(nodeName, networkInfo, args) {
     // wait until we have received + delivered messages OR until timeout
     await utils.pollUntil(
         exitAfterSeconds,
-        () => { return atLeastOneMessageReceived && atLeastOneMessageDelivered; },
-        () => { unsubscribe(); },
+        () => {
+            return atLeastOneMessageReceived && atLeastOneMessageDelivered;
+        },
+        () => {
+            unsubscribe();
+        },
         () => {
             if (!atLeastOneMessageReceived) {
                 throw new Error("No messages received from bridged chain");
@@ -78,4 +82,4 @@ async function run(nodeName, networkInfo, args) {
     );
 }
 
-module.exports = { run }
+module.exports = {run}
