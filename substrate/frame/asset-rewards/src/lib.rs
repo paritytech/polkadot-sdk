@@ -265,7 +265,7 @@ pub mod pallet {
 		PoolStakerInfo<T::Balance>,
 	>;
 
-	/// State and configuraiton of each staking pool.
+	/// State and configuration of each staking pool.
 	#[pallet::storage]
 	pub type Pools<T: Config> = StorageMap<_, Blake2_128Concat, PoolId, PoolInfoFor<T>>;
 
@@ -644,7 +644,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Modify a expiry block.
+		/// Set when the pool should expire.
 		///
 		/// Only the pool admin may perform this operation.
 		#[pallet::call_index(6)]
@@ -676,7 +676,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Convinience method to deposit reward tokens into a pool.
+		/// Convenience method to deposit reward tokens into a pool.
 		///
 		/// This method is not strictly necessary (tokens could be transferred directly to the
 		/// pool pot address), but is provided for convenience so manual derivation of the
@@ -738,7 +738,7 @@ pub mod pallet {
 			Footprint::from_mel::<(PoolId, PoolInfoFor<T>)>()
 		}
 
-		/// Derive a pool account ID from the pallet's ID.
+		/// Derive a pool account ID from the pool's ID.
 		pub fn pool_account_id(id: &PoolId) -> Result<T::AccountId, DispatchError> {
 			if Pools::<T>::contains_key(id) {
 				Ok(T::PalletId::get().into_sub_account_truncating(id))
