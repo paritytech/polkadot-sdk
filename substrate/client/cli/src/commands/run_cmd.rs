@@ -156,7 +156,7 @@ pub struct RunCmd {
 	///    (optional)
 	///  • rate-limit: The rate limit in calls per minute for each connection (optional)
 	///  • rate-limit-trust-proxy-headers: Trust proxy headers for disable rate limiting (optional)
-	///  • rate-limit-whitelisted-ips: Disable rate limiting for certain ip addresses (optional)
+	///  • rate-limit-whitelisted-ips: Disable rate limiting for certain ip addresses, this can be enabled more than once (optional)
 	///  • retry-random-port: If the port is already in use, retry with a random port (optional)
 	///
 	/// Use with care, this flag is unstable and subject to change.
