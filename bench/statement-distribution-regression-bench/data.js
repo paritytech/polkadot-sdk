@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724790097689,
+  "lastUpdate": 1724863322349,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9659,6 +9659,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04511969883999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "97fa922c85976523f755acdd104fdc77ed63dae9",
+          "message": "Refactor verbose test (#5506)\n\nA test is triggering a log error. But is correct and successful. This is\na refactor without triggering the log error.",
+          "timestamp": "2024-08-28T14:42:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/97fa922c85976523f755acdd104fdc77ed63dae9"
+        },
+        "date": 1724863293474,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.92399999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03706647469000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04586632426599998,
             "unit": "seconds"
           }
         ]
