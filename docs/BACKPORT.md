@@ -1,6 +1,6 @@
 # Backporting
 
-This document explains how to backport a merged PR from `master` to `stable`. Backports should only be used to fix bugs or security issues - never to introduce new features.
+This document explains how to backport a merged PR from `master` to one of the `stable*` branches. Backports should only be used to fix bugs or security issues - never to introduce new features.
 
 ## Steps
 
@@ -11,14 +11,10 @@ This document explains how to backport a merged PR from `master` to `stable`. Ba
 6. Ensure the change is audited or does not need audit.
 7. Merge the backport PR. 
 
-Alternatively to adding the label, you can also comment `/backport`. It should not be needed though, since the label can also be added after the PR is merged.
+The label can also be added after the PR is merged.
 
 ## Example
 
-For example here where the dev triggered the process manually with a comment after the PR is merged:
-
-![backport](./images/backport-ex1.png)
-
-Or triggering the process with a label after merging:
+For example here where the dev triggered the process by adding the label after merging:
 
 ![backport](./images/backport-ex2.png)
