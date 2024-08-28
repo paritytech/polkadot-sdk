@@ -85,7 +85,8 @@
 //! ### Multi-view listeners
 //! There is a number of event streams that are provided by individual views:
 //! - [transaction status][`Watcher`],
-//! - [ready notification][`vp::import_notification_stream`] (see [networking section]()),
+//! - [ready notification][`vp::import_notification_stream`] (see [networking
+//!   section](#networking)),
 //! - [dropped notification][`create_dropped_by_limits_stream`].
 //!
 //! These streams needs to be merged into a single stream exposed by transaction pool (or used
@@ -237,8 +238,9 @@
 //! results from the revalidation are immediately applied once the revalidation is
 //! [terminated][crate::fork_aware_txpool::view::View::finish_revalidation].
 //! ```text
-//!  maintenance thread: M----M----M--M-M---
-//! revalidation thread: -RRRR-RRRR-RR-R-RRR
+//!                time: ---------------------->
+//!  maintenance thread: M----M------M--M-M---
+//! revalidation thread: -RRRR-RR-----RR-R-RRR
 //! ```
 //!
 //! ####  Mempool pruning/revalidation
@@ -334,7 +336,7 @@
 //! [`notification_future`]: crate::common::notification_future
 //! [`EnactmentState`]: crate::common::enactment_state::EnactmentState
 //! [`MultiViewImportNotificationSink`]: crate::fork_aware_txpool::import_notification_sink::MultiViewImportNotificationSink
-//! [`RevalidationQueue`]: crate::fork_aware_txpool::view_revalidation::RevalidationQueue
+//! [`RevalidationQueue`]: crate::fork_aware_txpool::revalidation_worker::RevalidationQueue
 //! [`StreamOfDropped`]: crate::fork_aware_txpool::dropped_watcher::StreamOfDropped
 //! [`Arc`]: std::sync::Arc
 
@@ -343,9 +345,9 @@ pub(crate) mod fork_aware_txpool;
 mod import_notification_sink;
 mod metrics;
 mod multi_view_listener;
+mod revalidation_worker;
 mod tx_mem_pool;
 mod view;
-mod view_revalidation;
 mod view_store;
 
 pub(crate) use fork_aware_txpool::FullPool;

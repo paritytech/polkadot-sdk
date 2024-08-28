@@ -34,7 +34,9 @@ use crate::{
 use parking_lot::Mutex;
 use sc_transaction_pool_api::{PoolStatus, TransactionSource};
 use sp_blockchain::HashAndNumber;
-use sp_runtime::{traits::Block as BlockT, transaction_validity::TransactionValidityError};
+use sp_runtime::{
+	traits::Block as BlockT, transaction_validity::TransactionValidityError, SaturatedConversion,
+};
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
@@ -190,9 +192,10 @@ where
 
 	/// Revalidates some part of transaction from the internal pool.
 	///
-	/// Intended to run from revalidation worker. Revalidation can be terminated by sending message
-	/// to the rx channel provided within `finish_revalidation_worker_channels`. Results are sent
-	/// back over tx channels and shall be applied in maintain thread.
+	/// Intended to called from the revalidation worker. The evalidation process can be terminated
+	/// by sending a message to the `rx` channel provided within
+	/// `finish_revalidation_worker_channels`. Revalidation results are sent back over the `tx`
+	/// channels and shall be applied in maintain thread.
 	///
 	/// View revalidation currently is not throttled, and until not terminated it will revalidate
 	/// all the transactions. Note: this can be improved if CPU usage due to revalidation becomes a
@@ -318,7 +321,7 @@ where
 	pub(super) async fn start_background_revalidation(
 		view: Arc<Self>,
 		revalidation_queue: Arc<
-			super::view_revalidation::RevalidationQueue<ChainApi, ChainApi::Block>,
+			super::revalidation_worker::RevalidationQueue<ChainApi, ChainApi::Block>,
 		>,
 	) {
 		log::trace!(target:LOG_TARGET,"view::start_background_revalidation: at {}", view.at.hash);

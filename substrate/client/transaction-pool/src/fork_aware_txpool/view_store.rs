@@ -69,7 +69,7 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	/// Creates a new view store.
+	/// Creates a new empty view store.
 	pub(super) fn new(
 		api: Arc<ChainApi>,
 		listener: Arc<MultiViewListener<ChainApi>>,

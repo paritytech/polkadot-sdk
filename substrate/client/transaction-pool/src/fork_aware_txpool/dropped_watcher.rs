@@ -16,7 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Multi view pool events listener. Combines streams from many views into single stream.
+//! Multi-view pool dropped events listener provides means to combine streams from multiple pool
+//! views into a single event stream. It allows management of dropped transaction events, adding new
+//! views, and removing views as needed, ensuring that transactions which are no longer referenced
+//! by any view are detected and properly notified.
 
 use crate::{
 	graph::{BlockHash, ChainApi, ExtrinsicHash},
@@ -34,22 +37,29 @@ use std::{
 };
 use tokio_stream::StreamMap;
 
-pub type PoolSingleStreamEvent<C> =
-	(ExtrinsicHash<C>, TransactionStatus<BlockHash<C>, ExtrinsicHash<C>>);
-type StreamOf<C> = Pin<Box<dyn futures::Stream<Item = PoolSingleStreamEvent<C>> + Send>>;
+/// Dropped-logic related event from the single view.
+pub type ViewStreamEvent<C> = crate::graph::DroppedByLimitsEvent<ExtrinsicHash<C>, BlockHash<C>>;
 
-/// Stream of extrinsic hashes that were dropped by all views or have no references by existing
+/// Dropped-logic stream of events coming from the single view.
+type ViewStream<C> = Pin<Box<dyn futures::Stream<Item = ViewStreamEvent<C>> + Send>>;
+
+/// Stream of extrinsic hashes that were dropped by the views and have no references by existing
 /// views.
 pub(crate) type StreamOfDropped<C> = Pin<Box<dyn futures::Stream<Item = ExtrinsicHash<C>> + Send>>;
 
 type Controller<T> = mpsc::TracingUnboundedSender<T>;
+
 type CommandReceiver<T> = mpsc::TracingUnboundedReceiver<T>;
 
+/// Commands to control the instance of dropped transactions stream [`StreamOfDropped`].
 enum Command<C>
 where
 	C: ChainApi,
 {
-	AddView(BlockHash<C>, StreamOf<C>),
+	/// Adds a new stream of dropped-related events originating in a view with a specific block
+	/// hash
+	AddView(BlockHash<C>, ViewStream<C>),
+	/// Removes an existing view's stream associated with a specific block hash.
 	RemoveView(BlockHash<C>),
 }
 
@@ -65,15 +75,25 @@ where
 	}
 }
 
+/// Manages the state and logic for handling events related to dropped transactions across multiple
+/// views.
+///
+/// This struct maintains a mapping of active views and their corresponding streams, as well as the
+/// state of each transaction with respect to these views.
 struct MultiViewDropWatcherContext<C>
 where
 	C: ChainApi,
 {
-	stream_map: Fuse<StreamMap<BlockHash<C>, StreamOf<C>>>,
+	/// A map that associates the views identified by corresponding block hashes with their streams
+	/// of dropped-related events. This map is used to keep track of active views and their event
+	/// streams.
+	stream_map: Fuse<StreamMap<BlockHash<C>, ViewStream<C>>>,
+	/// A receiver for commands to control the state of the stream, allowing the addition and
+	/// removal of views. This is used to dynamically update which views are being tracked.
 	controller: Fuse<CommandReceiver<Command<C>>>,
 
-	/// For each transaction we keep the HashSet of views that see this transaction as ready or
-	/// future.
+	/// For each transaction hash we keep the set of hashes representing the views that see this
+	/// transaction as ready or future.
 	/// Once transaction is dropped, dropping view is removed from the set.
 	transaction_states: HashMap<ExtrinsicHash<C>, HashSet<BlockHash<C>>>,
 }
@@ -83,10 +103,15 @@ where
 	C: ChainApi + 'static,
 	<<C as ChainApi>::Block as BlockT>::Hash: Unpin,
 {
+	/// Processes a `ViewStreamEvent` from a specific view and updates the internal state
+	/// accordingly.
+	///
+	/// If the event indicates that a transaction has been dropped and is no longer referenced by
+	/// any active views, the transaction hash is returned. Otherwise function returns `None`.
 	fn handle_event(
 		&mut self,
 		block_hash: BlockHash<C>,
-		event: PoolSingleStreamEvent<C>,
+		event: ViewStreamEvent<C>,
 	) -> Option<ExtrinsicHash<C>> {
 		info!(
 			target: LOG_TARGET,
@@ -123,6 +148,11 @@ where
 		None
 	}
 
+	/// Creates a new `StreamOfDropped` and its associated event stream controller.
+	///
+	/// This method initializes the internal structures and unfolds the stream of dropped
+	/// transactions. Returns a tuple containing this stream and the controller for managing the
+	/// this stream.
 	fn event_stream() -> (StreamOfDropped<C>, Controller<Command<C>>) {
 		//note: 64 allows to avoid warning messages during execution of unit tests.
 		const CHANNEL_SIZE: usize = 64;
@@ -131,7 +161,7 @@ where
 			CHANNEL_SIZE,
 		);
 
-		let mut stream_map: StreamMap<BlockHash<C>, StreamOf<C>> = StreamMap::new();
+		let mut stream_map: StreamMap<BlockHash<C>, ViewStream<C>> = StreamMap::new();
 		//note: do not terminate stream-map if input streams (views) are all done:
 		stream_map.insert(Default::default(), stream::pending().boxed());
 
@@ -177,9 +207,13 @@ where
 }
 
 #[derive(Clone)]
-/// The controller allowing to manipulate the state of the [`StreamOfDropped`].
+/// The controller for manipulating the state of the [`StreamOfDropped`].
+///
+/// This struct provides methods to add and remove streams associated with views to and from the
+/// stream.
 pub struct MultiViewDroppedWatcherController<C: ChainApi> {
-	ctrl: Controller<Command<C>>,
+	/// A controller allowing to update the state of the associated [`StreamOfDropped`].
+	contoller: Controller<Command<C>>,
 }
 
 impl<C> MultiViewDroppedWatcherController<C>
@@ -190,19 +224,20 @@ where
 	/// Creates new [`StreamOfDropped`] and its controller.
 	pub fn new() -> (MultiViewDroppedWatcherController<C>, StreamOfDropped<C>) {
 		let (stream_map, ctrl) = MultiViewDropWatcherContext::<C>::event_stream();
-		(Self { ctrl }, stream_map.boxed())
+		(Self { contoller: ctrl }, stream_map.boxed())
 	}
 
 	/// Notifies the [`StreamOfDropped`] that new view was created.
-	pub fn add_view(&self, key: BlockHash<C>, view: StreamOf<C>) {
-		let _ = self.ctrl.unbounded_send(Command::AddView(key, view)).map_err(|e| {
+	pub fn add_view(&self, key: BlockHash<C>, view: ViewStream<C>) {
+		let _ = self.contoller.unbounded_send(Command::AddView(key, view)).map_err(|e| {
 			debug!(target: LOG_TARGET, "dropped_watcher: add_view {key:?} send message failed: {e}");
 		});
 	}
 
-	/// Notifies the [`StreamOfDropped`] that the view was destroyed.
+	/// Notifies the [`StreamOfDropped`] that the view was destroyed and shall be removed the
+	/// stream map.
 	pub fn remove_view(&self, key: BlockHash<C>) {
-		let _ = self.ctrl.unbounded_send(Command::RemoveView(key)).map_err(|e| {
+		let _ = self.contoller.unbounded_send(Command::RemoveView(key)).map_err(|e| {
 			debug!(target: LOG_TARGET, "dropped_watcher: remove_view {key:?} send message failed: {e}");
 		});
 	}

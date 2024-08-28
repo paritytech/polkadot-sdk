@@ -16,7 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! View background revalidation.
+//! The background worked for [`View`] and [`TxMemPool`] revalidation.
+//!
+//! The [*Background tasks*](../index.html#background-tasks) section provides some extra details on
+//! revalidation process.
 
 use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
@@ -30,19 +33,21 @@ use futures::prelude::*;
 
 use super::view::{FinishRevalidationWorkerChannels, View};
 
-/// Payload from queue to worker.
+/// Revalidation request payload sent from the queue to the worker.
 enum WorkerPayload<Api, Block>
 where
 	Block: BlockT,
 	Api: ChainApi<Block = Block> + 'static,
 {
+	/// Request to revalidated the given instance of the [`View`]
+	///
+	/// Communication channels with maintain thread are also provided.
 	RevalidateView(Arc<View<Api>>, FinishRevalidationWorkerChannels<Api>),
+	/// Request to revalidated the given instance of the [`TxMemPool`] at provided block hash.
 	RevalidateMempool(Arc<TxMemPool<Api, Block>>, HashAndNumber<Block>),
 }
 
-/// Async revalidation worker.
-///
-/// Implements future and can be spawned in place or in background.
+/// The background revalidation worker.
 struct RevalidationWorker<Block: BlockT> {
 	_phantom: PhantomData<Block>,
 }
@@ -52,15 +57,15 @@ where
 	Block: BlockT,
 	<Block as BlockT>::Hash: Unpin,
 {
+	/// Create a new instance of the background worker.
 	fn new() -> Self {
 		Self { _phantom: Default::default() }
 	}
 
-	/// Background worker main loop.
+	/// A background worker main loop.
 	///
-	/// It does two things: periodically tries to process some transactions
-	/// from the queue and also accepts messages to enqueue some more
-	/// transactions from the pool.
+	/// Waits for and dispatches the [`WorkerPayload`] messages sent from the
+	/// [`RevalidationQueue`].
 	pub async fn run<Api: ChainApi<Block = Block> + 'static>(
 		self,
 		from_queue: TracingUnboundedReceiver<WorkerPayload<Api, Block>>,
@@ -82,10 +87,9 @@ where
 	}
 }
 
-/// Revalidation queue.
+/// A Revalidation queue.
 ///
-/// Can be configured with background (`new_background`) or immediate (just `new`).
-/// Revalidates views and mempool.
+/// Allows to send the revalidation requests to the [`RevalidationWorker`].
 pub struct RevalidationQueue<Api, Block>
 where
 	Api: ChainApi<Block = Block> + 'static,
@@ -101,11 +105,15 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	/// New revalidation queue without background worker.
+	///
+	/// All validation requests will be blocking.
 	pub fn new() -> Self {
 		Self { background: None }
 	}
 
 	/// New revalidation queue with background worker.
+	///
+	/// All validation requests will be executed in the background.
 	pub fn new_with_worker() -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
 		let (to_worker, from_queue) = tracing_unbounded("mpsc_revalidation_queue", 100_000);
 		(Self { background: Some(to_worker) }, RevalidationWorker::new().run(from_queue).boxed())
@@ -113,9 +121,11 @@ where
 
 	/// Queue the view for later revalidation.
 	///
-	/// If queue configured with background worker, this will return immediately.
-	/// If queue configured without background worker, this will resolve after
+	/// If the queue is configured with background worker, this will return immediately.
+	/// If the queue is configured without background worker, this will resolve after
 	/// revalidation is actually done.
+	///
+	/// Schedules execution of the [`View::revalidate`].
 	pub async fn revalidate_view(
 		&self,
 		view: Arc<View<Api>>,
@@ -139,12 +149,13 @@ where
 		}
 	}
 
-	/// Revalidates mempool.
+	/// Revalidates the given mempool instance.
 	///
-	/// Removes invalid transactions from the mempool.
 	/// If queue configured with background worker, this will return immediately.
 	/// If queue configured without background worker, this will resolve after
 	/// revalidation is actually done.
+	///
+	/// Schedules execution of the [`TxMemPool::revalidate`].
 	pub async fn revalidate_mempool(
 		&self,
 		mempool: Arc<TxMemPool<Api, Block>>,

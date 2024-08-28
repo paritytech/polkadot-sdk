@@ -32,7 +32,7 @@ static LOG_TARGET: &str = "txpool::watcher";
 
 /// Single event used in dropped by limits stream. It is one of Ready/Future/Dropped.
 pub type DroppedByLimitsEvent<H, BH> = (H, TransactionStatus<H, BH>);
-/// Stream of events used to determine if transaction was dropped.
+/// Stream of events used to determine if a transaction was dropped.
 pub type DroppedByLimitsStream<H, BH> = TracingUnboundedReceiver<DroppedByLimitsEvent<H, BH>>;
 
 /// Extrinsic pool default listener.

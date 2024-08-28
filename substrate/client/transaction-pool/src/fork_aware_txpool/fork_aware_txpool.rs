@@ -30,7 +30,7 @@ use super::{
 use crate::{
 	api::FullChainApi,
 	enactment_state::{EnactmentAction, EnactmentState},
-	fork_aware_txpool::view_revalidation,
+	fork_aware_txpool::revalidation_worker,
 	graph::{self, base_pool::Transaction, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
 	log_xt_debug, PolledIterator, ReadyIteratorFor, LOG_TARGET,
 };
@@ -71,8 +71,8 @@ pub type FullPool<Block, Client> = ForkAwareTxPool<FullChainApi<Client, Block>, 
 /// Fork aware transaction pool task, that needs to be polled.
 pub type ForkAwareTxPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
-/// A structure that maintains a collection of pollers associated with specific block (views)
-/// hashes.
+/// A structure that maintains a collection of pollers associated with specific block hashes
+/// (views).
 struct ReadyPoll<T, Block>
 where
 	Block: BlockT,
@@ -144,7 +144,7 @@ where
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
 
 	/// The channel allowing to send revalidation jobs to the background thread.
-	revalidation_queue: Arc<view_revalidation::RevalidationQueue<ChainApi, Block>>,
+	revalidation_queue: Arc<revalidation_worker::RevalidationQueue<ChainApi, Block>>,
 
 	/// Util providing an aggregated stream of transactions that were imported to ready queue in
 	/// any view.
@@ -203,7 +203,7 @@ where
 					best_block_hash,
 					finalized_hash,
 				))),
-				revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
+				revalidation_queue: Arc::from(revalidation_worker::RevalidationQueue::new()),
 				import_notification_sink,
 				options: Options::default(),
 				is_validator: false.into(),
@@ -232,10 +232,11 @@ where
 		}
 	}
 
-	/// Creates new fork aware transaction pool with provided shared instance of `ChainApi`.
+	/// Creates new fork aware transaction pool with the background revalidation worker.
 	///
-	/// The txpool essential tasks are spawned using provided spawner.
-	pub fn new_with_background_queue(
+	/// The txpool essential tasks (including a revalidation worker) are spawned using provided
+	/// spawner.
+	pub fn new_with_background_worker(
 		options: Options,
 		is_validator: IsValidator,
 		pool_api: Arc<ChainApi>,
@@ -248,7 +249,7 @@ where
 		let metrics = PrometheusMetrics::new(prometheus);
 		let listener = Arc::from(MultiViewListener::new());
 		let (revalidation_queue, revalidation_task) =
-			view_revalidation::RevalidationQueue::new_with_worker();
+			revalidation_worker::RevalidationQueue::new_with_worker();
 
 		let (import_notification_sink, import_notification_sink_task) =
 			MultiViewImportNotificationSink::new_with_worker();
@@ -1179,7 +1180,7 @@ where
 		let finalized_xts = self.view_store.handle_finalized(finalized_hash, tree_route).await;
 
 		self.mempool.purge_finalized_transactions(&finalized_xts).await;
-		self.import_notification_sink.clean_filter(&finalized_xts);
+		self.import_notification_sink.clean_notified_items(&finalized_xts);
 
 		self.metrics
 			.report(|metrics| metrics.finalized_txs.inc_by(finalized_xts.len() as _));
@@ -1362,7 +1363,7 @@ where
 		client: Arc<Client>,
 	) -> Arc<Self> {
 		let pool_api = Arc::new(FullChainApi::new(client.clone(), prometheus, &spawner));
-		let pool = Arc::new(Self::new_with_background_queue(
+		let pool = Arc::new(Self::new_with_background_worker(
 			options,
 			is_validator,
 			pool_api,

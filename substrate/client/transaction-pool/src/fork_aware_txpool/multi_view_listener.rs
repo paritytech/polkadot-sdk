@@ -35,18 +35,26 @@ use std::{
 };
 use tokio_stream::StreamMap;
 
+/// A side channel allowing to control the external stream instance (one per transaction) with
+/// [`ControllerCommand`].
+///
+/// Set of instances of [`Controller`] lives within the [`MultiViewListener`].
 type Controller<T> = mpsc::TracingUnboundedSender<T>;
+
+/// A recevier of [`ControllerCommand`] instances allowing to control the external stream.
+///
+/// Lives within the [`ExternalWatcherContext`] instance.
 type CommandReceiver<T> = mpsc::TracingUnboundedReceiver<T>;
 
-/// The stream of transaction events.
+/// The stream of the transaction events.
 ///
-/// It can represent both view's stream and external watcher stream.
+/// It can represent both a single view's stream and an external watcher stream.
 pub type TxStatusStream<T> = Pin<Box<TransactionStatusStream<ExtrinsicHash<T>, BlockHash<T>>>>;
 
-/// Commands to control multi view listener.
+/// Commands to control the single external stream living within the multi view listener.
 enum ControllerCommand<ChainApi: graph::ChainApi> {
-	/// Adds a new view's stream associated with a specific block hash and transaction status
-	/// stream.
+	/// Adds a new stream of transaction statuses originating in the view associated with a
+	/// specific block hash.
 	AddViewStream(BlockHash<ChainApi>, TxStatusStream<ChainApi>),
 
 	/// Removes an existing view's stream associated with a specific block hash.
@@ -54,22 +62,22 @@ enum ControllerCommand<ChainApi: graph::ChainApi> {
 
 	/// Marks a transaction as invalidated.
 	///
-	/// If all pre-conditions are met, send an external invalid event.
+	/// If all pre-conditions are met, an external invalid event will be sent out.
 	TransactionInvalidated,
 
 	/// Notifies that a transaction was finalized in a specific block hash and transaction index.
 	///
-	/// Send out external finalized event.
+	/// Send out an external finalized event.
 	FinalizeTransaction(BlockHash<ChainApi>, TxIndex),
 
 	/// Notifies that a transaction was broadcasted with a list of peer addresses.
 	///
-	/// Sends out external broadcasted event.
+	/// Sends out an external broadcasted event.
 	TransactionBroadcasted(Vec<String>),
 
 	/// Notifies that a transaction was dropped from the pool.
 	///
-	/// If all preconditions are met, send out an external dropped event.
+	/// If all preconditions are met, an external dropped event will be sent out.
 	TransactionDropped,
 }
 
@@ -108,12 +116,14 @@ where
 /// The listener provides a side channel that allows triggering specific events (finalized, dropped,
 /// invalid) independently from the view's stream.
 pub struct MultiViewListener<ChainApi: graph::ChainApi> {
+	/// Provides the set of controllers for the events streams corresponding to individual
+	/// transactions identified by transaction hashes.
 	controllers: parking_lot::RwLock<
 		HashMap<ExtrinsicHash<ChainApi>, Controller<ControllerCommand<ChainApi>>>,
 	>,
 }
 
-/// External watcher context.
+/// The external stream unfolding context.
 ///
 /// This context is used to unfold the external events stream for a single transaction, it
 /// facilitates the logic of converting single view's events to the external events stream.
