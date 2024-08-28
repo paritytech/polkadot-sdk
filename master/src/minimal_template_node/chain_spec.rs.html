@@ -205,6 +205,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -223,9 +226,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use </span>minimal_template_runtime::{BalancesConfig, SudoConfig, WASM_BINARY};
-<span class="kw">use </span>sc_service::{ChainType, Properties};
+<span class="kw">use </span>polkadot_sdk::{
+	sc_service::{ChainType, Properties},
+	sp_keyring::AccountKeyring,
+	<span class="kw-2">*</span>,
+};
 <span class="kw">use </span>serde_json::{json, Value};
-<span class="kw">use </span>sp_keyring::AccountKeyring;
 
 <span class="doccomment">/// This is a specialization of the general Substrate ChainSpec type.
 </span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec;
@@ -249,8 +255,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Configure initial storage state for FRAME pallets.
 </span><span class="kw">fn </span>testnet_genesis() -&gt; Value {
-	<span class="kw">use </span>frame::traits::Get;
 	<span class="kw">use </span>minimal_template_runtime::interface::{Balance, MinimumBalance};
+	<span class="kw">use </span>polkadot_sdk::polkadot_sdk_frame::traits::Get;
 	<span class="kw">let </span>endowment = &lt;MinimumBalance <span class="kw">as </span>Get&lt;Balance&gt;&gt;::get().max(<span class="number">1</span>) * <span class="number">1000</span>;
 	<span class="kw">let </span>balances = AccountKeyring::iter()
 		.map(|a| (a.to_account_id(), endowment))

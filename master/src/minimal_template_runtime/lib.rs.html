@@ -450,14 +450,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -486,20 +478,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">extern crate </span>alloc;
 
 <span class="kw">use </span>alloc::{vec, vec::Vec};
-<span class="kw">use </span>frame::{
-	deps::frame_support::{
-		genesis_builder_helper::{build_state, get_preset},
-		runtime,
-		weights::{FixedFee, NoFee},
-	},
-	prelude::<span class="kw-2">*</span>,
-	runtime::{
-		apis::{
-			<span class="self">self</span>, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
-			ExtrinsicInclusionMode, OpaqueMetadata,
-		},
+<span class="kw">use </span>pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
+<span class="kw">use </span>polkadot_sdk::{
+	polkadot_sdk_frame::{
+		<span class="self">self </span><span class="kw">as </span>frame,
 		prelude::<span class="kw-2">*</span>,
+		runtime::{apis, prelude::<span class="kw-2">*</span>},
 	},
+	<span class="kw-2">*</span>,
 };
 
 <span class="doccomment">/// The runtime version.
@@ -543,7 +529,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 );
 
 <span class="comment">// Composes the runtime by adding all the used pallets and deriving necessary types.
-</span><span class="attr">#[runtime]
+</span><span class="attr">#[frame_construct_runtime]
 </span><span class="kw">mod </span>runtime {
 	<span class="doccomment">/// The main runtime type.
 	</span><span class="attr">#[runtime::runtime]
@@ -630,8 +616,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">type </span>RuntimeExecutive =
 	Executive&lt;Runtime, Block, frame_system::ChainContext&lt;Runtime&gt;, Runtime, AllPalletsWithSystem&gt;;
-
-<span class="kw">use </span>pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 
 <span class="macro">impl_runtime_apis! </span>{
 	<span class="kw">impl </span>apis::Core&lt;Block&gt; <span class="kw">for </span>Runtime {
@@ -756,7 +740,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // https://github.com/paritytech/substrate/issues/10579#issuecomment-1600537558
 </span><span class="kw">pub mod </span>interface {
 	<span class="kw">use </span><span class="kw">super</span>::Runtime;
-	<span class="kw">use </span>frame::deps::frame_system;
+	<span class="kw">use </span>polkadot_sdk::{polkadot_sdk_frame <span class="kw">as </span>frame, <span class="kw-2">*</span>};
 
 	<span class="kw">pub type </span>Block = <span class="kw">super</span>::Block;
 	<span class="kw">pub use </span>frame::runtime::types_common::OpaqueBlock;

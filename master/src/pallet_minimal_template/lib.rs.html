@@ -179,7 +179,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
+</span><span class="kw">use </span>polkadot_sdk::polkadot_sdk_frame <span class="kw">as </span>frame;
 
 <span class="comment">// Re-export all pallet parts, this is needed to properly import the pallet into the runtime.
 </span><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -189,7 +189,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config: frame_system::Config {}
+	</span><span class="kw">pub trait </span>Config: polkadot_sdk::frame_system::Config {}
 
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);

@@ -551,6 +551,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -730,7 +743,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub use </span>frame_executive::<span class="kw-2">*</span>;
 
 		<span class="doccomment">/// Macro to amalgamate the runtime into `struct Runtime`.
+		///
+		/// Consider using the new version of this [`frame_construct_runtime`].
 		</span><span class="kw">pub use </span>frame_support::construct_runtime;
+
+		<span class="doccomment">/// Macro to amalgamate the runtime into `struct Runtime`.
+		///
+		/// This is the newer version of [`construct_runtime`].
+		</span><span class="kw">pub use </span>frame_support::runtime <span class="kw">as </span>frame_construct_runtime;
 
 		<span class="doccomment">/// Macro to easily derive the `Config` trait of various pallet for `Runtime`.
 		</span><span class="kw">pub use </span>frame_support::derive_impl;
@@ -739,11 +759,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="comment">// TODO: using linking in the Get in the line above triggers an ICE :/
 		</span><span class="kw">pub use </span>frame_support::{ord_parameter_types, parameter_types};
 
+		<span class="doccomment">/// For building genesis config.
+		</span><span class="kw">pub use </span>frame_support::genesis_builder_helper::{build_state, get_preset};
+
 		<span class="doccomment">/// Const types that can easily be used in conjuncture with `Get`.
 		</span><span class="kw">pub use </span>frame_support::traits::{
 			ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16,
 			ConstU32, ConstU64, ConstU8,
 		};
+
+		<span class="doccomment">/// Used for simple fee calculation.
+		</span><span class="kw">pub use </span>frame_support::weights::{<span class="self">self</span>, FixedFee, NoFee};
 
 		<span class="doccomment">/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		</span><span class="kw">pub use </span>frame_system::{
@@ -754,11 +780,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Types to define your runtime version.
 		</span><span class="kw">pub use </span>sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
 
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+		</span><span class="kw">pub use </span>sp_version::NativeVersion;
+
 		<span class="doccomment">/// Macro to implement runtime APIs.
 		</span><span class="kw">pub use </span>sp_api::impl_runtime_apis;
 
-		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-		</span><span class="kw">pub use </span>sp_version::NativeVersion;
+		<span class="comment">// Types often used in the runtime APIs.
+		</span><span class="kw">pub use </span>sp_core::OpaqueMetadata;
+		<span class="kw">pub use </span>sp_inherents::{CheckInherentsResult, InherentData};
+		<span class="kw">pub use </span>sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
 	<span class="doccomment">/// Types and traits for runtimes that implement runtime APIs.
@@ -776,11 +807,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// moved to file similarly.
 	</span><span class="attr">#[allow(ambiguous_glob_reexports)]
 	</span><span class="kw">pub mod </span>apis {
-		<span class="comment">// Types often used in the runtime APIs.
-		</span><span class="kw">pub use </span>sp_core::OpaqueMetadata;
-		<span class="kw">pub use </span>sp_inherents::{CheckInherentsResult, InherentData};
-		<span class="kw">pub use </span>sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
-
 		<span class="kw">pub use </span>frame_system_rpc_runtime_api::<span class="kw-2">*</span>;
 		<span class="kw">pub use </span>sp_api::{<span class="self">self</span>, <span class="kw-2">*</span>};
 		<span class="kw">pub use </span>sp_block_builder::<span class="kw-2">*</span>;

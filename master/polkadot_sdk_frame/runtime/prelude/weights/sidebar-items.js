@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["constants"],"struct":["ConstantMultiplier","FeePolynomial","FixedFee","IdentityFee","RuntimeDbWeight","Weight","WeightMeter","WeightToFeeCoefficient"],"trait":["WeightToFee","WeightToFeePolynomial"],"type":["NoFee","WeightToFeeCoefficients"]};

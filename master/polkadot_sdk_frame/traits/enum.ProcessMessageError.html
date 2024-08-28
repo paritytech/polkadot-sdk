@@ -153,7 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     BadFormat,
     Corrupt,
     Unsupported,
-    Overweight(Weight),
+    Overweight(<a class="struct" href="../runtime/prelude/weights/struct.Weight.html" title="struct polkadot_sdk_frame::runtime::prelude::weights::Weight">Weight</a>),
     Yield,
     StackLimitReached,
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Errors that can happen when attempting to process a message with
@@ -161,7 +161,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.BadFormat" class="variant"><a href="#variant.BadFormat" class="anchor">§</a><h3 class="code-header">BadFormat</h3></section><div class="docblock"><p>The message data format is unknown (e.g. unrecognised header)</p>
 </div><section id="variant.Corrupt" class="variant"><a href="#variant.Corrupt" class="anchor">§</a><h3 class="code-header">Corrupt</h3></section><div class="docblock"><p>The message data is bad (e.g. decoding returns an error).</p>
 </div><section id="variant.Unsupported" class="variant"><a href="#variant.Unsupported" class="anchor">§</a><h3 class="code-header">Unsupported</h3></section><div class="docblock"><p>The message format is unsupported (e.g. old XCM version).</p>
-</div><section id="variant.Overweight" class="variant"><a href="#variant.Overweight" class="anchor">§</a><h3 class="code-header">Overweight(Weight)</h3></section><div class="docblock"><p>Message processing was not attempted because it was not certain that the weight limit
+</div><section id="variant.Overweight" class="variant"><a href="#variant.Overweight" class="anchor">§</a><h3 class="code-header">Overweight(<a class="struct" href="../runtime/prelude/weights/struct.Weight.html" title="struct polkadot_sdk_frame::runtime::prelude::weights::Weight">Weight</a>)</h3></section><div class="docblock"><p>Message processing was not attempted because it was not certain that the weight limit
 would be respected. The parameter gives the maximum weight which the message could take
 to process.</p>
 </div><section id="variant.Yield" class="variant"><a href="#variant.Yield" class="anchor">§</a><h3 class="code-header">Yield</h3></section><div class="docblock"><p>The queue wants to give up its current processing slot.</p>
