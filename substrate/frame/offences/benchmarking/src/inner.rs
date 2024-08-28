@@ -77,8 +77,7 @@ where
 }
 
 type LookupSourceOf<T> = <<T as SystemConfig>::Lookup as StaticLookup>::Source;
-type BalanceOf<T> =
-	<<T as StakingConfig>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+type BalanceOf<T> = <T as StakingConfig>::CurrencyBalance;
 
 struct Offender<T: Config> {
 	pub controller: T::AccountId,
