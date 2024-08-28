@@ -172,6 +172,14 @@ fn make_offenders<T: Config>(
 }
 
 benchmarks! {
+	where_clause {
+		where
+		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_staking::Event<T>>,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_balances::Event<T>>,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_offences::Event>,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<frame_system::Event<T>>,
+	}
+
 	report_offence_grandpa {
 		let n in 0 .. MAX_NOMINATORS.min(MaxNominationsOf::<T>::get());
 
@@ -197,16 +205,15 @@ benchmarks! {
 	}
 	verify {
 		// make sure that all slashes have been applied
-		#[cfg(test)]
-		assert_eq!(
-			System::<T>::event_count(), 0
-			+ 1 // offence
-			+ 3 // reporter (reward + endowment)
-			+ 1 // offenders reported
-			+ 3 // offenders slashed
-			+ 1 // offenders chilled
-			+ 3 * n // nominators slashed
-		);
+		// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
+		// account endowed + some funds rescinded from issuance.
+		assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
+		// (n nominators + one validator) * slashed + Slash Reported
+		assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
+		// offence
+		assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
+		// reporter new account
+		assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
 	}
 
 	report_offence_babe {
@@ -234,16 +241,15 @@ benchmarks! {
 	}
 	verify {
 		// make sure that all slashes have been applied
-		#[cfg(test)]
-		assert_eq!(
-			System::<T>::event_count(), 0
-			+ 1 // offence
-			+ 3 // reporter (reward + endowment)
-			+ 1 // offenders reported
-			+ 3 // offenders slashed
-			+ 1 // offenders chilled
-			+ 3 * n // nominators slashed
-		);
+		// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
+		// account endowed + some funds rescinded from issuance.
+		assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
+		// (n nominators + one validator) * slashed + Slash Reported
+		assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
+		// offence
+		assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
+		// reporter new account
+		assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
