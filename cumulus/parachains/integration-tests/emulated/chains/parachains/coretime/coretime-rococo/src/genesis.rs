@@ -59,7 +59,7 @@ pub fn genesis() -> Storage {
 		},
 		..Default::default()
 	};
-  
+
 	build_genesis_storage(
 		&genesis_config,
 		coretime_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),

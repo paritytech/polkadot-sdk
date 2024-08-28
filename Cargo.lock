@@ -3391,12 +3391,15 @@ dependencies = [
 name = "coretime-westend-integration-tests"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-balances",
+ "pallet-broker",
  "pallet-identity",
  "pallet-message-queue",
  "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
