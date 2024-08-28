@@ -157,7 +157,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Called before the initializer notifies any modules of a new session.
 	pub(crate) fn pre_new_session(occupied_cores: impl Iterator<Item = (CoreIndex, ParaId)>) {
-		Self::push_claim_queue_items_to_assignment_provider();
 		// The formerly occupied cores will have their candidates dropped in the inclusion module.
 		// We only need to report them as processed. These are candidates that took longer then 1
 		// block to become available and unfortunately they happened to be right before the session
@@ -170,7 +169,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Called after the initializer notifies all modules of a new session.
 	pub(crate) fn post_new_session() {
-		Self::populate_claim_queue();
+		Self::maybe_resize_claim_queue();
+		Self::populate_claim_queue_after_session_change();
 	}
 
 	/// Retrieve the number of cores of the current session, from the assigner.
@@ -356,40 +356,47 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// on new session
-	fn push_claim_queue_items_to_assignment_provider() {
-		for (_, claim_queue) in ClaimQueue::<T>::take() {
-			// Push back in reverse order so that when we pop from the provider again,
-			// the entries in the claim queue are in the same order as they are right now.
-			for para_entry in claim_queue.into_iter().rev() {
-				Self::push_assignment(para_entry);
+	fn maybe_resize_claim_queue() {
+		let new_core_count = Self::num_cores();
+		let old_core_count = ClaimQueue::<T>::get().len() as u32;
+
+		if new_core_count < old_core_count {
+			let dropped_cores = ClaimQueue::<T>::mutate(|cq| {
+				// old_core_count must be greater than 1, as it's greater than new_core_count, which
+				// is is a positive number.
+				cq.split_off(&CoreIndex(old_core_count.saturating_sub(1)))
+			});
+
+			for (_, claim_queue) in dropped_cores {
+				Self::push_back_to_assignment_provider(claim_queue.into_iter());
 			}
 		}
 	}
 
 	// Populate the claim queue. To be called on new session, after all the other modules were
 	// initialized.
-	fn populate_claim_queue() {
+	fn populate_claim_queue_after_session_change() {
 		let n_session_cores = Self::num_cores();
 		let config = configuration::ActiveConfig::<T>::get();
 		// Extra sanity, config should already never be smaller than 1:
 		let n_lookahead = config.scheduler_params.lookahead.max(1);
-		let cq = ClaimQueue::<T>::get();
 
 		for core_idx in 0..n_session_cores {
 			let core_idx = CoreIndex::from(core_idx);
-			let n_lookahead_used = cq.get(&core_idx).map_or(0, |v| v.len() as u32);
-
-			for _ in n_lookahead_used..n_lookahead {
-				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
-					Self::add_to_claim_queue(core_idx, assignment);
-				}
-			}
+			Self::fill_claim_queue(core_idx, n_lookahead);
 		}
 	}
 
-	/// Push assignments back to the provider on session change.
-	fn push_assignment(assignment: Assignment) {
-		T::AssignmentProvider::push_back_assignment(assignment);
+	/// Push some assignments back to the provider.
+	fn push_back_to_assignment_provider(
+		assignments: impl Iterator<Item = Assignment> + core::iter::DoubleEndedIterator,
+	) {
+		// Push back in reverse order so that when we pop from the provider again,
+		// the entries in the claim queue are in the same order as they are right
+		// now.
+		for assignment in assignments.rev() {
+			T::AssignmentProvider::push_back_assignment(assignment);
+		}
 	}
 
 	/// For each core that isn't part of the `except_for` set, pop the first item of the claim queue
@@ -415,23 +422,22 @@ impl<T: Config> Pallet<T> {
 					T::AssignmentProvider::report_processed(dropped_para);
 				}
 
-				let n_lookahead_used =
-					ClaimQueue::<T>::get().get(&core_idx).map_or(0, |v| v.len() as u32);
-
-				for _ in n_lookahead_used..n_lookahead {
-					if let Some(assignment) =
-						T::AssignmentProvider::pop_assignment_for_core(core_idx)
-					{
-						Self::add_to_claim_queue(core_idx, assignment);
-					}
-				}
+				Self::fill_claim_queue(core_idx, n_lookahead);
 			}
 		}
 	}
 
-	fn add_to_claim_queue(core_idx: CoreIndex, assignment: Assignment) {
+	fn fill_claim_queue(core_idx: CoreIndex, n_lookahead: u32) {
 		ClaimQueue::<T>::mutate(|la| {
-			la.entry(core_idx).or_default().push_back(assignment);
+			let cq = la.entry(core_idx).or_default();
+
+			let n_lookahead_used = cq.len() as u32;
+
+			for _ in n_lookahead_used..n_lookahead {
+				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
+					cq.push_back(assignment.clone());
+				}
+			}
 		});
 	}
 
