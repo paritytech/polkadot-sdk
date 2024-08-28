@@ -115,14 +115,14 @@ pub fn mint_existing<T: Config>(
 	who: &T::AccountId,
 	value: BalanceOf<T>,
 ) -> Option<PositiveImbalanceOf<T>> {
-	T::Currency::deposit(who, value, Precision::Exact).ok()
+	T::Currency::deposit(who, value, Precision::BestEffort).ok()
 }
 
 /// Mint reward and create account for `who` if it does not exist.
 ///
 /// This does not increase the total issuance.
 pub fn mint_creating<T: Config>(who: &T::AccountId, value: BalanceOf<T>) -> PositiveImbalanceOf<T> {
-	T::Currency::deposit(who, value, Precision::Exact).unwrap_or_default()
+	T::Currency::deposit(who, value, Precision::BestEffort).unwrap_or_default()
 }
 
 /// Deposit newly issued or slashed `value` into `who`.
