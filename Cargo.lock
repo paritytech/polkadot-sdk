@@ -3290,7 +3290,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-integration-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
@@ -3389,7 +3389,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-integration-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
