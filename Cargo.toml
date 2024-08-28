@@ -1115,7 +1115,7 @@ rstest = { version = "0.18.2" }
 rustc-hash = { version = "1.1.0" }
 rustc-hex = { version = "2.1.0", default-features = false }
 rustix = { version = "0.36.7", default-features = false }
-rustversion = { version = "1.0.6" }
+rustversion = { version = "1.0.17" }
 rusty-fork = { version = "0.3.0", default-features = false }
 safe-mix = { version = "1.0", default-features = false }
 sc-allocator = { path = "substrate/client/allocator", default-features = false }
