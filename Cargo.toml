@@ -1,9 +1,9 @@
 [workspace.package]
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
-repository = "https://github.com/paritytech/polkadot-sdk.git"
-license = "GPL-3.0-only"
 homepage = "https://paritytech.github.io/polkadot-sdk/"
+license = "GPL-3.0-only"
+repository = "https://github.com/paritytech/polkadot-sdk.git"
 
 [workspace]
 resolver = "2"
@@ -136,6 +136,7 @@ members = [
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
 	"cumulus/polkadot-parachain",
+	"cumulus/polkadot-parachain/polkadot-parachain-lib",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
@@ -394,6 +395,11 @@ members = [
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
 	"substrate/frame/remark",
+	"substrate/frame/revive",
+	"substrate/frame/revive/fixtures",
+	"substrate/frame/revive/mock-network",
+	"substrate/frame/revive/proc-macro",
+	"substrate/frame/revive/uapi",
 	"substrate/frame/root-offences",
 	"substrate/frame/root-testing",
 	"substrate/frame/safe-mode",
@@ -522,7 +528,6 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
-	"templates/minimal",
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
@@ -536,6 +541,7 @@ members = [
 ]
 
 default-members = [
+	"cumulus/polkadot-parachain",
 	"polkadot",
 	"substrate/bin/node/cli",
 ]
@@ -547,29 +553,29 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
 
 [workspace.lints.clippy]
 all = { level = "allow", priority = 0 }
-correctness = { level = "warn", priority = 1 }
-complexity = { level = "warn", priority = 1 }
-if-same-then-else = { level = "allow", priority = 2 }
-zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
-type_complexity = { level = "allow", priority = 2 }                  # raison d'etre
-nonminimal-bool = { level = "allow", priority = 2 }                  # maybe
-borrowed-box = { level = "allow", priority = 2 }                     # Reasonable to fix this one
-too-many-arguments = { level = "allow", priority = 2 }               # (Turning this on would lead to)
-needless-lifetimes = { level = "allow", priority = 2 }               # generated code
-unnecessary_cast = { level = "allow", priority = 2 }                 # Types may change
-identity-op = { level = "allow", priority = 2 }                      # One case where we do 0 +
-useless_conversion = { level = "allow", priority = 2 }               # Types may change
-unit_arg = { level = "allow", priority = 2 }                         # stylistic
-option-map-unit-fn = { level = "allow", priority = 2 }               # stylistic
 bind_instead_of_map = { level = "allow", priority = 2 }              # stylistic
-erasing_op = { level = "allow", priority = 2 }                       # E.g. 0 * DOLLARS
-eq_op = { level = "allow", priority = 2 }                            # In tests we test equality.
-while_immutable_condition = { level = "allow", priority = 2 }        # false positives
-needless_option_as_deref = { level = "allow", priority = 2 }         # false positives
-derivable_impls = { level = "allow", priority = 2 }                  # false positives
-stable_sort_primitive = { level = "allow", priority = 2 }            # prefer stable sort
-extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
+borrowed-box = { level = "allow", priority = 2 }                     # Reasonable to fix this one
+complexity = { level = "warn", priority = 1 }
+correctness = { level = "warn", priority = 1 }
 default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
+derivable_impls = { level = "allow", priority = 2 }                  # false positives
+eq_op = { level = "allow", priority = 2 }                            # In tests we test equality.
+erasing_op = { level = "allow", priority = 2 }                       # E.g. 0 * DOLLARS
+extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
+identity-op = { level = "allow", priority = 2 }                      # One case where we do 0 +
+if-same-then-else = { level = "allow", priority = 2 }
+needless-lifetimes = { level = "allow", priority = 2 }               # generated code
+needless_option_as_deref = { level = "allow", priority = 2 }         # false positives
+nonminimal-bool = { level = "allow", priority = 2 }                  # maybe
+option-map-unit-fn = { level = "allow", priority = 2 }               # stylistic
+stable_sort_primitive = { level = "allow", priority = 2 }            # prefer stable sort
+too-many-arguments = { level = "allow", priority = 2 }               # (Turning this on would lead to)
+type_complexity = { level = "allow", priority = 2 }                  # raison d'etre
+unit_arg = { level = "allow", priority = 2 }                         # stylistic
+unnecessary_cast = { level = "allow", priority = 2 }                 # Types may change
+useless_conversion = { level = "allow", priority = 2 }               # Types may change
+while_immutable_condition = { level = "allow", priority = 2 }        # false positives
+zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
 
 [workspace.dependencies]
 Inflector = { version = "0.11.4" }
@@ -729,7 +735,6 @@ either = { version = "1.8.1", default-features = false }
 emulated-integration-tests-common = { path = "cumulus/parachains/integration-tests/emulated/common", default-features = false }
 enumflags2 = { version = "0.7.7" }
 enumn = { version = "0.1.13" }
-env_logger = { version = "0.11.3" }
 environmental = { version = "1.1.4", default-features = false }
 equivocation-detector = { path = "bridges/relays/equivocation" }
 ethabi = { version = "1.0.0", default-features = false, package = "ethabi-decode" }
@@ -820,7 +825,7 @@ lazy_static = { version = "1.4.0" }
 libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }
 libp2p = { version = "0.52.4" }
-libp2p-identity = { version = "0.2.3" }
+libp2p-identity = { version = "0.2.9" }
 libsecp256k1 = { version = "0.7.0", default-features = false }
 linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
@@ -894,7 +899,7 @@ pallet-collator-selection = { path = "cumulus/pallets/collator-selection", defau
 pallet-collective = { path = "substrate/frame/collective", default-features = false }
 pallet-collective-content = { path = "cumulus/parachains/pallets/collective-content", default-features = false }
 pallet-contracts = { path = "substrate/frame/contracts", default-features = false }
-pallet-contracts-fixtures = { path = "substrate/frame/contracts/fixtures" }
+pallet-contracts-fixtures = { path = "substrate/frame/contracts/fixtures", default-features = false }
 pallet-contracts-mock-network = { default-features = false, path = "substrate/frame/contracts/mock-network" }
 pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", default-features = false }
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
@@ -950,6 +955,11 @@ pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
 pallet-remark = { default-features = false, path = "substrate/frame/remark" }
+pallet-revive = { path = "substrate/frame/revive", default-features = false }
+pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
+pallet-revive-mock-network = { default-features = false, path = "substrate/frame/revive/mock-network" }
+pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
+pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = false }
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
 pallet-safe-mode = { default-features = false, path = "substrate/frame/safe-mode" }
@@ -1043,6 +1053,7 @@ polkadot-node-subsystem-test-helpers = { path = "polkadot/node/subsystem-test-he
 polkadot-node-subsystem-types = { path = "polkadot/node/subsystem-types", default-features = false }
 polkadot-node-subsystem-util = { path = "polkadot/node/subsystem-util", default-features = false }
 polkadot-overseer = { path = "polkadot/node/overseer", default-features = false }
+polkadot-parachain-lib = { path = "cumulus/polkadot-parachain/polkadot-parachain-lib", default-features = false }
 polkadot-parachain-primitives = { path = "polkadot/parachain", default-features = false }
 polkadot-primitives = { path = "polkadot/primitives", default-features = false }
 polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers" }
@@ -1059,7 +1070,7 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = "0.9.3"
+polkavm = { version = "0.9.3", default-features = false }
 polkavm-derive = "0.9.1"
 polkavm-linker = "0.9.2"
 portpicker = { version = "0.1.1" }
@@ -1173,10 +1184,10 @@ secp256k1 = { version = "0.28.0", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
 seedling-runtime = { path = "cumulus/parachains/runtimes/starters/seedling" }
 separator = { version = "0.4.1" }
-serde = { version = "1.0.204", default-features = false }
+serde = { version = "1.0.206", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
-serde_json = { version = "1.0.121", default-features = false }
+serde_json = { version = "1.0.124", default-features = false }
 serde_yaml = { version = "0.9" }
 serial_test = { version = "2.0.0" }
 sha1 = { version = "0.10.6" }
@@ -1320,10 +1331,10 @@ tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
 trie-bench = { version = "0.39.0" }
-trie-db = { version = "0.29.0", default-features = false }
+trie-db = { version = "0.29.1", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
-trybuild = { version = "1.0.88" }
+trybuild = { version = "1.0.89" }
 tt-call = { version = "1.0.8" }
 tuplex = { version = "0.1", default-features = false }
 twox-hash = { version = "1.6.3", default-features = false }
@@ -1358,22 +1369,22 @@ zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
-panic = "unwind"
 opt-level = 3
+panic = "unwind"
 
 # make sure dev builds with backtrace do not slow us down
 [profile.dev.package.backtrace]
 inherits = "release"
 
 [profile.production]
+codegen-units = 1
 inherits = "release"
 lto = true
-codegen-units = 1
 
 [profile.testnet]
-inherits = "release"
 debug = 1               # debug symbols are useful for profilers
 debug-assertions = true
+inherits = "release"
 overflow-checks = true
 
 # The list of dependencies below (which can be both direct and indirect dependencies) are crates

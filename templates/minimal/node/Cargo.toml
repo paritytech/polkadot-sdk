@@ -57,4 +57,7 @@ minimal-template-runtime = { workspace = true }
 substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
-default = []
+default = ["std"]
+std = [
+	"minimal-template-runtime/std",
+]

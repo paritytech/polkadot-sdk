@@ -27,11 +27,6 @@ use std::sync::Arc;
 
 use crate::cli::Consensus;
 
-#[cfg(feature = "runtime-benchmarks")]
-type HostFunctions =
-	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions);
-
-#[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions = sp_io::SubstrateHostFunctions;
 
 #[docify::export]
@@ -143,7 +138,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 			import_queue,
 			net_config,
 			block_announce_validator_builder: None,
-			warp_sync_params: None,
+			warp_sync_config: None,
 			block_relay: None,
 			metrics,
 		})?;
