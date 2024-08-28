@@ -138,7 +138,7 @@ mod tests {
 	fn test_msg() {
 		assert_eq!(
 			msg!("my internal error"),
-			"Pallet Internal Error:substrate/frame/support/procedural/src/pallet/expand/mod.rs:141:\
+			"Pallet Internal Error:substrate/frame/support/procedural/src/pallet/expand/mod.rs:140:\
 			my internal error: Please open an issue on polkadot-sdk github with the pallet input \
 			which triggered this error"
 		);
