@@ -377,7 +377,7 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbRefTime>> frame_support::trait
 ///   name.
 /// - `S` is a type that implements the [`Get`] trait for a static string, representing the storage
 ///   name.
-/// - `DbWeight` is a type that implements the [`Get`] trait for [`RuntimeDbWeight`], providing the
+/// - `DbWeight` is a type that implements the [`Get`] trait for [`RuntimeDbRefTime`], providing the
 ///   weight for database operations.
 ///
 /// On runtime upgrade, the `on_runtime_upgrade` function will clear the storage from the specified
@@ -426,10 +426,12 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbRefTime>> frame_support::trait
 /// a multi-block scheduler currently under development which will allow for removal of storage
 /// items (and performing other heavy migrations) over multiple blocks
 /// (see <https://github.com/paritytech/substrate/issues/13690>).
-pub struct RemoveStorage<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>(
-	PhantomData<(P, S, DbWeight)>,
-);
-impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
+pub struct RemoveStorage<
+	P: Get<&'static str>,
+	S: Get<&'static str>,
+	DbWeight: Get<RuntimeDbRefTime>,
+>(PhantomData<(P, S, DbWeight)>);
+impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbRefTime>>
 	frame_support::traits::OnRuntimeUpgrade for RemoveStorage<P, S, DbWeight>
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {

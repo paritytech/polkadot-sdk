@@ -23,7 +23,7 @@
 
 use codec::MaxEncodedLen;
 use frame_support::{
-	derive_impl, parameter_types, traits::PalletInfo as _, weights::RuntimeDbWeight,
+	derive_impl, parameter_types, traits::PalletInfo as _, weights::RuntimeDbRefTime,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
 use scale_info::TypeInfo;
@@ -743,8 +743,8 @@ fn test_metadata() {
 				},
 				PalletConstantMetadata {
 					name: "DbWeight",
-					ty: meta_type::<RuntimeDbWeight>(),
-					value: RuntimeDbWeight::default().encode(),
+					ty: meta_type::<RuntimeDbRefTime>(),
+					value: RuntimeDbRefTime::default().encode(),
 					docs: maybe_docs(vec![" The weight of runtime database operations the runtime can invoke.",]),
 				},
 				PalletConstantMetadata {
