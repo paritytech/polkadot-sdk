@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724929204089,
+  "lastUpdate": 1724941002566,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -16590,6 +16590,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.904048644449988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dharjeezy",
+            "username": "dharjeezy",
+            "email": "dharjeezy@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "61bfcb846c2582e9fdf5068f91a20c107d6f030e",
+          "message": "Add new try-state check invariant for nomination-pools (points >= stake) (#5465)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/5448\n\n---------\n\nCo-authored-by: Gonçalo Pestana <g6pestana@gmail.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2024-08-29T12:28:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/61bfcb846c2582e9fdf5068f91a20c107d6f030e"
+        },
+        "date": 1724940974489,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52945.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63955.259999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 5.822417074410021,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.825690556920016,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.016325782110153,
             "unit": "seconds"
           }
         ]
