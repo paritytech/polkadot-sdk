@@ -19,6 +19,7 @@
 //! the relay chain, but we do care about the size of the block, by putting the tx in the
 //! proof_size we can use the already existing weight limiting code to limit the used size as well.
 
+use crate::{configuration, inclusion};
 use codec::{Encode, WrapperTypeEncode};
 use polkadot_primitives::{
 	CheckedMultiDisputeStatementSet, MultiDisputeStatementSet, UncheckedSignedAvailabilityBitfield,
@@ -96,6 +97,7 @@ pub fn paras_inherent_total_weight<T: Config>(
 	backed_candidates_weight::<T>(backed_candidates)
 		.saturating_add(signed_bitfields_weight::<T>(bitfields))
 		.saturating_add(multi_dispute_statement_sets_weight::<T>(disputes))
+		.saturating_add(enact_candidates_max_weight::<T>(bitfields))
 }
 
 pub fn multi_dispute_statement_sets_weight<T: Config>(
@@ -153,6 +155,27 @@ pub fn signed_bitfield_weight<T: Config>(bitfield: &UncheckedSignedAvailabilityB
 		<<T as Config>::WeightInfo as WeightInfo>::enter_bitfields()
 			.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty()),
 		bitfield,
+	)
+}
+
+/// Worst case scenario is all candidates have been enacted
+/// and process a maximum number of messages.
+pub fn enact_candidates_max_weight<T: Config>(
+	bitfields: &UncheckedSignedAvailabilityBitfields,
+) -> Weight {
+	let config = configuration::ActiveConfig::<T>::get();
+	let max_ump_msgs = config.max_upward_message_num_per_candidate;
+	let max_hrmp_msgs = config.hrmp_max_message_num_per_candidate;
+	// No bitfields - no enacted candidates
+	let bitfield_size = bitfields.first().map(|b| b.unchecked_payload().0.len()).unwrap_or(0);
+	set_proof_size_to_tx_size(
+		<<T as inclusion::Config>::WeightInfo as inclusion::WeightInfo>::enact_candidate(
+			max_ump_msgs,
+			max_hrmp_msgs,
+			1, // runtime upgrade
+		)
+		.saturating_mul(bitfield_size as u64),
+		bitfields,
 	)
 }
 
