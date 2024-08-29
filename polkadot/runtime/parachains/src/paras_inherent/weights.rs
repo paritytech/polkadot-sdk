@@ -28,6 +28,8 @@ use polkadot_primitives::{
 use super::{BackedCandidate, Config, DisputeStatementSet, Weight};
 
 pub trait WeightInfo {
+	/// The weight of processing an empty parachain inherent.
+	fn enter_empty() -> Weight;
 	/// Variant over `v`, the count of dispute statements in a dispute statement set. This gives the
 	/// weight of a single dispute statement set.
 	fn enter_variable_disputes(v: u32) -> Weight;
@@ -45,6 +47,9 @@ pub struct TestWeightInfo;
 //  mock.
 #[cfg(not(feature = "runtime-benchmarks"))]
 impl WeightInfo for TestWeightInfo {
+	fn enter_empty() -> Weight {
+		Weight::zero()
+	}
 	fn enter_variable_disputes(v: u32) -> Weight {
 		// MAX Block Weight should fit 4 disputes
 		Weight::from_parts(80_000 * v as u64 + 80_000, 0)
@@ -66,6 +71,9 @@ impl WeightInfo for TestWeightInfo {
 // running as a test.
 #[cfg(feature = "runtime-benchmarks")]
 impl WeightInfo for TestWeightInfo {
+	fn enter_empty() -> Weight {
+		Weight::zero()
+	}
 	fn enter_variable_disputes(_v: u32) -> Weight {
 		Weight::zero()
 	}
@@ -123,7 +131,8 @@ where
 	set_proof_size_to_tx_size(
 		<<T as Config>::WeightInfo as WeightInfo>::enter_variable_disputes(
 			statement_set.as_ref().statements.len() as u32,
-		),
+		)
+		.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty()),
 		statement_set,
 	)
 }
@@ -133,6 +142,7 @@ pub fn signed_bitfields_weight<T: Config>(
 ) -> Weight {
 	set_proof_size_to_tx_size(
 		<<T as Config>::WeightInfo as WeightInfo>::enter_bitfields()
+			.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty())
 			.saturating_mul(bitfields.len() as u64),
 		bitfields,
 	)
@@ -140,7 +150,8 @@ pub fn signed_bitfields_weight<T: Config>(
 
 pub fn signed_bitfield_weight<T: Config>(bitfield: &UncheckedSignedAvailabilityBitfield) -> Weight {
 	set_proof_size_to_tx_size(
-		<<T as Config>::WeightInfo as WeightInfo>::enter_bitfields(),
+		<<T as Config>::WeightInfo as WeightInfo>::enter_bitfields()
+			.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty()),
 		bitfield,
 	)
 }
@@ -155,7 +166,8 @@ pub fn backed_candidate_weight<T: frame_system::Config + Config>(
 			<<T as Config>::WeightInfo as WeightInfo>::enter_backed_candidates_variable(
 				candidate.validity_votes().len() as u32,
 			)
-		},
+		}
+		.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty()),
 		candidate,
 	)
 }
