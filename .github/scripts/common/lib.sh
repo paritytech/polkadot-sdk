@@ -308,7 +308,8 @@ function import_gpg_keys() {
   PARITY_RELEASES="90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
 
   echo "Importing GPG keys from $GPG_KEYSERVER in parallel"
-  for key in $SEC $EGOR $MORGAN $PARITY_RELEASES; do
+  # for key in $SEC $EGOR $MORGAN $PARITY_RELEASES; do
+  for key in $PARITY_RELEASES; do
     (
       echo "Importing GPG key $key"
       gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key
