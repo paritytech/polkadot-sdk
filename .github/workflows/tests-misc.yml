@@ -14,31 +14,42 @@ concurrency:
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
-  changes:
-    permissions:
-      pull-requests: read
-    uses: ./.github/workflows/reusable-check-changed-files.yml
+  #changes:
+  #  permissions:
+  #    pull-requests: read
+  #  uses: ./.github/workflows/reusable-check-changed-files.yml
 
   set-image:
-    needs: [ changes ]
-    if: needs.changes.outputs.rust || needs.changes.outputs.current-workflow
+    # needs: [ changes ]
+    # if: needs.changes.outputs.rust || needs.changes.outputs.current-workflow
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
-
+      # By default, we use spot machines that can be terminated at any time.
+      # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      - id: set_runner
+        run: |
+          # Run merge queues on persistent runners
+          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
+          else
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+          fi  
+  
   # more information about this job can be found here:
   # https://github.com/paritytech/substrate/pull/3778
   test-full-crypto-feature:
     needs: [ set-image ]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -62,7 +73,7 @@ jobs:
     timeout-minutes: 20
     # into one job
     needs: [ set-image, test-full-crypto-feature ]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -83,7 +94,7 @@ jobs:
   test-frame-ui:
     timeout-minutes: 60
     needs: [ set-image, test-frame-examples-compile-to-wasm ]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -111,7 +122,7 @@ jobs:
   test-deterministic-wasm:
     timeout-minutes: 20
     needs: [ set-image, test-frame-ui ]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -150,7 +161,7 @@ jobs:
     strategy:
       matrix:
         branch: ${{ fromJSON(needs.cargo-check-benches-branches.outputs.branch) }}
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
@@ -211,7 +222,7 @@ jobs:
   test-node-metrics:
     needs: [ set-image ]
     timeout-minutes: 30
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
@@ -243,7 +254,7 @@ jobs:
   check-tracing:
     timeout-minutes: 20
     needs: [ set-image, test-node-metrics ]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
@@ -258,7 +269,7 @@ jobs:
   check-metadata-hash:
     timeout-minutes: 20
     needs: [ set-image, check-tracing ]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
@@ -272,7 +283,7 @@ jobs:
   cargo-hfuzz:
     timeout-minutes: 20
     needs: [ set-image, check-metadata-hash ]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -312,7 +323,7 @@ jobs:
   cargo-check-each-crate:
     timeout-minutes: 140
     needs: [ set-image ]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
