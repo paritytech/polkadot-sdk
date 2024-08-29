@@ -2010,6 +2010,7 @@ fn process_message_ok_false_keeps_storage_changes() {
 			Ok(())
 		}));
 
+		// 000 will make it return `Ok(false)`
 		MessageQueue::enqueue_message(msg("callback=000"), MessageOrigin::Here);
 		MessageQueue::service_queues(10.into_weight());
 

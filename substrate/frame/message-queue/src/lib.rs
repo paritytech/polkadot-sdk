@@ -1461,7 +1461,12 @@ impl<T: Config> Pallet<T> {
 
 		let transaction = match transaction {
 			Ok(result) => result,
-			_ => return MessageExecutionStatus::Unprocessable { permanent: false },
+			_ => {
+				defensive!(
+					"Error occurred processing message, storage changes will be rolled back"
+				);
+				return MessageExecutionStatus::Unprocessable { permanent: true }
+			},
 		};
 
 		match transaction {
