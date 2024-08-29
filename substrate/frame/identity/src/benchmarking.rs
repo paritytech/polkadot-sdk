@@ -21,7 +21,7 @@
 
 use super::*;
 
-use crate::Pallet as Identity;
+use crate::{migration::v2::LazyMigrationV2, Pallet as Identity};
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
@@ -890,6 +890,76 @@ mod benchmarks {
 				assert_eq!(UsernameAuthorities::<T>::get(&suffix).unwrap().allocation, 10);
 			},
 			_ => unreachable!(),
+		}
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_authority_step() -> Result<(), BenchmarkError> {
+		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
+		#[block]
+		{
+			LazyMigrationV2::<T, <T as Config>::WeightInfo>::authority_step(None);
+		}
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_username_step() -> Result<(), BenchmarkError> {
+		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
+		#[block]
+		{
+			LazyMigrationV2::<T, <T as Config>::WeightInfo>::username_step(None);
+		}
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_pending_username_step() -> Result<(), BenchmarkError> {
+		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
+		#[block]
+		{
+			LazyMigrationV2::<T, <T as Config>::WeightInfo>::pending_username_step(None);
+		}
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_identity_step() -> Result<(), BenchmarkError> {
+		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
+		#[block]
+		{
+			LazyMigrationV2::<T, <T as Config>::WeightInfo>::identity_step(None);
+		}
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_cleanup_username_step() -> Result<(), BenchmarkError> {
+		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
+		#[block]
+		{
+			LazyMigrationV2::<T, <T as Config>::WeightInfo>::cleanup_username_step(None);
+		}
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_cleanup_pending_username_step() -> Result<(), BenchmarkError> {
+		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
+		#[block]
+		{
+			LazyMigrationV2::<T, <T as Config>::WeightInfo>::cleanup_pending_username_step(None);
+		}
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_cleanup_identity_step() -> Result<(), BenchmarkError> {
+		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
+		#[block]
+		{
+			LazyMigrationV2::<T, <T as Config>::WeightInfo>::cleanup_identity_step(None);
 		}
 		Ok(())
 	}

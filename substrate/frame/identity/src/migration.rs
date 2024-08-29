@@ -210,8 +210,12 @@ pub mod v2 {
 		FinishedIdentities,
 		Username(U),
 		FinishedUsernames,
+		PendingUsername(U),
+		FinishedPendingUsernames,
 		CleanupUsernames(U),
 		FinishedCleanupUsernames,
+		CleanupPendingUsernames(U),
+		FinishedCleanupPendingUsernames,
 		CleanupIdentitiesWithoutUsername(A),
 		Finished,
 	}
@@ -258,10 +262,18 @@ pub mod v2 {
 					Some(MigrationState::FinishedIdentities) => Self::username_step(None),
 					Some(MigrationState::Username(maybe_last_username)) =>
 						Self::username_step(Some(maybe_last_username)),
-					Some(MigrationState::FinishedUsernames) => Self::cleanup_username_step(None),
+					Some(MigrationState::FinishedUsernames) => Self::pending_username_step(None),
+					Some(MigrationState::PendingUsername(maybe_last_username)) =>
+						Self::pending_username_step(Some(maybe_last_username)),
+					Some(MigrationState::FinishedPendingUsernames) =>
+						Self::cleanup_username_step(None),
 					Some(MigrationState::CleanupUsernames(maybe_last_username)) =>
 						Self::cleanup_username_step(Some(maybe_last_username)),
 					Some(MigrationState::FinishedCleanupUsernames) =>
+						Self::cleanup_pending_username_step(None),
+					Some(MigrationState::CleanupPendingUsernames(maybe_last_username)) =>
+						Self::cleanup_pending_username_step(Some(maybe_last_username)),
+					Some(MigrationState::FinishedCleanupPendingUsernames) =>
 						Self::cleanup_identity_step(None),
 					Some(MigrationState::CleanupIdentitiesWithoutUsername(maybe_last_identity)) =>
 						Self::identity_step(Some(maybe_last_identity)),
@@ -276,22 +288,26 @@ pub mod v2 {
 	}
 
 	impl<T: Config, W: weights::WeightInfo> LazyMigrationV2<T, W> {
-		fn required_weight(step: &MigrationState<T::AccountId, Username<T>>) -> Weight {
+		pub(crate) fn required_weight(step: &MigrationState<T::AccountId, Username<T>>) -> Weight {
 			match step {
 				MigrationState::Authority(_) => W::migration_v2_authority_step(),
 				MigrationState::FinishedAuthorities | MigrationState::Identity(_) =>
 					W::migration_v2_identity_step(),
 				MigrationState::FinishedIdentities | MigrationState::Username(_) =>
 					W::migration_v2_username_step(),
-				MigrationState::FinishedUsernames | MigrationState::CleanupUsernames(_) =>
+				MigrationState::FinishedUsernames | MigrationState::PendingUsername(_) =>
+					W::migration_v2_pending_username_step(),
+				MigrationState::FinishedPendingUsernames | MigrationState::CleanupUsernames(_) =>
 					W::migration_v2_cleanup_username_step(),
 				MigrationState::FinishedCleanupUsernames |
-				MigrationState::CleanupIdentitiesWithoutUsername(_) |
-				MigrationState::Finished => W::migration_v2_cleanup_identity_step(),
+				MigrationState::CleanupPendingUsernames(_) => W::migration_v2_cleanup_pending_username_step(),
+				MigrationState::FinishedCleanupPendingUsernames |
+				MigrationState::CleanupIdentitiesWithoutUsername(_) => W::migration_v2_cleanup_identity_step(),
+				MigrationState::Finished => Weight::zero(),
 			}
 		}
 
-		fn username_step(
+		pub(crate) fn username_step(
 			maybe_last_key: Option<&Username<T>>,
 		) -> MigrationState<T::AccountId, Username<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
@@ -309,11 +325,11 @@ pub mod v2 {
 
 				MigrationState::Username(username)
 			} else {
-				MigrationState::Finished
+				MigrationState::FinishedUsernames
 			}
 		}
 
-		fn identity_step(
+		pub(crate) fn identity_step(
 			maybe_last_key: Option<&T::AccountId>,
 		) -> MigrationState<T::AccountId, Username<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
@@ -336,7 +352,29 @@ pub mod v2 {
 			}
 		}
 
-		fn authority_step(
+		pub(crate) fn pending_username_step(
+			maybe_last_key: Option<&Username<T>>,
+		) -> MigrationState<T::AccountId, Username<T>> {
+			let mut iter = if let Some(last_key) = maybe_last_key {
+				v1::PendingUsernames::<T>::iter_from(v1::PendingUsernames::<T>::hashed_key_for(
+					last_key,
+				))
+			} else {
+				v1::PendingUsernames::<T>::iter()
+			};
+
+			if let Some((username, (owner_account, since))) = iter.next() {
+				PendingUsernames::<T>::insert(
+					&username,
+					(owner_account, since, Provider::Governance),
+				);
+				MigrationState::PendingUsername(username)
+			} else {
+				MigrationState::FinishedPendingUsernames
+			}
+		}
+
+		pub(crate) fn authority_step(
 			maybe_last_key: Option<&T::AccountId>,
 		) -> MigrationState<T::AccountId, Username<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
@@ -358,7 +396,7 @@ pub mod v2 {
 			}
 		}
 
-		fn cleanup_username_step(
+		pub(crate) fn cleanup_username_step(
 			maybe_last_key: Option<&Username<T>>,
 		) -> MigrationState<T::AccountId, Username<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
@@ -382,7 +420,25 @@ pub mod v2 {
 			}
 		}
 
-		fn cleanup_identity_step(
+		pub(crate) fn cleanup_pending_username_step(
+			maybe_last_key: Option<&Username<T>>,
+		) -> MigrationState<T::AccountId, Username<T>> {
+			let mut iter = if let Some(last_key) = maybe_last_key {
+				PendingUsernames::<T>::iter_from(PendingUsernames::<T>::hashed_key_for(last_key))
+			} else {
+				PendingUsernames::<T>::iter()
+			};
+
+			if let Some((username, _)) = iter.next() {
+				let _ = v1::PendingUsernames::<T>::take(&username);
+
+				MigrationState::CleanupPendingUsernames(username)
+			} else {
+				MigrationState::FinishedCleanupPendingUsernames
+			}
+		}
+
+		pub(crate) fn cleanup_identity_step(
 			maybe_last_key: Option<&T::AccountId>,
 		) -> MigrationState<T::AccountId, Username<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
@@ -396,8 +452,31 @@ pub mod v2 {
 
 				MigrationState::CleanupIdentitiesWithoutUsername(account)
 			} else {
-				MigrationState::Finished
+				MigrationState::FinishedCleanupPendingUsernames
 			}
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		pub(crate) fn setup_benchmark_env() {
+			use frame_benchmarking::account;
+			let suffix: Suffix<T> = b"bench".to_vec().try_into().unwrap();
+			let authority: T::AccountId = account("authority", 0, 0);
+			let account_with_username: T::AccountId = account("account", 1, 0);
+			let account_without_username: T::AccountId = account("account", 2, 0);
+
+			v1::UsernameAuthorities::<T>::insert(
+				&authority,
+				AuthorityProperties { account_id: suffix.clone(), allocation: 10 },
+			);
+
+			let username: Username<T> = b"account.bench".to_vec().try_into().unwrap();
+			let info = T::IdentityInformation::create_identity_info();
+			let registration =
+				Registration { judgements: Default::default(), deposit: 10u32.into(), info };
+			v1::IdentityOf::<T>::insert(&account_with_username, (&registration, Some(&username)));
+			v1::IdentityOf::<T>::insert(&account_without_username, &(registration, None));
+			v1::AccountOfUsername::<T>::insert(&username, &account_with_username);
+			v1::PendingUsernames::<T>::insert(&username, &(account_with_username, 0u32.into()));
 		}
 	}
 }
