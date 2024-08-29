@@ -46,19 +46,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Prepare tooling
+      - name: Install pgpkkms
         run: |
-          . ./.github/scripts/common/lib.sh
-
           # Install pgpkms that is used to sign commits
           pip install git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69
 
-          import_gpg_keys
 
       - name: Checkout sources
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: master
+
+      - name: Import gpg keys
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          import_gpg_keys
 
       - name: Config git
         run: |
