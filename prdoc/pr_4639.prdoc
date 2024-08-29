@@ -1,0 +1,64 @@
+title: "Added the fork-aware transaction pool implementation"
+
+doc:
+  - audience: Node Dev
+    description: |
+	  Most important changes introduced by this PR:
+       - The transaction pool references spread across codebase can now be Unsized allowing to use trait object,
+	   - New command line option was added allowing to select implementation of transaction pool:
+	     - `--pool-type=fork-aware`  - new fork aware transaction pool,
+		 - `--pool-type=single-state` - old transaction pool implementation which is still default,
+
+crates:
+  - name: sc-basic-authorship
+    bump: minor
+  - name: sc-cli
+    bump: minor
+  - name: sc-consensus-manual-seal
+    bump: minor
+  - name: sc-mixnet
+    bump: minor
+  - name: sc-network-transactions
+    bump: none
+  - name: sc-rpc
+    bump: minor
+  - name: sc-rpc-spec-v2
+    bump: minor
+  - name: sc-service
+    bump: major
+  - name: sc-service-test
+    bump: minor
+  - name: sc-transaction-pool
+    bump: major
+  - name: sc-transaction-pool-api
+    bump: major
+  - name: sp-runtime
+    bump: minor
+  - name: substrate-test-runtime-transaction-pool
+    bump: minor
+  - name: staging-node-cli
+    bump: minor
+  - name: node-bench
+    bump: patch
+  - name: node-rpc
+    bump: minor
+  - name: substrate-prometheus-endpoint
+    bump: minor
+  - name: substrate-frame-rpc-system
+    bump: minor
+  - name: minimal-template-node
+    bump: minor
+  - name: parachain-template-node
+    bump: minor
+  - name: solochain-template-node
+    bump: minor
+  - name: polkadot-service
+    bump: major
+  - name: polkadot-rpc
+    bump: minor
+  - name: cumulus-client-service
+    bump: major
+  - name: cumulus-test-service
+    bump: major
+  - name: polkadot-parachain-lib
+    bump: major
