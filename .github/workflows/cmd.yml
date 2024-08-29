@@ -33,7 +33,7 @@ jobs:
           script: |
             const fs = require("fs");
             try {              
-              const org = '${{ github.repository.owner.login }}';
+              const org = '${{ github.event.repository.owner.login }}';
               const username = '${{ github.event.comment.user.login }}';
             
               const membership = await github.rest.orgs.checkMembershipForUser({
