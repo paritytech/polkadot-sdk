@@ -48,10 +48,9 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
 	runtime::{
-		get_availability_cores, get_group_rotation_info, prospective_parachains_mode,
-		ProspectiveParachainsMode, RuntimeInfo,
+		fetch_claim_queue, get_availability_cores, get_group_rotation_info,
+		prospective_parachains_mode, ProspectiveParachainsMode, RuntimeInfo,
 	},
-	runtime::fetch_claim_queue,
 	TimeoutExt,
 };
 use polkadot_primitives::{
