@@ -27,14 +27,34 @@ impl<T: Config> Pallet<T> {
 		is_fund: bool,
 		conviction: Conviction,
 	) -> DispatchResult {
+		if !ProjectFunds::<T>::contains_key(&project){
+			let bounded = BoundedVec::<BalanceOf<T>, ConstU32<2>>::try_from(vec![BalanceOf::<T>::zero(),BalanceOf::<T>::zero()]).expect("It works");
+			ProjectFunds::<T>::insert(&project,bounded);
+		}
+
 		let projects = WhiteListedProjectAccounts::<T>::get();
+		let conviction_fund = amount.saturating_add(amount.saturating_mul(
+			<u8 as From<Conviction>>::from(conviction).into(),
+		));
 
 		// Check that Project is whiteListed
 		ensure!(projects.contains(&project), Error::<T>::NotWhitelistedProject);
 
+		//Have you 
+
 		// Create vote infos and store/adjust them
 		let round_number = VotingRoundNumber::<T>::get().saturating_sub(1);
-		let round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
+		let mut round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
+		if is_fund {
+		round.total_positive_votes_amount = round.total_positive_votes_amount.saturating_add(conviction_fund);
+	}else{
+		round.total_negative_votes_amount = round.total_negative_votes_amount.saturating_add(conviction_fund);
+	}
+
+		VotingRounds::<T>::mutate(round_number, |val|{
+			*val = Some(round.clone());
+		});
+		
 		let mut new_vote = VoteInfo {
 			amount,
 			round: round.clone(),
@@ -47,9 +67,24 @@ impl<T: Config> Pallet<T> {
 		new_vote.funds_unlock();
 
 		if Votes::<T>::contains_key(&project, &voter_id) {
+
+			
 			let old_vote =
 				Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let old_amount = old_vote.amount;
+			let old_conviction_amount = old_amount.saturating_add(old_amount.saturating_mul(
+				<u8 as From<Conviction>>::from(conviction).into(),
+			));
+			ProjectFunds::<T>::mutate(&project, |val|{
+				let mut val0 = val.clone().into_inner();
+				if is_fund {
+					val0[0] = val0[0 as usize].saturating_add(conviction_fund).saturating_sub(old_conviction_amount);
+				} else{
+					val0[1] = val0[1 as usize].saturating_add(conviction_fund).saturating_sub(old_conviction_amount);
+				}
+				*val = BoundedVec::<BalanceOf<T>, ConstU32<2>>::try_from(val0).expect("It works");
+			});
+
 			Votes::<T>::mutate(&project, &voter_id, |value| {
 				*value = Some(new_vote);
 			});
@@ -58,10 +93,21 @@ impl<T: Config> Pallet<T> {
 			let new_hold = total_hold.saturating_sub(old_amount).saturating_add(amount);
 			T::NativeBalance::set_on_hold(&HoldReason::FundsReserved.into(), &voter_id, new_hold)?;
 		} else {
-			Votes::<T>::insert(project, &voter_id, new_vote);
+			Votes::<T>::insert(&project, &voter_id, new_vote);
+			ProjectFunds::<T>::mutate(&project, |val|{
+				let mut val0 = val.clone().into_inner();
+				if is_fund {
+					val0[0] = val0[0 as usize].saturating_add(conviction_fund);
+				} else{
+					val0[1] = val0[1 as usize].saturating_add(conviction_fund);
+				}
+				*val = BoundedVec::<BalanceOf<T>, ConstU32<2>>::try_from(val0).expect("It works");
+			});
 			// Lock the necessary amount
 			T::NativeBalance::hold(&HoldReason::FundsReserved.into(), &voter_id, amount)?;
 		}
+
+		
 
 		Ok(())
 	}
@@ -97,33 +143,14 @@ impl<T: Config> Pallet<T> {
 
 	// The total reward to be distributed is a portion or inflation, determined in another pallet
 	// Reward calculation is executed within VotingLocked period --> "VotingLockBlock ==
-	// EpochBeginningBlock" ???
+	// EpochBeginningBlock"
 	pub fn calculate_rewards(total_reward: BalanceOf<T>) -> DispatchResult {
 		let projects = WhiteListedProjectAccounts::<T>::get();
-		let votes = Votes::<T>::iter();
+		let round_number = VotingRoundNumber::<T>::get().saturating_sub(1);
+		let round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
 		if projects.clone().len() > 0 as usize {
-			let mut total_positive_votes_amount = BalanceOf::<T>::zero();
-			let mut total_negative_votes_amount = BalanceOf::<T>::zero();
-
-			// Total amount from all votes
-			for vote in votes {
-				let info = &vote.2;
-				let conviction_coeff = info.conviction;
-				let amount = info.amount.saturating_add(
-					info.amount
-						.saturating_mul(<u8 as From<Conviction>>::from(conviction_coeff).into()),
-				);
-
-				if info.is_fund {
-					total_positive_votes_amount = total_positive_votes_amount
-						.checked_add(&amount)
-						.ok_or(Error::<T>::InvalidResult)?;
-				} else {
-					total_negative_votes_amount = total_negative_votes_amount
-						.checked_add(&amount)
-						.ok_or(Error::<T>::InvalidResult)?;
-				}
-			}
+			let total_positive_votes_amount = round.total_positive_votes_amount;
+			let total_negative_votes_amount = round.total_negative_votes_amount;
 
 			let total_votes_amount =
 				total_positive_votes_amount.saturating_sub(total_negative_votes_amount);
@@ -131,36 +158,13 @@ impl<T: Config> Pallet<T> {
 			// for each project, calculate the percentage of votes, the amount to be distributed,
 			// and then populate the storage Projects in pallet_distribution
 			for project in projects {
-				let this_project_votes: Vec<_> =
-					Votes::<T>::iter().filter(|x| x.0 == project).collect();
+				if ProjectFunds::<T>::contains_key(&project){
 
-				let mut project_positive_reward = BalanceOf::<T>::zero();
-				let mut project_negative_reward = BalanceOf::<T>::zero();
-				let mut project_reward = BalanceOf::<T>::zero();
-				let mut round = 0;
+					let funds = ProjectFunds::<T>::get(&project);
+				let project_positive_reward = funds[0];
+				let project_negative_reward = funds[1];
 
-				for (_p_id, _voter, info) in &this_project_votes {
-					let conviction_coeff = info.conviction;
-					let amount =
-						info.amount.saturating_add(info.amount.saturating_mul(
-							<u8 as From<Conviction>>::from(conviction_coeff).into(),
-						));
-					round = info.round.round_number;
-					match info.is_fund {
-						true => {
-							project_positive_reward = project_positive_reward
-								.checked_add(&amount)
-								.ok_or(Error::<T>::InvalidResult)?;
-						},
-						false => {
-							project_negative_reward = project_negative_reward
-								.checked_add(&amount)
-								.ok_or(Error::<T>::InvalidResult)?;
-						},
-					}
-					project_reward =
-						project_positive_reward.saturating_sub(project_negative_reward);
-				}
+				let project_reward = project_positive_reward.saturating_sub(project_negative_reward);
 
 				if !project_reward.is_zero() {
 					let project_percentage =
@@ -190,7 +194,7 @@ impl<T: Config> Pallet<T> {
 					Self::deposit_event(Event::<T>::ProjectFundingAccepted {
 						project_id: project,
 						when,
-						round_number: round,
+						round_number,
 						amount: project_info.amount,
 					})
 				} else {
@@ -202,6 +206,10 @@ impl<T: Config> Pallet<T> {
 						project_id: project,
 					});
 				}
+
+				}
+
+				
 			}
 		}
 
@@ -243,10 +251,13 @@ impl<T: Config> Pallet<T> {
 		let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
 		let voting_locked_block = round_infos.voting_locked_block;
 		let round_ending_block = round_infos.round_ending_block;
+		
 
 		// Conditions for distribution preparations are:
 		// - We are within voting_round period
 		// - We are past the voting_round_lock block
+		
+
 		if now == voting_locked_block {
 			// Emmit event
 			Self::deposit_event(Event::<T>::VoteActionLocked {

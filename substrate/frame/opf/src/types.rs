@@ -84,6 +84,8 @@ pub struct VotingRoundInfo<T: Config> {
 	pub round_starting_block: BlockNumberFor<T>,
 	pub voting_locked_block: BlockNumberFor<T>,
 	pub round_ending_block: BlockNumberFor<T>,
+	pub total_positive_votes_amount: BalanceOf<T>,
+	pub total_negative_votes_amount: BalanceOf<T>,
 }
 
 impl<T: Config> VotingRoundInfo<T> {
@@ -100,6 +102,8 @@ impl<T: Config> VotingRoundInfo<T> {
 		let round_number = VotingRoundNumber::<T>::get();
 		let new_number = round_number.checked_add(1).expect("Invalid Result");
 		VotingRoundNumber::<T>::put(new_number);
+		let total_positive_votes_amount = BalanceOf::<T>::zero();
+		let total_negative_votes_amount = BalanceOf::<T>::zero();
 
 		Pallet::<T>::deposit_event(Event::<T>::VotingRoundStarted {
 			when: round_starting_block,
@@ -111,6 +115,8 @@ impl<T: Config> VotingRoundInfo<T> {
 			round_starting_block,
 			voting_locked_block,
 			round_ending_block,
+			total_positive_votes_amount,
+			total_negative_votes_amount,
 		};
 		VotingRounds::<T>::insert(round_number, round_infos.clone());
 		round_infos
