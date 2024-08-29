@@ -590,6 +590,8 @@ pub mod pallet {
 
 		/// Modify a pool reward rate.
 		///
+		/// Currently the reward rate can only be increased.
+		///
 		/// Only the pool admin may perform this operation.
 		#[pallet::call_index(4)]
 		pub fn set_pool_reward_rate_per_block(
@@ -646,6 +648,8 @@ pub mod pallet {
 		}
 
 		/// Set when the pool should expire.
+		///
+		/// Currently the expiry block can only be extended.
 		///
 		/// Only the pool admin may perform this operation.
 		#[pallet::call_index(6)]
