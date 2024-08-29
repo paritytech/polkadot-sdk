@@ -54,32 +54,32 @@ mod tests {
 				Requirement {
 					metric: Metric::Blake2256,
 					minimum: Throughput::from_mibs(1000.00),
-					check_on_rc_authority: false
+					validator_only: false
 				},
 				Requirement {
 					metric: Metric::Blake2256Parallel { num_cores: 8 },
 					minimum: Throughput::from_mibs(1000.00),
-					check_on_rc_authority: true,
+					validator_only: true,
 				},
 				Requirement {
 					metric: Metric::Sr25519Verify,
 					minimum: Throughput::from_kibs(637.619999744),
-					check_on_rc_authority: false
+					validator_only: false
 				},
 				Requirement {
 					metric: Metric::MemCopy,
 					minimum: Throughput::from_gibs(11.4925205078125003),
-					check_on_rc_authority: false,
+					validator_only: false,
 				},
 				Requirement {
 					metric: Metric::DiskSeqWrite,
 					minimum: Throughput::from_mibs(950.0),
-					check_on_rc_authority: false,
+					validator_only: false,
 				},
 				Requirement {
 					metric: Metric::DiskRndWrite,
 					minimum: Throughput::from_mibs(420.0),
-					check_on_rc_authority: false
+					validator_only: false
 				},
 			])
 		);

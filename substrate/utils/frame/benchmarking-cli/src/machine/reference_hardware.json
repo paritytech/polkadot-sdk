@@ -6,7 +6,7 @@
 	{
 		"metric": {"Blake2256Parallel":{"num_cores":8}},
 		"minimum": 1000.00,
-		"check_on_rc_authority": true
+		"validator_only": true
 	},
 	{
 		"metric": "Sr25519Verify",

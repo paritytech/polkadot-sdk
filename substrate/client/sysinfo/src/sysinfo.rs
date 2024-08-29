@@ -27,6 +27,7 @@ use derive_more::From;
 use rand::{seq::SliceRandom, Rng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
+	borrow::Cow,
 	fmt::{self, Display, Formatter},
 	fs::File,
 	io::{Seek, SeekFrom, Write},
@@ -95,23 +96,15 @@ impl Metric {
 	}
 
 	/// The name of the metric. It is always prefixed by the [`self.category()`].
-	pub fn name(&self) -> &'static str {
+	pub fn name(&self) -> Cow<'static, str> {
 		match self {
-			Self::Sr25519Verify => "SR25519-Verify",
-			Self::Blake2256 => "BLAKE2-256",
+			Self::Sr25519Verify => Cow::Borrowed("SR25519-Verify"),
+			Self::Blake2256 => Cow::Borrowed("BLAKE2-256"),
 			Self::Blake2256Parallel { num_cores } =>
-				format!("BLAKE2-256-Parallel-{}", num_cores).leak(),
-			Self::MemCopy => "Copy",
-			Self::DiskSeqWrite => "Seq Write",
-			Self::DiskRndWrite => "Rnd Write",
-		}
-	}
-
-	/// The number of cores used in the parallel BLAKE2-256 hashing.
-	pub fn num_cores(&self) -> Option<usize> {
-		match self {
-			Self::Blake2256Parallel { num_cores } => Some(*num_cores),
-			_ => None,
+				Cow::Owned(format!("BLAKE2-256-Parallel-{}", num_cores)),
+			Self::MemCopy => Cow::Borrowed("Copy"),
+			Self::DiskSeqWrite => Cow::Borrowed("Seq Write"),
+			Self::DiskRndWrite => Cow::Borrowed("Rnd Write"),
 		}
 	}
 }
@@ -266,10 +259,10 @@ pub struct Requirement {
 		deserialize_with = "deserialize_throughput"
 	)]
 	pub minimum: Throughput,
-	/// Check this requirement only for relay chain authority nodes.
+	/// Check this requirement only for relay chain validator nodes.
 	#[serde(default)]
 	#[serde(skip_serializing_if = "core::ops::Not::not")]
-	pub check_on_rc_authority: bool,
+	pub validator_only: bool,
 }
 
 #[inline(always)]
@@ -670,19 +663,23 @@ pub fn benchmark_sr25519_verify(limit: ExecutionLimit) -> Throughput {
 /// disk. Also accepts the `requirements` for the hardware benchmark and a
 /// boolean to specify if the node is an authority.
 pub fn gather_hwbench(scratch_directory: Option<&Path>, requirements: &Requirements) -> HwBench {
-	let parallel_num_cores = requirements
+	let cpu_hashrate_score = benchmark_cpu(DEFAULT_CPU_EXECUTION_LIMIT);
+	let parallel_cpu_hashrate_score = requirements
 		.0
 		.iter()
-		.filter_map(|requirement| requirement.metric.num_cores())
+		.filter_map(|req| {
+			if let Metric::Blake2256Parallel { num_cores } = req.metric {
+				Some(benchmark_cpu_parallelism(DEFAULT_CPU_EXECUTION_LIMIT, num_cores))
+			} else {
+				None
+			}
+		})
 		.next()
-		.unwrap_or(1);
+		.unwrap_or(cpu_hashrate_score);
 	#[allow(unused_mut)]
 	let mut hwbench = HwBench {
-		cpu_hashrate_score: benchmark_cpu(DEFAULT_CPU_EXECUTION_LIMIT),
-		parallel_cpu_hashrate_score: benchmark_cpu_parallelism(
-			DEFAULT_CPU_EXECUTION_LIMIT,
-			parallel_num_cores,
-		),
+		cpu_hashrate_score,
+		parallel_cpu_hashrate_score,
 		memory_memcpy_score: benchmark_memory(DEFAULT_MEMORY_EXECUTION_LIMIT),
 		disk_sequential_write_score: None,
 		disk_random_write_score: None,
@@ -721,7 +718,7 @@ impl Requirements {
 	) -> Result<(), CheckFailures> {
 		let mut failures = Vec::new();
 		for requirement in self.0.iter() {
-			if requirement.check_on_rc_authority && !is_rc_authority {
+			if requirement.validator_only && !is_rc_authority {
 				continue
 			}
 
