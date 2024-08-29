@@ -430,8 +430,10 @@ pub mod pallet {
 	pub type ProposalOf<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
 
-	/// Consideration cost created for publishing and storing a proposal. Determined by
-	/// [Config::Consideration] and may not be applicable for certain proposals.
+	/// Consideration cost created for publishing and storing a proposal.
+	///
+	/// Determined by [Config::Consideration] and may be not present for certain proposals (e.g. if
+	/// the proposal count at the time of creation was below threshold N).
 	#[pallet::storage]
 	pub type CostOf<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, (T::AccountId, T::Consideration), OptionQuery>;
