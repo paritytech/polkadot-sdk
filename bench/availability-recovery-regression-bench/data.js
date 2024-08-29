@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724863025631,
+  "lastUpdate": 1724929806955,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -18983,6 +18983,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1881332970333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a67d6232687ab5131816b96808cda22ecb516798",
+          "message": "[ci] Migrate checks to GHA (#5511)\n\nPR migrates jobs `quick-benchmarks`, `cargo-clippy`, `check-try-runtime`\nand `check-core-crypto-features` from Gitlab to GitHub\n\ncc https://github.com/paritytech/ci_cd/issues/1006\n\n---------\n\nCo-authored-by: Maksym H <1177472+mordamax@users.noreply.github.com>",
+          "timestamp": "2024-08-29T09:17:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a67d6232687ab5131816b96808cda22ecb516798"
+        },
+        "date": 1724929778438,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.922441383999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18560879549999998,
             "unit": "seconds"
           }
         ]
