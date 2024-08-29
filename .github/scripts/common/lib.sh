@@ -316,7 +316,7 @@ function import_gpg_keys() {
     ) &
   done
   wait
-  gpg -k $SEC
+  gpg -k
 }
 
 # Check the GPG signature for a given binary
