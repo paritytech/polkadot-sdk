@@ -1,0 +1,74 @@
+name: Release - Branch off stable branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      stable_version:
+        description: New stable version in the format stableYYMM
+        required: true
+        type: string
+
+      node_version:
+        description: Version of the polkadot node in the format X.XX.X (e.g. 1.15.0)
+        required: true
+
+jobs:
+
+  check-workflow-can-run:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
+
+
+  validate-inputs:
+    runs-on: ubuntu-latest
+    outputs:
+      node_version: ${{ steps.validate_inputs.outputs.node_version }}
+      stable_version: ${{ steps.validate_inputs.outputs.stable_version }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Validate inputs
+        id: validate_inputs
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          node_version=$(filter_version_from_input "${{ inputs.node_version }}")
+          echo "node_version=${node_version}" >> $GITHUB_OUTPUT
+
+          stable_version=$(validate_stable_tag ${{ inputs.stable_version }})
+          echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
+
+  
+
+  create-stable-branch:
+    needs: [check-workflow-can-run, validate-inputs]
+    if: needs. check-workflow-can-run.outputs.checks_passed == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+          ref: 'master'
+
+      - name: Create stable branch
+        run: |
+          stable_branch_name=${{ needs.validate-inputs.outputs.stable_version }}
+          git checkout -b "$stable_branch_name"
+          git show-ref "$stable_branch_name"
+
+      - name: Bump versions and reorder prdocs
+        run: |
+          . ./.github/scripts/release/release.sh
+
+          set_version "\(NODE_VERSION[^=]*= \)\".*\"" $BUMPED_VERSION "polkadot/node/primitives/src/lib.rs"
+          commit_with_message "Bump node version to $BUMPED_VERSION in polkadot-cli"
+
+          # Set new crate version for cumulus
+          cumulus_cargo_toml_list=$(get_cumulus_cargo_toml_list)
+          set_crate_versions $BUMPED_VERSION "$cumulus_cargo_toml_list"
+
+          runtimes_list=$(get_filtered_runtimes_list_for_repo $(get_repo))
+          set_spec_versions $SPEC_VERSION "${runtimes_list[@]}"
+
+          reorder_prdocs $BUMPED_VERSION
