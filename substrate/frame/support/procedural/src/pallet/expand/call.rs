@@ -50,7 +50,6 @@ fn expand_weight(
 		CallWeightDef::Inherited(t) => {
 			// Expand `<<T as Config>::WeightInfo>::$prefix$call_name()`.
 			let n = &syn::Ident::new(&format!("{}{}", prefix, method.name), method.name.span());
-			// TODO TODO: ui test for this spans
 			quote!({ < #t > :: #n () })
 		},
 	}
@@ -535,21 +534,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				}
 			}
 
-			#[allow(unused_mut)]
-			fn weight_of_authorize() -> #frame_support::pallet_prelude::Weight {
-				let mut weight = #frame_support::pallet_prelude::Weight::default();
-					#(
-						#cfg_attrs
-						{
-							let variant_weight: #frame_support::pallet_prelude::Weight = #authorize_fn_weight;
-							weight = weight.max(variant_weight);
-						}
-					)*
-
-				weight
-			}
-
-			fn accurate_weight_of_authorize(&self) -> #frame_support::pallet_prelude::Weight {
+			fn weight_of_authorize(&self) -> #frame_support::pallet_prelude::Weight {
 				match *self {
 					#(
 						#cfg_attrs

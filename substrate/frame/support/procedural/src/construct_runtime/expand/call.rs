@@ -238,28 +238,12 @@ pub fn expand_outer_dispatch(
 				}
 			}
 
-			#[allow(unused_mut)]
-			fn weight_of_authorize() -> #scrate::pallet_prelude::Weight {
-				let mut weight = #scrate::pallet_prelude::Weight::default();
-
-				#(
-					#pallet_attrs
-					{
-						let variant_weight =
-							<#variant_usages as #scrate::traits::Authorize>::weight_of_authorize();
-						weight = weight.max(variant_weight);
-					}
-				)*
-
-				weight
-			}
-
-			fn accurate_weight_of_authorize(&self) -> #scrate::pallet_prelude::Weight {
+			fn weight_of_authorize(&self) -> #scrate::pallet_prelude::Weight {
 				match self {
 					#(
 						#pallet_attrs
 						#variant_patterns =>
-							#scrate::traits::Authorize::accurate_weight_of_authorize(call),
+							#scrate::traits::Authorize::weight_of_authorize(call),
 					)*
 				}
 			}

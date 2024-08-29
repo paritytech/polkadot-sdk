@@ -45,9 +45,6 @@ impl<T> DenyNone<T> {
 impl<T: Config + Send + Sync> TransactionExtensionBase for DenyNone<T> {
 	const IDENTIFIER: &'static str = "DenyNone";
 	type Implicit = ();
-	fn weight() -> Weight {
-		Weight::from_all(0)
-	}
 }
 
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for DenyNone<T>
@@ -91,8 +88,12 @@ where
 		_post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
-		Ok(None)
+	) -> Result<Weight, TransactionValidityError> {
+		Ok(Weight::zero())
+	}
+
+	fn weight(&self, _call: &T::RuntimeCall) -> Weight {
+		Weight::zero()
 	}
 }
 

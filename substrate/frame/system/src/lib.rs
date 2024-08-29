@@ -766,8 +766,7 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight().saturating_add(task.weight_of_is_valid()))]
 		#[pallet::authorize(Pallet::<T>::validate_do_task)]
-		// TODO TODO: add call into the scope when there is weight and update this formula
-		#[pallet::weight_of_authorize(Weight::zero())]
+		#[pallet::weight_of_authorize(task.weight_of_is_valid())]
 		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			let skip_validity = origin.as_system_ref() == Some(&RawOrigin::Authorized);
 

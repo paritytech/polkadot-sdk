@@ -583,13 +583,8 @@ pub trait Authorize {
 		&self,
 	) -> Option<Result<ValidTransaction, TransactionValidityError>>;
 
-	// TODO TODO: actually the weight could be included in the call weight itself, but people might
-	// forget about it.
 	/// The weight of the authorization function.
-	fn weight_of_authorize() -> Weight;
-
-	/// The weight of the authorization function.
-	fn accurate_weight_of_authorize(&self) -> Weight;
+	fn weight_of_authorize(&self) -> Weight;
 }
 
 #[cfg(test)]

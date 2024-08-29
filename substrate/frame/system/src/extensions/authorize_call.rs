@@ -45,16 +45,13 @@ impl<T> AuthorizeCall<T> {
 impl<T: Config + Send + Sync> TransactionExtensionBase for AuthorizeCall<T> {
 	const IDENTIFIER: &'static str = "AuthorizeCall";
 	type Implicit = ();
-	fn weight() -> Weight {
-		<T::RuntimeCall as Authorize>::weight_of_authorize()
-	}
 }
 
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for AuthorizeCall<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 {
-	type Val = ();
+	type Val = Weight;
 	type Pre = Weight;
 
 	fn validate(
@@ -67,23 +64,24 @@ where
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if origin.as_system_ref().map_or(false, |system_origin| system_origin.is_none()) {
+			// TODO TODO: refund
 			if let Some(authorize) = call.authorize() {
-				return authorize.map(|validity| (validity, (), crate::Origin::<T>::Authorized.into()))
+				return authorize.map(|validity| (validity, Weight::zero(), crate::Origin::<T>::Authorized.into()))
 			}
 		}
 
-		Ok((Default::default(), (), origin))
+		Ok((Default::default(), Weight::zero(), origin))
 	}
 
 	fn prepare(
 		self,
-		_val: Self::Val,
+		val: Self::Val,
 		_origin: &T::RuntimeOrigin,
-		call: &T::RuntimeCall,
+		_call: &T::RuntimeCall,
 		_info: &DispatchInfo,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(call.accurate_weight_of_authorize())
+		Ok(val)
 	}
 
 	fn post_dispatch_details(
@@ -92,8 +90,12 @@ where
 		_post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
-		Ok(Some(pre))
+	) -> Result<Weight, TransactionValidityError> {
+		Ok(pre)
+	}
+
+	fn weight(&self, call: &T::RuntimeCall) -> Weight {
+		call.weight_of_authorize()
 	}
 }
 
