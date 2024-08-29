@@ -43,6 +43,10 @@ jobs:
             -->
           pull_title: |
             [${target_branch}] Backport #${pull_number}
+          experimental: >
+            {
+              "conflict_resolution": "draft_commit_conflicts"
+            }
 
       - name: Label Backports
         if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
