@@ -51,7 +51,7 @@ use polkadot_node_subsystem_util::{
 		get_availability_cores, get_group_rotation_info, prospective_parachains_mode,
 		ProspectiveParachainsMode, RuntimeInfo,
 	},
-	vstaging::fetch_claim_queue,
+	runtime::fetch_claim_queue,
 	TimeoutExt,
 };
 use polkadot_primitives::{
