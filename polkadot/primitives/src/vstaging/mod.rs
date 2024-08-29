@@ -126,6 +126,8 @@ pub enum CandidateDescriptorVersion {
 	V1,
 	/// The new `CandidateDescriptorV2`.
 	V2,
+	/// An unknown version.
+	Unknown,
 }
 
 /// A unique descriptor of the candidate receipt.
@@ -431,7 +433,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 
 		match self.version.0 {
 			0 => CandidateDescriptorVersion::V2,
-			_ => CandidateDescriptorVersion::V1,
+			_ => CandidateDescriptorVersion::Unknown,
 		}
 	}
 
@@ -816,8 +818,9 @@ mod tests {
 	}
 
 	#[test]
-	fn is_invalid_version_decodes_as_v1() {
+	fn invalid_version_descriptor() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2();
+		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V2);
 		// Put some unknown version.
 		new_ccr.descriptor.version = InternalVersion(100);
 
@@ -825,7 +828,7 @@ mod tests {
 		let new_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut new_ccr.encode().as_slice()).unwrap();
 
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
 	}
 
 	#[test]
