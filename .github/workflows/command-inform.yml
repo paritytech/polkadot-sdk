@@ -8,7 +8,7 @@ jobs:
   comment:
     runs-on: ubuntu-latest
     # Temporary disable the bot until the new command bot works properly
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, 'bot ')
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, 'bot ') && false # disabled for now, until tested
     steps:
       - name: Inform that the new command exist
         uses: actions/github-script@v7
