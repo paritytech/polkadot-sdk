@@ -407,7 +407,7 @@ impl CandidateCommitments {
 pub enum CandidateReceiptError {
 	/// The specified core index is invalid.
 	InvalidCoreIndex,
-	/// The core index in commitments doesnt match the one in descriptor
+	/// The core index in commitments doesn't match the one in descriptor
 	CoreIndexMismatch,
 	/// The core selector or claim queue offset is invalid.
 	InvalidSelectedCore,
