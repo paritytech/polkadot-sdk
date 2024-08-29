@@ -691,34 +691,6 @@ pub mod pallet {
 			)?;
 			Ok(())
 		}
-
-		/// Permissioned method to withdraw reward tokens from a pool.
-		///
-		/// Only the pool admin may perform this operation.
-		#[pallet::call_index(8)]
-		pub fn withdraw_reward_tokens(
-			origin: OriginFor<T>,
-			pool_id: PoolId,
-			amount: T::Balance,
-			dest: T::AccountId,
-		) -> DispatchResult {
-			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
-				.or_else(|_| ensure_signed(origin))?;
-
-			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
-
-			T::Assets::transfer(
-				pool_info.reward_asset_id,
-				&pool_info.account,
-				&dest,
-				amount,
-				// Allow completely draining the account.
-				Preservation::Expendable,
-			)?;
-
-			Ok(())
-		}
 	}
 
 	impl<T: Config> Pallet<T> {

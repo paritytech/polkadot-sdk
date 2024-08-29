@@ -164,20 +164,4 @@ impl<T: frame_system::Config> pallet_asset_rewards::WeightInfo for WeightInfo<T>
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
-	/// Storage: `AssetRewards::Pools` (r:1 w:0)
-	/// Proof: `AssetRewards::Pools` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `ForeignAssets::Asset` (r:1 w:1)
-	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::Account` (r:2 w:2)
-	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
-	fn withdraw_reward_tokens() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `740`
-		//  Estimated: `7404`
-		// Minimum execution time: 50_015_000 picoseconds.
-		Weight::from_parts(51_033_000, 0)
-			.saturating_add(Weight::from_parts(0, 7404))
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(3))
-	}
 }

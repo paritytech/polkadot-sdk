@@ -55,7 +55,6 @@ pub trait WeightInfo {
 	fn set_pool_admin() -> Weight;
 	fn set_pool_expiry_block() -> Weight;
 	fn deposit_reward_tokens() -> Weight;
-	fn withdraw_reward_tokens() -> Weight;
 }
 
 /// Weights for `pallet_asset_rewards` using the Substrate node and recommended hardware.
@@ -189,23 +188,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
-	/// Storage: `AssetRewards::Pools` (r:1 w:0)
-	/// Proof: `AssetRewards::Pools` (`max_values`: None, `max_size`: Some(119), added: 2594, mode: `MaxEncodedLen`)
-	/// Storage: `Assets::Asset` (r:1 w:1)
-	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-	/// Storage: `Assets::Account` (r:2 w:2)
-	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn withdraw_reward_tokens() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `990`
-		//  Estimated: `6208`
-		// Minimum execution time: 627_000_000 picoseconds.
-		Weight::from_parts(718_000_000, 6208)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
-	}
 }
 
 // For backwards compatibility and tests.
@@ -335,23 +317,6 @@ impl WeightInfo for () {
 		//  Estimated: `6208`
 		// Minimum execution time: 578_000_000 picoseconds.
 		Weight::from_parts(578_000_000, 6208)
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
-	}
-	/// Storage: `AssetRewards::Pools` (r:1 w:0)
-	/// Proof: `AssetRewards::Pools` (`max_values`: None, `max_size`: Some(119), added: 2594, mode: `MaxEncodedLen`)
-	/// Storage: `Assets::Asset` (r:1 w:1)
-	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-	/// Storage: `Assets::Account` (r:2 w:2)
-	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn withdraw_reward_tokens() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `990`
-		//  Estimated: `6208`
-		// Minimum execution time: 627_000_000 picoseconds.
-		Weight::from_parts(718_000_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}

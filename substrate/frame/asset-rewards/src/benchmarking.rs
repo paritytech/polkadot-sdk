@@ -301,32 +301,5 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
-	fn withdraw_reward_tokens() -> Result<(), BenchmarkError> {
-		let create_origin = create_reward_pool::<T>()?;
-		let caller = whitelisted_caller();
-
-		let reward_asset = T::BenchmarkHelper::reward_asset();
-		let min_balance = mint_into::<T>(&caller, &reward_asset);
-
-		assert_ok!(AssetRewards::<T>::deposit_reward_tokens(
-			RawOrigin::Signed(caller.clone()).into(),
-			0,
-			min_balance,
-		));
-
-		let pool_acc = AssetRewards::<T>::pool_account_id(&0);
-		let balance_before = T::Assets::balance(reward_asset.clone(), &pool_acc);
-
-		#[extrinsic_call]
-		_(create_origin as T::RuntimeOrigin, 0, min_balance, caller);
-
-		let balance_after = T::Assets::balance(reward_asset.clone(), &pool_acc);
-
-		assert_eq!(balance_before, balance_after + min_balance);
-
-		Ok(())
-	}
-
 	impl_benchmark_test_suite!(AssetRewards, crate::mock::new_test_ext(), crate::mock::MockRuntime);
 }
