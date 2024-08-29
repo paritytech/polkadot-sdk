@@ -263,10 +263,12 @@ For finer profiling of cache misses, better use `perf` on a bare-metal machine.
 ### Profile memory usage using jemalloc
 
 Bellow you can find instructions how to setup and run profiling with jemalloc, this is complementary with using other memory profiling tools
-like: https://github.com/koute/bytehound?tab=readme-ov-file#basic-usage.
+like: <https://github.com/koute/bytehound?tab=readme-ov-file#basic-usage>.
 
 #### Prerequisites
+
 Install tooling with:
+
 ```
 sudo apt install libjemalloc-dev graphviz
 ```
@@ -274,20 +276,24 @@ sudo apt install libjemalloc-dev graphviz
 #### Generate memory usage snapshots
 
 Memory usage can be profiled by running any subsystem benchmark with `--features memprofile`, e.g:
+
 ```
 RUSTFLAGS=-g cargo run -p polkadot-subsystem-bench --release --features memprofile -- polkadot/node/subsystem-bench/examples/approvals_throughput.yaml
 ```
 
 #### Interpret the results
+
 After the benchmark ran the memory usage snapshots can be found in `/tmp/subsystem-bench*`, to extract the information from a snapshot you can
 use `jeprof` like this:
+
 ```
 jeprof --text PATH_TO_EXECUTABLE_WITH_DEBUG_SYMBOLS /tmp/subsystem-bench.1222895.199.i199.heap > statistics.txt
 ```
 
 Useful links:
-- Tutorial: https://www.magiroux.com/rust-jemalloc-profiling/
-- Jemalloc configuration options: https://jemalloc.net/jemalloc.3.html
+
+- Tutorial: <https://www.magiroux.com/rust-jemalloc-profiling/>
+- Jemalloc configuration options: <https://jemalloc.net/jemalloc.3.html>
 
 ## Create new test objectives
 
