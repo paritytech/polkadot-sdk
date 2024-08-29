@@ -80,8 +80,8 @@ fn first_round_creation_works() {
 			round_starting_block: now,
 			voting_locked_block,
 			round_ending_block,
-			total_positive_votes_amount:0,
-			total_negative_votes_amount:0,
+			total_positive_votes_amount: 0,
+			total_negative_votes_amount: 0,
 		};
 
 		// The righ event was emitted
@@ -124,8 +124,8 @@ fn voting_action_works() {
 			round_starting_block: now,
 			voting_locked_block,
 			round_ending_block,
-			total_positive_votes_amount:1000*2* BSX,
-			total_negative_votes_amount:0,
+			total_positive_votes_amount: 1000 * 2 * BSX,
+			total_negative_votes_amount: 0,
 		};
 
 		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted {
@@ -173,7 +173,6 @@ fn rewards_calculation_works() {
 		let mut p1 = ProjectFunds::<Test>::get(101);
 		println!("the reward is: {:?}", p1);
 
-
 		// Alice nominate project_101 with an amount of 5000*BSX with conviction 1x => equivalent to
 		// 10000*BSX locked
 		assert_ok!(Opf::vote(
@@ -206,14 +205,13 @@ fn rewards_calculation_works() {
 		));
 
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
-		let mut now =
+		let now =
 			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
 
 		run_to_block(round_info.voting_locked_block);
-		now =
-			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
+		now = <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
 
-		assert_eq!(now,round_info.voting_locked_block);
+		assert_eq!(now, round_info.voting_locked_block);
 
 		// The right events are emitted
 		expect_events(vec![RuntimeEvent::Opf(Event::VoteActionLocked {

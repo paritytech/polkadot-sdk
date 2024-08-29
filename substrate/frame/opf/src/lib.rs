@@ -16,33 +16,34 @@
 // limitations under the License.
 
 //! OPF pallet.
-//! 
-//! The OPF Pallet handles the Optimistic Project Funding. 
-//! It allows users to nominate projects (whitelisted in OpenGov) with their DOT. 
-//! 
+//!
+//! The OPF Pallet handles the Optimistic Project Funding.
+//! It allows users to nominate projects (whitelisted in OpenGov) with their DOT.
+//!
 //! ## Overview
-//! 
-//! This mechanism will be funded with a constant stream of DOT taken directly from inflation 
-//! and distributed to projects based on the proportion of DOT that has nominated them. 
+//!
+//! This mechanism will be funded with a constant stream of DOT taken directly from inflation
+//! and distributed to projects based on the proportion of DOT that has nominated them.
 //! The project rewards distribution is handled by the Distribution Pallet.
-//! 
+//!
 //! ### Terminology
-//! 
-//! - **MaxWhitelistedProjects:** Maximum number of Whitelisted projects that can be handled by the pallet.
+//!
+//! - **MaxWhitelistedProjects:** Maximum number of Whitelisted projects that can be handled by the
+//!   pallet.
 //! - **VoteLockingPeriod:** Period during which voting is disabled.
 //! - **VotingPeriod:**Period during which voting is enabled.
-//! - **TemporaryRewards:**For test purposes only ⇒ used as a substitute for the inflation portion used for the rewards.
-//! 
+//! - **TemporaryRewards:**For test purposes only ⇒ used as a substitute for the inflation portion
+//!   used for the rewards.
+//!
 //! ## Interface
-//! 
+//!
 //! ### Permissionless Functions
-//! 
+//!
 //! ### Privileged Functions
-//! 
+//!
 //! * `vote`: Allows users to [vote for/nominate] a whitelisted project using their funds.
 //! * `remove_vote`: Allows users to remove a casted vote.
 //! * `unlock_funds`: Allows users to unlock funds related to a specific project.
-//! 
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -109,10 +110,14 @@ pub mod pallet {
 
 	/// Returns (positive_funds,negative_funds) of Whitelisted Project accounts
 	#[pallet::storage]
-	pub type ProjectFunds<T: Config> =
-	StorageMap<_, Twox64Concat,ProjectId<T>,BoundedVec<BalanceOf<T>, ConstU32<2>>, ValueQuery>;
+	pub type ProjectFunds<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ProjectId<T>,
+		BoundedVec<BalanceOf<T>, ConstU32<2>>,
+		ValueQuery,
+	>;
 
-	
 	/// Returns Votes Infos against (project_id, voter_id) key
 	#[pallet::storage]
 	pub type Votes<T: Config> = StorageDoubleMap<
@@ -260,14 +265,14 @@ pub mod pallet {
 			// Check the total amount locked in other projects
 			let voter_holds = BalanceOf::<T>::zero();
 			let projects = WhiteListedProjectAccounts::<T>::get();
-			for project in projects{
-				if Votes::<T>::contains_key(&project,&voter){
-					let infos = Votes::<T>::get(&project,&voter).ok_or(Error::<T>::NoVoteData)?;
+			for project in projects {
+				if Votes::<T>::contains_key(&project, &voter) {
+					let infos = Votes::<T>::get(&project, &voter).ok_or(Error::<T>::NoVoteData)?;
 					let this_amount = infos.amount;
 					voter_holds.saturating_add(this_amount);
 				}
 			}
-			
+
 			let available_funds = voter_balance.saturating_sub(voter_holds);
 			ensure!(available_funds > amount, Error::<T>::NotEnoughFunds);
 
@@ -345,8 +350,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::unlock_funds(T::MaxWhitelistedProjects::get()))]
 		pub fn unlock_funds(origin: OriginFor<T>, project: AccountIdOf<T>) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
-			let infos =
-				Votes::<T>::get(&project, &voter).ok_or(Error::<T>::NoVoteData)?;
+			let infos = Votes::<T>::get(&project, &voter).ok_or(Error::<T>::NoVoteData)?;
 			let amount = infos.amount;
 			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= infos.funds_unlock_block, Error::<T>::FundsUnlockNotPermitted);

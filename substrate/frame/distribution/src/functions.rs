@@ -25,7 +25,6 @@ impl<T: Config> Pallet<T> {
 		let pot_account: AccountIdOf<T> = pot_id.into_account_truncating();
 		pot_account
 	}
-	
 
 	/// Series of checks on the Pot, to ensure that we have enough funds
 	/// before executing a Spend
@@ -44,22 +43,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Funds transfer from the Pot to a project account
-	pub fn spend(
-		amount: BalanceOf<T>,
-		beneficiary: AccountIdOf<T>,
-	) -> DispatchResult {
+	pub fn spend(amount: BalanceOf<T>, beneficiary: AccountIdOf<T>) -> DispatchResult {
 		// Get Pot account
 		let pot_account: AccountIdOf<T> = Self::pot_account();
 
 		//Operate the transfer
-			T::NativeBalance::transfer(&pot_account, &beneficiary, amount, Preservation::Preserve)
-				.map_err(|_| Error::<T>::TransferFailed)?;
-
+		T::NativeBalance::transfer(&pot_account, &beneficiary, amount, Preservation::Preserve)
+			.map_err(|_| Error::<T>::TransferFailed)?;
 
 		Ok(())
 	}
-
-
 
 	// Done in begin_block
 	// At the beginning of every Epoch, populate the `Spends` storage from the `Projects` storage
@@ -77,10 +70,10 @@ impl<T: Config> Pallet<T> {
 			let mut projects = Projects::<T>::get();
 
 			if projects.len() > 0 {
-				for project in projects.clone(){
+				for project in projects.clone() {
 					// check if the pot has enough fund for the Spend
 					let check = Self::pot_check(project.amount);
-					if check.is_ok(){
+					if check.is_ok() {
 						// Create a new Spend
 						let new_spend = SpendInfo::<T>::new(&project);
 
@@ -101,10 +94,9 @@ impl<T: Config> Pallet<T> {
 						Self::deposit_event(Event::SpendCreated {
 							when: now,
 							amount: new_spend.amount,
-							project_account: project.project_account
+							project_account: project.project_account,
 						});
 					}
-					 
 				}
 			}
 

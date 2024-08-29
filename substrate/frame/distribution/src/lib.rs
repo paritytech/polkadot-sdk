@@ -16,39 +16,38 @@
 // limitations under the License.
 
 //! Distribution pallet.
-//! 
+//!
 //! The Distribution Pallet handles the distribution of whitelisted projects rewards.
-//! For now only one reward distribution pattern has been implemented, 
-//! but the pallet could be extended to offer to the user claiming rewards for a project, 
+//! For now only one reward distribution pattern has been implemented,
+//! but the pallet could be extended to offer to the user claiming rewards for a project,
 //! a choice between more than one distribution pattern.
-//! 
+//!
 //! ## Overview
-//! 
-//! The Distribution Pallet receives a list of Whitelisted/Nominated Projects with their respective calculated rewards.
-//! For each project, it will create a corresponding spend that will be stored until the project reward can be claimed. 
-//! At the moment, the reward claim period start corresponds to: 
-//! [beginning of an Epoch_Block + BufferPeriod] (The BufferPeriod can be configured in the runtime).
-//! 
+//!
+//! The Distribution Pallet receives a list of Whitelisted/Nominated Projects with their respective
+//! calculated rewards. For each project, it will create a corresponding spend that will be stored
+//! until the project reward can be claimed. At the moment, the reward claim period start
+//! corresponds to: [beginning of an Epoch_Block + BufferPeriod] (The BufferPeriod can be configured
+//! in the runtime).
+//!
 //! ### Terminology
-//! 
+//!
 //! - **PotId:** Pot containing the funds used to pay the rewards.
-//! - **BufferPeriod:** Minimum required buffer time period between project nomination and reward claim.
-//! 
+//! - **BufferPeriod:** Minimum required buffer time period between project nomination and reward
+//!   claim.
+//!
 //! ## Interface
-//! 
+//!
 //! ### Permissionless Functions
-//! 
+//!
 //! * `pot_account`: Output the pot account_id.
-//! * `get_spend`: Get a spend related to a specific projrct_id.
-//! * `pot_check`: Series of checks on the Pot, to ensure that we have enough funds
-//!	   before executing a Spend.
+//! * `pot_check`: Series of checks on the Pot, to ensure that we have enough funds before executing
+//!   a Spend.
 //! * `spend`: Funds transfer from the Pot to a project account.
-//! * `process_failed_spend_result`: Helper function used to change the status of a failed Spend.
-//! 
+//!
 //! ### Privileged Functions
-//! 
+//!
 //! * `claim_reward_for`: Claim a reward for a nominated/whitelisted project.
-//! 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
@@ -122,7 +121,7 @@ pub mod pallet {
 	/// Spends that still have to be claimed.
 	#[pallet::storage]
 	pub(super) type Spends<T: Config> =
-	CountedStorageMap<_, Twox64Concat, ProjectId<T>, SpendInfo<T>, OptionQuery>;
+		CountedStorageMap<_, Twox64Concat, ProjectId<T>, SpendInfo<T>, OptionQuery>;
 
 	/// List of whitelisted projects to be rewarded
 	#[pallet::storage]
@@ -206,32 +205,31 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let pot = Self::pot_account();
-				let info = Spends::<T>::get(&project_account).ok_or(Error::<T>::InexistentSpend)?;
-				let project_account =
-					info.whitelisted_project.clone().ok_or(Error::<T>::NoValidAccount)?;
-				let now = T::BlockNumberProvider::current_block_number();
+			let info = Spends::<T>::get(&project_account).ok_or(Error::<T>::InexistentSpend)?;
+			let project_account =
+				info.whitelisted_project.clone().ok_or(Error::<T>::NoValidAccount)?;
+			let now = T::BlockNumberProvider::current_block_number();
 
-				// Check that we're within the claiming period
-				ensure!(now > info.valid_from, Error::<T>::NotClaimingPeriod);
-				// Unlock the funds
-				T::NativeBalance::release(
-					&HoldReason::FundsReserved.into(),
-					&pot,
-					info.amount,
-					Precision::Exact,
-				)?;
-				// transfer the funds
-				Self::spend(info.amount, project_account.clone())?;
+			// Check that we're within the claiming period
+			ensure!(now > info.valid_from, Error::<T>::NotClaimingPeriod);
+			// Unlock the funds
+			T::NativeBalance::release(
+				&HoldReason::FundsReserved.into(),
+				&pot,
+				info.amount,
+				Precision::Exact,
+			)?;
+			// transfer the funds
+			Self::spend(info.amount, project_account.clone())?;
 
-				let infos = Spends::<T>::take(&project_account).ok_or(Error::<T>::InexistentSpend)?;
-				
+			let infos = Spends::<T>::take(&project_account).ok_or(Error::<T>::InexistentSpend)?;
 
-				Self::deposit_event(Event::RewardClaimed {
-					when: now,
-					amount: infos.amount,
-					project_account,
-				});
-			
+			Self::deposit_event(Event::RewardClaimed {
+				when: now,
+				amount: infos.amount,
+				project_account,
+			});
+
 			Ok(())
 		}
 	}
