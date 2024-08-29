@@ -19,8 +19,7 @@ use crate::{pallet_prelude::BlockNumberFor, Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{TransactionExtension, TransactionExtensionBase, Zero},
+	traits::{DispatchInfoOf, SignedExtension, Zero},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -32,41 +31,45 @@ use sp_runtime::{
 /// the extension does not affect any other fields of `TransactionValidity` directly.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct CheckGenesis<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);
+pub struct CheckGenesis<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckGenesis<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckGenesis<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckGenesis")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
 
 impl<T: Config + Send + Sync> CheckGenesis<T> {
-	/// Creates new `TransactionExtension` to check genesis hash.
+	/// Creates new `SignedExtension` to check genesis hash.
 	pub fn new() -> Self {
-		Self(sp_std::marker::PhantomData)
+		Self(core::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckGenesis<T> {
+impl<T: Config + Send + Sync> SignedExtension for CheckGenesis<T> {
+	type AccountId = T::AccountId;
+	type Call = <T as Config>::RuntimeCall;
+	type AdditionalSigned = T::Hash;
+	type Pre = ();
 	const IDENTIFIER: &'static str = "CheckGenesis";
-	type Implicit = T::Hash;
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 		Ok(<Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()))
 	}
-	fn weight(&self) -> sp_weights::Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_genesis()
+
+	fn pre_dispatch(
+		self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		self.validate(who, call, info, len).map(|_| ())
 	}
-}
-impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
-	for CheckGenesis<T>
-{
-	type Val = ();
-	type Pre = ();
-	impl_tx_ext_default!(T::RuntimeCall; Context; validate prepare);
 }

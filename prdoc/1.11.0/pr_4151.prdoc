@@ -1,0 +1,11 @@
+title: "[pallet-broker] Use saturating math in input validation"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Use saturating in the pallet-broker input validation of the `drop_history` extrinsic. This
+      fixes a safeguard that only expired historic instantaneous pool records get dropped.
+
+crates:
+  - name: pallet-broker
+    bump: patch

@@ -20,8 +20,8 @@ use super::*;
 
 use always_assert::never;
 use bytes::Bytes;
+use codec::{Decode, DecodeAll};
 use net_protocol::filter_by_peer_version;
-use parity_scale_codec::{Decode, DecodeAll};
 use parking_lot::Mutex;
 
 use sc_network::{
@@ -262,7 +262,6 @@ async fn handle_validation_message<AD>(
 				}
 
 				metrics.on_peer_connected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				shared.local_view.clone().unwrap_or(View::default())
 			};
@@ -320,8 +319,6 @@ async fn handle_validation_message<AD>(
 				let w = peer_map.remove(&peer).is_some();
 
 				metrics.on_peer_disconnected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
-
 				w
 			};
 
@@ -524,7 +521,6 @@ async fn handle_collation_message<AD>(
 				}
 
 				metrics.on_peer_connected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				shared.local_view.clone().unwrap_or(View::default())
 			};
@@ -575,7 +571,6 @@ async fn handle_collation_message<AD>(
 				let w = peer_map.remove(&peer).is_some();
 
 				metrics.on_peer_disconnected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				w
 			};
@@ -832,6 +827,7 @@ where
 							&metrics,
 							&notification_sinks,
 						);
+						note_peers_count(&metrics, &shared);
 					}
 				}
 			},
@@ -966,6 +962,21 @@ fn update_our_view<Context>(
 		)
 	};
 
+	let our_view = OurView::new(
+		live_heads.iter().take(MAX_VIEW_HEADS).cloned().map(|a| (a.hash, a.span)),
+		finalized_number,
+	);
+
+	dispatch_validation_event_to_all_unbounded(
+		NetworkBridgeEvent::OurViewChange(our_view.clone()),
+		ctx.sender(),
+	);
+
+	dispatch_collation_event_to_all_unbounded(
+		NetworkBridgeEvent::OurViewChange(our_view),
+		ctx.sender(),
+	);
+
 	let v1_validation_peers =
 		filter_by_peer_version(&validation_peers, ValidationVersion::V1.into());
 	let v1_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V1.into());
@@ -1010,21 +1021,6 @@ fn update_our_view<Context>(
 		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 		notification_sinks,
-	);
-
-	let our_view = OurView::new(
-		live_heads.iter().take(MAX_VIEW_HEADS).cloned().map(|a| (a.hash, a.span)),
-		finalized_number,
-	);
-
-	dispatch_validation_event_to_all_unbounded(
-		NetworkBridgeEvent::OurViewChange(our_view.clone()),
-		ctx.sender(),
-	);
-
-	dispatch_collation_event_to_all_unbounded(
-		NetworkBridgeEvent::OurViewChange(our_view),
-		ctx.sender(),
 	);
 }
 
@@ -1139,13 +1135,33 @@ async fn dispatch_validation_events_to_all<I>(
 	I: IntoIterator<Item = NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>>,
 	I::IntoIter: Send,
 {
+	macro_rules! send_message {
+		($event:expr, $message:ident) => {
+			if let Ok(event) = $event.focus() {
+				let has_high_priority = matches!(
+					event,
+					// NetworkBridgeEvent::OurViewChange(..) must also be here,
+					// but it is sent via an unbounded channel.
+					// See https://github.com/paritytech/polkadot-sdk/issues/824
+					NetworkBridgeEvent::PeerConnected(..) |
+						NetworkBridgeEvent::PeerDisconnected(..) |
+						NetworkBridgeEvent::PeerViewChange(..)
+				);
+				let message = $message::from(event);
+				if has_high_priority {
+					sender.send_message_with_priority::<overseer::HighPriority>(message).await;
+				} else {
+					sender.send_message(message).await;
+				}
+			}
+		};
+	}
+
 	for event in events {
-		sender
-			.send_messages(event.focus().map(StatementDistributionMessage::from))
-			.await;
-		sender.send_messages(event.focus().map(BitfieldDistributionMessage::from)).await;
-		sender.send_messages(event.focus().map(ApprovalDistributionMessage::from)).await;
-		sender.send_messages(event.focus().map(GossipSupportMessage::from)).await;
+		send_message!(event, StatementDistributionMessage);
+		send_message!(event, BitfieldDistributionMessage);
+		send_message!(event, ApprovalDistributionMessage);
+		send_message!(event, GossipSupportMessage);
 	}
 }
 

@@ -16,7 +16,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use futures::{future::RemoteHandle, Future, FutureExt};
+use futures::{Future, FutureExt};
 
 use polkadot_node_network_protocol::{
 	request_response::{
@@ -64,7 +64,7 @@ pub struct SendTask<M> {
 /// Status of a particular vote/statement delivery to a particular validator.
 enum DeliveryStatus {
 	/// Request is still in flight.
-	Pending(RemoteHandle<()>),
+	Pending,
 	/// Succeeded - no need to send request to this peer anymore.
 	Succeeded,
 }
@@ -297,9 +297,8 @@ async fn send_requests<Context, M: 'static + Send + Sync>(
 			metrics.time_dispute_request(),
 		);
 
-		let (remote, remote_handle) = fut.remote_handle();
-		ctx.spawn("dispute-sender", remote.boxed()).map_err(FatalError::SpawnTask)?;
-		statuses.insert(receiver, DeliveryStatus::Pending(remote_handle));
+		ctx.spawn("dispute-sender", fut.boxed()).map_err(FatalError::SpawnTask)?;
+		statuses.insert(receiver, DeliveryStatus::Pending);
 	}
 
 	let msg = NetworkBridgeTxMessage::SendRequests(reqs, IfDisconnected::ImmediateError);

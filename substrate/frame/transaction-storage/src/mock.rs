@@ -23,7 +23,7 @@ use crate::{
 };
 use frame_support::{
 	derive_impl,
-	traits::{ConstU32, ConstU64, OnFinalize, OnInitialize},
+	traits::{ConstU32, OnFinalize, OnInitialize},
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
@@ -39,16 +39,15 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 	type AccountId = u64;
-	type BlockHashCount = ConstU64<250>;
 	type Lookup = IdentityLookup<Self::AccountId>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }

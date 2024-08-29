@@ -18,8 +18,8 @@ mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
 use crate::Runtime;
+use alloc::vec::Vec;
 use frame_support::weights::Weight;
-use sp_std::prelude::*;
 use xcm::{
 	latest::{prelude::*, QueryResponseInfo},
 	DoubleEncoded,
@@ -142,7 +142,7 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	fn descend_origin(_who: &InteriorLocation) -> Weight {
 		XcmGeneric::<Runtime>::descend_origin()
 	}
-	fn report_error(_query_repsonse_info: &QueryResponseInfo) -> Weight {
+	fn report_error(_query_response_info: &QueryResponseInfo) -> Weight {
 		XcmGeneric::<Runtime>::report_error()
 	}
 

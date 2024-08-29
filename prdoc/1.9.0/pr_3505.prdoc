@@ -1,0 +1,36 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Removes `as [disambiguation_path]` from the required syntax in `derive_impl`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes the need to specify `as [disambiguation_path]` for cases where the trait 
+      definition resides within the same scope as default impl path. 
+
+      For example, in the following macro invocation
+      ```rust
+      #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+      impl frame_system::Config for Runtime {
+        ...
+      }
+      ```
+      the trait `DefaultConfig` lies within the `frame_system` scope and `TestDefaultConfig` impls
+      the `DefaultConfig` trait. 
+      
+      Using this information, we can compute the disambiguation path internally, thus removing the
+      need of an explicit specification:
+      ```rust
+      #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+      impl frame_system::Config for Runtime {
+        ...
+      }
+      ```
+
+      In cases where the trait lies outside this scope, we would still need to specify it explicitly, 
+      but this should take care of most (if not all) uses of `derive_impl` within FRAME's context.
+
+crates: 
+  - name: frame-support-procedural
+  - name: pallet-default-config-example

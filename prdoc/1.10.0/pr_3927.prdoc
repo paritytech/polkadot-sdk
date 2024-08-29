@@ -1,0 +1,13 @@
+title: "pallet-xcm: deprecate transfer extrinsics without weight limit"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      pallet-xcm's extrinsics `teleport_assets` and `reserve_transfer_assets` have been
+      marked as deprecated. Please change their usage to the `limited_teleport_assets`
+      and `limited_reserve_transfer_assets`, respectively; or use the generic/flexible
+      `transfer_assets` extrinsic.
+
+crates:
+- name: pallet-xcm
+  bump: minor

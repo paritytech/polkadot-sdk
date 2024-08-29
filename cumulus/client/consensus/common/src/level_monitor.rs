@@ -158,7 +158,7 @@ where
 	/// the limit passed to the constructor.
 	///
 	/// If the given level is found to have a number of blocks greater than or equal the limit
-	/// then the limit is enforced by chosing one (or more) blocks to remove.
+	/// then the limit is enforced by choosing one (or more) blocks to remove.
 	///
 	/// The removal strategy is driven by the block freshness.
 	///

@@ -25,15 +25,15 @@ use crate::{
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
 };
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use frame_support::{
 	traits::{OneSessionHandler, Randomness},
 	weights::Weight,
 };
 use frame_system::limits::BlockWeights;
-use parity_scale_codec::{Decode, Encode};
-use primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
+use polkadot_primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -249,7 +249,7 @@ impl<T: Config> Pallet<T> {
 			// TODO: audit usage of randomness API
 			// https://github.com/paritytech/polkadot/issues/2601
 			let (random_hash, _) = T::Randomness::random(&b"paras"[..]);
-			let len = sp_std::cmp::min(32, random_hash.as_ref().len());
+			let len = core::cmp::min(32, random_hash.as_ref().len());
 			buf[..len].copy_from_slice(&random_hash.as_ref()[..len]);
 			buf
 		};
@@ -341,15 +341,15 @@ impl<T: pallet_session::Config + Config> OneSessionHandler<T::AccountId> for Pal
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
-		<Pallet<T>>::on_new_session(false, 0, validators, None);
+		Pallet::<T>::on_new_session(false, 0, validators, None);
 	}
 
 	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, queued: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
-		let session_index = <pallet_session::Pallet<T>>::current_index();
-		<Pallet<T>>::on_new_session(changed, session_index, validators, Some(queued));
+		let session_index = pallet_session::Pallet::<T>::current_index();
+		Pallet::<T>::on_new_session(changed, session_index, validators, Some(queued));
 	}
 
 	fn on_disabled(_i: u32) {}

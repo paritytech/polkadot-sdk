@@ -297,7 +297,7 @@ struct CachedIter<S, H, C, R>
 where
 	H: Hasher,
 {
-	last_key: sp_std::vec::Vec<u8>,
+	last_key: alloc::vec::Vec<u8>,
 	iter: RawIter<S, H, C, R>,
 }
 
@@ -390,9 +390,9 @@ where
 }
 
 impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>, R: TrieRecorderProvider<H>>
-	sp_std::fmt::Debug for TrieBackend<S, H, C, R>
+	core::fmt::Debug for TrieBackend<S, H, C, R>
 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "TrieBackend")
 	}
 }

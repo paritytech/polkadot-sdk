@@ -15,12 +15,12 @@ pub mod updates;
 mod serde_utils;
 
 pub use types::{
-	BeaconHeader, CompactBeaconState, CompactExecutionHeader, ExecutionHeaderState,
-	ExecutionPayloadHeader, FinalizedHeaderState, Fork, ForkData, ForkVersion, ForkVersions, Mode,
-	PublicKey, Signature, SigningData, SyncAggregate, SyncCommittee, SyncCommitteePrepared,
+	AncestryProof, BeaconHeader, CompactBeaconState, ExecutionPayloadHeader, ExecutionProof,
+	FinalizedHeaderState, Fork, ForkData, ForkVersion, ForkVersions, Mode, PublicKey, Signature,
+	SigningData, SyncAggregate, SyncCommittee, SyncCommitteePrepared,
 	VersionedExecutionPayloadHeader,
 };
-pub use updates::{CheckpointUpdate, ExecutionHeaderUpdate, NextSyncCommitteeUpdate, Update};
+pub use updates::{CheckpointUpdate, NextSyncCommitteeUpdate, Update};
 
 pub use bits::decompress_sync_committee_bits;
 pub use bls::{

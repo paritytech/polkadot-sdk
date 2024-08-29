@@ -4,10 +4,10 @@ A fresh [Substrate](https://substrate.io/) node, ready for hacking :rocket:
 
 A standalone version of this template is available for each release of Polkadot
 in the [Substrate Developer Hub Parachain
-Template](https://github.com/substrate-developer-hub/substrate-parachain-template/)
+Template](https://github.com/substrate-developer-hub/substrate-node-template/)
 repository. The parachain template is generated directly at each Polkadot
-release branch from the [Node Template in
-Substrate](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node-template)
+release branch from the [Solochain Template in
+Substrate](https://github.com/paritytech/polkadot-sdk/tree/master/templates/solochain)
 upstream
 
 It is usually best to use the stand-alone version to start a new project. All
@@ -37,7 +37,7 @@ After you build the project, you can use the following command to explore its
 parameters and subcommands:
 
 ```sh
-./target/release/node-template -h
+./target/release/solochain-template-node -h
 ```
 
 You can generate and view the [Rust
@@ -54,19 +54,19 @@ The following command starts a single-node development chain that doesn't
 persist state:
 
 ```sh
-./target/release/node-template --dev
+./target/release/solochain-template-node --dev
 ```
 
 To purge the development chain's state, run the following command:
 
 ```sh
-./target/release/node-template purge-chain --dev
+./target/release/solochain-template-node purge-chain --dev
 ```
 
 To start the development chain with detailed logging, run the following command:
 
 ```sh
-RUST_BACKTRACE=1 ./target/release/node-template -ldebug --dev
+RUST_BACKTRACE=1 ./target/release/solochain-template-node -ldebug --dev
 ```
 
 Development chains:
@@ -75,7 +75,7 @@ Development chains:
 - Use the **Alice** and **Bob** accounts as default validator authorities.
 - Use the **Alice** account as the default `sudo` account.
 - Are preconfigured with a genesis state (`/node/src/chain_spec.rs`) that
-  includes several prefunded development accounts.
+  includes several pre-funded development accounts.
 
 
 To persist chain state between runs, specify a base path by running a command
@@ -86,7 +86,7 @@ similar to the following:
 $ mkdir my-chain-state
 
 // Use of that folder to store the chain state
-$ ./target/release/node-template --dev --base-path ./my-chain-state/
+$ ./target/release/solochain-template-node --dev --base-path ./my-chain-state/
 
 // Check the folder structure created inside the base path after running the chain
 $ ls ./my-chain-state
@@ -103,9 +103,8 @@ After you start the node template locally, you can interact with it using the
 hosted version of the [Polkadot/Substrate
 Portal](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944)
 front-end by connecting to the local node endpoint. A hosted version is also
-available on [IPFS (redirect) here](https://dotapps.io/) or [IPNS (direct)
-here](ipns://dotapps.io/?rpc=ws%3A%2F%2F127.0.0.1%3A9944#/explorer). You can
-also find the source code and instructions for hosting your own instance on the
+available on [IPFS](https://dotapps.io/). You can
+also find the source code and instructions for hosting your own instance in the
 [`polkadot-js/apps`](https://github.com/polkadot-js/apps) repository.
 
 ### Multi-Node Local Testnet
@@ -131,7 +130,7 @@ capabilities:
   the network. Substrate makes it possible to supply custom consensus engines
   and also ships with several consensus mechanisms that have been built on top
   of [Web3 Foundation
-  research](https://research.web3.foundation/en/latest/polkadot/NPoS/index.html).
+  research](https://research.web3.foundation/Polkadot/protocols/NPoS).
 - RPC Server: A remote procedure call (RPC) server is used to interact with
   Substrate nodes.
 
@@ -143,7 +142,7 @@ following:
   file that defines a Substrate chain's initial (genesis) state. Chain
   specifications are useful for development and testing, and critical when
   architecting the launch of a production chain. Take note of the
-  `development_config` and `testnet_genesis` functions,. These functions are
+  `development_config` and `testnet_genesis` functions. These functions are
   used to define the genesis state for the local development chain
   configuration. These functions identify some [well-known
   accounts](https://docs.substrate.io/reference/command-line-tools/subkey/) and

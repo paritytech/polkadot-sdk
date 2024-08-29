@@ -17,39 +17,12 @@
 //! Staging Primitives.
 
 // Put any primitives used by staging APIs functions here
-pub use crate::v6::*;
-use sp_std::prelude::*;
+use crate::v7::*;
 
-use parity_scale_codec::{Decode, Encode};
-use primitives::RuntimeDebug;
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
-
-/// Approval voting configuration parameters
-#[derive(
-	RuntimeDebug,
-	Copy,
-	Clone,
-	PartialEq,
-	Encode,
-	Decode,
-	TypeInfo,
-	serde::Serialize,
-	serde::Deserialize,
-)]
-pub struct ApprovalVotingParams {
-	/// The maximum number of candidates `approval-voting` can vote for with
-	/// a single signatures.
-	///
-	/// Setting it to 1, means we send the approval as soon as we have it available.
-	pub max_approval_coalesce_count: u32,
-}
-
-impl Default for ApprovalVotingParams {
-	fn default() -> Self {
-		Self { max_approval_coalesce_count: 1 }
-	}
-}
+use sp_core::RuntimeDebug;
 
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 #[derive(
@@ -102,7 +75,7 @@ pub struct SchedulerParams<BlockNumber> {
 	pub on_demand_fee_variability: Perbill,
 	/// The minimum amount needed to claim a slot in the spot pricing queue.
 	pub on_demand_base_fee: Balance,
-	/// The number of blocks a claim stays in the scheduler's claimqueue before getting cleared.
+	/// The number of blocks a claim stays in the scheduler's claim queue before getting cleared.
 	/// This number should go reasonably higher than the number of blocks in the async backing
 	/// lookahead.
 	pub ttl: BlockNumber,
@@ -123,30 +96,5 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 			on_demand_base_fee: 10_000_000u128,
 			ttl: 5u32.into(),
 		}
-	}
-}
-
-use bitvec::vec::BitVec;
-
-/// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
-pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
-
-/// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
-pub mod node_features {
-	/// A feature index used to indentify a bit into the node_features array stored
-	/// in the HostConfiguration.
-	#[repr(u8)]
-	pub enum FeatureIndex {
-		/// Tells if tranch0 assignments could be sent in a single certificate.
-		/// Reserved for: `<https://github.com/paritytech/polkadot-sdk/issues/628>`
-		EnableAssignmentsV2 = 0,
-		/// This feature enables the extension of `BackedCandidate::validator_indices` by 8 bits.
-		/// The value stored there represents the assumed core index where the candidates
-		/// are backed. This is needed for the elastic scaling MVP.
-		ElasticScalingMVP = 1,
-		/// First unassigned feature bit.
-		/// Every time a new feature flag is assigned it should take this value.
-		/// and this should be incremented.
-		FirstUnassigned = 2,
 	}
 }

@@ -20,18 +20,20 @@ pub mod xcm_helpers;
 pub use xcm_emulator;
 
 // Substrate
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa::AuthorityId as GrandpaId;
+use frame_support::parameter_types;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::{sr25519, storage::Storage, Pair, Public};
 use sp_runtime::{
-	traits::{IdentifyAccount, Verify},
+	traits::{AccountIdConversion, IdentifyAccount, Verify},
 	BuildStorage, MultiSignature,
 };
 
 // Polakdot
 use parachains_common::BlockNumber;
+use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
 
 // Cumulus
@@ -48,6 +50,28 @@ pub const PROOF_SIZE_THRESHOLD: u64 = 33;
 pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 type AccountPublic = <MultiSignature as Verify>::Signer;
+
+// (trust-backed) Asset registered on AH and reserve-transferred between Parachain and AH
+pub const RESERVABLE_ASSET_ID: u32 = 1;
+// ForeignAsset registered on AH and teleported between Penpal and AH
+pub const TELEPORTABLE_ASSET_ID: u32 = 2;
+
+// USDT registered on AH as (trust-backed) Asset and reserve-transferred between Parachain and AH
+pub const USDT_ID: u32 = 1984;
+
+pub const PENPAL_ID: u32 = 2000;
+pub const ASSETS_PALLET_ID: u8 = 50;
+
+parameter_types! {
+	pub PenpalTeleportableAssetLocation: xcm::v4::Location
+		= xcm::v4::Location::new(1, [
+				xcm::v4::Junction::Parachain(PENPAL_ID),
+				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+			]
+		);
+	pub PenpalSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_ID).into_account_truncating();
+}
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -108,6 +132,7 @@ pub mod accounts {
 	pub const EVE_STASH: &str = "Eve//stash";
 	pub const FERDIE_STASH: &str = "Ferdie//stash";
 	pub const FERDIE_BEEFY: &str = "Ferdie//stash";
+	pub const DUMMY_EMPTY: &str = "JohnDoe";
 
 	pub fn init_balances() -> Vec<AccountId> {
 		vec![

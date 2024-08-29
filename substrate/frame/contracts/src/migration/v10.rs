@@ -36,16 +36,19 @@ use frame_support::{
 		tokens::{fungible::Inspect, Fortitude::Polite, Preservation::Preserve},
 		ExistenceRequirement, ReservableCurrency,
 	},
+	weights::WeightMeter,
 	DefaultNoBound,
 };
 use sp_core::hexdisplay::HexDisplay;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
 use sp_runtime::{
 	traits::{Hash, TrailingZeroInput, Zero},
 	Perbill, Saturating,
 };
-use sp_std::prelude::*;
+
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
 
 mod v9 {
 	use super::*;
@@ -160,7 +163,7 @@ where
 		T::WeightInfo::v10_migration_step()
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let mut iter = if let Some(last_account) = self.last_account.take() {
 			v9::ContractInfoOf::<T, OldCurrency>::iter_from(
 				v9::ContractInfoOf::<T, OldCurrency>::hashed_key_for(last_account),
@@ -267,10 +270,12 @@ where
 			// Store last key for next migration step
 			self.last_account = Some(account);
 
-			(IsFinished::No, T::WeightInfo::v10_migration_step())
+			meter.consume(T::WeightInfo::v10_migration_step());
+			IsFinished::No
 		} else {
 			log::debug!(target: LOG_TARGET, "Done Migrating contract info");
-			(IsFinished::Yes, T::WeightInfo::v10_migration_step())
+			meter.consume(T::WeightInfo::v10_migration_step());
+			IsFinished::Yes
 		}
 	}
 

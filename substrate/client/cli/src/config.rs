@@ -20,21 +20,22 @@
 
 use crate::{
 	arg_enums::Database, error::Result, DatabaseParams, ImportParams, KeystoreParams,
-	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, SharedParams, SubstrateCli,
+	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, RpcEndpoint, SharedParams,
+	SubstrateCli,
 };
 use log::warn;
 use names::{Generator, Name};
 use sc_service::{
 	config::{
-		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
+		BasePath, Configuration, DatabaseSource, IpNetwork, KeystoreConfig, NetworkConfiguration,
+		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role,
 		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
 		WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 use sc_tracing::logging::LoggerBuilder;
-use std::{net::SocketAddr, num::NonZeroU32, path::PathBuf};
+use std::{num::NonZeroU32, path::PathBuf};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -172,7 +173,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		node_key: NodeKeyConfig,
 		default_listen_port: u16,
 	) -> Result<NetworkConfiguration> {
-		Ok(if let Some(network_params) = self.network_params() {
+		let network_config = if let Some(network_params) = self.network_params() {
 			network_params.network_config(
 				chain_spec,
 				is_dev,
@@ -185,7 +186,13 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			)
 		} else {
 			NetworkConfiguration::new(node_name, client_id, node_key, Some(net_config_dir))
-		})
+		};
+
+		// TODO: Return error here in the next release:
+		// https://github.com/paritytech/polkadot-sdk/issues/5266
+		// if is_validator && network_config.public_addresses.is_empty() {}
+
+		Ok(network_config)
 	}
 
 	/// Get the keystore configuration.
@@ -295,7 +302,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	}
 
 	/// Get the RPC address.
-	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<SocketAddr>> {
+	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<Vec<RpcEndpoint>>> {
 		Ok(None)
 	}
 
@@ -347,6 +354,16 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// RPC rate limit configuration.
 	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
 		Ok(None)
+	}
+
+	/// RPC rate limit whitelisted ip addresses.
+	fn rpc_rate_limit_whitelisted_ips(&self) -> Result<Vec<IpNetwork>> {
+		Ok(vec![])
+	}
+
+	/// RPC rate limit trust proxy headers.
+	fn rpc_rate_limit_trust_proxy_headers(&self) -> Result<bool> {
+		Ok(false)
 	}
 
 	/// Get the prometheus configuration (`None` if disabled)
@@ -428,8 +445,10 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// By default this is retrieved from `NodeKeyParams` if it is available. Otherwise its
 	/// `NodeKeyConfig::default()`.
 	fn node_key(&self, net_config_dir: &PathBuf) -> Result<NodeKeyConfig> {
+		let is_dev = self.is_dev()?;
+		let role = self.role(is_dev)?;
 		self.node_key_params()
-			.map(|x| x.node_key(net_config_dir))
+			.map(|x| x.node_key(net_config_dir, role, is_dev))
 			.unwrap_or_else(|| Ok(Default::default()))
 	}
 
@@ -463,11 +482,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let is_dev = self.is_dev()?;
 		let chain_id = self.chain_id(is_dev)?;
 		let chain_spec = cli.load_spec(&chain_id)?;
-		let base_path = self
-			.base_path()?
-			.unwrap_or_else(|| BasePath::from_project("", "", &C::executable_name()));
-		let config_dir = base_path.config_dir(chain_spec.id());
-		let net_config_dir = config_dir.join(DEFAULT_NETWORK_CONFIG_PATH);
+		let base_path = base_path_or_default(self.base_path()?, &C::executable_name());
+		let config_dir = build_config_dir(&base_path, chain_spec.id());
+		let net_config_dir = build_net_config_dir(&config_dir);
 		let client_id = C::client_id();
 		let database_cache_size = self.database_cache_size()?.unwrap_or(1024);
 		let database = self.database()?.unwrap_or(
@@ -487,6 +504,10 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let keystore = self.keystore_config(&config_dir)?;
 		let telemetry_endpoints = self.telemetry_endpoints(&chain_spec)?;
 		let runtime_cache_size = self.runtime_cache_size()?;
+
+		let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = self
+			.rpc_addr(DCV::rpc_listen_port())?
+			.map(|addrs| addrs.into_iter().map(Into::into).collect());
 
 		Ok(Configuration {
 			impl_name: C::impl_name(),
@@ -511,7 +532,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			blocks_pruning: self.blocks_pruning()?,
 			wasm_method: self.wasm_method()?,
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
-			rpc_addr: self.rpc_addr(DCV::rpc_listen_port())?,
+			rpc_addr: rpc_addrs,
 			rpc_methods: self.rpc_methods()?,
 			rpc_max_connections: self.rpc_max_connections()?,
 			rpc_cors: self.rpc_cors(is_dev)?,
@@ -523,6 +544,8 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			rpc_message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
 			rpc_batch_config: self.rpc_batch_config()?,
 			rpc_rate_limit: self.rpc_rate_limit()?,
+			rpc_rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips()?,
+			rpc_rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers()?,
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
 			telemetry_endpoints,
@@ -538,7 +561,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			announce_block: self.announce_block()?,
 			role,
 			base_path,
-			informant_output_format: OutputFormat { enable_color: !self.disable_log_color()? },
 			runtime_cache_size,
 		})
 	}
@@ -627,6 +649,14 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 
 		logger.init()?;
 
+		if config.role.is_authority() && config.network.public_addresses.is_empty() {
+			warn!(
+				"WARNING: No public address specified, validator node may not be reachable.
+				Consider setting `--public-addr` to the public IP address of this node.
+				This will become a hard requirement in future versions."
+			);
+		}
+
 		match fdlimit::raise_fd_limit() {
 			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>
 				if to < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
@@ -664,4 +694,34 @@ pub fn generate_node_name() -> String {
 			return node_name
 		}
 	}
+}
+
+/// Returns the value of `base_path` or the default_path if it is None
+pub(crate) fn base_path_or_default(
+	base_path: Option<BasePath>,
+	executable_name: &String,
+) -> BasePath {
+	base_path.unwrap_or_else(|| BasePath::from_project("", "", executable_name))
+}
+
+/// Returns the default path for configuration  directory based on the chain_spec
+pub(crate) fn build_config_dir(base_path: &BasePath, chain_spec_id: &str) -> PathBuf {
+	base_path.config_dir(chain_spec_id)
+}
+
+/// Returns the default path for the network configuration inside the configuration dir
+pub(crate) fn build_net_config_dir(config_dir: &PathBuf) -> PathBuf {
+	config_dir.join(DEFAULT_NETWORK_CONFIG_PATH)
+}
+
+/// Returns the default path for the network directory starting from the provided base_path
+/// or from the default base_path.
+pub(crate) fn build_network_key_dir_or_default(
+	base_path: Option<BasePath>,
+	chain_spec_id: &str,
+	executable_name: &String,
+) -> PathBuf {
+	let config_dir =
+		build_config_dir(&base_path_or_default(base_path, executable_name), chain_spec_id);
+	build_net_config_dir(&config_dir)
 }

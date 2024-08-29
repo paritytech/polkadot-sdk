@@ -17,8 +17,8 @@
 //! Cross-Consensus Message format data structures.
 
 use crate::v3::Error as NewError;
+use codec::{Decode, Encode};
 use core::result;
-use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 use super::*;
@@ -282,7 +282,7 @@ pub type SendResult = result::Result<(), SendError>;
 /// # Example
 /// ```rust
 /// # use staging_xcm::v2::prelude::*;
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 ///
 /// /// A sender that only passes the message through and does nothing.
 /// struct Sender1;

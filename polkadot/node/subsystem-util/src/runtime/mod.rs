@@ -18,7 +18,7 @@
 
 use schnellru::{ByLength, LruMap};
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 use sp_application_crypto::AppCrypto;
 use sp_core::crypto::ByteArray;
 use sp_keystore::{Keystore, KeystorePtr};
@@ -30,12 +30,11 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	slashing,
-	vstaging::{node_features::FeatureIndex, NodeFeatures},
-	AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams,
-	GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	node_features::FeatureIndex, slashing, AsyncBackingParams, CandidateEvent, CandidateHash,
+	CoreIndex, CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	IndexedVec, NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
+	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
 use crate::{
@@ -349,7 +348,7 @@ where
 pub async fn get_occupied_cores<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-) -> Result<Vec<OccupiedCore>>
+) -> Result<Vec<(CoreIndex, OccupiedCore)>>
 where
 	Sender: overseer::SubsystemSender<RuntimeApiMessage>,
 {
@@ -357,9 +356,10 @@ where
 
 	Ok(cores
 		.into_iter()
-		.filter_map(|core_state| {
+		.enumerate()
+		.filter_map(|(core_index, core_state)| {
 			if let CoreState::Occupied(occupied) = core_state {
-				Some(occupied)
+				Some((CoreIndex(core_index as u32), occupied))
 			} else {
 				None
 			}

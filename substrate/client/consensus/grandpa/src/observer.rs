@@ -410,7 +410,7 @@ mod tests {
 		communication::tests::{make_test_network, Event},
 	};
 	use assert_matches::assert_matches;
-	use sc_network::PeerId;
+	use sc_network_types::PeerId;
 	use sc_utils::mpsc::tracing_unbounded;
 	use sp_blockchain::HeaderBackend as _;
 	use substrate_test_runtime_client::{TestClientBuilder, TestClientBuilderExt};

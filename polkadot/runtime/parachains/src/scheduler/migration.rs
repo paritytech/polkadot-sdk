@@ -17,14 +17,15 @@
 //! A module that is responsible for migration of storage.
 
 use super::*;
+use alloc::vec::Vec;
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
-	traits::OnRuntimeUpgrade, weights::Weight,
+	traits::UncheckedOnRuntimeUpgrade, weights::Weight,
 };
 
 /// Old/legacy assignment representation (v0).
 ///
-/// `Assignment` used to be a concrete type with the same layout V0Assignment, idential on all
+/// `Assignment` used to be a concrete type with the same layout V0Assignment, identical on all
 /// assignment providers. This can be removed once storage has been migrated.
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Clone)]
 struct V0Assignment {
@@ -34,7 +35,7 @@ struct V0Assignment {
 /// Old scheduler with explicit parathreads and `Scheduled` storage instead of `ClaimQueue`.
 mod v0 {
 	use super::*;
-	use primitives::{CollatorId, Id};
+	use polkadot_primitives::{CollatorId, Id};
 
 	#[storage_alias]
 	pub(super) type Scheduled<T: Config> = StorageValue<Pallet<T>, Vec<CoreAssignment>, ValueQuery>;
@@ -105,7 +106,8 @@ mod v0 {
 // - Assignments only consist of `ParaId`, `Assignment` is a concrete type (Same as V0Assignment).
 mod v1 {
 	use frame_support::{
-		pallet_prelude::ValueQuery, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
+		pallet_prelude::ValueQuery, storage_alias, traits::UncheckedOnRuntimeUpgrade,
+		weights::Weight,
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
 
@@ -163,15 +165,15 @@ mod v1 {
 	}
 
 	/// Migration to V1
-	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV1<T> {
+	pub struct UncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
 
 			v0::ParathreadQueue::<T>::kill();
 			v0::ParathreadClaimIndex::<T>::kill();
 
-			let now = <frame_system::Pallet<T>>::block_number();
+			let now = frame_system::Pallet::<T>::block_number();
 			let scheduled = v0::Scheduled::<T>::take();
 			let sched_len = scheduled.len() as u64;
 			for core_assignment in scheduled {
@@ -181,7 +183,7 @@ mod v1 {
 				v1::add_to_claimqueue::<T>(core_idx, pe);
 			}
 
-			let parachains = paras::Pallet::<T>::parachains();
+			let parachains = paras::Parachains::<T>::get();
 			let availability_cores = v0::AvailabilityCores::<T>::take();
 			let mut new_availability_cores = Vec::new();
 
@@ -247,7 +249,7 @@ mod v1 {
 				.count();
 
 			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 + availability_cores_waiting as u32 ==
+				Pallet::<T>::claim_queue_len() as u32 + availability_cores_waiting as u32 ==
 					expected_len,
 				"ClaimQueue and AvailabilityCores should have the correct length",
 			);
@@ -300,9 +302,9 @@ mod v2 {
 	}
 
 	/// Migration to V2
-	pub struct UncheckedMigrateToV2<T>(sp_std::marker::PhantomData<T>);
+	pub struct UncheckedMigrateToV2<T>(core::marker::PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV2<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
 

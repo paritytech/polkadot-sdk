@@ -36,7 +36,6 @@ pub trait WeightInfo {
 	fn force_checkpoint() -> Weight;
 	fn submit() -> Weight;
 	fn submit_with_sync_committee() -> Weight;
-	fn submit_execution_header() -> Weight;
 }
 
 // For backwards compatibility and tests
@@ -58,11 +57,5 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 93857))
 			.saturating_add(RocksDbWeight::get().reads(6))
 			.saturating_add(RocksDbWeight::get().writes(1))
-	}
-	fn submit_execution_header() -> Weight {
-		Weight::from_parts(113_158_000_u64, 0)
-			.saturating_add(Weight::from_parts(0, 3537))
-			.saturating_add(RocksDbWeight::get().reads(5))
-			.saturating_add(RocksDbWeight::get().writes(4))
 	}
 }

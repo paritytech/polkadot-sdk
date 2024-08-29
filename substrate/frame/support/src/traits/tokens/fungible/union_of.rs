@@ -17,8 +17,11 @@
 
 //! Types to combine some `fungible::*` and `fungibles::*` implementations into one union
 //! `fungibles::*` implementation.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use frame_support::traits::{
 	fungible::imbalance,
 	tokens::{
@@ -34,7 +37,6 @@ use sp_runtime::{
 	Either::{Left, Right},
 	RuntimeDebug,
 };
-use sp_std::cmp::Ordering;
 
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
@@ -99,7 +101,7 @@ impl<AssetId: Ord> Convert<NativeOrWithId<AssetId>, Either<(), AssetId>> for Nat
 /// - `AssetKind` is a superset type encompassing asset kinds from `Left` and `Right` sets.
 /// - `AccountId` is an account identifier type.
 pub struct UnionOf<Left, Right, Criterion, AssetKind, AccountId>(
-	sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
+	core::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
 );
 
 impl<
@@ -440,14 +442,26 @@ impl<
 		asset: Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
 		match Criterion::convert(asset) {
-			Left(()) =>
-				<Left as fungible::Mutate<AccountId>>::burn_from(who, amount, precision, force),
-			Right(a) =>
-				<Right as fungibles::Mutate<AccountId>>::burn_from(a, who, amount, precision, force),
+			Left(()) => <Left as fungible::Mutate<AccountId>>::burn_from(
+				who,
+				amount,
+				preservation,
+				precision,
+				force,
+			),
+			Right(a) => <Right as fungibles::Mutate<AccountId>>::burn_from(
+				a,
+				who,
+				amount,
+				preservation,
+				precision,
+				force,
+			),
 		}
 	}
 	fn shelve(
@@ -650,7 +664,7 @@ pub struct ConvertImbalanceDropHandler<
 	Balance,
 	AssetId,
 	AccountId,
->(sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, Balance, AssetId, AccountId)>);
+>(core::marker::PhantomData<(Left, Right, Criterion, AssetKind, Balance, AssetId, AccountId)>);
 
 impl<
 		Left: fungible::HandleImbalanceDrop<Balance>,
@@ -920,6 +934,31 @@ impl<
 			Left(()) => <Left as AccountTouch<(), AccountId>>::touch((), who, depositor),
 			Right(a) =>
 				<Right as AccountTouch<Right::AssetId, AccountId>>::touch(a, who, depositor),
+		}
+	}
+}
+
+impl<
+		Left: fungible::Inspect<AccountId>,
+		Right: fungibles::Inspect<AccountId> + fungibles::Refund<AccountId>,
+		Criterion: Convert<AssetKind, Either<(), <Right as fungibles::Refund<AccountId>>::AssetId>>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::Refund<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	type AssetId = AssetKind;
+	type Balance = <Right as fungibles::Refund<AccountId>>::Balance;
+
+	fn deposit_held(asset: AssetKind, who: AccountId) -> Option<(AccountId, Self::Balance)> {
+		match Criterion::convert(asset) {
+			Left(()) => None,
+			Right(a) => <Right as fungibles::Refund<AccountId>>::deposit_held(a, who),
+		}
+	}
+	fn refund(asset: AssetKind, who: AccountId) -> DispatchResult {
+		match Criterion::convert(asset) {
+			Left(()) => Err(DispatchError::Unavailable),
+			Right(a) => <Right as fungibles::Refund<AccountId>>::refund(a, who),
 		}
 	}
 }

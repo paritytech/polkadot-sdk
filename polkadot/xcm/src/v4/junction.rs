@@ -23,8 +23,7 @@ use crate::{
 	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
-use core::convert::TryFrom;
-use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
+use codec::{self, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 

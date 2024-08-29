@@ -34,11 +34,8 @@ use crate::v3::{
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
-use core::{
-	cmp::Ordering,
-	convert::{TryFrom, TryInto},
-};
-use parity_scale_codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.
@@ -277,7 +274,7 @@ enum UncheckedFungibility {
 }
 
 impl Decode for Fungibility {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		match UncheckedFungibility::decode(input)? {
 			UncheckedFungibility::Fungible(a) if a != 0 => Ok(Self::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) => Ok(Self::NonFungible(i)),
@@ -562,7 +559,7 @@ impl MaxEncodedLen for Assets {
 }
 
 impl Decode for Assets {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let bounded_instructions =
 			BoundedVec::<Asset, ConstU32<{ MAX_ITEMS_IN_ASSETS as u32 }>>::decode(input)?;
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
@@ -723,7 +720,9 @@ impl Assets {
 
 	/// Prepend a `Location` to any concrete asset items, giving it a new root location.
 	pub fn prepend_with(&mut self, prefix: &Location) -> Result<(), ()> {
-		self.0.iter_mut().try_for_each(|i| i.prepend_with(prefix))
+		self.0.iter_mut().try_for_each(|i| i.prepend_with(prefix))?;
+		self.0.sort();
+		Ok(())
 	}
 
 	/// Return a reference to an item at a specific index or `None` if it doesn't exist.
@@ -1035,8 +1034,61 @@ mod tests {
 		let mut assets: Assets = vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
 		assert_eq!(assets.clone(), vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into());
 
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
+
 		assert!(assets.reanchor(&dest, &reanchor_context).is_ok());
-		assert_eq!(assets, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored].into());
+		assert_eq!(assets.0, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored]);
+
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
+	}
+
+	#[test]
+	fn prepend_preserves_sorting() {
+		use super::*;
+		use alloc::vec;
+
+		let prefix = Location::new(0, [Parachain(1000)]);
+
+		let asset_1: Asset = (Location::new(0, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_1_prepended = asset_1.clone();
+		assert!(asset_1_prepended.prepend_with(&prefix).is_ok());
+		// changes interior X2->X3
+		assert_eq!(
+			asset_1_prepended,
+			(Location::new(0, [Parachain(1000), PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		let asset_2: Asset = (Location::new(1, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_2_prepended = asset_2.clone();
+		assert!(asset_2_prepended.prepend_with(&prefix).is_ok());
+		// changes parent
+		assert_eq!(
+			asset_2_prepended,
+			(Location::new(0, [PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		let asset_3: Asset = (Location::new(2, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_3_prepended = asset_3.clone();
+		assert!(asset_3_prepended.prepend_with(&prefix).is_ok());
+		// changes parent
+		assert_eq!(
+			asset_3_prepended,
+			(Location::new(1, [PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		// `From` impl does sorting.
+		let mut assets: Assets = vec![asset_1, asset_2, asset_3].into();
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
+
+		// let's do `prepend_with`
+		assert!(assets.prepend_with(&prefix).is_ok());
+		assert_eq!(assets.0, vec![asset_2_prepended, asset_1_prepended, asset_3_prepended]);
+
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
 	}
 
 	#[test]

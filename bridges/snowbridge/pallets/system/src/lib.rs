@@ -159,6 +159,7 @@ pub mod pallet {
 		type DefaultPricingParameters: Get<PricingParametersOf<Self>>;
 
 		/// Cost of delivering a message from Ethereum
+		#[pallet::constant]
 		type InboundDeliveryCost: Get<BalanceOf<Self>>;
 
 		type WeightInfo: WeightInfo;
@@ -334,6 +335,7 @@ pub mod pallet {
 			let command = Command::SetPricingParameters {
 				exchange_rate: params.exchange_rate.into(),
 				delivery_cost: T::InboundDeliveryCost::get().saturated_into::<u128>(),
+				multiplier: params.multiplier.into(),
 			};
 			Self::send(PRIMARY_GOVERNANCE_CHANNEL, command, PaysFee::<T>::No)?;
 

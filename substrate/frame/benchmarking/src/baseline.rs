@@ -21,12 +21,12 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::benchmarks;
+use alloc::{vec, vec::Vec};
 use frame_system::Pallet as System;
 use sp_runtime::{
 	traits::{AppVerify, Hash},
 	RuntimeAppPublic,
 };
-use sp_std::{vec, vec::Vec};
 
 mod crypto {
 	use sp_application_crypto::{app_crypto, sr25519, KeyTypeId};
@@ -125,7 +125,7 @@ pub mod mock {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

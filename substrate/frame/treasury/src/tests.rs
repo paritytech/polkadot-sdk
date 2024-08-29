@@ -53,27 +53,17 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountId = u128; // u64 is not enough to hold bytes used to generate bounty account
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_utility::Config for Test {
@@ -136,7 +126,6 @@ impl Pay for TestPay {
 }
 
 parameter_types! {
-	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub TreasuryAccount: u128 = Treasury::account_id();
@@ -152,6 +141,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 			frame_system::RawOrigin::Signed(11) => Ok(10),
 			frame_system::RawOrigin::Signed(12) => Ok(20),
 			frame_system::RawOrigin::Signed(13) => Ok(50),
+			frame_system::RawOrigin::Signed(14) => Ok(500),
 			r => Err(RuntimeOrigin::from(r)),
 		})
 	}
@@ -174,13 +164,8 @@ impl<N: Get<u64>> ConversionFromAssetBalance<u64, u32, u64> for MulBy<N> {
 impl Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
-	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ConstU64<1>;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -234,7 +219,7 @@ fn get_payment_id(i: SpendIndex) -> Option<u64> {
 fn genesis_config_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(Treasury::proposal_count(), 0);
+		assert_eq!(ProposalCount::<Test>::get(), 0);
 	});
 }
 
@@ -296,55 +281,11 @@ fn minting_works() {
 }
 
 #[test]
-fn spend_proposal_takes_min_deposit() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 1, 3)
-		});
-		assert_eq!(Balances::free_balance(0), 99);
-		assert_eq!(Balances::reserved_balance(0), 1);
-	});
-}
-
-#[test]
-fn spend_proposal_takes_proportional_deposit() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_eq!(Balances::free_balance(0), 95);
-		assert_eq!(Balances::reserved_balance(0), 5);
-	});
-}
-
-#[test]
-fn spend_proposal_fails_when_proposer_poor() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::propose_spend(RuntimeOrigin::signed(2), 100, 3)
-			},
-			Error::<Test, _>::InsufficientProposersBalance,
-		);
-	});
-}
-
-#[test]
 fn accepted_spend_proposal_ignored_outside_spend_period() {
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
 
 		<Treasury as OnInitialize<u64>>::on_initialize(1);
 		assert_eq!(Balances::free_balance(3), 0);
@@ -355,105 +296,13 @@ fn accepted_spend_proposal_ignored_outside_spend_period() {
 #[test]
 fn unused_pot_should_diminish() {
 	ExtBuilder::default().build().execute_with(|| {
-		let init_total_issuance = Balances::total_issuance();
+		let init_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Balances::total_issuance(), init_total_issuance + 100);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance + 100);
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 50);
-		assert_eq!(Balances::total_issuance(), init_total_issuance + 50);
-	});
-}
-
-#[test]
-fn rejected_spend_proposal_ignored_on_spend_period() {
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::reject_proposal(RuntimeOrigin::root(), 0)
-		});
-
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
-		assert_eq!(Balances::free_balance(3), 0);
-		assert_eq!(Treasury::pot(), 50);
-	});
-}
-
-#[test]
-fn reject_already_rejected_spend_proposal_fails() {
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::reject_proposal(RuntimeOrigin::root(), 0)
-		});
-		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::reject_proposal(RuntimeOrigin::root(), 0)
-			},
-			Error::<Test, _>::InvalidIndex
-		);
-	});
-}
-
-#[test]
-fn reject_non_existent_spend_proposal_fails() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::reject_proposal(RuntimeOrigin::root(), 0)
-			},
-			Error::<Test, _>::InvalidIndex
-		);
-	});
-}
-
-#[test]
-fn accept_non_existent_spend_proposal_fails() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-			},
-			Error::<Test, _>::InvalidIndex
-		);
-	});
-}
-
-#[test]
-fn accept_already_rejected_spend_proposal_fails() {
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::reject_proposal(RuntimeOrigin::root(), 0)
-		});
-		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-			},
-			Error::<Test, _>::InvalidIndex
-		);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance + 50);
 	});
 }
 
@@ -463,14 +312,7 @@ fn accepted_spend_proposal_enacted_on_spend_period() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Balances::free_balance(3), 100);
@@ -484,14 +326,7 @@ fn pot_underflow_should_not_diminish() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 150, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 150, 3));
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
@@ -512,26 +347,12 @@ fn treasury_account_doesnt_get_deleted() {
 		assert_eq!(Treasury::pot(), 100);
 		let treasury_balance = Balances::free_balance(&Treasury::account_id());
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), treasury_balance, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), treasury_balance, 3));
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), Treasury::pot(), 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 1)
-		});
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), Treasury::pot(), 3));
 
 		<Treasury as OnInitialize<u64>>::on_initialize(4);
 		assert_eq!(Treasury::pot(), 0); // Pot is emptied
@@ -554,22 +375,9 @@ fn inexistent_account_works() {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 0); // Account does not exist
 		assert_eq!(Treasury::pot(), 0); // Pot is empty
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 99, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 1, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 1)
-		});
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 99, 3));
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
+
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed
 		assert_eq!(Balances::free_balance(3), 0); // Balance of `3` hasn't changed
@@ -611,26 +419,12 @@ fn max_approvals_limited() {
 		Balances::make_free_balance_be(&0, u64::MAX);
 
 		for _ in 0..<Test as Config>::MaxApprovals::get() {
-			assert_ok!({
-				#[allow(deprecated)]
-				Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-			});
-			assert_ok!({
-				#[allow(deprecated)]
-				Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-			});
+			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
 		}
 
 		// One too many will fail
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
 		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-			},
+			Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3),
 			Error::<Test, _>::TooManyApprovals
 		);
 	});
@@ -641,17 +435,11 @@ fn remove_already_removed_approval_fails() {
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
-		assert_eq!(Treasury::approvals(), vec![0]);
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
+
+		assert_eq!(Approvals::<Test>::get(), vec![0]);
 		assert_ok!(Treasury::remove_approval(RuntimeOrigin::root(), 0));
-		assert_eq!(Treasury::approvals(), vec![]);
+		assert_eq!(Approvals::<Test>::get(), vec![]);
 
 		assert_noop!(
 			Treasury::remove_approval(RuntimeOrigin::root(), 0),
@@ -982,11 +770,9 @@ fn check_status_works() {
 fn try_state_proposals_invariant_1_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
-		// Add a proposal using `propose_spend`
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 1, 3)
-		});
+		// Add a proposal and approve using `spend_local`
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
+
 		assert_eq!(Proposals::<Test>::iter().count(), 1);
 		assert_eq!(ProposalCount::<Test>::get(), 1);
 		// Check invariant 1 holds
@@ -1005,12 +791,11 @@ fn try_state_proposals_invariant_1_works() {
 fn try_state_proposals_invariant_2_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
-		// Add a proposal using `propose_spend`
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 1, 3)
-		});
+		// Add a proposal and approve using `spend_local`
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
+
 		assert_eq!(Proposals::<Test>::iter().count(), 1);
+		assert_eq!(Approvals::<Test>::get().len(), 1);
 		let current_proposal_count = ProposalCount::<Test>::get();
 		assert_eq!(current_proposal_count, 1);
 		// Check invariant 2 holds
@@ -1035,17 +820,10 @@ fn try_state_proposals_invariant_2_works() {
 fn try_state_proposals_invariant_3_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
-		// Add a proposal using `propose_spend`
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 10, 3)
-		});
+		// Add a proposal and approve using `spend_local`
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 10, 3));
+
 		assert_eq!(Proposals::<Test>::iter().count(), 1);
-		// Approve the proposal
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
 		assert_eq!(Approvals::<Test>::get().len(), 1);
 		// Check invariant 3 holds
 		assert!(Approvals::<Test>::get()

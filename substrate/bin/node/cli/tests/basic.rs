@@ -22,6 +22,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{self, AccountInfo, EventRecord, Phase};
+use polkadot_sdk::*;
 use sp_core::{storage::well_known_keys, traits::Externalities};
 use sp_runtime::{
 	traits::Hash as HashT, transaction_validity::InvalidTransaction, ApplyExtrinsicResult,
@@ -34,6 +35,7 @@ use kitchensink_runtime::{
 };
 use node_primitives::{Balance, Hash};
 use node_testing::keyring::*;
+use pretty_assertions::assert_eq;
 use wat;
 
 pub mod common;
@@ -67,7 +69,7 @@ fn transfer_fee<E: Encode>(extrinsic: &E) -> Balance {
 
 fn xt() -> UncheckedExtrinsic {
 	sign(CheckedExtrinsic {
-		format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, 0)),
+		signed: Some((alice(), signed_extra(0, 0))),
 		function: RuntimeCall::Balances(default_transfer_call()),
 	})
 }
@@ -84,11 +86,11 @@ fn changes_trie_block() -> (Vec<u8>, Hash) {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Bare,
+				signed: None,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time }),
 			},
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, 0)),
+				signed: Some((alice(), signed_extra(0, 0))),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 69 * DOLLARS,
@@ -111,11 +113,11 @@ fn blocks() -> ((Vec<u8>, Hash), (Vec<u8>, Hash)) {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Bare,
+				signed: None,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time1 }),
 			},
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, 0)),
+				signed: Some((alice(), signed_extra(0, 0))),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 69 * DOLLARS,
@@ -131,18 +133,18 @@ fn blocks() -> ((Vec<u8>, Hash), (Vec<u8>, Hash)) {
 		block1.1,
 		vec![
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Bare,
+				signed: None,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time2 }),
 			},
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(bob(), tx_ext(0, 0)),
+				signed: Some((bob(), signed_extra(0, 0))),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: alice().into(),
 					value: 5 * DOLLARS,
 				}),
 			},
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(1, 0)),
+				signed: Some((alice(), signed_extra(1, 0))),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 15 * DOLLARS,
@@ -166,11 +168,11 @@ fn block_with_size(time: u64, nonce: u32, size: usize) -> (Vec<u8>, Hash) {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Bare,
+				signed: None,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time * 1000 }),
 			},
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(nonce, 0)),
+				signed: Some((alice(), signed_extra(nonce, 0))),
 				function: RuntimeCall::System(frame_system::Call::remark { remark: vec![0; size] }),
 			},
 		],
@@ -381,6 +383,13 @@ fn full_native_block_import_works() {
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
+				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
+					amount: fees * 2 / 10,
+				}),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::TransactionPayment(
 					pallet_transaction_payment::Event::TransactionFeePaid {
 						who: alice().into(),
@@ -466,6 +475,13 @@ fn full_native_block_import_works() {
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
+				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
+					amount: fees - fees * 8 / 10,
+				}),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::TransactionPayment(
 					pallet_transaction_payment::Event::TransactionFeePaid {
 						who: bob().into(),
@@ -511,6 +527,13 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
 					value: fees * 8 / 10,
+				}),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(2),
+				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
+					amount: fees - fees * 8 / 10,
 				}),
 				topics: vec![],
 			},
@@ -677,11 +700,11 @@ fn deploying_wasm_contract_should_work() {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Bare,
+				signed: None,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time }),
 			},
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(0, 0)),
+				signed: Some((charlie(), signed_extra(0, 0))),
 				function: RuntimeCall::Contracts(pallet_contracts::Call::instantiate_with_code::<
 					Runtime,
 				> {
@@ -694,7 +717,7 @@ fn deploying_wasm_contract_should_work() {
 				}),
 			},
 			CheckedExtrinsic {
-				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(1, 0)),
+				signed: Some((charlie(), signed_extra(1, 0))),
 				function: RuntimeCall::Contracts(pallet_contracts::Call::call::<Runtime> {
 					dest: sp_runtime::MultiAddress::Id(addr.clone()),
 					value: 10,
@@ -827,7 +850,7 @@ fn should_import_block_with_test_client() {
 		sp_consensus::BlockOrigin, ClientBlockImportExt, TestClientBuilder, TestClientBuilderExt,
 	};
 
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 	let block1 = changes_trie_block();
 	let block_data = block1.0;
 	let block = node_primitives::Block::decode(&mut &block_data[..]).unwrap();
@@ -838,10 +861,16 @@ fn should_import_block_with_test_client() {
 #[test]
 fn default_config_as_json_works() {
 	let mut t = new_test_ext(compact_code_unwrap());
-	let r = executor_call(&mut t, "GenesisBuilder_create_default_config", &vec![])
-		.0
-		.unwrap();
-	let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
+	let r = executor_call(
+		&mut t,
+		"GenesisBuilder_get_preset",
+		&None::<&sp_genesis_builder::PresetId>.encode(),
+	)
+	.0
+	.unwrap();
+	let r = Option::<Vec<u8>>::decode(&mut &r[..])
+		.unwrap()
+		.expect("default config is there");
 	let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 	let expected = include_str!("res/default_genesis_config.json").to_string();
 

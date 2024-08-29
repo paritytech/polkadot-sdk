@@ -28,6 +28,7 @@ use std::{
 ///
 /// Doubles interval duration on each tick until the configured maximum is reached.
 pub struct ExpIncInterval {
+	start: Duration,
 	max: Duration,
 	next: Duration,
 	delay: Delay,
@@ -37,13 +38,28 @@ impl ExpIncInterval {
 	/// Create a new [`ExpIncInterval`].
 	pub fn new(start: Duration, max: Duration) -> Self {
 		let delay = Delay::new(start);
-		Self { max, next: start * 2, delay }
+		Self { start, max, next: start * 2, delay }
 	}
 
-	/// Fast forward the exponentially increasing interval to the configured maximum.
+	/// Fast forward the exponentially increasing interval to the configured maximum, if not already
+	/// set.
 	pub fn set_to_max(&mut self) {
+		if self.next == self.max {
+			return;
+		}
+
 		self.next = self.max;
 		self.delay = Delay::new(self.next);
+	}
+
+	/// Rewind the exponentially increasing interval to the configured start, if not already set.
+	pub fn set_to_start(&mut self) {
+		if self.next == self.start * 2 {
+			return;
+		}
+
+		self.next = self.start * 2;
+		self.delay = Delay::new(self.start);
 	}
 }
 

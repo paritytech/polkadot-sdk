@@ -21,10 +21,10 @@
 use futures::Stream;
 use sc_network_common::{role::Roles, types::ReputationChange};
 
-use libp2p::PeerId;
-
 use crate::strategy::{state_sync::StateSyncProgress, warp::WarpSyncProgress};
+
 use sc_network_common::sync::message::BlockRequest;
+use sc_network_types::PeerId;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
@@ -39,7 +39,7 @@ pub struct PeerInfo<Block: BlockT> {
 }
 
 /// Info about a peer's known state (both full and light).
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ExtendedPeerInfo<B: BlockT> {
 	/// Roles
 	pub roles: Roles,
@@ -48,6 +48,17 @@ pub struct ExtendedPeerInfo<B: BlockT> {
 	/// Peer best block number
 	pub best_number: NumberFor<B>,
 }
+
+impl<B> Clone for ExtendedPeerInfo<B>
+where
+	B: BlockT,
+{
+	fn clone(&self) -> Self {
+		Self { roles: self.roles, best_hash: self.best_hash, best_number: self.best_number }
+	}
+}
+
+impl<B> Copy for ExtendedPeerInfo<B> where B: BlockT {}
 
 /// Reported sync state.
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -76,8 +87,6 @@ pub struct SyncStatus<Block: BlockT> {
 	pub best_seen_block: Option<NumberFor<Block>>,
 	/// Number of peers participating in syncing.
 	pub num_peers: u32,
-	/// Number of peers known to `SyncingEngine` (both full and light).
-	pub num_connected_peers: u32,
 	/// Number of blocks queued for import
 	pub queued_blocks: u32,
 	/// State sync status in progress, if any.

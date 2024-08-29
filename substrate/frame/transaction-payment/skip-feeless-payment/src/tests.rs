@@ -14,21 +14,39 @@
 // limitations under the License.
 
 use super::*;
-use crate::mock::{pallet_dummy::Call, DummyExtension, PreDispatchCount, Runtime, RuntimeCall};
+use crate::mock::{
+	pallet_dummy::Call, DummyExtension, PreDispatchCount, Runtime, RuntimeCall, ValidateCount,
+};
 use frame_support::dispatch::DispatchInfo;
-use sp_runtime::traits::DispatchTransaction;
 
 #[test]
 fn skip_feeless_payment_works() {
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
+		.pre_dispatch(&0, &call, &DispatchInfo::default(), 0)
 		.unwrap();
 	assert_eq!(PreDispatchCount::get(), 1);
 
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 0 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
+		.pre_dispatch(&0, &call, &DispatchInfo::default(), 0)
 		.unwrap();
 	assert_eq!(PreDispatchCount::get(), 1);
+}
+
+#[test]
+fn validate_works() {
+	assert_eq!(ValidateCount::get(), 0);
+
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
+	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+		.validate(&0, &call, &DispatchInfo::default(), 0)
+		.unwrap();
+	assert_eq!(ValidateCount::get(), 1);
+
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 0 });
+	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+		.validate(&0, &call, &DispatchInfo::default(), 0)
+		.unwrap();
+	assert_eq!(ValidateCount::get(), 1);
 }

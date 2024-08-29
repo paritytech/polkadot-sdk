@@ -68,8 +68,8 @@ use sc_client_api::{
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{
-	Backend as _, CachedHeaderMetadata, Error as ClientError, HeaderBackend, HeaderMetadata,
-	HeaderMetadataCache, Result as ClientResult,
+	Backend as _, CachedHeaderMetadata, DisplacedLeavesAfterFinalization, Error as ClientError,
+	HeaderBackend, HeaderMetadata, HeaderMetadataCache, Result as ClientResult,
 };
 use sp_core::{
 	offchain::OffchainOverlayedChange,
@@ -747,19 +747,6 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 		Ok(self.leaves.read().hashes())
 	}
 
-	fn displaced_leaves_after_finalizing(
-		&self,
-		block_number: NumberFor<Block>,
-	) -> ClientResult<Vec<Block::Hash>> {
-		Ok(self
-			.leaves
-			.read()
-			.displaced_by_finalize_height(block_number)
-			.leaves()
-			.cloned()
-			.collect::<Vec<_>>())
-	}
-
 	fn children(&self, parent_hash: Block::Hash) -> ClientResult<Vec<Block::Hash>> {
 		children::read_children(&*self.db, columns::META, meta_keys::CHILDREN_PREFIX, parent_hash)
 	}
@@ -1370,6 +1357,8 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(())
 	}
 
+	/// `remove_displaced` can be set to `false` if this is not the last of many subsequent calls
+	/// for performance reasons.
 	fn finalize_block_with_transaction(
 		&self,
 		transaction: &mut Transaction<DbHash>,
@@ -1378,6 +1367,7 @@ impl<Block: BlockT> Backend<Block> {
 		last_finalized: Option<Block::Hash>,
 		justification: Option<Justification>,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
+		remove_displaced: bool,
 	) -> ClientResult<MetaUpdate<Block>> {
 		// TODO: ensure best chain contains this block.
 		let number = *header.number();
@@ -1390,6 +1380,7 @@ impl<Block: BlockT> Backend<Block> {
 			hash,
 			with_state,
 			current_transaction_justifications,
+			remove_displaced,
 		)?;
 
 		if let Some(justification) = justification {
@@ -1467,7 +1458,8 @@ impl<Block: BlockT> Backend<Block> {
 
 		let mut current_transaction_justifications: HashMap<Block::Hash, Justification> =
 			HashMap::new();
-		for (block_hash, justification) in operation.finalized_blocks {
+		let mut finalized_blocks = operation.finalized_blocks.into_iter().peekable();
+		while let Some((block_hash, justification)) = finalized_blocks.next() {
 			let block_header = self.blockchain.expect_header(block_hash)?;
 			meta_updates.push(self.finalize_block_with_transaction(
 				&mut transaction,
@@ -1476,6 +1468,7 @@ impl<Block: BlockT> Backend<Block> {
 				Some(last_finalized_hash),
 				justification,
 				&mut current_transaction_justifications,
+				finalized_blocks.peek().is_none(),
 			)?);
 			last_finalized_hash = block_hash;
 			last_finalized_num = *block_header.number();
@@ -1655,6 +1648,7 @@ impl<Block: BlockT> Backend<Block> {
 					hash,
 					operation.commit_state,
 					&mut current_transaction_justifications,
+					true,
 				)?;
 			} else {
 				// canonicalize blocks which are old enough, regardless of finality.
@@ -1779,9 +1773,10 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(())
 	}
 
-	// write stuff to a transaction after a new block is finalized.
-	// this canonicalizes finalized blocks. Fails if called with a block which
-	// was not a child of the last finalized block.
+	// Write stuff to a transaction after a new block is finalized. This canonicalizes finalized
+	// blocks. Fails if called with a block which was not a child of the last finalized block.
+	/// `remove_displaced` can be set to `false` if this is not the last of many subsequent calls
+	/// for performance reasons.
 	fn note_finalized(
 		&self,
 		transaction: &mut Transaction<DbHash>,
@@ -1789,6 +1784,7 @@ impl<Block: BlockT> Backend<Block> {
 		f_hash: Block::Hash,
 		with_state: bool,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
+		remove_displaced: bool,
 	) -> ClientResult<()> {
 		let f_num = *f_header.number();
 
@@ -1813,14 +1809,19 @@ impl<Block: BlockT> Backend<Block> {
 			apply_state_commit(transaction, commit);
 		}
 
-		let new_displaced = self.blockchain.leaves.write().finalize_height(f_num);
-		self.prune_blocks(
-			transaction,
-			f_num,
-			f_hash,
-			&new_displaced,
-			current_transaction_justifications,
-		)?;
+		if remove_displaced {
+			let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
+
+			self.blockchain.leaves.write().remove_displaced_leaves(FinalizationOutcome::new(
+				new_displaced.displaced_leaves.iter().copied(),
+			));
+
+			if !matches!(self.blocks_pruning, BlocksPruning::KeepAll) {
+				self.prune_displaced_branches(transaction, &new_displaced)?;
+			}
+		}
+
+		self.prune_blocks(transaction, f_num, current_transaction_justifications)?;
 
 		Ok(())
 	}
@@ -1829,40 +1830,29 @@ impl<Block: BlockT> Backend<Block> {
 		&self,
 		transaction: &mut Transaction<DbHash>,
 		finalized_number: NumberFor<Block>,
-		finalized_hash: Block::Hash,
-		displaced: &FinalizationOutcome<Block::Hash, NumberFor<Block>>,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
 	) -> ClientResult<()> {
-		match self.blocks_pruning {
-			BlocksPruning::KeepAll => {},
-			BlocksPruning::Some(blocks_pruning) => {
-				// Always keep the last finalized block
-				let keep = std::cmp::max(blocks_pruning, 1);
-				if finalized_number >= keep.into() {
-					let number = finalized_number.saturating_sub(keep.into());
+		if let BlocksPruning::Some(blocks_pruning) = self.blocks_pruning {
+			// Always keep the last finalized block
+			let keep = std::cmp::max(blocks_pruning, 1);
+			if finalized_number >= keep.into() {
+				let number = finalized_number.saturating_sub(keep.into());
 
-					// Before we prune a block, check if it is pinned
-					if let Some(hash) = self.blockchain.hash(number)? {
-						self.blockchain.insert_persisted_body_if_pinned(hash)?;
+				// Before we prune a block, check if it is pinned
+				if let Some(hash) = self.blockchain.hash(number)? {
+					self.blockchain.insert_persisted_body_if_pinned(hash)?;
 
-						// If the block was finalized in this transaction, it will not be in the db
-						// yet.
-						if let Some(justification) =
-							current_transaction_justifications.remove(&hash)
-						{
-							self.blockchain.insert_justifications_if_pinned(hash, justification);
-						} else {
-							self.blockchain.insert_persisted_justifications_if_pinned(hash)?;
-						}
-					};
+					// If the block was finalized in this transaction, it will not be in the db
+					// yet.
+					if let Some(justification) = current_transaction_justifications.remove(&hash) {
+						self.blockchain.insert_justifications_if_pinned(hash, justification);
+					} else {
+						self.blockchain.insert_persisted_justifications_if_pinned(hash)?;
+					}
+				};
 
-					self.prune_block(transaction, BlockId::<Block>::number(number))?;
-				}
-				self.prune_displaced_branches(transaction, finalized_hash, displaced)?;
-			},
-			BlocksPruning::KeepFinalized => {
-				self.prune_displaced_branches(transaction, finalized_hash, displaced)?;
-			},
+				self.prune_block(transaction, BlockId::<Block>::number(number))?;
+			}
 		}
 		Ok(())
 	}
@@ -1870,22 +1860,12 @@ impl<Block: BlockT> Backend<Block> {
 	fn prune_displaced_branches(
 		&self,
 		transaction: &mut Transaction<DbHash>,
-		finalized: Block::Hash,
-		displaced: &FinalizationOutcome<Block::Hash, NumberFor<Block>>,
+		displaced: &DisplacedLeavesAfterFinalization<Block>,
 	) -> ClientResult<()> {
 		// Discard all blocks from displaced branches
-		for h in displaced.leaves() {
-			match sp_blockchain::tree_route(&self.blockchain, *h, finalized) {
-				Ok(tree_route) =>
-					for r in tree_route.retracted() {
-						self.blockchain.insert_persisted_body_if_pinned(r.hash)?;
-						self.prune_block(transaction, BlockId::<Block>::hash(r.hash))?;
-					},
-				Err(sp_blockchain::Error::UnknownBlock(_)) => {
-					// Sometimes routes can't be calculated. E.g. after warp sync.
-				},
-				Err(e) => Err(e)?,
-			}
+		for &hash in displaced.displaced_blocks.iter() {
+			self.blockchain.insert_persisted_body_if_pinned(hash)?;
+			self.prune_block(transaction, BlockId::<Block>::hash(hash))?;
 		}
 		Ok(())
 	}
@@ -2133,6 +2113,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			None,
 			justification,
 			&mut current_transaction_justifications,
+			true,
 		)?;
 
 		self.storage.db.commit(transaction)?;
@@ -2573,8 +2554,7 @@ pub(crate) mod tests {
 	use sp_blockchain::{lowest_common_ancestor, tree_route};
 	use sp_core::H256;
 	use sp_runtime::{
-		generic::UncheckedExtrinsic,
-		testing::{Block as RawBlock, Header, MockCallU64},
+		testing::{Block as RawBlock, ExtrinsicWrapper, Header},
 		traits::{BlakeTwo256, Hash},
 		ConsensusEngineId, StateVersion,
 	};
@@ -2582,8 +2562,7 @@ pub(crate) mod tests {
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
 
-	type UncheckedXt = UncheckedExtrinsic<u64, MockCallU64, (), ()>;
-	pub(crate) type Block = RawBlock<UncheckedXt>;
+	pub(crate) type Block = RawBlock<ExtrinsicWrapper<u64>>;
 
 	pub fn insert_header(
 		backend: &Backend<Block>,
@@ -2602,7 +2581,7 @@ pub(crate) mod tests {
 		parent_hash: H256,
 		_changes: Option<Vec<(Vec<u8>, Vec<u8>)>>,
 		extrinsics_root: H256,
-		body: Vec<UncheckedXt>,
+		body: Vec<ExtrinsicWrapper<u64>>,
 		transaction_index: Option<Vec<IndexOperation>>,
 	) -> Result<H256, sp_blockchain::Error> {
 		use sp_runtime::testing::Digest;
@@ -2632,6 +2611,35 @@ pub(crate) mod tests {
 		backend.commit_operation(op)?;
 
 		Ok(header.hash())
+	}
+
+	pub fn insert_disconnected_header(
+		backend: &Backend<Block>,
+		number: u64,
+		parent_hash: H256,
+		extrinsics_root: H256,
+		best: bool,
+	) -> H256 {
+		use sp_runtime::testing::Digest;
+
+		let digest = Digest::default();
+		let header =
+			Header { number, parent_hash, state_root: Default::default(), digest, extrinsics_root };
+
+		let mut op = backend.begin_operation().unwrap();
+
+		op.set_block_data(
+			header.clone(),
+			Some(vec![]),
+			None,
+			None,
+			if best { NewBlockState::Best } else { NewBlockState::Normal },
+		)
+		.unwrap();
+
+		backend.commit_operation(op).unwrap();
+
+		header.hash()
 	}
 
 	pub fn insert_header_no_head(
@@ -3134,6 +3142,248 @@ pub(crate) mod tests {
 	}
 
 	#[test]
+	fn displaced_leaves_after_finalizing_works_with_disconnect() {
+		// In this test we will create a situation that can typically happen after warp sync.
+		// The situation looks like this:
+		// g -> <unimported> -> a3 -> a4
+		// Basically there is a gap of unimported blocks at some point in the chain.
+		let backend = Backend::<Block>::new_test(1000, 100);
+		let blockchain = backend.blockchain();
+		let genesis_number = 0;
+		let genesis_hash =
+			insert_header(&backend, genesis_number, Default::default(), None, Default::default());
+
+		let a3_number = 3;
+		let a3_hash = insert_disconnected_header(
+			&backend,
+			a3_number,
+			H256::from([200; 32]),
+			H256::from([1; 32]),
+			true,
+		);
+
+		let a4_number = 4;
+		let a4_hash =
+			insert_disconnected_header(&backend, a4_number, a3_hash, H256::from([2; 32]), true);
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
+			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
+			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+
+		// Import block a1 which has the genesis block as parent.
+		// g -> a1 -> <unimported> -> a3(f) -> a4
+		let a1_number = 1;
+		let a1_hash = insert_disconnected_header(
+			&backend,
+			a1_number,
+			genesis_hash,
+			H256::from([123; 32]),
+			false,
+		);
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash]);
+			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+
+		// Import block b1 which has the genesis block as parent.
+		// g -> a1 -> <unimported> -> a3(f) -> a4
+		//  \-> b1
+		let b1_number = 1;
+		let b1_hash = insert_disconnected_header(
+			&backend,
+			b1_number,
+			genesis_hash,
+			H256::from([124; 32]),
+			false,
+		);
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash, b1_hash]);
+			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+
+		// If branch of b blocks is higher in number than a branch, we
+		// should still not prune disconnected leafs.
+		// g -> a1 -> <unimported> -> a3(f) -> a4
+		//  \-> b1 -> b2 ----------> b3 ----> b4 -> b5
+		let b2_number = 2;
+		let b2_hash =
+			insert_disconnected_header(&backend, b2_number, b1_hash, H256::from([40; 32]), false);
+		let b3_number = 3;
+		let b3_hash =
+			insert_disconnected_header(&backend, b3_number, b2_hash, H256::from([41; 32]), false);
+		let b4_number = 4;
+		let b4_hash =
+			insert_disconnected_header(&backend, b4_number, b3_hash, H256::from([42; 32]), false);
+		let b5_number = 5;
+		let b5_hash =
+			insert_disconnected_header(&backend, b5_number, b4_hash, H256::from([43; 32]), false);
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, a1_hash]);
+			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+
+		// Even though there is a disconnect, diplace should still detect
+		// branches above the block gap.
+		//                              /-> c4
+		// g -> a1 -> <unimported> -> a3 -> a4(f)
+		//  \-> b1 -> b2 ----------> b3 -> b4 -> b5
+		let c4_number = 4;
+		let c4_hash =
+			insert_disconnected_header(&backend, c4_number, a3_hash, H256::from([44; 32]), false);
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, c4_hash, a1_hash]);
+			assert_eq!(displaced.displaced_leaves, vec![(c4_number, c4_hash)]);
+			assert_eq!(displaced.displaced_blocks, vec![c4_hash]);
+		}
+	}
+	#[test]
+	fn displaced_leaves_after_finalizing_works() {
+		let backend = Backend::<Block>::new_test(1000, 100);
+		let blockchain = backend.blockchain();
+		let genesis_number = 0;
+		let genesis_hash =
+			insert_header(&backend, genesis_number, Default::default(), None, Default::default());
+
+		// fork from genesis: 3 prong.
+		// block 0 -> a1 -> a2 -> a3
+		//        \
+		//         -> b1 -> b2 -> c1 -> c2
+		//              \
+		//               -> d1 -> d2
+		let a1_number = 1;
+		let a1_hash = insert_header(&backend, a1_number, genesis_hash, None, Default::default());
+		let a2_number = 2;
+		let a2_hash = insert_header(&backend, a2_number, a1_hash, None, Default::default());
+		let a3_number = 3;
+		let a3_hash = insert_header(&backend, a3_number, a2_hash, None, Default::default());
+
+		{
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(genesis_hash, genesis_number)
+				.unwrap();
+			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+		{
+			let displaced_a1 =
+				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			assert_eq!(displaced_a1.displaced_leaves, vec![]);
+			assert_eq!(displaced_a1.displaced_blocks, vec![]);
+
+			let displaced_a2 =
+				blockchain.displaced_leaves_after_finalizing(a2_hash, a3_number).unwrap();
+			assert_eq!(displaced_a2.displaced_leaves, vec![]);
+			assert_eq!(displaced_a2.displaced_blocks, vec![]);
+
+			let displaced_a3 =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(displaced_a3.displaced_leaves, vec![]);
+			assert_eq!(displaced_a3.displaced_blocks, vec![]);
+		}
+		{
+			// Finalized block is above leaves and not imported yet.
+			// We will not be able to make a connection,
+			// nothing can be marked as displaced.
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(H256::from([57; 32]), 10).unwrap();
+			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+
+		// fork from genesis: 2 prong.
+		let b1_number = 1;
+		let b1_hash = insert_header(&backend, b1_number, genesis_hash, None, H256::from([1; 32]));
+		let b2_number = 2;
+		let b2_hash = insert_header(&backend, b2_number, b1_hash, None, Default::default());
+
+		// fork from b2.
+		let c1_number = 3;
+		let c1_hash = insert_header(&backend, c1_number, b2_hash, None, H256::from([2; 32]));
+		let c2_number = 4;
+		let c2_hash = insert_header(&backend, c2_number, c1_hash, None, Default::default());
+
+		// fork from b1.
+		let d1_number = 2;
+		let d1_hash = insert_header(&backend, d1_number, b1_hash, None, H256::from([3; 32]));
+		let d2_number = 3;
+		let d2_hash = insert_header(&backend, d2_number, d1_hash, None, Default::default());
+
+		{
+			let displaced_a1 =
+				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			assert_eq!(
+				displaced_a1.displaced_leaves,
+				vec![(c2_number, c2_hash), (d2_number, d2_hash)]
+			);
+			let mut displaced_blocks = vec![b1_hash, b2_hash, c1_hash, c2_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced_a1.displaced_blocks, displaced_blocks);
+
+			let displaced_a2 =
+				blockchain.displaced_leaves_after_finalizing(a2_hash, a2_number).unwrap();
+			assert_eq!(displaced_a1.displaced_leaves, displaced_a2.displaced_leaves);
+			assert_eq!(displaced_a1.displaced_blocks, displaced_a2.displaced_blocks);
+
+			let displaced_a3 =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(displaced_a1.displaced_leaves, displaced_a3.displaced_leaves);
+			assert_eq!(displaced_a1.displaced_blocks, displaced_a3.displaced_blocks);
+		}
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(b1_hash, b1_number).unwrap();
+			assert_eq!(displaced.displaced_leaves, vec![(a3_number, a3_hash)]);
+			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced.displaced_blocks, displaced_blocks);
+		}
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(b2_hash, b2_number).unwrap();
+			assert_eq!(
+				displaced.displaced_leaves,
+				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
+			);
+			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced.displaced_blocks, displaced_blocks);
+		}
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(c2_hash, c2_number).unwrap();
+			assert_eq!(
+				displaced.displaced_leaves,
+				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
+			);
+			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced.displaced_blocks, displaced_blocks);
+		}
+	}
+
+	#[test]
 	fn test_tree_route_regression() {
 		// NOTE: this is a test for a regression introduced in #3665, the result
 		// of tree_route would be erroneously computed, since it was taking into
@@ -3192,6 +3442,9 @@ pub(crate) mod tests {
 
 	#[test]
 	fn test_leaves_pruned_on_finality() {
+		//   / 1b - 2b - 3b
+		// 0 - 1a - 2a
+		//   \ 1c
 		let backend: Backend<Block> = Backend::new_test(10, 10);
 		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
 
@@ -3203,18 +3456,16 @@ pub(crate) mod tests {
 
 		let block2_a = insert_header(&backend, 2, block1_a, None, Default::default());
 		let block2_b = insert_header(&backend, 2, block1_b, None, Default::default());
-		let block2_c = insert_header(&backend, 2, block1_b, None, [1; 32].into());
 
-		assert_eq!(
-			backend.blockchain().leaves().unwrap(),
-			vec![block2_a, block2_b, block2_c, block1_c]
-		);
+		let block3_b = insert_header(&backend, 3, block2_b, None, [3; 32].into());
+
+		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block3_b, block2_a, block1_c]);
 
 		backend.finalize_block(block1_a, None).unwrap();
 		backend.finalize_block(block2_a, None).unwrap();
 
-		// leaves at same height stay. Leaves at lower heights pruned.
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a, block2_b, block2_c]);
+		// All leaves are pruned that are known to not belong to canonical branch
+		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a]);
 	}
 
 	#[test]
@@ -3416,7 +3667,7 @@ pub(crate) mod tests {
 					prev_hash,
 					None,
 					Default::default(),
-					vec![UncheckedXt::new_transaction(i.into(), ())],
+					vec![i.into()],
 					None,
 				)
 				.unwrap();
@@ -3438,20 +3689,11 @@ pub(crate) mod tests {
 				assert_eq!(None, bc.body(blocks[0]).unwrap());
 				assert_eq!(None, bc.body(blocks[1]).unwrap());
 				assert_eq!(None, bc.body(blocks[2]).unwrap());
-				assert_eq!(
-					Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
-					bc.body(blocks[3]).unwrap()
-				);
-				assert_eq!(
-					Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
-					bc.body(blocks[4]).unwrap()
-				);
+				assert_eq!(Some(vec![3.into()]), bc.body(blocks[3]).unwrap());
+				assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
 			} else {
 				for i in 0..5 {
-					assert_eq!(
-						Some(vec![UncheckedXt::new_transaction((i as u64).into(), ())]),
-						bc.body(blocks[i]).unwrap()
-					);
+					assert_eq!(Some(vec![(i as u64).into()]), bc.body(blocks[i]).unwrap());
 				}
 			}
 		}
@@ -3475,7 +3717,7 @@ pub(crate) mod tests {
 					prev_hash,
 					None,
 					Default::default(),
-					vec![UncheckedXt::new_transaction(i.into(), ())],
+					vec![i.into()],
 					None,
 				)
 				.unwrap();
@@ -3484,26 +3726,16 @@ pub(crate) mod tests {
 			}
 
 			// insert a fork at block 2
-			let fork_hash_root = insert_block(
-				&backend,
-				2,
-				blocks[1],
-				None,
-				H256::random(),
-				vec![UncheckedXt::new_transaction(2.into(), ())],
-				None,
-			)
-			.unwrap();
+			let fork_hash_root =
+				insert_block(&backend, 2, blocks[1], None, H256::random(), vec![2.into()], None)
+					.unwrap();
 			insert_block(
 				&backend,
 				3,
 				fork_hash_root,
 				None,
 				H256::random(),
-				vec![
-					UncheckedXt::new_transaction(3.into(), ()),
-					UncheckedXt::new_transaction(11.into(), ()),
-				],
+				vec![3.into(), 11.into()],
 				None,
 			)
 			.unwrap();
@@ -3513,10 +3745,7 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 
 			let bc = backend.blockchain();
-			assert_eq!(
-				Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
-				bc.body(fork_hash_root).unwrap()
-			);
+			assert_eq!(Some(vec![2.into()]), bc.body(fork_hash_root).unwrap());
 
 			for i in 1..5 {
 				let mut op = backend.begin_operation().unwrap();
@@ -3530,28 +3759,16 @@ pub(crate) mod tests {
 				assert_eq!(None, bc.body(blocks[1]).unwrap());
 				assert_eq!(None, bc.body(blocks[2]).unwrap());
 
-				assert_eq!(
-					Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
-					bc.body(blocks[3]).unwrap()
-				);
-				assert_eq!(
-					Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
-					bc.body(blocks[4]).unwrap()
-				);
+				assert_eq!(Some(vec![3.into()]), bc.body(blocks[3]).unwrap());
+				assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
 			} else {
 				for i in 0..5 {
-					assert_eq!(
-						Some(vec![UncheckedXt::new_transaction((i as u64).into(), ())]),
-						bc.body(blocks[i]).unwrap()
-					);
+					assert_eq!(Some(vec![(i as u64).into()]), bc.body(blocks[i]).unwrap());
 				}
 			}
 
 			if matches!(pruning, BlocksPruning::KeepAll) {
-				assert_eq!(
-					Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
-					bc.body(fork_hash_root).unwrap()
-				);
+				assert_eq!(Some(vec![2.into()]), bc.body(fork_hash_root).unwrap());
 			} else {
 				assert_eq!(None, bc.body(fork_hash_root).unwrap());
 			}
@@ -3572,16 +3789,8 @@ pub(crate) mod tests {
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(10), 10);
 
 		let make_block = |index, parent, val: u64| {
-			insert_block(
-				&backend,
-				index,
-				parent,
-				None,
-				H256::random(),
-				vec![UncheckedXt::new_transaction(val.into(), ())],
-				None,
-			)
-			.unwrap()
+			insert_block(&backend, index, parent, None, H256::random(), vec![val.into()], None)
+				.unwrap()
 		};
 
 		let block_0 = make_block(0, Default::default(), 0x00);
@@ -3609,30 +3818,18 @@ pub(crate) mod tests {
 		let bc = backend.blockchain();
 		assert_eq!(None, bc.body(block_1b).unwrap());
 		assert_eq!(None, bc.body(block_2b).unwrap());
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0x00.into(), ())]),
-			bc.body(block_0).unwrap()
-		);
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0x1a.into(), ())]),
-			bc.body(block_1a).unwrap()
-		);
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0x2a.into(), ())]),
-			bc.body(block_2a).unwrap()
-		);
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0x3a.into(), ())]),
-			bc.body(block_3a).unwrap()
-		);
+		assert_eq!(Some(vec![0x00.into()]), bc.body(block_0).unwrap());
+		assert_eq!(Some(vec![0x1a.into()]), bc.body(block_1a).unwrap());
+		assert_eq!(Some(vec![0x2a.into()]), bc.body(block_2a).unwrap());
+		assert_eq!(Some(vec![0x3a.into()]), bc.body(block_3a).unwrap());
 	}
 
 	#[test]
 	fn indexed_data_block_body() {
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 10);
 
-		let x0 = UncheckedXt::new_transaction(0.into(), ()).encode();
-		let x1 = UncheckedXt::new_transaction(1.into(), ()).encode();
+		let x0 = ExtrinsicWrapper::from(0u64).encode();
+		let x1 = ExtrinsicWrapper::from(1u64).encode();
 		let x0_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x0[1..]);
 		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
 		let index = vec![
@@ -3653,10 +3850,7 @@ pub(crate) mod tests {
 			Default::default(),
 			None,
 			Default::default(),
-			vec![
-				UncheckedXt::new_transaction(0.into(), ()),
-				UncheckedXt::new_transaction(1.into(), ()),
-			],
+			vec![0u64.into(), 1u64.into()],
 			Some(index),
 		)
 		.unwrap();
@@ -3678,9 +3872,8 @@ pub(crate) mod tests {
 	fn index_invalid_size() {
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 10);
 
-		let x0 = UncheckedXt::new_transaction(0.into(), ()).encode();
-		let x1 = UncheckedXt::new_transaction(1.into(), ()).encode();
-
+		let x0 = ExtrinsicWrapper::from(0u64).encode();
+		let x1 = ExtrinsicWrapper::from(1u64).encode();
 		let x0_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x0[..]);
 		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[..]);
 		let index = vec![
@@ -3701,10 +3894,7 @@ pub(crate) mod tests {
 			Default::default(),
 			None,
 			Default::default(),
-			vec![
-				UncheckedXt::new_transaction(0.into(), ()),
-				UncheckedXt::new_transaction(1.into(), ()),
-			],
+			vec![0u64.into(), 1u64.into()],
 			Some(index),
 		)
 		.unwrap();
@@ -3718,7 +3908,7 @@ pub(crate) mod tests {
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
-		let x1 = UncheckedXt::new_transaction(0.into(), ()).encode();
+		let x1 = ExtrinsicWrapper::from(0u64).encode();
 		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
 		for i in 0..10 {
 			let mut index = Vec::new();
@@ -3738,7 +3928,7 @@ pub(crate) mod tests {
 				prev_hash,
 				None,
 				Default::default(),
-				vec![UncheckedXt::new_transaction(i.into(), ())],
+				vec![i.into()],
 				Some(index),
 			)
 			.unwrap();
@@ -3772,7 +3962,7 @@ pub(crate) mod tests {
 				prev_hash,
 				None,
 				Default::default(),
-				vec![UncheckedXt::new_transaction(i.into(), ())],
+				vec![i.into()],
 				None,
 			)
 			.unwrap();
@@ -3787,7 +3977,7 @@ pub(crate) mod tests {
 				blocks[1],
 				None,
 				sp_core::H256::random(),
-				vec![UncheckedXt::new_transaction(i.into(), ())],
+				vec![i.into()],
 				None,
 			)
 			.unwrap();
@@ -3801,7 +3991,7 @@ pub(crate) mod tests {
 			blocks[0],
 			None,
 			sp_core::H256::random(),
-			vec![UncheckedXt::new_transaction(42.into(), ())],
+			vec![42.into()],
 			None,
 		)
 		.unwrap();
@@ -4274,7 +4464,7 @@ pub(crate) mod tests {
 				prev_hash,
 				None,
 				Default::default(),
-				vec![UncheckedXt::new_transaction(i.into(), ())],
+				vec![i.into()],
 				None,
 			)
 			.unwrap();
@@ -4289,10 +4479,7 @@ pub(crate) mod tests {
 
 		// Check that we can properly access values when there is reference count
 		// but no value.
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(1.into(), ())]),
-			bc.body(blocks[1]).unwrap()
-		);
+		assert_eq!(Some(vec![1.into()]), bc.body(blocks[1]).unwrap());
 
 		// Block 1 gets pinned three times
 		backend.pin_block(blocks[1]).unwrap();
@@ -4309,42 +4496,27 @@ pub(crate) mod tests {
 
 		// Block 0, 1, 2, 3 are pinned, so all values should be cached.
 		// Block 4 is inside the pruning window, its value is in db.
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0.into(), ())]),
-			bc.body(blocks[0]).unwrap()
-		);
+		assert_eq!(Some(vec![0.into()]), bc.body(blocks[0]).unwrap());
 
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(1.into(), ())]),
-			bc.body(blocks[1]).unwrap()
-		);
+		assert_eq!(Some(vec![1.into()]), bc.body(blocks[1]).unwrap());
 		assert_eq!(
 			Some(Justifications::from(build_justification(1))),
 			bc.justifications(blocks[1]).unwrap()
 		);
 
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
-			bc.body(blocks[2]).unwrap()
-		);
+		assert_eq!(Some(vec![2.into()]), bc.body(blocks[2]).unwrap());
 		assert_eq!(
 			Some(Justifications::from(build_justification(2))),
 			bc.justifications(blocks[2]).unwrap()
 		);
 
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
-			bc.body(blocks[3]).unwrap()
-		);
+		assert_eq!(Some(vec![3.into()]), bc.body(blocks[3]).unwrap());
 		assert_eq!(
 			Some(Justifications::from(build_justification(3))),
 			bc.justifications(blocks[3]).unwrap()
 		);
 
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
-			bc.body(blocks[4]).unwrap()
-		);
+		assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
 		assert_eq!(
 			Some(Justifications::from(build_justification(4))),
 			bc.justifications(blocks[4]).unwrap()
@@ -4375,10 +4547,7 @@ pub(crate) mod tests {
 		assert!(bc.justifications(blocks[1]).unwrap().is_none());
 
 		// Block 4 is inside the pruning window and still kept
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
-			bc.body(blocks[4]).unwrap()
-		);
+		assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
 		assert_eq!(
 			Some(Justifications::from(build_justification(4))),
 			bc.justifications(blocks[4]).unwrap()
@@ -4386,16 +4555,9 @@ pub(crate) mod tests {
 
 		// Block tree:
 		//   0 -> 1 -> 2 -> 3 -> 4 -> 5
-		let hash = insert_block(
-			&backend,
-			5,
-			prev_hash,
-			None,
-			Default::default(),
-			vec![UncheckedXt::new_transaction(5.into(), ())],
-			None,
-		)
-		.unwrap();
+		let hash =
+			insert_block(&backend, 5, prev_hash, None, Default::default(), vec![5.into()], None)
+				.unwrap();
 		blocks.push(hash);
 
 		backend.pin_block(blocks[4]).unwrap();
@@ -4410,18 +4572,12 @@ pub(crate) mod tests {
 		assert!(bc.body(blocks[2]).unwrap().is_none());
 		assert!(bc.body(blocks[3]).unwrap().is_none());
 
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
-			bc.body(blocks[4]).unwrap()
-		);
+		assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
 		assert_eq!(
 			Some(Justifications::from(build_justification(4))),
 			bc.justifications(blocks[4]).unwrap()
 		);
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(5.into(), ())]),
-			bc.body(blocks[5]).unwrap()
-		);
+		assert_eq!(Some(vec![5.into()]), bc.body(blocks[5]).unwrap());
 		assert!(bc.header(blocks[5]).ok().flatten().is_some());
 
 		backend.unpin_block(blocks[4]);
@@ -4431,16 +4587,9 @@ pub(crate) mod tests {
 		// Append a justification to block 5.
 		backend.append_justification(blocks[5], ([0, 0, 0, 1], vec![42])).unwrap();
 
-		let hash = insert_block(
-			&backend,
-			6,
-			blocks[5],
-			None,
-			Default::default(),
-			vec![UncheckedXt::new_transaction(6.into(), ())],
-			None,
-		)
-		.unwrap();
+		let hash =
+			insert_block(&backend, 6, blocks[5], None, Default::default(), vec![6.into()], None)
+				.unwrap();
 		blocks.push(hash);
 
 		// Pin block 5 so it gets loaded into the cache on prune
@@ -4453,10 +4602,7 @@ pub(crate) mod tests {
 		op.mark_finalized(blocks[6], None).unwrap();
 		backend.commit_operation(op).unwrap();
 
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(5.into(), ())]),
-			bc.body(blocks[5]).unwrap()
-		);
+		assert_eq!(Some(vec![5.into()]), bc.body(blocks[5]).unwrap());
 		assert!(bc.header(blocks[5]).ok().flatten().is_some());
 		let mut expected = Justifications::from(build_justification(5));
 		expected.append(([0, 0, 0, 1], vec![42]));
@@ -4478,7 +4624,7 @@ pub(crate) mod tests {
 				prev_hash,
 				None,
 				Default::default(),
-				vec![UncheckedXt::new_transaction(i.into(), ())],
+				vec![i.into()],
 				None,
 			)
 			.unwrap();
@@ -4494,26 +4640,16 @@ pub(crate) mod tests {
 		// Block tree:
 		//   0 -> 1 -> 2 -> 3 -> 4
 		//        \ -> 2 -> 3
-		let fork_hash_root = insert_block(
-			&backend,
-			2,
-			blocks[1],
-			None,
-			H256::random(),
-			vec![UncheckedXt::new_transaction(2.into(), ())],
-			None,
-		)
-		.unwrap();
+		let fork_hash_root =
+			insert_block(&backend, 2, blocks[1], None, H256::random(), vec![2.into()], None)
+				.unwrap();
 		let fork_hash_3 = insert_block(
 			&backend,
 			3,
 			fork_hash_root,
 			None,
 			H256::random(),
-			vec![
-				UncheckedXt::new_transaction(3.into(), ()),
-				UncheckedXt::new_transaction(11.into(), ()),
-			],
+			vec![3.into(), 11.into()],
 			None,
 		)
 		.unwrap();
@@ -4534,35 +4670,14 @@ pub(crate) mod tests {
 		}
 
 		let bc = backend.blockchain();
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0.into(), ())]),
-			bc.body(blocks[0]).unwrap()
-		);
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(1.into(), ())]),
-			bc.body(blocks[1]).unwrap()
-		);
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
-			bc.body(blocks[2]).unwrap()
-		);
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
-			bc.body(blocks[3]).unwrap()
-		);
-		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
-			bc.body(blocks[4]).unwrap()
-		);
+		assert_eq!(Some(vec![0.into()]), bc.body(blocks[0]).unwrap());
+		assert_eq!(Some(vec![1.into()]), bc.body(blocks[1]).unwrap());
+		assert_eq!(Some(vec![2.into()]), bc.body(blocks[2]).unwrap());
+		assert_eq!(Some(vec![3.into()]), bc.body(blocks[3]).unwrap());
+		assert_eq!(Some(vec![4.into()]), bc.body(blocks[4]).unwrap());
 		// Check the fork hashes.
 		assert_eq!(None, bc.body(fork_hash_root).unwrap());
-		assert_eq!(
-			Some(vec![
-				UncheckedXt::new_transaction(3.into(), ()),
-				UncheckedXt::new_transaction(11.into(), ())
-			]),
-			bc.body(fork_hash_3).unwrap()
-		);
+		assert_eq!(Some(vec![3.into(), 11.into()]), bc.body(fork_hash_3).unwrap());
 
 		// Unpin all blocks, except the forked one.
 		for block in &blocks {

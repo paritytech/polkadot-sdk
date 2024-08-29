@@ -18,14 +18,21 @@
 //! Support code for the runtime. A set of test accounts.
 
 pub use sp_core::ed25519;
+#[cfg(feature = "std")]
+use sp_core::ed25519::Signature;
 use sp_core::{
-	ed25519::{Pair, Public, Signature},
+	ed25519::{Pair, Public},
 	hex2array, ByteArray, Pair as PairT, H256,
 };
 use sp_runtime::AccountId32;
 
+extern crate alloc;
+use alloc::{format, string::String, vec::Vec};
+
 /// Set of test accounts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter, Ord, PartialOrd,
+)]
 pub enum Keyring {
 	Alice,
 	Bob,
@@ -76,6 +83,7 @@ impl Keyring {
 		self.to_raw_public().into()
 	}
 
+	#[cfg(feature = "std")]
 	pub fn sign(self, msg: &[u8]) -> Signature {
 		Pair::from(self).sign(msg)
 	}

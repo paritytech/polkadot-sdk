@@ -41,37 +41,41 @@ pub use outbound_lane::StoredMessagePayload;
 pub use weights::WeightInfo;
 pub use weights_ext::{
 	ensure_able_to_receive_confirmation, ensure_able_to_receive_message,
-	ensure_weights_are_correct, WeightInfoExt, EXPECTED_DEFAULT_MESSAGE_LENGTH,
-	EXTRA_STORAGE_PROOF_SIZE,
+	ensure_maximal_message_dispatch, ensure_weights_are_correct, WeightInfoExt,
+	EXPECTED_DEFAULT_MESSAGE_LENGTH, EXTRA_STORAGE_PROOF_SIZE,
 };
 
 use crate::{
 	inbound_lane::{InboundLane, InboundLaneStorage},
-	outbound_lane::{OutboundLane, OutboundLaneStorage, ReceivalConfirmationError},
+	outbound_lane::{OutboundLane, OutboundLaneStorage, ReceptionConfirmationError},
 };
 
+use bp_header_chain::HeaderChain;
 use bp_messages::{
 	source_chain::{
-		DeliveryConfirmationPayments, OnMessagesDelivered, SendMessageArtifacts, TargetHeaderChain,
+		DeliveryConfirmationPayments, FromBridgedChainMessagesDeliveryProof, OnMessagesDelivered,
+		SendMessageArtifacts,
 	},
 	target_chain::{
-		DeliveryPayments, DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages,
-		SourceHeaderChain,
+		DeliveryPayments, DispatchMessage, FromBridgedChainMessagesProof, MessageDispatch,
+		ProvedLaneMessages, ProvedMessages,
 	},
-	DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId, MessageKey, MessageNonce,
-	MessagePayload, MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
-	UnrewardedRelayersState, VerificationError,
+	ChainWithMessages, DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId,
+	MessageKey, MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData,
+	OutboundMessageDetails, UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{
-	BasicOperatingMode, ChainId, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt, Size,
+	AccountIdOf, BasicOperatingMode, HashOf, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt,
+	Size,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
-use sp_runtime::traits::UniqueSaturatedFrom;
 use sp_std::{marker::PhantomData, prelude::*};
 
 mod inbound_lane;
 mod outbound_lane;
+mod proofs;
+mod tests;
 mod weights_ext;
 
 pub mod weights;
@@ -79,10 +83,9 @@ pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-#[cfg(test)]
-mod mock;
-
 pub use pallet::*;
+#[cfg(feature = "test-helpers")]
+pub use tests::*;
 
 /// The target that will be used when publishing logs related to this pallet.
 pub const LOG_TARGET: &str = "runtime::bridge-messages";
@@ -90,7 +93,7 @@ pub const LOG_TARGET: &str = "runtime::bridge-messages";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use bp_messages::{ReceivalResult, ReceivedMessages};
+	use bp_messages::{ReceivedMessages, ReceptionResult};
 	use bp_runtime::RangeInclusiveExt;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -105,76 +108,39 @@ pub mod pallet {
 		/// Benchmarks results from runtime we're plugged into.
 		type WeightInfo: WeightInfoExt;
 
-		/// Gets the chain id value from the instance.
-		#[pallet::constant]
-		type BridgedChainId: Get<ChainId>;
+		/// This chain type.
+		type ThisChain: ChainWithMessages;
+		/// Bridged chain type.
+		type BridgedChain: ChainWithMessages;
+		/// Bridged chain headers provider.
+		type BridgedHeaderChain: HeaderChain<Self::BridgedChain>;
 
 		/// Get all active outbound lanes that the message pallet is serving.
 		type ActiveOutboundLanes: Get<&'static [LaneId]>;
-		/// Maximal number of unrewarded relayer entries at inbound lane. Unrewarded means that the
-		/// relayer has delivered messages, but either confirmations haven't been delivered back to
-		/// the source chain, or we haven't received reward confirmations yet.
-		///
-		/// This constant limits maximal number of entries in the `InboundLaneData::relayers`. Keep
-		/// in mind that the same relayer account may take several (non-consecutive) entries in this
-		/// set.
-		type MaxUnrewardedRelayerEntriesAtInboundLane: Get<MessageNonce>;
-		/// Maximal number of unconfirmed messages at inbound lane. Unconfirmed means that the
-		/// message has been delivered, but either confirmations haven't been delivered back to the
-		/// source chain, or we haven't received reward confirmations for these messages yet.
-		///
-		/// This constant limits difference between last message from last entry of the
-		/// `InboundLaneData::relayers` and first message at the first entry.
-		///
-		/// There is no point of making this parameter lesser than
-		/// MaxUnrewardedRelayerEntriesAtInboundLane, because then maximal number of relayer entries
-		/// will be limited by maximal number of messages.
-		///
-		/// This value also represents maximal number of messages in single delivery transaction.
-		/// Transaction that is declaring more messages than this value, will be rejected. Even if
-		/// these messages are from different lanes.
-		type MaxUnconfirmedMessagesAtInboundLane: Get<MessageNonce>;
 
-		/// Maximal encoded size of the outbound payload.
-		#[pallet::constant]
-		type MaximalOutboundPayloadSize: Get<u32>;
 		/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
 		type OutboundPayload: Parameter + Size;
-
 		/// Payload type of inbound messages. This payload is dispatched on this chain.
 		type InboundPayload: Decode;
-		/// Identifier of relayer that deliver messages to this chain. Relayer reward is paid on the
-		/// bridged chain.
-		type InboundRelayer: Parameter + MaxEncodedLen;
-		/// Delivery payments.
+
+		/// Handler for relayer payments that happen during message delivery transaction.
 		type DeliveryPayments: DeliveryPayments<Self::AccountId>;
-
-		// Types that are used by outbound_lane (on source chain).
-
-		/// Target header chain.
-		type TargetHeaderChain: TargetHeaderChain<Self::OutboundPayload, Self::AccountId>;
-		/// Delivery confirmation payments.
+		/// Handler for relayer payments that happen during message delivery confirmation
+		/// transaction.
 		type DeliveryConfirmationPayments: DeliveryConfirmationPayments<Self::AccountId>;
 		/// Delivery confirmation callback.
 		type OnMessagesDelivered: OnMessagesDelivered;
 
-		// Types that are used by inbound_lane (on target chain).
-
-		/// Source header chain, as it is represented on target chain.
-		type SourceHeaderChain: SourceHeaderChain;
-		/// Message dispatch.
+		/// Message dispatch handler.
 		type MessageDispatch: MessageDispatch<DispatchPayload = Self::InboundPayload>;
 	}
 
-	/// Shortcut to messages proof type for Config.
-	pub type MessagesProofOf<T, I> =
-		<<T as Config<I>>::SourceHeaderChain as SourceHeaderChain>::MessagesProof;
-	/// Shortcut to messages delivery proof type for Config.
-	pub type MessagesDeliveryProofOf<T, I> =
-		<<T as Config<I>>::TargetHeaderChain as TargetHeaderChain<
-			<T as Config<I>>::OutboundPayload,
-			<T as frame_system::Config>::AccountId,
-		>>::MessagesDeliveryProof;
+	/// Shortcut to this chain type for Config.
+	pub type ThisChainOf<T, I> = <T as Config<I>>::ThisChain;
+	/// Shortcut to bridged chain type for Config.
+	pub type BridgedChainOf<T, I> = <T as Config<I>>::BridgedChain;
+	/// Shortcut to bridged header chain type for Config.
+	pub type BridgedHeaderChainOf<T, I> = <T as Config<I>>::BridgedHeaderChain;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -184,40 +150,6 @@ pub mod pallet {
 		type OwnerStorage = PalletOwner<T, I>;
 		type OperatingMode = MessagesOperatingMode;
 		type OperatingModeStorage = PalletOperatingMode<T, I>;
-	}
-
-	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I>
-	where
-		u32: TryFrom<BlockNumberFor<T>>,
-	{
-		fn on_idle(_block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			// we'll need at least to read outbound lane state, kill a message and update lane state
-			let db_weight = T::DbWeight::get();
-			if !remaining_weight.all_gte(db_weight.reads_writes(1, 2)) {
-				return Weight::zero()
-			}
-
-			// messages from lane with index `i` in `ActiveOutboundLanes` are pruned when
-			// `System::block_number() % lanes.len() == i`. Otherwise we need to read lane states on
-			// every block, wasting the whole `remaining_weight` for nothing and causing starvation
-			// of the last lane pruning
-			let active_lanes = T::ActiveOutboundLanes::get();
-			let active_lanes_len = (active_lanes.len() as u32).into();
-			let active_lane_index = u32::unique_saturated_from(
-				frame_system::Pallet::<T>::block_number() % active_lanes_len,
-			);
-			let active_lane_id = active_lanes[active_lane_index as usize];
-
-			// first db read - outbound lane state
-			let mut active_lane = outbound_lane::<T, I>(active_lane_id);
-			let mut used_weight = db_weight.reads(1);
-			// and here we'll have writes
-			used_weight += active_lane.prune_messages(db_weight, remaining_weight - used_weight);
-
-			// we already checked we have enough `remaining_weight` to cover this `used_weight`
-			used_weight
-		}
 	}
 
 	#[pallet::call]
@@ -265,11 +197,11 @@ pub mod pallet {
 		/// The call may succeed, but some messages may not be delivered e.g. if they are not fit
 		/// into the unrewarded relayers vector.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::receive_messages_proof_weight(proof, *messages_count, *dispatch_weight))]
+		#[pallet::weight(T::WeightInfo::receive_messages_proof_weight(&**proof, *messages_count, *dispatch_weight))]
 		pub fn receive_messages_proof(
 			origin: OriginFor<T>,
-			relayer_id_at_bridged_chain: T::InboundRelayer,
-			proof: MessagesProofOf<T, I>,
+			relayer_id_at_bridged_chain: AccountIdOf<BridgedChainOf<T, I>>,
+			proof: Box<FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>>>,
 			messages_count: u32,
 			dispatch_weight: Weight,
 		) -> DispatchResultWithPostInfo {
@@ -278,7 +210,8 @@ pub mod pallet {
 
 			// reject transactions that are declaring too many messages
 			ensure!(
-				MessageNonce::from(messages_count) <= T::MaxUnconfirmedMessagesAtInboundLane::get(),
+				MessageNonce::from(messages_count) <=
+					BridgedChainOf::<T, I>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 				Error::<T, I>::TooManyMessagesInTheProof
 			);
 
@@ -296,22 +229,19 @@ pub mod pallet {
 			// The DeclaredWeight is exactly what's computed here. Unfortunately it is impossible
 			// to get pre-computed value (and it has been already computed by the executive).
 			let declared_weight = T::WeightInfo::receive_messages_proof_weight(
-				&proof,
+				&*proof,
 				messages_count,
 				dispatch_weight,
 			);
 			let mut actual_weight = declared_weight;
 
 			// verify messages proof && convert proof into messages
-			let messages = verify_and_decode_messages_proof::<
-				T::SourceHeaderChain,
-				T::InboundPayload,
-			>(proof, messages_count)
-			.map_err(|err| {
-				log::trace!(target: LOG_TARGET, "Rejecting invalid messages proof: {:?}", err,);
+			let messages = verify_and_decode_messages_proof::<T, I>(*proof, messages_count)
+				.map_err(|err| {
+					log::trace!(target: LOG_TARGET, "Rejecting invalid messages proof: {:?}", err,);
 
-				Error::<T, I>::InvalidMessagesProof
-			})?;
+					Error::<T, I>::InvalidMessagesProof
+				})?;
 
 			// dispatch messages and (optionally) update lane(s) state(s)
 			let mut total_messages = 0;
@@ -376,13 +306,13 @@ pub mod pallet {
 					// delivery transaction cost anyway. And base cost covers everything except
 					// dispatch, so we have a balance here.
 					let unspent_weight = match &receival_result {
-						ReceivalResult::Dispatched(dispatch_result) => {
+						ReceptionResult::Dispatched(dispatch_result) => {
 							valid_messages += 1;
 							dispatch_result.unspent_weight
 						},
-						ReceivalResult::InvalidNonce |
-						ReceivalResult::TooManyUnrewardedRelayers |
-						ReceivalResult::TooManyUnconfirmedMessages => message_dispatch_weight,
+						ReceptionResult::InvalidNonce |
+						ReceptionResult::TooManyUnrewardedRelayers |
+						ReceptionResult::TooManyUnconfirmedMessages => message_dispatch_weight,
 					};
 					lane_messages_received_status.push(message.key.nonce, receival_result);
 
@@ -424,14 +354,14 @@ pub mod pallet {
 		))]
 		pub fn receive_messages_delivery_proof(
 			origin: OriginFor<T>,
-			proof: MessagesDeliveryProofOf<T, I>,
+			proof: FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<T, I>>>,
 			mut relayers_state: UnrewardedRelayersState,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
 
 			let proof_size = proof.size();
 			let confirmation_relayer = ensure_signed(origin)?;
-			let (lane_id, lane_data) = T::TargetHeaderChain::verify_messages_delivery_proof(proof)
+			let (lane_id, lane_data) = proofs::verify_messages_delivery_proof::<T, I>(proof)
 				.map_err(|err| {
 					log::trace!(
 						target: LOG_TARGET,
@@ -455,7 +385,7 @@ pub mod pallet {
 					last_delivered_nonce,
 					&lane_data.relayers,
 				)
-				.map_err(Error::<T, I>::ReceivalConfirmation)?;
+				.map_err(Error::<T, I>::ReceptionConfirmation)?;
 
 			if let Some(confirmed_messages) = confirmed_messages {
 				// emit 'delivered' event
@@ -542,8 +472,6 @@ pub mod pallet {
 		InactiveOutboundLane,
 		/// The inbound message dispatcher is inactive.
 		MessageDispatchInactive,
-		/// Message has been treated as invalid by chain verifier.
-		MessageRejectedByChainVerifier(VerificationError),
 		/// Message has been treated as invalid by the pallet logic.
 		MessageRejectedByPallet(VerificationError),
 		/// Submitter has failed to pay fee for delivering and dispatching messages.
@@ -563,7 +491,7 @@ pub mod pallet {
 		/// The message someone is trying to work with (i.e. increase fee) is not yet sent.
 		MessageIsNotYetSent,
 		/// Error confirming messages receival.
-		ReceivalConfirmation(ReceivalConfirmationError),
+		ReceptionConfirmation(ReceptionConfirmationError),
 		/// Error generated by the `OwnedBridgeModule` trait.
 		BridgeModule(bp_runtime::OwnedBridgeModuleError),
 	}
@@ -573,7 +501,7 @@ pub mod pallet {
 	/// Pallet owner has a right to halt all pallet operations and then resume it. If it is
 	/// `None`, then there are no direct ways to halt/resume pallet operations, but other
 	/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
-	/// flag directly or call the `halt_operations`).
+	/// flag directly or call the `set_operating_mode`).
 	#[pallet::storage]
 	#[pallet::getter(fn module_owner)]
 	pub type PalletOwner<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId>;
@@ -647,6 +575,14 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Get stored data of the outbound message with given nonce.
 		pub fn outbound_message_data(lane: LaneId, nonce: MessageNonce) -> Option<MessagePayload> {
@@ -674,8 +610,62 @@ pub mod pallet {
 		}
 
 		/// Return inbound lane data.
-		pub fn inbound_lane_data(lane: LaneId) -> InboundLaneData<T::InboundRelayer> {
+		pub fn inbound_lane_data(
+			lane: LaneId,
+		) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
 			InboundLanes::<T, I>::get(lane).0
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Ensure the correctness of the state of this pallet.
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state_for_outbound_lanes()
+		}
+
+		/// Ensure the correctness of the state of outbound lanes.
+		pub fn do_try_state_for_outbound_lanes() -> Result<(), sp_runtime::TryRuntimeError> {
+			use sp_runtime::traits::One;
+			use sp_std::vec::Vec;
+
+			// collect unpruned lanes
+			let mut unpruned_lanes = Vec::new();
+			for (lane_id, lane_data) in OutboundLanes::<T, I>::iter() {
+				let Some(expected_last_prunned_nonce) =
+					lane_data.oldest_unpruned_nonce.checked_sub(One::one())
+				else {
+					continue;
+				};
+
+				// collect message_nonces that were supposed to be pruned
+				let mut unpruned_message_nonces = Vec::new();
+				const MAX_MESSAGES_ITERATION: u64 = 16;
+				let start_nonce =
+					expected_last_prunned_nonce.checked_sub(MAX_MESSAGES_ITERATION).unwrap_or(0);
+				for current_nonce in start_nonce..=expected_last_prunned_nonce {
+					// check a message for current_nonce
+					if OutboundMessages::<T, I>::contains_key(MessageKey {
+						lane_id,
+						nonce: current_nonce,
+					}) {
+						unpruned_message_nonces.push(current_nonce);
+					}
+				}
+
+				if !unpruned_message_nonces.is_empty() {
+					log::warn!(
+						target: LOG_TARGET,
+						"do_try_state_for_outbound_lanes for lane_id: {lane_id:?} with lane_data: {lane_data:?} found unpruned_message_nonces: {unpruned_message_nonces:?}",
+					);
+					unpruned_lanes.push((lane_id, lane_data, unpruned_message_nonces));
+				}
+			}
+
+			// ensure messages before `oldest_unpruned_nonce` are really pruned.
+			ensure!(unpruned_lanes.is_empty(), "Found unpruned lanes!");
+
+			Ok(())
 		}
 	}
 
@@ -713,18 +703,6 @@ where
 
 		// let's check if outbound lane is active
 		ensure!(T::ActiveOutboundLanes::get().contains(&lane), Error::<T, I>::InactiveOutboundLane);
-
-		// let's first check if message can be delivered to target chain
-		T::TargetHeaderChain::verify_message(message).map_err(|err| {
-			log::trace!(
-				target: LOG_TARGET,
-				"Message to lane {:?} is rejected by target chain: {:?}",
-				lane,
-				err,
-			);
-
-			Error::<T, I>::MessageRejectedByChainVerifier(err)
-		})?;
 
 		Ok(SendMessageArgs {
 			lane_id: lane,
@@ -785,7 +763,7 @@ fn outbound_lane<T: Config<I>, I: 'static>(
 /// Runtime inbound lane storage.
 struct RuntimeInboundLaneStorage<T: Config<I>, I: 'static = ()> {
 	lane_id: LaneId,
-	cached_data: Option<InboundLaneData<T::InboundRelayer>>,
+	cached_data: Option<InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>>,
 	_phantom: PhantomData<I>,
 }
 
@@ -802,39 +780,39 @@ impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 	/// maximal configured.
 	///
 	/// Maximal inbound lane state set size is configured by the
-	/// `MaxUnrewardedRelayerEntriesAtInboundLane` constant from the pallet configuration. The PoV
+	/// `MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX` constant from the pallet configuration. The PoV
 	/// of the call includes the maximal size of inbound lane state. If the actual size is smaller,
 	/// we may subtract extra bytes from this component.
 	pub fn extra_proof_size_bytes(&mut self) -> u64 {
 		let max_encoded_len = StoredInboundLaneData::<T, I>::max_encoded_len();
 		let relayers_count = self.get_or_init_data().relayers.len();
 		let actual_encoded_len =
-			InboundLaneData::<T::InboundRelayer>::encoded_size_hint(relayers_count)
+			InboundLaneData::<AccountIdOf<BridgedChainOf<T, I>>>::encoded_size_hint(relayers_count)
 				.unwrap_or(usize::MAX);
 		max_encoded_len.saturating_sub(actual_encoded_len) as _
 	}
 }
 
 impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<T, I> {
-	type Relayer = T::InboundRelayer;
+	type Relayer = AccountIdOf<BridgedChainOf<T, I>>;
 
 	fn id(&self) -> LaneId {
 		self.lane_id
 	}
 
 	fn max_unrewarded_relayer_entries(&self) -> MessageNonce {
-		T::MaxUnrewardedRelayerEntriesAtInboundLane::get()
+		BridgedChainOf::<T, I>::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX
 	}
 
 	fn max_unconfirmed_messages(&self) -> MessageNonce {
-		T::MaxUnconfirmedMessagesAtInboundLane::get()
+		BridgedChainOf::<T, I>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX
 	}
 
-	fn get_or_init_data(&mut self) -> InboundLaneData<T::InboundRelayer> {
+	fn get_or_init_data(&mut self) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
 		match self.cached_data {
 			Some(ref data) => data.clone(),
 			None => {
-				let data: InboundLaneData<T::InboundRelayer> =
+				let data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> =
 					InboundLanes::<T, I>::get(self.lane_id).into();
 				self.cached_data = Some(data.clone());
 				data
@@ -842,7 +820,7 @@ impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<
 		}
 	}
 
-	fn set_data(&mut self, data: InboundLaneData<T::InboundRelayer>) {
+	fn set_data(&mut self, data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>) {
 		self.cached_data = Some(data.clone());
 		InboundLanes::<T, I>::insert(self.lane_id, StoredInboundLaneData::<T, I>(data))
 	}
@@ -887,14 +865,14 @@ impl<T: Config<I>, I: 'static> OutboundLaneStorage for RuntimeOutboundLaneStorag
 }
 
 /// Verify messages proof and return proved messages with decoded payload.
-fn verify_and_decode_messages_proof<Chain: SourceHeaderChain, DispatchPayload: Decode>(
-	proof: Chain::MessagesProof,
+fn verify_and_decode_messages_proof<T: Config<I>, I: 'static>(
+	proof: FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>>,
 	messages_count: u32,
-) -> Result<ProvedMessages<DispatchMessage<DispatchPayload>>, VerificationError> {
-	// `receive_messages_proof` weight formula and `MaxUnconfirmedMessagesAtInboundLane` check
-	// guarantees that the `message_count` is sane and Vec<Message> may be allocated.
+) -> Result<ProvedMessages<DispatchMessage<T::InboundPayload>>, VerificationError> {
+	// `receive_messages_proof` weight formula and `MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX`
+	// check guarantees that the `message_count` is sane and Vec<Message> may be allocated.
 	// (tx with too many messages will either be rejected from the pool, or will fail earlier)
-	Chain::verify_messages_proof(proof, messages_count).map(|messages_by_lane| {
+	proofs::verify_messages_proof::<T, I>(proof, messages_count).map(|messages_by_lane| {
 		messages_by_lane
 			.into_iter()
 			.map(|(lane, lane_data)| {
@@ -908,1210 +886,4 @@ fn verify_and_decode_messages_proof<Chain: SourceHeaderChain, DispatchPayload: D
 			})
 			.collect()
 	})
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::{
-		mock::{
-			inbound_unrewarded_relayers_state, message, message_payload, run_test,
-			unrewarded_relayer, AccountId, DbWeight, RuntimeEvent as TestEvent, RuntimeOrigin,
-			TestDeliveryConfirmationPayments, TestDeliveryPayments, TestMessageDispatch,
-			TestMessagesDeliveryProof, TestMessagesProof, TestOnMessagesDelivered, TestRelayer,
-			TestRuntime, TestWeightInfo, MAX_OUTBOUND_PAYLOAD_SIZE,
-			PAYLOAD_REJECTED_BY_TARGET_CHAIN, REGULAR_PAYLOAD, TEST_LANE_ID, TEST_LANE_ID_2,
-			TEST_LANE_ID_3, TEST_RELAYER_A, TEST_RELAYER_B,
-		},
-		outbound_lane::ReceivalConfirmationError,
-	};
-	use bp_messages::{
-		source_chain::MessagesBridge, BridgeMessagesCall, UnrewardedRelayer,
-		UnrewardedRelayersState,
-	};
-	use bp_test_utils::generate_owned_bridge_module_tests;
-	use frame_support::{
-		assert_noop, assert_ok,
-		dispatch::Pays,
-		storage::generator::{StorageMap, StorageValue},
-		traits::Hooks,
-		weights::Weight,
-	};
-	use frame_system::{EventRecord, Pallet as System, Phase};
-	use sp_runtime::DispatchError;
-
-	fn get_ready_for_events() {
-		System::<TestRuntime>::set_block_number(1);
-		System::<TestRuntime>::reset_events();
-	}
-
-	fn send_regular_message(lane_id: LaneId) {
-		get_ready_for_events();
-
-		let outbound_lane = outbound_lane::<TestRuntime, ()>(lane_id);
-		let message_nonce = outbound_lane.data().latest_generated_nonce + 1;
-		let prev_enqueud_messages = outbound_lane.data().queued_messages().saturating_len();
-		let valid_message = Pallet::<TestRuntime, ()>::validate_message(lane_id, &REGULAR_PAYLOAD)
-			.expect("validate_message has failed");
-		let artifacts = Pallet::<TestRuntime, ()>::send_message(valid_message);
-		assert_eq!(artifacts.enqueued_messages, prev_enqueud_messages + 1);
-
-		// check event with assigned nonce
-		assert_eq!(
-			System::<TestRuntime>::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: TestEvent::Messages(Event::MessageAccepted {
-					lane_id,
-					nonce: message_nonce
-				}),
-				topics: vec![],
-			}],
-		);
-	}
-
-	fn receive_messages_delivery_proof() {
-		System::<TestRuntime>::set_block_number(1);
-		System::<TestRuntime>::reset_events();
-
-		assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
-			RuntimeOrigin::signed(1),
-			TestMessagesDeliveryProof(Ok((
-				TEST_LANE_ID,
-				InboundLaneData {
-					last_confirmed_nonce: 1,
-					relayers: vec![UnrewardedRelayer {
-						relayer: 0,
-						messages: DeliveredMessages::new(1),
-					}]
-					.into_iter()
-					.collect(),
-				},
-			))),
-			UnrewardedRelayersState {
-				unrewarded_relayer_entries: 1,
-				messages_in_oldest_entry: 1,
-				total_messages: 1,
-				last_delivered_nonce: 1,
-			},
-		));
-
-		assert_eq!(
-			System::<TestRuntime>::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: TestEvent::Messages(Event::MessagesDelivered {
-					lane_id: TEST_LANE_ID,
-					messages: DeliveredMessages::new(1),
-				}),
-				topics: vec![],
-			}],
-		);
-	}
-
-	#[test]
-	fn pallet_rejects_transactions_if_halted() {
-		run_test(|| {
-			// send message first to be able to check that delivery_proof fails later
-			send_regular_message(TEST_LANE_ID);
-
-			PalletOperatingMode::<TestRuntime, ()>::put(MessagesOperatingMode::Basic(
-				BasicOperatingMode::Halted,
-			));
-
-			assert_noop!(
-				Pallet::<TestRuntime, ()>::validate_message(TEST_LANE_ID, &REGULAR_PAYLOAD),
-				Error::<TestRuntime, ()>::NotOperatingNormally,
-			);
-
-			assert_noop!(
-				Pallet::<TestRuntime>::receive_messages_proof(
-					RuntimeOrigin::signed(1),
-					TEST_RELAYER_A,
-					Ok(vec![message(2, REGULAR_PAYLOAD)]).into(),
-					1,
-					REGULAR_PAYLOAD.declared_weight,
-				),
-				Error::<TestRuntime, ()>::BridgeModule(bp_runtime::OwnedBridgeModuleError::Halted),
-			);
-
-			assert_noop!(
-				Pallet::<TestRuntime>::receive_messages_delivery_proof(
-					RuntimeOrigin::signed(1),
-					TestMessagesDeliveryProof(Ok((
-						TEST_LANE_ID,
-						InboundLaneData {
-							last_confirmed_nonce: 1,
-							relayers: vec![unrewarded_relayer(1, 1, TEST_RELAYER_A)]
-								.into_iter()
-								.collect(),
-						},
-					))),
-					UnrewardedRelayersState {
-						unrewarded_relayer_entries: 1,
-						messages_in_oldest_entry: 1,
-						total_messages: 1,
-						last_delivered_nonce: 1,
-					},
-				),
-				Error::<TestRuntime, ()>::BridgeModule(bp_runtime::OwnedBridgeModuleError::Halted),
-			);
-		});
-	}
-
-	#[test]
-	fn pallet_rejects_new_messages_in_rejecting_outbound_messages_operating_mode() {
-		run_test(|| {
-			// send message first to be able to check that delivery_proof fails later
-			send_regular_message(TEST_LANE_ID);
-
-			PalletOperatingMode::<TestRuntime, ()>::put(
-				MessagesOperatingMode::RejectingOutboundMessages,
-			);
-
-			assert_noop!(
-				Pallet::<TestRuntime, ()>::validate_message(TEST_LANE_ID, &REGULAR_PAYLOAD),
-				Error::<TestRuntime, ()>::NotOperatingNormally,
-			);
-
-			assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
-				TEST_RELAYER_A,
-				Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
-				1,
-				REGULAR_PAYLOAD.declared_weight,
-			),);
-
-			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
-				TestMessagesDeliveryProof(Ok((
-					TEST_LANE_ID,
-					InboundLaneData {
-						last_confirmed_nonce: 1,
-						relayers: vec![unrewarded_relayer(1, 1, TEST_RELAYER_A)]
-							.into_iter()
-							.collect(),
-					},
-				))),
-				UnrewardedRelayersState {
-					unrewarded_relayer_entries: 1,
-					messages_in_oldest_entry: 1,
-					total_messages: 1,
-					last_delivered_nonce: 1,
-				},
-			));
-		});
-	}
-
-	#[test]
-	fn send_message_works() {
-		run_test(|| {
-			send_regular_message(TEST_LANE_ID);
-		});
-	}
-
-	#[test]
-	fn send_message_rejects_too_large_message() {
-		run_test(|| {
-			let mut message_payload = message_payload(1, 0);
-			// the payload isn't simply extra, so it'll definitely overflow
-			// `MAX_OUTBOUND_PAYLOAD_SIZE` if we add `MAX_OUTBOUND_PAYLOAD_SIZE` bytes to extra
-			message_payload
-				.extra
-				.extend_from_slice(&[0u8; MAX_OUTBOUND_PAYLOAD_SIZE as usize]);
-			assert_noop!(
-				Pallet::<TestRuntime, ()>::validate_message(TEST_LANE_ID, &message_payload.clone(),),
-				Error::<TestRuntime, ()>::MessageRejectedByPallet(
-					VerificationError::MessageTooLarge
-				),
-			);
-
-			// let's check that we're able to send `MAX_OUTBOUND_PAYLOAD_SIZE` messages
-			while message_payload.encoded_size() as u32 > MAX_OUTBOUND_PAYLOAD_SIZE {
-				message_payload.extra.pop();
-			}
-			assert_eq!(message_payload.encoded_size() as u32, MAX_OUTBOUND_PAYLOAD_SIZE);
-
-			let valid_message =
-				Pallet::<TestRuntime, ()>::validate_message(TEST_LANE_ID, &message_payload)
-					.expect("validate_message has failed");
-			Pallet::<TestRuntime, ()>::send_message(valid_message);
-		})
-	}
-
-	#[test]
-	fn chain_verifier_rejects_invalid_message_in_send_message() {
-		run_test(|| {
-			// messages with this payload are rejected by target chain verifier
-			assert_noop!(
-				Pallet::<TestRuntime, ()>::validate_message(
-					TEST_LANE_ID,
-					&PAYLOAD_REJECTED_BY_TARGET_CHAIN,
-				),
-				Error::<TestRuntime, ()>::MessageRejectedByChainVerifier(VerificationError::Other(
-					mock::TEST_ERROR
-				)),
-			);
-		});
-	}
-
-	#[test]
-	fn receive_messages_proof_works() {
-		run_test(|| {
-			assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
-				TEST_RELAYER_A,
-				Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
-				1,
-				REGULAR_PAYLOAD.declared_weight,
-			));
-
-			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).0.last_delivered_nonce(), 1);
-
-			assert!(TestDeliveryPayments::is_reward_paid(1));
-		});
-	}
-
-	#[test]
-	fn receive_messages_proof_updates_confirmed_message_nonce() {
-		run_test(|| {
-			// say we have received 10 messages && last confirmed message is 8
-			InboundLanes::<TestRuntime, ()>::insert(
-				TEST_LANE_ID,
-				InboundLaneData {
-					last_confirmed_nonce: 8,
-					relayers: vec![
-						unrewarded_relayer(9, 9, TEST_RELAYER_A),
-						unrewarded_relayer(10, 10, TEST_RELAYER_B),
-					]
-					.into_iter()
-					.collect(),
-				},
-			);
-			assert_eq!(
-				inbound_unrewarded_relayers_state(TEST_LANE_ID),
-				UnrewardedRelayersState {
-					unrewarded_relayer_entries: 2,
-					messages_in_oldest_entry: 1,
-					total_messages: 2,
-					last_delivered_nonce: 10,
-				},
-			);
-
-			// message proof includes outbound lane state with latest confirmed message updated to 9
-			let mut message_proof: TestMessagesProof =
-				Ok(vec![message(11, REGULAR_PAYLOAD)]).into();
-			message_proof.result.as_mut().unwrap()[0].1.lane_state =
-				Some(OutboundLaneData { latest_received_nonce: 9, ..Default::default() });
-
-			assert_ok!(Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
-				TEST_RELAYER_A,
-				message_proof,
-				1,
-				REGULAR_PAYLOAD.declared_weight,
-			));
-
-			assert_eq!(
-				InboundLanes::<TestRuntime>::get(TEST_LANE_ID).0,
-				InboundLaneData {
-					last_confirmed_nonce: 9,
-					relayers: vec![
-						unrewarded_relayer(10, 10, TEST_RELAYER_B),
-						unrewarded_relayer(11, 11, TEST_RELAYER_A)
-					]
-					.into_iter()
-					.collect(),
-				},
-			);
-			assert_eq!(
-				inbound_unrewarded_relayers_state(TEST_LANE_ID),
-				UnrewardedRelayersState {
-					unrewarded_relayer_entries: 2,
-					messages_in_oldest_entry: 1,
-					total_messages: 2,
-					last_delivered_nonce: 11,
-				},
-			);
-		});
-	}
-
-	#[test]
-	fn receive_messages_fails_if_dispatcher_is_inactive() {
-		run_test(|| {
-			TestMessageDispatch::deactivate();
-			assert_noop!(
-				Pallet::<TestRuntime>::receive_messages_proof(
-					RuntimeOrigin::signed(1),
-					TEST_RELAYER_A,
-					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
-					1,
-					REGULAR_PAYLOAD.declared_weight,
-				),
-				Error::<TestRuntime, ()>::MessageDispatchInactive,
-			);
-		});
-	}
-
-	#[test]
-	fn receive_messages_proof_does_not_accept_message_if_dispatch_weight_is_not_enough() {
-		run_test(|| {
-			let mut declared_weight = REGULAR_PAYLOAD.declared_weight;
-			*declared_weight.ref_time_mut() -= 1;
-			assert_noop!(
-				Pallet::<TestRuntime>::receive_messages_proof(
-					RuntimeOrigin::signed(1),
-					TEST_RELAYER_A,
-					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
-					1,
-					declared_weight,
-				),
-				Error::<TestRuntime, ()>::InsufficientDispatchWeight
-			);
-			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 0);
-		});
-	}
-
-	#[test]
-	fn receive_messages_proof_rejects_invalid_proof() {
-		run_test(|| {
-			assert_noop!(
-				Pallet::<TestRuntime, ()>::receive_messages_proof(
-					RuntimeOrigin::signed(1),
-					TEST_RELAYER_A,
-					Err(()).into(),
-					1,
-					Weight::zero(),
-				),
-				Error::<TestRuntime, ()>::InvalidMessagesProof,
-			);
-		});
-	}
-
-	#[test]
-	fn receive_messages_proof_rejects_proof_with_too_many_messages() {
-		run_test(|| {
-			assert_noop!(
-				Pallet::<TestRuntime, ()>::receive_messages_proof(
-					RuntimeOrigin::signed(1),
-					TEST_RELAYER_A,
-					Ok(vec![message(1, REGULAR_PAYLOAD)]).into(),
-					u32::MAX,
-					Weight::zero(),
-				),
-				Error::<TestRuntime, ()>::TooManyMessagesInTheProof,
-			);
-		});
-	}
-
-	#[test]
-	fn receive_messages_delivery_proof_works() {
-		run_test(|| {
-			send_regular_message(TEST_LANE_ID);
-			receive_messages_delivery_proof();
-
-			assert_eq!(
-				OutboundLanes::<TestRuntime, ()>::get(TEST_LANE_ID).latest_received_nonce,
-				1,
-			);
-		});
-	}
-
-	#[test]
-	fn receive_messages_delivery_proof_rewards_relayers() {
-		run_test(|| {
-			send_regular_message(TEST_LANE_ID);
-			send_regular_message(TEST_LANE_ID);
-
-			// this reports delivery of message 1 => reward is paid to TEST_RELAYER_A
-			let single_message_delivery_proof = TestMessagesDeliveryProof(Ok((
-				TEST_LANE_ID,
-				InboundLaneData {
-					relayers: vec![unrewarded_relayer(1, 1, TEST_RELAYER_A)].into_iter().collect(),
-					..Default::default()
-				},
-			)));
-			let single_message_delivery_proof_size = single_message_delivery_proof.size();
-			let result = Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
-				single_message_delivery_proof,
-				UnrewardedRelayersState {
-					unrewarded_relayer_entries: 1,
-					messages_in_oldest_entry: 1,
-					total_messages: 1,
-					last_delivered_nonce: 1,
-				},
-			);
-			assert_ok!(result);
-			assert_eq!(
-				result.unwrap().actual_weight.unwrap(),
-				TestWeightInfo::receive_messages_delivery_proof_weight(
-					&PreComputedSize(single_message_delivery_proof_size as _),
-					&UnrewardedRelayersState {
-						unrewarded_relayer_entries: 1,
-						total_messages: 1,
-						..Default::default()
-					},
-				)
-			);
-			assert!(TestDeliveryConfirmationPayments::is_reward_paid(TEST_RELAYER_A, 1));
-			assert!(!TestDeliveryConfirmationPayments::is_reward_paid(TEST_RELAYER_B, 1));
-			assert_eq!(TestOnMessagesDelivered::call_arguments(), Some((TEST_LANE_ID, 1)));
-
-			// this reports delivery of both message 1 and message 2 => reward is paid only to
-			// TEST_RELAYER_B
-			let two_messages_delivery_proof = TestMessagesDeliveryProof(Ok((
-				TEST_LANE_ID,
-				InboundLaneData {
-					relayers: vec![
-						unrewarded_relayer(1, 1, TEST_RELAYER_A),
-						unrewarded_relayer(2, 2, TEST_RELAYER_B),
-					]
-					.into_iter()
-					.collect(),
-					..Default::default()
-				},
-			)));
-			let two_messages_delivery_proof_size = two_messages_delivery_proof.size();
-			let result = Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
-				two_messages_delivery_proof,
-				UnrewardedRelayersState {
-					unrewarded_relayer_entries: 2,
-					messages_in_oldest_entry: 1,
-					total_messages: 2,
-					last_delivered_nonce: 2,
-				},
-			);
-			assert_ok!(result);
-			// even though the pre-dispatch weight was for two messages, the actual weight is
-			// for single message only
-			assert_eq!(
-				result.unwrap().actual_weight.unwrap(),
-				TestWeightInfo::receive_messages_delivery_proof_weight(
-					&PreComputedSize(two_messages_delivery_proof_size as _),
-					&UnrewardedRelayersState {
-						unrewarded_relayer_entries: 1,
-						total_messages: 1,
-						..Default::default()
-					},
-				)
-			);
-			assert!(!TestDeliveryConfirmationPayments::is_reward_paid(TEST_RELAYER_A, 1));
-			assert!(TestDeliveryConfirmationPayments::is_reward_paid(TEST_RELAYER_B, 1));
-			assert_eq!(TestOnMessagesDelivered::call_arguments(), Some((TEST_LANE_ID, 0)));
-		});
-	}
-
-	#[test]
-	fn receive_messages_delivery_proof_rejects_invalid_proof() {
-		run_test(|| {
-			assert_noop!(
-				Pallet::<TestRuntime>::receive_messages_delivery_proof(
-					RuntimeOrigin::signed(1),
-					TestMessagesDeliveryProof(Err(())),
-					Default::default(),
-				),
-				Error::<TestRuntime, ()>::InvalidMessagesDeliveryProof,
-			);
-		});
-	}
-
-	#[test]
-	fn receive_messages_delivery_proof_rejects_proof_if_declared_relayers_state_is_invalid() {
-		run_test(|| {
-			// when number of relayers entries is invalid
-			assert_noop!(
-				Pallet::<TestRuntime>::receive_messages_delivery_proof(
-					RuntimeOrigin::signed(1),
-					TestMessagesDeliveryProof(Ok((
-						TEST_LANE_ID,
-						InboundLaneData {
-							relayers: vec![
-								unrewarded_relayer(1, 1, TEST_RELAYER_A),
-								unrewarded_relayer(2, 2, TEST_RELAYER_B)
-							]
-							.into_iter()
-							.collect(),
-							..Default::default()
-						}
-					))),
-					UnrewardedRelayersState {
-						unrewarded_relayer_entries: 1,
-						total_messages: 2,
-						last_delivered_nonce: 2,
-						..Default::default()
-					},
-				),
-				Error::<TestRuntime, ()>::InvalidUnrewardedRelayersState,
-			);
-
-			// when number of messages is invalid
-			assert_noop!(
-				Pallet::<TestRuntime>::receive_messages_delivery_proof(
-					RuntimeOrigin::signed(1),
-					TestMessagesDeliveryProof(Ok((
-						TEST_LANE_ID,
-						InboundLaneData {
-							relayers: vec![
-								unrewarded_relayer(1, 1, TEST_RELAYER_A),
-								unrewarded_relayer(2, 2, TEST_RELAYER_B)
-							]
-							.into_iter()
-							.collect(),
-							..Default::default()
-						}
-					))),
-					UnrewardedRelayersState {
-						unrewarded_relayer_entries: 2,
-						total_messages: 1,
-						last_delivered_nonce: 2,
-						..Default::default()
-					},
-				),
-				Error::<TestRuntime, ()>::InvalidUnrewardedRelayersState,
-			);
-
-			// when last delivered nonce is invalid
-			assert_noop!(
-				Pallet::<TestRuntime>::receive_messages_delivery_proof(
-					RuntimeOrigin::signed(1),
-					TestMessagesDeliveryProof(Ok((
-						TEST_LANE_ID,
-						InboundLaneData {
-							relayers: vec![
-								unrewarded_relayer(1, 1, TEST_RELAYER_A),
-								unrewarded_relayer(2, 2, TEST_RELAYER_B)
-							]
-							.into_iter()
-							.collect(),
-							..Default::default()
-						}
-					))),
-					UnrewardedRelayersState {
-						unrewarded_relayer_entries: 2,
-						total_messages: 2,
-						last_delivered_nonce: 8,
-						..Default::default()
-					},
-				),
-				Error::<TestRuntime, ()>::InvalidUnrewardedRelayersState,
-			);
-		});
-	}
-
-	#[test]
-	fn receive_messages_accepts_single_message_with_invalid_payload() {
-		run_test(|| {
-			let mut invalid_message = message(1, REGULAR_PAYLOAD);
-			invalid_message.payload = Vec::new();
-
-			assert_ok!(Pallet::<TestRuntime, ()>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
-				TEST_RELAYER_A,
-				Ok(vec![invalid_message]).into(),
-				1,
-				Weight::zero(), /* weight may be zero in this case (all messages are
-				                 * improperly encoded) */
-			),);
-
-			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 1,);
-		});
-	}
-
-	#[test]
-	fn receive_messages_accepts_batch_with_message_with_invalid_payload() {
-		run_test(|| {
-			let mut invalid_message = message(2, REGULAR_PAYLOAD);
-			invalid_message.payload = Vec::new();
-
-			assert_ok!(Pallet::<TestRuntime, ()>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
-				TEST_RELAYER_A,
-				Ok(
-					vec![message(1, REGULAR_PAYLOAD), invalid_message, message(3, REGULAR_PAYLOAD),]
-				)
-				.into(),
-				3,
-				REGULAR_PAYLOAD.declared_weight + REGULAR_PAYLOAD.declared_weight,
-			),);
-
-			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 3,);
-		});
-	}
-
-	#[test]
-	fn actual_dispatch_weight_does_not_overlow() {
-		run_test(|| {
-			let message1 = message(1, message_payload(0, u64::MAX / 2));
-			let message2 = message(2, message_payload(0, u64::MAX / 2));
-			let message3 = message(3, message_payload(0, u64::MAX / 2));
-
-			assert_noop!(
-				Pallet::<TestRuntime, ()>::receive_messages_proof(
-					RuntimeOrigin::signed(1),
-					TEST_RELAYER_A,
-					// this may cause overflow if source chain storage is invalid
-					Ok(vec![message1, message2, message3]).into(),
-					3,
-					Weight::MAX,
-				),
-				Error::<TestRuntime, ()>::InsufficientDispatchWeight
-			);
-			assert_eq!(InboundLanes::<TestRuntime>::get(TEST_LANE_ID).last_delivered_nonce(), 0);
-		});
-	}
-
-	#[test]
-	fn ref_time_refund_from_receive_messages_proof_works() {
-		run_test(|| {
-			fn submit_with_unspent_weight(
-				nonce: MessageNonce,
-				unspent_weight: u64,
-			) -> (Weight, Weight) {
-				let mut payload = REGULAR_PAYLOAD;
-				*payload.dispatch_result.unspent_weight.ref_time_mut() = unspent_weight;
-				let proof = Ok(vec![message(nonce, payload)]).into();
-				let messages_count = 1;
-				let pre_dispatch_weight =
-					<TestRuntime as Config>::WeightInfo::receive_messages_proof_weight(
-						&proof,
-						messages_count,
-						REGULAR_PAYLOAD.declared_weight,
-					);
-				let result = Pallet::<TestRuntime>::receive_messages_proof(
-					RuntimeOrigin::signed(1),
-					TEST_RELAYER_A,
-					proof,
-					messages_count,
-					REGULAR_PAYLOAD.declared_weight,
-				)
-				.expect("delivery has failed");
-				let post_dispatch_weight =
-					result.actual_weight.expect("receive_messages_proof always returns Some");
-
-				// message delivery transactions are never free
-				assert_eq!(result.pays_fee, Pays::Yes);
-
-				(pre_dispatch_weight, post_dispatch_weight)
-			}
-
-			// when dispatch is returning `unspent_weight < declared_weight`
-			let (pre, post) = submit_with_unspent_weight(1, 1);
-			assert_eq!(post.ref_time(), pre.ref_time() - 1);
-
-			// when dispatch is returning `unspent_weight = declared_weight`
-			let (pre, post) =
-				submit_with_unspent_weight(2, REGULAR_PAYLOAD.declared_weight.ref_time());
-			assert_eq!(
-				post.ref_time(),
-				pre.ref_time() - REGULAR_PAYLOAD.declared_weight.ref_time()
-			);
-
-			// when dispatch is returning `unspent_weight > declared_weight`
-			let (pre, post) =
-				submit_with_unspent_weight(3, REGULAR_PAYLOAD.declared_weight.ref_time() + 1);
-			assert_eq!(
-				post.ref_time(),
-				pre.ref_time() - REGULAR_PAYLOAD.declared_weight.ref_time()
-			);
-
-			// when there's no unspent weight
-			let (pre, post) = submit_with_unspent_weight(4, 0);
-			assert_eq!(post.ref_time(), pre.ref_time());
-
-			// when dispatch is returning `unspent_weight < declared_weight`
-			let (pre, post) = submit_with_unspent_weight(5, 1);
-			assert_eq!(post.ref_time(), pre.ref_time() - 1);
-		});
-	}
-
-	#[test]
-	fn proof_size_refund_from_receive_messages_proof_works() {
-		run_test(|| {
-			let max_entries = crate::mock::MaxUnrewardedRelayerEntriesAtInboundLane::get() as usize;
-
-			// if there's maximal number of unrewarded relayer entries at the inbound lane, then
-			// `proof_size` is unchanged in post-dispatch weight
-			let proof: TestMessagesProof = Ok(vec![message(101, REGULAR_PAYLOAD)]).into();
-			let messages_count = 1;
-			let pre_dispatch_weight =
-				<TestRuntime as Config>::WeightInfo::receive_messages_proof_weight(
-					&proof,
-					messages_count,
-					REGULAR_PAYLOAD.declared_weight,
-				);
-			InboundLanes::<TestRuntime>::insert(
-				TEST_LANE_ID,
-				StoredInboundLaneData(InboundLaneData {
-					relayers: vec![
-						UnrewardedRelayer {
-							relayer: 42,
-							messages: DeliveredMessages { begin: 0, end: 100 }
-						};
-						max_entries
-					]
-					.into_iter()
-					.collect(),
-					last_confirmed_nonce: 0,
-				}),
-			);
-			let post_dispatch_weight = Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
-				TEST_RELAYER_A,
-				proof.clone(),
-				messages_count,
-				REGULAR_PAYLOAD.declared_weight,
-			)
-			.unwrap()
-			.actual_weight
-			.unwrap();
-			assert_eq!(post_dispatch_weight.proof_size(), pre_dispatch_weight.proof_size());
-
-			// if count of unrewarded relayer entries is less than maximal, then some `proof_size`
-			// must be refunded
-			InboundLanes::<TestRuntime>::insert(
-				TEST_LANE_ID,
-				StoredInboundLaneData(InboundLaneData {
-					relayers: vec![
-						UnrewardedRelayer {
-							relayer: 42,
-							messages: DeliveredMessages { begin: 0, end: 100 }
-						};
-						max_entries - 1
-					]
-					.into_iter()
-					.collect(),
-					last_confirmed_nonce: 0,
-				}),
-			);
-			let post_dispatch_weight = Pallet::<TestRuntime>::receive_messages_proof(
-				RuntimeOrigin::signed(1),
-				TEST_RELAYER_A,
-				proof,
-				messages_count,
-				REGULAR_PAYLOAD.declared_weight,
-			)
-			.unwrap()
-			.actual_weight
-			.unwrap();
-			assert!(
-				post_dispatch_weight.proof_size() < pre_dispatch_weight.proof_size(),
-				"Expected post-dispatch PoV {} to be less than pre-dispatch PoV {}",
-				post_dispatch_weight.proof_size(),
-				pre_dispatch_weight.proof_size(),
-			);
-		});
-	}
-
-	#[test]
-	fn messages_delivered_callbacks_are_called() {
-		run_test(|| {
-			send_regular_message(TEST_LANE_ID);
-			send_regular_message(TEST_LANE_ID);
-			send_regular_message(TEST_LANE_ID);
-
-			// messages 1+2 are confirmed in 1 tx, message 3 in a separate tx
-			// dispatch of message 2 has failed
-			let mut delivered_messages_1_and_2 = DeliveredMessages::new(1);
-			delivered_messages_1_and_2.note_dispatched_message();
-			let messages_1_and_2_proof = Ok((
-				TEST_LANE_ID,
-				InboundLaneData {
-					last_confirmed_nonce: 0,
-					relayers: vec![UnrewardedRelayer {
-						relayer: 0,
-						messages: delivered_messages_1_and_2.clone(),
-					}]
-					.into_iter()
-					.collect(),
-				},
-			));
-			let delivered_message_3 = DeliveredMessages::new(3);
-			let messages_3_proof = Ok((
-				TEST_LANE_ID,
-				InboundLaneData {
-					last_confirmed_nonce: 0,
-					relayers: vec![UnrewardedRelayer { relayer: 0, messages: delivered_message_3 }]
-						.into_iter()
-						.collect(),
-				},
-			));
-
-			// first tx with messages 1+2
-			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
-				TestMessagesDeliveryProof(messages_1_and_2_proof),
-				UnrewardedRelayersState {
-					unrewarded_relayer_entries: 1,
-					messages_in_oldest_entry: 2,
-					total_messages: 2,
-					last_delivered_nonce: 2,
-				},
-			));
-			// second tx with message 3
-			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
-				TestMessagesDeliveryProof(messages_3_proof),
-				UnrewardedRelayersState {
-					unrewarded_relayer_entries: 1,
-					messages_in_oldest_entry: 1,
-					total_messages: 1,
-					last_delivered_nonce: 3,
-				},
-			));
-		});
-	}
-
-	#[test]
-	fn receive_messages_delivery_proof_rejects_proof_if_trying_to_confirm_more_messages_than_expected(
-	) {
-		run_test(|| {
-			// send message first to be able to check that delivery_proof fails later
-			send_regular_message(TEST_LANE_ID);
-
-			// 1) InboundLaneData declares that the `last_confirmed_nonce` is 1;
-			// 2) InboundLaneData has no entries => `InboundLaneData::last_delivered_nonce()`
-			//    returns `last_confirmed_nonce`;
-			// 3) it means that we're going to confirm delivery of messages 1..=1;
-			// 4) so the number of declared messages (see `UnrewardedRelayersState`) is `0` and
-			//    numer of actually confirmed messages is `1`.
-			assert_noop!(
-				Pallet::<TestRuntime>::receive_messages_delivery_proof(
-					RuntimeOrigin::signed(1),
-					TestMessagesDeliveryProof(Ok((
-						TEST_LANE_ID,
-						InboundLaneData { last_confirmed_nonce: 1, relayers: Default::default() },
-					))),
-					UnrewardedRelayersState { last_delivered_nonce: 1, ..Default::default() },
-				),
-				Error::<TestRuntime, ()>::ReceivalConfirmation(
-					ReceivalConfirmationError::TryingToConfirmMoreMessagesThanExpected
-				),
-			);
-		});
-	}
-
-	#[test]
-	fn storage_keys_computed_properly() {
-		assert_eq!(
-			PalletOperatingMode::<TestRuntime>::storage_value_final_key().to_vec(),
-			bp_messages::storage_keys::operating_mode_key("Messages").0,
-		);
-
-		assert_eq!(
-			OutboundMessages::<TestRuntime>::storage_map_final_key(MessageKey {
-				lane_id: TEST_LANE_ID,
-				nonce: 42
-			}),
-			bp_messages::storage_keys::message_key("Messages", &TEST_LANE_ID, 42).0,
-		);
-
-		assert_eq!(
-			OutboundLanes::<TestRuntime>::storage_map_final_key(TEST_LANE_ID),
-			bp_messages::storage_keys::outbound_lane_data_key("Messages", &TEST_LANE_ID).0,
-		);
-
-		assert_eq!(
-			InboundLanes::<TestRuntime>::storage_map_final_key(TEST_LANE_ID),
-			bp_messages::storage_keys::inbound_lane_data_key("Messages", &TEST_LANE_ID).0,
-		);
-	}
-
-	#[test]
-	fn inbound_message_details_works() {
-		run_test(|| {
-			assert_eq!(
-				Pallet::<TestRuntime>::inbound_message_data(
-					TEST_LANE_ID,
-					REGULAR_PAYLOAD.encode(),
-					OutboundMessageDetails { nonce: 0, dispatch_weight: Weight::zero(), size: 0 },
-				),
-				InboundMessageDetails { dispatch_weight: REGULAR_PAYLOAD.declared_weight },
-			);
-		});
-	}
-
-	#[test]
-	fn on_idle_callback_respects_remaining_weight() {
-		run_test(|| {
-			send_regular_message(TEST_LANE_ID);
-			send_regular_message(TEST_LANE_ID);
-			send_regular_message(TEST_LANE_ID);
-			send_regular_message(TEST_LANE_ID);
-
-			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
-				TestMessagesDeliveryProof(Ok((
-					TEST_LANE_ID,
-					InboundLaneData {
-						last_confirmed_nonce: 4,
-						relayers: vec![unrewarded_relayer(1, 4, TEST_RELAYER_A)]
-							.into_iter()
-							.collect(),
-					},
-				))),
-				UnrewardedRelayersState {
-					unrewarded_relayer_entries: 1,
-					messages_in_oldest_entry: 4,
-					total_messages: 4,
-					last_delivered_nonce: 4,
-				},
-			));
-
-			// all 4 messages may be pruned now
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().latest_received_nonce,
-				4
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
-				1
-			);
-			System::<TestRuntime>::set_block_number(2);
-
-			// if passed wight is too low to do anything
-			let dbw = DbWeight::get();
-			assert_eq!(
-				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(1, 1)),
-				Weight::zero(),
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
-				1
-			);
-
-			// if passed wight is enough to prune single message
-			assert_eq!(
-				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(1, 2)),
-				dbw.reads_writes(1, 2),
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
-				2
-			);
-
-			// if passed wight is enough to prune two more messages
-			assert_eq!(
-				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(1, 3)),
-				dbw.reads_writes(1, 3),
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
-				4
-			);
-
-			// if passed wight is enough to prune many messages
-			assert_eq!(
-				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(100, 100)),
-				dbw.reads_writes(1, 2),
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
-				5
-			);
-		});
-	}
-
-	#[test]
-	fn on_idle_callback_is_rotating_lanes_to_prune() {
-		run_test(|| {
-			// send + receive confirmation for lane 1
-			send_regular_message(TEST_LANE_ID);
-			receive_messages_delivery_proof();
-			// send + receive confirmation for lane 2
-			send_regular_message(TEST_LANE_ID_2);
-			assert_ok!(Pallet::<TestRuntime>::receive_messages_delivery_proof(
-				RuntimeOrigin::signed(1),
-				TestMessagesDeliveryProof(Ok((
-					TEST_LANE_ID_2,
-					InboundLaneData {
-						last_confirmed_nonce: 1,
-						relayers: vec![unrewarded_relayer(1, 1, TEST_RELAYER_A)]
-							.into_iter()
-							.collect(),
-					},
-				))),
-				UnrewardedRelayersState {
-					unrewarded_relayer_entries: 1,
-					messages_in_oldest_entry: 1,
-					total_messages: 1,
-					last_delivered_nonce: 1,
-				},
-			));
-
-			// nothing is pruned yet
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().latest_received_nonce,
-				1
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
-				1
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().latest_received_nonce,
-				1
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().oldest_unpruned_nonce,
-				1
-			);
-
-			// in block#2.on_idle lane messages of lane 1 are pruned
-			let dbw = DbWeight::get();
-			System::<TestRuntime>::set_block_number(2);
-			assert_eq!(
-				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(100, 100)),
-				dbw.reads_writes(1, 2),
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
-				2
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().oldest_unpruned_nonce,
-				1
-			);
-
-			// in block#3.on_idle lane messages of lane 2 are pruned
-			System::<TestRuntime>::set_block_number(3);
-
-			assert_eq!(
-				Pallet::<TestRuntime, ()>::on_idle(0, dbw.reads_writes(100, 100)),
-				dbw.reads_writes(1, 2),
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID).data().oldest_unpruned_nonce,
-				2
-			);
-			assert_eq!(
-				outbound_lane::<TestRuntime, ()>(TEST_LANE_ID_2).data().oldest_unpruned_nonce,
-				2
-			);
-		});
-	}
-
-	#[test]
-	fn outbound_message_from_unconfigured_lane_is_rejected() {
-		run_test(|| {
-			assert_noop!(
-				Pallet::<TestRuntime, ()>::validate_message(TEST_LANE_ID_3, &REGULAR_PAYLOAD,),
-				Error::<TestRuntime, ()>::InactiveOutboundLane,
-			);
-		});
-	}
-
-	#[test]
-	fn test_bridge_messages_call_is_correctly_defined() {
-		let account_id = 1;
-		let message_proof: TestMessagesProof = Ok(vec![message(1, REGULAR_PAYLOAD)]).into();
-		let message_delivery_proof = TestMessagesDeliveryProof(Ok((
-			TEST_LANE_ID,
-			InboundLaneData {
-				last_confirmed_nonce: 1,
-				relayers: vec![UnrewardedRelayer {
-					relayer: 0,
-					messages: DeliveredMessages::new(1),
-				}]
-				.into_iter()
-				.collect(),
-			},
-		)));
-		let unrewarded_relayer_state = UnrewardedRelayersState {
-			unrewarded_relayer_entries: 1,
-			total_messages: 1,
-			last_delivered_nonce: 1,
-			..Default::default()
-		};
-
-		let direct_receive_messages_proof_call = Call::<TestRuntime>::receive_messages_proof {
-			relayer_id_at_bridged_chain: account_id,
-			proof: message_proof.clone(),
-			messages_count: 1,
-			dispatch_weight: REGULAR_PAYLOAD.declared_weight,
-		};
-		let indirect_receive_messages_proof_call = BridgeMessagesCall::<
-			AccountId,
-			TestMessagesProof,
-			TestMessagesDeliveryProof,
-		>::receive_messages_proof {
-			relayer_id_at_bridged_chain: account_id,
-			proof: message_proof,
-			messages_count: 1,
-			dispatch_weight: REGULAR_PAYLOAD.declared_weight,
-		};
-		assert_eq!(
-			direct_receive_messages_proof_call.encode(),
-			indirect_receive_messages_proof_call.encode()
-		);
-
-		let direct_receive_messages_delivery_proof_call =
-			Call::<TestRuntime>::receive_messages_delivery_proof {
-				proof: message_delivery_proof.clone(),
-				relayers_state: unrewarded_relayer_state.clone(),
-			};
-		let indirect_receive_messages_delivery_proof_call = BridgeMessagesCall::<
-			AccountId,
-			TestMessagesProof,
-			TestMessagesDeliveryProof,
-		>::receive_messages_delivery_proof {
-			proof: message_delivery_proof,
-			relayers_state: unrewarded_relayer_state,
-		};
-		assert_eq!(
-			direct_receive_messages_delivery_proof_call.encode(),
-			indirect_receive_messages_delivery_proof_call.encode()
-		);
-	}
-
-	generate_owned_bridge_module_tests!(
-		MessagesOperatingMode::Basic(BasicOperatingMode::Normal),
-		MessagesOperatingMode::Basic(BasicOperatingMode::Halted)
-	);
-
-	#[test]
-	fn inbound_storage_extra_proof_size_bytes_works() {
-		fn relayer_entry() -> UnrewardedRelayer<TestRelayer> {
-			UnrewardedRelayer { relayer: 42u64, messages: DeliveredMessages { begin: 0, end: 100 } }
-		}
-
-		fn storage(relayer_entries: usize) -> RuntimeInboundLaneStorage<TestRuntime, ()> {
-			RuntimeInboundLaneStorage {
-				lane_id: Default::default(),
-				cached_data: Some(InboundLaneData {
-					relayers: vec![relayer_entry(); relayer_entries].into_iter().collect(),
-					last_confirmed_nonce: 0,
-				}),
-				_phantom: Default::default(),
-			}
-		}
-
-		let max_entries = crate::mock::MaxUnrewardedRelayerEntriesAtInboundLane::get() as usize;
-
-		// when we have exactly `MaxUnrewardedRelayerEntriesAtInboundLane` unrewarded relayers
-		assert_eq!(storage(max_entries).extra_proof_size_bytes(), 0);
-
-		// when we have less than `MaxUnrewardedRelayerEntriesAtInboundLane` unrewarded relayers
-		assert_eq!(
-			storage(max_entries - 1).extra_proof_size_bytes(),
-			relayer_entry().encode().len() as u64
-		);
-		assert_eq!(
-			storage(max_entries - 2).extra_proof_size_bytes(),
-			2 * relayer_entry().encode().len() as u64
-		);
-
-		// when we have more than `MaxUnrewardedRelayerEntriesAtInboundLane` unrewarded relayers
-		// (shall not happen in practice)
-		assert_eq!(storage(max_entries + 1).extra_proof_size_bytes(), 0);
-	}
-
-	#[test]
-	fn maybe_outbound_lanes_count_returns_correct_value() {
-		assert_eq!(
-			MaybeOutboundLanesCount::<TestRuntime, ()>::get(),
-			Some(mock::ActiveOutboundLanes::get().len() as u32)
-		);
-	}
 }

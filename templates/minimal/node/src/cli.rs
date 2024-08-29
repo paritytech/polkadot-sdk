@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sc_cli::RunCmd;
+use polkadot_sdk::{sc_cli::RunCmd, *};
 
 #[derive(Debug, Clone)]
 pub enum Consensus {
@@ -32,7 +32,7 @@ impl std::str::FromStr for Consensus {
 		} else if let Some(block_time) = s.strip_prefix("manual-seal-") {
 			Consensus::ManualSeal(block_time.parse().map_err(|_| "invalid block time")?)
 		} else {
-			return Err("incorrect consensus identifier".into())
+			return Err("incorrect consensus identifier".into());
 		})
 	}
 }

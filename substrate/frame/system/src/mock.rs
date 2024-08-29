@@ -17,7 +17,7 @@
 
 use crate::{self as frame_system, *};
 use frame_support::{derive_impl, parameter_types};
-use sp_runtime::{BuildStorage, Perbill};
+use sp_runtime::{type_with_default::TypeWithDefault, BuildStorage, Perbill};
 
 type Block = mocking::MockBlock<Test>;
 
@@ -78,7 +78,15 @@ impl OnKilledAccount<u64> for RecordKilled {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive(Debug, TypeInfo)]
+pub struct DefaultNonceProvider;
+impl Get<u64> for DefaultNonceProvider {
+	fn get() -> u64 {
+		System::block_number()
+	}
+}
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
@@ -87,6 +95,7 @@ impl Config for Test {
 	type AccountData = u32;
 	type OnKilledAccount = RecordKilled;
 	type MultiBlockMigrator = MockedMigrator;
+	type Nonce = TypeWithDefault<u64, DefaultNonceProvider>;
 }
 
 parameter_types! {

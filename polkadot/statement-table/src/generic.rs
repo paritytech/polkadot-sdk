@@ -30,12 +30,12 @@ use std::{
 	hash::Hash,
 };
 
-use primitives::{
+use polkadot_primitives::{
 	effective_minimum_backing_votes, ValidatorSignature,
 	ValidityAttestation as PrimitiveValidityAttestation,
 };
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 const LOG_TARGET: &str = "parachain::statement-table";
 
 /// Context for the statement table.
@@ -477,10 +477,7 @@ impl<Ctx: Context> Table<Ctx> {
 		if !context.is_member_of(&from, &votes.group_id) {
 			let sig = match vote {
 				ValidityVote::Valid(s) => s,
-				ValidityVote::Issued(_) => panic!(
-					"implicit issuance vote only cast from `import_candidate` after \
-							checking group membership of issuer; qed"
-				),
+				ValidityVote::Issued(s) => s,
 			};
 
 			return Err(Misbehavior::UnauthorizedStatement(UnauthorizedStatement {

@@ -22,6 +22,3 @@ pub mod check_nonce;
 pub mod check_spec_version;
 pub mod check_tx_version;
 pub mod check_weight;
-pub mod weights;
-
-pub use weights::WeightInfo;

@@ -659,13 +659,8 @@ where
 					})
 					.unwrap_or_default()
 					.into_iter()
-					// TODO [#2415]: This isn't really what we mean - we really want a
-					// `tx.is_transaction`, since bare transactions may be gossipped as in the case
-					// of Frontier txs or claims. This will be sorted once we dispense with the
-					// concept of bare transactions and make inherents the only possible type of
-					// extrinsics which are bare. At this point we can change this to
-					// `tx.is_transaction()`.
-					.filter(|tx| !tx.is_bare());
+					.filter(|tx| tx.is_signed().unwrap_or(true));
+
 				let mut resubmitted_to_report = 0;
 
 				resubmit_transactions.extend(block_transactions.into_iter().filter(|tx| {

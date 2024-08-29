@@ -27,7 +27,7 @@ The output binary will be placed in `target/testnet/subsystem-bench`.
 ### Test metrics
 
 Subsystem, CPU usage and network metrics are exposed via a prometheus endpoint during the test execution.
-A small subset of these collected metrics are displayed in the CLI, but for an in depth analysys of the test results,
+A small subset of these collected metrics are displayed in the CLI, but for an in depth analysis of the test results,
 a local Grafana/Prometheus stack is needed.
 
 ### Run Prometheus, Pyroscope and Graphana in Docker
@@ -122,7 +122,7 @@ target/testnet/subsystem-bench polkadot/node/subsystem-bench/examples/availabili
 ```
 
 Note: test objectives may be wrapped up into a test sequence.
-It is tipically used to run a suite of tests like in this [example](examples/availability_read.yaml).
+It is typically used to run a suite of tests like in this [example](examples/availability_read.yaml).
 
 ### Understanding the test configuration
 
@@ -137,13 +137,13 @@ usage:
 
 From the perspective of the subsystem under test, this means that it will receive an `ActiveLeavesUpdate` signal
 followed by an arbitrary amount of messages. This process repeats itself for `num_blocks`. The messages are generally
-test payloads pre-generated before the test run, or constructed on pre-genereated payloads. For example the
+test payloads pre-generated before the test run, or constructed on pre-generated payloads. For example the
 `AvailabilityRecoveryMessage::RecoverAvailableData` message includes a `CandidateReceipt` which is generated before
 the test is started.
 
 ### Example run
 
-Let's run an availabilty read test which will recover availability for 200 cores with max PoV size on a 1000
+Let's run an availability read test which will recover availability for 200 cores with max PoV size on a 1000
 node validator network.
 
 <!-- markdownlint-disable line-length -->

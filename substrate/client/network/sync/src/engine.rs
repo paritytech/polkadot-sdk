@@ -32,7 +32,7 @@ use crate::{
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
 	strategy::{
-		warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
+		warp::{EncodedProof, WarpProofRequest, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
 	},
 	types::{
@@ -42,12 +42,8 @@ use crate::{
 };
 
 use codec::{Decode, DecodeAll, Encode};
-use futures::{
-	channel::oneshot,
-	future::{BoxFuture, Fuse},
-	FutureExt, StreamExt,
-};
-use libp2p::{request_response::OutboundFailure, PeerId};
+use futures::{channel::oneshot, FutureExt, StreamExt};
+use libp2p::request_response::OutboundFailure;
 use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
@@ -59,21 +55,22 @@ use tokio::time::{Interval, MissedTickBehavior};
 use sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
 use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
 use sc_network::{
-	config::{
-		FullNetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
-		ProtocolId, SetConfig,
-	},
-	peer_store::{PeerStoreHandle, PeerStoreProvider},
+	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
+	peer_store::PeerStoreProvider,
 	request_responses::{IfDisconnected, RequestFailure},
-	service::traits::{Direction, NotificationEvent, ValidationResult},
+	service::{
+		traits::{Direction, NotificationConfig, NotificationEvent, ValidationResult},
+		NotificationMetrics,
+	},
 	types::ProtocolName,
 	utils::LruHashSet,
-	NotificationService, ReputationChange,
+	NetworkBackend, NotificationService, ReputationChange,
 };
 use sc_network_common::{
 	role::Roles,
 	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
 };
+use sc_network_types::PeerId;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::{Error as ClientError, HeaderMetadata};
 use sp_consensus::{block_validation::BlockAnnounceValidator, BlockOrigin};
@@ -90,7 +87,6 @@ use std::{
 		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Arc,
 	},
-	time::{Duration, Instant},
 };
 
 /// Interval at which we perform time based maintenance
@@ -98,23 +94,6 @@ const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1100)
 
 /// Maximum number of known block hashes to keep for a peer.
 const MAX_KNOWN_BLOCKS: usize = 1024; // ~32kb per peer + LruHashSet overhead
-
-/// If the block announces stream to peer has been inactive for 30 seconds meaning local node
-/// has not sent or received block announcements to/from the peer, report the node for inactivity,
-/// disconnect it and attempt to establish connection to some other peer.
-const INACTIVITY_EVICT_THRESHOLD: Duration = Duration::from_secs(30);
-
-/// When `SyncingEngine` is started, wait two minutes before actually staring to count peers as
-/// evicted.
-///
-/// Parachain collator may incorrectly get evicted because it's waiting to receive a number of
-/// relaychain blocks before it can start creating parachain blocks. During this wait,
-/// `SyncingEngine` still counts it as active and as the peer is not sending blocks, it may get
-/// evicted if a block is not received within the first 30 secons since the peer connected.
-///
-/// To prevent this from happening, define a threshold for how long `SyncingEngine` should wait
-/// before it starts evicting peers.
-const INITIAL_EVICTION_WAIT_PERIOD: Duration = Duration::from_secs(2 * 60);
 
 /// Maximum allowed size for a block announce.
 const MAX_BLOCK_ANNOUNCE_SIZE: u64 = 1024 * 1024;
@@ -125,8 +104,6 @@ mod rep {
 	pub const GENESIS_MISMATCH: Rep = Rep::new_fatal("Genesis mismatch");
 	/// Peer send us a block announcement that failed at validation.
 	pub const BAD_BLOCK_ANNOUNCEMENT: Rep = Rep::new(-(1 << 12), "Bad block announcement");
-	/// Block announce substream with the peer has been inactive too long
-	pub const INACTIVE_SUBSTREAM: Rep = Rep::new(-(1 << 10), "Inactive block announce substream");
 	/// We received a message that failed to decode.
 	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad message");
 	/// Peer is on unsupported protocol version.
@@ -276,10 +253,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// The `PeerId`'s of all boot nodes.
 	boot_node_ids: HashSet<PeerId>,
 
-	/// A channel to get target block header if we skip over proofs downloading during warp sync.
-	warp_sync_target_block_header_rx_fused:
-		Fuse<BoxFuture<'static, Result<B::Header, oneshot::Canceled>>>,
-
 	/// Protocol name used for block announcements
 	block_announce_protocol_name: ProtocolName,
 
@@ -289,17 +262,8 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Handle that is used to communicate with `sc_network::Notifications`.
 	notification_service: Box<dyn NotificationService>,
 
-	/// When the syncing was started.
-	///
-	/// Stored as an `Option<Instant>` so once the initial wait has passed, `SyncingEngine`
-	/// can reset the peer timers and continue with the normal eviction process.
-	syncing_started: Option<Instant>,
-
 	/// Handle to `PeerStore`.
-	peer_store_handle: PeerStoreHandle,
-
-	/// Instant when the last notification was sent or received.
-	last_notification_io: Instant,
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
 
 	/// Pending responses
 	pending_responses: PendingResponses<B>,
@@ -328,22 +292,26 @@ where
 		+ Sync
 		+ 'static,
 {
-	pub fn new(
+	pub fn new<N>(
 		roles: Roles,
 		client: Arc<Client>,
 		metrics_registry: Option<&Registry>,
-		net_config: &FullNetworkConfiguration,
+		network_metrics: NotificationMetrics,
+		net_config: &FullNetworkConfiguration<B, <B as BlockT>::Hash, N>,
 		protocol_id: ProtocolId,
 		fork_id: &Option<String>,
 		block_announce_validator: Box<dyn BlockAnnounceValidator<B> + Send>,
-		warp_sync_params: Option<WarpSyncParams<B>>,
+		warp_sync_config: Option<WarpSyncConfig<B>>,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		state_request_protocol_name: ProtocolName,
 		warp_sync_protocol_name: Option<ProtocolName>,
-		peer_store_handle: PeerStoreHandle,
-	) -> Result<(Self, SyncingService<B>, NonDefaultSetConfig), ClientError> {
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
+	) -> Result<(Self, SyncingService<B>, N::NotificationProtocolConfig), ClientError>
+	where
+		N: NetworkBackend<B, <B as BlockT>::Hash>,
+	{
 		let mode = net_config.network_config.sync_mode;
 		let max_parallel_downloads = net_config.network_config.max_parallel_downloads;
 		let max_blocks_per_request =
@@ -411,31 +379,22 @@ where
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) as usize
 		};
 
-		let (block_announce_config, notification_service) = Self::get_block_announce_proto_config(
-			protocol_id,
-			fork_id,
-			roles,
-			client.info().best_number,
-			client.info().best_hash,
-			client
-				.block_hash(Zero::zero())
-				.ok()
-				.flatten()
-				.expect("Genesis block exists; qed"),
-		);
-
-		// Split warp sync params into warp sync config and a channel to retreive target block
-		// header.
-		let (warp_sync_config, warp_sync_target_block_header_rx) =
-			warp_sync_params.map_or((None, None), |params| {
-				let (config, target_block_rx) = params.split();
-				(Some(config), target_block_rx)
-			});
-
-		// Make sure polling of the target block channel is a no-op if there is no block to
-		// retrieve.
-		let warp_sync_target_block_header_rx_fused = warp_sync_target_block_header_rx
-			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
+		let (block_announce_config, notification_service) =
+			Self::get_block_announce_proto_config::<N>(
+				protocol_id,
+				fork_id,
+				roles,
+				client.info().best_number,
+				client.info().best_hash,
+				client
+					.block_hash(Zero::zero())
+					.ok()
+					.flatten()
+					.expect("Genesis block exists; qed"),
+				&net_config.network_config.default_peers_set,
+				network_metrics,
+				Arc::clone(&peer_store_handle),
+			);
 
 		// Initialize syncing strategy.
 		let strategy = SyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?;
@@ -480,7 +439,6 @@ where
 				genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
-				warp_sync_target_block_header_rx_fused,
 				boot_node_ids,
 				default_peers_set_no_slot_peers,
 				default_peers_set_num_full,
@@ -490,9 +448,7 @@ where
 				event_streams: Vec::new(),
 				notification_service,
 				tick_timeout,
-				syncing_started: None,
 				peer_store_handle,
-				last_notification_io: Instant::now(),
 				metrics: if let Some(r) = metrics_registry {
 					match Metrics::register(r, is_major_syncing.clone()) {
 						Ok(metrics) => Some(metrics),
@@ -513,15 +469,6 @@ where
 			SyncingService::new(tx, num_connected, is_major_syncing),
 			block_announce_config,
 		))
-	}
-
-	/// Report Prometheus metrics.
-	pub fn report_metrics(&self) {
-		if let Some(metrics) = &self.metrics {
-			let n = u64::try_from(self.peers.len()).unwrap_or(std::u64::MAX);
-			metrics.peers.set(n);
-		}
-		self.strategy.report_metrics();
 	}
 
 	fn update_peer_info(
@@ -558,6 +505,10 @@ where
 			},
 			BlockAnnounceValidationResult::Failure { peer_id, disconnect } => {
 				if disconnect {
+					log::debug!(
+						target: LOG_TARGET,
+						"Disconnecting peer {peer_id} due to block announce validation failure",
+					);
 					self.network_service
 						.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 				}
@@ -638,34 +589,24 @@ where
 					data: Some(data.clone()),
 				};
 
-				self.last_notification_io = Instant::now();
 				let _ = self.notification_service.send_sync_notification(peer_id, message.encode());
 			}
 		}
 	}
 
 	pub async fn run(mut self) {
-		self.syncing_started = Some(Instant::now());
-
 		loop {
 			tokio::select! {
-				_ = self.tick_timeout.tick() => self.perform_periodic_actions(),
+				_ = self.tick_timeout.tick() => {
+					// TODO: This tick should not be necessary, but
+					//  `self.process_strategy_actions()` is not called in some cases otherwise and
+					//  some tests fail because of this
+				},
 				command = self.service_rx.select_next_some() =>
 					self.process_service_command(command),
 				notification_event = self.notification_service.next_event() => match notification_event {
 					Some(event) => self.process_notification_event(event),
 					None => return,
-				},
-				// TODO: setting of warp sync target block should be moved to the initialization of
-				// `SyncingEngine`, see https://github.com/paritytech/polkadot-sdk/issues/3537.
-				warp_target_block_header = &mut self.warp_sync_target_block_header_rx_fused => {
-					if let Err(_) = self.pass_warp_sync_target_block_header(warp_target_block_header) {
-						error!(
-							target: LOG_TARGET,
-							"Failed to set warp sync target block header, terminating `SyncingEngine`.",
-						);
-						return
-					}
 				},
 				response_event = self.pending_responses.select_next_some() =>
 					self.process_response_event(response_event),
@@ -674,7 +615,6 @@ where
 			}
 
 			// Update atomic variables
-			self.num_connected.store(self.peers.len(), Ordering::Relaxed);
 			self.is_major_syncing.store(self.strategy.is_major_syncing(), Ordering::Relaxed);
 
 			// Process actions requested by a syncing strategy.
@@ -778,43 +718,6 @@ where
 		Ok(())
 	}
 
-	fn perform_periodic_actions(&mut self) {
-		self.report_metrics();
-
-		// if `SyncingEngine` has just started, don't evict seemingly inactive peers right away
-		// as they may not have produced blocks not because they've disconnected but because
-		// they're still waiting to receive enough relaychain blocks to start producing blocks.
-		if let Some(started) = self.syncing_started {
-			if started.elapsed() < INITIAL_EVICTION_WAIT_PERIOD {
-				return
-			}
-
-			self.syncing_started = None;
-			self.last_notification_io = Instant::now();
-		}
-
-		// if syncing hasn't sent or received any blocks within `INACTIVITY_EVICT_THRESHOLD`,
-		// it means the local node has stalled and is connected to peers who either don't
-		// consider it connected or are also all stalled. In order to unstall the node,
-		// disconnect all peers and allow `ProtocolController` to establish new connections.
-		if self.last_notification_io.elapsed() > INACTIVITY_EVICT_THRESHOLD {
-			log::debug!(
-				target: LOG_TARGET,
-				"syncing has halted due to inactivity, evicting all peers",
-			);
-
-			for peer in self.peers.keys() {
-				self.network_service.report_peer(*peer, rep::INACTIVE_SUBSTREAM);
-				self.network_service
-					.disconnect_peer(*peer, self.block_announce_protocol_name.clone());
-			}
-
-			// after all the peers have been evicted, start timer again to prevent evicting
-			// new peers that join after the old peer have been evicted
-			self.last_notification_io = Instant::now();
-		}
-	}
-
 	fn process_service_command(&mut self, command: ToServiceCommand<B>) {
 		match command {
 			ToServiceCommand::SetSyncForkRequest(peers, hash, number) => {
@@ -857,24 +760,10 @@ where
 				);
 			},
 			ToServiceCommand::Status(tx) => {
-				let mut status = self.strategy.status();
-				status.num_connected_peers = self.peers.len() as u32;
-				let _ = tx.send(status);
+				let _ = tx.send(self.strategy.status());
 			},
 			ToServiceCommand::NumActivePeers(tx) => {
 				let _ = tx.send(self.num_active_peers());
-			},
-			ToServiceCommand::SyncState(tx) => {
-				let _ = tx.send(self.strategy.status());
-			},
-			ToServiceCommand::BestSeenBlock(tx) => {
-				let _ = tx.send(self.strategy.status().best_seen_block);
-			},
-			ToServiceCommand::NumSyncPeers(tx) => {
-				let _ = tx.send(self.strategy.status().num_peers);
-			},
-			ToServiceCommand::NumQueuedBlocks(tx) => {
-				let _ = tx.send(self.strategy.status().queued_blocks);
 			},
 			ToServiceCommand::NumDownloadedBlocks(tx) => {
 				let _ = tx.send(self.strategy.num_downloaded_blocks());
@@ -883,11 +772,8 @@ where
 				let _ = tx.send(self.strategy.num_sync_requests());
 			},
 			ToServiceCommand::PeersInfo(tx) => {
-				let peers_info = self
-					.peers
-					.iter()
-					.map(|(peer_id, peer)| (*peer_id, peer.info.clone()))
-					.collect();
+				let peers_info =
+					self.peers.iter().map(|(peer_id, peer)| (*peer_id, peer.info)).collect();
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::OnBlockFinalized(hash, header) =>
@@ -947,24 +833,7 @@ where
 					return
 				};
 
-				self.last_notification_io = Instant::now();
 				self.push_block_announce_validation(peer, announce);
-			},
-		}
-	}
-
-	fn pass_warp_sync_target_block_header(
-		&mut self,
-		header: Result<B::Header, oneshot::Canceled>,
-	) -> Result<(), ()> {
-		match header {
-			Ok(header) => self.strategy.set_warp_sync_target_block_header(header),
-			Err(err) => {
-				error!(
-					target: LOG_TARGET,
-					"Failed to get target block for warp sync. Error: {err:?}",
-				);
-				Err(())
 			},
 		}
 	}
@@ -977,6 +846,10 @@ where
 			log::debug!(target: LOG_TARGET, "{peer_id} does not exist in `SyncingEngine`");
 			return
 		};
+		if let Some(metrics) = &self.metrics {
+			metrics.peers.dec();
+		}
+		self.num_connected.fetch_sub(1, Ordering::AcqRel);
 
 		if self.important_peers.contains(&peer_id) {
 			log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
@@ -1057,7 +930,7 @@ where
 	// still be under validation. If the peer has different genesis than the
 	// local node the validation fails but the peer cannot be reported in
 	// `validate_connection()` as that is also called by
-	// `ValiateInboundSubstream` which means that the peer is still being
+	// `ValidateInboundSubstream` which means that the peer is still being
 	// validated and banning the peer when handling that event would
 	// result in peer getting dropped twice.
 	//
@@ -1152,7 +1025,12 @@ where
 
 		log::debug!(target: LOG_TARGET, "Connected {peer_id}");
 
-		self.peers.insert(peer_id, peer);
+		if self.peers.insert(peer_id, peer).is_none() {
+			if let Some(metrics) = &self.metrics {
+				metrics.peers.inc();
+			}
+			self.num_connected.fetch_add(1, Ordering::AcqRel);
+		}
 		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
 		if self.default_peers_set_no_slot_peers.contains(&peer_id) {
@@ -1385,14 +1263,17 @@ where
 	}
 
 	/// Get config for the block announcement protocol
-	fn get_block_announce_proto_config(
+	fn get_block_announce_proto_config<N: NetworkBackend<B, <B as BlockT>::Hash>>(
 		protocol_id: ProtocolId,
 		fork_id: &Option<String>,
 		roles: Roles,
 		best_number: NumberFor<B>,
 		best_hash: B::Hash,
 		genesis_hash: B::Hash,
-	) -> (NonDefaultSetConfig, Box<dyn NotificationService>) {
+		set_config: &SetConfig,
+		metrics: NotificationMetrics,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
+	) -> (N::NotificationProtocolConfig, Box<dyn NotificationService>) {
 		let block_announces_protocol = {
 			let genesis_hash = genesis_hash.as_ref();
 			if let Some(ref fork_id) = fork_id {
@@ -1406,7 +1287,7 @@ where
 			}
 		};
 
-		NonDefaultSetConfig::new(
+		N::notification_config(
 			block_announces_protocol.into(),
 			iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into()).collect(),
 			MAX_BLOCK_ANNOUNCE_SIZE,
@@ -1416,14 +1297,9 @@ where
 				best_hash,
 				genesis_hash,
 			))),
-			// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
-			// protocol is still hardcoded into the peerset.
-			SetConfig {
-				in_peers: 0,
-				out_peers: 0,
-				reserved_nodes: Vec::new(),
-				non_reserved_mode: NonReservedPeerMode::Deny,
-			},
+			set_config.clone(),
+			metrics,
+			peer_store_handle,
 		)
 	}
 

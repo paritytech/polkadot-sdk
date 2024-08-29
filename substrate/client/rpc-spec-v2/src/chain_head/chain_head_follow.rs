@@ -19,7 +19,7 @@
 //! Implementation of the `chainHead_follow` method.
 
 use crate::chain_head::{
-	chain_head::LOG_TARGET,
+	chain_head::{LOG_TARGET, MAX_PINNED_BLOCKS},
 	event::{
 		BestBlockChanged, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 		RuntimeVersionEvent,
@@ -31,22 +31,24 @@ use futures::{
 	stream::{self, Stream, StreamExt},
 };
 use futures_util::future::Either;
-use jsonrpsee::SubscriptionSink;
-use log::{debug, error};
+use log::debug;
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
-use sc_rpc::utils::to_sub_message;
+use sc_rpc::utils::Subscription;
+use schnellru::{ByLength, LruMap};
 use sp_api::CallApiAt;
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata, Info,
 };
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT, NumberFor},
+	SaturatedConversion, Saturating,
+};
 use std::{
 	collections::{HashSet, VecDeque},
 	sync::Arc,
 };
-
 /// The maximum number of finalized blocks provided by the
 /// `Initialized` event.
 const MAX_FINALIZED_BLOCKS: usize = 16;
@@ -60,13 +62,18 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Backend of the chain.
 	backend: Arc<BE>,
 	/// Subscriptions handle.
-	sub_handle: Arc<SubscriptionManagement<Block, BE>>,
+	sub_handle: SubscriptionManagement<Block, BE>,
 	/// Subscription was started with the runtime updates flag.
 	with_runtime: bool,
 	/// Subscription ID.
 	sub_id: String,
 	/// The best reported block by this subscription.
-	best_block_cache: Option<Block::Hash>,
+	current_best_block: Option<Block::Hash>,
+	/// LRU cache of pruned blocks.
+	pruned_blocks: LruMap<Block::Hash, ()>,
+	/// Stop all subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	max_lagging_distance: usize,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Client> {
@@ -74,11 +81,23 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 	pub fn new(
 		client: Arc<Client>,
 		backend: Arc<BE>,
-		sub_handle: Arc<SubscriptionManagement<Block, BE>>,
+		sub_handle: SubscriptionManagement<Block, BE>,
 		with_runtime: bool,
 		sub_id: String,
+		max_lagging_distance: usize,
 	) -> Self {
-		Self { client, backend, sub_handle, with_runtime, sub_id, best_block_cache: None }
+		Self {
+			client,
+			backend,
+			sub_handle,
+			with_runtime,
+			sub_id,
+			current_best_block: None,
+			pruned_blocks: LruMap::new(ByLength::new(
+				MAX_PINNED_BLOCKS.try_into().unwrap_or(u32::MAX),
+			)),
+			max_lagging_distance,
+		}
 	}
 }
 
@@ -186,6 +205,35 @@ where
 		}
 	}
 
+	/// Check the distance between the provided blocks does not exceed a
+	/// a reasonable range.
+	///
+	/// When the blocks are too far apart (potentially millions of blocks):
+	///  - Tree route is expensive to calculate.
+	///  - The RPC layer will not be able to generate the `NewBlock` events for all blocks.
+	///
+	/// This edge-case can happen for parachains where the relay chain syncs slower to
+	/// the head of the chain than the parachain node that is synced already.
+	fn distace_within_reason(
+		&self,
+		block: Block::Hash,
+		finalized: Block::Hash,
+	) -> Result<(), SubscriptionManagementError> {
+		let Some(block_num) = self.client.number(block)? else {
+			return Err(SubscriptionManagementError::BlockHashAbsent)
+		};
+		let Some(finalized_num) = self.client.number(finalized)? else {
+			return Err(SubscriptionManagementError::BlockHashAbsent)
+		};
+
+		let distance: usize = block_num.saturating_sub(finalized_num).saturated_into();
+		if distance > self.max_lagging_distance {
+			return Err(SubscriptionManagementError::BlockDistanceTooLarge);
+		}
+
+		Ok(())
+	}
+
 	/// Get the in-memory blocks of the client, starting from the provided finalized hash.
 	///
 	/// The reported blocks are pinned by this function.
@@ -198,6 +246,13 @@ where
 		let mut pruned_forks = HashSet::new();
 		let mut finalized_block_descendants = Vec::new();
 		let mut unique_descendants = HashSet::new();
+
+		// Ensure all leaves are within a reasonable distance from the finalized block,
+		// before traversing the tree.
+		for leaf in &leaves {
+			self.distace_within_reason(*leaf, finalized)?;
+		}
+
 		for leaf in leaves {
 			let tree_route = sp_blockchain::tree_route(blockchain, finalized, leaf)?;
 
@@ -253,18 +308,20 @@ where
 
 	/// Generate the initial events reported by the RPC `follow` method.
 	///
-	/// Returns the initial events that should be reported directly, together with pruned
-	/// block hashes that should be ignored by the `Finalized` event.
+	/// Returns the initial events that should be reported directly.
 	fn generate_init_events(
 		&mut self,
 		startup_point: &StartupPoint<Block>,
-	) -> Result<(Vec<FollowEvent<Block::Hash>>, HashSet<Block::Hash>), SubscriptionManagementError>
-	{
+	) -> Result<Vec<FollowEvent<Block::Hash>>, SubscriptionManagementError> {
 		let init = self.get_init_blocks_with_forks(startup_point.finalized_hash)?;
 
 		// The initialized event is the first one sent.
 		let initial_blocks = init.finalized_block_descendants;
 		let finalized_block_hashes = init.finalized_block_hashes;
+		// These are the pruned blocks that we should not report again.
+		for pruned in init.pruned_forks {
+			self.pruned_blocks.insert(pruned, ());
+		}
 
 		let finalized_block_hash = startup_point.finalized_hash;
 		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
@@ -295,11 +352,11 @@ where
 		let best_block_hash = startup_point.best_hash;
 		if best_block_hash != finalized_block_hash {
 			let best_block = FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
-			self.best_block_cache = Some(best_block_hash);
+			self.current_best_block = Some(best_block_hash);
 			finalized_block_descendants.push(best_block);
 		};
 
-		Ok((finalized_block_descendants, init.pruned_forks))
+		Ok(finalized_block_descendants)
 	}
 
 	/// Generate the "NewBlock" event and potentially the "BestBlockChanged" event for the
@@ -327,19 +384,19 @@ where
 		let best_block_event =
 			FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash: block_hash });
 
-		match self.best_block_cache {
+		match self.current_best_block {
 			Some(block_cache) => {
 				// The RPC layer has not reported this block as best before.
 				// Note: This handles the race with the finalized branch.
 				if block_cache != block_hash {
-					self.best_block_cache = Some(block_hash);
+					self.current_best_block = Some(block_hash);
 					vec![new_block, best_block_event]
 				} else {
 					vec![new_block]
 				}
 			},
 			None => {
-				self.best_block_cache = Some(block_hash);
+				self.current_best_block = Some(block_hash);
 				vec![new_block, best_block_event]
 			},
 		}
@@ -408,7 +465,7 @@ where
 				// When the node falls out of sync and then syncs up to the tip of the chain, it can
 				// happen that we skip notifications. Then it is better to terminate the connection
 				// instead of trying to send notifications for all missed blocks.
-				if let Some(best_block_hash) = self.best_block_cache {
+				if let Some(best_block_hash) = self.current_best_block {
 					let ancestor = sp_blockchain::lowest_common_ancestor(
 						&*self.client,
 						*hash,
@@ -431,13 +488,10 @@ where
 	}
 
 	/// Get all pruned block hashes from the provided stale heads.
-	///
-	/// The result does not include hashes from `to_ignore`.
 	fn get_pruned_hashes(
-		&self,
+		&mut self,
 		stale_heads: &[Block::Hash],
 		last_finalized: Block::Hash,
-		to_ignore: &mut HashSet<Block::Hash>,
 	) -> Result<Vec<Block::Hash>, SubscriptionManagementError> {
 		let blockchain = self.backend.blockchain();
 		let mut pruned = Vec::new();
@@ -447,11 +501,13 @@ where
 
 			// Collect only blocks that are not part of the canonical chain.
 			pruned.extend(tree_route.enacted().iter().filter_map(|block| {
-				if !to_ignore.remove(&block.hash) {
-					Some(block.hash)
-				} else {
-					None
+				if self.pruned_blocks.get(&block.hash).is_some() {
+					// The block was already reported as pruned.
+					return None
 				}
+
+				self.pruned_blocks.insert(block.hash, ());
+				Some(block.hash)
 			}))
 		}
 
@@ -465,7 +521,6 @@ where
 	fn handle_finalized_blocks(
 		&mut self,
 		notification: FinalityNotification<Block>,
-		to_ignore: &mut HashSet<Block::Hash>,
 		startup_point: &StartupPoint<Block>,
 	) -> Result<Vec<FollowEvent<Block::Hash>>, SubscriptionManagementError> {
 		let last_finalized = notification.hash;
@@ -486,51 +541,53 @@ where
 		// Report all pruned blocks from the notification that are not
 		// part of the fork we need to ignore.
 		let pruned_block_hashes =
-			self.get_pruned_hashes(&notification.stale_heads, last_finalized, to_ignore)?;
+			self.get_pruned_hashes(&notification.stale_heads, last_finalized)?;
 
 		let finalized_event = FollowEvent::Finalized(Finalized {
 			finalized_block_hashes,
 			pruned_block_hashes: pruned_block_hashes.clone(),
 		});
 
-		match self.best_block_cache {
-			Some(block_cache) => {
-				// If the best block wasn't pruned, we are done here.
-				if !pruned_block_hashes.iter().any(|hash| *hash == block_cache) {
-					events.push(finalized_event);
-					return Ok(events)
-				}
+		if let Some(current_best_block) = self.current_best_block {
+			// The best reported block is in the pruned list. Report a new best block.
+			let is_in_pruned_list =
+				pruned_block_hashes.iter().any(|hash| *hash == current_best_block);
+			// The block is not the last finalized block.
+			//
+			// It can be either:
+			//  - a descendant of the last finalized block
+			//  - a block on a fork that will be pruned in the future.
+			//
+			// In those cases, we emit a new best block.
+			let is_not_last_finalized = current_best_block != last_finalized;
 
-				// The best block is reported as pruned. Therefore, we need to signal a new
-				// best block event before submitting the finalized event.
+			if is_in_pruned_list || is_not_last_finalized {
+				// We need to generate a best block event.
 				let best_block_hash = self.client.info().best_hash;
-				if best_block_hash == block_cache {
+
+				// Defensive check against state missmatch.
+				if best_block_hash == current_best_block {
 					// The client doest not have any new information about the best block.
 					// The information from `.info()` is updated from the DB as the last
 					// step of the finalization and it should be up to date.
 					// If the info is outdated, there is nothing the RPC can do for now.
-					error!(
+					debug!(
 						target: LOG_TARGET,
 						"[follow][id={:?}] Client does not contain different best block",
 						self.sub_id,
 					);
-					events.push(finalized_event);
-					Ok(events)
 				} else {
 					// The RPC needs to also submit a new best block changed before the
 					// finalized event.
-					self.best_block_cache = Some(best_block_hash);
-					let best_block_event =
-						FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
-					events.extend([best_block_event, finalized_event]);
-					Ok(events)
+					self.current_best_block = Some(best_block_hash);
+					events
+						.push(FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash }));
 				}
-			},
-			None => {
-				events.push(finalized_event);
-				Ok(events)
-			},
+			}
 		}
+
+		events.push(finalized_event);
+		Ok(events)
 	}
 
 	/// Submit the events from the provided stream to the RPC client
@@ -539,14 +596,19 @@ where
 		&mut self,
 		startup_point: &StartupPoint<Block>,
 		mut stream: EventStream,
-		mut to_ignore: HashSet<Block::Hash>,
-		sink: SubscriptionSink,
+		sink: Subscription,
 		rx_stop: oneshot::Receiver<()>,
-	) where
+	) -> Result<(), SubscriptionManagementError>
+	where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin,
 	{
 		let mut stream_item = stream.next();
-		let mut stop_event = rx_stop;
+
+		// The stop event can be triggered by the chainHead logic when the pinned
+		// block guarantee cannot be hold. Or when the client is disconnected.
+		let connection_closed = sink.closed();
+		tokio::pin!(connection_closed);
+		let mut stop_event = futures_util::future::select(rx_stop, connection_closed);
 
 		while let Either::Left((Some(event), next_stop_event)) =
 			futures_util::future::select(stream_item, stop_event).await
@@ -556,7 +618,7 @@ where
 				NotificationType::NewBlock(notification) =>
 					self.handle_import_blocks(notification, &startup_point),
 				NotificationType::Finalized(notification) =>
-					self.handle_finalized_blocks(notification, &mut to_ignore, &startup_point),
+					self.handle_finalized_blocks(notification, &startup_point),
 				NotificationType::MethodResponse(notification) => Ok(vec![notification]),
 			};
 
@@ -569,24 +631,22 @@ where
 						self.sub_id,
 						err
 					);
-					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-					let _ = sink.send(msg).await;
-					return
+					_ = sink.send(&FollowEvent::<String>::Stop).await;
+					return Err(err)
 				},
 			};
 
 			for event in events {
-				let msg = to_sub_message(&sink, &event);
-				if let Err(err) = sink.send(msg).await {
+				if let Err(err) = sink.send(&event).await {
 					// Failed to submit event.
 					debug!(
 						target: LOG_TARGET,
 						"[follow][id={:?}] Failed to send event {:?}", self.sub_id, err
 					);
 
-					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-					let _ = sink.send(msg).await;
-					return
+					let _ = sink.send(&FollowEvent::<String>::Stop).await;
+					// No need to propagate this error further, the client disconnected.
+					return Ok(())
 				}
 			}
 
@@ -594,18 +654,20 @@ where
 			stop_event = next_stop_event;
 		}
 
-		// If we got here either the substrate streams have closed
-		// or the `Stop` receiver was triggered.
-		let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-		let _ = sink.send(msg).await;
+		// If we got here either:
+		// - the substrate streams have closed
+		// - the `Stop` receiver was triggered internally (cannot hold the pinned block guarantee)
+		// - the client disconnected.
+		let _ = sink.send(&FollowEvent::<String>::Stop).await;
+		Ok(())
 	}
 
 	/// Generate the block events for the `chainHead_follow` method.
 	pub async fn generate_events(
 		&mut self,
-		sink: SubscriptionSink,
+		sink: Subscription,
 		sub_data: InsertedSubscriptionData<Block>,
-	) {
+	) -> Result<(), SubscriptionManagementError> {
 		// Register for the new block and finalized notifications.
 		let stream_import = self
 			.client
@@ -622,7 +684,7 @@ where
 			.map(|response| NotificationType::MethodResponse(response));
 
 		let startup_point = StartupPoint::from(self.client.info());
-		let (initial_events, pruned_forks) = match self.generate_init_events(&startup_point) {
+		let initial_events = match self.generate_init_events(&startup_point) {
 			Ok(blocks) => blocks,
 			Err(err) => {
 				debug!(
@@ -631,9 +693,8 @@ where
 					self.sub_id,
 					err
 				);
-				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-				let _ = sink.send(msg).await;
-				return
+				let _ = sink.send(&FollowEvent::<String>::Stop).await;
+				return Err(err)
 			},
 		};
 
@@ -642,7 +703,6 @@ where
 		let merged = tokio_stream::StreamExt::merge(merged, stream_responses);
 		let stream = stream::once(futures::future::ready(initial)).chain(merged);
 
-		self.submit_events(&startup_point, stream.boxed(), pruned_forks, sink, sub_data.rx_stop)
-			.await;
+		self.submit_events(&startup_point, stream.boxed(), sink, sub_data.rx_stop).await
 	}
 }

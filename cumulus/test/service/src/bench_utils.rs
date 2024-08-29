@@ -69,7 +69,7 @@ pub fn extrinsic_set_time(client: &TestClient) -> OpaqueExtrinsic {
 
 	let timestamp = best_number as u64 * cumulus_test_runtime::MinimumPeriod::get();
 	cumulus_test_runtime::UncheckedExtrinsic {
-		preamble: sp_runtime::generic::Preamble::Bare,
+		signature: None,
 		function: cumulus_test_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set {
 			now: timestamp,
 		}),
@@ -102,7 +102,7 @@ pub fn extrinsic_set_validation_data(
 	};
 
 	cumulus_test_runtime::UncheckedExtrinsic {
-		preamble: sp_runtime::generic::Preamble::Bare,
+		signature: None,
 		function: cumulus_test_runtime::RuntimeCall::ParachainSystem(
 			cumulus_pallet_parachain_system::Call::set_validation_data { data },
 		),
@@ -111,7 +111,7 @@ pub fn extrinsic_set_validation_data(
 }
 
 /// Import block into the given client and make sure the import was successful
-pub async fn import_block(mut client: &TestClient, block: &NodeBlock, import_existing: bool) {
+pub async fn import_block(client: &TestClient, block: &NodeBlock, import_existing: bool) {
 	let mut params = BlockImportParams::new(BlockOrigin::File, block.header.clone());
 	params.body = Some(block.extrinsics.clone());
 	params.state_action = StateAction::Execute;

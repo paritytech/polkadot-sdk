@@ -21,9 +21,10 @@ use futures::{channel::oneshot, StreamExt};
 use log::{debug, trace};
 use sc_client_api::BlockBackend;
 use sc_network::{
-	config as netconfig, config::RequestResponseConfig, types::ProtocolName, PeerId,
-	ReputationChange,
+	config as netconfig, service::traits::RequestResponseConfig, types::ProtocolName,
+	NetworkBackend, ReputationChange,
 };
+use sc_network_types::PeerId;
 use sp_consensus_beefy::BEEFY_ENGINE_ID;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
@@ -86,9 +87,9 @@ impl<B: Block> IncomingRequest<B> {
 					sent_feedback: None,
 				};
 				if let Err(_) = pending_response.send(response) {
-					return Err(Error::DecodingErrorNoReputationChange(peer, err))
+					return Err(Error::DecodingErrorNoReputationChange(peer, err));
 				}
-				return Err(Error::DecodingError(peer, err))
+				return Err(Error::DecodingError(peer, err));
 			},
 		};
 		Ok(Self::new(peer, payload, pending_response))
@@ -139,15 +140,15 @@ where
 	Client: BlockBackend<B> + Send + Sync,
 {
 	/// Create a new [`BeefyJustifsRequestHandler`].
-	pub fn new<Hash: AsRef<[u8]>>(
+	pub fn new<Hash: AsRef<[u8]>, Network: NetworkBackend<B, <B as Block>::Hash>>(
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
-		prometheus_registry: Option<prometheus::Registry>,
-	) -> (Self, RequestResponseConfig) {
-		let (request_receiver, config) =
-			on_demand_justifications_protocol_config(genesis_hash, fork_id);
-		let justif_protocol_name = config.name.clone();
+		prometheus_registry: Option<prometheus_endpoint::Registry>,
+	) -> (Self, Network::RequestResponseProtocolConfig) {
+		let (request_receiver, config): (_, Network::RequestResponseProtocolConfig) =
+			on_demand_justifications_protocol_config::<_, _, Network>(genesis_hash, fork_id);
+		let justif_protocol_name = config.protocol_name().clone();
 		let metrics = register_metrics(prometheus_registry);
 		(
 			Self { request_receiver, justif_protocol_name, client, metrics, _block: PhantomData },
@@ -170,7 +171,7 @@ where
 			.flatten()
 			.and_then(|hash| self.client.justifications(hash).ok().flatten())
 			.and_then(|justifs| justifs.get(BEEFY_ENGINE_ID).cloned())
-			.ok_or_else(|| reputation_changes.push(cost::UNKOWN_PROOF_REQUEST));
+			.ok_or_else(|| reputation_changes.push(cost::UNKNOWN_PROOF_REQUEST));
 		request
 			.pending_response
 			.send(netconfig::OutgoingResponse {

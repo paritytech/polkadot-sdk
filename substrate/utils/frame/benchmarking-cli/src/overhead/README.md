@@ -108,7 +108,7 @@ The complete command for Polkadot looks like this:
 cargo run --profile=production -- benchmark overhead --chain=polkadot-dev --wasm-execution=compiled --weight-path=runtime/polkadot/constants/src/weights/
 ```
 
-This will overwrite the the
+This will overwrite the
 [block_weights.rs](https://github.com/paritytech/polkadot/blob/c254e5975711a6497af256f6831e9a6c752d28f5/runtime/polkadot/constants/src/weights/block_weights.rs)
 and
 [extrinsic_weights.rs](https://github.com/paritytech/polkadot/blob/c254e5975711a6497af256f6831e9a6c752d28f5/runtime/polkadot/constants/src/weights/extrinsic_weights.rs)

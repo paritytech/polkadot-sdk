@@ -19,19 +19,19 @@
 //! Configuration can change only at session boundaries and is buffered until then.
 
 use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
-use primitives::{
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
-	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+use polkadot_primitives::{
+	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
+	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
+	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
-use sp_runtime::{traits::Zero, Perbill};
-use sp_std::prelude::*;
+use sp_runtime::{traits::Zero, Perbill, Percent};
 
 #[cfg(test)]
 mod tests;
@@ -42,7 +42,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use primitives::vstaging::SchedulerParams;
+use polkadot_primitives::vstaging::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
@@ -186,7 +186,7 @@ pub struct HostConfiguration<BlockNumber> {
 	///
 	/// Must be at least 1.
 	pub no_show_slots: u32,
-	/// The number of delay tranches in total.
+	/// The number of delay tranches in total. Must be at least 1.
 	pub n_delay_tranches: u32,
 	/// The width of the zeroth delay tranche for approval assignments. This many delay tranches
 	/// beyond 0 are all consolidated to form a wide 0 tranche.
@@ -231,7 +231,7 @@ pub struct HostConfiguration<BlockNumber> {
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
 	fn default() -> Self {
-		Self {
+		let ret = Self {
 			async_backing_params: AsyncBackingParams {
 				max_candidate_depth: 0,
 				allowed_ancestry_len: 0,
@@ -246,7 +246,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_validators: None,
 			dispute_period: 6,
 			dispute_post_conclusion_acceptance_period: 100.into(),
-			n_delay_tranches: Default::default(),
+			n_delay_tranches: 1,
 			zeroth_delay_tranche_width: Default::default(),
 			needed_approvals: Default::default(),
 			relay_vrf_modulo_samples: Default::default(),
@@ -270,7 +270,30 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
 			scheduler_params: Default::default(),
-		}
+		};
+
+		#[cfg(feature = "runtime-benchmarks")]
+		let ret = ret.with_benchmarking_default();
+		ret
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<BlockNumber: Default + From<u32>> HostConfiguration<BlockNumber> {
+	/// Mutate the values of self to be good estimates for benchmarking.
+	///
+	/// The values do not need to be worst-case, since the benchmarking logic extrapolates. They
+	/// should be a bit more than usually expected.
+	fn with_benchmarking_default(mut self) -> Self {
+		self.max_head_data_size = self.max_head_data_size.max(1 << 20);
+		self.max_downward_message_size = self.max_downward_message_size.max(1 << 16);
+		self.hrmp_channel_max_capacity = self.hrmp_channel_max_capacity.max(1000);
+		self.hrmp_channel_max_message_size = self.hrmp_channel_max_message_size.max(1 << 16);
+		self.hrmp_max_parachain_inbound_channels =
+			self.hrmp_max_parachain_inbound_channels.max(100);
+		self.hrmp_max_parachain_outbound_channels =
+			self.hrmp_max_parachain_outbound_channels.max(100);
+		self
 	}
 }
 
@@ -312,11 +335,17 @@ pub enum InconsistentError<BlockNumber> {
 	InconsistentExecutorParams { inner: ExecutorParamError },
 	/// TTL should be bigger than lookahead
 	LookaheadExceedsTTL,
+	/// Lookahead is zero, while it must be at least 1 for parachains to work.
+	LookaheadZero,
+	/// Passed in queue size for on-demand was too large.
+	OnDemandQueueSizeTooLarge,
+	/// Number of delay tranches cannot be 0.
+	ZeroDelayTranches,
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
 where
-	BlockNumber: Zero + PartialOrd + sp_std::fmt::Debug + Clone + From<u32>,
+	BlockNumber: Zero + PartialOrd + core::fmt::Debug + Clone + From<u32>,
 {
 	/// Checks that this instance is consistent with the requirements on each individual member.
 	///
@@ -403,6 +432,18 @@ where
 
 		if self.scheduler_params.ttl < self.scheduler_params.lookahead.into() {
 			return Err(LookaheadExceedsTTL)
+		}
+
+		if self.scheduler_params.lookahead == 0 {
+			return Err(LookaheadZero)
+		}
+
+		if self.scheduler_params.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {
+			return Err(OnDemandQueueSizeTooLarge)
+		}
+
+		if self.n_delay_tranches.is_zero() {
+			return Err(ZeroDelayTranches)
 		}
 
 		Ok(())
@@ -505,8 +546,7 @@ pub mod pallet {
 	/// The active configuration for the current session.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	#[pallet::getter(fn config)]
-	pub(crate) type ActiveConfig<T: Config> =
+	pub type ActiveConfig<T: Config> =
 		StorageValue<_, HostConfiguration<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Pending configuration changes.
@@ -517,7 +557,7 @@ pub mod pallet {
 	/// The list is sorted ascending by session index. Also, this list can only contain at most
 	/// 2 items: for the next session and for the `scheduled_session`.
 	#[pallet::storage]
-	pub(crate) type PendingConfigs<T: Config> =
+	pub type PendingConfigs<T: Config> =
 		StorageValue<_, Vec<(SessionIndex, HostConfiguration<BlockNumberFor<T>>)>, ValueQuery>;
 
 	/// If this is set, then the configuration setters will bypass the consistency checks. This
@@ -630,7 +670,7 @@ pub mod pallet {
 
 		/// Set the number of coretime execution cores.
 		///
-		/// Note that this configuration is managed by the coretime chain. Only manually change
+		/// NOTE: that this configuration is managed by the coretime chain. Only manually change
 		/// this, if you really know what you are doing!
 		#[pallet::call_index(6)]
 		#[pallet::weight((
@@ -1133,6 +1173,7 @@ pub mod pallet {
 				config.scheduler_params.on_demand_queue_max_size = new;
 			})
 		}
+
 		/// Set the on demand (parathreads) fee variability.
 		#[pallet::call_index(50)]
 		#[pallet::weight((
@@ -1241,7 +1282,7 @@ pub mod pallet {
 		fn integrity_test() {
 			assert_eq!(
 				&ActiveConfig::<T>::hashed_key(),
-				primitives::well_known_keys::ACTIVE_CONFIG,
+				polkadot_primitives::well_known_keys::ACTIVE_CONFIG,
 				"`well_known_keys::ACTIVE_CONFIG` doesn't match key of `ActiveConfig`! Make sure that the name of the\
 				 configuration pallet is `Configuration` in the runtime!",
 			);
@@ -1275,7 +1316,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_on_new_session(
 		session_index: &SessionIndex,
 	) -> SessionChangeOutcome<BlockNumberFor<T>> {
-		let pending_configs = <PendingConfigs<T>>::get();
+		let pending_configs = PendingConfigs::<T>::get();
 		let prev_config = ActiveConfig::<T>::get();
 
 		// No pending configuration changes, so we're done.
@@ -1302,7 +1343,7 @@ impl<T: Config> Pallet<T> {
 			ActiveConfig::<T>::put(new_config);
 		}
 
-		<PendingConfigs<T>>::put(future);
+		PendingConfigs::<T>::put(future);
 
 		SessionChangeOutcome { prev_config, new_config }
 	}
@@ -1337,7 +1378,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn schedule_config_update(
 		updater: impl FnOnce(&mut HostConfiguration<BlockNumberFor<T>>),
 	) -> DispatchResult {
-		let mut pending_configs = <PendingConfigs<T>>::get();
+		let mut pending_configs = PendingConfigs::<T>::get();
 
 		// 1. pending_configs = [] No pending configuration changes.
 		//
@@ -1368,7 +1409,7 @@ impl<T: Config> Pallet<T> {
 		let mut base_config = pending_configs
 			.last()
 			.map(|(_, config)| config.clone())
-			.unwrap_or_else(Self::config);
+			.unwrap_or_else(ActiveConfig::<T>::get);
 		let base_config_consistent = base_config.check_consistency().is_ok();
 
 		// Now, we need to decide what the new configuration should be.
@@ -1420,8 +1461,21 @@ impl<T: Config> Pallet<T> {
 			pending_configs.push((scheduled_session, new_config));
 		}
 
-		<PendingConfigs<T>>::put(pending_configs);
+		PendingConfigs::<T>::put(pending_configs);
 
 		Ok(())
+	}
+}
+
+/// The implementation of `Get<(u32, u32)>` which reads `ActiveConfig` and returns `P` percent of
+/// `hrmp_channel_max_message_size` / `hrmp_channel_max_capacity`.
+pub struct ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>(core::marker::PhantomData<(T, P)>);
+impl<T: crate::hrmp::pallet::Config, P: Get<Percent>> Get<(u32, u32)>
+	for ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>
+{
+	fn get() -> (u32, u32) {
+		let config = ActiveConfig::<T>::get();
+		let percent = P::get();
+		(percent * config.hrmp_channel_max_message_size, percent * config.hrmp_channel_max_capacity)
 	}
 }

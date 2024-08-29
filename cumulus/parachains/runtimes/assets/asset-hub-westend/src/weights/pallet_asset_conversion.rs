@@ -153,4 +153,26 @@ impl<T: frame_system::Config> pallet_asset_conversion::WeightInfo for WeightInfo
 			.saturating_add(T::DbWeight::get().writes(4))
 			.saturating_add(Weight::from_parts(0, 393).saturating_mul(n.into()))
 	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Asset` (r:2 w:2)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:2 w:2)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	/// Storage: `PoolAssets::Asset` (r:1 w:1)
+	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `PoolAssets::Account` (r:1 w:1)
+	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[0, 3]`.
+	fn touch(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1571`
+		//  Estimated: `6360`
+		// Minimum execution time: 381_000_000 picoseconds.
+		Weight::from_parts(398_540_909, 6360)
+			// Standard Error: 1_330_283
+			.saturating_add(Weight::from_parts(209_463_636, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+	}
 }

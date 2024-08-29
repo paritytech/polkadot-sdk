@@ -46,6 +46,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(hidden)]
+extern crate alloc;
+
+#[doc(hidden)]
+pub use alloc::vec::Vec;
+#[doc(hidden)]
 pub use codec;
 #[doc(hidden)]
 pub use scale_info;
@@ -73,12 +78,12 @@ use sp_core::{
 	hash::{H256, H512},
 	sr25519,
 };
-use sp_std::prelude::*;
 
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::format;
+use alloc::vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::format;
 
 pub mod curve;
 pub mod generic;
@@ -91,6 +96,7 @@ mod runtime_string;
 pub mod testing;
 pub mod traits;
 pub mod transaction_validity;
+pub mod type_with_default;
 
 pub use crate::runtime_string::*;
 
@@ -123,11 +129,6 @@ pub use sp_arithmetic::{
 	traits::SaturatedConversion, ArithmeticError, FixedI128, FixedI64, FixedPointNumber,
 	FixedPointOperand, FixedU128, FixedU64, InnerOf, PerThing, PerU16, Perbill, Percent, Permill,
 	Perquintill, Rational128, Rounding, UpperOf,
-};
-
-pub use transaction_validity::{
-	InvalidTransaction, TransactionSource, TransactionValidityError, UnknownTransaction,
-	ValidTransaction,
 };
 
 pub use either::Either;
@@ -195,7 +196,7 @@ impl Justifications {
 
 impl IntoIterator for Justifications {
 	type Item = Justification;
-	type IntoIter = sp_std::vec::IntoIter<Self::Item>;
+	type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.into_iter()
@@ -437,10 +438,10 @@ impl TryFrom<MultiSigner> for ecdsa::Public {
 #[cfg(feature = "std")]
 impl std::fmt::Display for MultiSigner {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match *self {
-			Self::Ed25519(ref who) => write!(fmt, "ed25519: {}", who),
-			Self::Sr25519(ref who) => write!(fmt, "sr25519: {}", who),
-			Self::Ecdsa(ref who) => write!(fmt, "ecdsa: {}", who),
+		match self {
+			Self::Ed25519(who) => write!(fmt, "ed25519: {}", who),
+			Self::Sr25519(who) => write!(fmt, "sr25519: {}", who),
+			Self::Ecdsa(who) => write!(fmt, "ecdsa: {}", who),
 		}
 	}
 }
@@ -448,23 +449,14 @@ impl std::fmt::Display for MultiSigner {
 impl Verify for MultiSignature {
 	type Signer = MultiSigner;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId32) -> bool {
+		let who: [u8; 32] = *signer.as_ref();
 		match self {
-			Self::Ed25519(ref sig) => match ed25519::Public::from_slice(signer.as_ref()) {
-				Ok(signer) => sig.verify(msg, &signer),
-				Err(()) => false,
-			},
-			Self::Sr25519(ref sig) => match sr25519::Public::from_slice(signer.as_ref()) {
-				Ok(signer) => sig.verify(msg, &signer),
-				Err(()) => false,
-			},
-			Self::Ecdsa(ref sig) => {
+			Self::Ed25519(sig) => sig.verify(msg, &who.into()),
+			Self::Sr25519(sig) => sig.verify(msg, &who.into()),
+			Self::Ecdsa(sig) => {
 				let m = sp_io::hashing::blake2_256(msg.get());
-				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m) {
-					Ok(pubkey) =>
-						&sp_io::hashing::blake2_256(pubkey.as_ref()) ==
-							<dyn AsRef<[u8; 32]>>::as_ref(signer),
-					_ => false,
-				}
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
+					.map_or(false, |pubkey| sp_io::hashing::blake2_256(&pubkey) == who)
 			},
 		}
 	}
@@ -512,11 +504,11 @@ impl From<DispatchError> for DispatchOutcome {
 /// This is the legacy return type of `Dispatchable`. It is still exposed for compatibility reasons.
 /// The new return type is `DispatchResultWithInfo`. FRAME runtimes should use
 /// `frame_support::dispatch::DispatchResult`.
-pub type DispatchResult = sp_std::result::Result<(), DispatchError>;
+pub type DispatchResult = core::result::Result<(), DispatchError>;
 
 /// Return type of a `Dispatchable` which contains the `DispatchResult` and additional information
 /// about the `Dispatchable` that is only known post dispatch.
-pub type DispatchResultWithInfo<T> = sp_std::result::Result<T, DispatchErrorWithPostInfo<T>>;
+pub type DispatchResultWithInfo<T> = core::result::Result<T, DispatchErrorWithPostInfo<T>>;
 
 /// Reason why a pallet call failed.
 #[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
@@ -915,14 +907,14 @@ impl OpaqueExtrinsic {
 	}
 }
 
-impl sp_std::fmt::Debug for OpaqueExtrinsic {
+impl core::fmt::Debug for OpaqueExtrinsic {
 	#[cfg(feature = "std")]
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(fmt, "{}", sp_core::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -949,13 +941,9 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	}
 }
 
-// TODO: OpaqueExtrinsics cannot act like regular extrinsics, right?!
 impl traits::Extrinsic for OpaqueExtrinsic {
 	type Call = ();
 	type SignaturePayload = ();
-	fn is_bare(&self) -> bool {
-		false
-	}
 }
 
 /// Print something that implements `Printable` from the runtime.
@@ -1015,6 +1003,21 @@ pub enum ExtrinsicInclusionMode {
 	AllExtrinsics,
 	/// Inherents are allowed to be included.
 	OnlyInherents,
+}
+
+/// Simple blob that hold a value in an encoded form without committing to its type.
+#[derive(Decode, Encode, PartialEq, TypeInfo)]
+pub struct OpaqueValue(Vec<u8>);
+impl OpaqueValue {
+	/// Create a new `OpaqueValue` using the given encoded representation.
+	pub fn new(inner: Vec<u8>) -> OpaqueValue {
+		OpaqueValue(inner)
+	}
+
+	/// Try to decode this `OpaqueValue` into the given concrete type.
+	pub fn decode<T: Decode>(&self) -> Option<T> {
+		Decode::decode(&mut &self.0[..]).ok()
+	}
 }
 
 #[cfg(test)]

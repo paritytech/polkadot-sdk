@@ -111,7 +111,7 @@ impl From<ApiError> for RuntimeEvent {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Initialized<Hash> {
-	/// The hash of the lastest finalized blocks.
+	/// The hash of the latest finalized blocks.
 	pub finalized_block_hashes: Vec<Hash>,
 	/// The runtime version of the finalized block.
 	///
@@ -315,7 +315,7 @@ pub enum FollowEvent<Hash> {
 	Stop,
 }
 
-/// The method respose of `chainHead_body`, `chainHead_call` and `chainHead_storage`.
+/// The method response of `chainHead_body`, `chainHead_call` and `chainHead_storage`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(tag = "result")]

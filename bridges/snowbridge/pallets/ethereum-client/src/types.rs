@@ -8,27 +8,17 @@ use frame_support::storage::types::OptionQuery;
 use snowbridge_core::RingBufferMapImpl;
 
 // Specialize types based on configured sync committee size
-pub type SyncCommittee = primitives::SyncCommittee<SC_SIZE>;
-pub type SyncCommitteePrepared = primitives::SyncCommitteePrepared<SC_SIZE>;
-pub type SyncAggregate = primitives::SyncAggregate<SC_SIZE, SC_BITS_SIZE>;
-pub type CheckpointUpdate = primitives::CheckpointUpdate<SC_SIZE>;
-pub type Update = primitives::Update<SC_SIZE, SC_BITS_SIZE>;
-pub type NextSyncCommitteeUpdate = primitives::NextSyncCommitteeUpdate<SC_SIZE>;
+pub type SyncCommittee = snowbridge_beacon_primitives::SyncCommittee<SC_SIZE>;
+pub type SyncCommitteePrepared = snowbridge_beacon_primitives::SyncCommitteePrepared<SC_SIZE>;
+pub type SyncAggregate = snowbridge_beacon_primitives::SyncAggregate<SC_SIZE, SC_BITS_SIZE>;
+pub type CheckpointUpdate = snowbridge_beacon_primitives::CheckpointUpdate<SC_SIZE>;
+pub type Update = snowbridge_beacon_primitives::Update<SC_SIZE, SC_BITS_SIZE>;
+pub type NextSyncCommitteeUpdate = snowbridge_beacon_primitives::NextSyncCommitteeUpdate<SC_SIZE>;
 
-pub use primitives::ExecutionHeaderUpdate;
-
-/// ExecutionHeader ring buffer implementation
-pub type ExecutionHeaderBuffer<T> = RingBufferMapImpl<
-	u32,
-	<T as crate::Config>::MaxExecutionHeadersToKeep,
-	crate::ExecutionHeaderIndex<T>,
-	crate::ExecutionHeaderMapping<T>,
-	crate::ExecutionHeaders<T>,
-	OptionQuery,
->;
+pub use snowbridge_beacon_primitives::{AncestryProof, ExecutionProof};
 
 /// FinalizedState ring buffer implementation
-pub(crate) type FinalizedBeaconStateBuffer<T> = RingBufferMapImpl<
+pub type FinalizedBeaconStateBuffer<T> = RingBufferMapImpl<
 	u32,
 	crate::MaxFinalizedHeadersToKeep<T>,
 	crate::FinalizedBeaconStateIndex<T>,
