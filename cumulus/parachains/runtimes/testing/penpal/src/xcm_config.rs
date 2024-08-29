@@ -268,6 +268,8 @@ pub const ASSET_HUB_ID: u32 = 1000;
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
 	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
+	/// Bridged Assets Prefx
+	pub BridgedAssetPrefix: Location = Location::new(2, Here);
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: Location =
 		Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID)]);
@@ -308,6 +310,7 @@ pub type TrustedReserves = (
 	AssetsFrom<SystemAssetHubLocation>,
 	NativeAssetFrom<SystemAssetHubLocation>,
 	AssetPrefixFrom<CustomizableAssetFromSystemAssetHub, SystemAssetHubLocation>,
+	AssetPrefixFrom<BridgedAssetPrefix, SystemAssetHubLocation>,
 );
 pub type TrustedTeleporters =
 	(AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,);
