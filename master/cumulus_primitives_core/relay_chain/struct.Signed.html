@@ -168,12 +168,12 @@ enforces a valid signature again.</p>
     H: Encode,</div></h4></section></summary><div class="docblock"><p>Used to create a <code>Signed</code> from already existing parts.</p>
 <p>The signature is checked as part of the process.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.sign" class="method"><h4 class="code-header">pub fn <a href="#method.sign" class="fn">sign</a>&lt;H&gt;(
-    keystore: &amp;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn Keystore&gt;,
+    keystore: &amp;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../../sp_keystore/trait.Keystore.html" title="trait sp_keystore::Keystore">Keystore</a>&gt;,
     payload: Payload,
     context: &amp;<a class="struct" href="struct.SigningContext.html" title="struct cumulus_primitives_core::relay_chain::SigningContext">SigningContext</a>&lt;H&gt;,
     validator_index: <a class="struct" href="struct.ValidatorIndex.html" title="struct cumulus_primitives_core::relay_chain::ValidatorIndex">ValidatorIndex</a>,
     key: &amp;Public
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Signed.html" title="struct cumulus_primitives_core::relay_chain::Signed">Signed</a>&lt;Payload, RealPayload&gt;&gt;, Error&gt;<div class="where">where
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Signed.html" title="struct cumulus_primitives_core::relay_chain::Signed">Signed</a>&lt;Payload, RealPayload&gt;&gt;, <a class="enum" href="../../sp_keystore/enum.Error.html" title="enum sp_keystore::Error">Error</a>&gt;<div class="where">where
     H: Encode,</div></h4></section></summary><div class="docblock"><p>Create a new <code>Signed</code> by signing data.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.try_from_unchecked" class="method"><h4 class="code-header">pub fn <a href="#method.try_from_unchecked" class="fn">try_from_unchecked</a>&lt;H&gt;(
     unchecked: <a class="struct" href="struct.UncheckedSigned.html" title="struct cumulus_primitives_core::relay_chain::UncheckedSigned">UncheckedSigned</a>&lt;Payload, RealPayload&gt;,

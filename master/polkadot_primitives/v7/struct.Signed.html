@@ -165,12 +165,12 @@ enforces a valid signature again.</p>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self&gt;</h4></section></summary><div class="docblock"><p>Used to create a <code>Signed</code> from already existing parts.</p>
 <p>The signature is checked as part of the process.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.sign" class="method"><a class="src rightside" href="../../src/polkadot_primitives/v7/signed.rs.html#89-98">source</a><h4 class="code-header">pub fn <a href="#method.sign" class="fn">sign</a>&lt;H: Encode&gt;(
-    keystore: &amp;KeystorePtr,
+    keystore: &amp;<a class="type" href="../../sp_keystore/type.KeystorePtr.html" title="type sp_keystore::KeystorePtr">KeystorePtr</a>,
     payload: Payload,
     context: &amp;<a class="struct" href="struct.SigningContext.html" title="struct polkadot_primitives::v7::SigningContext">SigningContext</a>&lt;H&gt;,
     validator_index: <a class="struct" href="struct.ValidatorIndex.html" title="struct polkadot_primitives::v7::ValidatorIndex">ValidatorIndex</a>,
     key: &amp;<a class="type" href="type.ValidatorId.html" title="type polkadot_primitives::v7::ValidatorId">ValidatorId</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self&gt;, KeystoreError&gt;</h4></section></summary><div class="docblock"><p>Create a new <code>Signed</code> by signing data.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self&gt;, <a class="enum" href="../../sp_keystore/enum.Error.html" title="enum sp_keystore::Error">KeystoreError</a>&gt;</h4></section></summary><div class="docblock"><p>Create a new <code>Signed</code> by signing data.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.try_from_unchecked" class="method"><a class="src rightside" href="../../src/polkadot_primitives/v7/signed.rs.html#101-111">source</a><h4 class="code-header">pub fn <a href="#method.try_from_unchecked" class="fn">try_from_unchecked</a>&lt;H: Encode&gt;(
     unchecked: <a class="struct" href="struct.UncheckedSigned.html" title="struct polkadot_primitives::v7::UncheckedSigned">UncheckedSigned</a>&lt;Payload, RealPayload&gt;,
     context: &amp;<a class="struct" href="struct.SigningContext.html" title="struct polkadot_primitives::v7::SigningContext">SigningContext</a>&lt;H&gt;,
