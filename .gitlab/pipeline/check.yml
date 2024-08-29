@@ -70,7 +70,7 @@ check-toml-format:
     - sleep 5
 
 # Check runtime migrations for Parity managed relay chains
-check-runtime-migration-westend:
+.check-runtime-migration-westend:
   stage: check
   extends:
     - .docker-env
@@ -83,7 +83,7 @@ check-runtime-migration-westend:
     URI: "wss://try-runtime-westend.polkadot.io:443"
     SUBCOMMAND_EXTRA_ARGS: "--no-weight-warnings"
 
-check-runtime-migration-rococo:
+.check-runtime-migration-rococo:
   stage: check
   extends:
     - .docker-env
