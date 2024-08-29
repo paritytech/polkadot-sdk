@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724883186129,
+  "lastUpdate": 1724929204089,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -16543,6 +16543,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.607974343340022,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a67d6232687ab5131816b96808cda22ecb516798",
+          "message": "[ci] Migrate checks to GHA (#5511)\n\nPR migrates jobs `quick-benchmarks`, `cargo-clippy`, `check-try-runtime`\nand `check-core-crypto-features` from Gitlab to GitHub\n\ncc https://github.com/paritytech/ci_cd/issues/1006\n\n---------\n\nCo-authored-by: Maksym H <1177472+mordamax@users.noreply.github.com>",
+          "timestamp": "2024-08-29T09:17:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a67d6232687ab5131816b96808cda22ecb516798"
+        },
+        "date": 1724929176311,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63971.39,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52944.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 5.969831751059985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1672543861001543,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.904048644449988,
             "unit": "seconds"
           }
         ]
