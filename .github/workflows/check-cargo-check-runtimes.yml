@@ -138,7 +138,8 @@ jobs:
         index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/set-up-mac
+      - name: Install dependencies
+        uses: ./.github/actions/set-up-mac
         with:
           IMAGE: ${{ needs.set-image.outputs.IMAGE }}
       - name: Run cargo check
