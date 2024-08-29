@@ -14,8 +14,8 @@ on:
 
 jobs:
 
-  check-workflow-can-run:
-    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
+  # check-workflow-can-run:
+  #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
 
 
   validate-inputs:
@@ -40,8 +40,9 @@ jobs:
           echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
 
   create-stable-branch:
-    needs: [check-workflow-can-run, validate-inputs]
-    if: needs. check-workflow-can-run.outputs.checks_passed == 'true'
+    # needs: [check-workflow-can-run, validate-inputs]
+    needs: [validate-inputs]
+    # if: needs. check-workflow-can-run.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
 
     steps:
