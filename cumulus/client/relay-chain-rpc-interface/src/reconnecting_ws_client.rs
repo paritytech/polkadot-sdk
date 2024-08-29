@@ -464,7 +464,10 @@ impl ReconnectingWebsocketWorker {
 
 #[cfg(test)]
 mod test {
-	use super::url_to_string_with_port;
+	use std::time::Duration;
+
+	use super::{url_to_string_with_port, ClientManager};
+	use jsonrpsee::Methods;
 	use url::Url;
 
 	#[test]
@@ -492,5 +495,49 @@ mod test {
 			Some("wss://something:9090/path?query=yes".to_string()),
 			url_to_string_with_port(url)
 		);
+	}
+
+	#[tokio::test]
+	// Testing the retry logic at full means increasing CI with half a minute according
+	// to the current logic, so lets test it best effort.
+	async fn client_manager_retry_logic() {
+		let port = portpicker::pick_unused_port().unwrap();
+		let server = jsonrpsee::server::Server::builder()
+			.build(format!("0.0.0.0:{}", port))
+			.await
+			.unwrap();
+
+		// Wait three seconds while attempting connection.
+		let conn_res = tokio::spawn(async move {
+			tokio::time::timeout(
+				Duration::from_secs(3),
+				ClientManager::new(vec![format!("ws://127.0.0.1:{}", port)]),
+			)
+			.await
+		});
+
+		// Start the server too.
+		let server = tokio::spawn(async {
+			tokio::time::sleep(Duration::from_secs(10)).await;
+			server.start(Methods::default())
+		});
+
+		// By this time the client can not make a connection because the server is not up.
+		assert!(conn_res.await.unwrap().is_err());
+
+		// Trying to connect again to the RPC with a client that stays around for sufficient
+		// time to catche the RPC server online and connect to it.
+		let conn_res = tokio::spawn(async move {
+			tokio::time::timeout(
+				Duration::from_secs(8),
+				ClientManager::new(vec![format!("ws://127.0.0.1:{}", port)]),
+			)
+			.await
+		});
+		let res = conn_res.await.unwrap();
+		assert!(res.is_ok());
+		assert!(res.unwrap().is_ok());
+
+		server.await.unwrap();
 	}
 }

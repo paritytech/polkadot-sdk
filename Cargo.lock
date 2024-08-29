@@ -4429,6 +4429,7 @@ dependencies = [
  "parity-scale-codec",
  "pin-project",
  "polkadot-overseer",
+ "portpicker",
  "rand",
  "sc-client-api",
  "sc-rpc-api",
