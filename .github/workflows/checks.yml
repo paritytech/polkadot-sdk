@@ -5,8 +5,9 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -97,7 +98,8 @@ jobs:
           cd substrate/primitives/keyring
           ./check-features-variants.sh
           cd -
-
+  # name of this job must be unique across all workflows
+  # otherwise GitHub will mark all these jobs as required
   confirm-required-checks-passed:
     runs-on: ubuntu-latest
     name: All checks passed
