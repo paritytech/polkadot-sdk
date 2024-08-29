@@ -984,8 +984,6 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	};
 
-	// Check session index in the receipt. As we drop allowed relay parents at session change
-	// we only allow here candidates that have the session index equal to the current session.
 	let Some(session_index) = candidate.descriptor().session_index() else {
 		log::debug!(
 			target: LOG_TARGET,
@@ -996,6 +994,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	};
 
+	// Check if session index is equal to current session index.
 	if session_index != shared::CurrentSessionIndex::<T>::get() {
 		log::debug!(
 			target: LOG_TARGET,
