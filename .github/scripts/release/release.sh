@@ -22,7 +22,5 @@ set_version() {
 # output: none
 commit_with_message() {
     MESSAGE=$1
-
-    log_info "Committing with message: $MESSAGE. Be ready to tap your Yubikey"
     git commit -a -m "$MESSAGE" || true
 }
