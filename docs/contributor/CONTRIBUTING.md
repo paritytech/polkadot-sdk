@@ -42,13 +42,13 @@ The set of labels and their description can be found [here](https://paritytech.g
 3. If you’re still working on your PR, please submit as “Draft”. Once a PR is ready for review change the status to
    “Open”, so that the maintainers get to review your PR. Generally PRs should sit for 48 hours in order to garner
    feedback. It may be merged before if all relevant parties had a look at it.
-4. With respect to auditing, please see [AUDIT.md](../AUDIT.md). In general, merging to master can happen independent of
+4. With respect to auditing, please see [AUDIT.md](../AUDIT.md). In general, merging to master can happen independently of
    audit.
 5. PRs will be able to be merged once all reviewers' comments are addressed and CI is successful.
 
 **Noting breaking changes:** When breaking APIs, the PR description should mention what was changed alongside some
 examples on how to change the code to make it work/compile. It should also mention potential storage migrations and if
-they require some special setup aside adding it to the list of migrations in the runtime.
+they require some special setup aside from adding it to the list of migrations in the runtime.
 
 ## Reviewing pull requests
 
@@ -161,11 +161,11 @@ test output there is a script
 * `./scripts/update-ui-tests.sh`   to update the tests for a current rust version locally
 * `./scripts/update-ui-tests.sh 1.70` # to update the tests for a specific rust version locally
 
-Or if you have opened PR and you're member of `paritytech` - you can use command-bot to run the tests for you in CI:
-* `bot update-ui` - will run the tests for the current rust version
-* `bot update-ui latest --rust_version=1.70.0` - will run the tests for the specified rust version
-* `bot update-ui latest -v CMD_IMAGE=paritytech/ci-unified:bullseye-1.70.0-2023-05-23 --rust_version=1.70.0` - will run
-the tests for the specified rust version and specified image
+Or if you have opened PR and you're member of `paritytech` - you can use [/cmd](./commands-readme.md)
+to run the tests for you in CI:
+* `/cmd update-ui` - will run the tests for the current rust version
+* `/cmd update-ui --image docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23` -
+will run the tests for the specified rust version and specified image
 
 ## Feature Propagation
 
@@ -175,7 +175,7 @@ We use [zepter](https://github.com/ggwpez/zepter) to enforce features are propag
 
 If you're member of **paritytech** org - you can use command-bot to run various of common commands in CI:
 
-Start with comment in PR: `bot help` to see the list of available commands.
+Start with comment in PR: `/cmd --help` to see the list of available commands.
 
 
 ## Deprecating code

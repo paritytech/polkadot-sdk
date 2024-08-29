@@ -1,0 +1,11 @@
+title: Reactive syncing metrics
+
+doc:
+  - audience: Node Dev
+    description: |
+      Syncing metrics are now updated immediate as changes happen rather than every 1100ms as it was happening before.
+      This resulted in minor, but breaking API changes.
+
+crates:
+  - name: sc-network-sync
+    bump: major
