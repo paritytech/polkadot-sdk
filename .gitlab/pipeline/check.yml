@@ -1,29 +1,3 @@
-cargo-clippy:
-  stage: check
-  extends:
-    - .docker-env
-    - .common-refs
-    - .pipeline-stopper-artifacts
-  variables:
-    RUSTFLAGS: "-D warnings"
-  script:
-    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace --quiet
-    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --all-features --locked --workspace --quiet
-
-check-try-runtime:
-  stage: check
-  extends:
-    - .docker-env
-    - .common-refs
-  script:
-    - time cargo check --locked --all --features try-runtime
-    # this is taken from cumulus
-    # Check that parachain-template will compile with `try-runtime` feature flag.
-    - time cargo check --locked -p parachain-template-node --features try-runtime
-    # add after https://github.com/paritytech/substrate/pull/14502 is merged
-    # experimental code may rely on try-runtime and vice-versa
-    - time cargo check --locked --all --features try-runtime,experimental
-
 # from substrate
 # not sure if it's needed in monorepo
 check-dependency-rules:
@@ -121,19 +95,3 @@ check-runtime-migration-rococo:
     WASM: "rococo_runtime.compact.compressed.wasm"
     URI: "wss://try-runtime-rococo.polkadot.io:443"
     SUBCOMMAND_EXTRA_ARGS: "--no-weight-warnings"
-
-check-core-crypto-features:
-  stage: check
-  extends:
-    - .docker-env
-    - .common-refs
-  script:
-    - pushd substrate/primitives/core
-    - ./check-features-variants.sh
-    - popd
-    - pushd substrate/primitives/application-crypto
-    - ./check-features-variants.sh
-    - popd
-    - pushd substrate/primitives/keyring
-    - ./check-features-variants.sh
-    - popd
