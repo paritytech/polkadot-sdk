@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724930107737,
+  "lastUpdate": 1724941887446,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9743,6 +9743,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03745865253,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dharjeezy",
+            "username": "dharjeezy",
+            "email": "dharjeezy@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "61bfcb846c2582e9fdf5068f91a20c107d6f030e",
+          "message": "Add new try-state check invariant for nomination-pools (points >= stake) (#5465)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/5448\n\n---------\n\nCo-authored-by: Gonçalo Pestana <g6pestana@gmail.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2024-08-29T12:28:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/61bfcb846c2582e9fdf5068f91a20c107d6f030e"
+        },
+        "date": 1724941859276,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.92999999999992,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04569659666199997,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037114517218,
             "unit": "seconds"
           }
         ]
