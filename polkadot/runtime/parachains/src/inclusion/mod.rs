@@ -588,11 +588,8 @@ impl<T: Config> Pallet<T> {
 								commitments: candidate.commitments,
 							};
 
-							let has_runtime_upgrade = receipt
-								.commitments
-								.new_validation_code
-								.map(|_| 1)
-								.unwrap_or_default();
+							let has_runtime_upgrade =
+								receipt.commitments.new_validation_code.as_ref().map_or(0, |_| 1);
 							let u = receipt.commitments.upward_messages.len() as u32;
 							let h = receipt.commitments.horizontal_messages.len() as u32;
 							let enact_weight = <T as Config>::WeightInfo::enact_candidate(
