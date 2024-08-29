@@ -1402,7 +1402,7 @@ version = "37.0.0"
 path = "../substrate/frame/timestamp"
 default-features = false
 optional = true
-version = "36.0.0"
+version = "36.0.1"
 
 [dependencies.pallet-tips]
 path = "../substrate/frame/tips"
@@ -1528,7 +1528,7 @@ version = "16.0.0"
 path = "../polkadot/runtime/parachains"
 default-features = false
 optional = true
-version = "16.0.1"
+version = "16.0.2"
 
 [dependencies.polkadot-sdk-frame]
 path = "../substrate/frame"
@@ -2008,7 +2008,7 @@ version = "0.17.0"
 path = "../cumulus/client/consensus/aura"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.17.1"
 
 [dependencies.cumulus-client-consensus-common]
 path = "../cumulus/client/consensus/common"
@@ -2188,7 +2188,7 @@ version = "17.0.0"
 path = "../polkadot/node/network/dispute-distribution"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.0.1"
 
 [dependencies.polkadot-erasure-coding]
 path = "../polkadot/erasure-coding"

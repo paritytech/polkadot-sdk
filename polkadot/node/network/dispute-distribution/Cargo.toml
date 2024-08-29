@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-dispute-distribution"
-version = "17.0.0"
+version = "17.0.1"
 description = "Polkadot Dispute Distribution subsystem, which ensures all concerned validators are aware of a dispute and have the relevant votes. (polkadot v1.15.0)"
 authors.workspace = true
 edition.workspace = true
