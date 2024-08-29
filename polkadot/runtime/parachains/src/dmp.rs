@@ -287,7 +287,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Prunes the specified number of messages from the downward message queue of the given para.
-	pub(crate) fn prune_dmq(para: ParaId, processed_downward_messages: u32) -> Weight {
+	pub(crate) fn prune_dmq(para: ParaId, processed_downward_messages: u32) {
 		let q_len = DownwardMessageQueues::<T>::mutate(para, |q| {
 			let processed_downward_messages = processed_downward_messages as usize;
 			if processed_downward_messages > q.len() {
@@ -306,7 +306,6 @@ impl<T: Config> Pallet<T> {
 		if q_len <= (threshold as usize) {
 			Self::decrease_fee_factor(para);
 		}
-		T::DbWeight::get().reads_writes(1, 1)
 	}
 
 	/// Returns the Head of Message Queue Chain for the given para or `None` if there is none
