@@ -53,7 +53,7 @@ jobs:
 
       - name: Prepare tooling
         run: |
-          . ../.github/scripts/common/lib.sh
+          . ./.github/scripts/common/lib.sh
 
           # Install pgpkms that is used to sign commits
           pip install git+https://github.com/paritytech-release/pgpkms.git@commit-5a8f82fbb607ea102d8c178e761659de54c7af69
