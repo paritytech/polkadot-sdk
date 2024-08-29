@@ -250,23 +250,6 @@ test-rustdoc:
   script:
     - time cargo doc --workspace --all-features --no-deps
 
-# This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
-quick-benchmarks:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-  variables:
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-C debug-assertions -D warnings"
-    RUST_BACKTRACE: "full"
-    WASM_BUILD_NO_COLOR: 1
-    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
-  script:
-    - time cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks --quiet -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
-
 quick-benchmarks-omni:
   stage: test
   extends:
