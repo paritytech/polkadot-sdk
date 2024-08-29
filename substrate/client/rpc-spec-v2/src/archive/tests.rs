@@ -96,7 +96,7 @@ async fn archive_genesis() {
 
 #[tokio::test]
 async fn archive_body() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	// Invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
@@ -130,7 +130,7 @@ async fn archive_body() {
 
 #[tokio::test]
 async fn archive_header() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	// Invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
@@ -176,7 +176,7 @@ async fn archive_finalized_height() {
 
 #[tokio::test]
 async fn archive_hash_by_height() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	// Genesis height.
 	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [0]).await.unwrap();
@@ -282,7 +282,7 @@ async fn archive_hash_by_height() {
 
 #[tokio::test]
 async fn archive_call() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 	let invalid_hash = hex_string(&INVALID_HASH);
 
 	// Invalid parameter (non-hex).
@@ -341,7 +341,7 @@ async fn archive_call() {
 
 #[tokio::test]
 async fn archive_storage_hashes_values() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	let block = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -431,7 +431,7 @@ async fn archive_storage_hashes_values() {
 
 #[tokio::test]
 async fn archive_storage_closest_merkle_value() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	/// The core of this test.
 	///
@@ -592,7 +592,7 @@ async fn archive_storage_closest_merkle_value() {
 #[tokio::test]
 async fn archive_storage_paginate_iterations() {
 	// 1 iteration allowed before pagination kicks in.
-	let (mut client, api) = setup_api(1, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api(1, MAX_QUERIED_LIMIT);
 
 	// Import a new block with storage changes.
 	let mut builder = BlockBuilderBuilder::new(&*client)
@@ -787,7 +787,7 @@ async fn archive_storage_paginate_iterations() {
 #[tokio::test]
 async fn archive_storage_discarded_items() {
 	// One query at a time
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, 1);
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, 1);
 
 	// Import a new block with storage changes.
 	let mut builder = BlockBuilderBuilder::new(&*client)
