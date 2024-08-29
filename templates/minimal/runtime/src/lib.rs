@@ -26,20 +26,14 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use frame::{
-	deps::frame_support::{
-		genesis_builder_helper::{build_state, get_preset},
-		runtime,
-		weights::{FixedFee, NoFee},
-	},
-	prelude::*,
-	runtime::{
-		apis::{
-			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
-			ExtrinsicInclusionMode, OpaqueMetadata,
-		},
+use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
+use polkadot_sdk::{
+	polkadot_sdk_frame::{
+		self as frame,
 		prelude::*,
+		runtime::{apis, prelude::*},
 	},
+	*,
 };
 
 /// The runtime version.
@@ -83,7 +77,7 @@ type SignedExtra = (
 );
 
 // Composes the runtime by adding all the used pallets and deriving necessary types.
-#[runtime]
+#[frame_construct_runtime]
 mod runtime {
 	/// The main runtime type.
 	#[runtime::runtime]
@@ -170,8 +164,6 @@ type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =
 	Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
-
-use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 
 impl_runtime_apis! {
 	impl apis::Core<Block> for Runtime {
@@ -296,7 +288,7 @@ impl_runtime_apis! {
 // https://github.com/paritytech/substrate/issues/10579#issuecomment-1600537558
 pub mod interface {
 	use super::Runtime;
-	use frame::deps::frame_system;
+	use polkadot_sdk::{polkadot_sdk_frame as frame, *};
 
 	pub type Block = super::Block;
 	pub use frame::runtime::types_common::OpaqueBlock;
