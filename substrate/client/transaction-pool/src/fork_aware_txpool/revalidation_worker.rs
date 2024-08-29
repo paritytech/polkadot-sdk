@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! The background worked for [`View`] and [`TxMemPool`] revalidation.
+//! The background worker for the [`View`] and [`TxMemPool`] revalidation.
 //!
 //! The [*Background tasks*](../index.html#background-tasks) section provides some extra details on
 //! revalidation process.

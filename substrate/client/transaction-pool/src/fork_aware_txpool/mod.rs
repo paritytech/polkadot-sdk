@@ -128,14 +128,14 @@
 //!
 //! This section provides a top level overview of all flows within the fork aware transaction pool.
 //!
-//! ### Transaction route: [`api_submit`]
+//! ### Transaction route: [`submit`][`api_submit`]
 //! This flow is simple. Transaction is added to the mempool and if it is not rejected by it (due to
 //! size limits), it is also [submitted][`submit`] into every view in [`active_views`].
 //!
 //! When the newly created view does not contain this transaction yet, it is
 //! [re-submitted][ForkAwareTxPool::update_view] from [`TxMemPool`] into this view.
 //!
-//! ### Transaction route: [`api_submit_and_watch`]
+//! ### Transaction route: [`submit_and_watch`][`api_submit_and_watch`]
 //!
 //! The [`submit_and_watch`] function allows to submit the transaction and track its
 //! [status][`TransactionStatus`] within the pool. Every view is providing an independent
@@ -261,7 +261,8 @@
 //! [`MultiViewImportNotificationSink`].
 //!
 //! The networking module is utilizing this channel to receive info about new ready transactions
-//! which later will be propagated over the network.
+//! which later will be propagated over the network. On the other side, when a transaction is
+//! received networking submits transaction to the pool using [`submit`][`api_submit`].
 //!
 //! ### Handling invalid transactions
 //! Refer to *mempool* revalidation [section](#mempool-pruningrevalidation).

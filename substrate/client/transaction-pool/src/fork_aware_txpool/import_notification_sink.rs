@@ -47,11 +47,11 @@ use tokio_stream::StreamMap;
 type StreamOf<I> = Pin<Box<dyn futures::Stream<Item = I> + Send>>;
 
 /// A type alias for a tracing unbounded sender used as the command channel controller.
-/// This is used to send control commands to the `AggregatedStreamContext`.
+/// Used to send control commands to the `AggregatedStreamContext`.
 type Controller<T> = mpsc::TracingUnboundedSender<T>;
 
 /// A type alias for a tracing unbounded receiver used as the command channel receiver.
-/// This is used to receive control commands in the `AggregatedStreamContext`.
+/// Used to receive control commands in the `AggregatedStreamContext`.
 type CommandReceiver<T> = mpsc::TracingUnboundedReceiver<T>;
 
 /// An enum representing commands that can be sent to the multi-sinks context.
@@ -71,7 +71,7 @@ impl<K, I: Send + Sync> Debug for Command<K, I> {
 	}
 }
 
-/// A context used to unfold the single aggregated stream of items aggregated from the multiple
+/// A context used to unfold the single stream of items aggregated from the multiple
 /// streams.
 ///
 /// The `AggregatedStreamContext` continuously monitors both the command receiver and the stream
@@ -179,7 +179,7 @@ where
 		let external_sinks = output_stream_controller.external_sinks.clone();
 		let already_notified_items = output_stream_controller.already_notified_items.clone();
 
-		let f = output_stream
+		let import_notifcation_task = output_stream
 			.for_each(move |event| {
 				let external_sinks = external_sinks.clone();
 				let already_notified_items = already_notified_items.clone();
@@ -195,7 +195,7 @@ where
 				}
 			})
 			.boxed();
-		(output_stream_controller, f)
+		(output_stream_controller, import_notifcation_task)
 	}
 
 	/// Adds a new stream associated with the view identified by specified key.
