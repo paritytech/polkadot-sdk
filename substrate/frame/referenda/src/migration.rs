@@ -311,17 +311,17 @@ pub mod test {
 			// run migration from v0 to v1.
 			v1::MigrateV0ToV1::<T, ()>::on_runtime_upgrade();
 			// fetch and assert migrated into v1 the ongoing referendum.
-			let ongoing_v1 = ReferendumInfoFor::<T, ()>::get(2).unwrap();
+			let ongoing_v1 = v1::ReferendumInfoFor::<T, ()>::get(2).unwrap();
 			// referendum status schema is the same for v0 and v1.
-			assert_eq!(ReferendumInfoOf::<T, ()>::Ongoing(status_v0), ongoing_v1);
+			assert_eq!(v1::ReferendumInfoOf::<T, ()>::Ongoing(status_v0), ongoing_v1);
 			// fetch and assert migrated into v1 the approved referendum.
-			let approved_v1 = ReferendumInfoFor::<T, ()>::get(5).unwrap();
+			let approved_v1 = v1::ReferendumInfoFor::<T, ()>::get(5).unwrap();
 			assert_eq!(
 				approved_v1,
-				ReferendumInfoOf::<T, ()>::Approved(
+				v1::ReferendumInfoOf::<T, ()>::Approved(
 					123,
 					Some(Deposit { who: 1, amount: 10 }),
-					Some(Deposit { who: 2, amount: 20 })
+					Some(Deposit { who: 2, amount: 20 }),
 				)
 			);
 		});

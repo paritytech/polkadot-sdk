@@ -923,10 +923,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResultWithPostInfo {
 		let mut status = Self::ensure_ongoing(index)?;
 		let track = Self::track(status.track).ok_or(Error::<T, I>::NoTrack)?;
-		ensure!(
-			status.decision_deposit.collected_deposit >= track.decision_deposit,
-			Error::<T, I>::HasDeposit
-		);
+		ensure!(!status.decision_deposit.is_fully_collected(), Error::<T, I>::HasDeposit);
 
 		let deposit = deposit.unwrap_or(track.decision_deposit);
 

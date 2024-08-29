@@ -314,12 +314,12 @@ fn auto_timeout_should_happen_with_nothing_but_submit() {
 			DispatchTime::At(20),
 		));
 		run_to(20);
-		assert_matches!(ReferendumInfoFor::<Test>::get(0), Some(ReferendumInfo::Ongoing(..)));
+		assert_matches!(ReferendumInfoFor::<Test>::get(0), Some(ReferendumInfo::Ongoing { .. }));
 		run_to(21);
 		// #11: Timed out - ended.
 		assert_matches!(
 			ReferendumInfoFor::<Test>::get(0),
-			Some(ReferendumInfo::TimedOut(21, _, None))
+			Some(ReferendumInfo::TimedOut { when: 21, .. })
 		);
 	});
 }
@@ -350,35 +350,47 @@ fn tracks_are_distinguished() {
 			vec![
 				(
 					0,
-					ReferendumInfo::Ongoing(ReferendumStatus {
-						track: 0,
-						origin: OriginCaller::system(RawOrigin::Root),
-						proposal: set_balance_proposal_bounded(1),
-						enactment: DispatchTime::At(10),
-						submitted: 1,
-						submission_deposit: Deposit { who: 1, amount: 2 },
-						decision_deposit: Some(Deposit { who: 3, amount: 10 }),
-						deciding: None,
-						tally: Tally { ayes: 0, nays: 0 },
-						in_queue: false,
-						alarm: Some((5, (5, 0))),
-					})
+					ReferendumInfo::Ongoing {
+						status: ReferendumStatus {
+							track: 0,
+							origin: OriginCaller::system(RawOrigin::Root),
+							proposal: set_balance_proposal_bounded(1),
+							enactment: DispatchTime::At(10),
+							submitted: 1,
+							submission_deposit: Deposit { who: 1, amount: 2 },
+							decision_deposit: DecisionDeposit {
+								collected_deposit: 10,
+								required_track_deposit: 10,
+								contributors: BoundedVec::truncate_from(vec![(3, 10)])
+							},
+							deciding: None,
+							tally: Tally { ayes: 0, nays: 0 },
+							in_queue: false,
+							alarm: Some((5, (5, 0))),
+						}
+					}
 				),
 				(
 					1,
-					ReferendumInfo::Ongoing(ReferendumStatus {
-						track: 1,
-						origin: OriginCaller::system(RawOrigin::None),
-						proposal: set_balance_proposal_bounded(2),
-						enactment: DispatchTime::At(20),
-						submitted: 1,
-						submission_deposit: Deposit { who: 2, amount: 2 },
-						decision_deposit: Some(Deposit { who: 4, amount: 1 }),
-						deciding: None,
-						tally: Tally { ayes: 0, nays: 0 },
-						in_queue: false,
-						alarm: Some((3, (3, 0))),
-					})
+					ReferendumInfo::Ongoing {
+						status: ReferendumStatus {
+							track: 1,
+							origin: OriginCaller::system(RawOrigin::None),
+							proposal: set_balance_proposal_bounded(2),
+							enactment: DispatchTime::At(20),
+							submitted: 1,
+							submission_deposit: Deposit { who: 2, amount: 2 },
+							decision_deposit: DecisionDeposit {
+								collected_deposit: 1,
+								required_track_deposit: 1,
+								contributors: BoundedVec::truncate_from(vec![(4, 1)])
+							},
+							deciding: None,
+							tally: Tally { ayes: 0, nays: 0 },
+							in_queue: false,
+							alarm: Some((3, (3, 0))),
+						}
+					}
 				),
 			]
 		);

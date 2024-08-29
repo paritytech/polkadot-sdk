@@ -22,7 +22,7 @@ use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{fmt::Debug, mem};
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
-	Parameter, PartialEqNoBound,
+	EqNoBound, Parameter, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
@@ -285,7 +285,9 @@ pub struct ReferendumStatus<
 }
 
 /// Info regarding a referendum, present or past.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode, Decode, Clone, PartialEqNoBound, EqNoBound, RuntimeDebug, TypeInfo, MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxContributors))]
 pub enum ReferendumInfo<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,

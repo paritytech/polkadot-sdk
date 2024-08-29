@@ -215,6 +215,7 @@ impl Config for Test {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TestTracksInfo;
 	type Preimages = Preimage;
+	type MaxDepositContributions = ConstU32<10>;
 }
 pub struct ExtBuilder {}
 
@@ -349,72 +350,76 @@ pub fn set_tally(index: ReferendumIndex, ayes: u32, nays: u32) {
 
 pub fn waiting_since(i: ReferendumIndex) -> u64 {
 	match ReferendumInfoFor::<Test>::get(i).unwrap() {
-		ReferendumInfo::Ongoing(ReferendumStatus { submitted, deciding: None, .. }) => submitted,
+		ReferendumInfo::Ongoing { status: ReferendumStatus { submitted, deciding: None, .. } } =>
+			submitted,
 		_ => panic!("Not waiting"),
 	}
 }
 
 pub fn deciding_since(i: ReferendumIndex) -> u64 {
 	match ReferendumInfoFor::<Test>::get(i).unwrap() {
-		ReferendumInfo::Ongoing(ReferendumStatus {
-			deciding: Some(DecidingStatus { since, .. }),
-			..
-		}) => since,
+		ReferendumInfo::Ongoing {
+			status: ReferendumStatus { deciding: Some(DecidingStatus { since, .. }), .. },
+		} => since,
 		_ => panic!("Not deciding"),
 	}
 }
 
 pub fn deciding_and_failing_since(i: ReferendumIndex) -> u64 {
 	match ReferendumInfoFor::<Test>::get(i).unwrap() {
-		ReferendumInfo::Ongoing(ReferendumStatus {
-			deciding: Some(DecidingStatus { since, confirming: None, .. }),
-			..
-		}) => since,
+		ReferendumInfo::Ongoing {
+			status:
+				ReferendumStatus {
+					deciding: Some(DecidingStatus { since, confirming: None, .. }), ..
+				},
+		} => since,
 		_ => panic!("Not deciding"),
 	}
 }
 
 pub fn confirming_until(i: ReferendumIndex) -> u64 {
 	match ReferendumInfoFor::<Test>::get(i).unwrap() {
-		ReferendumInfo::Ongoing(ReferendumStatus {
-			deciding: Some(DecidingStatus { confirming: Some(until), .. }),
-			..
-		}) => until,
+		ReferendumInfo::Ongoing {
+			status:
+				ReferendumStatus {
+					deciding: Some(DecidingStatus { confirming: Some(until), .. }), ..
+				},
+		} => until,
 		_ => panic!("Not confirming"),
 	}
 }
 
 pub fn approved_since(i: ReferendumIndex) -> u64 {
 	match ReferendumInfoFor::<Test>::get(i).unwrap() {
-		ReferendumInfo::Approved(since, ..) => since,
+		ReferendumInfo::Approved { when, .. } => when,
 		_ => panic!("Not approved"),
 	}
 }
 
 pub fn rejected_since(i: ReferendumIndex) -> u64 {
 	match ReferendumInfoFor::<Test>::get(i).unwrap() {
-		ReferendumInfo::Rejected(since, ..) => since,
+		ReferendumInfo::Rejected { when, .. } => when,
 		_ => panic!("Not rejected"),
 	}
 }
 
 pub fn cancelled_since(i: ReferendumIndex) -> u64 {
 	match ReferendumInfoFor::<Test>::get(i).unwrap() {
-		ReferendumInfo::Cancelled(since, ..) => since,
+		ReferendumInfo::Cancelled { when, .. } => when,
 		_ => panic!("Not cancelled"),
 	}
 }
 
 pub fn killed_since(i: ReferendumIndex) -> u64 {
 	match ReferendumInfoFor::<Test>::get(i).unwrap() {
-		ReferendumInfo::Killed(since, ..) => since,
+		ReferendumInfo::Killed { when, .. } => when,
 		_ => panic!("Not killed"),
 	}
 }
 
 pub fn timed_out_since(i: ReferendumIndex) -> u64 {
 	match ReferendumInfoFor::<Test>::get(i).unwrap() {
-		ReferendumInfo::TimedOut(since, ..) => since,
+		ReferendumInfo::TimedOut { when, .. } => when,
 		_ => panic!("Not timed out"),
 	}
 }
@@ -422,7 +427,7 @@ pub fn timed_out_since(i: ReferendumIndex) -> u64 {
 fn is_deciding(i: ReferendumIndex) -> bool {
 	matches!(
 		ReferendumInfoFor::<Test>::get(i),
-		Some(ReferendumInfo::Ongoing(ReferendumStatus { deciding: Some(_), .. }))
+		Some(ReferendumInfo::Ongoing { status: ReferendumStatus { deciding: Some(_), .. } })
 	)
 }
 
