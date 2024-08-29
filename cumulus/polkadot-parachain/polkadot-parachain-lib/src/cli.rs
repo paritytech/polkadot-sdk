@@ -36,8 +36,10 @@ use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 /// The related info is shown to the customer as part of logs or help messages.
 /// It does not impact functionality.
 pub trait CliConfig {
+	/// The version of the resulting node binary.
 	fn impl_version() -> String;
 
+	/// The description of the resulting node binary.
 	fn description(executable_name: String) -> String {
 		format!(
 			"The command-line arguments provided first will be passed to the parachain node, \n\
@@ -50,10 +52,13 @@ pub trait CliConfig {
 		)
 	}
 
+	/// The author of the resulting node binary.
 	fn author() -> String;
 
+	/// The support URL for the resulting node binary.
 	fn support_url() -> String;
 
+	/// The starting copyright year of the resulting node binary.
 	fn copyright_start_year() -> u16;
 }
 
