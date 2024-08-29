@@ -170,14 +170,14 @@ pub fn dummy_head_data() -> HeadData {
 	HeadData(vec![])
 }
 
-/// Create a meaningless collator id.
-pub fn dummy_collator() -> CollatorId {
-	CollatorId::from(sr25519::Public::default())
-}
-
 /// Create a meaningless validator id.
 pub fn dummy_validator() -> ValidatorId {
 	ValidatorId::from(sr25519::Public::default())
+}
+
+/// Create a meaningless collator id.
+pub fn dummy_collator() -> CollatorId {
+	CollatorId::from(sr25519::Public::default())
 }
 
 /// Create a meaningless collator signature.

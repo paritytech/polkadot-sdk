@@ -26,7 +26,7 @@ use crate::{
 	shared::AllowedRelayParentsTracker,
 };
 use polkadot_primitives::{
-	effective_minimum_backing_votes, vstaging::CandidateDescriptorV2, AvailabilityBitfield,
+	effective_minimum_backing_votes, AvailabilityBitfield, CandidateDescriptor,
 	SignedAvailabilityBitfields, UncheckedSignedAvailabilityBitfields,
 };
 
@@ -34,12 +34,13 @@ use assert_matches::assert_matches;
 use codec::DecodeAll;
 use frame_support::assert_noop;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CollatorId, CompactStatement as Statement, Hash,
-	SignedAvailabilityBitfield, SignedStatement, ValidationCode, ValidatorId, ValidityAttestation,
-	PARACHAIN_KEY_TYPE_ID,
+	BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
+	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
+	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_primitives_test_helpers::dummy_validation_code;
 use sc_keystore::LocalKeystore;
+use sp_core::ByteArray;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
@@ -283,17 +284,24 @@ impl std::default::Default for TestCandidateBuilder {
 impl TestCandidateBuilder {
 	pub(crate) fn build(self) -> CommittedCandidateReceipt {
 		CommittedCandidateReceipt {
-			descriptor: CandidateDescriptorV2::new(
-				self.para_id,
-				self.relay_parent,
-				CoreIndex(0),
-				1,
-				self.persisted_validation_data_hash,
-				self.pov_hash,
-				Default::default(),
-				self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
-				self.validation_code.hash(),
-			),
+			descriptor: CandidateDescriptor {
+				para_id: self.para_id,
+				pov_hash: self.pov_hash,
+				relay_parent: self.relay_parent,
+				persisted_validation_data_hash: self.persisted_validation_data_hash,
+				validation_code_hash: self.validation_code.hash(),
+				para_head: self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
+				erasure_root: Default::default(),
+				signature: CollatorSignature::from_slice(
+					&mut (0..64).into_iter().collect::<Vec<_>>().as_slice(),
+				)
+				.expect("64 bytes; qed"),
+				collator: CollatorId::from_slice(
+					&mut (0..32).into_iter().collect::<Vec<_>>().as_slice(),
+				)
+				.expect("32 bytes; qed"),
+			}
+			.into(),
 			commitments: CandidateCommitments {
 				head_data: self.head_data,
 				new_validation_code: self.new_validation_code,
