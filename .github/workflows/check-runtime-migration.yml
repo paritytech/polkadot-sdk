@@ -56,13 +56,13 @@ jobs:
           # - network: westend
           #   package: westend-runtime
           #   wasm: westend_runtime.compact.compressed.wasm
-          #   uri: "wss://westend-try-runtime-node.parity-chains.parity.io:443"
+          #   uri: "wss://try-runtime-westend.polkadot.io:443"
           #   subcommand_extra_args: "--no-weight-warnings"
           #   command_extra_args: ""
           # - network: rococo
           #   package: rococo-runtime
           #   wasm: rococo_runtime.compact.compressed.wasm
-          #   uri: "wss://rococo-try-runtime-node.parity-chains.parity.io:443"
+          #   uri: "wss://try-runtime-rococo.polkadot.io:443"
           #   subcommand_extra_args: "--no-weight-warnings"
           #   command_extra_args: ""
           - network: asset-hub-westend
