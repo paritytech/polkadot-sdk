@@ -114,7 +114,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 /// A type representing the version of the candidate descriptor and internal version number.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, TypeInfo, RuntimeDebug, Copy)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct InternalVersion(pub u8);
 
@@ -403,6 +403,8 @@ pub enum CandidateReceiptError {
 	NoAssignment,
 	/// No core was selected.
 	NoCoreSelected,
+	/// Unknown version.
+	UnknownVersion(InternalVersion),
 }
 
 macro_rules! impl_getter {
@@ -501,6 +503,10 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 		// Don't check v1 descriptors.
 		if self.descriptor.version() == CandidateDescriptorVersion::V1 {
 			return Ok(())
+		}
+
+		if self.descriptor.version() == CandidateDescriptorVersion::Unknown {
+			return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version))
 		}
 
 		if assigned_cores.is_empty() {
@@ -829,6 +835,10 @@ mod tests {
 			Decode::decode(&mut new_ccr.encode().as_slice()).unwrap();
 
 		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
+		assert_eq!(
+			new_ccr.check(&vec![].as_slice()),
+			Err(CandidateReceiptError::UnknownVersion(InternalVersion(100)))
+		)
 	}
 
 	#[test]
