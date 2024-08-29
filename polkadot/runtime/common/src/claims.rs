@@ -309,7 +309,7 @@ pub mod pallet {
 			Pallet::<T>::validate_claim(dest, ethereum_sig, None)
 		)]
 		// weight is taken into account in the call itself
-		#[pallet::weight_of_authorize(Weight::from_all(0))]
+		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn claim(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
@@ -396,7 +396,7 @@ pub mod pallet {
 			Pallet::<T>::validate_claim(dest, ethereum_sig, Some(stmt))
 		)]
 		// weight is taken into account in the call itself
-		#[pallet::weight_of_authorize(Weight::from_all(0))]
+		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn claim_attest(
 			origin: OriginFor<T>,
 			dest: T::AccountId,

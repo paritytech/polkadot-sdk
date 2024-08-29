@@ -1356,13 +1356,13 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///
 ///     #[pallet::call]
 ///     impl<T: Config> Pallet<T> {
-///         #[pallet::weight(Weight::from_all(0))]
+///         #[pallet::weight(Weight::zero())]
 ///         #[pallet::authorize(|foo| if *foo == 42 {
 ///             Ok(ValidTransaction::default())
 ///         } else {
 ///             Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 ///         })]
-///         #[pallet::weight_of_authorize(Weight::from_all(0))]
+///         #[pallet::weight_of_authorize(Weight::zero())]
 ///         #[pallet::call_index(0)]
 ///         pub fn some_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
 ///             ensure_authorized(origin)?;

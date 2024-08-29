@@ -309,9 +309,9 @@ fn valid_call_weight_test() {
 		Test {
 			call: RuntimeCall::Pallet2(pallet2::Call::call1 {}),
 			dispatch_success: true,
-			call_weight: Weight::from_all(0),
-			ext_weight: Weight::from_all(0),
-			actual_weight: Weight::from_all(0),
+			call_weight: Weight::zero(),
+			ext_weight: Weight::zero(),
+			actual_weight: Weight::zero(),
 		},
 		Test {
 			call: RuntimeCall::Pallet3(pallet3::Call::call1 {}),

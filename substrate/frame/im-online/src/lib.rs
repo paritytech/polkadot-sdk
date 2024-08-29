@@ -391,7 +391,7 @@ pub mod pallet {
 		))]
 		#[pallet::authorize(Pallet::<T>::validate_heartbeat)]
 		// authorize weight is in the dispatch weight itself.
-		#[pallet::weight_of_authorize(Weight::from_all(0))]
+		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn heartbeat(
 			origin: OriginFor<T>,
 			heartbeat: Heartbeat<BlockNumberFor<T>>,

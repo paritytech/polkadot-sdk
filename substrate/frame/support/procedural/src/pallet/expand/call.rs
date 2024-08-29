@@ -39,7 +39,7 @@ fn expand_weight(
 ) -> TokenStream2 {
 	match weight {
 		CallWeightDef::DevModeDefault => quote::quote!(
-			#frame_support::pallet_prelude::Weight::from_all(0)
+			#frame_support::pallet_prelude::Weight::zero()
 		),
 		CallWeightDef::Immediate(e) => {
 			weight_constant_warning(e, dev_mode, weight_warnings);
@@ -304,7 +304,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				&weight,
 			),
 			// No authorize logic, weight is negligible
-			None => quote::quote!(#frame_support::pallet_prelude::Weight::from_all(0)),
+			None => quote::quote!(#frame_support::pallet_prelude::Weight::zero()),
 		};
 		authorize_fn_weight.push(w);
 	}

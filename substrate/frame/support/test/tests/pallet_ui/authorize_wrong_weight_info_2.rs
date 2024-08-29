@@ -34,7 +34,7 @@ mod pallet {
 	#[pallet::call(weight = T::WeightIn)]
 	impl<T: Config> Pallet<T> {
 		#[pallet::authorize(|a| Ok(Default::default()))]
-		#[pallet::weight(Weight::from_all(0))]
+		#[pallet::weight(Weight::zero())]
 		#[pallet::call_index(0)]
 		pub fn call1(origin: OriginFor<T>, a: u32) -> DispatchResult {
 			let _ = origin;
