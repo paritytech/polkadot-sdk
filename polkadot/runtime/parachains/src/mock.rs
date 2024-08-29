@@ -25,7 +25,7 @@ use crate::{
 	scheduler::common::AssignmentProvider,
 	session_info, shared, ParaId,
 };
-use frame_support::{pallet_prelude::*, weights::RuntimeDbWeight};
+use frame_support::pallet_prelude::*;
 use polkadot_primitives::CoreIndex;
 
 use codec::Decode;
@@ -104,10 +104,6 @@ parameter_types! {
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
 		);
 	pub static BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(u32::MAX, Perbill::from_percent(75));
-	pub static DbWeight : RuntimeDbWeight = RuntimeDbWeight {
-		read: 8_000_000,
-		write: 50_000_000,
-	};
 }
 
 pub type AccountId = u64;
@@ -117,7 +113,7 @@ impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
-	type DbWeight = DbWeight;
+	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type Nonce = u64;
@@ -457,9 +453,7 @@ pub struct InclusionWeightInfo;
 
 impl crate::inclusion::WeightInfo for InclusionWeightInfo {
 	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
-		Weight::zero()
-			.saturating_add(<Test as frame_system::Config>::DbWeight::get().reads(29))
-			.saturating_add(<Test as frame_system::Config>::DbWeight::get().writes(16))
+		Weight::from_parts(1024 * 1024, 0)
 	}
 }
 
