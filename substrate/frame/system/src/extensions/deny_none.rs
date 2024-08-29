@@ -99,14 +99,10 @@ where
 
 #[cfg(test)]
 mod tests {
-	use codec::Encode;
-	use frame_support::{derive_impl, dispatch::GetDispatchInfo, pallet_prelude::{TransactionSource}, };
-	use sp_runtime::traits::Checkable;
-	use sp_runtime::traits::Applyable;
+	use frame_support::derive_impl;
 	use sp_runtime::BuildStorage;
 	use sp_runtime::transaction_validity::TransactionValidityError;
 	use sp_runtime::transaction_validity::InvalidTransaction;
-	use sp_runtime::DispatchError;
 	use crate as frame_system;
 	use frame_support::traits::OriginTrait;
 	use sp_runtime::traits::TransactionExtension as _;
@@ -115,8 +111,6 @@ mod tests {
 	#[frame_support::pallet]
 	pub mod pallet1 {
 		use crate as frame_system;
-		use frame_support::pallet_prelude::*;
-		use frame_system::pallet_prelude::*;
 
 		#[pallet::pallet]
 		pub struct Pallet<T>(_);
@@ -209,8 +203,6 @@ mod tests {
 	fn denied_origin() {
 		new_test_ext().execute_with(|| {
 			let ext = frame_system::DenyNone::<Runtime>::new();
-
-			let filtered_call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
 
 			let origin: RuntimeOrigin = crate::Origin::<Runtime>::None.into();
 

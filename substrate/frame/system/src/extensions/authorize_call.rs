@@ -325,7 +325,7 @@ mod tests {
 
 			assert!(!origin.filter_call(&filtered_call));
 
-			let (_, (), new_origin) = ext.validate(
+			let (_, _, new_origin) = ext.validate(
 				origin,
 				&RuntimeCall::Pallet1(pallet1::Call::call1 { valid: true }),
 				&crate::DispatchInfo::default(),
