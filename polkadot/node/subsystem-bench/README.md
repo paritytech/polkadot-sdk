@@ -262,6 +262,9 @@ For finer profiling of cache misses, better use `perf` on a bare-metal machine.
 
 ### Profile memory usage using jemalloc
 
+Bellow you can find instructions how to setup and run profiling with jemalloc, this is complementary with using other memory profiling tools
+like: https://github.com/koute/bytehound?tab=readme-ov-file#basic-usage.
+
 #### Prerequisites
 Install tooling with:
 ```
