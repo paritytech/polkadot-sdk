@@ -24,16 +24,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
+      - id: set_runner
+        run: |
+          # Run merge queues on persistent runners
+          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
+          else
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+          fi
 
   build-runtimes-polkavm:
     timeout-minutes: 20
     needs: [ set-image ]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
@@ -57,7 +66,7 @@ jobs:
   build-subkey:
     timeout-minutes: 20
     needs: [ set-image ]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
