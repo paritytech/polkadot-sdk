@@ -3,11 +3,11 @@ title: "Added the fork-aware transaction pool implementation"
 doc:
   - audience: Node Dev
     description: |
-	  Most important changes introduced by this PR:
+      Most important changes introduced by this PR:
        - The transaction pool references spread across codebase can now be Unsized allowing to use trait object,
-	   - New command line option was added allowing to select implementation of transaction pool:
-	     - `--pool-type=fork-aware`  - new fork aware transaction pool,
-		 - `--pool-type=single-state` - old transaction pool implementation which is still default,
+       - New command line option was added allowing to select implementation of transaction pool:
+         - `--pool-type=fork-aware`  - new fork aware transaction pool,
+         - `--pool-type=single-state` - old transaction pool implementation which is still default,
 
 crates:
   - name: sc-basic-authorship
