@@ -486,7 +486,6 @@ fn new_partial<ChainSelection>(
 		sc_transaction_pool::TransactionPoolImpl<Block, FullClient>,
 		(
 			impl Fn(
-				polkadot_rpc::DenyUnsafe,
 				polkadot_rpc::SubscriptionTaskExecutor,
 			) -> Result<polkadot_rpc::RpcExtension, SubstrateServiceError>,
 			(
@@ -594,15 +593,13 @@ where
 		let chain_spec = config.chain_spec.cloned_box();
 		let backend = backend.clone();
 
-		move |deny_unsafe,
-		      subscription_executor: polkadot_rpc::SubscriptionTaskExecutor|
+		move |subscription_executor: polkadot_rpc::SubscriptionTaskExecutor|
 		      -> Result<polkadot_rpc::RpcExtension, sc_service::Error> {
 			let deps = polkadot_rpc::FullDeps {
 				client: client.clone(),
 				pool: transaction_pool.clone(),
 				select_chain: select_chain.clone(),
 				chain_spec: chain_spec.cloned_box(),
-				deny_unsafe,
 				babe: polkadot_rpc::BabeDeps {
 					babe_worker_handle: babe_worker_handle.clone(),
 					keystore: keystore.clone(),

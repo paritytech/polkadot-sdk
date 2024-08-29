@@ -178,7 +178,6 @@ pub fn new_partial(
 		sc_transaction_pool::TransactionPoolImpl<Block, FullClient>,
 		(
 			impl Fn(
-				node_rpc::DenyUnsafe,
 				sc_rpc::SubscriptionTaskExecutor,
 			) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>,
 			(
@@ -320,13 +319,12 @@ pub fn new_partial(
 		let rpc_backend = backend.clone();
 		let rpc_statement_store = statement_store.clone();
 		let rpc_extensions_builder =
-			move |deny_unsafe, subscription_executor: node_rpc::SubscriptionTaskExecutor| {
+			move |subscription_executor: node_rpc::SubscriptionTaskExecutor| {
 				let deps = node_rpc::FullDeps {
 					client: client.clone(),
 					pool: pool.clone(),
 					select_chain: select_chain.clone(),
 					chain_spec: chain_spec.cloned_box(),
-					deny_unsafe,
 					babe: node_rpc::BabeDeps {
 						keystore: keystore.clone(),
 						babe_worker_handle: babe_worker_handle.clone(),

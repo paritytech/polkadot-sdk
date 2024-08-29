@@ -33,7 +33,9 @@ pub use sc_network::{
 	},
 	Multiaddr,
 };
-pub use sc_rpc_server::IpNetwork;
+pub use sc_rpc_server::{
+	IpNetwork, RpcEndpoint, RpcMethods, SubscriptionIdProvider as RpcSubscriptionIdProvider,
+};
 pub use sc_telemetry::TelemetryEndpoints;
 pub use sc_transaction_pool::TransactionPoolOptions;
 use sp_core::crypto::SecretString;
@@ -82,8 +84,8 @@ pub struct Configuration {
 	/// over on-chain runtimes when the spec version matches. Set to `None` to
 	/// disable overrides (default).
 	pub wasm_runtime_overrides: Option<PathBuf>,
-	/// JSON-RPC server binding address.
-	pub rpc_addr: Option<SocketAddr>,
+	/// JSON-RPC server endpoints.
+	pub rpc_addr: Option<Vec<RpcEndpoint>>,
 	/// Maximum number of connections for JSON-RPC server.
 	pub rpc_max_connections: u32,
 	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
@@ -97,7 +99,7 @@ pub struct Configuration {
 	/// Custom JSON-RPC subscription ID provider.
 	///
 	/// Default: [`crate::RandomStringSubscriptionId`].
-	pub rpc_id_provider: Option<Box<dyn crate::RpcSubscriptionIdProvider>>,
+	pub rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
 	/// Maximum allowed subscriptions per rpc connection
 	pub rpc_max_subs_per_conn: u32,
 	/// JSON-RPC server default port.
@@ -252,24 +254,6 @@ impl Configuration {
 			source: self.database.clone(),
 			blocks_pruning: self.blocks_pruning,
 		}
-	}
-}
-
-/// Available RPC methods.
-#[derive(Debug, Copy, Clone)]
-pub enum RpcMethods {
-	/// Expose every RPC method only when RPC is listening on `localhost`,
-	/// otherwise serve only safe RPC methods.
-	Auto,
-	/// Allow only a safe subset of RPC methods.
-	Safe,
-	/// Expose every RPC method (even potentially unsafe ones).
-	Unsafe,
-}
-
-impl Default for RpcMethods {
-	fn default() -> RpcMethods {
-		RpcMethods::Auto
 	}
 }
 

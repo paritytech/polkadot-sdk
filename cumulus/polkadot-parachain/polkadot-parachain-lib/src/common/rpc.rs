@@ -18,16 +18,13 @@
 
 #![warn(missing_docs)]
 
-use crate::{
-	common::ConstructNodeRuntimeApi,
-	service::{ParachainBackend, ParachainClient},
+use crate::common::{
+	types::{AccountId, Balance, Nonce, ParachainBackend, ParachainClient},
+	ConstructNodeRuntimeApi,
 };
 use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-use parachains_common::{AccountId, Balance, Block, Nonce};
-use sc_rpc::{
-	dev::{Dev, DevApiServer},
-	DenyUnsafe,
-};
+use sc_rpc::dev::{Dev, DevApiServer};
+use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 use substrate_frame_rpc_system::{System, SystemApiServer};
 use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
@@ -37,60 +34,59 @@ pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
 pub(crate) trait BuildRpcExtensions<Client, Backend, Pool: ?Sized> {
 	fn build_rpc_extensions(
-		deny_unsafe: DenyUnsafe,
 		client: Arc<Client>,
 		backend: Arc<Backend>,
 		pool: Arc<Pool>,
 	) -> sc_service::error::Result<RpcExtension>;
 }
 
-pub(crate) struct BuildEmptyRpcExtensions<RuntimeApi>(PhantomData<RuntimeApi>);
+pub(crate) struct BuildEmptyRpcExtensions<Block, RuntimeApi>(PhantomData<(Block, RuntimeApi)>);
 
-impl<RuntimeApi>
+impl<Block: BlockT, RuntimeApi>
 	BuildRpcExtensions<
-		ParachainClient<RuntimeApi>,
-		ParachainBackend,
+		ParachainClient<Block, RuntimeApi>,
+		ParachainBackend<Block>,
 		sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>,
-	> for BuildEmptyRpcExtensions<RuntimeApi>
+	> for BuildEmptyRpcExtensions<Block, RuntimeApi>
 where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi:
+		ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>> + Send + Sync + 'static,
 {
 	fn build_rpc_extensions(
-		_deny_unsafe: DenyUnsafe,
-		_client: Arc<ParachainClient<RuntimeApi>>,
-		_backend: Arc<ParachainBackend>,
+		_client: Arc<ParachainClient<Block, RuntimeApi>>,
+		_backend: Arc<ParachainBackend<Block>>,
 		_pool: Arc<sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>>,
 	) -> sc_service::error::Result<RpcExtension> {
 		Ok(RpcExtension::new(()))
 	}
 }
 
-pub(crate) struct BuildParachainRpcExtensions<RuntimeApi>(PhantomData<RuntimeApi>);
+pub(crate) struct BuildParachainRpcExtensions<Block, RuntimeApi>(PhantomData<(Block, RuntimeApi)>);
 
-impl<RuntimeApi>
+impl<Block: BlockT, RuntimeApi>
 	BuildRpcExtensions<
-		ParachainClient<RuntimeApi>,
-		ParachainBackend,
+		ParachainClient<Block, RuntimeApi>,
+		ParachainBackend<Block>,
 		sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>,
-	> for BuildParachainRpcExtensions<RuntimeApi>
+	> for BuildParachainRpcExtensions<Block, RuntimeApi>
 where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi:
+		ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 {
 	fn build_rpc_extensions(
-		deny_unsafe: DenyUnsafe,
-		client: Arc<ParachainClient<RuntimeApi>>,
-		backend: Arc<ParachainBackend>,
+		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		backend: Arc<ParachainBackend<Block>>,
 		pool: Arc<sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>>,
 	) -> sc_service::error::Result<RpcExtension> {
 		let build = || -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>> {
 			let mut module = RpcExtension::new(());
 
-			module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
+			module.merge(System::new(client.clone(), pool).into_rpc())?;
 			module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-			module.merge(StateMigration::new(client.clone(), backend, deny_unsafe).into_rpc())?;
-			module.merge(Dev::new(client, deny_unsafe).into_rpc())?;
+			module.merge(StateMigration::new(client.clone(), backend).into_rpc())?;
+			module.merge(Dev::new(client).into_rpc())?;
 
 			Ok(module)
 		};
