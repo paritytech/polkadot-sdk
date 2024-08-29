@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724941588734,
+  "lastUpdate": 1724947364636,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -19067,6 +19067,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19073229223333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f7504cec1689850f2c93176fe81667d650217e1c",
+          "message": "[ci] Move check-runtime-migration to GHA (#5519)\n\nPR moves rococo and wococo check-runtime-migration jobs to GHA\n\ncc https://github.com/paritytech/ci_cd/issues/1006",
+          "timestamp": "2024-08-29T14:05:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f7504cec1689850f2c93176fe81667d650217e1c"
+        },
+        "date": 1724947335226,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17589647386666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.715115150966664,
             "unit": "seconds"
           }
         ]
