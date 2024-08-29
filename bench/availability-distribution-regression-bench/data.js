@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724929507212,
+  "lastUpdate": 1724941288291,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -23919,6 +23919,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012359721493333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dharjeezy",
+            "username": "dharjeezy",
+            "email": "dharjeezy@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "61bfcb846c2582e9fdf5068f91a20c107d6f030e",
+          "message": "Add new try-state check invariant for nomination-pools (points >= stake) (#5465)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/5448\n\n---------\n\nCo-authored-by: Gonçalo Pestana <g6pestana@gmail.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2024-08-29T12:28:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/61bfcb846c2582e9fdf5068f91a20c107d6f030e"
+        },
+        "date": 1724941259491,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022263965233333325,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012581535566666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010543642180000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1702085019933333,
             "unit": "seconds"
           }
         ]
