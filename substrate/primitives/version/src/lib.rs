@@ -160,7 +160,7 @@ macro_rules! create_apis_vec {
 /// `authoring_version`, absolutely not `impl_version` since they change the semantics of the
 /// runtime.
 #[derive(Clone, PartialEq, Eq, Encode, Default, sp_runtime::RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct RuntimeVersion {
 	/// Identifies the different Substrate runtimes. There'll be at least polkadot and node.
@@ -234,6 +234,43 @@ pub struct RuntimeVersion {
 	/// Use of an incorrect version is consensus breaking.
 	#[cfg_attr(feature = "serde", serde(alias = "stateVersion"))]
 	pub system_version: u8,
+}
+
+// Manual implementation in order to sprinkle `stateVersion` at the end for migration purposes
+// after the field was renamed from `state_version` to `system_version`
+#[cfg(feature = "serde")]
+impl serde::Serialize for RuntimeVersion {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		use serde::ser::SerializeStruct;
+
+		let mut state = serializer.serialize_struct("RuntimeVersion", 9)?;
+		state.serialize_field("specName", &self.spec_name)?;
+		state.serialize_field("implName", &self.impl_name)?;
+		state.serialize_field("authoringVersion", &self.authoring_version)?;
+		state.serialize_field("specVersion", &self.spec_version)?;
+		state.serialize_field("implVersion", &self.impl_version)?;
+		state.serialize_field("apis", {
+			struct SerializeWith<'a>(&'a ApisVec);
+
+			impl<'a> serde::Serialize for SerializeWith<'a> {
+				fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+				where
+					S: serde::Serializer,
+				{
+					apis_serialize::serialize(self.0, serializer)
+				}
+			}
+
+			&SerializeWith(&self.apis)
+		})?;
+		state.serialize_field("transactionVersion", &self.transaction_version)?;
+		state.serialize_field("systemVersion", &self.system_version)?;
+		state.serialize_field("stateVersion", &self.system_version)?;
+		state.end()
+	}
 }
 
 impl RuntimeVersion {
