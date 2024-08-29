@@ -75,6 +75,15 @@ impl AddressMapper<AccountId32> for DefaultAddressMapper {
 	}
 }
 
+/// Determine the address of a contract using CREATE semantics.
+pub fn create1(deployer: &H160, nonce: u64) -> H160 {
+	let mut list = rlp::RlpStream::new_list(2);
+	list.append(&deployer.as_bytes());
+	list.append(&nonce);
+	let hash = keccak_256(&list.out());
+	H160::from_slice(&hash[12..])
+}
+
 /// Determine the address of a contract using the CREATE2 semantics.
 pub fn create2<T: Config>(
 	deployer: &T::AccountId,
@@ -95,3 +104,36 @@ pub fn create2<T: Config>(
 	let hash = keccak_256(&bytes);
 	H160::from_slice(&hash[12..])
 }
+
+#[cfg(test)]
+mod test {
+	use sp_core::hex2array;
+
+	#[test]
+	fn create1() {
+		assert_eq!(
+			create1(H160(hex2array!(0xdeadbeef00000000000000000000000000000000)), 1),
+			H160(hex2array!("0xd663cb208b6f5b4eac7a6c6f6e78e800291c1b42")),
+		)
+	}
+
+	#[test]
+	fn create2() {
+		assert_eq!(
+			create2(
+				H160(hex2array!(0x0123456789012345678901234567890123456789)),
+				hex2array!(0x600060005560016000),
+				hex2array!(0x55),
+				hex2array!(0x1234567890123456789012345678901234567890123456789012345678901234)
+			),
+			H160(hex2array!("0xe7b9e8bb7fe0d392269d203e2332435a85da9d3f")),
+		)
+	}
+}
+
+/*
+Sender Address: 0x0123456789012345678901234567890123456789
+	•	Salt: 0x1234567890123456789012345678901234567890123456789012345678901234
+	•	Initialization Code: 0x60006000556001600055 (a minimal example that sets a storage slot)
+	•	Resulting Contract Address: 0xe7b9e8bb7fe0d392269d203e2332435a85da9d3f
+	*/

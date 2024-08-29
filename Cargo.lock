@@ -11403,6 +11403,7 @@ dependencies = [
  "paste",
  "polkavm 0.10.0",
  "pretty_assertions",
+ "rlp",
  "scale-info",
  "serde",
  "sp-api",
