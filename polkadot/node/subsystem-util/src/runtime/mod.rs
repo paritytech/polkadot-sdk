@@ -39,10 +39,9 @@ use polkadot_primitives::{
 
 use std::collections::{BTreeMap, VecDeque};
 
-use crate::{has_required_runtime, request_claim_queue, request_disabled_validators, runtime};
-
 use crate::{
-	request_async_backing_params, request_availability_cores, request_candidate_events,
+	has_required_runtime, request_async_backing_params, request_availability_cores,
+	request_candidate_events, request_claim_queue, request_disabled_validators,
 	request_from_runtime, request_key_ownership_proof, request_on_chain_votes,
 	request_session_executor_params, request_session_index_for_child, request_session_info,
 	request_submit_report_dispute_lost, request_unapplied_slashes, request_validation_code_by_hash,
