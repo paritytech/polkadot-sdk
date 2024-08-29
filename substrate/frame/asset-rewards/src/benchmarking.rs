@@ -28,10 +28,7 @@ use frame_support::{
 	},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
-use sp_runtime::{
-	traits::{Bounded, One},
-	Saturating,
-};
+use sp_runtime::{traits::One, Saturating};
 use sp_std::prelude::*;
 
 /// Benchmark Helper
