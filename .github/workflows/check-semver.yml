@@ -45,7 +45,7 @@ jobs:
             as to not impact downstream teams that rely on the stability of it. Some things to consider:
             - Backports are only for 'patch' or 'minor' changes. No 'major' or other breaking change.
             - Should be a legit *fix* for some  bug, not adding tons of new features.
-            - Must either be already audited or trivial (not sure audit).
+            - Must either be already audited or not need an audit.
 
             <details><summary><i>Emergency Bypass</i></summary>
             <p>
