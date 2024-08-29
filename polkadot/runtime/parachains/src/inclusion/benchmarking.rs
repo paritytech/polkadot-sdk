@@ -95,8 +95,8 @@ benchmarks! {
 	}
 
 	enact_candidate {
-		let u in 1 .. 32;
-		let h in 1 .. 32;
+		let u in 0 .. 10;
+		let h in 0 .. 10;
 		let c in 0 .. 1;
 
 		let para = 42_u32.into();	// not especially important.
