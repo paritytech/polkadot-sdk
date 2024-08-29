@@ -325,6 +325,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -355,6 +367,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use super</span>::{BackedCandidate, Config, DisputeStatementSet, Weight};
 
 <span class="kw">pub trait </span>WeightInfo {
+	<span class="doccomment">/// The weight of processing an empty parachain inherent.
+	</span><span class="kw">fn </span>enter_empty() -&gt; Weight;
 	<span class="doccomment">/// Variant over `v`, the count of dispute statements in a dispute statement set. This gives the
 	/// weight of a single dispute statement set.
 	</span><span class="kw">fn </span>enter_variable_disputes(v: u32) -&gt; Weight;
@@ -372,6 +386,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //  mock.
 </span><span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 </span><span class="kw">impl </span>WeightInfo <span class="kw">for </span>TestWeightInfo {
+	<span class="kw">fn </span>enter_empty() -&gt; Weight {
+		Weight::zero()
+	}
 	<span class="kw">fn </span>enter_variable_disputes(v: u32) -&gt; Weight {
 		<span class="comment">// MAX Block Weight should fit 4 disputes
 		</span>Weight::from_parts(<span class="number">80_000 </span>* v <span class="kw">as </span>u64 + <span class="number">80_000</span>, <span class="number">0</span>)
@@ -393,6 +410,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // running as a test.
 </span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">impl </span>WeightInfo <span class="kw">for </span>TestWeightInfo {
+	<span class="kw">fn </span>enter_empty() -&gt; Weight {
+		Weight::zero()
+	}
 	<span class="kw">fn </span>enter_variable_disputes(_v: u32) -&gt; Weight {
 		Weight::zero()
 	}
@@ -450,7 +470,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	set_proof_size_to_tx_size(
 		&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_variable_disputes(
 			statement_set.as_ref().statements.len() <span class="kw">as </span>u32,
-		),
+		)
+		.saturating_sub(&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_empty()),
 		statement_set,
 	)
 }
@@ -460,6 +481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; Weight {
 	set_proof_size_to_tx_size(
 		&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_bitfields()
+			.saturating_sub(&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_empty())
 			.saturating_mul(bitfields.len() <span class="kw">as </span>u64),
 		bitfields,
 	)
@@ -467,7 +489,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub fn </span>signed_bitfield_weight&lt;T: Config&gt;(bitfield: <span class="kw-2">&amp;</span>UncheckedSignedAvailabilityBitfield) -&gt; Weight {
 	set_proof_size_to_tx_size(
-		&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_bitfields(),
+		&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_bitfields()
+			.saturating_sub(&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_empty()),
 		bitfield,
 	)
 }
@@ -482,7 +505,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_backed_candidates_variable(
 				candidate.validity_votes().len() <span class="kw">as </span>u32,
 			)
-		},
+		}
+		.saturating_sub(&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_empty()),
 		candidate,
 	)
 }

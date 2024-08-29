@@ -4138,7 +4138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>parachains_origin::Config <span class="kw">for </span>Runtime {}
 
 <span class="kw">impl </span>parachains_configuration::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_configuration::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_parachains_configuration::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="kw">impl </span>parachains_shared::Config <span class="kw">for </span>Runtime {
@@ -4154,7 +4154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>DisputesHandler = ParasDisputes;
 	<span class="kw">type </span>RewardValidators = parachains_reward_points::RewardValidatorsWithEraPoints&lt;Runtime&gt;;
 	<span class="kw">type </span>MessageQueue = MessageQueue;
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_inclusion::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4163,7 +4163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>parachains_paras::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_paras::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_parachains_paras::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>UnsignedPriority = ParasUnsignedPriority;
 	<span class="kw">type </span>QueueFootprinter = ParaInclusion;
 	<span class="kw">type </span>NextSessionRotation = Babe;
@@ -4237,11 +4237,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		HrmpChannelSizeAndCapacityWithSystemRatio,
 	&gt;;
 	<span class="kw">type </span>VersionWrapper = <span class="kw">crate</span>::XcmPallet;
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_hrmp::WeightInfo&lt;<span class="self">Self</span>&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_parachains_hrmp::WeightInfo&lt;<span class="self">Self</span>&gt;;
 }
 
 <span class="kw">impl </span>parachains_paras_inherent::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_paras_inherent::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_parachains_paras_inherent::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="kw">impl </span>parachains_scheduler::Config <span class="kw">for </span>Runtime {
@@ -4270,7 +4270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>BrokerId = BrokerId;
 	<span class="kw">type </span>BrokerPotLocation = BrokerPot;
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_coretime::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_parachains_coretime::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>SendXcm = <span class="kw">crate</span>::xcm_config::XcmRouter;
 	<span class="kw">type </span>AssetTransactor = <span class="kw">crate</span>::xcm_config::LocalAssetTransactor;
 	<span class="kw">type </span>AccountToLocation = xcm_builder::AliasesIntoAccountId32&lt;
@@ -4291,7 +4291,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>TrafficDefaultValue = OnDemandTrafficDefaultValue;
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_on_demand::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_parachains_on_demand::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>MaxHistoricalRevenue = MaxHistoricalRevenue;
 	<span class="kw">type </span>PalletId = OnDemandPalletId;
 }
@@ -4301,7 +4301,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>parachains_initializer::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>Randomness = pallet_babe::RandomnessFromOneEpochAgo&lt;Runtime&gt;;
 	<span class="kw">type </span>ForceOrigin = EnsureRoot&lt;AccountId&gt;;
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_initializer::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_parachains_initializer::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>CoretimeOnNewSession = Coretime;
 }
 
@@ -4320,14 +4320,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>PermanentSlotLeasePeriodLength = PermanentSlotLeasePeriodLength;
 	<span class="kw">type </span>TemporarySlotLeasePeriodLength = TemporarySlotLeasePeriodLength;
 	<span class="kw">type </span>MaxTemporarySlotPerLeasePeriod = MaxTemporarySlotPerLeasePeriod;
-	<span class="kw">type </span>WeightInfo = weights::runtime_common_assigned_slots::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_common_assigned_slots::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="kw">impl </span>parachains_disputes::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>RewardValidators = parachains_reward_points::RewardValidatorsWithEraPoints&lt;Runtime&gt;;
 	<span class="kw">type </span>SlashingHandler = parachains_slashing::SlashValidatorsForDisputes&lt;ParasSlashing&gt;;
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_disputes::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_parachains_disputes::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="kw">impl </span>parachains_slashing::Config <span class="kw">for </span>Runtime {
@@ -4343,7 +4343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Offences,
 		ReportLongevity,
 	&gt;;
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_disputes_slashing::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_parachains_disputes_slashing::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>BenchmarkingConfig = parachains_slashing::BenchConfig&lt;<span class="number">300</span>&gt;;
 }
 
@@ -4359,7 +4359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>OnSwap = (Crowdloan, Slots, SwapLeases);
 	<span class="kw">type </span>ParaDeposit = ParaDeposit;
 	<span class="kw">type </span>DataDepositPerByte = RegistrarDataDepositPerByte;
-	<span class="kw">type </span>WeightInfo = weights::runtime_common_paras_registrar::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_common_paras_registrar::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4373,7 +4373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>LeasePeriod = LeasePeriod;
 	<span class="kw">type </span>LeaseOffset = ();
 	<span class="kw">type </span>ForceOrigin = EitherOf&lt;EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;, LeaseAdmin&gt;;
-	<span class="kw">type </span>WeightInfo = weights::runtime_common_slots::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_common_slots::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4394,7 +4394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Registrar = Registrar;
 	<span class="kw">type </span>Auctioneer = Auctions;
 	<span class="kw">type </span>MaxMemoLength = MaxMemoLength;
-	<span class="kw">type </span>WeightInfo = weights::runtime_common_crowdloan::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_common_crowdloan::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4413,14 +4413,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>SampleLength = SampleLength;
 	<span class="kw">type </span>Randomness = pallet_babe::RandomnessFromOneEpochAgo&lt;Runtime&gt;;
 	<span class="kw">type </span>InitiateOrigin = EitherOf&lt;EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;, AuctionAdmin&gt;;
-	<span class="kw">type </span>WeightInfo = weights::runtime_common_auctions::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_common_auctions::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="kw">impl </span>identity_migrator::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Reaper = EnsureSigned&lt;AccountId&gt;;
 	<span class="kw">type </span>ReapIdentityHandler = ToParachainIdentityReaper&lt;Runtime, <span class="self">Self</span>::AccountId&gt;;
-	<span class="kw">type </span>WeightInfo = weights::runtime_common_identity_migrator::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::polkadot_runtime_common_identity_migrator::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{

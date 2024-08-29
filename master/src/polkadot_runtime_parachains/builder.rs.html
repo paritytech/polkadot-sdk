@@ -1059,6 +1059,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#907" id="907">907</a>
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1282,9 +1283,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.expect(<span class="string">"self.block_number is u32"</span>)
 	}
 
-	<span class="doccomment">/// Maximum number of validators that may be part of a validator group.
+	<span class="doccomment">/// Fallback for the maximum number of validators participating in parachains consensus (a.k.a.
+	/// active validators).
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fallback_max_validators() -&gt; u32 {
-		configuration::ActiveConfig::&lt;T&gt;::get().max_validators.unwrap_or(<span class="number">200</span>)
+		configuration::ActiveConfig::&lt;T&gt;::get().max_validators.unwrap_or(<span class="number">1024</span>)
 	}
 
 	<span class="doccomment">/// Maximum number of validators participating in parachains consensus (a.k.a. active
@@ -1346,8 +1348,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get the minimum number of validity votes in order for a backed candidate to be included.
 	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fallback_min_validity_votes() -&gt; u32 {
-		(<span class="self">Self</span>::fallback_max_validators() / <span class="number">2</span>) + <span class="number">1
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fallback_min_backing_votes() -&gt; u32 {
+		<span class="number">2
 	</span>}
 
 	<span class="kw">fn </span>mock_head_data() -&gt; HeadData {
@@ -1417,11 +1419,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			availability_votes,
 			commitments,
 		);
-		inclusion::PendingAvailability::&lt;T&gt;::mutate(para_id, |maybe_andidates| {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(candidates) = maybe_andidates {
+		inclusion::PendingAvailability::&lt;T&gt;::mutate(para_id, |maybe_candidates| {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(candidates) = maybe_candidates {
 				candidates.push_back(candidate_availability);
 			} <span class="kw">else </span>{
-				<span class="kw-2">*</span>maybe_andidates =
+				<span class="kw-2">*</span>maybe_candidates =
 					<span class="prelude-val">Some</span>([candidate_availability].into_iter().collect::&lt;VecDeque&lt;<span class="kw">_</span>&gt;&gt;());
 			}
 		});

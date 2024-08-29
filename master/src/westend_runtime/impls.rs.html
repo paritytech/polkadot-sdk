@@ -421,7 +421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>on_reap_identity(who: <span class="kw-2">&amp;</span>AccountId, fields: u32, subs: u32) -&gt; DispatchResult {
 		<span class="kw">use crate</span>::{
 			impls::IdentityMigratorCalls::PokeDeposit,
-			weights::runtime_common_identity_migrator::WeightInfo <span class="kw">as </span>MigratorWeights,
+			weights::polkadot_runtime_common_identity_migrator::WeightInfo <span class="kw">as </span>MigratorWeights,
 		};
 
 		<span class="kw">let </span>total_to_send = <span class="self">Self</span>::calculate_remote_deposit(fields, subs);
