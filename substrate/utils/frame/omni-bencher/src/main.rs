@@ -18,7 +18,6 @@
 mod command;
 
 use clap::Parser;
-use env_logger::Env;
 use sc_cli::Result;
 use tracing_subscriber::EnvFilter;
 
