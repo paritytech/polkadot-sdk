@@ -301,7 +301,7 @@ function check_sha256() {
 # Import GPG keys of the release team members
 # This is done in parallel as it can take a while sometimes
 function import_gpg_keys() {
-  GPG_KEYSERVER=${GPG_KEYSERVER:-"keyserver.ubuntu.com"}
+  GPG_KEYSERVER=${GPG_KEYSERVER:-"keys.openpgp.org"}
   SEC="9D4B2B6EB8F97156D19669A9FF0812D491B96798"
   EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
   MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
