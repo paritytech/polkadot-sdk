@@ -205,6 +205,8 @@ impl paras::Config for Test {
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type UnbrickOrigin = EnsureRoot<AccountId>;
+	type MinTimeToAllowUnbrick = ConstU32<5>;
 }
 
 parameter_types! {

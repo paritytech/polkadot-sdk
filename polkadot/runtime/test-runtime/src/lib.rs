@@ -28,6 +28,7 @@ use alloc::{
 	vec::Vec,
 };
 use codec::Encode;
+use frame_system::{EnsureNever, EnsureRoot};
 use pallet_transaction_payment::FungibleAdapter;
 
 use polkadot_runtime_parachains::{
@@ -550,6 +551,8 @@ impl parachains_paras::Config for Runtime {
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type UnbrickOrigin = EnsureRoot<AccountId>;
+	type MinTimeToAllowUnbrick = ConstU64<{ 2 * HOURS }>;
 }
 
 parameter_types! {

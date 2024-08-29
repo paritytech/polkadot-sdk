@@ -723,7 +723,7 @@ mod tests {
 		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{OnFinalize, OnInitialize},
 	};
-	use frame_system::limits;
+	use frame_system::{limits, EnsureRoot};
 	use pallet_balances::Error as BalancesError;
 	use polkadot_primitives::{Balance, BlockNumber, SessionIndex, MAX_CODE_SIZE};
 	use polkadot_runtime_parachains::{configuration, origin, shared};
@@ -823,6 +823,8 @@ mod tests {
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
 		type AssignCoretime = ();
+		type UnbrickOrigin = EnsureRoot<Self::AccountId>;
+		type MinTimeToAllowUnbrick = frame_support::traits::ConstU32<5>;
 	}
 
 	impl configuration::Config for Test {
@@ -989,7 +991,7 @@ mod tests {
 			assert!(Parachains::is_parathread(para_id));
 			assert!(!Parachains::is_parachain(para_id));
 			// Deregister it
-			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), para_id,));
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), para_id));
 			run_to_session(START_SESSION_INDEX + 8);
 			// It is nothing
 			assert!(!Parachains::is_parathread(para_id));
@@ -1180,7 +1182,7 @@ mod tests {
 
 			run_to_session(START_SESSION_INDEX + 2);
 			assert!(Parachains::is_parathread(para_id));
-			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), para_id,));
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), para_id));
 			run_to_session(START_SESSION_INDEX + 4);
 			assert!(paras::Pallet::<Test>::lifecycle(para_id).is_none());
 			assert_eq!(Balances::reserved_balance(&1), 0);

@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use frame_support::{assert_err, assert_ok, assert_storage_noop};
+use frame_support::{assert_err, assert_noop, assert_ok, assert_storage_noop};
 use polkadot_primitives::{vstaging::SchedulerParams, BlockNumber, PARACHAIN_KEY_TYPE_ID};
 use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
 use sc_keystore::LocalKeystore;
@@ -2012,4 +2012,102 @@ fn parachains_cache_preserves_order() {
 		// In order after removal
 		assert_eq!(Parachains::<Test>::get(), vec![a, c]);
 	});
+}
+
+fn setup_para_unbrick_tests(para_id: ParaId) -> sp_io::TestExternalities {
+	let validation_code = test_validation_code_1();
+
+	let genesis_config = MockGenesisConfig::default();
+
+	let mut t = new_test_ext(genesis_config);
+
+	t.execute_with(|| {
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(1, Some(vec![1]));
+
+		assert_ok!(Paras::schedule_para_initialize(
+			para_id,
+			ParaGenesisArgs {
+				para_kind: ParaKind::Parachain,
+				genesis_head: vec![1].into(),
+				validation_code: validation_code.clone(),
+			},
+		));
+		submit_super_majority_pvf_votes(&validation_code, EXPECTED_SESSION, true);
+
+		// Two sessions pass, so action queue is triggered.
+		run_to_block(4, Some(vec![3, 4]));
+
+		// Progress para to the new head and check that the recent context is updated.
+		Paras::note_new_head(para_id, vec![4, 5, 6].into(), 3);
+	});
+
+	t
+}
+
+#[test]
+fn para_unbrick_fails_if_invalid_origin() {
+	let para_id = ParaId::from(111);
+
+	setup_para_unbrick_tests(para_id).execute_with(|| {
+		// Unbrick Fails
+		assert_noop!(
+			Paras::unbrick(RuntimeOrigin::signed(2), para_id, None, None),
+			DispatchError::BadOrigin
+		);
+	})
+}
+
+#[test]
+fn para_unbrick_fails_if_minimum_time_not_met() {
+	let para_id = ParaId::from(111);
+
+	setup_para_unbrick_tests(para_id).execute_with(|| {
+		run_to_block(8, Some(vec![6]));
+
+		// Unbrick Fails
+		assert_noop!(
+			Paras::unbrick(RuntimeOrigin::signed(1), para_id, None, None),
+			paras::Error::<Test>::ParaNotBricked
+		);
+	})
+}
+
+#[test]
+fn para_unbrick_works_updates_code() {
+	let para_id = ParaId::from(111);
+	let new_validation_code = test_validation_code_2();
+
+	setup_para_unbrick_tests(para_id).execute_with(|| {
+		run_to_block(9, Some(vec![9, 10]));
+
+		// Unbrick Fails
+		assert_ok!(Paras::unbrick(
+			RuntimeOrigin::signed(1),
+			para_id,
+			Some(new_validation_code),
+			None
+		));
+
+		System::assert_has_event(paras::Event::CurrentCodeUpdated(para_id).into());
+	})
+}
+
+#[test]
+fn para_unbrick_works_notes_head() {
+	let para_id = ParaId::from(111);
+
+	setup_para_unbrick_tests(para_id).execute_with(|| {
+		run_to_block(9, Some(vec![9, 10]));
+
+		// Unbrick Fails
+		assert_ok!(Paras::unbrick(
+			RuntimeOrigin::signed(1),
+			para_id,
+			None,
+			Some(vec![7, 8, 9].into())
+		));
+
+		System::assert_has_event(paras::Event::CurrentHeadUpdated(para_id).into());
+	})
 }

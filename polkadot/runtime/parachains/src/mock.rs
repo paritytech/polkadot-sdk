@@ -30,7 +30,7 @@ use polkadot_primitives::CoreIndex;
 
 use codec::Decode;
 use frame_support::{
-	assert_ok, derive_impl, parameter_types,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
@@ -38,7 +38,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_support_test::TestRandomness;
-use frame_system::limits;
+use frame_system::{limits, EnsureSignedBy};
 use polkadot_primitives::{
 	AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash, Moment, SessionIndex, UpwardMessage,
 	ValidationCode, ValidatorIndex,
@@ -229,6 +229,10 @@ impl frame_support::traits::EstimateNextSessionRotation<u32> for TestNextSession
 	}
 }
 
+ord_parameter_types! {
+	pub const One: u64 = 1;
+}
+
 impl crate::paras::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = crate::paras::TestWeightInfo;
@@ -237,6 +241,8 @@ impl crate::paras::Config for Test {
 	type NextSessionRotation = TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type UnbrickOrigin = EnsureSignedBy<One, AccountId>;
+	type MinTimeToAllowUnbrick = ConstU32<5>;
 }
 
 impl crate::dmp::Config for Test {}

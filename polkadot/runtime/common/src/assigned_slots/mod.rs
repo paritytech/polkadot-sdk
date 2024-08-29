@@ -719,6 +719,8 @@ mod tests {
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
 		type AssignCoretime = ();
+		type UnbrickOrigin = EnsureRoot<Self::AccountId>;
+		type MinTimeToAllowUnbrick = ConstU32<5>;
 	}
 
 	impl parachains_shared::Config for Test {

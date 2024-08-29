@@ -978,6 +978,8 @@ impl parachains_paras::Config for Runtime {
 	type NextSessionRotation = Babe;
 	type OnNewHead = Registrar;
 	type AssignCoretime = CoretimeAssignmentProvider;
+	type UnbrickOrigin = EnsureNever<()>;
+	type MinTimeToAllowUnbrick = ConstU32<{ 2 * HOURS }>;
 }
 
 parameter_types! {
