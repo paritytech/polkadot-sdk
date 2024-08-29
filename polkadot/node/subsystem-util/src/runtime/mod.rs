@@ -32,10 +32,14 @@ use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
 	node_features::FeatureIndex, slashing, AsyncBackingParams, CandidateEvent, CandidateHash,
 	CoreIndex, CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	IndexedVec, NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
-	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	Id as ParaId, IndexedVec, NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
+
+use std::collections::{BTreeMap, VecDeque};
+
+use crate::{has_required_runtime, request_claim_queue, request_disabled_validators, runtime};
 
 use crate::{
 	request_async_backing_params, request_availability_cores, request_candidate_events,
@@ -579,11 +583,6 @@ pub async fn request_node_features(
 		res.map(Some)
 	}
 }
-
-use polkadot_primitives::Id as ParaId;
-use std::collections::{BTreeMap, VecDeque};
-
-use crate::{has_required_runtime, request_claim_queue, request_disabled_validators, runtime};
 
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.
 #[derive(Default)]
