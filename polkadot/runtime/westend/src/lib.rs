@@ -1020,11 +1020,10 @@ impl pallet_sudo::Config for Runtime {
 parameter_types! {
 	// One storage item; key size 32, value size 8; .
 	pub const ProxyDepositBase: Balance = deposit(1, 8);
-	// Additional storage item size of 33 bytes.
-	pub const ProxyDepositFactor: Balance = deposit(0, 33);
+	pub const ProxyDepositPerByte: Balance = deposit(0, 1);
 	pub const MaxProxies: u16 = 32;
 	pub const AnnouncementDepositBase: Balance = deposit(1, 8);
-	pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
+	pub const AnnouncementDepositPerByte: Balance = deposit(0, 1);
 	pub const MaxPending: u16 = 32;
 	pub const ProxyHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Proxy);
 	pub const AnnouncementHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Announcement);
@@ -1171,13 +1170,13 @@ impl pallet_proxy::Config for Runtime {
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<ProxyDepositBase, ProxyDepositFactor, Balance>,
+		AtLeastOneLinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
 	>;
 	type AnnouncementConsideration = HoldConsideration<
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositFactor, Balance>,
+		AtLeastOneLinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
 	>;
 	type MaxProxies = MaxProxies;
 	type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;
