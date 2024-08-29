@@ -754,7 +754,7 @@ mod set_pool_expiry_block {
 	fn success_permissioned_admin() {
 		new_test_ext().execute_with(|| {
 			let pool_id = 0;
-			let new_expiry_block = 200u64;
+			let new_expiry_block = System::block_number() + DEFAULT_LIFETIME + 1u64;
 			create_default_pool_permissioned_admin();
 
 			assert_ok!(StakingRewards::set_pool_expiry_block(
@@ -777,7 +777,7 @@ mod set_pool_expiry_block {
 		new_test_ext().execute_with(|| {
 			let admin = 1;
 			let pool_id = 0;
-			let new_expiry_block = 200u64;
+			let new_expiry_block = System::block_number() + DEFAULT_LIFETIME + 1u64;
 			create_default_pool();
 
 			assert_ok!(StakingRewards::set_pool_expiry_block(
@@ -843,34 +843,15 @@ mod set_pool_expiry_block {
 	}
 
 	#[test]
-	fn halts_reward_accumulation() {
+	fn fails_to_cutback_expiration() {
 		new_test_ext().execute_with(|| {
 			let admin = 1;
-			let staker = 2;
 			let pool_id = 0;
 			create_default_pool();
 
-			// Earn 10 blocks of rewards
-			System::set_block_number(10);
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
-			System::set_block_number(20);
-			assert_hypothetically_earned(staker, 100 * 10, pool_id, NativeOrWithId::<u32>::Native);
-
-			// Cut off rewards earlier than original expiry
-			System::set_block_number(21);
-			assert_ok!(StakingRewards::set_pool_expiry_block(
-				RuntimeOrigin::signed(admin),
-				pool_id,
-				30
-			));
-			System::set_block_number(50);
-
-			// Staker has been in pool with rewards active for 20 blocks total
-			assert_hypothetically_earned(
-				staker,
-				100 * 20 - 1, // -1 rounding error
-				pool_id,
-				NativeOrWithId::<u32>::Native,
+			assert_noop!(
+				StakingRewards::set_pool_expiry_block(RuntimeOrigin::signed(admin), pool_id, 30),
+				Error::<MockRuntime>::ExpiryCut
 			);
 		});
 	}
@@ -1017,7 +998,7 @@ mod set_pool_reward_rate_per_block {
 			let admin = 1;
 			let staker = 2;
 			let pool_id = 0;
-			let new_reward_rate = 50;
+			let new_reward_rate = 150;
 			create_default_pool();
 
 			// Stake some tokens, and accumulate 10 blocks of rewards at the default pool rate (100)
@@ -1025,7 +1006,7 @@ mod set_pool_reward_rate_per_block {
 			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
 			System::set_block_number(20);
 
-			// Halve the reward rate
+			// Increase the reward rate
 			assert_ok!(StakingRewards::set_pool_reward_rate_per_block(
 				RuntimeOrigin::signed(admin),
 				pool_id,
@@ -1097,6 +1078,22 @@ mod set_pool_reward_rate_per_block {
 			assert_err!(
 				StakingRewards::set_pool_reward_rate_per_block(RuntimeOrigin::root(), 0, 200),
 				BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn fails_to_decrease() {
+		new_test_ext().execute_with(|| {
+			create_default_pool_permissioned_admin();
+
+			assert_noop!(
+				StakingRewards::set_pool_reward_rate_per_block(
+					RuntimeOrigin::root(),
+					0,
+					DEFAULT_REWARD_RATE_PER_BLOCK - 1
+				),
+				Error::<MockRuntime>::RewardRateCut
 			);
 		});
 	}
@@ -1273,7 +1270,7 @@ fn integration() {
 		assert_hypothetically_earned(staker1, 1066, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 933, pool_id, reward_asset_id.clone());
 
-		// Block 55: Halve the block reward.
+		// Block 55: Increase the block reward.
 		// - Staker 1 has earned 1065 tokens.
 		// - Staker 2 has earned 1133 (933 + 2 * 100) tokens.
 		// - Staker 2 is earning 50 tokens per block.
@@ -1281,29 +1278,29 @@ fn integration() {
 		assert_ok!(StakingRewards::set_pool_reward_rate_per_block(
 			RuntimeOrigin::signed(admin),
 			pool_id,
-			50
+			150
 		));
 		assert_hypothetically_earned(staker1, 1066, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 1133, pool_id, reward_asset_id.clone());
 
 		// Block 57: Staker2 harvests their rewards.
 		System::set_block_number(57);
-		// - Staker 2 has earned 1233 (1133 + 2 * 50) tokens.
-		assert_hypothetically_earned(staker2, 1233, pool_id, reward_asset_id.clone());
+		// - Staker 2 has earned 1433 (1133 + 2 * 150) tokens.
+		assert_hypothetically_earned(staker2, 1433, pool_id, reward_asset_id.clone());
 		// Get the pre-harvest balance.
 		let balance_before: <MockRuntime as Config>::Balance =
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker2);
 		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker2), pool_id));
 		let balance_after =
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker2);
-		assert_eq!(balance_after - balance_before, 1233u128);
+		assert_eq!(balance_after - balance_before, 1433u128);
 
 		// Block 60: Check rewards were adjusted correctly.
 		// - Staker 1 has earned 1065 tokens.
-		// - Staker 2 has earned 149 (3 * 50) tokens.
+		// - Staker 2 has earned 450 (3 * 150) tokens.
 		System::set_block_number(60);
 		assert_hypothetically_earned(staker1, 1066, pool_id, reward_asset_id.clone());
-		assert_hypothetically_earned(staker2, 150, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 450, pool_id, reward_asset_id.clone());
 
 		// Finally, check events.
 		assert_eq!(
@@ -1324,8 +1321,8 @@ fn integration() {
 				Event::Unstaked { caller: staker1, pool_id, amount: 100 },
 				Event::Unstaked { caller: staker1, pool_id, amount: 100 },
 				Event::PoolExpiryBlockModified { pool_id, new_expiry_block: 60 },
-				Event::PoolRewardRateModified { pool_id, new_reward_rate_per_block: 50 },
-				Event::RewardsHarvested { staker: staker2, pool_id, amount: 1233 }
+				Event::PoolRewardRateModified { pool_id, new_reward_rate_per_block: 150 },
+				Event::RewardsHarvested { staker: staker2, pool_id, amount: 1433 }
 			]
 		);
 	});

@@ -380,6 +380,10 @@ pub mod pallet {
 		ExpiryBlockMustBeInTheFuture,
 		/// Insufficient funds to create the freeze.
 		InsufficientFunds,
+		/// The expiry block can be only extended.
+		ExpiryCut,
+		/// The reward rate per block can be only increased.
+		RewardRateCut,
 	}
 
 	#[pallet::hooks]
@@ -598,6 +602,10 @@ pub mod pallet {
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
+			ensure!(
+				new_reward_rate_per_block > pool_info.reward_rate_per_block,
+				Error::<T>::RewardRateCut
+			);
 
 			// Always start by updating the pool rewards.
 			let rewards_per_token = Self::reward_per_token(&pool_info)?;
@@ -656,6 +664,7 @@ pub mod pallet {
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
+			ensure!(new_expiry_block > pool_info.expiry_block, Error::<T>::ExpiryCut);
 
 			// Always start by updating the pool rewards.
 			let reward_per_token = Self::reward_per_token(&pool_info)?;

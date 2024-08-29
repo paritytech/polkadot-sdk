@@ -47,7 +47,7 @@ pub trait BenchmarkHelper<AssetId> {
 }
 
 fn pool_lifetime<T: Config>() -> BlockNumberFor<T> {
-	BlockNumberFor::<T>::max_value()
+	BlockNumberFor::<T>::from(100u32)
 }
 
 fn create_reward_pool<T: Config>() -> Result<T::RuntimeOrigin, BenchmarkError>
@@ -140,6 +140,8 @@ mod benchmarks {
 			assert_ok!(T::Assets::create(reward_asset.clone(), caller.clone(), true, min_balance));
 		}
 
+		let expiry_block = System::<T>::block_number() + pool_lifetime::<T>();
+
 		#[extrinsic_call]
 		_(
 			caller_origin as T::RuntimeOrigin,
@@ -157,7 +159,7 @@ mod benchmarks {
 				staked_asset_id: staked_asset,
 				reward_asset_id: reward_asset,
 				reward_rate_per_block: min_balance,
-				expiry_block: pool_lifetime::<T>(),
+				expiry_block,
 				pool_id: 0,
 			}
 			.into(),
@@ -221,9 +223,7 @@ mod benchmarks {
 			T::Balance::one(),
 		));
 
-		System::<T>::set_block_number(
-			frame_system::Pallet::<T>::block_number() + BlockNumberFor::<T>::one(),
-		);
+		System::<T>::set_block_number(System::<T>::block_number() + BlockNumberFor::<T>::one());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(staker.clone()), 0);
@@ -239,7 +239,10 @@ mod benchmarks {
 	fn set_pool_reward_rate_per_block() -> Result<(), BenchmarkError> {
 		let caller_origin = create_reward_pool::<T>()?;
 
-		let new_reward_rate_per_block = T::Balance::from(5u32);
+		let new_reward_rate_per_block =
+			T::Assets::minimum_balance(T::BenchmarkHelper::reward_asset()).max(T::Balance::one()) +
+				T::Balance::one();
+
 		#[extrinsic_call]
 		_(caller_origin as T::RuntimeOrigin, 0, new_reward_rate_per_block);
 
@@ -268,7 +271,8 @@ mod benchmarks {
 	fn set_pool_expiry_block() -> Result<(), BenchmarkError> {
 		let create_origin = create_reward_pool::<T>()?;
 
-		let new_expiry_block = pool_lifetime::<T>() - BlockNumberFor::<T>::one();
+		let new_expiry_block =
+			System::<T>::block_number() + pool_lifetime::<T>() + BlockNumberFor::<T>::one();
 
 		#[extrinsic_call]
 		_(create_origin as T::RuntimeOrigin, 0, new_expiry_block);
