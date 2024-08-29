@@ -72,11 +72,6 @@ impl<T: Config + Send + Sync> CheckOnlySudoAccount<T> {
 impl<T: Config + Send + Sync> TransactionExtensionBase for CheckOnlySudoAccount<T> {
 	const IDENTIFIER: &'static str = "CheckOnlySudoAccount";
 	type Implicit = ();
-
-	fn weight() -> frame_support::weights::Weight {
-		use crate::weights::WeightInfo;
-		T::WeightInfo::check_only_sudo_account()
-	}
 }
 impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
 	for CheckOnlySudoAccount<T>
@@ -87,6 +82,14 @@ where
 {
 	type Pre = ();
 	type Val = ();
+
+	fn weight(
+		&self,
+		_: &<T as frame_system::Config>::RuntimeCall,
+	) -> frame_support::weights::Weight {
+		use crate::weights::WeightInfo;
+		T::WeightInfo::check_only_sudo_account()
+	}
 
 	fn validate(
 		&self,

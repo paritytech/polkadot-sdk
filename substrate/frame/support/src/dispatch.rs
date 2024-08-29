@@ -27,7 +27,8 @@ use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
 	traits::{
-		Dispatchable, ExtensionPostDispatchWeightHandler, RefundWeight, TransactionExtensionBase,
+		Dispatchable, ExtensionPostDispatchWeightHandler, RefundWeight, TransactionExtension,
+		TransactionExtensionBase,
 	},
 	DispatchError, RuntimeDebug,
 };
@@ -382,7 +383,7 @@ where
 }
 
 /// Implementation for unchecked extrinsic.
-impl<Address, Call, Signature, Extension> GetDispatchInfo
+impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>> GetDispatchInfo
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
 	Call: GetDispatchInfo + Dispatchable,
@@ -396,7 +397,8 @@ where
 }
 
 /// Implementation for checked extrinsic.
-impl<AccountId, Call, Extension> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extension>
+impl<AccountId, Call: Dispatchable, Extension: TransactionExtension<Call>> GetDispatchInfo
+	for CheckedExtrinsic<AccountId, Call, Extension>
 where
 	Call: GetDispatchInfo,
 	Extension: TransactionExtensionBase,
@@ -592,18 +594,17 @@ impl RefundWeight for PostDispatchInfo {
 }
 
 impl ExtensionPostDispatchWeightHandler<DispatchInfo> for PostDispatchInfo {
-	fn set_extension_weight(&mut self, info: &DispatchInfo, weight: Weight) {
-		let actual_weight = self.actual_weight.unwrap_or(info.call_weight).saturating_add(weight);
+	fn set_extension_weight(&mut self, info: &DispatchInfo) {
+		let actual_weight = self
+			.actual_weight
+			.unwrap_or(info.call_weight)
+			.saturating_add(info.extension_weight);
 		self.actual_weight = Some(actual_weight);
 	}
 }
 
 impl ExtensionPostDispatchWeightHandler<()> for PostDispatchInfo {
-	fn set_extension_weight(&mut self, _info: &(), weight: sp_weights::Weight) {
-		if let Some(actual) = &mut self.actual_weight {
-			actual.saturating_add(weight);
-		}
-	}
+	fn set_extension_weight(&mut self, _: &()) {}
 }
 
 // TODO: Eventually remove these
@@ -1221,13 +1222,14 @@ mod test_extensions {
 	impl TransactionExtensionBase for HalfCostIf {
 		const IDENTIFIER: &'static str = "HalfCostIf";
 		type Implicit = ();
-		fn weight() -> sp_weights::Weight {
-			Weight::from_parts(100, 0)
-		}
 	}
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for HalfCostIf {
 		type Val = ();
 		type Pre = bool;
+
+		fn weight(&self, _: &RuntimeCall) -> sp_weights::Weight {
+			Weight::from_parts(100, 0)
+		}
 
 		fn prepare(
 			self,
@@ -1246,11 +1248,11 @@ mod test_extensions {
 			_post_info: &PostDispatchInfoOf<RuntimeCall>,
 			_len: usize,
 			_result: &DispatchResult,
-		) -> Result<Option<Weight>, TransactionValidityError> {
+		) -> Result<Weight, TransactionValidityError> {
 			if pre {
-				Ok(Some(Self::weight().saturating_div(2)))
+				Ok(Weight::from_parts(50, 0))
 			} else {
-				Ok(Some(Self::weight()))
+				Ok(Weight::zero())
 			}
 		}
 		impl_tx_ext_default!(RuntimeCall; validate);
@@ -1264,9 +1266,6 @@ mod test_extensions {
 	impl TransactionExtensionBase for FreeIfUnder {
 		const IDENTIFIER: &'static str = "FreeIfUnder";
 		type Implicit = ();
-		fn weight() -> sp_weights::Weight {
-			Weight::from_parts(200, 0)
-		}
 	}
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for FreeIfUnder
 	where
@@ -1274,6 +1273,10 @@ mod test_extensions {
 	{
 		type Val = ();
 		type Pre = u64;
+
+		fn weight(&self, _: &RuntimeCall) -> sp_weights::Weight {
+			Weight::from_parts(200, 0)
+		}
 
 		fn prepare(
 			self,
@@ -1292,13 +1295,13 @@ mod test_extensions {
 			post_info: &PostDispatchInfoOf<RuntimeCall>,
 			_len: usize,
 			_result: &DispatchResult,
-		) -> Result<Option<Weight>, TransactionValidityError> {
+		) -> Result<Weight, TransactionValidityError> {
 			if let Some(actual) = post_info.actual_weight {
 				if pre > actual.ref_time() {
-					return Ok(Some(Weight::zero()));
+					return Ok(Weight::from_parts(200, 0));
 				}
 			}
-			Ok(None)
+			Ok(Weight::zero())
 		}
 		impl_tx_ext_default!(RuntimeCall; validate);
 	}
@@ -1311,13 +1314,14 @@ mod test_extensions {
 	impl TransactionExtensionBase for ActualWeightIs {
 		const IDENTIFIER: &'static str = "ActualWeightIs";
 		type Implicit = ();
-		fn weight() -> sp_weights::Weight {
-			Weight::from_parts(300, 0)
-		}
 	}
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for ActualWeightIs {
 		type Val = ();
 		type Pre = u64;
+
+		fn weight(&self, _: &RuntimeCall) -> sp_weights::Weight {
+			Weight::from_parts(300, 0)
+		}
 
 		fn prepare(
 			self,
@@ -1336,8 +1340,8 @@ mod test_extensions {
 			_post_info: &PostDispatchInfoOf<RuntimeCall>,
 			_len: usize,
 			_result: &DispatchResult,
-		) -> Result<Option<Weight>, TransactionValidityError> {
-			Ok(Some(Weight::from_parts(core::cmp::min(pre, 300), 0)))
+		) -> Result<Weight, TransactionValidityError> {
+			Ok(Weight::from_parts(300u64.saturating_sub(pre), 0))
 		}
 		impl_tx_ext_default!(RuntimeCall; validate);
 	}
@@ -1353,10 +1357,7 @@ mod extension_weight_tests {
 	use sp_core::parameter_types;
 	use sp_runtime::{
 		generic::{self, ExtrinsicFormat},
-		traits::{
-			Applyable, BlakeTwo256, DispatchTransaction, TransactionExtension,
-			TransactionExtensionBase,
-		},
+		traits::{Applyable, BlakeTwo256, DispatchTransaction, TransactionExtension},
 		BuildStorage,
 	};
 	use sp_weights::RuntimeDbWeight;
@@ -1431,7 +1432,7 @@ mod extension_weight_tests {
 
 			let mut info = call.get_dispatch_info();
 			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
-			info.extension_weight = TxExtension::weight();
+			info.extension_weight = ext.weight(&call);
 			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
 			let res = call.dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
@@ -1457,7 +1458,7 @@ mod extension_weight_tests {
 
 			let mut info = call.get_dispatch_info();
 			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
-			info.extension_weight = TxExtension::weight();
+			info.extension_weight = ext.weight(&call);
 			let post_info =
 				ext.dispatch_transaction(Some(0).into(), call, &info, 0).unwrap().unwrap();
 			// 1000 call weight + 50 + 200 + 0
@@ -1476,7 +1477,7 @@ mod extension_weight_tests {
 
 			let mut info = call.get_dispatch_info();
 			assert_eq!(info.call_weight, Weight::from_parts(1000, 0));
-			info.extension_weight = TxExtension::weight();
+			info.extension_weight = ext.weight(&call);
 			assert_eq!(info.total_weight(), Weight::from_parts(1600, 0));
 			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
@@ -1484,7 +1485,7 @@ mod extension_weight_tests {
 			// 500 actual call weight
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			// add the 600 worst case extension weight
-			post_info.set_extension_weight(&info, TxExtension::weight());
+			post_info.set_extension_weight(&info);
 			// extension weight should be refunded
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall>>::post_dispatch(
 				pre,
@@ -1504,7 +1505,7 @@ mod extension_weight_tests {
 			// 500 actual call weight
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			// add the 600 worst case extension weight
-			post_info.set_extension_weight(&info, TxExtension::weight());
+			post_info.set_extension_weight(&info);
 			// extension weight should be refunded
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall>>::post_dispatch(
 				pre,
@@ -1524,7 +1525,7 @@ mod extension_weight_tests {
 			// 500 actual call weight
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			// add the 600 worst case extension weight
-			post_info.set_extension_weight(&info, TxExtension::weight());
+			post_info.set_extension_weight(&info);
 			// extension weight should be refunded
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall>>::post_dispatch(
 				pre,
@@ -1544,7 +1545,7 @@ mod extension_weight_tests {
 			// 500 actual call weight
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			// add the 600 worst case extension weight
-			post_info.set_extension_weight(&info, TxExtension::weight());
+			post_info.set_extension_weight(&info);
 			// extension weight should be refunded
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall>>::post_dispatch(
 				pre,
@@ -1565,13 +1566,13 @@ mod extension_weight_tests {
 			// First testcase
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(2000), ActualWeightIs(0));
 			let xt = CheckedExtrinsic {
-				format: ExtrinsicFormat::Signed(0, ext),
+				format: ExtrinsicFormat::Signed(0, ext.clone()),
 				function: call.clone(),
 			};
 			assert_eq!(xt.extension_weight(), Weight::from_parts(600, 0));
 			let mut info = call.get_dispatch_info();
 			assert_eq!(info.call_weight, Weight::from_parts(1000, 0));
-			info.extension_weight = TxExtension::weight();
+			info.extension_weight = ext.weight(&call);
 			assert_eq!(info.total_weight(), Weight::from_parts(1600, 0));
 			let post_info = xt.apply::<ExtRuntime>(&info, 0).unwrap().unwrap();
 			// 500 actual call weight + 100 + 0 + 0

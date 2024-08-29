@@ -55,13 +55,15 @@ impl<T: Config + Send + Sync> CheckNonZeroSender<T> {
 impl<T: Config + Send + Sync> TransactionExtensionBase for CheckNonZeroSender<T> {
 	const IDENTIFIER: &'static str = "CheckNonZeroSender";
 	type Implicit = ();
-	fn weight() -> sp_weights::Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_non_zero_sender()
-	}
 }
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
 	type Val = ();
 	type Pre = ();
+
+	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_non_zero_sender()
+	}
+
 	fn validate(
 		&self,
 		origin: <T as Config>::RuntimeOrigin,

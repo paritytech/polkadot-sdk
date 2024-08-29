@@ -24,7 +24,7 @@ use substrate_test_runtime_client::{prelude::*, runtime::Block};
 
 #[tokio::test]
 async fn block_stats_work() {
-	let mut client = Arc::new(substrate_test_runtime_client::new());
+	let client = Arc::new(substrate_test_runtime_client::new());
 	let api = <Dev<Block, _>>::new(client.clone(), DenyUnsafe::No).into_rpc();
 
 	let block = BlockBuilderBuilder::new(&*client)
@@ -76,7 +76,7 @@ async fn block_stats_work() {
 
 #[tokio::test]
 async fn deny_unsafe_works() {
-	let mut client = Arc::new(substrate_test_runtime_client::new());
+	let client = Arc::new(substrate_test_runtime_client::new());
 	let api = <Dev<Block, _>>::new(client.clone(), DenyUnsafe::Yes).into_rpc();
 
 	let block = BlockBuilderBuilder::new(&*client)

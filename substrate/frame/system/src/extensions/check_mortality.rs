@@ -72,13 +72,14 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMortality<T> {
 			Ok(<Pallet<T>>::block_hash(n))
 		}
 	}
-	fn weight() -> sp_weights::Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality()
-	}
 }
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMortality<T> {
 	type Pre = ();
 	type Val = ();
+
+	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality()
+	}
 
 	fn validate(
 		&self,

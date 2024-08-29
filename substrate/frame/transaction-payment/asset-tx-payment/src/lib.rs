@@ -271,10 +271,6 @@ where
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
 	type Implicit = ();
-
-	fn weight() -> Weight {
-		<T as Config>::WeightInfo::charge_asset_tx_payment_asset()
-	}
 }
 
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
@@ -303,7 +299,17 @@ where
 		InitialPayment<T>,
 		// asset_id for the transaction payment
 		Option<ChargeAssetIdOf<T>>,
+		// weight used by the extension
+		Weight,
 	);
+
+	fn weight(&self, _: &T::RuntimeCall) -> Weight {
+		if self.asset_id.is_some() {
+			<T as Config>::WeightInfo::charge_asset_tx_payment_asset()
+		} else {
+			<T as Config>::WeightInfo::charge_asset_tx_payment_native()
+		}
+	}
 
 	fn validate(
 		&self,
@@ -339,7 +345,7 @@ where
 		let (tip, who, fee) = val;
 		// Mutating call of `withdraw_fee` to actually charge for the transaction.
 		let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
-		Ok((tip, who, initial_payment, self.asset_id))
+		Ok((tip, who, initial_payment, self.asset_id, self.weight(call)))
 	}
 
 	fn post_dispatch_details(
@@ -348,14 +354,14 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
-		let (tip, who, initial_payment, asset_id) = pre;
+	) -> Result<Weight, TransactionValidityError> {
+		let (tip, who, initial_payment, asset_id, extension_weight) = pre;
 		match initial_payment {
 			InitialPayment::Native(already_withdrawn) => {
 				// Take into account the weight used by this extension before calculating the
 				// refund.
 				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_native();
-				let unspent_weight = Self::weight().saturating_sub(actual_ext_weight);
+				let unspent_weight = extension_weight.saturating_sub(actual_ext_weight);
 				let mut actual_post_info = *post_info;
 				actual_post_info.refund(unspent_weight);
 				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
@@ -365,13 +371,11 @@ where
 					len,
 					result,
 				)?;
-				Ok(Some(<T as Config>::WeightInfo::charge_asset_tx_payment_native()))
+				Ok(unspent_weight)
 			},
 			InitialPayment::Asset(already_withdrawn) => {
-				// Take into account the weight used by this extension before calculating the
-				// refund.
 				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_asset();
-				let unspent_weight = Self::weight().saturating_sub(actual_ext_weight);
+				let unspent_weight = extension_weight.saturating_sub(actual_ext_weight);
 				let mut actual_post_info = *post_info;
 				actual_post_info.refund(unspent_weight);
 				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
@@ -396,7 +400,7 @@ where
 					tip: converted_tip,
 					asset_id,
 				});
-				Ok(Some(<T as Config>::WeightInfo::charge_asset_tx_payment_asset()))
+				Ok(unspent_weight)
 			},
 			InitialPayment::Nothing => {
 				// `actual_fee` should be zero here for any signed extrinsic. It would be
@@ -404,7 +408,8 @@ where
 				// `compute_actual_fee` is not aware of them. In both cases it's fine to just
 				// move ahead without adjusting the fee, though, so we do nothing.
 				debug_assert!(tip.is_zero(), "tip should be zero if initial fee was zero.");
-				Ok(Some(<T as Config>::WeightInfo::charge_asset_tx_payment_zero()))
+				Ok(extension_weight
+					.saturating_sub(<T as Config>::WeightInfo::charge_asset_tx_payment_zero()))
 			},
 		}
 	}

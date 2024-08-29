@@ -98,9 +98,9 @@ where
 		post_info: &PostDispatchInfoOf<SE::Call>,
 		len: usize,
 		result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		SE::post_dispatch(Some(pre), info, post_info, len, result)?;
-		Ok(None)
+		Ok(Weight::zero())
 	}
 
 	fn validate_bare_compat(

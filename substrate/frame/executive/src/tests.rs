@@ -24,7 +24,7 @@ use sp_core::H256;
 use sp_runtime::{
 	generic::{DigestItem, Era},
 	testing::{Block, Digest, Header},
-	traits::{Block as BlockT, Header as HeaderT, TransactionExtensionBase},
+	traits::{Block as BlockT, Header as HeaderT, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidityError, UnknownTransaction, ValidTransaction,
 	},
@@ -720,7 +720,8 @@ fn block_weight_limit_enforced() {
 	let mut t = new_test_ext(10000);
 	let transfer_weight =
 			<<Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_allow_death();
-	let extension_weight = TxExtension::weight();
+	let extension_weight = tx_ext(0u32.into(), 0)
+		.weight(&RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }));
 	// on_initialize weight + base block execution weight
 	let block_weights = <Runtime as frame_system::Config>::BlockWeights::get();
 	let base_block_weight = Weight::from_parts(175, 0) + block_weights.base_block;
@@ -791,6 +792,7 @@ fn block_weight_and_size_is_stored_per_tx() {
 		tx_ext(2, 0),
 	);
 	let len = xt.clone().encode().len() as u32;
+	let extension_weight = xt.extension_weight();
 	let transfer_weight = <<Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_allow_death();
 	let mut t = new_test_ext(2);
 	t.execute_with(|| {
@@ -808,7 +810,7 @@ fn block_weight_and_size_is_stored_per_tx() {
 		assert!(Executive::apply_extrinsic(x2.clone()).unwrap().is_ok());
 
 		let extrinsic_weight = transfer_weight +
-			TxExtension::weight() +
+			extension_weight +
 			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.base_extrinsic;

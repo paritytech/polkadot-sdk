@@ -21,6 +21,7 @@ docify = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { features = ["experimental"], workspace = true }
 frame-system = { workspace = true }
 
@@ -35,6 +36,7 @@ sp-keyring = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -42,4 +44,15 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
 ]
