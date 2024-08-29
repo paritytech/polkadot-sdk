@@ -26,6 +26,7 @@ jobs:
     uses: "./.github/workflows/release-srtool.yml"
     with:
        excluded_runtimes: "substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
+       build_opts: "--features on-chain-release-build"
 
   build-binaries:
     runs-on: ubuntu-latest
