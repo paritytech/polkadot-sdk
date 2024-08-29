@@ -1,4 +1,4 @@
-name: checks
+name: Checks
 
 on:
   push:
@@ -98,7 +98,7 @@ jobs:
           ./check-features-variants.sh
           cd -
 
-  confirm-required-jobs-passed:
+  confirm-required-checks-passed:
     runs-on: ubuntu-latest
     name: All checks passed
     # If any new job gets added, be sure to add it to this array
