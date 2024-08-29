@@ -328,6 +328,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -419,6 +426,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Create a new slot by calculating it from the given timestamp and slot duration.
 	</span><span class="kw">pub const fn </span>from_timestamp(timestamp: Timestamp, slot_duration: SlotDuration) -&gt; <span class="self">Self </span>{
 		Slot(timestamp.as_millis() / slot_duration.as_millis())
+	}
+
+	<span class="doccomment">/// Timestamp of the start of the slot.
+	///
+	/// Returns `None` if would overflow for given `SlotDuration`.
+	</span><span class="kw">pub fn </span>timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>, slot_duration: SlotDuration) -&gt; <span class="prelude-ty">Option</span>&lt;Timestamp&gt; {
+		slot_duration.as_millis().checked_mul(<span class="self">self</span>.<span class="number">0</span>).map(Timestamp::new)
 	}
 
 	<span class="doccomment">/// Saturating addition.
