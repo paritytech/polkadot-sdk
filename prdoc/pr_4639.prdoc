@@ -11,29 +11,32 @@ doc:
 
 crates:
   - name: sc-basic-authorship
-    bump: minor
+    bump: patch
   - name: sc-cli
-    bump: minor
+    bump: patch
   - name: sc-consensus-manual-seal
-    bump: minor
+    bump: patch
   - name: sc-mixnet
-    bump: minor
+    bump: patch
   - name: sc-network-transactions
     bump: none
   - name: sc-rpc
     bump: minor
+    validate: false
   - name: sc-rpc-spec-v2
-    bump: minor
+    bump: patch
   - name: sc-service
-    bump: major
+    bump: patch
   - name: sc-service-test
     bump: minor
   - name: sc-transaction-pool
     bump: major
   - name: sc-transaction-pool-api
     bump: major
+    validate: false
   - name: sp-runtime
     bump: minor
+    validate: false
   - name: substrate-test-runtime-transaction-pool
     bump: minor
   - name: staging-node-cli
@@ -43,9 +46,10 @@ crates:
   - name: node-rpc
     bump: minor
   - name: substrate-prometheus-endpoint
-    bump: minor
+    bump: patch
   - name: substrate-frame-rpc-system
     bump: minor
+    validate: false
   - name: minimal-template-node
     bump: minor
   - name: parachain-template-node
@@ -53,12 +57,13 @@ crates:
   - name: solochain-template-node
     bump: minor
   - name: polkadot-service
-    bump: major
+    bump: patch
   - name: polkadot-rpc
     bump: minor
+    validate: false
   - name: cumulus-client-service
-    bump: major
+    bump: patch
   - name: cumulus-test-service
     bump: major
   - name: polkadot-parachain-lib
-    bump: major
+    bump: patch
