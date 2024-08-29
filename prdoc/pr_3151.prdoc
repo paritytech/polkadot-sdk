@@ -4,7 +4,9 @@
 title: Dynamic deposit based on number of proposals 
 
 doc:
-  - audience: Runtime User
+  - audience: 
+      - Runtime User
+      - Runtime Dev
     description: |
       Introduce a dynamic proposal deposit mechanism influenced by the total number of active 
       proposals, with the option to set the deposit to none.
