@@ -2520,18 +2520,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2368" id="2368">2368</a>
 <a href="#2369" id="2369">2369</a>
 <a href="#2370" id="2370">2370</a>
-<a href="#2371" id="2371">2371</a>
-<a href="#2372" id="2372">2372</a>
-<a href="#2373" id="2373">2373</a>
-<a href="#2374" id="2374">2374</a>
-<a href="#2375" id="2375">2375</a>
-<a href="#2376" id="2376">2376</a>
-<a href="#2377" id="2377">2377</a>
-<a href="#2378" id="2378">2378</a>
-<a href="#2379" id="2379">2379</a>
-<a href="#2380" id="2380">2380</a>
-<a href="#2381" id="2381">2381</a>
-<a href="#2382" id="2382">2382</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4490,15 +4478,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		inclusion_block_number: BlockNumberFor&lt;T&gt;,
 		cfg: <span class="kw-2">&amp;</span>configuration::HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
 		upgrade_strategy: UpgradeStrategy,
-	) -&gt; Weight {
-		<span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads(<span class="number">1</span>);
-
+	) {
 		<span class="comment">// Should be prevented by checks in `schedule_code_upgrade_external`
 		</span><span class="kw">let </span>new_code_len = new_code.<span class="number">0</span>.len();
 		<span class="kw">if </span>new_code_len &lt; MIN_CODE_SIZE <span class="kw">as </span>usize || new_code_len &gt; cfg.max_code_size <span class="kw">as </span>usize {
 			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"attempted to schedule an upgrade with invalid new validation code"</span>,);
-			<span class="kw">return </span>weight
-		}
+			<span class="kw">return
+		</span>}
 
 		<span class="comment">// Enacting this should be prevented by the `can_upgrade_validation_code`
 		</span><span class="kw">if </span>FutureCodeHash::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>id) {
@@ -4511,8 +4497,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
 			</span><span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"ended up scheduling an upgrade while one is pending"</span>,);
-			<span class="kw">return </span>weight
-		}
+			<span class="kw">return
+		</span>}
 
 		<span class="kw">let </span>code_hash = new_code.hash();
 
@@ -4520,23 +4506,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// process right away.
 		//
 		// We do not want to allow this since it will mess with the code reference counting.
-		</span>weight += T::DbWeight::get().reads(<span class="number">1</span>);
-		<span class="kw">if </span>CurrentCodeHash::&lt;T&gt;::get(<span class="kw-2">&amp;</span>id) == <span class="prelude-val">Some</span>(code_hash) {
+		</span><span class="kw">if </span>CurrentCodeHash::&lt;T&gt;::get(<span class="kw-2">&amp;</span>id) == <span class="prelude-val">Some</span>(code_hash) {
 			<span class="comment">// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
 			</span><span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
 				<span class="string">"para tried to upgrade to the same code. Abort the upgrade"</span>,
 			);
-			<span class="kw">return </span>weight
-		}
+			<span class="kw">return
+		</span>}
 
 		<span class="comment">// This is the start of the upgrade process. Prevent any further attempts at upgrading.
-		</span>weight += T::DbWeight::get().writes(<span class="number">2</span>);
-		FutureCodeHash::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>code_hash);
+		</span>FutureCodeHash::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>code_hash);
 		UpgradeRestrictionSignal::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, UpgradeRestriction::Present);
 
-		weight += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>);
 		<span class="kw">let </span>next_possible_upgrade_at = inclusion_block_number + cfg.validation_upgrade_cooldown;
 		UpgradeCooldowns::&lt;T&gt;::mutate(|upgrade_cooldowns| {
 			<span class="kw">let </span>insert_idx = upgrade_cooldowns
@@ -4545,14 +4528,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			upgrade_cooldowns.insert(insert_idx, (id, next_possible_upgrade_at));
 		});
 
-		weight += <span class="self">Self</span>::kick_off_pvf_check(
+		<span class="self">Self</span>::kick_off_pvf_check(
 			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number, upgrade_strategy },
 			code_hash,
 			new_code,
 			cfg,
 		);
-
-		weight
 	}
 
 	<span class="doccomment">/// Makes sure that the given code hash has passed pre-checking.
@@ -4642,11 +4623,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		id: ParaId,
 		new_head: HeadData,
 		execution_context: BlockNumberFor&lt;T&gt;,
-	) -&gt; Weight {
+	) {
 		Heads::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>new_head);
 		MostRecentContext::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, execution_context);
 
-		<span class="kw">let </span>weight = <span class="kw">if let </span><span class="prelude-val">Some</span>(expected_at) = FutureCodeUpgrades::&lt;T&gt;::get(<span class="kw-2">&amp;</span>id) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(expected_at) = FutureCodeUpgrades::&lt;T&gt;::get(<span class="kw-2">&amp;</span>id) {
 			<span class="kw">if </span>expected_at &lt;= execution_context {
 				FutureCodeUpgrades::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>id);
 				UpgradeGoAheadSignal::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>id);
@@ -4656,14 +4637,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					new_code_hash
 				} <span class="kw">else </span>{
 					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Missing future code hash for {:?}"</span>, <span class="kw-2">&amp;</span>id);
-					<span class="kw">return </span>T::DbWeight::get().reads_writes(<span class="number">3</span>, <span class="number">1 </span>+ <span class="number">3</span>)
-				};
+					<span class="kw">return
+				</span>};
 
-				<span class="kw">let </span>weight = <span class="self">Self</span>::set_current_code(id, new_code_hash, expected_at);
-
-				weight + T::DbWeight::get().reads_writes(<span class="number">3</span>, <span class="number">3</span>)
-			} <span class="kw">else </span>{
-				T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1 </span>+ <span class="number">0</span>)
+				<span class="self">Self</span>::set_current_code(id, new_code_hash, expected_at);
 			}
 		} <span class="kw">else </span>{
 			<span class="comment">// This means there is no upgrade scheduled.
@@ -4671,10 +4648,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// In case the upgrade was aborted by the relay-chain we should reset
 			// the `Abort` signal.
 			</span>UpgradeGoAheadSignal::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>id);
-			T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>)
 		};
 
-		weight.saturating_add(T::OnNewHead::on_new_head(id, <span class="kw-2">&amp;</span>new_head))
+		T::OnNewHead::on_new_head(id, <span class="kw-2">&amp;</span>new_head);
 	}
 
 	<span class="doccomment">/// Set the current code for the given parachain.

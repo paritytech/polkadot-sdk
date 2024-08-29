@@ -2049,21 +2049,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1897" id="1897">1897</a>
 <a href="#1898" id="1898">1898</a>
 <a href="#1899" id="1899">1899</a>
-<a href="#1900" id="1900">1900</a>
-<a href="#1901" id="1901">1901</a>
-<a href="#1902" id="1902">1902</a>
-<a href="#1903" id="1903">1903</a>
-<a href="#1904" id="1904">1904</a>
-<a href="#1905" id="1905">1905</a>
-<a href="#1906" id="1906">1906</a>
-<a href="#1907" id="1907">1907</a>
-<a href="#1908" id="1908">1908</a>
-<a href="#1909" id="1909">1909</a>
-<a href="#1910" id="1910">1910</a>
-<a href="#1911" id="1911">1911</a>
-<a href="#1912" id="1912">1912</a>
-<a href="#1913" id="1913">1913</a>
-<a href="#1914" id="1914">1914</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3371,9 +3356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		remaining
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prune_hrmp(recipient: ParaId, new_hrmp_watermark: BlockNumberFor&lt;T&gt;) -&gt; Weight {
-		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
-
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prune_hrmp(recipient: ParaId, new_hrmp_watermark: BlockNumberFor&lt;T&gt;) {
 		<span class="comment">// sift through the incoming messages digest to collect the paras that sent at least one
 		// message to this parachain between the old and new watermarks.
 		</span><span class="kw">let </span>senders = HrmpChannelDigests::&lt;T&gt;::mutate(<span class="kw-2">&amp;</span>recipient, |digest| {
@@ -3389,7 +3372,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">*</span>digest = leftover;
 			senders
 		});
-		weight += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>);
 
 		<span class="comment">// having all senders we can trivially find out the channels which we need to prune.
 		</span><span class="kw">let </span>channels_to_prune =
@@ -3422,21 +3404,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					channel.total_size -= pruned_size <span class="kw">as </span>u32;
 				}
 			});
-
-			weight += T::DbWeight::get().reads_writes(<span class="number">2</span>, <span class="number">2</span>);
 		}
 
 		HrmpWatermarks::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>recipient, new_hrmp_watermark);
-		weight += T::DbWeight::get().reads_writes(<span class="number">0</span>, <span class="number">1</span>);
-
-		weight
 	}
 
 	<span class="doccomment">/// Process the outbound HRMP messages by putting them into the appropriate recipient queues.
-	///
-	/// Returns the amount of weight consumed.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>queue_outbound_hrmp(sender: ParaId, out_hrmp_msgs: HorizontalMessages) -&gt; Weight {
-		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>queue_outbound_hrmp(sender: ParaId, out_hrmp_msgs: HorizontalMessages) {
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 
 		<span class="kw">for </span>out_msg <span class="kw">in </span>out_hrmp_msgs {
@@ -3492,11 +3466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				recipient_digest.push((now, <span class="macro">vec!</span>[sender]));
 			}
 			HrmpChannelDigests::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>channel_id.recipient, recipient_digest);
-
-			weight += T::DbWeight::get().reads_writes(<span class="number">2</span>, <span class="number">2</span>);
 		}
-
-		weight
 	}
 
 	<span class="doccomment">/// Initiate opening a channel from a parachain to a given recipient with given channel

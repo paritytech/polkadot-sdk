@@ -511,7 +511,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -801,7 +800,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Prunes the specified number of messages from the downward message queue of the given para.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prune_dmq(para: ParaId, processed_downward_messages: u32) -&gt; Weight {
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prune_dmq(para: ParaId, processed_downward_messages: u32) {
 		<span class="kw">let </span>q_len = DownwardMessageQueues::&lt;T&gt;::mutate(para, |q| {
 			<span class="kw">let </span>processed_downward_messages = processed_downward_messages <span class="kw">as </span>usize;
 			<span class="kw">if </span>processed_downward_messages &gt; q.len() {
@@ -820,7 +819,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>q_len &lt;= (threshold <span class="kw">as </span>usize) {
 			<span class="self">Self</span>::decrease_fee_factor(para);
 		}
-		T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
 	}
 
 	<span class="doccomment">/// Returns the Head of Message Queue Chain for the given para or `None` if there is none

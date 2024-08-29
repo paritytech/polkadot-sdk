@@ -337,6 +337,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -358,7 +381,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! the relay chain, but we do care about the size of the block, by putting the tx in the
 //! proof_size we can use the already existing weight limiting code to limit the used size as well.
 
-</span><span class="kw">use </span>codec::{Encode, WrapperTypeEncode};
+</span><span class="kw">use crate</span>::{configuration, inclusion};
+<span class="kw">use </span>codec::{Encode, WrapperTypeEncode};
 <span class="kw">use </span>polkadot_primitives::{
 	CheckedMultiDisputeStatementSet, MultiDisputeStatementSet, UncheckedSignedAvailabilityBitfield,
 	UncheckedSignedAvailabilityBitfields,
@@ -435,6 +459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	backed_candidates_weight::&lt;T&gt;(backed_candidates)
 		.saturating_add(signed_bitfields_weight::&lt;T&gt;(bitfields))
 		.saturating_add(multi_dispute_statement_sets_weight::&lt;T&gt;(disputes))
+		.saturating_add(enact_candidates_max_weight::&lt;T&gt;(bitfields))
 }
 
 <span class="kw">pub fn </span>multi_dispute_statement_sets_weight&lt;T: Config&gt;(
@@ -492,6 +517,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_bitfields()
 			.saturating_sub(&lt;&lt;T <span class="kw">as </span>Config&gt;::WeightInfo <span class="kw">as </span>WeightInfo&gt;::enter_empty()),
 		bitfield,
+	)
+}
+
+<span class="doccomment">/// Worst case scenario is all candidates have been enacted
+/// and process a maximum number of messages.
+</span><span class="kw">pub fn </span>enact_candidates_max_weight&lt;T: Config&gt;(
+	bitfields: <span class="kw-2">&amp;</span>UncheckedSignedAvailabilityBitfields,
+) -&gt; Weight {
+	<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
+	<span class="kw">let </span>max_ump_msgs = config.max_upward_message_num_per_candidate;
+	<span class="kw">let </span>max_hrmp_msgs = config.hrmp_max_message_num_per_candidate;
+	<span class="comment">// No bitfields - no enacted candidates
+	</span><span class="kw">let </span>bitfield_size = bitfields.first().map(|b| b.unchecked_payload().<span class="number">0</span>.len()).unwrap_or(<span class="number">0</span>);
+	set_proof_size_to_tx_size(
+		&lt;&lt;T <span class="kw">as </span>inclusion::Config&gt;::WeightInfo <span class="kw">as </span>inclusion::WeightInfo&gt;::enact_candidate(
+			max_ump_msgs,
+			max_hrmp_msgs,
+			<span class="number">1</span>, <span class="comment">// runtime upgrade
+		</span>)
+		.saturating_mul(bitfield_size <span class="kw">as </span>u64),
+		bitfields,
 	)
 }
 

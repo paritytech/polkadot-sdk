@@ -1520,6 +1520,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1368" id="1368">1368</a>
 <a href="#1369" id="1369">1369</a>
 <a href="#1370" id="1370">1370</a>
+<a href="#1371" id="1371">1371</a>
+<a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
+<a href="#1377" id="1377">1377</a>
+<a href="#1378" id="1378">1378</a>
+<a href="#1379" id="1379">1379</a>
+<a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1587,18 +1600,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>migration;
 
 <span class="kw">pub trait </span>WeightInfo {
-	<span class="kw">fn </span>receive_upward_messages(i: u32) -&gt; Weight;
+	<span class="doccomment">/// Weight for `enact_candidate` extrinsic given the number of sent messages
+	/// (ump, hrmp) and whether there is a new code for a runtime upgrade.
+	///
+	/// NOTE: due to a shortcoming of the current benchmarking framework,
+	/// we use `u32` for the code upgrade, even though it is a `bool`.
+	</span><span class="kw">fn </span>enact_candidate(u: u32, h: u32, c: u32) -&gt; Weight;
 }
 
 <span class="kw">pub struct </span>TestWeightInfo;
 <span class="kw">impl </span>WeightInfo <span class="kw">for </span>TestWeightInfo {
-	<span class="kw">fn </span>receive_upward_messages(<span class="kw">_</span>: u32) -&gt; Weight {
-		Weight::MAX
+	<span class="kw">fn </span>enact_candidate(_u: u32, _h: u32, _c: u32) -&gt; Weight {
+		Weight::zero()
 	}
 }
 
 <span class="kw">impl </span>WeightInfo <span class="kw">for </span>() {
-	<span class="kw">fn </span>receive_upward_messages(<span class="kw">_</span>: u32) -&gt; Weight {
+	<span class="kw">fn </span>enact_candidate(_u: u32, _h: u32, _c: u32) -&gt; Weight {
 		Weight::zero()
 	}
 }
@@ -2029,7 +2047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_pending_availability_and_get_freed_cores(
 		validators: <span class="kw-2">&amp;</span>[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
-	) -&gt; Vec&lt;(CoreIndex, CandidateHash)&gt; {
+	) -&gt; (Weight, Vec&lt;(CoreIndex, CandidateHash)&gt;) {
 		<span class="kw">let </span>threshold = availability_threshold(validators.len());
 
 		<span class="kw">let </span><span class="kw-2">mut </span>votes_per_core: BTreeMap&lt;CoreIndex, BTreeSet&lt;ValidatorIndex&gt;&gt; = BTreeMap::new();
@@ -2050,6 +2068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span><span class="kw-2">mut </span>freed_cores = <span class="macro">vec!</span>[];
+		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
 
 		<span class="kw">let </span>pending_paraids: Vec&lt;<span class="kw">_</span>&gt; = PendingAvailability::&lt;T&gt;::iter_keys().collect();
 		<span class="kw">for </span>paraid <span class="kw">in </span>pending_paraids {
@@ -2103,7 +2122,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								descriptor: candidate.descriptor,
 								commitments: candidate.commitments,
 							};
-							<span class="kw">let </span>_weight = <span class="self">Self</span>::enact_candidate(
+
+							<span class="kw">let </span>has_runtime_upgrade =
+								receipt.commitments.new_validation_code.as_ref().map_or(<span class="number">0</span>, |<span class="kw">_</span>| <span class="number">1</span>);
+							<span class="kw">let </span>u = receipt.commitments.upward_messages.len() <span class="kw">as </span>u32;
+							<span class="kw">let </span>h = receipt.commitments.horizontal_messages.len() <span class="kw">as </span>u32;
+							<span class="kw">let </span>enact_weight = &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::enact_candidate(
+								u,
+								h,
+								has_runtime_upgrade,
+							);
+							<span class="self">Self</span>::enact_candidate(
 								candidate.relay_parent_number,
 								receipt,
 								candidate.backers,
@@ -2111,13 +2140,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								candidate.core,
 								candidate.backing_group,
 							);
+							weight.saturating_accrue(enact_weight);
 						}
 					}
 				}
 			});
 		}
 
-		freed_cores
+		(weight, freed_cores)
 	}
 
 	<span class="doccomment">/// Process candidates that have been backed. Provide a set of
@@ -2364,7 +2394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		availability_votes: BitVec&lt;u8, BitOrderLsb0&gt;,
 		core_index: CoreIndex,
 		backing_group: GroupIndex,
-	) -&gt; Weight {
+	) {
 		<span class="kw">let </span>plain = receipt.to_plain();
 		<span class="kw">let </span>commitments = receipt.commitments;
 		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
@@ -2385,38 +2415,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map(|(i, <span class="kw">_</span>)| ValidatorIndex(i <span class="kw">as _</span>)),
 		);
 
-		<span class="comment">// initial weight is config read.
-		</span><span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">0</span>);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(new_code) = commitments.new_validation_code {
 			<span class="comment">// Block number of candidate's inclusion.
 			</span><span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 
-			weight.saturating_add(paras::Pallet::&lt;T&gt;::schedule_code_upgrade(
+			paras::Pallet::&lt;T&gt;::schedule_code_upgrade(
 				receipt.descriptor.para_id,
 				new_code,
 				now,
 				<span class="kw-2">&amp;</span>config,
 				UpgradeStrategy::SetGoAheadSignal,
-			));
+			);
 		}
 
 		<span class="comment">// enact the messaging facet of the candidate.
-		</span>weight.saturating_accrue(dmp::Pallet::&lt;T&gt;::prune_dmq(
+		</span>dmp::Pallet::&lt;T&gt;::prune_dmq(
 			receipt.descriptor.para_id,
 			commitments.processed_downward_messages,
-		));
-		weight.saturating_accrue(<span class="self">Self</span>::receive_upward_messages(
+		);
+		<span class="self">Self</span>::receive_upward_messages(
 			receipt.descriptor.para_id,
 			commitments.upward_messages.as_slice(),
-		));
-		weight.saturating_accrue(hrmp::Pallet::&lt;T&gt;::prune_hrmp(
+		);
+		hrmp::Pallet::&lt;T&gt;::prune_hrmp(
 			receipt.descriptor.para_id,
 			BlockNumberFor::&lt;T&gt;::from(commitments.hrmp_watermark),
-		));
-		weight.saturating_accrue(hrmp::Pallet::&lt;T&gt;::queue_outbound_hrmp(
+		);
+		hrmp::Pallet::&lt;T&gt;::queue_outbound_hrmp(
 			receipt.descriptor.para_id,
 			commitments.horizontal_messages,
-		));
+		);
 
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::CandidateIncluded(
 			plain,
@@ -2425,11 +2453,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			backing_group,
 		));
 
-		weight.saturating_add(paras::Pallet::&lt;T&gt;::note_new_head(
+		paras::Pallet::&lt;T&gt;::note_new_head(
 			receipt.descriptor.para_id,
 			commitments.head_data,
 			relay_parent_number,
-		))
+		);
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>relay_dispatch_queue_size(para_id: ParaId) -&gt; (u32, u32) {
@@ -2494,7 +2522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This function is infallible since the candidate was already accepted and we therefore need
 	/// to deal with the messages as given. Messages that are too long will be ignored since such
 	/// candidates should have already been rejected in [`Self::check_upward_messages`].
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>receive_upward_messages(para: ParaId, upward_messages: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;]) -&gt; Weight {
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>receive_upward_messages(para: ParaId, upward_messages: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;]) {
 		<span class="kw">let </span>bounded = upward_messages
 			.iter()
 			.filter_map(|d| {
@@ -2513,19 +2541,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>receive_bounded_upward_messages(
 		para: ParaId,
 		messages: Vec&lt;BoundedSlice&lt;<span class="lifetime">'_</span>, u8, MaxUmpMessageLenOf&lt;T&gt;&gt;&gt;,
-	) -&gt; Weight {
+	) {
 		<span class="kw">let </span>count = messages.len() <span class="kw">as </span>u32;
 		<span class="kw">if </span>count == <span class="number">0 </span>{
-			<span class="kw">return </span>Weight::zero()
-		}
+			<span class="kw">return
+		</span>}
 
 		T::MessageQueue::enqueue_messages(
 			messages.into_iter(),
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
 		);
-		<span class="kw">let </span>weight = &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::receive_upward_messages(count);
 		<span class="self">Self</span>::deposit_event(Event::UpwardMessagesReceived { from: para, count });
-		weight
 	}
 
 	<span class="doccomment">/// Cleans up all timed out candidates as well as their descendant candidates.

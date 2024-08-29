@@ -1060,6 +1060,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1128,6 +1129,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>entropy = (name, index, seed).using_encoded(sp_io::hashing::blake2_256);
 	AccountId::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(<span class="kw-2">&amp;</span>entropy[..]))
 		.expect(<span class="string">"infinite input; no invalid input; qed"</span>)
+}
+
+<span class="kw">pub fn </span>generate_validator_pairs&lt;T: frame_system::Config&gt;(
+	validator_count: u32,
+) -&gt; Vec&lt;(T::AccountId, ValidatorId)&gt; {
+	(<span class="number">0</span>..validator_count)
+		.map(|i| {
+			<span class="kw">let </span>public = ValidatorId::generate_pair(<span class="prelude-val">None</span>);
+
+			<span class="comment">// The account Id is not actually used anywhere, just necessary to fulfill the
+			// expected type of the `validators` param of `test_trigger_on_new_session`.
+			</span><span class="kw">let </span>account: T::AccountId = account(<span class="string">"validator"</span>, i, i);
+			(account, public)
+		})
+		.collect()
 }
 
 <span class="doccomment">/// Create a 32 byte slice based on the given number.
@@ -1483,20 +1499,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.unwrap();
 		}
-	}
-
-	<span class="doccomment">/// Generate validator key pairs and account ids.
-	</span><span class="kw">fn </span>generate_validator_pairs(validator_count: u32) -&gt; Vec&lt;(T::AccountId, ValidatorId)&gt; {
-		(<span class="number">0</span>..validator_count)
-			.map(|i| {
-				<span class="kw">let </span>public = ValidatorId::generate_pair(<span class="prelude-val">None</span>);
-
-				<span class="comment">// The account Id is not actually used anywhere, just necessary to fulfill the
-				// expected type of the `validators` param of `test_trigger_on_new_session`.
-				</span><span class="kw">let </span>account: T::AccountId = account(<span class="string">"validator"</span>, i, i);
-				(account, public)
-			})
-			.collect()
 	}
 
 	<span class="kw">fn </span>signing_context(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SigningContext&lt;T::Hash&gt; {
@@ -1862,7 +1864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			c.scheduler_params.num_cores = used_cores <span class="kw">as </span>u32;
 		});
 
-		<span class="kw">let </span>validator_ids = <span class="self">Self</span>::generate_validator_pairs(<span class="self">self</span>.max_validators());
+		<span class="kw">let </span>validator_ids = generate_validator_pairs::&lt;T&gt;(<span class="self">self</span>.max_validators());
 		<span class="kw">let </span>target_session = SessionIndex::from(<span class="self">self</span>.target_session);
 		<span class="kw">let </span>builder = <span class="self">self</span>.setup_session(target_session, validator_ids, used_cores, extra_cores);
 

@@ -4218,6 +4218,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#4066" id="4066">4066</a>
 <a href="#4067" id="4067">4067</a>
 <a href="#4068" id="4068">4068</a>
+<a href="#4069" id="4069">4069</a>
+<a href="#4070" id="4070">4070</a>
+<a href="#4071" id="4071">4071</a>
+<a href="#4072" id="4072">4072</a>
+<a href="#4073" id="4073">4073</a>
+<a href="#4074" id="4074">4074</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -7878,6 +7884,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * each `member.pool_id` must correspond to an existing `BondedPool.id` (which implies the
 	///   existence of the reward pool as well).
 	/// * count of all members must be less than `MaxPoolMembers`.
+	/// * each `BondedPool.points` must never be lower than the pool's balance.
 	///
 	/// Then, considering unbonding members:
 	///
@@ -8005,6 +8012,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="string">"depositor must always have MinCreateBond stake in the pool, except for when the \
 				pool is being destroyed and the depositor is the last member"</span>,
 			);
+
+			<span class="macro">ensure!</span>(
+				bonded_pool.points &gt;= bonded_pool.points_to_balance(bonded_pool.points),
+				<span class="string">"Each `BondedPool.points` must never be lower than the pool's balance"
+			</span>);
 
 			expected_tvl += T::StakeAdapter::total_stake(Pool::from(bonded_pool.bonded_account()));
 

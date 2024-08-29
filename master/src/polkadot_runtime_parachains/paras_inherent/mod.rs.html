@@ -1651,6 +1651,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1499" id="1499">1499</a>
 <a href="#1500" id="1500">1500</a>
 <a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2000,12 +2024,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>bitfields_weight = signed_bitfields_weight::&lt;T&gt;(<span class="kw-2">&amp;</span>bitfields);
 		<span class="kw">let </span>disputes_weight = multi_dispute_statement_sets_weight::&lt;T&gt;(<span class="kw-2">&amp;</span>disputes);
 
-		<span class="comment">// Weight before filtering/sanitization
-		</span><span class="kw">let </span>all_weight_before = candidates_weight + bitfields_weight + disputes_weight;
+		<span class="comment">// Weight before filtering/sanitization except for enacting the candidates
+		</span><span class="kw">let </span>weight_before_filtering = candidates_weight + bitfields_weight + disputes_weight;
 
-		METRICS.on_before_filter(all_weight_before.ref_time());
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Size before filter: {}, candidates + bitfields: {}, disputes: {}"</span>, all_weight_before.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Time weight before filter: {}, candidates + bitfields: {}, disputes: {}"</span>, all_weight_before.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
+		METRICS.on_before_filter(weight_before_filtering.ref_time());
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Size before filter: {}, candidates + bitfields: {}, disputes: {}"</span>, weight_before_filtering.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Time weight before filter: {}, candidates + bitfields: {}, disputes: {}"</span>, weight_before_filtering.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
 
 		<span class="kw">let </span>current_session = shared::CurrentSessionIndex::&lt;T&gt;::get();
 		<span class="kw">let </span>expected_bits = scheduler::AvailabilityCores::&lt;T&gt;::get().len();
@@ -2062,7 +2086,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				max_block_weight,
 			);
 
-		<span class="kw">let </span>all_weight_after = <span class="kw">if </span>context == ProcessInherentDataContext::ProvideInherent {
+		<span class="kw">let </span><span class="kw-2">mut </span>all_weight_after = <span class="kw">if </span>context == ProcessInherentDataContext::ProvideInherent {
 			<span class="comment">// Assure the maximum block weight is adhered, by limiting bitfields and backed
 			// candidates. Dispute statement sets were already limited before.
 			</span><span class="kw">let </span>non_disputes_weight = apply_weight_limit::&lt;T&gt;(
@@ -2077,11 +2101,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			METRICS.on_after_filter(all_weight_after.ref_time());
 			<span class="macro">log::debug!</span>(
-			target: LOG_TARGET,
-			<span class="string">"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}"</span>,
-			bitfields.len(),
-			backed_candidates.len(),
-			checked_disputes_sets.len()
+				target: LOG_TARGET,
+				<span class="string">"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}"</span>,
+				bitfields.len(),
+				backed_candidates.len(),
+				checked_disputes_sets.len()
 			);
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Size after filter: {}, candidates + bitfields: {}, disputes: {}"</span>, all_weight_after.proof_size(), non_disputes_weight.proof_size(), checked_disputes_sets_consumed_weight.proof_size());
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Time weight after filter: {}, candidates + bitfields: {}, disputes: {}"</span>, all_weight_after.ref_time(), non_disputes_weight.ref_time(), checked_disputes_sets_consumed_weight.ref_time());
@@ -2093,17 +2117,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="comment">// This check is performed in the context of block execution. Ensures inherent weight
 			// invariants guaranteed by `create_inherent_data` for block authorship.
-			</span><span class="kw">if </span>all_weight_before.any_gt(max_block_weight) {
+			</span><span class="kw">if </span>weight_before_filtering.any_gt(max_block_weight) {
 				<span class="macro">log::error!</span>(
 					<span class="string">"Overweight para inherent data reached the runtime {:?}: {} &gt; {}"</span>,
 					parent_hash,
-					all_weight_before,
+					weight_before_filtering,
 					max_block_weight
 				);
 			}
 
-			<span class="macro">ensure!</span>(all_weight_before.all_lte(max_block_weight), Error::&lt;T&gt;::InherentOverweight);
-			all_weight_before
+			<span class="macro">ensure!</span>(
+				weight_before_filtering.all_lte(max_block_weight),
+				Error::&lt;T&gt;::InherentOverweight
+			);
+			weight_before_filtering
 		};
 
 		<span class="comment">// Note that `process_checked_multi_dispute_data` will iterate and import each
@@ -2182,11 +2209,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Process new availability bitfields, yielding any availability cores whose
 		// work has now concluded.
-		</span><span class="kw">let </span>freed_concluded =
+		</span><span class="kw">let </span>(enact_weight, freed_concluded) =
 			inclusion::Pallet::&lt;T&gt;::update_pending_availability_and_get_freed_cores(
 				<span class="kw-2">&amp;</span>validator_public[..],
 				bitfields.clone(),
 			);
+		all_weight_after.saturating_accrue(enact_weight);
+		<span class="macro">log::debug!</span>(
+			target: LOG_TARGET,
+			<span class="string">"Enacting weight: {}, all weight: {}"</span>,
+			enact_weight.ref_time(),
+			all_weight_after.ref_time(),
+		);
+
+		<span class="comment">// It's possible that that after the enacting the candidates, the total weight
+		// goes over the limit, however, we can't do anything about it at this point.
+		// By using the `Mandatory` weight, we ensure the block is still accepted,
+		// but no other (user) transactions can be included.
+		</span><span class="kw">if </span>all_weight_after.any_gt(max_block_weight) {
+			<span class="macro">log::warn!</span>(
+				target: LOG_TARGET,
+				<span class="string">"Overweight para inherent data after enacting the candidates {:?}: {} &gt; {}"</span>,
+				parent_hash,
+				all_weight_after,
+				max_block_weight,
+			);
+		}
 
 		<span class="comment">// Inform the disputes module of all included candidates.
 		</span><span class="kw">for </span>(<span class="kw">_</span>, candidate_hash) <span class="kw">in </span><span class="kw-2">&amp;</span>freed_concluded {
