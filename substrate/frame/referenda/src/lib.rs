@@ -969,7 +969,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.binary_search_by_key(&deposit, |c| c.1)
 				.unwrap_or_else(|e| e);
 
-			if pos == 0 {
+			if pos == 0 && status.decision_deposit.contributors.is_full() {
 				return Err(Error::<T, I>::DepositTooLow.into());
 			}
 

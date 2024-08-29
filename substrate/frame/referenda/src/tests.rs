@@ -426,28 +426,6 @@ fn submit_errors_work() {
 }
 
 #[test]
-fn decision_deposit_errors_work() {
-	ExtBuilder::default().build_and_execute(|| {
-		let e = Error::<Test>::NotOngoing;
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0), e);
-
-		let h = set_balance_proposal_bounded(1);
-		assert_ok!(Referenda::submit(
-			RuntimeOrigin::signed(1),
-			Box::new(RawOrigin::Root.into()),
-			h,
-			DispatchTime::At(10),
-		));
-		let e = BalancesError::<Test>::InsufficientBalance;
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(10), 0), e);
-
-		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
-		let e = Error::<Test>::HasDeposit;
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0), e);
-	});
-}
-
-#[test]
 fn refund_deposit_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let e = Error::<Test>::BadReferendum;

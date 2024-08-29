@@ -109,8 +109,8 @@ pub struct DecidingStatus<BlockNumber> {
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Deposit<AccountId, Balance> {
-	pub amount: Balance,
 	pub who: AccountId,
+	pub amount: Balance,
 }
 
 impl<AccountId, Balance> From<(AccountId, Balance)> for Deposit<AccountId, Balance> {
