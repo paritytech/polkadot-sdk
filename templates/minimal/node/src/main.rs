@@ -24,6 +24,6 @@ mod command;
 mod rpc;
 mod service;
 
-fn main() -> sc_cli::Result<()> {
+fn main() -> polkadot_sdk::sc_cli::Result<()> {
 	command::run()
 }
