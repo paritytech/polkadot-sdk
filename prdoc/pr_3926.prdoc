@@ -11,7 +11,7 @@ crates:
   - name: pallet-asset-rewards
     bump: major
   - name: polkadot-sdk
-    bump: major
+    bump: patch
   - name: kitchensink-runtime
     bump: major
   - name: asset-hub-rococo-runtime
@@ -19,8 +19,8 @@ crates:
   - name: asset-hub-westend-runtime
     bump: major
   - name: assets-common
-    bump: minor
+    bump: patch
   - name: rococo-runtime
-    bump: minor
+    bump: patch
   - name: westend-runtime
-    bump: minor
+    bump: patch
