@@ -321,14 +321,7 @@ jobs:
             git add .
             git restore --staged Cargo.lock # ignore changes in Cargo.lock
             git commit -m "Update from ${{ github.actor }} running command '${{ steps.get-pr-comment.outputs.group2 }}'" || true
-            # Check if this is a fork
-            if [ "${{ github.repository.owner.login }}" != "${{ github.event.repository.owner.login }}" ]; then
-              echo "Running on a fork, pushing to forked repo";
-              git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.event.repository.owner.login }}/${{ github.repository }}.git ${{ github.event.issue.pull_request.head.ref }}
-            else
-              echo "Running on the main repo, pushing to the original repo";
-              git push origin ${{ github.event.issue.pull_request.head.ref }}
-            fi
+            git push origin ${{ github.event.issue.pull_request.head.ref }}
           else
             echo "Nothing to commit";
           fi
