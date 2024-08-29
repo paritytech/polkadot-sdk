@@ -131,21 +131,16 @@ jobs:
     # TODO: remove once migration is complete or this workflow is fully stable
     if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
     runs-on: macOS
+    needs: [set-image]
     strategy:
       fail-fast: false
       matrix:
         index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v4
-      - run: brew install protobuf rustup
-      - name: Install rust
-        run: rustup-init -y
-      - run: source $HOME/.cargo/env
-      - run: rustup toolchain install nightly
-      - run: rustup target add wasm32-unknown-unknown
-      - run: rustup component add rust-src
-      - name: Free space
-        run: brew cleanup
+      - uses: ./.github/actions/set-up-mac
+        with:
+          IMAGE: ${{ needs.set-image.outputs.IMAGE }}
       - name: Run cargo check
         run: |
           source $HOME/.cargo/env
