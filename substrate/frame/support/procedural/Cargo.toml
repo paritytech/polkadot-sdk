@@ -69,6 +69,11 @@ experimental = []
 # pallets in a runtime grows. Does increase the compile time!
 tuples-96 = []
 tuples-128 = []
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime"
+]
 
 [[example]]
 name = "proc_main"
