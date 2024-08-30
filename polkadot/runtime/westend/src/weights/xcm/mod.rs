@@ -277,10 +277,6 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()
 	}
-
-	fn pay_fees(asset: &Asset) -> Weight {
-		XcmGeneric::<Runtime>::pay_fees()
-	}
 }
 
 #[test]
