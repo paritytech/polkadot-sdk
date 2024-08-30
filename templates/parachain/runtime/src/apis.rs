@@ -24,7 +24,7 @@
 // For more information, please refer to <http://unlicense.org>
 
 // External crates imports
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	weights::Weight,
@@ -299,12 +299,7 @@ impl_runtime_apis! {
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			use sp_genesis_builder::PresetId;
-			use crate::genesis_config_presets as presets;
-			vec![
-				PresetId::from(presets::PRESET_DEVELOPMENT),
-				PresetId::from(presets::PRESET_LOCAL_TESTNET),
-			]
+			crate::genesis_config_presets::preset_names()
 		}
 	}
 }
