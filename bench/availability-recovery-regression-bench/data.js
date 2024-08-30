@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724947364636,
+  "lastUpdate": 1725021182424,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -19109,6 +19109,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.715115150966664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "09035a7d5d14fc3f2df3db304cd0fcc8fc9ed27b",
+          "message": "Polkadot Primitives v8  (#5525)\n\nAs Runtime release 1.3.0 includes all of the remaining staging\nprimitives and APIs we can now release primitives version 8.\nNo other changes other than renaming/moving done here.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-08-30T10:39:48Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/09035a7d5d14fc3f2df3db304cd0fcc8fc9ed27b"
+        },
+        "date": 1725021153348,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.929652788399995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1795792806333333,
             "unit": "seconds"
           }
         ]
