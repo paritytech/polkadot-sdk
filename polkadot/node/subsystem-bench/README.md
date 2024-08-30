@@ -262,8 +262,8 @@ For finer profiling of cache misses, better use `perf` on a bare-metal machine.
 
 ### Profile memory usage using jemalloc
 
-Bellow you can find instructions how to setup and run profiling with jemalloc, this is complementary with using other memory profiling tools
-like: <https://github.com/koute/bytehound?tab=readme-ov-file#basic-usage>.
+Bellow you can find instructions how to setup and run profiling with jemalloc, this is complementary
+with using other memory profiling tools like: <https://github.com/koute/bytehound?tab=readme-ov-file#basic-usage>.
 
 #### Prerequisites
 
@@ -283,8 +283,8 @@ RUSTFLAGS=-g cargo run -p polkadot-subsystem-bench --release --features memprofi
 
 #### Interpret the results
 
-After the benchmark ran the memory usage snapshots can be found in `/tmp/subsystem-bench*`, to extract the information from a snapshot you can
-use `jeprof` like this:
+After the benchmark ran the memory usage snapshots can be found in `/tmp/subsystem-bench*`, to extract the information
+from a snapshot you can use `jeprof` like this:
 
 ```
 jeprof --text PATH_TO_EXECUTABLE_WITH_DEBUG_SYMBOLS /tmp/subsystem-bench.1222895.199.i199.heap > statistics.txt
