@@ -18,7 +18,9 @@ use cumulus_primitives_core::ParaId;
 use parachains_common::{AccountId, Signature};
 use polkadot_parachain_lib::{
 	chain_spec::{GenericChainSpec, LoadSpec},
-	runtime::{AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT},
+	runtime::{
+		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
+	},
 };
 use sc_chain_spec::ChainSpec;
 use sp_core::{Pair, Public};
@@ -289,7 +291,7 @@ impl RuntimeResolverT for RuntimeResolver {
 		let legacy_runtime = LegacyRuntime::from_id(chain_spec.id());
 		Ok(match legacy_runtime {
 			LegacyRuntime::AssetHubPolkadot =>
-				Runtime::Omni(Consensus::Aura(AuraConsensusId::Ed25519)),
+				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Ed25519)),
 			LegacyRuntime::AssetHub |
 			LegacyRuntime::BridgeHub(_) |
 			LegacyRuntime::Collectives |
@@ -297,7 +299,8 @@ impl RuntimeResolverT for RuntimeResolver {
 			LegacyRuntime::People(_) |
 			LegacyRuntime::Glutton |
 			LegacyRuntime::Penpal |
-			LegacyRuntime::Omni => Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519)),
+			LegacyRuntime::Omni =>
+				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)),
 			LegacyRuntime::Shell | LegacyRuntime::Seedling => Runtime::Shell,
 		})
 	}
