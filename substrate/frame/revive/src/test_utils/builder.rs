@@ -149,12 +149,6 @@ builder!(
 	}
 
 	/// Build the instantiate call and unwrap the account id.
-	pub fn build_and_unwrap_account_id(self) -> H160 {
-		let addr = self.build().result.unwrap().account_id;
-		addr
-	}
-
-	/// Build the instantiate call and unwrap the account id.
 	pub fn build_and_unwrap_contract(self) -> Contract<T> {
 		let addr = self.build().result.unwrap().account_id;
 		let account_id = T::AddressMapper::to_account_id(&addr);
