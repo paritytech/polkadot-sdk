@@ -51,6 +51,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      STABLE_BRANCH_NAME: ${{ needs.prepare-tooling.outputs.stable_version }}
 
     steps:
       - name: Install pgpkkms
@@ -80,11 +81,10 @@ jobs:
 
       - name: Create stable branch
         run: |
-          stable_branch_name=${{ needs.prepare-tooling.outputs.stable_version }}
-          git checkout -b "$stable_branch_name"
-          git show-ref "$stable_branch_name"
+          git checkout -b "$STABLE_BRANCH_NAME"
+          git show-ref "$STABLE_BRANCH_NAME"
 
-      - name: Bump versions and reorder prdocs
+      - name: Bump versions, reorder prdocs and push stable branch
         run: |
           . ./.github/scripts/release/release_lib.sh
 
@@ -97,3 +97,5 @@ jobs:
           set_spec_versions $SPEC_VERSION "${runtimes_list[@]}"
 
           reorder_prdocs $NODE_VERSION
+
+          git push "$STABLE_BRANCH_NAME"
