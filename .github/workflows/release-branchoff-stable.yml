@@ -50,14 +50,6 @@ jobs:
           # Install pgpkms that is used to sign commits
           pip install git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69
 
-      - name: Config git
-        run: |
-          git config --global commit.gpgsign true
-          git config --global gpg.program pgpkms-git
-          git config --global user.name "ParityReleases"
-          git config --global user.email "release-team@parity.io"
-          git config --global user.signingKey ${{ secrets.GPG_KEY_FINGERPRINT }}
-
 
   create-stable-branch:
     # needs: [check-workflow-can-run, prepare-tooling]
@@ -70,6 +62,14 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: master
+
+      - name: Config git
+        run: |
+          git config --global commit.gpgsign true
+          git config --global gpg.program pgpkms-git
+          git config --global user.name "ParityReleases"
+          git config --global user.email "release-team@parity.io"
+          git config --global user.signingKey ${{ secrets.GPG_KEY_FINGERPRINT }}
 
       - name: Create stable branch
         run: |
