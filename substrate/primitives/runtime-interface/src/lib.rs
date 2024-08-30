@@ -15,9 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Custom inner attributes are unstable, so we need to faky disable the attribute.
-// rustfmt still honors the attribute to not format the rustdocs below.
-#![cfg_attr(feature = "never", rustfmt::skip)]
 //! Substrate runtime interface
 //!
 //! This crate provides types, traits and macros around runtime interfaces. A runtime interface is
@@ -110,6 +107,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate self as sp_runtime_interface;
+
+extern crate alloc;
 
 #[doc(hidden)]
 #[cfg(feature = "std")]

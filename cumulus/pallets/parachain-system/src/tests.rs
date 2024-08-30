@@ -19,6 +19,7 @@
 use super::*;
 use crate::mock::*;
 
+use core::num::NonZeroU32;
 use cumulus_primitives_core::{AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage};
 use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
@@ -26,7 +27,6 @@ use hex_literal::hex;
 use rand::Rng;
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
-use sp_std::num::NonZeroU32;
 
 #[test]
 #[should_panic]
@@ -1127,10 +1127,8 @@ fn upgrade_version_checks_should_work() {
 			let new_code = vec![1, 2, 3, 4];
 			let new_code_hash = H256(sp_crypto_hashing::blake2_256(&new_code));
 
-			#[allow(deprecated)]
-			let _authorize = ParachainSystem::authorize_upgrade(RawOrigin::Root.into(), new_code_hash, true);
-			#[allow(deprecated)]
-			let res = ParachainSystem::enact_authorized_upgrade(RawOrigin::None.into(), new_code);
+			let _authorize = System::authorize_upgrade(RawOrigin::Root.into(), new_code_hash);
+			let res = System::apply_authorized_upgrade(RawOrigin::None.into(), new_code);
 
 			assert_eq!(expected.map_err(DispatchErrorWithPostInfo::from), res);
 		});

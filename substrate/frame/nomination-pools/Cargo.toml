@@ -4,7 +4,7 @@ version = "25.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME nomination pools pallet"
 
@@ -16,30 +16,29 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # parity
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+codec = { features = [
 	"derive",
-] }
-scale-info = { version = "2.11.1", default-features = false, features = [
+], workspace = true }
+scale-info = { features = [
 	"derive",
-] }
+], workspace = true }
 
 # FRAME
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-staking = { path = "../../primitives/staking", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
 log = { workspace = true }
 
 # Optional: use for testing and/or fuzzing
-pallet-balances = { path = "../balances", optional = true, default-features = false }
-sp-tracing = { path = "../../primitives/tracing", optional = true, default-features = false }
+pallet-balances = { optional = true, workspace = true }
+sp-tracing = { optional = true, workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../balances" }
-sp-tracing = { path = "../../primitives/tracing" }
+pallet-balances = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -55,7 +54,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing?/std",
 ]
 runtime-benchmarks = [

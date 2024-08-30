@@ -10,26 +10,25 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-always-assert = "0.1"
-futures = "0.3.30"
-futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-network-protocol = { path = "../protocol" }
-rand = "0.8"
+always-assert = { workspace = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+gum = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
 
 [dev-dependencies]
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
-sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-maplit = "1.0.2"
-log = { workspace = true, default-features = true }
-env_logger = "0.11"
-assert_matches = "1.4.0"
-rand_chacha = "0.3.1"
+polkadot-node-subsystem-test-helpers = { workspace = true }
+bitvec = { features = ["alloc"], workspace = true }
+sp-core = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+maplit = { workspace = true }
+sp-tracing = { workspace = true }
+assert_matches = { workspace = true }
+rand_chacha = { workspace = true, default-features = true }

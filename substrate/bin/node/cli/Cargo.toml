@@ -7,7 +7,7 @@ build = "build.rs"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 default-run = "substrate-node"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -37,53 +37,54 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # third-party dependencies
-array-bytes = "6.1"
-clap = { version = "4.5.3", features = ["derive"], optional = true }
-codec = { package = "parity-scale-codec", version = "3.6.12" }
+array-bytes = { workspace = true, default-features = true }
+clap = { features = ["derive"], optional = true, workspace = true }
+codec = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
-jsonrpsee = { version = "0.22", features = ["server"] }
-futures = "0.3.30"
+jsonrpsee = { features = ["server"], workspace = true }
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
-rand = "0.8"
+rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 # The Polkadot-SDK:
-polkadot-sdk = { path = "../../../../umbrella", features = ["node"] }
+polkadot-sdk = { features = ["node"], workspace = true, default-features = true }
 
 # Shared code between the staging node and kitchensink runtime:
-kitchensink-runtime = { path = "../runtime" }
-node-rpc = { path = "../rpc" }
-node-primitives = { path = "../primitives" }
-node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
+kitchensink-runtime = { workspace = true }
+node-rpc = { workspace = true }
+node-primitives = { workspace = true, default-features = true }
+node-inspect = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-futures = "0.3.30"
-tempfile = "3.1.0"
-assert_cmd = "2.0.2"
-nix = { version = "0.28.0", features = ["signal"] }
-regex = "1.6.0"
-platforms = "3.0"
-soketto = "0.7.1"
-criterion = { version = "0.5.1", features = ["async_tokio"] }
-tokio = { version = "1.22.0", features = ["macros", "parking_lot", "time"] }
-tokio-util = { version = "0.7.4", features = ["compat"] }
-wait-timeout = "0.2"
-wat = "1.0"
+futures = { workspace = true }
+tempfile = { workspace = true }
+assert_cmd = { workspace = true }
+nix = { features = ["signal"], workspace = true }
+regex = { workspace = true }
+platforms = { workspace = true }
+soketto = { workspace = true }
+criterion = { features = ["async_tokio"], workspace = true, default-features = true }
+tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
+tokio-util = { features = ["compat"], workspace = true }
+wait-timeout = { workspace = true }
+wat = { workspace = true }
 serde_json = { workspace = true, default-features = true }
-scale-info = { version = "2.11.1", features = ["derive", "serde"] }
+scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
+pretty_assertions.workspace = true
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
-node-testing = { path = "../testing" }
-substrate-cli-test-utils = { path = "../../../test-utils/cli" }
-sc-service-test = { path = "../../../client/service/test" }
+node-testing = { workspace = true }
+substrate-cli-test-utils = { workspace = true }
+sc-service-test = { workspace = true }
 
 [build-dependencies]
-clap = { version = "4.5.3", optional = true }
-clap_complete = { version = "4.0.2", optional = true }
+clap = { optional = true, workspace = true }
+clap_complete = { optional = true, workspace = true }
 
-node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
+node-inspect = { optional = true, workspace = true, default-features = true }
 
-polkadot-sdk = { path = "../../../../umbrella", features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-monitor", "substrate-build-script-utils"], optional = true }
+polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-monitor", "substrate-build-script-utils"], optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["cli"]
@@ -102,6 +103,10 @@ try-runtime = [
 	"kitchensink-runtime/try-runtime",
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
+]
+riscv = [
+	"kitchensink-runtime/riscv",
+	"polkadot-sdk/riscv",
 ]
 
 [[bench]]

@@ -16,11 +16,11 @@
 
 // Shared test utilities and implementations for the XCM Builder.
 
+use alloc::vec::Vec;
 use frame_support::{
 	parameter_types,
 	traits::{Contains, CrateVersion, PalletInfoData, PalletsInfoAccess},
 };
-use sp_std::vec::Vec;
 pub use xcm::latest::{prelude::*, Weight};
 use xcm_executor::traits::{ClaimAssets, DropAssets, VersionChangeNotifier};
 pub use xcm_executor::{
@@ -108,6 +108,10 @@ impl AssetExchange for TestAssetExchanger {
 		_maximal: bool,
 	) -> Result<AssetsInHolding, AssetsInHolding> {
 		Ok(want.clone().into())
+	}
+
+	fn quote_exchange_price(give: &Assets, _want: &Assets, _maximal: bool) -> Option<Assets> {
+		Some(give.clone())
 	}
 }
 

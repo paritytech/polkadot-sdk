@@ -82,14 +82,14 @@ impl fmt::Debug for Keypair {
 
 impl From<litep2p_ed25519::Keypair> for Keypair {
 	fn from(kp: litep2p_ed25519::Keypair) -> Self {
-		Self::try_from_bytes(&mut kp.encode())
+		Self::try_from_bytes(&mut kp.to_bytes())
 			.expect("ed25519_dalek in substrate & litep2p to use the same format")
 	}
 }
 
 impl From<Keypair> for litep2p_ed25519::Keypair {
 	fn from(kp: Keypair) -> Self {
-		Self::decode(&mut kp.to_bytes())
+		Self::try_from_bytes(&mut kp.to_bytes())
 			.expect("ed25519_dalek in substrate & litep2p to use the same format")
 	}
 }
@@ -191,14 +191,14 @@ impl PublicKey {
 
 impl From<litep2p_ed25519::PublicKey> for PublicKey {
 	fn from(k: litep2p_ed25519::PublicKey) -> Self {
-		Self::try_from_bytes(&k.encode())
+		Self::try_from_bytes(&k.to_bytes())
 			.expect("ed25519_dalek in substrate & litep2p to use the same format")
 	}
 }
 
 impl From<PublicKey> for litep2p_ed25519::PublicKey {
 	fn from(k: PublicKey) -> Self {
-		Self::decode(&k.to_bytes())
+		Self::try_from_bytes(&k.to_bytes())
 			.expect("ed25519_dalek in substrate & litep2p to use the same format")
 	}
 }
@@ -272,7 +272,7 @@ impl From<litep2p_ed25519::SecretKey> for SecretKey {
 
 impl From<SecretKey> for litep2p_ed25519::SecretKey {
 	fn from(sk: SecretKey) -> Self {
-		Self::from_bytes(&mut sk.to_bytes())
+		Self::try_from_bytes(&mut sk.to_bytes())
 			.expect("litep2p `SecretKey` to accept 32 bytes as Ed25519 key")
 	}
 }
@@ -357,10 +357,10 @@ mod tests {
 		let kp1: libp2p_ed25519::Keypair = kp.clone().into();
 		let kp2: litep2p_ed25519::Keypair = kp.clone().into();
 		let kp3 = libp2p_ed25519::Keypair::try_from_bytes(&mut kp_bytes.clone()).unwrap();
-		let kp4 = litep2p_ed25519::Keypair::decode(&mut kp_bytes.clone()).unwrap();
+		let kp4 = litep2p_ed25519::Keypair::try_from_bytes(&mut kp_bytes.clone()).unwrap();
 
 		assert_eq!(kp_bytes, kp1.to_bytes());
-		assert_eq!(kp_bytes, kp2.encode());
+		assert_eq!(kp_bytes, kp2.to_bytes());
 
 		let msg = "hello world".as_bytes();
 		let sig = kp.sign(msg);
@@ -389,9 +389,9 @@ mod tests {
 	fn litep2p_kp_to_substrate_kp() {
 		let kp = litep2p_ed25519::Keypair::generate();
 		let kp1: Keypair = kp.clone().into();
-		let kp2 = Keypair::try_from_bytes(&mut kp.encode()).unwrap();
+		let kp2 = Keypair::try_from_bytes(&mut kp.to_bytes()).unwrap();
 
-		assert_eq!(kp.encode(), kp1.to_bytes());
+		assert_eq!(kp.to_bytes(), kp1.to_bytes());
 
 		let msg = "hello world".as_bytes();
 		let sig = kp.sign(msg);
@@ -439,10 +439,10 @@ mod tests {
 		let pk1: libp2p_ed25519::PublicKey = pk.clone().into();
 		let pk2: litep2p_ed25519::PublicKey = pk.clone().into();
 		let pk3 = libp2p_ed25519::PublicKey::try_from_bytes(&pk_bytes).unwrap();
-		let pk4 = litep2p_ed25519::PublicKey::decode(&pk_bytes).unwrap();
+		let pk4 = litep2p_ed25519::PublicKey::try_from_bytes(&pk_bytes).unwrap();
 
 		assert_eq!(pk_bytes, pk1.to_bytes());
-		assert_eq!(pk_bytes, pk2.encode());
+		assert_eq!(pk_bytes, pk2.to_bytes());
 
 		let msg = "hello world".as_bytes();
 		let sig = kp.sign(msg);
@@ -458,7 +458,7 @@ mod tests {
 	fn litep2p_pk_to_substrate_pk() {
 		let kp = litep2p_ed25519::Keypair::generate();
 		let pk = kp.public();
-		let pk_bytes = pk.clone().encode();
+		let pk_bytes = pk.clone().to_bytes();
 		let pk1: PublicKey = pk.clone().into();
 		let pk2 = PublicKey::try_from_bytes(&pk_bytes).unwrap();
 
@@ -497,7 +497,7 @@ mod tests {
 		let sk1: libp2p_ed25519::SecretKey = sk.clone().into();
 		let sk2: litep2p_ed25519::SecretKey = sk.clone().into();
 		let sk3 = libp2p_ed25519::SecretKey::try_from_bytes(&mut sk_bytes.clone()).unwrap();
-		let sk4 = litep2p_ed25519::SecretKey::from_bytes(&mut sk_bytes.clone()).unwrap();
+		let sk4 = litep2p_ed25519::SecretKey::try_from_bytes(&mut sk_bytes.clone()).unwrap();
 
 		let kp: Keypair = sk.into();
 		let kp1: libp2p_ed25519::Keypair = sk1.into();

@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 publish = false
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 
 [lints]
@@ -15,25 +15,25 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { path = ".." }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
-sp-version = { path = "../../version" }
-sp-tracing = { path = "../../tracing" }
-sp-runtime = { path = "../../runtime" }
-sp-consensus = { path = "../../consensus/common" }
-sc-block-builder = { path = "../../../client/block-builder" }
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-sp-state-machine = { path = "../../state-machine" }
-trybuild = "1.0.88"
-rustversion = "1.0.6"
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+sp-api = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
+sp-version = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sc-block-builder = { workspace = true, default-features = true }
+codec = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+trybuild = { workspace = true }
+rustversion = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-criterion = "0.5.1"
-futures = "0.3.30"
+criterion = { workspace = true, default-features = true }
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
-sp-core = { path = "../../core" }
-static_assertions = "1.1.0"
+sp-core = { workspace = true, default-features = true }
+static_assertions = { workspace = true, default-features = true }
 
 [[bench]]
 name = "bench"

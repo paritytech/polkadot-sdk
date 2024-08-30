@@ -368,7 +368,8 @@ where
 				{
 					self.on_transactions(peer, m);
 				} else {
-					warn!(target: "sub-libp2p", "Failed to decode transactions list");
+					warn!(target: "sub-libp2p", "Failed to decode transactions list from peer {peer}");
+					self.network.report_peer(peer, rep::BAD_TRANSACTION);
 				}
 			},
 		}
@@ -521,8 +522,14 @@ where
 			return
 		}
 
-		debug!(target: LOG_TARGET, "Propagating transactions");
 		let transactions = self.transaction_pool.transactions();
+
+		if transactions.is_empty() {
+			return
+		}
+
+		debug!(target: LOG_TARGET, "Propagating transactions");
+
 		let propagated_to = self.do_propagate_transactions(&transactions);
 		self.transaction_pool.on_broadcasted(propagated_to);
 	}

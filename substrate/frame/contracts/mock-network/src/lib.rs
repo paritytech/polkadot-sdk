@@ -112,6 +112,7 @@ pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 			(0u128, ALICE, INITIAL_BALANCE),
 			(0u128, relay_sovereign_account_id(), INITIAL_BALANCE),
 		],
+		next_asset_id: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

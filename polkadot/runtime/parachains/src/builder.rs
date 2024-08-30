@@ -21,29 +21,38 @@ use crate::{
 	scheduler::{self, common::AssignmentProvider, CoreOccupied, ParasEntry},
 	session_info, shared,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
-	collator_signature_payload, node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate,
-	CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature,
-	CommittedCandidateReceipt, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,
-	GroupIndex, HeadData, Id as ParaId, IndexedVec, InherentData as ParachainsInherentData,
-	InvalidDisputeStatementKind, PersistedValidationData, SessionIndex, SigningContext,
-	UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
+	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt,
+	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
+	Id as ParaId, IndexedVec, InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
+	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
+	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
 };
-use sp_core::{sr25519, H256};
+use sp_core::{sr25519, ByteArray, H256};
 use sp_runtime::{
 	generic::Digest,
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
 };
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	prelude::Vec,
-	vec,
-};
+
+/// Create a null collator id.
+pub fn dummy_collator() -> CollatorId {
+	CollatorId::from_slice(&vec![0u8; 32]).expect("32 bytes; qed")
+}
+
+/// Create a null collator signature.
+pub fn dummy_collator_signature() -> CollatorSignature {
+	CollatorSignature::from_slice(&vec![0u8; 64]).expect("64 bytes; qed")
+}
 
 fn mock_validation_code() -> ValidationCode {
 	ValidationCode(vec![1, 2, 3])
@@ -57,6 +66,21 @@ fn account<AccountId: Decode>(name: &'static str, index: u32, seed: u32) -> Acco
 	let entropy = (name, index, seed).using_encoded(sp_io::hashing::blake2_256);
 	AccountId::decode(&mut TrailingZeroInput::new(&entropy[..]))
 		.expect("infinite input; no invalid input; qed")
+}
+
+pub fn generate_validator_pairs<T: frame_system::Config>(
+	validator_count: u32,
+) -> Vec<(T::AccountId, ValidatorId)> {
+	(0..validator_count)
+		.map(|i| {
+			let public = ValidatorId::generate_pair(None);
+
+			// The account Id is not actually used anywhere, just necessary to fulfill the
+			// expected type of the `validators` param of `test_trigger_on_new_session`.
+			let account: T::AccountId = account("validator", i, i);
+			(account, public)
+		})
+		.collect()
 }
 
 /// Create a 32 byte slice based on the given number.
@@ -112,7 +136,7 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	fill_claimqueue: bool,
 	/// Cores which should not be available when being populated with pending candidates.
 	unavailable_cores: Vec<u32>,
-	_phantom: sp_std::marker::PhantomData<T>,
+	_phantom: core::marker::PhantomData<T>,
 }
 
 /// Paras inherent `enter` benchmark scenario.
@@ -143,7 +167,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			code_upgrade: None,
 			fill_claimqueue: true,
 			unavailable_cores: vec![],
-			_phantom: sp_std::marker::PhantomData::<T>,
+			_phantom: core::marker::PhantomData::<T>,
 		}
 	}
 
@@ -212,9 +236,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.expect("self.block_number is u32")
 	}
 
-	/// Maximum number of validators that may be part of a validator group.
+	/// Fallback for the maximum number of validators participating in parachains consensus (a.k.a.
+	/// active validators).
 	pub(crate) fn fallback_max_validators() -> u32 {
-		configuration::ActiveConfig::<T>::get().max_validators.unwrap_or(200)
+		configuration::ActiveConfig::<T>::get().max_validators.unwrap_or(1024)
 	}
 
 	/// Maximum number of validators participating in parachains consensus (a.k.a. active
@@ -276,8 +301,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 	/// Get the minimum number of validity votes in order for a backed candidate to be included.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn fallback_min_validity_votes() -> u32 {
-		(Self::fallback_max_validators() / 2) + 1
+	pub(crate) fn fallback_min_backing_votes() -> u32 {
+		2
 	}
 
 	fn mock_head_data() -> HeadData {
@@ -347,11 +372,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			availability_votes,
 			commitments,
 		);
-		inclusion::PendingAvailability::<T>::mutate(para_id, |maybe_andidates| {
-			if let Some(candidates) = maybe_andidates {
+		inclusion::PendingAvailability::<T>::mutate(para_id, |maybe_candidates| {
+			if let Some(candidates) = maybe_candidates {
 				candidates.push_back(candidate_availability);
 			} else {
-				*maybe_andidates =
+				*maybe_candidates =
 					Some([candidate_availability].into_iter().collect::<VecDeque<_>>());
 			}
 		});
@@ -411,20 +436,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			)
 			.unwrap();
 		}
-	}
-
-	/// Generate validator key pairs and account ids.
-	fn generate_validator_pairs(validator_count: u32) -> Vec<(T::AccountId, ValidatorId)> {
-		(0..validator_count)
-			.map(|i| {
-				let public = ValidatorId::generate_pair(None);
-
-				// The account Id is not actually used anywhere, just necessary to fulfill the
-				// expected type of the `validators` param of `test_trigger_on_new_session`.
-				let account: T::AccountId = account("validator", i, i);
-				(account, public)
-			})
-			.collect()
 	}
 
 	fn signing_context(&self) -> SigningContext<T::Hash> {
@@ -584,7 +595,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 						// This generates a pair and adds it to the keystore, returning just the
 						// public.
-						let collator_public = CollatorId::generate_pair(None);
 						let header = Self::header(self.block_number);
 						let relay_parent = header.hash();
 
@@ -614,14 +624,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 						let pov_hash = Default::default();
 						let validation_code_hash = mock_validation_code().hash();
-						let payload = collator_signature_payload(
-							&relay_parent,
-							&para_id,
-							&persisted_validation_data_hash,
-							&pov_hash,
-							&validation_code_hash,
-						);
-						let signature = collator_public.sign(&payload).unwrap();
 
 						let mut past_code_meta =
 							paras::ParaPastCodeMeta::<BlockNumberFor<T>>::default();
@@ -634,11 +636,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							descriptor: CandidateDescriptor::<T::Hash> {
 								para_id,
 								relay_parent,
-								collator: collator_public,
+								collator: dummy_collator(),
 								persisted_validation_data_hash,
 								pov_hash,
 								erasure_root: Default::default(),
-								signature,
+								signature: dummy_collator_signature(),
 								para_head: head_data.hash(),
 								validation_code_hash,
 							},
@@ -799,7 +801,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			c.scheduler_params.num_cores = used_cores as u32;
 		});
 
-		let validator_ids = Self::generate_validator_pairs(self.max_validators());
+		let validator_ids = generate_validator_pairs::<T>(self.max_validators());
 		let target_session = SessionIndex::from(self.target_session);
 		let builder = self.setup_session(target_session, validator_ids, used_cores, extra_cores);
 

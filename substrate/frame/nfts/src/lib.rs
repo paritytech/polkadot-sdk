@@ -48,6 +48,9 @@ mod types;
 pub mod macros;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::traits::{
 	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, Incrementable,
@@ -58,7 +61,6 @@ use sp_runtime::{
 	traits::{IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 pub use pallet::*;
 pub use types::*;
@@ -84,17 +86,41 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[cfg(feature = "runtime-benchmarks")]
-	pub trait BenchmarkHelper<CollectionId, ItemId> {
+	pub trait BenchmarkHelper<CollectionId, ItemId, Public, AccountId, Signature> {
 		fn collection(i: u16) -> CollectionId;
 		fn item(i: u16) -> ItemId;
+		fn signer() -> (Public, AccountId);
+		fn sign(signer: &Public, message: &[u8]) -> Signature;
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	impl<CollectionId: From<u16>, ItemId: From<u16>> BenchmarkHelper<CollectionId, ItemId> for () {
+	impl<CollectionId, ItemId>
+		BenchmarkHelper<
+			CollectionId,
+			ItemId,
+			sp_runtime::MultiSigner,
+			sp_runtime::AccountId32,
+			sp_runtime::MultiSignature,
+		> for ()
+	where
+		CollectionId: From<u16>,
+		ItemId: From<u16>,
+	{
 		fn collection(i: u16) -> CollectionId {
 			i.into()
 		}
 		fn item(i: u16) -> ItemId {
 			i.into()
+		}
+		fn signer() -> (sp_runtime::MultiSigner, sp_runtime::AccountId32) {
+			let public = sp_io::crypto::sr25519_generate(0.into(), None);
+			let account = sp_runtime::MultiSigner::Sr25519(public).into_account();
+			(public.into(), account)
+		}
+		fn sign(signer: &sp_runtime::MultiSigner, message: &[u8]) -> sp_runtime::MultiSignature {
+			sp_runtime::MultiSignature::Sr25519(
+				sp_io::crypto::sr25519_sign(0.into(), &signer.clone().try_into().unwrap(), message)
+					.unwrap(),
+			)
 		}
 	}
 
@@ -206,7 +232,13 @@ pub mod pallet {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		/// A set of helper functions for benchmarking.
-		type Helper: BenchmarkHelper<Self::CollectionId, Self::ItemId>;
+		type Helper: BenchmarkHelper<
+			Self::CollectionId,
+			Self::ItemId,
+			Self::OffchainPublic,
+			Self::AccountId,
+			Self::OffchainSignature,
+		>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;

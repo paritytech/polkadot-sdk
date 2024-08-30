@@ -14,18 +14,41 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Cumulus test parachain collator
+//! Polkadot parachain node.
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
 mod chain_spec;
-mod cli;
-mod command;
-mod fake_runtime_api;
-mod rpc;
-mod service;
 
-fn main() -> sc_cli::Result<()> {
-	command::run()
+use polkadot_parachain_lib::{run, CliConfig as CliConfigT, RunConfig};
+
+struct CliConfig;
+
+impl CliConfigT for CliConfig {
+	fn impl_version() -> String {
+		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+	}
+
+	fn author() -> String {
+		env!("CARGO_PKG_AUTHORS").into()
+	}
+
+	fn support_url() -> String {
+		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+	}
+
+	fn copyright_start_year() -> u16 {
+		2017
+	}
+}
+
+fn main() -> color_eyre::eyre::Result<()> {
+	color_eyre::install()?;
+
+	let config = RunConfig {
+		chain_spec_loader: Box::new(chain_spec::ChainSpecLoader),
+		runtime_resolver: Box::new(chain_spec::RuntimeResolver),
+	};
+	Ok(run::<CliConfig>(config)?)
 }

@@ -4,7 +4,7 @@ version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME delegated staking pallet"
 
@@ -12,25 +12,26 @@ description = "FRAME delegated staking pallet"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-staking = { path = "../../primitives/staking", default-features = false }
+codec = { features = ["derive"], workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
+sp-io = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
-sp-core = { path = "../../primitives/core" }
-sp-io = { path = "../../primitives/io" }
-substrate-test-utils = { path = "../../test-utils" }
-sp-tracing = { path = "../../primitives/tracing" }
-pallet-staking = { path = "../staking" }
-pallet-nomination-pools = { path = "../nomination-pools" }
-pallet-balances = { path = "../balances" }
-pallet-timestamp = { path = "../timestamp" }
-pallet-staking-reward-curve = { path = "../staking/reward-curve" }
-frame-election-provider-support = { path = "../election-provider-support", default-features = false }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+substrate-test-utils = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+pallet-nomination-pools = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true }
 
 [features]
 default = ["std"]
@@ -39,6 +40,7 @@ std = [
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-balances/std",
 	"pallet-nomination-pools/std",
 	"pallet-staking/std",
@@ -48,7 +50,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",

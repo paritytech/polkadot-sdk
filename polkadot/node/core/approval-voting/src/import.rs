@@ -662,6 +662,7 @@ pub(crate) mod tests {
 			per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 			)),
+			no_show_stats: Default::default(),
 		}
 	}
 

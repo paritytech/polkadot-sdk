@@ -156,22 +156,20 @@ impl From<Multihash> for LiteP2pMultihash {
 	}
 }
 
-// TODO: uncomment this after upgrading `multihash` crate to v0.19.1.
-//
-// impl From<multihash::Multihash<64>> for Multihash {
-// 	fn from(generic: multihash::MultihashGeneric<64>) -> Self {
-// 		LiteP2pMultihash::wrap(generic.code(), generic.digest())
-// 			.expect("both have size 64; qed")
-// 			.into()
-// 	}
-// }
-//
-// impl From<Multihash> for multihash::Multihash<64> {
-// 	fn from(multihash: Multihash) -> Self {
-// 		multihash::Multihash::<64>::wrap(multihash.code(), multihash.digest())
-// 			.expect("both have size 64; qed")
-// 	}
-// }
+impl From<multihash::Multihash<64>> for Multihash {
+	fn from(generic: multihash::Multihash<64>) -> Self {
+		LiteP2pMultihash::wrap(generic.code(), generic.digest())
+			.expect("both have size 64; qed")
+			.into()
+	}
+}
+
+impl From<Multihash> for multihash::Multihash<64> {
+	fn from(multihash: Multihash) -> Self {
+		multihash::Multihash::<64>::wrap(multihash.code(), multihash.digest())
+			.expect("both have size 64; qed")
+	}
+}
 
 #[cfg(test)]
 mod tests {

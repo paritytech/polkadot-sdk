@@ -4,7 +4,7 @@ version = "25.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Keystore (and session key management) for ed25519 based chains like Polkadot."
 documentation = "https://docs.rs/sc-keystore"
@@ -17,16 +17,16 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = "6.2.2"
-parking_lot = "0.12.1"
+array-bytes = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-sp-application-crypto = { path = "../../primitives/application-crypto" }
-sp-core = { path = "../../primitives/core" }
-sp-keystore = { path = "../../primitives/keystore" }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
 
 [dev-dependencies]
-tempfile = "3.1.0"
+tempfile = { workspace = true }
 
 [features]
 # This feature adds BLS crypto primitives.

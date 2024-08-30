@@ -13,13 +13,9 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", features = [
-	"derive",
-], default-features = false }
-scale-info = { version = "2.11.1", default-features = false, features = [
-	"derive",
-] }
-frame = { package = "polkadot-sdk-frame", path = "../../../../substrate/frame", default-features = false, features = [
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+polkadot-sdk = { workspace = true, default-features = false, features = [
 	"experimental",
 	"runtime",
 ] }
@@ -27,4 +23,4 @@ frame = { package = "polkadot-sdk-frame", path = "../../../../substrate/frame", 
 
 [features]
 default = ["std"]
-std = ["codec/std", "frame/std", "scale-info/std"]
+std = ["codec/std", "polkadot-sdk/std", "scale-info/std"]

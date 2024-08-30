@@ -15,21 +15,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use std::vec;
 
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen,
+	onchain, SequentialPhragmen, Weight,
 };
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
 };
+use frame_system::pallet_prelude::HeaderFor;
 use pallet_session::historical as pallet_session_historical;
 use sp_core::{crypto::KeyTypeId, ConstU128};
 use sp_runtime::{
-	app_crypto::ecdsa::Public, curve::PiecewiseLinear, impl_opaque_keys, testing::TestXt,
-	traits::OpaqueKeys, BuildStorage, Perbill,
+	app_crypto::ecdsa::Public,
+	curve::PiecewiseLinear,
+	impl_opaque_keys,
+	testing::TestXt,
+	traits::{Header as HeaderT, OpaqueKeys},
+	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 use sp_state_machine::BasicExternalities;
@@ -37,6 +44,7 @@ use sp_state_machine::BasicExternalities;
 use crate as pallet_beefy;
 
 pub use sp_consensus_beefy::{ecdsa_crypto::AuthorityId as BeefyId, ConsensusLog, BEEFY_ENGINE_ID};
+use sp_consensus_beefy::{AncestryHelper, AncestryHelperWeightInfo, Commitment};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -75,11 +83,63 @@ where
 	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+pub struct MockAncestryProofContext {
+	pub is_valid: bool,
+}
+
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+pub struct MockAncestryProof {
+	pub is_non_canonical: bool,
+}
+
 parameter_types! {
 	pub const Period: u64 = 1;
 	pub const ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * Period::get();
 	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+
+	pub storage AncestryProofContext: Option<MockAncestryProofContext> = Some(
+		MockAncestryProofContext {
+			is_valid: true,
+		}
+	);
+}
+
+pub struct MockAncestryHelper;
+
+impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
+	type Proof = MockAncestryProof;
+	type ValidationContext = MockAncestryProofContext;
+
+	fn generate_proof(
+		_prev_block_number: Header::Number,
+		_best_known_block_number: Option<Header::Number>,
+	) -> Option<Self::Proof> {
+		unimplemented!()
+	}
+
+	fn extract_validation_context(_header: Header) -> Option<Self::ValidationContext> {
+		AncestryProofContext::get()
+	}
+
+	fn is_non_canonical(
+		_commitment: &Commitment<Header::Number>,
+		proof: Self::Proof,
+		context: Self::ValidationContext,
+	) -> bool {
+		context.is_valid && proof.is_non_canonical
+	}
+}
+
+impl<Header: HeaderT> AncestryHelperWeightInfo<Header> for MockAncestryHelper {
+	fn extract_validation_context() -> Weight {
+		unimplemented!()
+	}
+
+	fn is_non_canonical(_proof: &<Self as AncestryHelper<HeaderFor<Test>>>::Proof) -> Weight {
+		unimplemented!()
+	}
 }
 
 impl pallet_beefy::Config for Test {
@@ -88,6 +148,7 @@ impl pallet_beefy::Config for Test {
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type OnNewValidatorSet = ();
+	type AncestryHelper = MockAncestryHelper;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =
@@ -120,20 +181,11 @@ impl pallet_authorship::Config for Test {
 	type EventHandler = ();
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = u128;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -171,35 +223,19 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Bounds = ElectionsBoundsOnChain;
 }
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
-	type RewardRemainder = ();
-	type CurrencyToVote = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
-	type Slash = ();
-	type Reward = ();
-	type SessionsPerEra = SessionsPerEra;
-	type BondingDuration = BondingDuration;
-	type SlashDeferDuration = ();
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type SessionInterface = Self;
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type MaxExposurePageSize = ConstU32<64>;
 	type NextNewSession = Session;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type HistoryDepth = ConstU32<84>;
-	type EventListeners = ();
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 impl pallet_offences::Config for Test {
@@ -244,7 +280,7 @@ impl ExtBuilder {
 			}
 		});
 
-		pallet_session::GenesisConfig::<Test> { keys: session_keys }
+		pallet_session::GenesisConfig::<Test> { keys: session_keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 

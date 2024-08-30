@@ -23,7 +23,6 @@ use prometheus_endpoint::Registry;
 use sc_chain_spec::ChainSpec;
 pub use sc_client_db::{BlocksPruning, Database, DatabaseSource, PruningMode};
 pub use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
-pub use sc_informant::OutputFormat;
 pub use sc_network::{
 	config::{
 		MultiaddrWithPeerId, NetworkConfiguration, NodeKeyConfig, NonDefaultSetConfig, ProtocolId,
@@ -34,7 +33,9 @@ pub use sc_network::{
 	},
 	Multiaddr,
 };
-pub use sc_rpc_server::IpNetwork;
+pub use sc_rpc_server::{
+	IpNetwork, RpcEndpoint, RpcMethods, SubscriptionIdProvider as RpcSubscriptionIdProvider,
+};
 pub use sc_telemetry::TelemetryEndpoints;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 use sp_core::crypto::SecretString;
@@ -83,8 +84,8 @@ pub struct Configuration {
 	/// over on-chain runtimes when the spec version matches. Set to `None` to
 	/// disable overrides (default).
 	pub wasm_runtime_overrides: Option<PathBuf>,
-	/// JSON-RPC server binding address.
-	pub rpc_addr: Option<SocketAddr>,
+	/// JSON-RPC server endpoints.
+	pub rpc_addr: Option<Vec<RpcEndpoint>>,
 	/// Maximum number of connections for JSON-RPC server.
 	pub rpc_max_connections: u32,
 	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
@@ -98,7 +99,7 @@ pub struct Configuration {
 	/// Custom JSON-RPC subscription ID provider.
 	///
 	/// Default: [`crate::RandomStringSubscriptionId`].
-	pub rpc_id_provider: Option<Box<dyn crate::RpcSubscriptionIdProvider>>,
+	pub rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
 	/// Maximum allowed subscriptions per rpc connection
 	pub rpc_max_subs_per_conn: u32,
 	/// JSON-RPC server default port.
@@ -146,8 +147,6 @@ pub struct Configuration {
 	pub data_path: PathBuf,
 	/// Base path of the configuration. This is shared between chains.
 	pub base_path: BasePath,
-	/// Configuration of the output format that the informant uses.
-	pub informant_output_format: OutputFormat,
 	/// Maximum number of different runtime versions that can be cached.
 	pub runtime_cache_size: u8,
 }
@@ -258,29 +257,11 @@ impl Configuration {
 	}
 }
 
-/// Available RPC methods.
-#[derive(Debug, Copy, Clone)]
-pub enum RpcMethods {
-	/// Expose every RPC method only when RPC is listening on `localhost`,
-	/// otherwise serve only safe RPC methods.
-	Auto,
-	/// Allow only a safe subset of RPC methods.
-	Safe,
-	/// Expose every RPC method (even potentially unsafe ones).
-	Unsafe,
-}
-
-impl Default for RpcMethods {
-	fn default() -> RpcMethods {
-		RpcMethods::Auto
-	}
-}
-
 #[static_init::dynamic(drop, lazy)]
 static mut BASE_PATH_TEMP: Option<TempDir> = None;
 
 /// The base path that is used for everything that needs to be written on disk to run a node.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BasePath {
 	path: PathBuf,
 }

@@ -66,23 +66,11 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 parameter_types! {
-	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub static Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const TreasuryPalletId2: PalletId = PalletId(*b"py/trsr2");
@@ -95,13 +83,8 @@ parameter_types! {
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
-	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ConstU64<1>;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -122,13 +105,8 @@ impl pallet_treasury::Config for Test {
 impl pallet_treasury::Config<Instance1> for Test {
 	type PalletId = TreasuryPalletId2;
 	type Currency = pallet_balances::Pallet<Test>;
-	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ConstU64<1>;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -167,6 +145,7 @@ impl Config for Test {
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type ChildBountyManager = ();
+	type OnSlash = ();
 }
 
 impl Config<Instance1> for Test {
@@ -182,23 +161,42 @@ impl Config<Instance1> for Test {
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type ChildBountyManager = ();
+	type OnSlash = ();
 }
 
 type TreasuryError = pallet_treasury::Error<Test>;
 type TreasuryError1 = pallet_treasury::Error<Test, Instance1>;
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
-		system: frame_system::GenesisConfig::default(),
-		balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)] },
-		treasury: Default::default(),
-		treasury_1: Default::default(),
+pub struct ExtBuilder {}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {}
 	}
-	.build_storage()
-	.unwrap()
-	.into();
-	ext.execute_with(|| System::set_block_number(1));
-	ext
+}
+
+impl ExtBuilder {
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+			system: frame_system::GenesisConfig::default(),
+			balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)] },
+			treasury: Default::default(),
+			treasury_1: Default::default(),
+		}
+		.build_storage()
+		.unwrap()
+		.into();
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+			Bounties::do_try_state().expect("All invariants must hold after a test");
+			Bounties1::do_try_state().expect("All invariants must hold after a test");
+		})
+	}
 }
 
 fn last_event() -> BountiesEvent<Test> {
@@ -212,7 +210,7 @@ fn last_event() -> BountiesEvent<Test> {
 
 #[test]
 fn genesis_config_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
 		assert_eq!(Treasury::proposal_count(), 0);
 	});
@@ -220,7 +218,7 @@ fn genesis_config_works() {
 
 #[test]
 fn minting_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
@@ -228,55 +226,11 @@ fn minting_works() {
 }
 
 #[test]
-fn spend_proposal_takes_min_deposit() {
-	new_test_ext().execute_with(|| {
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 1, 3)
-		});
-		assert_eq!(Balances::free_balance(0), 99);
-		assert_eq!(Balances::reserved_balance(0), 1);
-	});
-}
-
-#[test]
-fn spend_proposal_takes_proportional_deposit() {
-	new_test_ext().execute_with(|| {
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_eq!(Balances::free_balance(0), 95);
-		assert_eq!(Balances::reserved_balance(0), 5);
-	});
-}
-
-#[test]
-fn spend_proposal_fails_when_proposer_poor() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::propose_spend(RuntimeOrigin::signed(2), 100, 3)
-			},
-			TreasuryError::InsufficientProposersBalance,
-		);
-	});
-}
-
-#[test]
 fn accepted_spend_proposal_ignored_outside_spend_period() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
 
 		<Treasury as OnInitialize<u64>>::on_initialize(1);
 		assert_eq!(Balances::free_balance(3), 0);
@@ -286,123 +240,24 @@ fn accepted_spend_proposal_ignored_outside_spend_period() {
 
 #[test]
 fn unused_pot_should_diminish() {
-	new_test_ext().execute_with(|| {
-		let init_total_issuance = Balances::total_issuance();
+	ExtBuilder::default().build_and_execute(|| {
+		let init_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Balances::total_issuance(), init_total_issuance + 100);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance + 100);
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 50);
-		assert_eq!(Balances::total_issuance(), init_total_issuance + 50);
-	});
-}
-
-#[test]
-fn rejected_spend_proposal_ignored_on_spend_period() {
-	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::reject_proposal(RuntimeOrigin::root(), 0)
-		});
-
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
-		assert_eq!(Balances::free_balance(3), 0);
-		assert_eq!(Treasury::pot(), 50);
-	});
-}
-
-#[test]
-fn reject_already_rejected_spend_proposal_fails() {
-	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::reject_proposal(RuntimeOrigin::root(), 0)
-		});
-		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::reject_proposal(RuntimeOrigin::root(), 0)
-			},
-			TreasuryError::InvalidIndex
-		);
-	});
-}
-
-#[test]
-fn reject_non_existent_spend_proposal_fails() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::reject_proposal(RuntimeOrigin::root(), 0)
-			},
-			pallet_treasury::Error::<Test>::InvalidIndex
-		);
-	});
-}
-
-#[test]
-fn accept_non_existent_spend_proposal_fails() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-			},
-			TreasuryError::InvalidIndex
-		);
-	});
-}
-
-#[test]
-fn accept_already_rejected_spend_proposal_fails() {
-	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::reject_proposal(RuntimeOrigin::root(), 0)
-		});
-		assert_noop!(
-			{
-				#[allow(deprecated)]
-				Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-			},
-			TreasuryError::InvalidIndex
-		);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance + 50);
 	});
 }
 
 #[test]
 fn accepted_spend_proposal_enacted_on_spend_period() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Balances::free_balance(3), 100);
@@ -412,18 +267,11 @@ fn accepted_spend_proposal_enacted_on_spend_period() {
 
 #[test]
 fn pot_underflow_should_not_diminish() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 150, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 150, 3) });
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
@@ -439,31 +287,17 @@ fn pot_underflow_should_not_diminish() {
 // i.e. pot should not include existential deposit needed for account survival.
 #[test]
 fn treasury_account_doesnt_get_deleted() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 		let treasury_balance = Balances::free_balance(&Treasury::account_id());
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), treasury_balance, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), treasury_balance, 3) });
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), Treasury::pot(), 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 1)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), Treasury::pot(), 3) });
 
 		<Treasury as OnInitialize<u64>>::on_initialize(4);
 		assert_eq!(Treasury::pot(), 0); // Pot is emptied
@@ -486,22 +320,8 @@ fn inexistent_account_works() {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 0); // Account does not exist
 		assert_eq!(Treasury::pot(), 0); // Pot is empty
 
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 99, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 0)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::propose_spend(RuntimeOrigin::signed(0), 1, 3)
-		});
-		assert_ok!({
-			#[allow(deprecated)]
-			Treasury::approve_proposal(RuntimeOrigin::root(), 1)
-		});
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 99, 3) });
+		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 1, 3) });
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed
 		assert_eq!(Balances::free_balance(3), 0); // Balance of `3` hasn't changed
@@ -519,7 +339,7 @@ fn inexistent_account_works() {
 
 #[test]
 fn propose_bounty_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -556,7 +376,7 @@ fn propose_bounty_works() {
 
 #[test]
 fn propose_bounty_validation_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -585,7 +405,7 @@ fn propose_bounty_validation_works() {
 
 #[test]
 fn close_bounty_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_noop!(Bounties::close_bounty(RuntimeOrigin::root(), 0), Error::<Test>::InvalidIndex);
@@ -610,7 +430,7 @@ fn close_bounty_works() {
 
 #[test]
 fn approve_bounty_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_noop!(
@@ -671,7 +491,7 @@ fn approve_bounty_works() {
 
 #[test]
 fn assign_curator_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
@@ -741,7 +561,7 @@ fn assign_curator_works() {
 
 #[test]
 fn unassign_curator_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
@@ -794,7 +614,7 @@ fn unassign_curator_works() {
 
 #[test]
 fn award_and_claim_bounty_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 10);
@@ -861,7 +681,7 @@ fn award_and_claim_bounty_works() {
 
 #[test]
 fn claim_handles_high_fee() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 30);
@@ -902,7 +722,7 @@ fn claim_handles_high_fee() {
 
 #[test]
 fn cancel_and_refund() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -945,7 +765,7 @@ fn cancel_and_refund() {
 
 #[test]
 fn award_and_cancel() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
@@ -988,7 +808,7 @@ fn award_and_cancel() {
 
 #[test]
 fn expire_and_unassign() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
@@ -1036,7 +856,7 @@ fn expire_and_unassign() {
 
 #[test]
 fn extend_expiry() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 10);
@@ -1172,7 +992,7 @@ fn genesis_funding_works() {
 
 #[test]
 fn unassign_curator_self() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
@@ -1213,7 +1033,7 @@ fn unassign_curator_self() {
 fn accept_curator_handles_different_deposit_calculations() {
 	// This test will verify that a bounty with and without a fee results
 	// in a different curator deposit: one using the value, and one using the fee.
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Case 1: With a fee
 		let user = 1;
 		let bounty_index = 0;
@@ -1290,7 +1110,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 
 #[test]
 fn approve_bounty_works_second_instance() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Set burn to 0 to make tracking funds easier.
 		Burn::set(Permill::from_percent(0));
 
@@ -1316,7 +1136,7 @@ fn approve_bounty_works_second_instance() {
 
 #[test]
 fn approve_bounty_insufficient_spend_limit_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -1334,7 +1154,7 @@ fn approve_bounty_insufficient_spend_limit_errors() {
 
 #[test]
 fn approve_bounty_instance1_insufficient_spend_limit_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
@@ -1352,7 +1172,7 @@ fn approve_bounty_instance1_insufficient_spend_limit_errors() {
 
 #[test]
 fn propose_curator_insufficient_spend_limit_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
@@ -1375,7 +1195,7 @@ fn propose_curator_insufficient_spend_limit_errors() {
 
 #[test]
 fn propose_curator_instance1_insufficient_spend_limit_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 

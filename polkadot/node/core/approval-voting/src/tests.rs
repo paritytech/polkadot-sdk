@@ -543,11 +543,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	config: HarnessConfig,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some("polkadot_node_core_approval_voting"), log::LevelFilter::Trace)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let HarnessConfig { sync_oracle, sync_oracle_handle, clock, backend, assignment_criteria } =
 		config;
@@ -5068,6 +5064,7 @@ fn test_gathering_assignments_statements() {
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
+		no_show_stats: NoShowStats::default(),
 	};
 
 	for i in 0..200i32 {
@@ -5162,6 +5159,7 @@ fn test_observe_assignment_gathering_status() {
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
+		no_show_stats: NoShowStats::default(),
 	};
 
 	let metrics_inner = MetricsInner {

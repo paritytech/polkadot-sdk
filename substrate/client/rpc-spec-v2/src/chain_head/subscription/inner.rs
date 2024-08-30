@@ -846,6 +846,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use jsonrpsee::ConnectionId;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_service::client::new_in_mem;
 	use sp_consensus::BlockOrigin;
@@ -889,7 +890,7 @@ mod tests {
 	}
 
 	fn produce_blocks(
-		mut client: Arc<Client<sc_client_api::in_mem::Backend<Block>>>,
+		client: Arc<Client<sc_client_api::in_mem::Backend<Block>>>,
 		num_blocks: usize,
 	) -> Vec<<Block as BlockT>::Hash> {
 		let mut blocks = Vec::with_capacity(num_blocks);
@@ -1420,17 +1421,20 @@ mod tests {
 				rpc_connections.clone(),
 			);
 
-		let reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
-		let mut reserved_sub_second = subscription_management.reserve_subscription(1).unwrap();
+		let reserved_sub_first =
+			subscription_management.reserve_subscription(ConnectionId(1)).unwrap();
+		let mut reserved_sub_second =
+			subscription_management.reserve_subscription(ConnectionId(1)).unwrap();
 		// Subscriptions reserved but not yet populated.
 		assert_eq!(subs.read().subs.len(), 0);
 
 		// Cannot reserve anymore.
-		assert!(subscription_management.reserve_subscription(1).is_none());
+		assert!(subscription_management.reserve_subscription(ConnectionId(1)).is_none());
 		// Drop the first subscription.
 		drop(reserved_sub_first);
 		// Space is freed-up for the rpc connections.
-		let mut reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
+		let mut reserved_sub_first =
+			subscription_management.reserve_subscription(ConnectionId(1)).unwrap();
 
 		// Insert subscriptions.
 		let _sub_data_first =
@@ -1445,7 +1449,8 @@ mod tests {
 		// Check that the subscription is removed.
 		assert_eq!(subs.read().subs.len(), 1);
 		// Space is freed-up for the rpc connections.
-		let reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
+		let reserved_sub_first =
+			subscription_management.reserve_subscription(ConnectionId(1)).unwrap();
 
 		// Drop all subscriptions.
 		drop(reserved_sub_first);

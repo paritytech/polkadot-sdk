@@ -1,3 +1,5 @@
+//! # Enable storage weight reclaiming
+//!
 //! This guide will teach you how to enable storage weight reclaiming for a parachain. The
 //! explanations in this guide assume a project structure similar to the one detailed in
 //! the [substrate documentation](crate::polkadot_sdk::substrate#anatomy-of-a-binary-crate). Full

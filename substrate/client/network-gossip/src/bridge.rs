@@ -348,7 +348,7 @@ impl<B: BlockT> futures::future::FusedFuture for GossipEngine<B> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{multiaddr::Multiaddr, ValidationResult, ValidatorContext};
+	use crate::{ValidationResult, ValidatorContext};
 	use codec::{DecodeAll, Encode};
 	use futures::{
 		channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -363,6 +363,7 @@ mod tests {
 	};
 	use sc_network_common::role::ObservedRole;
 	use sc_network_sync::SyncEventStream;
+	use sc_network_types::multiaddr::Multiaddr;
 	use sp_runtime::{
 		testing::H256,
 		traits::{Block as BlockT, NumberFor},
