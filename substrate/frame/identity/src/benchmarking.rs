@@ -959,7 +959,9 @@ mod benchmarks {
 		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
 		#[block]
 		{
-			LazyMigrationV2::<T, <T as Config>::WeightInfo>::cleanup_identity_step(None);
+			LazyMigrationV2::<T, <T as Config>::WeightInfo>::cleanup_identity_without_username_step(
+				None,
+			);
 		}
 		Ok(())
 	}

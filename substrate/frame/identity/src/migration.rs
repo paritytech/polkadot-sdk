@@ -216,6 +216,8 @@ pub mod v2 {
 		FinishedCleanupUsernames,
 		CleanupPendingUsernames(U),
 		FinishedCleanupPendingUsernames,
+		CleanupIdentitiesWithUsername(A),
+		FinishedCleanupIdentitiesWithUsernames,
 		CleanupIdentitiesWithoutUsername(A),
 		Finished,
 	}
@@ -274,9 +276,13 @@ pub mod v2 {
 					Some(MigrationState::CleanupPendingUsernames(maybe_last_username)) =>
 						Self::cleanup_pending_username_step(Some(maybe_last_username)),
 					Some(MigrationState::FinishedCleanupPendingUsernames) =>
-						Self::cleanup_identity_step(None),
+						Self::cleanup_primary_username_identity_step(None),
+					Some(MigrationState::CleanupIdentitiesWithUsername(maybe_last_identity)) =>
+						Self::cleanup_primary_username_identity_step(Some(maybe_last_identity)),
+					Some(MigrationState::FinishedCleanupIdentitiesWithUsernames) =>
+						Self::cleanup_identity_without_username_step(None),
 					Some(MigrationState::CleanupIdentitiesWithoutUsername(maybe_last_identity)) =>
-						Self::cleanup_identity_step(Some(maybe_last_identity)),
+						Self::cleanup_identity_without_username_step(Some(maybe_last_identity)),
 					Some(MigrationState::Finished) => return Ok(None),
 				};
 
@@ -302,7 +308,11 @@ pub mod v2 {
 				MigrationState::FinishedCleanupUsernames |
 				MigrationState::CleanupPendingUsernames(_) => W::migration_v2_cleanup_pending_username_step(),
 				MigrationState::FinishedCleanupPendingUsernames |
-				MigrationState::CleanupIdentitiesWithoutUsername(_) => W::migration_v2_cleanup_identity_step(),
+				MigrationState::CleanupIdentitiesWithUsername(_) =>
+					W::migration_v2_cleanup_primary_username_identity_step(),
+				MigrationState::FinishedCleanupIdentitiesWithUsernames |
+				MigrationState::CleanupIdentitiesWithoutUsername(_) =>
+					W::migration_v2_cleanup_identity_without_username_step(),
 				MigrationState::Finished => Weight::zero(),
 			}
 		}
@@ -405,16 +415,8 @@ pub mod v2 {
 				UsernameInfoOf::<T>::iter()
 			};
 
-			if let Some((username, username_info)) = iter.next() {
+			if let Some((username, _)) = iter.next() {
 				let _ = v1::AccountOfUsername::<T>::take(&username);
-				match UsernameOf::<T>::get(&username_info.owner) {
-					Some(primary_username) if primary_username == username => {
-						// KEY DISAPPEARS
-						let _ = v1::IdentityOf::<T>::take(&username_info.owner);
-					},
-					_ => {},
-				}
-
 				MigrationState::CleanupUsernames(username)
 			} else {
 				MigrationState::FinishedCleanupUsernames
@@ -439,7 +441,30 @@ pub mod v2 {
 			}
 		}
 
-		pub(crate) fn cleanup_identity_step(
+		pub(crate) fn cleanup_primary_username_identity_step(
+			maybe_last_key: Option<&T::AccountId>,
+		) -> MigrationState<T::AccountId, Username<T>> {
+			let mut iter = if let Some(last_key) = maybe_last_key {
+				UsernameOf::<T>::iter_from(UsernameOf::<T>::hashed_key_for(last_key))
+			} else {
+				UsernameOf::<T>::iter()
+			};
+
+			if let Some((account, primary_username)) = iter.next() {
+				match v1::IdentityOf::<T>::get(&account) {
+					Some((_, Some(actual_primary))) if actual_primary == primary_username => {
+						let _ = v1::IdentityOf::<T>::take(&account);
+					},
+					_ => {},
+				}
+
+				MigrationState::CleanupIdentitiesWithoutUsername(account)
+			} else {
+				MigrationState::Finished
+			}
+		}
+
+		pub(crate) fn cleanup_identity_without_username_step(
 			maybe_last_key: Option<&T::AccountId>,
 		) -> MigrationState<T::AccountId, Username<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
@@ -448,8 +473,10 @@ pub mod v2 {
 				IdentityOf::<T>::iter()
 			};
 
-			if let Some((account, _)) = iter.next() {
-				let _ = v1::IdentityOf::<T>::take(&account);
+			if let Some((account, reg)) = iter.next() {
+				if reg.deposit > 0u32.into() {
+					let _ = v1::IdentityOf::<T>::take(&account);
+				}
 
 				MigrationState::CleanupIdentitiesWithoutUsername(account)
 			} else {
@@ -508,8 +535,8 @@ pub mod v2 {
 		#[test]
 		fn migrate_to_v2() {
 			new_test_ext().execute_with(|| {
-				let storage_version = StorageVersion::new(1);
-				storage_version.put::<Pallet<Test>>();
+				// let storage_version = StorageVersion::new(1);
+				// storage_version.put::<Pallet<Test>>();
 
 				let authority_1 = accoount_from_u8(151);
 				let suffix_1: Suffix<Test> = b"evn".to_vec().try_into().unwrap();
@@ -521,6 +548,7 @@ pub mod v2 {
 				let prop = AuthorityProperties { account_id: suffix_2.clone(), allocation: 10 };
 				v1::UsernameAuthorities::<Test>::insert(&authority_2, &prop);
 
+				let mut usernames = vec![];
 				for i in 0u8..100u8 {
 					let account_id = accoount_from_u8(i);
 					let mut bare_username = b"acc".to_vec();
@@ -532,21 +560,29 @@ pub mod v2 {
 					v1::AccountOfUsername::<Test>::insert(&username_1, &account_id);
 
 					if i % 2 == 0 {
-						let reg = registration(i % 4 == 0);
+						let has_identity = i % 4 == 0;
+						let reg = registration(has_identity);
 						v1::IdentityOf::<Test>::insert(
 							&account_id,
 							(reg, Some(username_1.clone())),
 						);
+						usernames.push((account_id, username_1, None, has_identity));
 					} else {
+						let has_identity = i % 3 == 0;
 						let mut username_2 = bare_username.clone();
 						username_2.extend(suffix_2.iter());
 						let username_2: Username<Test> = username_2.try_into().unwrap();
 						v1::AccountOfUsername::<Test>::insert(&username_2, &account_id);
-						let reg = registration(i % 3 == 0);
-						v1::IdentityOf::<Test>::insert(account_id, (reg, Some(username_2.clone())));
+						let reg = registration(has_identity);
+						v1::IdentityOf::<Test>::insert(
+							&account_id,
+							(reg, Some(username_2.clone())),
+						);
+						usernames.push((account_id, username_2, Some(username_1), has_identity));
 					}
 				}
 
+				let mut pending = vec![];
 				for i in 100u8..110u8 {
 					let account_id = accoount_from_u8(i);
 					let mut bare_username = b"acc".to_vec();
@@ -555,15 +591,18 @@ pub mod v2 {
 					bare_username.extend(suffix_1.iter());
 					let username: Username<Test> = bare_username.try_into().unwrap();
 					let since: BlockNumberFor<Test> = i.into();
-					v1::PendingUsernames::<Test>::insert(&username, (account_id, since));
+					v1::PendingUsernames::<Test>::insert(&username, (account_id.clone(), since));
+					pending.push((username, account_id, since));
 				}
 
+				let mut identity_only = vec![];
 				for i in 110u8..120u8 {
 					let account_id = accoount_from_u8(i);
 					v1::IdentityOf::<Test>::insert(
-						account_id,
+						&account_id,
 						(registration(true), None::<Username<Test>>),
 					);
+					identity_only.push(account_id);
 				}
 
 				let mut weight_meter = WeightMeter::new();
@@ -576,6 +615,42 @@ pub mod v2 {
 					.unwrap()
 				{
 					cursor = Some(new_cursor);
+				}
+
+				let expected_prop =
+					AuthorityProperties { account_id: authority_1.clone(), allocation: 10 };
+				assert_eq!(UsernameAuthorities::<Test>::get(&suffix_1), Some(expected_prop));
+
+				let expected_prop =
+					AuthorityProperties { account_id: authority_2.clone(), allocation: 10 };
+				assert_eq!(UsernameAuthorities::<Test>::get(&suffix_2), Some(expected_prop));
+
+				for (owner, primary, maybe_secondary, has_identity) in usernames.iter() {
+					let username_info = UsernameInfoOf::<Test>::get(primary).unwrap();
+					assert_eq!(&username_info.owner, owner);
+					let actual_primary = UsernameOf::<Test>::get(owner).unwrap();
+					assert_eq!(primary, &actual_primary);
+					// assert_eq!(IdentityOf::<Test>::contains_key(owner), *has_identity);
+					if let Some(secondary) = maybe_secondary {
+						let expected_info = UsernameInformation {
+							owner: owner.clone(),
+							provider: Provider::Governance,
+						};
+						assert_eq!(UsernameInfoOf::<Test>::get(secondary), Some(expected_info));
+					}
+				}
+
+				// let pending_count = PendingUsernames::<Test>::iter().count();
+				// assert_eq!(pending_count, 10);
+				// for (username, owner, since) in pending.iter() {
+				// 	let expected_pending = (owner.clone(), *since, Provider::Governance);
+				// 	assert_eq!(PendingUsernames::<Test>::get(username), Some(expected_pending));
+				// }
+
+				for id in identity_only.iter() {
+					let expected_reg = registration(true);
+					assert_eq!(IdentityOf::<Test>::get(id), Some(expected_reg));
+					assert!(!UsernameOf::<Test>::contains_key(id));
 				}
 			});
 		}

@@ -83,7 +83,8 @@ pub trait WeightInfo {
 	fn migration_v2_pending_username_step() -> Weight;
 	fn migration_v2_cleanup_username_step() -> Weight;
 	fn migration_v2_cleanup_pending_username_step() -> Weight;
-	fn migration_v2_cleanup_identity_step() -> Weight;
+	fn migration_v2_cleanup_primary_username_identity_step() -> Weight;
+	fn migration_v2_cleanup_identity_without_username_step() -> Weight;
 }
 
 /// Weights for `pallet_identity` using the Substrate node and recommended hardware.
@@ -478,7 +479,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn migration_v2_cleanup_pending_username_step() -> Weight {
 		Weight::zero()	
 	}
-	fn migration_v2_cleanup_identity_step() -> Weight {
+	fn migration_v2_cleanup_primary_username_identity_step() -> Weight {
+		Weight::zero()	
+	}
+	fn migration_v2_cleanup_identity_without_username_step() -> Weight {
 		Weight::zero()	
 	}
 }
@@ -874,7 +878,10 @@ impl WeightInfo for () {
 	fn migration_v2_cleanup_pending_username_step() -> Weight {
 		Weight::zero()	
 	}
-	fn migration_v2_cleanup_identity_step() -> Weight {
+	fn migration_v2_cleanup_primary_username_identity_step() -> Weight {
+		Weight::zero()	
+	}
+	fn migration_v2_cleanup_identity_without_username_step() -> Weight {
 		Weight::zero()	
 	}
 }
