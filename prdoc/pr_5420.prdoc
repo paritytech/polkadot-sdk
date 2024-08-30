@@ -1,10 +1,12 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: [XCMv5] Better fee mechanism
+title: XCMv5 - Better fee mechanism
 
 doc:
-  - audience: [Runtime User, Runtime Dev]
+  - audience:
+    - Runtime User
+    - Runtime Dev
     description: |
       In XCMv5, there's a new instruction, `PayFees`, which is meant to be a replacement for `BuyExecution`.
       This instruction takes only one parameter, the `asset` that you are willing to use for fee payment.
