@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725034381110,
+  "lastUpdate": 1725054037132,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -24179,6 +24179,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01085513130666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jan-Jan",
+            "username": "Jan-Jan",
+            "email": "Jan-Jan@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "824e1cfa62d91635cbe3db13b2839690e3635d49",
+          "message": "'remainder' instead of reminder && explicit instruction to clone (#5535)\n\n# Description\n\nTrivial doc fixes:\n\n* Replace the word `reminder` with `remainder` so that the English\nmatches the code intent.\n* Explicit instruct the reader to `clone`.\n\n## Review Notes\n\n* Trivial\n\nCo-authored-by: Jan-Jan <111935+Jan-Jan@users.noreply.github.com>",
+          "timestamp": "2024-08-30T19:46:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/824e1cfa62d91635cbe3db13b2839690e3635d49"
+        },
+        "date": 1725053997892,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16877869199333323,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022068432493333342,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01016471525333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012514437760000005,
             "unit": "seconds"
           }
         ]
