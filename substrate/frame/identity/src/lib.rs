@@ -305,7 +305,7 @@ pub mod pallet {
 	///
 	/// First tuple item is the account and second is the acceptance deadline.
 	#[pallet::storage]
-	pub type PendingAcceptance<T: Config> = StorageMap<
+	pub type PendingUsernames<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		Username<T>,
@@ -1123,7 +1123,7 @@ pub mod pallet {
 				Error::<T>::UsernameTaken
 			);
 			ensure!(
-				!PendingAcceptance::<T>::contains_key(&bounded_username),
+				!PendingUsernames::<T>::contains_key(&bounded_username),
 				Error::<T>::UsernameTaken
 			);
 
@@ -1151,7 +1151,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let (approved_for, _, provider) =
-				PendingAcceptance::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
+				PendingUsernames::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
 			ensure!(approved_for == who.clone(), Error::<T>::InvalidUsername);
 			Self::insert_username(&who, username.clone(), provider);
 			Self::deposit_event(Event::UsernameSet { who: who.clone(), username });
@@ -1168,7 +1168,7 @@ pub mod pallet {
 			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
-			if let Some((who, expiration, provider)) = PendingAcceptance::<T>::take(&username) {
+			if let Some((who, expiration, provider)) = PendingUsernames::<T>::take(&username) {
 				let now = frame_system::Pallet::<T>::block_number();
 				ensure!(now > expiration, Error::<T>::NotExpired);
 				let actual_weight = match provider {
@@ -1286,6 +1286,7 @@ pub mod pallet {
 		}
 
 		/// Permanently delete a username which has been unbinding for longer than the grace period.
+		/// Caller is refunded the fee if the username expired and the removal was successful.
 		#[pallet::call_index(23)]
 		#[pallet::weight(T::WeightInfo::remove_username())]
 		pub fn remove_username(
@@ -1526,7 +1527,7 @@ impl<T: Config> Pallet<T> {
 	pub fn queue_acceptance(who: &T::AccountId, username: Username<T>, provider: ProviderOf<T>) {
 		let now = frame_system::Pallet::<T>::block_number();
 		let expiration = now.saturating_add(T::PendingUsernameExpiration::get());
-		PendingAcceptance::<T>::insert(&username, (who.clone(), expiration, provider));
+		PendingUsernames::<T>::insert(&username, (who.clone(), expiration, provider));
 		Self::deposit_event(Event::UsernameQueued { who: who.clone(), username, expiration });
 	}
 
