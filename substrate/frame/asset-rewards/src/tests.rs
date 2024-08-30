@@ -29,7 +29,7 @@ use sp_runtime::{traits::BadOrigin, ArithmeticError, TokenError};
 const DEFAULT_STAKED_ASSET_ID: NativeOrWithId<u32> = NativeOrWithId::<u32>::WithId(1);
 const DEFAULT_REWARD_ASSET_ID: NativeOrWithId<u32> = NativeOrWithId::<u32>::Native;
 const DEFAULT_REWARD_RATE_PER_BLOCK: u128 = 100;
-const DEFAULT_LIFETIME: u64 = 200;
+const DEFAULT_EXPIRE_AFTER: u64 = 200;
 const DEFAULT_ADMIN: u128 = 1;
 
 /// Creates a basic pool with values:
@@ -47,7 +47,7 @@ pub fn create_default_pool() {
 		Box::new(DEFAULT_STAKED_ASSET_ID.clone()),
 		Box::new(DEFAULT_REWARD_ASSET_ID.clone()),
 		DEFAULT_REWARD_RATE_PER_BLOCK,
-		DEFAULT_LIFETIME,
+		DispatchTime::After(DEFAULT_EXPIRE_AFTER),
 		Some(DEFAULT_ADMIN)
 	));
 }
@@ -59,7 +59,7 @@ pub fn create_default_pool_permissioned_admin() {
 		Box::new(DEFAULT_STAKED_ASSET_ID.clone()),
 		Box::new(DEFAULT_REWARD_ASSET_ID.clone()),
 		DEFAULT_REWARD_RATE_PER_BLOCK,
-		DEFAULT_LIFETIME,
+		DispatchTime::After(DEFAULT_EXPIRE_AFTER),
 		Some(PermissionedAccountId::get()),
 	));
 }
@@ -119,7 +119,7 @@ mod create_pool {
 			assert_eq!(NextPoolId::<MockRuntime>::get(), 0);
 
 			System::set_block_number(10);
-			let expected_expiry_block = DEFAULT_LIFETIME + 10;
+			let expected_expiry_block = DEFAULT_EXPIRE_AFTER + 10;
 
 			// Create a pool with default values, and no admin override so [`PermissionedAccountId`]
 			// is admin.
@@ -128,7 +128,7 @@ mod create_pool {
 				Box::new(DEFAULT_STAKED_ASSET_ID),
 				Box::new(DEFAULT_REWARD_ASSET_ID),
 				DEFAULT_REWARD_RATE_PER_BLOCK,
-				DEFAULT_LIFETIME,
+				DispatchTime::After(DEFAULT_EXPIRE_AFTER),
 				Some(PermissionedAccountId::get())
 			));
 
@@ -178,7 +178,7 @@ mod create_pool {
 				Box::new(staked_asset_id.clone()),
 				Box::new(reward_asset_id.clone()),
 				reward_rate_per_block,
-				expiry_block,
+				DispatchTime::After(expiry_block),
 				Some(admin)
 			));
 
@@ -208,7 +208,7 @@ mod create_pool {
 							reward_asset_id: DEFAULT_REWARD_ASSET_ID,
 							reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
 							admin: Some(PermissionedAccountId::get()),
-							expiry_block: DEFAULT_LIFETIME + 10,
+							expiry_block: DEFAULT_EXPIRE_AFTER + 10,
 							total_tokens_staked: 0,
 							reward_per_token_stored: 0,
 							last_update_block: 0,
@@ -240,7 +240,7 @@ mod create_pool {
 			assert_eq!(NextPoolId::<MockRuntime>::get(), 0);
 
 			System::set_block_number(10);
-			let expected_expiry_block = DEFAULT_LIFETIME + 10;
+			let expected_expiry_block = DEFAULT_EXPIRE_AFTER + 10;
 
 			// Create a pool with the same staking and reward asset.
 			let asset = NativeOrWithId::<u32>::Native;
@@ -249,7 +249,7 @@ mod create_pool {
 				Box::new(asset.clone()),
 				Box::new(asset.clone()),
 				DEFAULT_REWARD_RATE_PER_BLOCK,
-				DEFAULT_LIFETIME,
+				DispatchTime::After(DEFAULT_EXPIRE_AFTER),
 				Some(PermissionedAccountId::get())
 			));
 
@@ -301,7 +301,7 @@ mod create_pool {
 					Box::new(valid_asset.clone()),
 					Box::new(invalid_asset.clone()),
 					10,
-					10u64,
+					DispatchTime::After(10u64),
 					None
 				),
 				Error::<MockRuntime>::NonExistentAsset
@@ -313,7 +313,7 @@ mod create_pool {
 					Box::new(invalid_asset.clone()),
 					Box::new(valid_asset.clone()),
 					10,
-					10u64,
+					DispatchTime::After(10u64),
 					None
 				),
 				Error::<MockRuntime>::NonExistentAsset
@@ -325,7 +325,7 @@ mod create_pool {
 					Box::new(invalid_asset.clone()),
 					Box::new(invalid_asset.clone()),
 					10,
-					10u64,
+					DispatchTime::After(10u64),
 					None
 				),
 				Error::<MockRuntime>::NonExistentAsset
@@ -347,7 +347,7 @@ mod create_pool {
 					Box::new(staked_asset_id.clone()),
 					Box::new(reward_asset_id.clone()),
 					reward_rate_per_block,
-					expiry_block,
+					DispatchTime::After(expiry_block),
 					None
 				),
 				BadOrigin
@@ -361,14 +361,14 @@ mod create_pool {
 			assert_eq!(NextPoolId::<MockRuntime>::get(), 0);
 
 			System::set_block_number(10);
-			let expected_expiry_block = DEFAULT_LIFETIME + 10;
+			let expected_expiry_block = DEFAULT_EXPIRE_AFTER + 10;
 
 			assert_ok!(StakingRewards::create_pool(
 				RuntimeOrigin::root(),
 				Box::new(DEFAULT_STAKED_ASSET_ID),
 				Box::new(DEFAULT_REWARD_ASSET_ID),
 				DEFAULT_REWARD_RATE_PER_BLOCK,
-				DEFAULT_LIFETIME,
+				DispatchTime::After(DEFAULT_EXPIRE_AFTER),
 				None,
 			));
 
@@ -754,13 +754,13 @@ mod set_pool_expiry_block {
 	fn success_permissioned_admin() {
 		new_test_ext().execute_with(|| {
 			let pool_id = 0;
-			let new_expiry_block = System::block_number() + DEFAULT_LIFETIME + 1u64;
+			let new_expiry_block = System::block_number() + DEFAULT_EXPIRE_AFTER + 1u64;
 			create_default_pool_permissioned_admin();
 
 			assert_ok!(StakingRewards::set_pool_expiry_block(
 				RuntimeOrigin::root(),
 				pool_id,
-				new_expiry_block
+				DispatchTime::At(new_expiry_block),
 			));
 
 			// Check state
@@ -777,13 +777,13 @@ mod set_pool_expiry_block {
 		new_test_ext().execute_with(|| {
 			let admin = 1;
 			let pool_id = 0;
-			let new_expiry_block = System::block_number() + DEFAULT_LIFETIME + 1u64;
+			let new_expiry_block = System::block_number() + DEFAULT_EXPIRE_AFTER + 1u64;
 			create_default_pool();
 
 			assert_ok!(StakingRewards::set_pool_expiry_block(
 				RuntimeOrigin::signed(admin),
 				pool_id,
-				new_expiry_block
+				DispatchTime::At(new_expiry_block)
 			));
 
 			// Check state
@@ -828,7 +828,7 @@ mod set_pool_expiry_block {
 			assert_ok!(StakingRewards::set_pool_expiry_block(
 				RuntimeOrigin::signed(admin),
 				pool_id,
-				new_expiry_block
+				DispatchTime::At(new_expiry_block)
 			));
 			System::set_block_number(350);
 
@@ -850,7 +850,11 @@ mod set_pool_expiry_block {
 			create_default_pool();
 
 			assert_noop!(
-				StakingRewards::set_pool_expiry_block(RuntimeOrigin::signed(admin), pool_id, 30),
+				StakingRewards::set_pool_expiry_block(
+					RuntimeOrigin::signed(admin),
+					pool_id,
+					DispatchTime::After(30)
+				),
 				Error::<MockRuntime>::ExpiryCut
 			);
 		});
@@ -867,7 +871,7 @@ mod set_pool_expiry_block {
 				StakingRewards::set_pool_expiry_block(
 					RuntimeOrigin::signed(admin),
 					non_existent_pool_id,
-					new_expiry_block
+					DispatchTime::After(new_expiry_block)
 				),
 				Error::<MockRuntime>::NonExistentPool
 			);
@@ -886,7 +890,7 @@ mod set_pool_expiry_block {
 				StakingRewards::set_pool_expiry_block(
 					RuntimeOrigin::signed(non_admin),
 					pool_id,
-					new_expiry_block
+					DispatchTime::After(new_expiry_block)
 				),
 				BadOrigin
 			);
@@ -901,7 +905,11 @@ mod set_pool_expiry_block {
 			create_default_pool();
 			System::set_block_number(50);
 			assert_err!(
-				StakingRewards::set_pool_expiry_block(RuntimeOrigin::signed(admin), pool_id, 40u64),
+				StakingRewards::set_pool_expiry_block(
+					RuntimeOrigin::signed(admin),
+					pool_id,
+					DispatchTime::At(40u64)
+				),
 				Error::<MockRuntime>::ExpiryBlockMustBeInTheFuture
 			);
 		});
@@ -915,12 +923,16 @@ mod set_pool_expiry_block {
 				Box::new(DEFAULT_STAKED_ASSET_ID.clone()),
 				Box::new(DEFAULT_REWARD_ASSET_ID.clone()),
 				DEFAULT_REWARD_RATE_PER_BLOCK,
-				DEFAULT_LIFETIME,
+				DispatchTime::After(DEFAULT_EXPIRE_AFTER),
 				None,
 			));
 
 			assert_err!(
-				StakingRewards::set_pool_expiry_block(RuntimeOrigin::root(), 0, 200),
+				StakingRewards::set_pool_expiry_block(
+					RuntimeOrigin::root(),
+					0,
+					DispatchTime::After(200)
+				),
 				BadOrigin
 			);
 		});
@@ -1071,7 +1083,7 @@ mod set_pool_reward_rate_per_block {
 				Box::new(DEFAULT_STAKED_ASSET_ID.clone()),
 				Box::new(DEFAULT_REWARD_ASSET_ID.clone()),
 				DEFAULT_REWARD_RATE_PER_BLOCK,
-				DEFAULT_LIFETIME,
+				DispatchTime::After(DEFAULT_EXPIRE_AFTER),
 				None,
 			));
 
@@ -1180,7 +1192,7 @@ fn integration() {
 			Box::new(staked_asset_id.clone()),
 			Box::new(reward_asset_id.clone()),
 			reward_rate_per_block,
-			lifetime,
+			DispatchTime::After(lifetime),
 			Some(admin)
 		));
 		let pool_id = 0;
@@ -1257,7 +1269,7 @@ fn integration() {
 		assert_ok!(StakingRewards::set_pool_expiry_block(
 			RuntimeOrigin::signed(admin),
 			pool_id,
-			60u64
+			DispatchTime::At(60u64),
 		));
 		assert_hypothetically_earned(staker1, 1066, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 733, pool_id, reward_asset_id.clone());

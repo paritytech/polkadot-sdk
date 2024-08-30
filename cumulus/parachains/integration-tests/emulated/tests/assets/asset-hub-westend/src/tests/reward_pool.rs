@@ -16,7 +16,7 @@
 use crate::imports::*;
 use codec::Encode;
 use emulated_integration_tests_common::ASSET_HUB_WESTEND_ID;
-use frame_support::{assert_ok, sp_runtime::traits::Dispatchable};
+use frame_support::{assert_ok, sp_runtime::traits::Dispatchable, traits::schedule::DispatchTime};
 use xcm_executor::traits::ConvertLocation;
 
 #[test]
@@ -73,7 +73,7 @@ fn treasury_creates_asset_reward_pool() {
 								staked_asset_id,
 								reward_asset_id,
 								reward_rate_per_block,
-								lifetime,
+								expiry: DispatchTime::After(lifetime),
 								admin
 							}
 						)

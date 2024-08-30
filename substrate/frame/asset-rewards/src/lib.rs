@@ -89,6 +89,7 @@ use codec::Codec;
 use frame_support::{
 	traits::{
 		fungibles::{Inspect, Mutate},
+		schedule::DispatchTime,
 		tokens::Balance,
 	},
 	PalletId,
@@ -186,7 +187,7 @@ pub mod pallet {
 	use sp_runtime::{
 		traits::{
 			AccountIdConversion, BadOrigin, EnsureAdd, EnsureAddAssign, EnsureDiv, EnsureMul,
-			EnsureSub, EnsureSubAssign, Saturating,
+			EnsureSub, EnsureSubAssign,
 		},
 		DispatchResult,
 	};
@@ -404,17 +405,22 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Create a new reward pool.
 		///
-		/// If an admin is not specified, the pool cannot be altered after creation.
-		///
-		/// The initial pool expiry will be calculated by summing `lifetime` with the block
-		/// number at the time of execution.
+		/// Parameters:
+		/// - `origin`: must be `Config::CreatePoolOrigin`;
+		/// - `staked_asset_id`: the asset to be staked in the pool;
+		/// - `reward_asset_id`: the asset to be distributed as rewards;
+		/// - `reward_rate_per_block`: the amount of reward tokens distributed per block;
+		/// - `expiry`: the block number at which the pool will cease to accumulate rewards. The
+		///   [`DispatchTime::After`] variant evaluated at the execution time.
+		/// - `admin`: the account allowed to modify the pool. If `None`, the pool cannot be
+		///   altered.
 		#[pallet::call_index(0)]
 		pub fn create_pool(
 			origin: OriginFor<T>,
 			staked_asset_id: Box<T::AssetId>,
 			reward_asset_id: Box<T::AssetId>,
 			reward_rate_per_block: T::Balance,
-			lifetime: BlockNumberFor<T>,
+			expiry: DispatchTime<BlockNumberFor<T>>,
 			admin: Option<T::AccountId>,
 		) -> DispatchResult {
 			// Check the origin.
@@ -431,7 +437,7 @@ pub mod pallet {
 			);
 
 			// Check the expiry block.
-			let expiry_block = frame_system::Pallet::<T>::block_number().saturating_add(lifetime);
+			let expiry_block = expiry.evaluate(frame_system::Pallet::<T>::block_number());
 			ensure!(
 				expiry_block > frame_system::Pallet::<T>::block_number(),
 				Error::<T>::ExpiryBlockMustBeInTheFuture
@@ -656,28 +662,32 @@ pub mod pallet {
 		pub fn set_pool_expiry_block(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
-			new_expiry_block: BlockNumberFor<T>,
+			new_expiry: DispatchTime<BlockNumberFor<T>>,
 		) -> DispatchResult {
 			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
 
+			let new_expiry = new_expiry.evaluate(frame_system::Pallet::<T>::block_number());
 			ensure!(
-				new_expiry_block > frame_system::Pallet::<T>::block_number(),
+				new_expiry > frame_system::Pallet::<T>::block_number(),
 				Error::<T>::ExpiryBlockMustBeInTheFuture
 			);
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
-			ensure!(new_expiry_block > pool_info.expiry_block, Error::<T>::ExpiryCut);
+			ensure!(new_expiry > pool_info.expiry_block, Error::<T>::ExpiryCut);
 
 			// Always start by updating the pool rewards.
 			let reward_per_token = Self::reward_per_token(&pool_info)?;
 			let mut pool_info = Self::update_pool_rewards(&pool_info, reward_per_token)?;
 
-			pool_info.expiry_block = new_expiry_block;
+			pool_info.expiry_block = new_expiry;
 			Pools::<T>::insert(pool_id, pool_info);
 
-			Self::deposit_event(Event::PoolExpiryBlockModified { pool_id, new_expiry_block });
+			Self::deposit_event(Event::PoolExpiryBlockModified {
+				pool_id,
+				new_expiry_block: new_expiry,
+			});
 
 			Ok(())
 		}

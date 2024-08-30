@@ -43,8 +43,8 @@ pub trait BenchmarkHelper<AssetId> {
 	fn reward_asset() -> AssetId;
 }
 
-fn pool_lifetime<T: Config>() -> BlockNumberFor<T> {
-	BlockNumberFor::<T>::from(100u32)
+fn pool_expire<T: Config>() -> DispatchTime<BlockNumberFor<T>> {
+	DispatchTime::At(BlockNumberFor::<T>::from(100u32))
 }
 
 fn create_reward_pool<T: Config>() -> Result<T::RuntimeOrigin, BenchmarkError>
@@ -88,7 +88,7 @@ where
 		Box::new(reward_asset),
 		// reward rate per block
 		min_reward_balance,
-		pool_lifetime::<T>(),
+		pool_expire::<T>(),
 		Some(caller),
 	));
 
@@ -137,15 +137,13 @@ mod benchmarks {
 			assert_ok!(T::Assets::create(reward_asset.clone(), caller.clone(), true, min_balance));
 		}
 
-		let expiry_block = System::<T>::block_number() + pool_lifetime::<T>();
-
 		#[extrinsic_call]
 		_(
 			caller_origin as T::RuntimeOrigin,
 			Box::new(staked_asset.clone()),
 			Box::new(reward_asset.clone()),
 			min_balance,
-			pool_lifetime::<T>(),
+			pool_expire::<T>(),
 			Some(caller.clone()),
 		);
 
@@ -156,7 +154,7 @@ mod benchmarks {
 				staked_asset_id: staked_asset,
 				reward_asset_id: reward_asset,
 				reward_rate_per_block: min_balance,
-				expiry_block,
+				expiry_block: pool_expire::<T>().evaluate(System::<T>::block_number()),
 				pool_id: 0,
 			}
 			.into(),
@@ -269,10 +267,10 @@ mod benchmarks {
 		let create_origin = create_reward_pool::<T>()?;
 
 		let new_expiry_block =
-			System::<T>::block_number() + pool_lifetime::<T>() + BlockNumberFor::<T>::one();
+			pool_expire::<T>().evaluate(System::<T>::block_number()) + BlockNumberFor::<T>::one();
 
 		#[extrinsic_call]
-		_(create_origin as T::RuntimeOrigin, 0, new_expiry_block);
+		_(create_origin as T::RuntimeOrigin, 0, DispatchTime::At(new_expiry_block));
 
 		assert_last_event::<T>(
 			Event::PoolExpiryBlockModified { pool_id: 0, new_expiry_block }.into(),
