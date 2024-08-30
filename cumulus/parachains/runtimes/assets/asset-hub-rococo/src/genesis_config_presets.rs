@@ -67,6 +67,7 @@ fn asset_hub_rococo_genesis(
 					)
 				})
 				.collect(),
+			..Default::default()
 		},
 		"polkadotXcm": crate::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
