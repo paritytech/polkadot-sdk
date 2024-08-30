@@ -1776,12 +1776,7 @@ impl_runtime_apis! {
 		}
 
 		fn preset_names() -> Vec<PresetId> {
-			use crate::genesis_config_presets::preset_names::*;
-			vec![
-				PresetId::from(PRESET_GENESIS),
-				PresetId::from(PRESET_DEVELOPMENT),
-				PresetId::from(PRESET_LOCAL),
-			]
+			genesis_config_presets::preset_names()
 		}
 	}
 }

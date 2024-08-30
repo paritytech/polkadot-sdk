@@ -20,6 +20,7 @@ use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::{genesis_config_helpers::*, AccountId, AuraId, Balance as AssetHubBalance};
 use sp_core::{crypto::UncheckedInto, sr25519};
+use sp_genesis_builder::PresetId;
 use testnet_parachains_constants::rococo::xcm_version::SAFE_XCM_VERSION;
 
 const ASSET_HUB_ROCOCO_ED: AssetHubBalance = crate::ExistentialDeposit::get();
@@ -75,14 +76,14 @@ fn asset_hub_rococo_genesis(
 }
 
 /// Encapsulates names of predefined presets.
-pub mod preset_names {
+mod preset_names {
 	pub const PRESET_DEVELOPMENT: &str = "development";
 	pub const PRESET_LOCAL: &str = "local";
 	pub const PRESET_GENESIS: &str = "genesis";
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
-pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<Vec<u8>> {
+pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
 	let patch = match id.try_into() {
 		Ok(PRESET_GENESIS) => asset_hub_rococo_genesis(
@@ -169,4 +170,14 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<Vec<u8>> {
 			.expect("serialization to json is expected to work. qed.")
 			.into_bytes(),
 	)
+}
+
+/// List of supported presets.
+pub fn preset_names() -> Vec<PresetId> {
+	use preset_names::*;
+	vec![
+		PresetId::from(PRESET_GENESIS),
+		PresetId::from(PRESET_DEVELOPMENT),
+		PresetId::from(PRESET_LOCAL),
+	]
 }
