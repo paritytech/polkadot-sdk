@@ -61,9 +61,9 @@ use xcm_builder::{
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
-		DropAssets, FeeManager, FeeReason, MatchesFungible, OnResponse, Properties, QueryHandler,
-		QueryResponseStatus, RecordXcm, TransactAsset, TransferType, VersionChangeNotifier,
-		WeightBounds, XcmAssetTransfers,
+		DropAssets, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
+		RecordXcm, TransactAsset, TransferType, VersionChangeNotifier, WeightBounds,
+		XcmAssetTransfers,
 	},
 	AssetsInHolding,
 };
@@ -74,6 +74,7 @@ use xcm_runtime_apis::{
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
+use xcm_executor::traits::{FeeManager, FeeReason};
 
 pub trait WeightInfo {
 	fn send() -> Weight;
@@ -192,7 +193,7 @@ pub mod pallet {
 	use frame_system::Config as SysConfig;
 	use sp_core::H256;
 	use sp_runtime::traits::Dispatchable;
-	use xcm_executor::traits::{FeeManager, MatchesFungible, WeightBounds};
+	use xcm_executor::traits::{MatchesFungible, WeightBounds};
 
 	parameter_types! {
 		/// An implementation of `Get<u32>` which just returns the latest XCM version which we can
@@ -239,7 +240,7 @@ pub mod pallet {
 		type XcmExecuteFilter: Contains<(Location, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers + FeeManager;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(Location, Vec<Asset>)>;
@@ -292,9 +293,6 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-
-		/// Configure the fees.
-		type FeeManager: FeeManager;
 	}
 
 	impl<T: Config> ExecuteControllerWeightInfo for Pallet<T> {
@@ -2426,7 +2424,7 @@ impl<T: Config> Pallet<T> {
 		let interior = interior.into();
 		let origin_dest = interior.clone().into();
 		let dest = dest.into();
-		let is_waived = T::FeeManager::is_waived(Some(&origin_dest), FeeReason::ChargeFees);
+		let is_waived = <T::XcmExecutor as FeeManager>::is_waived(Some(&origin_dest), FeeReason::ChargeFees);
 		if !is_waived {
 			message.0.insert(0, DescendOrigin(interior));
 		}

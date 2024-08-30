@@ -351,7 +351,6 @@ impl pallet_xcm::Config for TestRuntime {
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
-	type FeeManager = <XcmConfig as xcm_executor::Config>::FeeManager;
 }
 
 #[allow(dead_code)]

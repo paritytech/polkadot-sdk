@@ -125,7 +125,7 @@ impl pallet_xcm::Config for Runtime {
 	// No one can call `send`
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
 	type XcmRouter = super::super::network::RelayChainXcmRouter; // Provided by xcm-simulator
-															  // Anyone can execute XCM programs
+															 // Anyone can execute XCM programs
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	// We execute any type of program
 	type XcmExecuteFilter = Everything;
@@ -160,5 +160,4 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
-	type FeeManager = <XcmConfig as xcm_executor::Config>::FeeManager;
 }
