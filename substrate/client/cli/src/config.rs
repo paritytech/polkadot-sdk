@@ -20,7 +20,8 @@
 
 use crate::{
 	arg_enums::Database, error::Result, DatabaseParams, ImportParams, KeystoreParams,
-	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, SharedParams, SubstrateCli,
+	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, RpcEndpoint, SharedParams,
+	SubstrateCli,
 };
 use log::warn;
 use names::{Generator, Name};
@@ -34,7 +35,7 @@ use sc_service::{
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 use sc_tracing::logging::LoggerBuilder;
-use std::{net::SocketAddr, num::NonZeroU32, path::PathBuf};
+use std::{num::NonZeroU32, path::PathBuf};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -301,7 +302,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	}
 
 	/// Get the RPC address.
-	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<SocketAddr>> {
+	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<Vec<RpcEndpoint>>> {
 		Ok(None)
 	}
 
@@ -504,6 +505,10 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let telemetry_endpoints = self.telemetry_endpoints(&chain_spec)?;
 		let runtime_cache_size = self.runtime_cache_size()?;
 
+		let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = self
+			.rpc_addr(DCV::rpc_listen_port())?
+			.map(|addrs| addrs.into_iter().map(Into::into).collect());
+
 		Ok(Configuration {
 			impl_name: C::impl_name(),
 			impl_version: C::impl_version(),
@@ -533,7 +538,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			},
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
 			rpc: RpcConfiguration {
-				addr: self.rpc_addr(DCV::rpc_listen_port())?,
+				addr: rpc_addrs,
 				methods: self.rpc_methods()?,
 				max_connections: self.rpc_max_connections()?,
 				cors: self.rpc_cors(is_dev)?,

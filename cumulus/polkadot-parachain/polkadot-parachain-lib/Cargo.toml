@@ -38,6 +38,7 @@ sc-consensus = { workspace = true, default-features = true }
 frame-support = { optional = true, workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
+sc-client-db = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
@@ -105,6 +106,7 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
