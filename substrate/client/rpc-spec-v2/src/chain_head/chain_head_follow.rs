@@ -551,37 +551,37 @@ where
 		});
 
 		if let Some(current_best_block) = self.current_best_block {
-			// The best reported block is in the pruned list. Report a new best block.
+			// There are two cases when the best block is on fork:
+			//  - The best block is in the pruned list and is reported immediately
+			//  - The best block is on another fork that will be pruned in the future.
+			//
+			// For both cases, we need to report a new best block.
+
+			// Case 1. The best reported block is in the pruned list.
 			let is_in_pruned_list =
 				pruned_block_hashes.iter().any(|hash| *hash == current_best_block);
-
-			// The best reported block is not the last finalized block.
-			//
-			// It can be either:
-			//  - a descendant of the last finalized block
-			//  - a block on a fork that will be pruned in the future.
-			//
-			// In those cases, we emit a new best block.
-			//
-			// When [`Self::generate_finalized_events`] reports the last finalized block as the best
-			// block, it also sets the `self.current_best_block`, if and only if the block
-			// was never reported as `NewBlock` before.
-			//
-			// Therefore, this condition is equivalent with
-			// `!std::matches(FollowEvent::BestBlockChanged(_), events.last())`.
-			// And that means we know for sure that at least a `NewBlock` was generated
-			// for the last finalized block.
-			let is_not_last_finalized = current_best_block != last_finalized;
-
-			if is_in_pruned_list || is_not_last_finalized {
-				// It is ok to report the `BestBlockChanged` multiple times. However it is not
-				// allowed to report the `BestBlockChanged` before a `NewBlock` event. Therefore
-				// we use the last finalized as the best block, instead of `client.info()` that
-				// may contain newer information.
+			if is_in_pruned_list {
 				self.current_best_block = Some(last_finalized);
 				events.push(FollowEvent::BestBlockChanged(BestBlockChanged {
 					best_block_hash: last_finalized,
 				}));
+			} else {
+				// Case 2. Check if the best block is a descendant of the last finalized block.
+				let ancestor = sp_blockchain::lowest_common_ancestor(
+					&*self.client,
+					last_finalized,
+					current_best_block,
+				)?;
+
+				let is_descendant = ancestor.hash == last_finalized;
+				// If the best block is not a descendant of the last finalized block, it means that
+				// the best block is on a fork, that will be pruned in the future.
+				if !is_descendant {
+					self.current_best_block = Some(last_finalized);
+					events.push(FollowEvent::BestBlockChanged(BestBlockChanged {
+						best_block_hash: last_finalized,
+					}));
+				}
 			}
 		}
 
