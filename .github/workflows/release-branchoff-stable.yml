@@ -86,23 +86,14 @@ jobs:
 
       - name: Bump versions and reorder prdocs
         run: |
-          . ./.github/scripts/release/release.sh
+          . ./.github/scripts/release/release_lib.sh
 
-          echo "Double checking git config:"
-          git config --get gpg.program
+          NODE_VERSION="${{ needs.prepare-tooling.outputs.node_version }}"
+          set_version "\(NODE_VERSION[^=]*= \)\".*\"" $NODE_VERSION "polkadot/node/primitives/src/lib.rs"
+          commit_with_message "Bump node version to $NODE_VERSION in polkadot-cli"
 
-          echo "Double checking gpg key:"
-          gpg -k
+          SPEC_VERSION=$(get_spec_version $NODE_VERSION)
+          runtimes_list=$(get_filtered_runtimes_list_for_repo $(get_repo))
+          set_spec_versions $SPEC_VERSION "${runtimes_list[@]}"
 
-          BUMPED_VERSION="${{ needs.prepare-tooling.outputs.node_version }}"
-          set_version "\(NODE_VERSION[^=]*= \)\".*\"" $BUMPED_VERSION "polkadot/node/primitives/src/lib.rs"
-          commit_with_message "Bump node version to $BUMPED_VERSION in polkadot-cli"
-
-          # Set new crate version for cumulus
-          # cumulus_cargo_toml_list=$(get_cumulus_cargo_toml_list)
-          # set_crate_versions $BUMPED_VERSION "$cumulus_cargo_toml_list"
-
-          # runtimes_list=$(get_filtered_runtimes_list_for_repo $(get_repo))
-          # set_spec_versions $SPEC_VERSION "${runtimes_list[@]}"
-
-          # reorder_prdocs $BUMPED_VERSION
+          reorder_prdocs $NODE_VERSION
