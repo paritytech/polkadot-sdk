@@ -471,6 +471,8 @@ mod test {
 	use jsonrpsee::Methods;
 	use url::Url;
 
+	const RETRY_LOGIC_SERVER_STARTUP_MARGIN_SECONDS: u64 = 1;
+
 	#[test]
 	fn url_to_string_works() {
 		let url = Url::parse("wss://something/path").unwrap();
@@ -500,7 +502,10 @@ mod test {
 
 	#[tokio::test]
 	// Testing the retry logic at full means increasing CI with half a minute according
-	// to the current logic, so lets test it best effort.
+	// to the current logic, so lets test it best effort. The test can get flaky if ran
+	// on an overloaded machine because it depends on correct timing coordination and the
+	// margin is set to 1 second (the time after we check if a side effect was produced).
+	// Increase
 	async fn client_manager_retry_logic() {
 		let port = portpicker::pick_unused_port().unwrap();
 		let server = jsonrpsee::server::Server::builder()
@@ -530,7 +535,7 @@ mod test {
 		// time to catche the RPC server online and connect to it.
 		let conn_res = tokio::spawn(async move {
 			tokio::time::timeout(
-				Duration::from_secs(8),
+				Duration::from_secs(7 + RETRY_LOGIC_SERVER_STARTUP_MARGIN_SECONDS),
 				ClientManager::new(vec![format!("ws://127.0.0.1:{}", port)]),
 			)
 			.await
