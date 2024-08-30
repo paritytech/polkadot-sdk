@@ -107,10 +107,11 @@ fn azs() {
     };
     let mut test = ParaToParaThroughAHTest::new(test_args);
     let call = claim_assets(test.clone(), bob_location.clone());
-    call.dispatch(<PenpalA as Chain>::RuntimeOrigin::signed(bob_account.clone()));
-    // PenpalA::execute_with(|| {
-    //     assert!(call.dispatch(test.signed_origin).is_ok());
-    // });
+    // call.dispatch(<PenpalA as Chain>::RuntimeOrigin::signed(bob_account.clone()));
+    PenpalA::execute_with(|| {
+        assert!(call.dispatch(<PenpalA as Chain>::RuntimeOrigin::signed(bob_account.clone())).is_ok());
+        // assert!(call.dispatch(test.signed_origin).is_ok());
+    });
 
     let bob_assets_after = PenpalA::execute_with(|| {
         type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
