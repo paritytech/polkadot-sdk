@@ -179,7 +179,7 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
-#[derive_impl(default_configs::SystemParachainDefaultConfig as default_configs::FrameSystemDefaultConfig)]
+#[derive_impl(default_configs::SystemParachainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The block type.
 	type Block = Block;

@@ -464,6 +464,7 @@ pub mod pallet {
 
 		/// Block & extrinsics weights: base values and limits.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type BlockWeights: Get<limits::BlockWeights>;
 
 		/// The maximum length of a block (in bytes).
@@ -548,10 +549,12 @@ pub mod pallet {
 
 		/// The weight of runtime database operations the runtime can invoke.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DbWeight: Get<RuntimeDbWeight>;
 
 		/// Get the chain's in-code version.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type Version: Get<RuntimeVersion>;
 
 		/// Provides information about the pallet setup in the runtime.
@@ -575,6 +578,7 @@ pub mod pallet {
 		/// All resources should be cleaned up associated with the given account.
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
+		#[pallet::no_default_bounds]
 		type SystemWeightInfo: WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
@@ -583,6 +587,7 @@ pub mod pallet {
 		/// that the runtime should know about the prefix in order to make use of it as
 		/// an identifier of the chain.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type SS58Prefix: Get<u16>;
 
 		/// What to do if the runtime wants to change the code to something new.
