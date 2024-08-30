@@ -20,9 +20,8 @@ path = "src/cli/subsystem-bench.rs"
 doc = false
 
 
-
 [dependencies]
-tikv-jemallocator = { features = ["unprefixed_malloc_on_supported_platforms", "profiling"], workspace = true, optional = true }
+tikv-jemallocator = { features = ["profiling", "unprefixed_malloc_on_supported_platforms"], workspace = true, optional = true }
 jemalloc_pprof = { workspace = true, optional = true }
 polkadot-service = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
@@ -99,5 +98,6 @@ strum = { features = ["derive"], workspace = true, default-features = true }
 [features]
 default = []
 memprofile = [
-    "dep:tikv-jemallocator", "dep:jemalloc_pprof"
+	"dep:jemalloc_pprof",
+	"dep:tikv-jemallocator",
 ]
