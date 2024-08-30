@@ -24,7 +24,7 @@ use futures_timer::Delay;
 use log::{debug, info, trace};
 use sc_client_api::{BlockchainEvents, UsageProvider};
 use sc_network::NetworkStatusProvider;
-use sc_network_sync::SyncStatusProvider;
+use sc_network_sync::{SyncStatusProvider, SyncingService};
 use sp_blockchain::HeaderMetadata;
 use sp_runtime::traits::{Block as BlockT, Header};
 use std::{collections::VecDeque, fmt::Display, sync::Arc, time::Duration};
@@ -37,10 +37,9 @@ fn interval(duration: Duration) -> impl Stream<Item = ()> + Unpin {
 }
 
 /// Builds the informant and returns a `Future` that drives the informant.
-pub async fn build<B: BlockT, C, N, S>(client: Arc<C>, network: N, syncing: S)
+pub async fn build<B: BlockT, C, N>(client: Arc<C>, network: N, syncing: Arc<SyncingService<B>>)
 where
 	N: NetworkStatusProvider,
-	S: SyncStatusProvider<B>,
 	C: UsageProvider<B> + HeaderMetadata<B> + BlockchainEvents<B>,
 	<C as HeaderMetadata<B>>::Error: Display,
 {
@@ -52,13 +51,14 @@ where
 		.filter_map(|_| async {
 			let net_status = network.status().await;
 			let sync_status = syncing.status().await;
+			let num_connected_peers = syncing.num_connected_peers();
 
-			match (net_status.ok(), sync_status.ok()) {
-				(Some(net), Some(sync)) => Some((net, sync)),
+			match (net_status, sync_status) {
+				(Ok(net), Ok(sync)) => Some((net, sync, num_connected_peers)),
 				_ => None,
 			}
 		})
-		.for_each(move |(net_status, sync_status)| {
+		.for_each(move |(net_status, sync_status, num_connected_peers)| {
 			let info = client_1.usage_info();
 			if let Some(ref usage) = info.usage {
 				trace!(target: "usage", "Usage statistics: {}", usage);
@@ -68,7 +68,7 @@ where
 					"Usage statistics not displayed as backend does not provide it",
 				)
 			}
-			display.display(&info, net_status, sync_status);
+			display.display(&info, net_status, sync_status, num_connected_peers);
 			future::ready(())
 		});
 

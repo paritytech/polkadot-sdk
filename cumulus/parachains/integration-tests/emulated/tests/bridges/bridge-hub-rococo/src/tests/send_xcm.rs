@@ -29,7 +29,7 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 	let xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
-			network: WestendId.into(),
+			network: WestendId,
 			destination: [Parachain(AssetHubWestend::para_id().into())].into(),
 			xcm: remote_xcm,
 		},
