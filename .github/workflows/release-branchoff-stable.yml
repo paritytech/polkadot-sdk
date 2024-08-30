@@ -98,4 +98,4 @@ jobs:
 
           reorder_prdocs $NODE_VERSION
 
-          git push "$STABLE_BRANCH_NAME"
+          git push origin "$STABLE_BRANCH_NAME"
