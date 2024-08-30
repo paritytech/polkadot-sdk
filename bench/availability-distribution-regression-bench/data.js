@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725020873700,
+  "lastUpdate": 1725029105410,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -24075,6 +24075,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17220900520666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "zjb0807",
+            "username": "zjb0807",
+            "email": "zjb0807@qq.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9cdf3d999e9de7996495c891af7085f55acc695a",
+          "message": "Add more logs for AcceptanceCheckErr (#5513)\n\n# Description\n\nThe error message should be logged out when the check method returns an\nerror.\n\nBecause specific information is lost when `UmpAcceptanceCheckErr`,\n`ProcessedDownwardMessagesAcceptanceErr`, `HrmpWatermarkAcceptanceErr`,\n`OutboundHrmpAcceptanceErr` are converted to `AcceptanceCheckErr`, a log\nis added to each check.\n\n## Integration\n\n## Review Notes\n\n# Checklist\n\n* [ ] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [ ] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* External contributors: ask maintainers to put the right label on your\nPR.\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2024-08-30T12:55:57Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9cdf3d999e9de7996495c891af7085f55acc695a"
+        },
+        "date": 1725029077089,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009672957006666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.021972633980000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012116800406666661,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16583100776,
             "unit": "seconds"
           }
         ]
