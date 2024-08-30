@@ -20,20 +20,29 @@
 
 use crate::{self as tasks_example};
 use frame_support::derive_impl;
-use sp_runtime::generic::UncheckedExtrinsic;
 
 pub type AccountId = u32;
 pub type Balance = u32;
 
-type Block = frame_system::mocking::MockBlock<Runtime>;
+pub type TransactionExtension = (
+	frame_system::AuthorizeCall<Runtime>,
+	frame_system::DenyNone<Runtime>,
+);
+pub type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
+pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
+pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	sp_runtime::testing::MockU64Signature,
+	TransactionExtension,
+>;
+
 frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		TasksExample: tasks_example,
 	}
 );
-
-pub type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -45,15 +54,32 @@ where
 	RuntimeCall: From<LocalCall>,
 {
 	type RuntimeCall = RuntimeCall;
-	type Extrinsic = Extrinsic;
+	type Extrinsic = UncheckedExtrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Extrinsic::new_bare(call)
+	type Extension = TransactionExtension;
+
+	fn create_transaction(
+		call: RuntimeCall,
+		extension: Self::Extension,
+	) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::DenyNone::<Runtime>::new(),
+		)
 	}
 }
 

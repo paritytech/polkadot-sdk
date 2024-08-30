@@ -782,12 +782,14 @@ pub mod pallet {
 				return Err(Error::<T>::FailedTask.into())
 			}
 
+			let task_weight = task.weight();
+
 			// Emit a success event, if your design includes events for this pallet.
 			Self::deposit_event(Event::TaskCompleted { task });
 
 			// Return success.
 			if skip_validity {
-				Ok(task.weight().into())
+				Ok(Some(task_weight).into())
 			} else {
 				Ok(().into())
 			}
