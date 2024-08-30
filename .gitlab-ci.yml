@@ -340,11 +340,6 @@ cancel-pipeline-check-tracing:
   needs:
     - job: check-tracing
 
-cancel-pipeline-cargo-clippy:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: cargo-clippy
-
 cancel-pipeline-build-linux-stable:
   extends: .cancel-pipeline-template
   needs:
@@ -370,16 +365,6 @@ cancel-pipeline-test-frame-ui:
   needs:
     - job: test-frame-ui
 
-cancel-pipeline-quick-benchmarks:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: quick-benchmarks
-
-cancel-pipeline-check-try-runtime:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-try-runtime
-
 cancel-pipeline-test-frame-examples-compile-to-wasm:
   extends: .cancel-pipeline-template
   needs:
@@ -389,13 +374,3 @@ cancel-pipeline-build-short-benchmark:
   extends: .cancel-pipeline-template
   needs:
     - job: build-short-benchmark
-
-cancel-pipeline-check-runtime-migration-rococo:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-runtime-migration-rococo
-
-cancel-pipeline-check-runtime-migration-westend:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-runtime-migration-westend
