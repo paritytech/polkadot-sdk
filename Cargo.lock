@@ -880,6 +880,7 @@ dependencies = [
  "primitive-types",
  "rococo-runtime-constants",
  "scale-info",
+ "serde_json",
  "snowbridge-router-primitives",
  "sp-api",
  "sp-block-builder",
