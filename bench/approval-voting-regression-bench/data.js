@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725034029376,
+  "lastUpdate": 1725053724004,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -16825,6 +16825,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.914871208359951,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jan-Jan",
+            "username": "Jan-Jan",
+            "email": "Jan-Jan@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "824e1cfa62d91635cbe3db13b2839690e3635d49",
+          "message": "'remainder' instead of reminder && explicit instruction to clone (#5535)\n\n# Description\n\nTrivial doc fixes:\n\n* Replace the word `reminder` with `remainder` so that the English\nmatches the code intent.\n* Explicit instruct the reader to `clone`.\n\n## Review Notes\n\n* Trivial\n\nCo-authored-by: Jan-Jan <111935+Jan-Jan@users.noreply.github.com>",
+          "timestamp": "2024-08-30T19:46:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/824e1cfa62d91635cbe3db13b2839690e3635d49"
+        },
+        "date": 1725053695851,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64024.96,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.904590718649974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.560798868689997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.6307013858402706,
             "unit": "seconds"
           }
         ]
