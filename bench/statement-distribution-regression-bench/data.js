@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725029711650,
+  "lastUpdate": 1725054632591,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9911,6 +9911,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.045588305691999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jan-Jan",
+            "username": "Jan-Jan",
+            "email": "Jan-Jan@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "824e1cfa62d91635cbe3db13b2839690e3635d49",
+          "message": "'remainder' instead of reminder && explicit instruction to clone (#5535)\n\n# Description\n\nTrivial doc fixes:\n\n* Replace the word `reminder` with `remainder` so that the English\nmatches the code intent.\n* Explicit instruct the reader to `clone`.\n\n## Review Notes\n\n* Trivial\n\nCo-authored-by: Jan-Jan <111935+Jan-Jan@users.noreply.github.com>",
+          "timestamp": "2024-08-30T19:46:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/824e1cfa62d91635cbe3db13b2839690e3635d49"
+        },
+        "date": 1725054595999,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.93599999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04546816276599996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03670466654,
             "unit": "seconds"
           }
         ]
