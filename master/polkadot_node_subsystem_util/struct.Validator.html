@@ -157,7 +157,7 @@ relay chain block.</p>
     keystore: <a class="type" href="../sp_keystore/type.KeystorePtr.html" title="type sp_keystore::KeystorePtr">KeystorePtr</a>,
     sender: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;mut S</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="enum.Error.html" title="enum polkadot_node_subsystem_util::Error">Error</a>&gt;<div class="where">where
-    S: SubsystemSender&lt;<a class="enum" href="../polkadot_node_subsystem_types/messages/enum.RuntimeApiMessage.html" title="enum polkadot_node_subsystem_types::messages::RuntimeApiMessage">RuntimeApiMessage</a>&gt;,</div></h4></section></summary><div class="docblock"><p>Get a struct representing this node’s validator if this node is in fact a validator in the
+    S: SubsystemSender&lt;RuntimeApiMessage&gt;,</div></h4></section></summary><div class="docblock"><p>Get a struct representing this node’s validator if this node is in fact a validator in the
 context of the given block.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.construct" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_util/lib.rs.html#498-510">source</a><h4 class="code-header">pub fn <a href="#method.construct" class="fn">construct</a>(
     validators: &amp;[<a class="type" href="../polkadot_primitives/v8/type.ValidatorId.html" title="type polkadot_primitives::v8::ValidatorId">ValidatorId</a>],

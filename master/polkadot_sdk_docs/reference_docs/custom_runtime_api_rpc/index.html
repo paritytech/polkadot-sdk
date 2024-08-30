@@ -176,7 +176,7 @@ Chopsticks will not have the custom RPC implementation.</li>
 </ul>
 <p>Hence, we should avoid custom RPC.</p>
 <h3 id="alternatives"><a class="doc-anchor" href="#alternatives">§</a>Alternatives</h3>
-<p>Generally, <a href="../../../sc_rpc/state/trait.StateBackend.html#tymethod.call" title="method sc_rpc::state::StateBackend::call"><code>sc_rpc::state::StateBackend::call</code></a> aka. <code>state_call</code> should be used instead of
+<p>Generally, [<code>sc_rpc::state::StateBackend::call</code>] aka. <code>state_call</code> should be used instead of
 custom RPC.</p>
 <p>Usually, each custom RPC comes with a corresponding runtime API which implements the business
 logic. So instead of invoke the custom RPC, we can use <code>state_call</code> to invoke the runtime API
