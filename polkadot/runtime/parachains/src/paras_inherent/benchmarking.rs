@@ -21,7 +21,7 @@ use core::cmp::min;
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 
-use polkadot_primitives::v7::GroupIndex;
+use polkadot_primitives::v8::GroupIndex;
 
 use crate::builder::BenchBuilder;
 
