@@ -7386,6 +7386,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
 
 [[package]]
+name = "jemalloc_pprof"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96368c0fc161a0a1a20b3952b6fd31ee342fffc87ed9e48ac1ed49fb25686655"
+dependencies = [
+ "anyhow",
+ "libc",
+ "mappings",
+ "once_cell",
+ "pprof_util",
+ "tempfile",
+ "tikv-jemalloc-ctl",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "jni"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8588,6 +8605,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
+name = "mappings"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fa2605f461115ef6336342b12f0d8cabdfd7b258fed86f5f98c725535843601"
+dependencies = [
+ "anyhow",
+ "libc",
+ "once_cell",
+ "pprof_util",
+ "tracing",
+]
+
+[[package]]
 name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8755,47 +8785,18 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk-frame",
- "sc-basic-authorship",
- "sc-cli",
- "sc-client-api",
- "sc-consensus",
- "sc-consensus-manual-seal",
- "sc-executor",
- "sc-network",
- "sc-offchain",
- "sc-service",
- "sc-telemetry",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
+ "polkadot-sdk",
  "serde_json",
- "sp-api",
- "sp-block-builder",
- "sp-blockchain",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
- "sp-timestamp",
- "substrate-build-script-utils",
- "substrate-frame-rpc-system",
 ]
 
 [[package]]
 name = "minimal-template-runtime"
 version = "0.0.0"
 dependencies = [
- "pallet-balances",
  "pallet-minimal-template",
- "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
- "polkadot-sdk-frame",
+ "polkadot-sdk",
  "scale-info",
- "sp-genesis-builder",
- "sp-runtime",
- "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -10998,7 +10999,7 @@ name = "pallet-minimal-template"
 version = "0.0.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk-frame",
+ "polkadot-sdk",
  "scale-info",
 ]
 
@@ -14075,6 +14076,7 @@ dependencies = [
  "sc-chain-spec",
  "sc-cli",
  "sc-client-api",
+ "sc-client-db",
  "sc-consensus",
  "sc-executor",
  "sc-network",
@@ -15009,6 +15011,7 @@ dependencies = [
  "futures-timer",
  "hex",
  "itertools 0.11.0",
+ "jemalloc_pprof",
  "kvdb-memorydb",
  "log",
  "orchestra",
@@ -15032,6 +15035,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-service",
  "polkadot-statement-distribution",
  "prometheus",
  "pyroscope",
@@ -15060,6 +15064,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "strum 0.26.3",
  "substrate-prometheus-endpoint",
+ "tikv-jemallocator",
  "tokio",
  "tracing-gum",
 ]
@@ -15507,6 +15512,19 @@ dependencies = [
  "symbolic-demangle",
  "tempfile",
  "thiserror",
+]
+
+[[package]]
+name = "pprof_util"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c620a1858d6ebf10d7c60256629078b2d106968d0e6ff63b850d9ecd84008fbe"
+dependencies = [
+ "anyhow",
+ "flate2",
+ "num",
+ "paste",
+ "prost 0.11.9",
 ]
 
 [[package]]

@@ -45,7 +45,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	request_async_backing_params, request_availability_cores, request_para_backing_state,
 	request_persisted_validation_data, request_validation_code, request_validation_code_hash,
-	request_validators, vstaging::fetch_claim_queue,
+	request_validators, runtime::fetch_claim_queue,
 };
 use polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
