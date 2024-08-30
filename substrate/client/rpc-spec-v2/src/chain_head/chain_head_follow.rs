@@ -464,17 +464,17 @@ where
 				continue;
 			}
 
-			// If we end up here and the `best_block` is a descendent of the finalized block
-			// (last block in the list), it means that there were skipped notifications.
-			// Otherwise `pin_block` would had returned `true`.
-			//
-			// When the node falls out of sync and then syncs up to the tip of the chain, it can
-			// happen that we skip notifications. Then it is better to terminate the connection
-			// instead of trying to send notifications for all missed blocks.
 			if let Some(best_block_hash) = self.current_best_block {
 				let ancestor =
 					sp_blockchain::lowest_common_ancestor(&*self.client, *hash, best_block_hash)?;
 
+				// If we end up here and the `best_block` is a descendent of the finalized block
+				// (last block in the list), it means that there were skipped notifications.
+				// Otherwise `pin_block` would had returned `false`.
+				//
+				// When the node falls out of sync and then syncs up to the tip of the chain, it can
+				// happen that we skip notifications. Then it is better to terminate the connection
+				// instead of trying to send notifications for all missed blocks.
 				if ancestor.hash == *hash {
 					return Err(SubscriptionManagementError::Custom(
 						"A descendent of the finalized block was already reported".into(),
