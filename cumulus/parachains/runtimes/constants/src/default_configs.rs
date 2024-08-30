@@ -24,9 +24,41 @@ use polkadot_runtime_common::BlockHashCount;
 /// A struct for which DefaultConfigs can be defined for pallets common to system parachains.
 pub struct SystemParachainDefaultConfig;
 
+/// Trait containing a subset of [`frame_system::DefaultConfig`] associated types excluding those
+/// that need to be overridden.
+pub trait FrameSystemDefaultConfig {
+	type Nonce;
+	type Hash;
+	type Hashing;
+	type AccountId;
+	type Lookup;
+	type MaxConsumers;
+	type AccountData;
+	type OnNewAccount;
+	type OnKilledAccount;
+	type BlockLength;
+	#[inject_runtime_type]
+	type RuntimeEvent;
+	#[inject_runtime_type]
+	type RuntimeOrigin;
+	#[inject_runtime_type]
+	type RuntimeCall;
+	#[inject_runtime_type]
+	type RuntimeTask;
+	#[inject_runtime_type]
+	type PalletInfo;
+	type BaseCallFilter;
+	type BlockHashCount;
+	type SingleBlockMigrations;
+	type MultiBlockMigrator;
+	type PreInherents;
+	type PostInherents;
+	type PostTransactions;
+}
+
 /// [`frame_system::DefaultConfig`] for system parachains.
 #[frame_support::register_default_impl(SystemParachainDefaultConfig)]
-impl frame_system::DefaultConfig for SystemParachainDefaultConfig {
+impl FrameSystemDefaultConfig for SystemParachainDefaultConfig {
 	/// The default type for storing how many extrinsics an account has signed.
 	type Nonce = Nonce;
 	/// The default type for hashing blocks and tries.
@@ -45,18 +77,8 @@ impl frame_system::DefaultConfig for SystemParachainDefaultConfig {
 	type OnNewAccount = ();
 	/// What to do if an account is fully reaped from the system.
 	type OnKilledAccount = ();
-	/// Weight information for the extrinsics of this pallet.
-	type SystemWeightInfo = ();
-	/// This is used as an identifier of the chain.
-	type SS58Prefix = ();
-	/// Version of the runtime.
-	type Version = ();
-	/// Block & extrinsics weights: base values and limits.
-	type BlockWeights = ();
 	/// The maximum length of a block (in bytes).
 	type BlockLength = RuntimeBlockLength;
-	/// The weight of database operations that the runtime can invoke.
-	type DbWeight = ();
 	/// The ubiquitous event type injected by `construct_runtime!`.
 	#[inject_runtime_type]
 	type RuntimeEvent = ();
@@ -78,7 +100,6 @@ impl frame_system::DefaultConfig for SystemParachainDefaultConfig {
 	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	type BlockHashCount = BlockHashCount;
 	/// The set code logic, just the default since we're not a parachain.
-	type OnSetCode = ();
 	type SingleBlockMigrations = ();
 	type MultiBlockMigrator = ();
 	type PreInherents = ();
