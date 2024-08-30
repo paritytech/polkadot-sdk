@@ -3,7 +3,7 @@ cargo-clippy:
   extends:
     - .docker-env
     - .common-refs
-    - .pipeline-stopper-artifacts
+    # - .pipeline-stopper-artifacts
   variables:
     RUSTFLAGS: "-D warnings"
   script:

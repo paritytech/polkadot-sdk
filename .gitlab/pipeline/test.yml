@@ -32,7 +32,7 @@ codecov-start:
   extends:
     - .kubernetes-env
     - .common-refs
-    - .pipeline-stopper-artifacts
+    # - .pipeline-stopper-artifacts
     - .run-immediately
   script:
     - !reference [.codecov-check, script]
@@ -53,7 +53,7 @@ codecov-finish:
   extends:
     - .kubernetes-env
     - .common-refs
-    - .pipeline-stopper-artifacts
+    # - .pipeline-stopper-artifacts
   needs:
     - test-linux-stable-codecov
   script:
@@ -72,7 +72,7 @@ test-linux-stable-codecov:
   extends:
     - .docker-env
     - .common-refs
-    - .pipeline-stopper-artifacts
+    # - .pipeline-stopper-artifacts
   variables:
     CI_IMAGE: europe-docker.pkg.dev/parity-build/ci-images/ci-unified:bullseye-1.77.0
     RUST_TOOLCHAIN: stable
@@ -116,7 +116,7 @@ test-linux-stable:
     - .docker-env
     - .common-refs
     - .run-immediately
-    - .pipeline-stopper-artifacts
+    # - .pipeline-stopper-artifacts
   variables:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
@@ -165,7 +165,7 @@ test-linux-stable-runtime-benchmarks:
     - .docker-env
     - .common-refs
     - .run-immediately
-    - .pipeline-stopper-artifacts
+    # - .pipeline-stopper-artifacts
   variables:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
@@ -301,7 +301,7 @@ cargo-check-benches:
     - .common-refs
     - .run-immediately
     - .collect-artifacts
-    - .pipeline-stopper-artifacts
+    # - .pipeline-stopper-artifacts
   before_script:
     # TODO: DON'T FORGET TO CHANGE FOR PROD VALUES!!!
     # merges in the master branch on PRs. skip if base is not master
@@ -466,7 +466,7 @@ test-linux-stable-int:
     - .docker-env
     - .common-refs
     - .run-immediately
-    - .pipeline-stopper-artifacts
+    # - .pipeline-stopper-artifacts
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -488,7 +488,7 @@ check-tracing:
     - .docker-env
     - .common-refs
     - .run-immediately
-    - .pipeline-stopper-artifacts
+    # - .pipeline-stopper-artifacts
   script:
     # with-tracing must be explicitly activated, we run a test to ensure this works as expected in both cases
     - time cargo test --locked --manifest-path ./substrate/primitives/tracing/Cargo.toml --no-default-features
@@ -501,7 +501,7 @@ check-metadata-hash:
     - .docker-env
     - .common-refs
     - .run-immediately
-    - .pipeline-stopper-artifacts
+    # - .pipeline-stopper-artifacts
   script:
     - time cargo build --locked -p westend-runtime --features metadata-hash
 
