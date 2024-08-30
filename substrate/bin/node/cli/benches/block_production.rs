@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use polkadot_sdk::*;
+
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 
 use kitchensink_runtime::{constants::currency::*, BalancesCall};
@@ -102,7 +104,6 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		announce_block: true,
 		data_path: base_path.path().into(),
 		base_path,
-		informant_output_format: Default::default(),
 		wasm_runtime_overrides: None,
 	};
 
@@ -123,7 +124,7 @@ fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
 	.into()
 }
 
-fn import_block(mut client: &FullClient, built: BuiltBlock<node_primitives::Block>) {
+fn import_block(client: &FullClient, built: BuiltBlock<node_primitives::Block>) {
 	let mut params = BlockImportParams::new(BlockOrigin::File, built.block.header);
 	params.state_action =
 		StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(built.storage_changes));

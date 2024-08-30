@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::tests::*;
-use bridge_hub_rococo_runtime::xcm_config::XcmConfig;
+use crate::imports::*;
 
 #[test]
 fn teleport_to_other_system_parachains_works() {
@@ -22,9 +21,29 @@ fn teleport_to_other_system_parachains_works() {
 	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		BridgeHubRococo,      // Origin
-		XcmConfig,            // XCM configuration
-		vec![AssetHubRococo], // Destinations
+		BridgeHubRococo,          // Origin
+		BridgeHubRococoXcmConfig, // XCM configuration
+		vec![AssetHubRococo],     // Destinations
 		(native_asset, amount)
+	);
+}
+
+#[test]
+fn teleport_from_and_to_relay() {
+	let amount = ROCOCO_ED * 100;
+	let native_asset: Assets = (Here, amount).into();
+
+	test_relay_is_trusted_teleporter!(
+		Rococo,
+		RococoXcmConfig,
+		vec![BridgeHubRococo],
+		(native_asset, amount)
+	);
+
+	test_parachain_is_trusted_teleporter_for_relay!(
+		BridgeHubRococo,
+		BridgeHubRococoXcmConfig,
+		Rococo,
+		amount
 	);
 }

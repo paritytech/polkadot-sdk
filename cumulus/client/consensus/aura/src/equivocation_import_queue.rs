@@ -21,6 +21,7 @@
 /// should be thrown out and which ones should be kept.
 use codec::Codec;
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
+use parking_lot::Mutex;
 use schnellru::{ByLength, LruMap};
 
 use sc_consensus::{
@@ -70,7 +71,7 @@ impl NaiveEquivocationDefender {
 struct Verifier<P, Client, Block, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
-	defender: NaiveEquivocationDefender,
+	defender: Mutex<NaiveEquivocationDefender>,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
 }
@@ -88,7 +89,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		// Skip checks that include execution, if being told so, or when importing only state.
@@ -137,7 +138,7 @@ where
 					block_params.post_hash = Some(post_hash);
 
 					// Check for and reject egregious amounts of equivocations.
-					if self.defender.insert_and_check(slot) {
+					if self.defender.lock().insert_and_check(slot) {
 						return Err(format!(
 							"Rejecting block {:?} due to excessive equivocations at slot",
 							post_hash,
@@ -224,7 +225,7 @@ pub fn fully_verifying_import_queue<P, Client, Block: BlockT, I, CIDP>(
 	block_import: I,
 	create_inherent_data_providers: CIDP,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
-	registry: Option<&substrate_prometheus_endpoint::Registry>,
+	registry: Option<&prometheus_endpoint::Registry>,
 	telemetry: Option<TelemetryHandle>,
 ) -> BasicQueue<Block>
 where
@@ -243,7 +244,7 @@ where
 	let verifier = Verifier::<P, _, _, _> {
 		client,
 		create_inherent_data_providers,
-		defender: NaiveEquivocationDefender::default(),
+		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
 		_phantom: std::marker::PhantomData,
 	};

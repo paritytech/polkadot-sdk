@@ -20,8 +20,8 @@ use crate::{
 	storage::{self, storage_prefix, unhashed, KeyPrefixIterator, PrefixIterator, StorageAppend},
 	Never,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
-use sp_std::prelude::*;
 
 /// Generator for `StorageDoubleMap` used by `decl_storage`.
 ///
@@ -516,6 +516,7 @@ mod test_iterators {
 			unhashed,
 		},
 	};
+	use alloc::vec;
 	use codec::Encode;
 
 	#[test]

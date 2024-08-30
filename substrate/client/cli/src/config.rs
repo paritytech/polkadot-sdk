@@ -20,21 +20,22 @@
 
 use crate::{
 	arg_enums::Database, error::Result, DatabaseParams, ImportParams, KeystoreParams,
-	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, SharedParams, SubstrateCli,
+	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, RpcEndpoint, SharedParams,
+	SubstrateCli,
 };
 use log::warn;
 use names::{Generator, Name};
 use sc_service::{
 	config::{
 		BasePath, Configuration, DatabaseSource, IpNetwork, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
+		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role,
 		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
 		WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 use sc_tracing::logging::LoggerBuilder;
-use std::{net::SocketAddr, num::NonZeroU32, path::PathBuf};
+use std::{num::NonZeroU32, path::PathBuf};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -172,7 +173,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		node_key: NodeKeyConfig,
 		default_listen_port: u16,
 	) -> Result<NetworkConfiguration> {
-		Ok(if let Some(network_params) = self.network_params() {
+		let network_config = if let Some(network_params) = self.network_params() {
 			network_params.network_config(
 				chain_spec,
 				is_dev,
@@ -185,7 +186,13 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			)
 		} else {
 			NetworkConfiguration::new(node_name, client_id, node_key, Some(net_config_dir))
-		})
+		};
+
+		// TODO: Return error here in the next release:
+		// https://github.com/paritytech/polkadot-sdk/issues/5266
+		// if is_validator && network_config.public_addresses.is_empty() {}
+
+		Ok(network_config)
 	}
 
 	/// Get the keystore configuration.
@@ -295,7 +302,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	}
 
 	/// Get the RPC address.
-	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<SocketAddr>> {
+	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<Vec<RpcEndpoint>>> {
 		Ok(None)
 	}
 
@@ -498,6 +505,10 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let telemetry_endpoints = self.telemetry_endpoints(&chain_spec)?;
 		let runtime_cache_size = self.runtime_cache_size()?;
 
+		let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = self
+			.rpc_addr(DCV::rpc_listen_port())?
+			.map(|addrs| addrs.into_iter().map(Into::into).collect());
+
 		Ok(Configuration {
 			impl_name: C::impl_name(),
 			impl_version: C::impl_version(),
@@ -521,7 +532,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			blocks_pruning: self.blocks_pruning()?,
 			wasm_method: self.wasm_method()?,
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
-			rpc_addr: self.rpc_addr(DCV::rpc_listen_port())?,
+			rpc_addr: rpc_addrs,
 			rpc_methods: self.rpc_methods()?,
 			rpc_max_connections: self.rpc_max_connections()?,
 			rpc_cors: self.rpc_cors(is_dev)?,
@@ -550,7 +561,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			announce_block: self.announce_block()?,
 			role,
 			base_path,
-			informant_output_format: OutputFormat { enable_color: !self.disable_log_color()? },
 			runtime_cache_size,
 		})
 	}
@@ -638,6 +648,14 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		logger_hook(&mut logger, config);
 
 		logger.init()?;
+
+		if config.role.is_authority() && config.network.public_addresses.is_empty() {
+			warn!(
+				"WARNING: No public address specified, validator node may not be reachable.
+				Consider setting `--public-addr` to the public IP address of this node.
+				This will become a hard requirement in future versions."
+			);
+		}
 
 		match fdlimit::raise_fd_limit() {
 			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>

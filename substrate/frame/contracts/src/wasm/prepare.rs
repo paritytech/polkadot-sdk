@@ -28,13 +28,13 @@ use crate::{
 	},
 	AccountIdOf, CodeVec, Config, Error, Schedule, LOG_TARGET,
 };
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+use alloc::vec::Vec;
 use codec::MaxEncodedLen;
 use sp_runtime::{traits::Hash, DispatchError};
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-use sp_std::prelude::Vec;
 use wasmi::{
-	core::ValueType as WasmiValueType, Config as WasmiConfig, Engine, ExternType,
-	FuelConsumptionMode, Module, StackLimits,
+	core::ValType as WasmiValueType, CompilationMode, Config as WasmiConfig, Engine, ExternType,
+	Module, StackLimits,
 };
 
 /// Imported memory must be located inside this module. The reason for hardcoding is that current
@@ -56,7 +56,7 @@ pub enum LoadingMode {
 
 #[cfg(test)]
 pub mod tracker {
-	use sp_std::cell::RefCell;
+	use core::cell::RefCell;
 	thread_local! {
 		pub static LOADED_MODULE: RefCell<Vec<super::LoadingMode>> = RefCell::new(Vec::new());
 	}
@@ -71,7 +71,8 @@ impl LoadedModule {
 		code: &[u8],
 		determinism: Determinism,
 		stack_limits: Option<StackLimits>,
-		_mode: LoadingMode,
+		loading_mode: LoadingMode,
+		compilation_mode: CompilationMode,
 	) -> Result<Self, &'static str> {
 		// NOTE: wasmi does not support unstable WebAssembly features. The module is implicitly
 		// checked for not having those ones when creating `wasmi::Module` below.
@@ -86,8 +87,8 @@ impl LoadedModule {
 			.wasm_extended_const(false)
 			.wasm_saturating_float_to_int(false)
 			.floats(matches!(determinism, Determinism::Relaxed))
-			.consume_fuel(true)
-			.fuel_consumption_mode(FuelConsumptionMode::Eager);
+			.compilation_mode(compilation_mode)
+			.consume_fuel(true);
 
 		if let Some(stack_limits) = stack_limits {
 			config.set_stack_limits(stack_limits);
@@ -95,14 +96,18 @@ impl LoadedModule {
 
 		let engine = Engine::new(&config);
 
-		// TODO use Module::new_unchecked when validate_module is true once we are on wasmi@0.32
-		let module = Module::new(&engine, code).map_err(|err| {
+		let module = match loading_mode {
+			LoadingMode::Checked => Module::new(&engine, code),
+			// Safety: The code has been validated, Therefore we know that it's a valid binary.
+			LoadingMode::Unchecked => unsafe { Module::new_unchecked(&engine, code) },
+		}
+		.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Module creation failed: {:?}", err);
 			"Can't load the module into wasmi!"
 		})?;
 
 		#[cfg(test)]
-		tracker::LOADED_MODULE.with(|t| t.borrow_mut().push(_mode));
+		tracker::LOADED_MODULE.with(|t| t.borrow_mut().push(loading_mode));
 
 		// Return a `LoadedModule` instance with
 		// __valid__ module.
@@ -263,17 +268,25 @@ where
 					Determinism::Enforced,
 					stack_limits,
 					LoadingMode::Checked,
+					CompilationMode::Eager,
 				) {
 					*determinism = Determinism::Enforced;
 					module
 				} else {
-					LoadedModule::new::<T>(code, Determinism::Relaxed, None, LoadingMode::Checked)?
+					LoadedModule::new::<T>(
+						code,
+						Determinism::Relaxed,
+						None,
+						LoadingMode::Checked,
+						CompilationMode::Eager,
+					)?
 				},
 			Determinism::Enforced => LoadedModule::new::<T>(
 				code,
 				Determinism::Enforced,
 				stack_limits,
 				LoadingMode::Checked,
+				CompilationMode::Eager,
 			)?,
 		};
 
@@ -348,8 +361,13 @@ pub mod benchmarking {
 		owner: AccountIdOf<T>,
 	) -> Result<WasmBlob<T>, DispatchError> {
 		let determinism = Determinism::Enforced;
-		let contract_module =
-			LoadedModule::new::<T>(&code, determinism, None, LoadingMode::Checked)?;
+		let contract_module = LoadedModule::new::<T>(
+			&code,
+			determinism,
+			None,
+			LoadingMode::Checked,
+			CompilationMode::Eager,
+		)?;
 		let _ = contract_module.scan_imports::<T>(schedule)?;
 		let code: CodeVec<T> = code.try_into().map_err(|_| <Error<T>>::CodeTooLarge)?;
 		let code_info = CodeInfo {

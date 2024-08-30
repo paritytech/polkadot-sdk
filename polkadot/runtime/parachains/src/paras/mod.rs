@@ -113,11 +113,13 @@ use crate::{
 	initializer::SessionChangeNotification,
 	shared,
 };
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+use codec::{Decode, Encode};
+use core::{cmp, mem};
 use frame_support::{pallet_prelude::*, traits::EstimateNextSessionRotation, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{Decode, Encode};
-use primitives::{
+use polkadot_primitives::{
 	ConsensusLog, HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, UpgradeGoAhead,
 	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature, MIN_CODE_SIZE,
 };
@@ -127,14 +129,13 @@ use sp_runtime::{
 	traits::{AppVerify, One, Saturating},
 	DispatchResult, SaturatedConversion,
 };
-use sp_std::{cmp, collections::btree_set::BTreeSet, mem, prelude::*};
 
 use serde::{Deserialize, Serialize};
 
 pub use crate::Origin as ParachainOrigin;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub(crate) mod benchmarking;
+pub mod benchmarking;
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -348,9 +349,7 @@ impl Encode for ParaKind {
 }
 
 impl Decode for ParaKind {
-	fn decode<I: parity_scale_codec::Input>(
-		input: &mut I,
-	) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		match bool::decode(input) {
 			Ok(true) => Ok(ParaKind::Parachain),
 			Ok(false) => Ok(ParaKind::Parathread),
@@ -487,7 +486,7 @@ impl<BlockNumber> PvfCheckActiveVoteState<BlockNumber> {
 
 	/// Returns `None` if the quorum is not reached, or the direction of the decision.
 	fn quorum(&self, n_validators: usize) -> Option<PvfCheckOutcome> {
-		let accept_threshold = primitives::supermajority_threshold(n_validators);
+		let accept_threshold = polkadot_primitives::supermajority_threshold(n_validators);
 		// At this threshold, a supermajority is no longer possible, so we reject.
 		let reject_threshold = n_validators - accept_threshold;
 
@@ -865,7 +864,7 @@ pub mod pallet {
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 		pub paras: Vec<(ParaId, ParaGenesisArgs)>,
 	}
 
@@ -1223,6 +1222,15 @@ const INVALID_TX_BAD_VALIDATOR_IDX: u8 = 1;
 const INVALID_TX_BAD_SUBJECT: u8 = 2;
 const INVALID_TX_DOUBLE_VOTE: u8 = 3;
 
+/// This is intermediate "fix" for this issue:
+/// <https://github.com/paritytech/polkadot-sdk/issues/4737>
+///
+/// It does not actually fix it, but makes the worst case better. Without that limit someone
+/// could completely DoS the relay chain by registering a ridiculously high amount of paras.
+/// With this limit the same attack could lead to some parachains ceasing to being able to
+/// communicate via offchain XCMP. Snowbridge will still work as it only cares about `BridgeHub`.
+pub const MAX_PARA_HEADS: usize = 1024;
+
 impl<T: Config> Pallet<T> {
 	/// This is a call to schedule code upgrades for parachains which is safe to be called
 	/// outside of this module. That means this function does all checks necessary to ensure
@@ -1290,6 +1298,16 @@ impl<T: Config> Pallet<T> {
 			}
 			code
 		})
+	}
+
+	/// Get a list of the first [`MAX_PARA_HEADS`] para heads sorted by para_id.
+	/// This method is likely to be removed in the future.
+	pub fn sorted_para_heads() -> Vec<(u32, Vec<u8>)> {
+		let mut heads: Vec<(u32, Vec<u8>)> =
+			Heads::<T>::iter().map(|(id, head)| (id.into(), head.0)).collect();
+		heads.sort_by_key(|(id, _)| *id);
+		heads.truncate(MAX_PARA_HEADS);
+		heads
 	}
 
 	// Apply all para actions queued for the given session index.
@@ -1938,14 +1956,12 @@ impl<T: Config> Pallet<T> {
 		inclusion_block_number: BlockNumberFor<T>,
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
 		upgrade_strategy: UpgradeStrategy,
-	) -> Weight {
-		let mut weight = T::DbWeight::get().reads(1);
-
+	) {
 		// Should be prevented by checks in `schedule_code_upgrade_external`
 		let new_code_len = new_code.0.len();
 		if new_code_len < MIN_CODE_SIZE as usize || new_code_len > cfg.max_code_size as usize {
 			log::warn!(target: LOG_TARGET, "attempted to schedule an upgrade with invalid new validation code",);
-			return weight
+			return
 		}
 
 		// Enacting this should be prevented by the `can_upgrade_validation_code`
@@ -1959,7 +1975,7 @@ impl<T: Config> Pallet<T> {
 			// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
 			log::warn!(target: LOG_TARGET, "ended up scheduling an upgrade while one is pending",);
-			return weight
+			return
 		}
 
 		let code_hash = new_code.hash();
@@ -1968,7 +1984,6 @@ impl<T: Config> Pallet<T> {
 		// process right away.
 		//
 		// We do not want to allow this since it will mess with the code reference counting.
-		weight += T::DbWeight::get().reads(1);
 		if CurrentCodeHash::<T>::get(&id) == Some(code_hash) {
 			// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
@@ -1976,15 +1991,13 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"para tried to upgrade to the same code. Abort the upgrade",
 			);
-			return weight
+			return
 		}
 
 		// This is the start of the upgrade process. Prevent any further attempts at upgrading.
-		weight += T::DbWeight::get().writes(2);
 		FutureCodeHash::<T>::insert(&id, &code_hash);
 		UpgradeRestrictionSignal::<T>::insert(&id, UpgradeRestriction::Present);
 
-		weight += T::DbWeight::get().reads_writes(1, 1);
 		let next_possible_upgrade_at = inclusion_block_number + cfg.validation_upgrade_cooldown;
 		UpgradeCooldowns::<T>::mutate(|upgrade_cooldowns| {
 			let insert_idx = upgrade_cooldowns
@@ -1993,14 +2006,12 @@ impl<T: Config> Pallet<T> {
 			upgrade_cooldowns.insert(insert_idx, (id, next_possible_upgrade_at));
 		});
 
-		weight += Self::kick_off_pvf_check(
+		Self::kick_off_pvf_check(
 			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number, upgrade_strategy },
 			code_hash,
 			new_code,
 			cfg,
 		);
-
-		weight
 	}
 
 	/// Makes sure that the given code hash has passed pre-checking.
@@ -2090,11 +2101,11 @@ impl<T: Config> Pallet<T> {
 		id: ParaId,
 		new_head: HeadData,
 		execution_context: BlockNumberFor<T>,
-	) -> Weight {
+	) {
 		Heads::<T>::insert(&id, &new_head);
 		MostRecentContext::<T>::insert(&id, execution_context);
 
-		let weight = if let Some(expected_at) = FutureCodeUpgrades::<T>::get(&id) {
+		if let Some(expected_at) = FutureCodeUpgrades::<T>::get(&id) {
 			if expected_at <= execution_context {
 				FutureCodeUpgrades::<T>::remove(&id);
 				UpgradeGoAheadSignal::<T>::remove(&id);
@@ -2104,14 +2115,10 @@ impl<T: Config> Pallet<T> {
 					new_code_hash
 				} else {
 					log::error!(target: LOG_TARGET, "Missing future code hash for {:?}", &id);
-					return T::DbWeight::get().reads_writes(3, 1 + 3)
+					return
 				};
 
-				let weight = Self::set_current_code(id, new_code_hash, expected_at);
-
-				weight + T::DbWeight::get().reads_writes(3, 3)
-			} else {
-				T::DbWeight::get().reads_writes(1, 1 + 0)
+				Self::set_current_code(id, new_code_hash, expected_at);
 			}
 		} else {
 			// This means there is no upgrade scheduled.
@@ -2119,10 +2126,9 @@ impl<T: Config> Pallet<T> {
 			// In case the upgrade was aborted by the relay-chain we should reset
 			// the `Abort` signal.
 			UpgradeGoAheadSignal::<T>::remove(&id);
-			T::DbWeight::get().reads_writes(1, 2)
 		};
 
-		weight.saturating_add(T::OnNewHead::on_new_head(id, &new_head))
+		T::OnNewHead::on_new_head(id, &new_head);
 	}
 
 	/// Set the current code for the given parachain.

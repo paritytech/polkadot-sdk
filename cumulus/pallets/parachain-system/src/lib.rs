@@ -27,10 +27,14 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
+	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
@@ -49,12 +53,8 @@ use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash},
-	transaction_validity::{
-		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
-	},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
-use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
 use xcm_builder::InspectMessageQueues;
 
@@ -190,7 +190,7 @@ pub mod ump_constants {
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::{pallet_prelude::*, WeightInfo as SystemWeightInfo};
+	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
@@ -245,10 +245,6 @@ pub mod pallet {
 		/// [`consensus_hook::ExpectParentIncluded`] here. This is only necessary in the case
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
-		///
-		/// This config type is only available when the `parameterized-consensus-hook` crate feature
-		/// is activated.
-		#[cfg(feature = "parameterized-consensus-hook")]
 		type ConsensusHook: ConsensusHook;
 	}
 
@@ -556,10 +552,8 @@ pub mod pallet {
 			.expect("Invalid relay chain state proof");
 
 			// Update the desired maximum capacity according to the consensus hook.
-			#[cfg(feature = "parameterized-consensus-hook")]
-			let (consensus_hook_weight, capacity) = T::ConsensusHook::on_state_proof(&relay_state_proof);
-			#[cfg(not(feature = "parameterized-consensus-hook"))]
-			let (consensus_hook_weight, capacity) = ExpectParentIncluded::on_state_proof(&relay_state_proof);
+			let (consensus_hook_weight, capacity) =
+				T::ConsensusHook::on_state_proof(&relay_state_proof);
 			total_weight += consensus_hook_weight;
 			total_weight += Self::maybe_drop_included_ancestors(&relay_state_proof, capacity);
 			// Deposit a log indicating the relay-parent storage root.
@@ -656,52 +650,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
-		/// later.
-		///
-		/// The `check_version` parameter sets a boolean flag for whether or not the runtime's spec
-		/// version and name should be verified on upgrade. Since the authorization only has a hash,
-		/// it cannot actually perform the verification.
-		///
-		/// This call requires Root origin.
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::authorize_upgrade())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "To be removed after June 2024. Migrate to `frame_system::authorize_upgrade`."
-		)]
-		pub fn authorize_upgrade(
-			origin: OriginFor<T>,
-			code_hash: T::Hash,
-			check_version: bool,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			frame_system::Pallet::<T>::do_authorize_upgrade(code_hash, check_version);
-			Ok(())
-		}
-
-		/// Provide the preimage (runtime binary) `code` for an upgrade that has been authorized.
-		///
-		/// If the authorization required a version check, this call will ensure the spec name
-		/// remains unchanged and that the spec version has increased.
-		///
-		/// Note that this function will not apply the new `code`, but only attempt to schedule the
-		/// upgrade with the Relay Chain.
-		///
-		/// All origins are allowed.
-		#[pallet::call_index(3)]
-		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::apply_authorized_upgrade())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "To be removed after June 2024. Migrate to `frame_system::apply_authorized_upgrade`."
-		)]
-		pub fn enact_authorized_upgrade(
-			_: OriginFor<T>,
-			code: Vec<u8>,
-		) -> DispatchResultWithPostInfo {
-			let post = frame_system::Pallet::<T>::do_apply_authorize_upgrade(code)?;
-			Ok(post)
-		}
+		// WARNING: call indices 2 and 3 were used in a former version of this pallet. Using them
+		// again will require to bump the transaction version of runtimes using this pallet.
 	}
 
 	#[pallet::event]
@@ -749,14 +699,13 @@ pub mod pallet {
 	/// The segment length is limited by the capacity returned from the [`ConsensusHook`] configured
 	/// in the pallet.
 	#[pallet::storage]
-	pub(super) type UnincludedSegment<T: Config> =
-		StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
+	pub type UnincludedSegment<T: Config> = StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
 
 	/// Storage field that keeps track of bandwidth used by the unincluded segment along with the
 	/// latest HRMP watermark. Used for limiting the acceptance of new blocks with
 	/// respect to relay chain constraints.
 	#[pallet::storage]
-	pub(super) type AggregatedUnincludedSegment<T: Config> =
+	pub type AggregatedUnincludedSegment<T: Config> =
 		StorageValue<_, SegmentTracker<T::Hash>, OptionQuery>;
 
 	/// In case of a scheduled upgrade, this storage field contains the validation code to be
@@ -766,7 +715,7 @@ pub mod pallet {
 	/// [`:code`][sp_core::storage::well_known_keys::CODE] which will result the next block process
 	/// with the new validation code. This concludes the upgrade process.
 	#[pallet::storage]
-	pub(super) type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
+	pub type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
 
 	/// Validation code that is set by the parachain and is to be communicated to collator and
 	/// consequently the relay-chain.
@@ -774,23 +723,23 @@ pub mod pallet {
 	/// This will be cleared in `on_initialize` of each new block if no other pallet already set
 	/// the value.
 	#[pallet::storage]
-	pub(super) type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+	pub type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	/// The [`PersistedValidationData`] set for this block.
 	/// This value is expected to be set only once per block and it's never stored
 	/// in the trie.
 	#[pallet::storage]
-	pub(super) type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
+	pub type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
 
 	/// Were the validation data set to notify the relay chain?
 	#[pallet::storage]
-	pub(super) type DidSetValidationCode<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type DidSetValidationCode<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The relay chain block number associated with the last parachain block.
 	///
 	/// This is updated in `on_finalize`.
 	#[pallet::storage]
-	pub(super) type LastRelayChainBlockNumber<T: Config> =
+	pub type LastRelayChainBlockNumber<T: Config> =
 		StorageValue<_, RelayChainBlockNumber, ValueQuery>;
 
 	/// An option which indicates if the relay-chain restricts signalling a validation code upgrade.
@@ -801,7 +750,7 @@ pub mod pallet {
 	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	#[pallet::storage]
-	pub(super) type UpgradeRestrictionSignal<T: Config> =
+	pub type UpgradeRestrictionSignal<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeRestriction>, ValueQuery>;
 
 	/// Optional upgrade go-ahead signal from the relay-chain.
@@ -810,7 +759,7 @@ pub mod pallet {
 	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	#[pallet::storage]
-	pub(super) type UpgradeGoAhead<T: Config> =
+	pub type UpgradeGoAhead<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeGoAhead>, ValueQuery>;
 
 	/// The state proof for the last relay parent block.
@@ -820,7 +769,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
-	pub(super) type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
+	pub type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
 
 	/// The snapshot of some state related to messaging relevant to the current parachain as per
 	/// the relay parent.
@@ -830,7 +779,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
-	pub(super) type RelevantMessagingState<T: Config> = StorageValue<_, MessagingStateSnapshot>;
+	pub type RelevantMessagingState<T: Config> = StorageValue<_, MessagingStateSnapshot>;
 
 	/// The parachain host configuration that was obtained from the relay parent.
 	///
@@ -840,53 +789,51 @@ pub mod pallet {
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
 	#[pallet::disable_try_decode_storage]
-	pub(super) type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
+	pub type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
 
 	/// The last downward message queue chain head we have observed.
 	///
 	/// This value is loaded before and saved after processing inbound downward messages carried
 	/// by the system inherent.
 	#[pallet::storage]
-	pub(super) type LastDmqMqcHead<T: Config> = StorageValue<_, MessageQueueChain, ValueQuery>;
+	pub type LastDmqMqcHead<T: Config> = StorageValue<_, MessageQueueChain, ValueQuery>;
 
 	/// The message queue chain heads we have observed per each channel incoming channel.
 	///
 	/// This value is loaded before and saved after processing inbound downward messages carried
 	/// by the system inherent.
 	#[pallet::storage]
-	pub(super) type LastHrmpMqcHeads<T: Config> =
+	pub type LastHrmpMqcHeads<T: Config> =
 		StorageValue<_, BTreeMap<ParaId, MessageQueueChain>, ValueQuery>;
 
 	/// Number of downward messages processed in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// HRMP watermark that was set in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type HrmpWatermark<T: Config> =
-		StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
+	pub type HrmpWatermark<T: Config> = StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
 
 	/// HRMP messages that were sent in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type HrmpOutboundMessages<T: Config> =
+	pub type HrmpOutboundMessages<T: Config> =
 		StorageValue<_, Vec<OutboundHrmpMessage>, ValueQuery>;
 
 	/// Upward messages that were sent in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+	pub type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// Upward messages that are still pending and not yet send to the relay chain.
 	#[pallet::storage]
-	pub(super) type PendingUpwardMessages<T: Config> =
-		StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// Initialization value for the delivery fee factor for UMP.
 	#[pallet::type_value]
@@ -896,29 +843,29 @@ pub mod pallet {
 
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
-	pub(super) type UpwardDeliveryFeeFactor<T: Config> =
+	pub type UpwardDeliveryFeeFactor<T: Config> =
 		StorageValue<_, FixedU128, ValueQuery, UpwardInitialDeliveryFeeFactor>;
 
 	/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
 	/// announcing the weight of `on_initialize` and `on_finalize`.
 	#[pallet::storage]
-	pub(super) type AnnouncedHrmpMessagesPerCandidate<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type AnnouncedHrmpMessagesPerCandidate<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// The weight we reserve at the beginning of the block for processing XCMP messages. This
 	/// overrides the amount set in the Config trait.
 	#[pallet::storage]
-	pub(super) type ReservedXcmpWeightOverride<T: Config> = StorageValue<_, Weight>;
+	pub type ReservedXcmpWeightOverride<T: Config> = StorageValue<_, Weight>;
 
 	/// The weight we reserve at the beginning of the block for processing DMP messages. This
 	/// overrides the amount set in the Config trait.
 	#[pallet::storage]
-	pub(super) type ReservedDmpWeightOverride<T: Config> = StorageValue<_, Weight>;
+	pub type ReservedDmpWeightOverride<T: Config> = StorageValue<_, Weight>;
 
 	/// A custom head data that should be returned as result of `validate_block`.
 	///
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
-	pub(super) type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
@@ -947,7 +894,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -955,30 +902,6 @@ pub mod pallet {
 		fn build(&self) {
 			// TODO: Remove after https://github.com/paritytech/cumulus/issues/479
 			sp_io::storage::set(b":c", &[]);
-		}
-	}
-
-	#[pallet::validate_unsigned]
-	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::enact_authorized_upgrade { ref code } = call {
-				if let Ok(hash) = frame_system::Pallet::<T>::validate_authorized_upgrade(&code[..])
-				{
-					return Ok(ValidTransaction {
-						priority: 100,
-						requires: Vec::new(),
-						provides: vec![hash.as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
-				}
-			}
-			if let Call::set_validation_data { .. } = call {
-				return Ok(Default::default())
-			}
-			Err(InvalidTransaction::Call.into())
 		}
 	}
 }
@@ -1019,6 +942,13 @@ impl<T: Config> FeeTracker for Pallet<T> {
 				UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
 			*f
 		})
+	}
+}
+
+impl<T: Config> ListChannelInfos for Pallet<T> {
+	fn outgoing_channels() -> Vec<ParaId> {
+		let Some(state) = RelevantMessagingState::<T>::get() else { return Vec::new() };
+		state.egress_channels.into_iter().map(|(id, _)| id).collect()
 	}
 }
 
@@ -1532,7 +1462,7 @@ impl<T: Config> Pallet<T> {
 }
 
 /// Type that implements `SetCode`.
-pub struct ParachainSetCode<T>(sp_std::marker::PhantomData<T>);
+pub struct ParachainSetCode<T>(core::marker::PhantomData<T>);
 impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
 		Pallet::<T>::schedule_code_upgrade(code)
@@ -1632,10 +1562,8 @@ impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pall
 }
 
 /// Something that can check the inherents of a block.
-#[cfg_attr(
-	feature = "parameterized-consensus-hook",
-	deprecated = "consider switching to `cumulus-pallet-parachain-system::ConsensusHook`"
-)]
+#[deprecated(note = "This trait is deprecated and will be removed by September 2024. \
+		Consider switching to `cumulus-pallet-parachain-system::ConsensusHook`")]
 pub trait CheckInherents<Block: BlockT> {
 	/// Check all inherents of the block.
 	///
@@ -1649,7 +1577,7 @@ pub trait CheckInherents<Block: BlockT> {
 
 /// Struct that always returns `Ok` on inherents check, needed for backwards-compatibility.
 #[doc(hidden)]
-pub struct DummyCheckInherents<Block>(sp_std::marker::PhantomData<Block>);
+pub struct DummyCheckInherents<Block>(core::marker::PhantomData<Block>);
 
 #[allow(deprecated)]
 impl<Block: BlockT> CheckInherents<Block> for DummyCheckInherents<Block> {
@@ -1722,7 +1650,7 @@ pub type RelaychainBlockNumberProvider<T> = RelaychainDataProvider<T>;
 ///   of [`RelayChainState`].
 /// - [`current_block_number`](Self::current_block_number): Will return
 ///   [`Pallet::last_relay_block_number()`].
-pub struct RelaychainDataProvider<T>(sp_std::marker::PhantomData<T>);
+pub struct RelaychainDataProvider<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	type BlockNumber = relay_chain::BlockNumber;

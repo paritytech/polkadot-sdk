@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "migrations: take() should consume read and write operation weight"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `take()` consumes only 1 read worth of weight in `single-block-migrations` example, while `take()` is `get() + kill()`, 
+      i.e should be 1 read + 1 write. Since this could mislead developers writing migrations following the example, 
+      this PR fixes the weight calculation.
+
+crates: 
+  - name: pallet-example-single-block-migrations
+    bump: minor

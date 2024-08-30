@@ -30,13 +30,43 @@
 //! > **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate's
 //! > State Transition Function (Runtime) Framework.
 //!
+//! ## Usage
+//!
+//! The main intended use of this crate is for it to be imported with its preludes:
+//!
+//! ```
+//! # use polkadot_sdk_frame as frame;
+//! #[frame::pallet]
+//! pub mod pallet {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::prelude::*;
+//! 	// ^^ using the prelude!
+//!
+//! 	#[pallet::config]
+//! 	pub trait Config: frame_system::Config {}
+//!
+//! 	#[pallet::pallet]
+//! 	pub struct Pallet<T>(_);
+//! }
+//!
+//! pub mod tests {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::testing_prelude::*;
+//! }
+//!
+//! pub mod runtime {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::runtime::prelude::*;
+//! }
+//! ```
+//!
+//! See: [`prelude`], [`testing_prelude`] and [`runtime::prelude`].
+//!
+//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//!
 //! ## Documentation
 //!
 //! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
-//!
-//! ## WARNING: Experimental
-//!
-//! **This crate and all of its content is experimental, and should not yet be used in production.**
 //!
 //! ## Underlying dependencies
 //!
@@ -46,9 +76,9 @@
 //! In short, this crate only re-exports types and traits from multiple sources. All of these
 //! sources are listed (and re-exported again) in [`deps`].
 //!
-//! ## Usage
+//! ## WARNING: Experimental
 //!
-//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//! **This crate and all of its content is experimental, and should not yet be used in production.**
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
@@ -102,10 +132,6 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
 
-	/// All of the std alternative types.
-	#[doc(no_inline)]
-	pub use sp_std::prelude::*;
-
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
 	pub use super::derive::*;
@@ -134,7 +160,6 @@ pub mod testing_prelude {
 
 	pub use frame_system::{self, mocking::*};
 	pub use sp_io::TestExternalities as TestState;
-	pub use sp_std::if_std;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -152,7 +177,14 @@ pub mod runtime {
 		pub use frame_executive::*;
 
 		/// Macro to amalgamate the runtime into `struct Runtime`.
+		///
+		/// Consider using the new version of this [`frame_construct_runtime`].
 		pub use frame_support::construct_runtime;
+
+		/// Macro to amalgamate the runtime into `struct Runtime`.
+		///
+		/// This is the newer version of [`construct_runtime`].
+		pub use frame_support::runtime as frame_construct_runtime;
 
 		/// Macro to easily derive the `Config` trait of various pallet for `Runtime`.
 		pub use frame_support::derive_impl;
@@ -161,11 +193,17 @@ pub mod runtime {
 		// TODO: using linking in the Get in the line above triggers an ICE :/
 		pub use frame_support::{ord_parameter_types, parameter_types};
 
+		/// For building genesis config.
+		pub use frame_support::genesis_builder_helper::{build_state, get_preset};
+
 		/// Const types that can easily be used in conjuncture with `Get`.
 		pub use frame_support::traits::{
 			ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16,
 			ConstU32, ConstU64, ConstU8,
 		};
+
+		/// Used for simple fee calculation.
+		pub use frame_support::weights::{self, FixedFee, NoFee};
 
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
@@ -176,11 +214,16 @@ pub mod runtime {
 		/// Types to define your runtime version.
 		pub use sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
 
+		#[cfg(feature = "std")]
+		pub use sp_version::NativeVersion;
+
 		/// Macro to implement runtime APIs.
 		pub use sp_api::impl_runtime_apis;
 
-		#[cfg(feature = "std")]
-		pub use sp_version::NativeVersion;
+		// Types often used in the runtime APIs.
+		pub use sp_core::OpaqueMetadata;
+		pub use sp_inherents::{CheckInherentsResult, InherentData};
+		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
 	/// Types and traits for runtimes that implement runtime APIs.
@@ -198,11 +241,6 @@ pub mod runtime {
 	// moved to file similarly.
 	#[allow(ambiguous_glob_reexports)]
 	pub mod apis {
-		// Types often used in the runtime APIs.
-		pub use sp_core::OpaqueMetadata;
-		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
-
 		pub use frame_system_rpc_runtime_api::*;
 		pub use sp_api::{self, *};
 		pub use sp_block_builder::*;
@@ -316,14 +354,14 @@ pub mod primitives {
 ///
 /// This is already part of the [`prelude`].
 pub mod derive {
+	pub use codec::{Decode, Encode};
+	pub use core::fmt::Debug;
 	pub use frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
-	pub use parity_scale_codec::{Decode, Encode};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::RuntimeDebug;
-	pub use sp_std::fmt::Debug;
 }
 
 /// Access to all of the dependencies of this crate. In case the re-exports are not enough, this
@@ -343,9 +381,8 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
-	pub use sp_std;
 
-	pub use parity_scale_codec as codec;
+	pub use codec;
 	pub use scale_info;
 
 	#[cfg(feature = "runtime")]

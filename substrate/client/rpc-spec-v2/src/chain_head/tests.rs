@@ -137,7 +137,7 @@ async fn setup_api() -> (
 		CHILD_VALUE.to_vec(),
 	);
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -186,7 +186,7 @@ async fn setup_api() -> (
 }
 
 async fn import_block(
-	mut client: Arc<Client<Backend>>,
+	client: Arc<Client<Backend>>,
 	parent_hash: <Block as BlockT>::Hash,
 	parent_number: u64,
 ) -> Block {
@@ -203,7 +203,7 @@ async fn import_block(
 }
 
 async fn import_best_block_with_tx(
-	mut client: Arc<Client<Backend>>,
+	client: Arc<Client<Backend>>,
 	parent_hash: <Block as BlockT>::Hash,
 	parent_number: u64,
 	tx: Transfer,
@@ -245,7 +245,7 @@ macro_rules! check_new_and_best_block_events {
 async fn follow_subscription_produces_blocks() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -316,7 +316,7 @@ async fn follow_subscription_produces_blocks() {
 async fn follow_with_runtime() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -469,7 +469,7 @@ async fn get_header() {
 
 #[tokio::test]
 async fn get_body() {
-	let (mut client, api, mut block_sub, sub_id, block) = setup_api().await;
+	let (client, api, mut block_sub, sub_id, block) = setup_api().await;
 	let block_hash = format!("{:?}", block.header.hash());
 	let invalid_hash = hex_string(&INVALID_HASH);
 
@@ -626,7 +626,7 @@ async fn call_runtime() {
 async fn call_runtime_without_flag() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -691,7 +691,7 @@ async fn call_runtime_without_flag() {
 
 #[tokio::test]
 async fn get_storage_hash() {
-	let (mut client, api, mut block_sub, sub_id, block) = setup_api().await;
+	let (client, api, mut block_sub, sub_id, block) = setup_api().await;
 	let block_hash = format!("{:?}", block.header.hash());
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let key = hex_string(&KEY);
@@ -835,7 +835,7 @@ async fn get_storage_hash() {
 
 #[tokio::test]
 async fn get_storage_multi_query_iter() {
-	let (mut client, api, mut block_sub, sub_id, block) = setup_api().await;
+	let (client, api, mut block_sub, sub_id, block) = setup_api().await;
 	let key = hex_string(&KEY);
 
 	// Import a new block with storage changes.
@@ -959,7 +959,7 @@ async fn get_storage_multi_query_iter() {
 
 #[tokio::test]
 async fn get_storage_value() {
-	let (mut client, api, mut block_sub, sub_id, block) = setup_api().await;
+	let (client, api, mut block_sub, sub_id, block) = setup_api().await;
 	let block_hash = format!("{:?}", block.hash());
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let key = hex_string(&KEY);
@@ -1287,7 +1287,7 @@ async fn unique_operation_ids() {
 async fn separate_operation_ids_for_subscriptions() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1375,7 +1375,7 @@ async fn separate_operation_ids_for_subscriptions() {
 async fn follow_generates_initial_blocks() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1533,7 +1533,7 @@ async fn follow_generates_initial_blocks() {
 async fn follow_exceeding_pinned_blocks() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1612,7 +1612,7 @@ async fn follow_exceeding_pinned_blocks() {
 async fn follow_with_unpin() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1720,7 +1720,7 @@ async fn follow_with_unpin() {
 async fn unpin_duplicate_hashes() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1825,7 +1825,7 @@ async fn unpin_duplicate_hashes() {
 async fn follow_with_multiple_unpin_hashes() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1972,7 +1972,7 @@ async fn follow_with_multiple_unpin_hashes() {
 async fn follow_prune_best_block() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -2160,7 +2160,7 @@ async fn follow_prune_best_block() {
 async fn follow_forks_pruned_block() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -2322,7 +2322,7 @@ async fn follow_forks_pruned_block() {
 async fn follow_report_multiple_pruned_block() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -2487,6 +2487,7 @@ async fn follow_report_multiple_pruned_block() {
 	client.finalize_block(block_3_hash, None).unwrap();
 
 	// Finalizing block 3 directly will also result in block 1 and 2 being finalized.
+	// It will also mark block 2 and block 3 from the fork as pruned.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
@@ -2494,7 +2495,7 @@ async fn follow_report_multiple_pruned_block() {
 			format!("{:?}", block_2_hash),
 			format!("{:?}", block_3_hash),
 		],
-		pruned_block_hashes: vec![],
+		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)],
 	});
 	assert_eq!(event, expected);
 
@@ -2504,7 +2505,6 @@ async fn follow_report_multiple_pruned_block() {
 	//                                                  ^^^ finalized
 	//           -> block 1 -> block 2_f -> block 3_f
 	//
-	// Mark block 4 as finalized to force block 2_f and 3_f to get pruned.
 
 	let block_4 = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(block_3.hash())
@@ -2535,11 +2535,11 @@ async fn follow_report_multiple_pruned_block() {
 	});
 	assert_eq!(event, expected);
 
-	// Block 4 and 5 be reported as pruned, not just the stale head (block 5).
+	// Blocks from the fork were pruned earlier.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_4_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 }
@@ -2559,7 +2559,7 @@ async fn pin_block_references() {
 	)
 	.unwrap();
 
-	let mut client = Arc::new(
+	let client = Arc::new(
 		new_in_mem::<_, Block, _, RuntimeApi>(
 			backend.clone(),
 			executor,
@@ -2705,7 +2705,7 @@ async fn pin_block_references() {
 async fn follow_finalized_before_new_block() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
 
@@ -2823,7 +2823,7 @@ async fn ensure_operation_limits_works() {
 		CHILD_VALUE.to_vec(),
 	);
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	// Configure the chainHead with maximum 1 ongoing operations.
 	let api = ChainHead::new(
@@ -2930,7 +2930,7 @@ async fn check_continue_operation() {
 		CHILD_VALUE.to_vec(),
 	);
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	// Configure the chainHead with maximum 1 item before asking for pagination.
 	let api = ChainHead::new(
@@ -3115,7 +3115,7 @@ async fn stop_storage_operation() {
 		CHILD_VALUE.to_vec(),
 	);
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	// Configure the chainHead with maximum 1 item before asking for pagination.
 	let api = ChainHead::new(
@@ -3221,7 +3221,7 @@ async fn stop_storage_operation() {
 
 #[tokio::test]
 async fn storage_closest_merkle_value() {
-	let (mut client, api, mut sub, sub_id, block) = setup_api().await;
+	let (client, api, mut sub, sub_id, block) = setup_api().await;
 
 	/// The core of this test.
 	///
@@ -3414,7 +3414,7 @@ async fn storage_closest_merkle_value() {
 async fn chain_head_stop_all_subscriptions() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	// Configure the chainHead to stop all subscriptions on lagging distance of 5 blocks.
 	let api = ChainHead::new(
@@ -3714,16 +3714,8 @@ async fn follow_unique_pruned_blocks() {
 	// The chainHead will see block 5 as the best block. However, the
 	// client will finalize the block 6, which is on another fork.
 	//
-	// When the block 6 is finalized, block 2 block 3 block 4 and block 5 are placed on an invalid
-	// fork. However, pruning of blocks happens on level N - 1.
-	// Therefore, no pruned blocks are reported yet.
+	// When the block 6 is finalized all blocks from the stale forks (2, 3, 4, 5) are pruned.
 	//
-	// When the block 7 is finalized, block 3 is detected as stale. At this step, block 2 and 3
-	// are reported as pruned.
-	//
-	// When the block 8 is finalized, block 5 block 4 and block 2 are detected as stale. However,
-	// only blocks 5 and 4 are reported as pruned. This is because the block 2 was previously
-	// reported.
 
 	// Initial setup steps:
 	let block_1_hash =
@@ -3776,16 +3768,33 @@ async fn follow_unique_pruned_blocks() {
 	});
 	assert_eq!(event, expected);
 
-	// Block 2 must be reported as pruned, even if it was the previous best.
-	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	// All blocks from stale forks are pruned when we finalize block 6.
+	let mut event: FollowEvent<String> = get_next_event(&mut sub).await;
+
+	// Sort pruned block hashes to counter flaky test caused by event generation (get_pruned_hashes)
+	if let FollowEvent::Finalized(Finalized { pruned_block_hashes, .. }) = &mut event {
+		pruned_block_hashes.sort();
+	}
+	let expected_pruned_block_hashes = {
+		let mut hashes = vec![
+			format!("{:?}", block_2_hash),
+			format!("{:?}", block_3_hash),
+			format!("{:?}", block_4_hash),
+			format!("{:?}", block_5_hash),
+		];
+		hashes.sort();
+		hashes
+	};
+
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
 			format!("{:?}", block_1_hash),
 			format!("{:?}", block_2_f_hash),
 			format!("{:?}", block_6_hash),
 		],
-		pruned_block_hashes: vec![],
+		pruned_block_hashes: expected_pruned_block_hashes,
 	});
+
 	assert_eq!(event, expected);
 
 	// Pruned hash can be unpinned.
@@ -3802,9 +3811,10 @@ async fn follow_unique_pruned_blocks() {
 	client.finalize_block(block_7_hash, None).unwrap();
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	// All necessary blocks were pruned on block 6 finalization.
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_7_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_2_hash), format!("{:?}", block_3_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 
@@ -3815,10 +3825,11 @@ async fn follow_unique_pruned_blocks() {
 	// Finalize the block 8.
 	client.finalize_block(block_8_hash, None).unwrap();
 
+	// All necessary blocks were pruned on block 6 finalization.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_8_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_4_hash), format!("{:?}", block_5_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 }

@@ -31,8 +31,8 @@
 
 #![deny(missing_docs)]
 
+use codec::Encode;
 use futures::{channel::oneshot, future::FutureExt, join, select};
-use parity_scale_codec::Encode;
 use polkadot_node_primitives::{
 	AvailableData, Collation, CollationGenerationConfig, CollationSecondedSignal, PoV,
 	SubmitCollationParams,
@@ -45,7 +45,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	request_async_backing_params, request_availability_cores, request_para_backing_state,
 	request_persisted_validation_data, request_validation_code, request_validation_code_hash,
-	request_validators, vstaging::fetch_claim_queue,
+	request_validators, runtime::fetch_claim_queue,
 };
 use polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
@@ -147,11 +147,7 @@ impl CollationGenerationSubsystem {
 			Ok(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::Reinitialize(config),
 			}) => {
-				if self.config.is_none() {
-					gum::error!(target: LOG_TARGET, "no initial initialization");
-				} else {
-					self.config = Some(Arc::new(config));
-				}
+				self.config = Some(Arc::new(config));
 				false
 			},
 			Ok(FromOrchestra::Communication {

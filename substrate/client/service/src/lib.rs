@@ -34,7 +34,10 @@ mod client;
 mod metrics;
 mod task_manager;
 
-use std::{collections::HashMap, net::SocketAddr};
+use std::{
+	collections::HashMap,
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+};
 
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
@@ -54,13 +57,15 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
-		build_network, new_client, new_db_backend, new_full_client, new_full_parts,
-		new_full_parts_record_import, new_full_parts_with_genesis_builder, new_wasm_executor,
-		spawn_tasks, BuildNetworkParams, KeystoreContainer, NetworkStarter, SpawnTasksParams,
-		TFullBackend, TFullCallExecutor, TFullClient,
+		build_network, gen_rpc_module, init_telemetry, new_client, new_db_backend, new_full_client,
+		new_full_parts, new_full_parts_record_import, new_full_parts_with_genesis_builder,
+		new_wasm_executor, propagate_transaction_notifications, spawn_tasks, BuildNetworkParams,
+		KeystoreContainer, NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor,
+		TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
+	metrics::MetricsService,
 };
 #[allow(deprecated)]
 pub use builder::new_native_or_wasm_executor;
@@ -75,17 +80,15 @@ pub use config::{
 };
 pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
-	Properties, RuntimeGenesis,
+	Properties,
 };
 
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
-pub use sc_network_sync::WarpSyncParams;
+pub use sc_network_sync::WarpSyncConfig;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
-pub use sc_rpc::{
-	RandomIntegerSubscriptionId, RandomStringSubscriptionId, RpcSubscriptionIdProvider,
-};
+pub use sc_rpc::{RandomIntegerSubscriptionId, RandomStringSubscriptionId};
 pub use sc_tracing::TracingReceiver;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
@@ -100,6 +103,11 @@ const DEFAULT_PROTOCOL_ID: &str = "sup";
 pub struct RpcHandlers(Arc<RpcModule<()>>);
 
 impl RpcHandlers {
+	/// Create PRC handlers instance.
+	pub fn new(inner: Arc<RpcModule<()>>) -> Self {
+		Self(inner)
+	}
+
 	/// Starts an RPC query.
 	///
 	/// The query is passed as a string and must be valid JSON-RPC request object.
@@ -136,7 +144,7 @@ pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, Transact
 	pub backend: Arc<Backend>,
 	/// The chain task manager.
 	pub task_manager: TaskManager,
-	/// A keystore container instance..
+	/// A keystore container instance.
 	pub keystore_container: KeystoreContainer,
 	/// A chain selection algorithm instance.
 	pub select_chain: SelectChain,
@@ -334,7 +342,7 @@ pub async fn build_system_rpc_future<
 			sc_rpc::system::Request::SyncState(sender) => {
 				use sc_rpc::system::SyncState;
 
-				match sync_service.best_seen_block().await {
+				match sync_service.status().await.map(|status| status.best_seen_block) {
 					Ok(best_seen_block) => {
 						let best_number = client.info().best_number;
 						let _ = sender.send(SyncState {
@@ -370,45 +378,64 @@ mod waiting {
 pub fn start_rpc_servers<R>(
 	config: &Configuration,
 	gen_rpc_module: R,
-	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
+	rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
 ) -> Result<Box<dyn std::any::Any + Send + Sync>, error::Error>
 where
-	R: Fn(sc_rpc::DenyUnsafe) -> Result<RpcModule<()>, Error>,
+	R: Fn() -> Result<RpcModule<()>, Error>,
 {
-	fn deny_unsafe(addr: SocketAddr, methods: &RpcMethods) -> sc_rpc::DenyUnsafe {
-		let is_exposed_addr = !addr.ip().is_loopback();
-		match (is_exposed_addr, methods) {
-			| (_, RpcMethods::Unsafe) | (false, RpcMethods::Auto) => sc_rpc::DenyUnsafe::No,
-			_ => sc_rpc::DenyUnsafe::Yes,
-		}
-	}
+	let endpoints: Vec<sc_rpc_server::RpcEndpoint> = if let Some(endpoints) =
+		config.rpc_addr.as_ref()
+	{
+		endpoints.clone()
+	} else {
+		let ipv6 = SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, config.rpc_port, 0, 0));
+		let ipv4 = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, config.rpc_port));
 
-	// if binding the specified port failed then a random port is assigned by the OS.
-	let backup_port = |mut addr: SocketAddr| {
-		addr.set_port(0);
-		addr
+		vec![
+			sc_rpc_server::RpcEndpoint {
+				batch_config: config.rpc_batch_config,
+				cors: config.rpc_cors.clone(),
+				listen_addr: ipv4,
+				max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
+				max_connections: config.rpc_max_connections,
+				max_payload_in_mb: config.rpc_max_request_size,
+				max_payload_out_mb: config.rpc_max_response_size,
+				max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
+				rpc_methods: config.rpc_methods.into(),
+				rate_limit: config.rpc_rate_limit,
+				rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+				retry_random_port: true,
+				is_optional: false,
+			},
+			sc_rpc_server::RpcEndpoint {
+				batch_config: config.rpc_batch_config,
+				cors: config.rpc_cors.clone(),
+				listen_addr: ipv6,
+				max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
+				max_connections: config.rpc_max_connections,
+				max_payload_in_mb: config.rpc_max_request_size,
+				max_payload_out_mb: config.rpc_max_response_size,
+				max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
+				rpc_methods: config.rpc_methods.into(),
+				rate_limit: config.rpc_rate_limit,
+				rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+				retry_random_port: true,
+				is_optional: true,
+			},
+		]
 	};
 
-	let addr = config.rpc_addr.unwrap_or_else(|| ([127, 0, 0, 1], config.rpc_port).into());
-	let backup_addr = backup_port(addr);
 	let metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?;
+	let rpc_api = gen_rpc_module()?;
 
 	let server_config = sc_rpc_server::Config {
-		addrs: [addr, backup_addr],
-		batch_config: config.rpc_batch_config,
-		max_connections: config.rpc_max_connections,
-		max_payload_in_mb: config.rpc_max_request_size,
-		max_payload_out_mb: config.rpc_max_response_size,
-		max_subs_per_conn: config.rpc_max_subs_per_conn,
-		message_buffer_capacity: config.rpc_message_buffer_capacity,
-		rpc_api: gen_rpc_module(deny_unsafe(addr, &config.rpc_methods))?,
+		endpoints,
+		rpc_api,
 		metrics,
 		id_provider: rpc_id_provider,
-		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
-		rate_limit: config.rpc_rate_limit,
-		rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
-		rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773

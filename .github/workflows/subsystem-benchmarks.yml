@@ -1,55 +1,82 @@
-# The actions takes json file as input and runs github-action-benchmark for it.
-
 on:
-  workflow_dispatch:
-    inputs:
-      benchmark-data-dir-path:
-        description: "Path to the benchmark data directory"
-        required: true
-        type: string
-      output-file-path:
-        description: "Path to the benchmark data file"
-        required: true
-        type: string
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [ opened, synchronize, reopened, closed, labeled ]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
-  subsystem-benchmarks:
+  set-image:
+    # TODO: remove once migration is complete or this workflow is fully stable
+    if: contains(github.event.label.name, 'GHA-migration')
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
     runs-on: ubuntu-latest
-    environment: subsystem-benchmarks
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
     steps:
-      - name: Validate inputs
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+  build:
+    needs: [ set-image ]
+    runs-on: arc-runners-polkadot-sdk-benchmark
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      BENCH_DIR: ./charts/bench/${{ matrix.features.bench }}
+      BENCH_FILE_NAME: ${{ matrix.features.bench }}
+    strategy:
+      fail-fast: false
+      matrix:
+        features: [
+          { name: "polkadot-availability-recovery", bench: "availability-recovery-regression-bench" },
+          { name: "polkadot-availability-distribution", bench: "availability-distribution-regression-bench" },
+          { name: "polkadot-node-core-approval-voting", bench: "approval-voting-regression-bench" },
+          { name: "polkadot-statement-distribution", bench: "statement-distribution-regression-bench" }
+        ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Rust
         run: |
-          echo "${{ github.event.inputs.benchmark-data-dir-path }}" | grep -P '^[a-z\-]'
-          echo "${{ github.event.inputs.output-file-path }}" | grep -P '^[a-z\-]+\.json'
+          rustup show
+          rustup +nightly show
 
-      - name: Checkout Sources
-        uses: actions/checkout@v4.1.2
-        with:
-          fetch-depth: 0
-          ref: "gh-pages"
-
-      - name: Copy bench results
-        id: step_one
+      - name: Run Benchmarks
+        continue-on-error: true
+        id: run-benchmarks
         run: |
-          cp bench/gitlab/${{ github.event.inputs.output-file-path }} ${{ github.event.inputs.output-file-path }}
+          cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
+          ls -lsa ./charts
+          mkdir -p $BENCH_DIR || echo "Directory exists"
+          cp charts/${BENCH_FILE_NAME}.json $BENCH_DIR
+          ls -lsa $BENCH_DIR
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
 
-      - name: Switch branch
-        id: step_two
-        run: |
-          git checkout master --
-
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
-          private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
-
-      - name: Store benchmark result
+      - name: Publish result to GH Pages
+        if: ${{ steps.run-benchmarks.outcome == 'success' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "customSmallerIsBetter"
-          name: ${{ github.event.inputs.benchmark-data-dir-path }}
-          output-file-path: ${{ github.event.inputs.output-file-path }}
-          benchmark-data-dir-path: "bench/${{ github.event.inputs.benchmark-data-dir-path }}"
-          github-token: ${{ steps.app-token.outputs.token }}
-          auto-push: true
+          name: ${{ env.BENCH_FILE_NAME }}
+          output-file-path: ${{ env.BENCH_DIR }}/${{ env.BENCH_FILE_NAME }}.json
+          benchmark-data-dir-path: ${{ env.BENCH_DIR }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-on-alert: ${{ github.event_name == 'pull_request' }} # will comment on PRs if regression is detected
+          auto-push: false # TODO: enable when gitlab part is removed  ${{ github.ref == 'refs/heads/master' }}
+

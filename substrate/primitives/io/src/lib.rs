@@ -77,7 +77,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(enable_alloc_error_handler, feature(alloc_error_handler))]
 
-use sp_std::vec::Vec;
+extern crate alloc;
+
+use alloc::vec::Vec;
 
 #[cfg(feature = "std")]
 use tracing;
@@ -106,7 +108,7 @@ use sp_core::{
 };
 
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls377, ecdsa_bls377};
+use sp_core::{bls381, ecdsa_bls381};
 
 #[cfg(feature = "std")]
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
@@ -181,7 +183,7 @@ impl From<MultiRemovalResults> for KillStorageResult {
 #[runtime_interface]
 pub trait Storage {
 	/// Returns the data for `key` in the storage or `None` if the key can not be found.
-	fn get(&self, key: &[u8]) -> Option<bytes::Bytes> {
+	fn get(&mut self, key: &[u8]) -> Option<bytes::Bytes> {
 		self.storage(key).map(bytes::Bytes::from)
 	}
 
@@ -190,7 +192,7 @@ pub trait Storage {
 	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
-	fn read(&self, key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+	fn read(&mut self, key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
 		self.storage(key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
@@ -211,7 +213,7 @@ pub trait Storage {
 	}
 
 	/// Check whether the given `key` exists in storage.
-	fn exists(&self, key: &[u8]) -> bool {
+	fn exists(&mut self, key: &[u8]) -> bool {
 		self.exists_storage(key)
 	}
 
@@ -387,7 +389,7 @@ pub trait DefaultChildStorage {
 	///
 	/// Parameter `storage_key` is the unprefixed location of the root of the child trie in the
 	/// parent trie. Result is `None` if the value for `key` in the child storage can not be found.
-	fn get(&self, storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
+	fn get(&mut self, storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage(&child_info, key).map(|s| s.to_vec())
 	}
@@ -400,7 +402,7 @@ pub trait DefaultChildStorage {
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
 	fn read(
-		&self,
+		&mut self,
 		storage_key: &[u8],
 		key: &[u8],
 		value_out: &mut [u8],
@@ -478,7 +480,7 @@ pub trait DefaultChildStorage {
 	/// Check a child storage key.
 	///
 	/// Check whether the given `key` exists in default child defined at `storage_key`.
-	fn exists(&self, storage_key: &[u8], key: &[u8]) -> bool {
+	fn exists(&mut self, storage_key: &[u8], key: &[u8]) -> bool {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.exists_child_storage(&child_info, key)
 	}
@@ -1202,38 +1204,38 @@ pub trait Crypto {
 		Ok(pubkey.serialize())
 	}
 
-	/// Generate an `bls12-377` key for the given key type using an optional `seed` and
+	/// Generate an `bls12-381` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> bls377::Public {
+	fn bls381_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> bls381::Public {
 		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.bls377_generate_new(id, seed)
-			.expect("`bls377_generate` failed")
+			.bls381_generate_new(id, seed)
+			.expect("`bls381_generate` failed")
 	}
 
-	/// Generate an `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
+	/// Generate an `(ecdsa,bls12-381)` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls377_generate(
+	fn ecdsa_bls381_generate(
 		&mut self,
 		id: KeyTypeId,
 		seed: Option<Vec<u8>>,
-	) -> ecdsa_bls377::Public {
+	) -> ecdsa_bls381::Public {
 		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.ecdsa_bls377_generate_new(id, seed)
-			.expect("`ecdsa_bls377_generate` failed")
+			.ecdsa_bls381_generate_new(id, seed)
+			.expect("`ecdsa_bls381_generate` failed")
 	}
 
 	/// Generate a `bandersnatch` key pair for the given key type using an optional
@@ -1771,7 +1773,7 @@ pub fn unreachable() -> ! {
 #[panic_handler]
 #[no_mangle]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
-	let message = sp_std::alloc::format!("{}", info);
+	let message = alloc::format!("{}", info);
 	#[cfg(feature = "improved_panic_error_reporting")]
 	{
 		panic_handler::abort_on_panic(&message);
@@ -1805,6 +1807,7 @@ pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2
 /// The host functions Substrate provides for the Wasm runtime environment.
 ///
 /// All these host functions will be callable from inside the Wasm environment.
+#[docify::export]
 #[cfg(feature = "std")]
 pub type SubstrateHostFunctions = (
 	storage::HostFunctions,

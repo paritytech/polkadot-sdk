@@ -4,7 +4,7 @@ version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Proc macro of Support code for the runtime."
 
@@ -18,28 +18,57 @@ targets = ["x86_64-unknown-linux-gnu"]
 proc-macro = true
 
 [dependencies]
-derive-syn-parse = "0.2.0"
-Inflector = "0.11.4"
-cfg-expr = "0.15.5"
-itertools = "0.11"
-proc-macro2 = "1.0.56"
+derive-syn-parse = { workspace = true }
+docify = { workspace = true }
+Inflector = { workspace = true }
+cfg-expr = { workspace = true }
+itertools = { workspace = true }
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
-syn = { features = ["full", "visit-mut"], workspace = true }
-frame-support-procedural-tools = { path = "tools" }
-macro_magic = { version = "0.5.0", features = ["proc_support"] }
-proc-macro-warning = { version = "1.0.0", default-features = false }
-expander = "2.0.0"
-sp-crypto-hashing = { path = "../../../primitives/crypto/hashing", default-features = false }
+syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
+frame-support-procedural-tools = { workspace = true, default-features = true }
+macro_magic = { features = ["proc_support"], workspace = true }
+proc-macro-warning = { workspace = true }
+expander = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 
 [dev-dependencies]
-regex = "1"
+codec = { features = [
+	"derive",
+	"max-encoded-len",
+], workspace = true }
+regex = { workspace = true }
+sp-metadata-ir = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { features = [
+	"serde",
+], workspace = true }
+frame-system = { workspace = true }
+frame-support = { workspace = true }
+pretty_assertions = { workspace = true }
+static_assertions = { workspace = true }
 
 [features]
 default = ["std"]
-std = ["sp-crypto-hashing/std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-crypto-hashing/std",
+	"sp-io/std",
+	"sp-metadata-ir/std",
+	"sp-runtime/std",
+]
 no-metadata-docs = []
 experimental = []
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of
 # pallets in a runtime grows. Does increase the compile time!
 tuples-96 = []
 tuples-128 = []
+
+[[example]]
+name = "proc_main"

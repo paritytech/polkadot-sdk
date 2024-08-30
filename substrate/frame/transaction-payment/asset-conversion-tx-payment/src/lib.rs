@@ -23,7 +23,7 @@
 //! This pallet provides a `SignedExtension` with an optional `AssetId` that specifies the asset
 //! to be used for payment (defaulting to the native token on `None`). It expects an
 //! [`OnChargeAssetTransaction`] implementation analogous to [`pallet-transaction-payment`]. The
-//! included [`AssetConversionAdapter`] (implementing [`OnChargeAssetTransaction`]) determines the
+//! included [`SwapAssetAdapter`] (implementing [`OnChargeAssetTransaction`]) determines the
 //! fee amount by converting the fee calculated by [`pallet-transaction-payment`] in the native
 //! asset into the amount required of the specified asset.
 //!
@@ -42,24 +42,19 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::prelude::*;
+extern crate alloc;
 
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
-	traits::{
-		fungibles::{Balanced, Inspect},
-		IsType,
-	},
+	traits::IsType,
 	DefaultNoBound,
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, Zero},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
+	transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
 
 #[cfg(test)]
@@ -71,30 +66,19 @@ mod payment;
 use frame_support::traits::tokens::AssetId;
 pub use payment::*;
 
+/// Balance type alias for balances of the chain's native asset.
+pub(crate) type BalanceOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::Balance;
+
 /// Type aliases used for interaction with `OnChargeTransaction`.
 pub(crate) type OnChargeTransactionOf<T> =
 	<T as pallet_transaction_payment::Config>::OnChargeTransaction;
-/// Balance type alias for balances of the chain's native asset.
-pub(crate) type BalanceOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::Balance;
-/// Liquidity info type alias.
-pub(crate) type LiquidityInfoOf<T> =
+
+/// Liquidity info type alias for the chain's native asset.
+pub(crate) type NativeLiquidityInfoOf<T> =
 	<OnChargeTransactionOf<T> as OnChargeTransaction<T>>::LiquidityInfo;
 
-/// Balance type alias for balances of assets that implement the `fungibles` trait.
-pub(crate) type AssetBalanceOf<T> =
-	<<T as Config>::Fungibles as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
-/// Type alias for Asset IDs.
-pub(crate) type AssetIdOf<T> =
-	<<T as Config>::Fungibles as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
-
-/// Type alias for the interaction of balances with `OnChargeAssetTransaction`.
-pub(crate) type ChargeAssetBalanceOf<T> =
-	<<T as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<T>>::Balance;
-/// Type alias for Asset IDs in their interaction with `OnChargeAssetTransaction`.
-pub(crate) type ChargeAssetIdOf<T> =
-	<<T as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<T>>::AssetId;
-/// Liquidity info type alias for interaction with `OnChargeAssetTransaction`.
-pub(crate) type ChargeAssetLiquidityOf<T> =
+/// Liquidity info type alias for the chain's assets.
+pub(crate) type AssetLiquidityInfoOf<T> =
 	<<T as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<T>>::LiquidityInfo;
 
 /// Used to pass the initial payment info from pre- to post-dispatch.
@@ -104,9 +88,9 @@ pub enum InitialPayment<T: Config> {
 	#[default]
 	Nothing,
 	/// The initial fee was paid in the native currency.
-	Native(LiquidityInfoOf<T>),
+	Native(NativeLiquidityInfoOf<T>),
 	/// The initial fee was paid in an asset.
-	Asset((LiquidityInfoOf<T>, BalanceOf<T>, AssetBalanceOf<T>)),
+	Asset((T::AssetId, AssetLiquidityInfoOf<T>)),
 }
 
 pub use pallet::*;
@@ -116,15 +100,18 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config + pallet_transaction_payment::Config + pallet_asset_conversion::Config
-	{
+	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// The fungibles instance used to pay for transactions in assets.
-		type Fungibles: Balanced<Self::AccountId>;
+		/// The asset ID type that can be used for transaction payments in addition to a
+		/// native asset.
+		type AssetId: AssetId;
 		/// The actual transaction charging logic that charges the fees.
-		type OnChargeAssetTransaction: OnChargeAssetTransaction<Self>;
+		type OnChargeAssetTransaction: OnChargeAssetTransaction<
+			Self,
+			Balance = BalanceOf<Self>,
+			AssetId = Self::AssetId,
+		>;
 	}
 
 	#[pallet::pallet]
@@ -137,9 +124,9 @@ pub mod pallet {
 		/// has been paid by `who` in an asset `asset_id`.
 		AssetTxFeePaid {
 			who: T::AccountId,
-			actual_fee: AssetBalanceOf<T>,
+			actual_fee: BalanceOf<T>,
 			tip: BalanceOf<T>,
-			asset_id: ChargeAssetIdOf<T>,
+			asset_id: T::AssetId,
 		},
 		/// A swap of the refund in native currency back to asset failed.
 		AssetRefundFailed { native_amount_kept: BalanceOf<T> },
@@ -147,33 +134,35 @@ pub mod pallet {
 }
 
 /// Require payment for transaction inclusion and optionally include a tip to gain additional
-/// priority in the queue. Allows paying via both `Currency` as well as `fungibles::Balanced`.
+/// priority in the queue.
 ///
 /// Wraps the transaction logic in [`pallet_transaction_payment`] and extends it with assets.
 /// An asset ID of `None` falls back to the underlying transaction payment logic via the native
 /// currency.
+///
+/// Transaction payments are processed using different handlers based on the asset type:
+/// - Payments with a native asset are charged by
+///   [pallet_transaction_payment::Config::OnChargeTransaction].
+/// - Payments with other assets are charged by [Config::OnChargeAssetTransaction].
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ChargeAssetTxPayment<T: Config> {
 	#[codec(compact)]
 	tip: BalanceOf<T>,
-	asset_id: Option<ChargeAssetIdOf<T>>,
+	asset_id: Option<T::AssetId>,
 }
 
 impl<T: Config> ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	AssetBalanceOf<T>: Send + Sync,
-	BalanceOf<T>: Send + Sync + Into<ChargeAssetBalanceOf<T>> + From<ChargeAssetLiquidityOf<T>>,
-	ChargeAssetIdOf<T>: Send + Sync,
 {
 	/// Utility constructor. Used only in client/factory code.
-	pub fn from(tip: BalanceOf<T>, asset_id: Option<ChargeAssetIdOf<T>>) -> Self {
+	pub fn from(tip: BalanceOf<T>, asset_id: Option<T::AssetId>) -> Self {
 		Self { tip, asset_id }
 	}
 
-	/// Fee withdrawal logic that dispatches to either `OnChargeAssetTransaction` or
-	/// `OnChargeTransaction`.
+	/// Fee withdrawal logic that dispatches to either [`Config::OnChargeAssetTransaction`] or
+	/// [`pallet_transaction_payment::Config::OnChargeTransaction`].
 	fn withdraw_fee(
 		&self,
 		who: &T::AccountId,
@@ -191,36 +180,24 @@ where
 				call,
 				info,
 				asset_id.clone(),
-				fee.into(),
-				self.tip.into(),
+				fee,
+				self.tip,
 			)
-			.map(|(used_for_fee, received_exchanged, asset_consumed)| {
-				(
-					fee,
-					InitialPayment::Asset((
-						used_for_fee.into(),
-						received_exchanged.into(),
-						asset_consumed.into(),
-					)),
-				)
-			})
+			.map(|payment| (fee, InitialPayment::Asset((asset_id.clone(), payment))))
 		} else {
-			<OnChargeTransactionOf<T> as OnChargeTransaction<T>>::withdraw_fee(
-				who, call, info, fee, self.tip,
-			)
-			.map(|i| (fee, InitialPayment::Native(i)))
-			.map_err(|_| -> TransactionValidityError { InvalidTransaction::Payment.into() })
+			T::OnChargeTransaction::withdraw_fee(who, call, info, fee, self.tip)
+				.map(|payment| (fee, InitialPayment::Native(payment)))
 		}
 	}
 }
 
-impl<T: Config> sp_std::fmt::Debug for ChargeAssetTxPayment<T> {
+impl<T: Config> core::fmt::Debug for ChargeAssetTxPayment<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "ChargeAssetTxPayment<{:?}, {:?}>", self.tip, self.asset_id.encode())
 	}
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -228,14 +205,8 @@ impl<T: Config> sp_std::fmt::Debug for ChargeAssetTxPayment<T> {
 impl<T: Config> SignedExtension for ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	AssetBalanceOf<T>: Send + Sync,
-	BalanceOf<T>: Send
-		+ Sync
-		+ From<u64>
-		+ Into<ChargeAssetBalanceOf<T>>
-		+ Into<ChargeAssetLiquidityOf<T>>
-		+ From<ChargeAssetLiquidityOf<T>>,
-	ChargeAssetIdOf<T>: Send + Sync,
+	BalanceOf<T>: Send + Sync,
+	T::AssetId: Send + Sync,
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
 	type AccountId = T::AccountId;
@@ -248,11 +219,9 @@ where
 		Self::AccountId,
 		// imbalance resulting from withdrawing the fee
 		InitialPayment<T>,
-		// asset_id for the transaction payment
-		Option<ChargeAssetIdOf<T>>,
 	);
 
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 		Ok(())
 	}
 
@@ -277,7 +246,7 @@ where
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (_fee, initial_payment) = self.withdraw_fee(who, call, info, len)?;
-		Ok((self.tip, who.clone(), initial_payment, self.asset_id))
+		Ok((self.tip, who.clone(), initial_payment))
 	}
 
 	fn post_dispatch(
@@ -285,53 +254,45 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		post_info: &PostDispatchInfoOf<Self::Call>,
 		len: usize,
-		result: &DispatchResult,
+		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		if let Some((tip, who, initial_payment, asset_id)) = pre {
+		if let Some((tip, who, initial_payment)) = pre {
 			match initial_payment {
 				InitialPayment::Native(already_withdrawn) => {
-					debug_assert!(
-						asset_id.is_none(),
-						"For that payment type the `asset_id` should be None"
-					);
-					pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch(
-						Some((tip, who, already_withdrawn)),
-						info,
-						post_info,
-						len,
-						result,
-					)?;
-				},
-				InitialPayment::Asset(already_withdrawn) => {
-					debug_assert!(
-						asset_id.is_some(),
-						"For that payment type the `asset_id` should be set"
-					);
 					let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
 						len as u32, info, post_info, tip,
 					);
-
-					if let Some(asset_id) = asset_id {
-						let (used_for_fee, received_exchanged, asset_consumed) = already_withdrawn;
-						let converted_fee = T::OnChargeAssetTransaction::correct_and_deposit_fee(
-							&who,
-							info,
-							post_info,
-							actual_fee.into(),
-							tip.into(),
-							used_for_fee.into(),
-							received_exchanged.into(),
-							asset_id.clone(),
-							asset_consumed.into(),
-						)?;
-
-						Pallet::<T>::deposit_event(Event::<T>::AssetTxFeePaid {
-							who,
-							actual_fee: converted_fee,
-							tip,
-							asset_id,
-						});
-					}
+					T::OnChargeTransaction::correct_and_deposit_fee(
+						&who,
+						info,
+						post_info,
+						actual_fee,
+						tip,
+						already_withdrawn,
+					)?;
+					pallet_transaction_payment::Pallet::<T>::deposit_fee_paid_event(
+						who, actual_fee, tip,
+					);
+				},
+				InitialPayment::Asset((asset_id, already_withdrawn)) => {
+					let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
+						len as u32, info, post_info, tip,
+					);
+					let converted_fee = T::OnChargeAssetTransaction::correct_and_deposit_fee(
+						&who,
+						info,
+						post_info,
+						actual_fee,
+						tip,
+						asset_id.clone(),
+						already_withdrawn,
+					)?;
+					Pallet::<T>::deposit_event(Event::<T>::AssetTxFeePaid {
+						who,
+						actual_fee: converted_fee,
+						tip,
+						asset_id,
+					});
 				},
 				InitialPayment::Nothing => {
 					// `actual_fee` should be zero here for any signed extrinsic. It would be

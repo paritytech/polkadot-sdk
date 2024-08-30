@@ -10,24 +10,24 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
+futures = { workspace = true }
 thiserror = { workspace = true }
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { workspace = true, default-features = true }
 
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-overseer = { path = "../../overseer" }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
 
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
+sp-keystore = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime" }
-sc-keystore = { path = "../../../../substrate/client/keystore" }
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
-sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
-futures-timer = "3.0.2"
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sc-keystore = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+sp-application-crypto = { workspace = true, default-features = true }
+futures-timer = { workspace = true }

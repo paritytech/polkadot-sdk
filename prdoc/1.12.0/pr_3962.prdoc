@@ -1,0 +1,12 @@
+title: Change fork calculation algorithm.
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR changes the fork calculation and pruning algorithm to enable future block header pruning.
+      During the finalization of the block we prune known stale forks, so forks are pruned faster.
+
+crates:
+  - name: sc-client-api
+  - name: sc-client-db
+  - name: sp-blockchain

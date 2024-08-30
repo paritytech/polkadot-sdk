@@ -559,7 +559,7 @@ impl BlockEntry {
 		self.distributed_assignments.resize(new_len, false);
 		self.distributed_assignments |= bitfield;
 
-		// If the an operation did not change our current bitfied, we return true.
+		// If the an operation did not change our current bitfield, we return true.
 		let distributed = total_one_bits == self.distributed_assignments.count_ones();
 
 		distributed

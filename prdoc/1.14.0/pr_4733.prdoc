@@ -1,0 +1,27 @@
+title: Add pov-recovery unit tests and support for elastic scaling
+
+doc:
+  - audience: Node Dev
+    description: |
+      Adds unit tests for cumulus pov-recovery and support for elastic scaling (recovering multiple candidates in a single relay chain block).
+
+crates:
+  - name: cumulus-client-network
+    bump: patch
+  - name: cumulus-client-pov-recovery
+    bump: patch
+  - name: cumulus-relay-chain-interface
+    bump: major
+    validate: false
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: minor
+  - name: cumulus-relay-chain-rpc-interface
+    bump: minor
+  - name: cumulus-client-consensus-common
+    bump: none
+  - name: sc-client-api
+    bump: minor
+  - name: sp-blockchain
+    bump: minor
+  - name: sp-consensus
+    bump: minor

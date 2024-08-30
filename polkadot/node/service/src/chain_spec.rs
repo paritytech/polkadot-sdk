@@ -16,28 +16,28 @@
 
 //! Polkadot chain configurations.
 
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa::AuthorityId as GrandpaId;
 #[cfg(feature = "westend-native")]
 use pallet_staking::Forcing;
 use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 
 #[cfg(feature = "westend-native")]
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 #[cfg(feature = "rococo-native")]
 use rococo_runtime as rococo;
 use sc_chain_spec::ChainSpecExtension;
 #[cfg(any(feature = "westend-native", feature = "rococo-native"))]
 use sc_chain_spec::ChainType;
+#[cfg(any(feature = "westend-native", feature = "rococo-native"))]
+use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::IdentifyAccount;
 #[cfg(feature = "westend-native")]
 use sp_runtime::Perbill;
-#[cfg(any(feature = "westend-native", feature = "rococo-native"))]
-use telemetry::TelemetryEndpoints;
 #[cfg(feature = "westend-native")]
 use westend_runtime as westend;
 #[cfg(feature = "westend-native")]
@@ -70,11 +70,11 @@ pub struct Extensions {
 }
 
 // Generic chain spec, in case when we don't have the native runtime.
-pub type GenericChainSpec = service::GenericChainSpec<(), Extensions>;
+pub type GenericChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// The `ChainSpec` parameterized for the westend runtime.
 #[cfg(feature = "westend-native")]
-pub type WestendChainSpec = service::GenericChainSpec<(), Extensions>;
+pub type WestendChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// The `ChainSpec` parameterized for the westend runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -83,7 +83,7 @@ pub type WestendChainSpec = GenericChainSpec;
 
 /// The `ChainSpec` parameterized for the rococo runtime.
 #[cfg(feature = "rococo-native")]
-pub type RococoChainSpec = service::GenericChainSpec<(), Extensions>;
+pub type RococoChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// The `ChainSpec` parameterized for the rococo runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -658,7 +658,8 @@ fn westend_local_testnet_genesis() -> serde_json::Value {
 #[cfg(feature = "westend-native")]
 pub fn westend_local_testnet_config() -> Result<WestendChainSpec, String> {
 	Ok(WestendChainSpec::builder(
-		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
+		westend::fast_runtime_binary::WASM_BINARY
+			.ok_or("Westend development wasm not available")?,
 		Default::default(),
 	)
 	.with_name("Westend Local Testnet")

@@ -26,18 +26,18 @@ pub use crate::{
 	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, FixedRateOfFungible,
 	FixedWeightBounds, TakeWeightCredit,
 };
+pub use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+pub use codec::{Decode, Encode};
+pub use core::{
+	cell::{Cell, RefCell},
+	fmt::Debug,
+};
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure, parameter_types,
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{Contains, Get, IsInVec},
-};
-pub use parity_scale_codec::{Decode, Encode};
-pub use sp_std::{
-	cell::{Cell, RefCell},
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	fmt::Debug,
 };
 pub use xcm::latest::{prelude::*, QueryId, Weight};
 use xcm_executor::traits::{Properties, QueryHandler, QueryResponseStatus};
@@ -694,6 +694,20 @@ impl AssetExchange for TestAssetExchange {
 		have.subsume_assets(give);
 		EXCHANGE_ASSETS.with(|l| l.replace(have));
 		Ok(get)
+	}
+
+	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
+		let mut have = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
+		if !have.contains_assets(want) {
+			return None;
+		}
+		let get = if maximal {
+			have.saturating_take(give.clone().into())
+		} else {
+			have.saturating_take(want.clone().into())
+		};
+		let result: Vec<Asset> = get.fungible_assets_iter().collect();
+		Some(result.into())
 	}
 }
 

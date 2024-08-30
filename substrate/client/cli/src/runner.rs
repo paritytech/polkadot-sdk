@@ -252,12 +252,15 @@ mod tests {
 				state_pruning: None,
 				blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
 				chain_spec: Box::new(
-					GenericChainSpec::<()>::builder(Default::default(), NoExtension::None)
-						.with_name("test")
-						.with_id("test_id")
-						.with_chain_type(ChainType::Development)
-						.with_genesis_config_patch(Default::default())
-						.build(),
+					GenericChainSpec::<NoExtension, ()>::builder(
+						Default::default(),
+						NoExtension::None,
+					)
+					.with_name("test")
+					.with_id("test_id")
+					.with_chain_type(ChainType::Development)
+					.with_genesis_config_patch(Default::default())
+					.build(),
 				),
 				wasm_method: Default::default(),
 				wasm_runtime_overrides: None,
@@ -288,7 +291,6 @@ mod tests {
 				announce_block: true,
 				base_path: sc_service::BasePath::new(root.clone()),
 				data_path: root,
-				informant_output_format: Default::default(),
 				runtime_cache_size: 2,
 			},
 			runtime,

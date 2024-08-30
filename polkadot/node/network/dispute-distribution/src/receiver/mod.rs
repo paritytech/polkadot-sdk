@@ -66,9 +66,12 @@ use self::{
 
 const COST_INVALID_REQUEST: Rep = Rep::CostMajor("Received message could not be decoded.");
 const COST_INVALID_SIGNATURE: Rep = Rep::Malicious("Signatures were invalid.");
-const COST_INVALID_IMPORT: Rep =
-	Rep::Malicious("Import was deemed invalid by dispute-coordinator.");
 const COST_NOT_A_VALIDATOR: Rep = Rep::CostMajor("Reporting peer was not a validator.");
+
+/// Invalid imports can be caused by flooding, e.g. by a disabled validator.
+const COST_INVALID_IMPORT: Rep =
+	Rep::CostMinor("Import was deemed invalid by dispute-coordinator.");
+
 /// Mildly punish peers exceeding their rate limit.
 ///
 /// For honest peers this should rarely happen, but if it happens we would not want to disconnect
@@ -132,7 +135,7 @@ enum MuxedMessage {
 	/// A new request has arrived and should be handled.
 	NewRequest(IncomingRequest<DisputeRequest>),
 
-	/// Rate limit timer hit - is is time to process one row of messages.
+	/// Rate limit timer hit - is time to process one row of messages.
 	///
 	/// This is the result of calling `self.peer_queues.pop_reqs()`.
 	WakePeerQueuesPopReqs(Vec<IncomingRequest<DisputeRequest>>),

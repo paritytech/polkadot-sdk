@@ -76,7 +76,7 @@ fn limited_teleport_assets_works() {
 			)]
 		);
 		let versioned_sent = VersionedXcm::from(sent_xcm().into_iter().next().unwrap().1);
-		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
+		let _check_v3_ok: xcm::v3::Xcm<()> = versioned_sent.try_into().unwrap();
 
 		let mut last_events = last_events(3).into_iter();
 		assert_eq!(

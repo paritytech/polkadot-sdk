@@ -45,7 +45,7 @@ variable.
 
 ## Westend & Rococo
 
-For the these networks, in addition to incrementing the `Cargo.toml` version we also increment the `spec_version` and
+For these networks, in addition to incrementing the `Cargo.toml` version we also increment the `spec_version` and
 sometimes the `transaction_version`. The spec version is also following the node version. Its schema is: `M_mmm_ppp` and
 for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map
 from an on chain `spec_version` easily to the release in this repository.  
@@ -55,9 +55,10 @@ The Westend testnet will be updated to a new runtime every two weeks with the la
 
 **From `master` to `stable`**
 
-Backports in this direction can be anything that is audited and either a `minor` or a `patch` bump. [Security
-fixes](#bug-and-security-fix) should be prioritized over additions or improvements. Crates that are declared as internal
-API can also have `major` version bumps through backports.
+Backports in this direction can be anything that is audited and either a `minor` or a `patch` bump.
+See [BACKPORT.md](./BACKPORT.md) for more explanation. [Security fixes](#bug-and-security-fix)
+should be prioritized over additions or improvements. Crates that are declared as internal API can
+also have `major` version bumps through backports.
 
 **From `stable` to `master`**
 
@@ -164,5 +165,6 @@ Describes how developers should merge bug and security fixes.
 2. The Pull Request is marked as priority fix.
 3. Audit happens with priority.
 4. It is merged into `master`.
-5. It is automatically back-ported to `stable`.
-6. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
+5. Dev adds the `A4-needs-backport` label.
+6. It is automatically back-ported to `stable`.
+7. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
