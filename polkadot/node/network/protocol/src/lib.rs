@@ -30,10 +30,6 @@ pub use sc_network_types::PeerId;
 #[doc(hidden)]
 pub use std::sync::Arc;
 
-
-
-
-
 mod reputation;
 pub use self::reputation::{ReputationChange, UnifiedReputationChange};
 
@@ -113,12 +109,6 @@ impl OurView {
 		let state_per_head = heads.into_iter().collect::<HashMap<_, _>>();
 		let view = View::new(state_per_head.keys().cloned(), finalized_number);
 
-
-
-
-
-
-		
 		Self { view, span_per_head: state_per_head }
 	}
 
