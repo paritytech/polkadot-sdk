@@ -45,6 +45,13 @@ jobs:
     # if: needs. check-workflow-can-run.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
 
+    env:
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
     steps:
       - name: Install pgpkkms
         run: |
@@ -80,6 +87,9 @@ jobs:
       - name: Bump versions and reorder prdocs
         run: |
           . ./.github/scripts/release/release.sh
+
+          echo "Double checking git config:"
+          git config --get gpg.program
 
           echo "Double checking gpg key:"
           gpg -k
