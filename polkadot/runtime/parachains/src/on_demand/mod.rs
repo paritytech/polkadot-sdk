@@ -317,6 +317,11 @@ where
 		Some(assignment)
 	}
 
+	/// Report that an assignment was duplicated by the scheduler.
+	pub fn assignment_duplicated(para_id: ParaId, core_index: CoreIndex) {
+		Pallet::<T>::increase_affinity(para_id, core_index);
+	}
+
 	/// Report that the `para_id` & `core_index` combination was processed.
 	///
 	/// This should be called once it is clear that the assignment won't get pushed back anymore.

@@ -431,11 +431,30 @@ impl<T: Config> Pallet<T> {
 		ClaimQueue::<T>::mutate(|la| {
 			let cq = la.entry(core_idx).or_default();
 
-			let n_lookahead_used = cq.len() as u32;
+			let mut n_lookahead_used = cq.len() as u32;
+
+			// If the claim queue used to be empty, we need to double the first assignment.
+			// Otherwise, the para will only be able to get the collation in right at the next block
+			// (synchronous backing).
+			// Only do this if the configured lookahead is greater than 1. Otherwise, it doesn't
+			// make sense.
+			if n_lookahead_used == 0 && n_lookahead > 1 {
+				let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx)
+				else {
+					return
+				};
+
+				T::AssignmentProvider::assignment_duplicated(&assignment);
+				cq.push_back(assignment.clone());
+				cq.push_back(assignment);
+				n_lookahead_used += 2;
+			}
 
 			for _ in n_lookahead_used..n_lookahead {
 				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
-					cq.push_back(assignment.clone());
+					cq.push_back(assignment);
+				} else {
+					break
 				}
 			}
 		});

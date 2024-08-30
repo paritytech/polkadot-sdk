@@ -551,6 +551,8 @@ pub mod mock_assigner {
 		fn session_core_count() -> u32 {
 			MockCoreCount::<T>::get().unwrap_or(5)
 		}
+
+		fn assignment_duplicated(_: &Assignment) {}
 	}
 }
 

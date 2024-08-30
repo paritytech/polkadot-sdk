@@ -84,4 +84,7 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// - Core count has to be predetermined for the next session in the current session.
 	/// - Core count must not change during a session.
 	fn session_core_count() -> u32;
+
+	/// Report that an assignment was duplicated by the scheduler.
+	fn assignment_duplicated(assignment: &Assignment);
 }
