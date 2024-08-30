@@ -320,9 +320,10 @@ pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 /// This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.
 #[proc_macro_derive(RuntimeDebugNoBound)]
 pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
-	if cfg!(any(feature = "std", feature = "try-runtime")) {
-		no_bound::debug::derive_debug_no_bound(input)
-	} else {
+	let try_runtime_or_std_impl: proc_macro2::TokenStream =
+		no_bound::debug::derive_debug_no_bound(input.clone()).into();
+
+	let stripped_impl = {
 		let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
 		let name = &input.ident;
@@ -337,8 +338,21 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 				}
 			};
 		)
-		.into()
-	}
+	};
+
+	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
+		Ok(frame_support) => frame_support,
+		Err(e) => return e.to_compile_error().into(),
+	};
+
+	quote::quote!(
+		#frame_support::try_runtime_or_std_enabled! {
+			#try_runtime_or_std_impl
+		}
+		#frame_support::try_runtime_and_std_not_enabled! {
+			#stripped_impl
+		}
+	).into()
 }
 
 /// Derive [`PartialEq`] but do not bound any generic.
