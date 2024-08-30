@@ -39,14 +39,6 @@ jobs:
           stable_version=$(validate_stable_tag ${{ inputs.stable_version }})
           echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
 
-      - name: Import gpg keys
-        run: |
-          . ./.github/scripts/common/lib.sh
-
-          import_gpg_keys
-
-
-
   create-stable-branch:
     # needs: [check-workflow-can-run, prepare-tooling]
     needs: [prepare-tooling]
@@ -63,6 +55,13 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: master
+
+      - name: Import gpg keys
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          import_gpg_keys
+
 
       - name: Config git
         run: |
