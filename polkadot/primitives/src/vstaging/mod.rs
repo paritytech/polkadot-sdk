@@ -193,25 +193,25 @@ pub enum CandidateEvent<H = Hash> {
 	CandidateTimedOut(CandidateReceiptV2<H>, HeadData, CoreIndex),
 }
 
-impl<H: Encode + Copy> From<CandidateEvent<H>> for super::v7::CandidateEvent<H> {
+impl<H: Encode + Copy> From<CandidateEvent<H>> for super::v8::CandidateEvent<H> {
 	fn from(value: CandidateEvent<H>) -> Self {
 		match value {
 			CandidateEvent::CandidateBacked(receipt, head_data, core_index, group_index) =>
-				super::v7::CandidateEvent::CandidateBacked(
+				super::v8::CandidateEvent::CandidateBacked(
 					receipt.into(),
 					head_data,
 					core_index,
 					group_index,
 				),
 			CandidateEvent::CandidateIncluded(receipt, head_data, core_index, group_index) =>
-				super::v7::CandidateEvent::CandidateIncluded(
+				super::v8::CandidateEvent::CandidateIncluded(
 					receipt.into(),
 					head_data,
 					core_index,
 					group_index,
 				),
 			CandidateEvent::CandidateTimedOut(receipt, head_data, core_index) =>
-				super::v7::CandidateEvent::CandidateTimedOut(receipt.into(), head_data, core_index),
+				super::v8::CandidateEvent::CandidateTimedOut(receipt.into(), head_data, core_index),
 		}
 	}
 }
@@ -275,13 +275,13 @@ impl Ord for CommittedCandidateReceiptV2 {
 	}
 }
 
-impl<H: Copy> From<CommittedCandidateReceiptV2<H>> for super::v7::CommittedCandidateReceipt<H> {
+impl<H: Copy> From<CommittedCandidateReceiptV2<H>> for super::v8::CommittedCandidateReceipt<H> {
 	fn from(value: CommittedCandidateReceiptV2<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments: value.commitments }
 	}
 }
 
-impl<H: Copy> From<CandidateReceiptV2<H>> for super::v7::CandidateReceipt<H> {
+impl<H: Copy> From<CandidateReceiptV2<H>> for super::v8::CandidateReceipt<H> {
 	fn from(value: CandidateReceiptV2<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments_hash: value.commitments_hash }
 	}
@@ -609,7 +609,7 @@ pub struct ScrapedOnChainVotes<H: Encode + Decode = Hash> {
 	pub disputes: MultiDisputeStatementSet,
 }
 
-impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>> for super::v7::ScrapedOnChainVotes<H> {
+impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>> for super::v8::ScrapedOnChainVotes<H> {
 	fn from(value: ScrapedOnChainVotes<H>) -> Self {
 		Self {
 			session: value.session,
@@ -672,7 +672,7 @@ pub enum CoreState<H = Hash, N = BlockNumber> {
 	Free,
 }
 
-impl<H: Copy> From<OccupiedCore<H>> for super::v7::OccupiedCore<H> {
+impl<H: Copy> From<OccupiedCore<H>> for super::v8::OccupiedCore<H> {
 	fn from(value: OccupiedCore<H>) -> Self {
 		Self {
 			next_up_on_available: value.next_up_on_available,
@@ -687,13 +687,13 @@ impl<H: Copy> From<OccupiedCore<H>> for super::v7::OccupiedCore<H> {
 	}
 }
 
-impl<H: Copy> From<CoreState<H>> for super::v7::CoreState<H> {
+impl<H: Copy> From<CoreState<H>> for super::v8::CoreState<H> {
 	fn from(value: CoreState<H>) -> Self {
 		match value {
-			CoreState::Free => super::v7::CoreState::Free,
-			CoreState::Scheduled(core) => super::v7::CoreState::Scheduled(core),
+			CoreState::Free => super::v8::CoreState::Free,
+			CoreState::Scheduled(core) => super::v8::CoreState::Scheduled(core),
 			CoreState::Occupied(occupied_core) =>
-				super::v7::CoreState::Occupied(occupied_core.into()),
+				super::v8::CoreState::Occupied(occupied_core.into()),
 		}
 	}
 }
@@ -702,7 +702,7 @@ impl<H: Copy> From<CoreState<H>> for super::v7::CoreState<H> {
 mod tests {
 	use super::*;
 	use crate::{
-		v7::{
+		v8::{
 			tests::dummy_committed_candidate_receipt as dummy_old_committed_candidate_receipt,
 			CommittedCandidateReceipt, Hash, HeadData, ValidationCode,
 		},
