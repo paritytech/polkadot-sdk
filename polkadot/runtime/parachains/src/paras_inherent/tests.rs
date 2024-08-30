@@ -20,7 +20,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	mock::MockGenesisConfig,
 };
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 
 fn default_config() -> MockGenesisConfig {
 	MockGenesisConfig {
@@ -58,7 +58,7 @@ mod enter {
 	use core::panic;
 	use frame_support::assert_ok;
 	use frame_system::limits;
-	use polkadot_primitives::{vstaging::SchedulerParams, AvailabilityBitfield, UncheckedSigned};
+	use polkadot_primitives::{AvailabilityBitfield, SchedulerParams, UncheckedSigned};
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
