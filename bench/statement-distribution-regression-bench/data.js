@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725021478796,
+  "lastUpdate": 1725029711650,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9869,6 +9869,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04556814210399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maksym H",
+            "username": "mordamax",
+            "email": "1177472+mordamax@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d34f6878a337f6211a4708560e7e669d9bd7c1d6",
+          "message": "fix cmd bot PR context (#5531)\n\n- restore update-ui.sh (accidentally removed with bunch of bash 😅\n- fix empty context and pushing to dev branch (supporting forks)\ntested fork here: https://github.com/paritytech-stg/polkadot-sdk/pull/45",
+          "timestamp": "2024-08-30T14:05:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d34f6878a337f6211a4708560e7e669d9bd7c1d6"
+        },
+        "date": 1725029682224,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.96199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.41399999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036815952868,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045588305691999995,
             "unit": "seconds"
           }
         ]
