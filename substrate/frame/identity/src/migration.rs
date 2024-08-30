@@ -18,6 +18,7 @@
 use super::*;
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
+	IterableStorageMap,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -155,24 +156,10 @@ pub mod v2 {
 		weights::WeightMeter,
 	};
 
+	type HashedKey = BoundedVec<u8, ConstU32<256>>;
+
 	mod v1 {
 		use super::*;
-
-		#[storage_alias]
-		pub type IdentityOf<T: Config> = StorageMap<
-			Pallet<T>,
-			Twox64Concat,
-			<T as frame_system::Config>::AccountId,
-			(
-				Registration<
-					BalanceOf<T>,
-					<T as pallet::Config>::MaxRegistrars,
-					<T as pallet::Config>::IdentityInformation,
-				>,
-				Option<Username<T>>,
-			),
-			OptionQuery,
-		>;
 
 		#[storage_alias]
 		pub type UsernameAuthorities<T: Config> = StorageMap<
@@ -206,7 +193,7 @@ pub mod v2 {
 	pub enum MigrationState<A, U> {
 		Authority(A),
 		FinishedAuthorities,
-		Identity(BoundedVec<u8, ConstU32<256>>),
+		Identity(HashedKey),
 		FinishedIdentities,
 		Username(U),
 		FinishedUsernames,
@@ -319,7 +306,7 @@ pub mod v2 {
 				let allocation = properties.allocation;
 				let new_properties =
 					AuthorityProperties { account_id: authority_account.clone(), allocation };
-				UsernameAuthorities::<T>::insert(&suffix, new_properties);
+				AuthorityOf::<T>::insert(&suffix, new_properties);
 				MigrationState::Authority(authority_account)
 			} else {
 				MigrationState::FinishedAuthorities
@@ -349,9 +336,8 @@ pub mod v2 {
 		}
 
 		pub(crate) fn identity_step(
-			maybe_last_key: Option<BoundedVec<u8, ConstU32<256>>>,
+			maybe_last_key: Option<HashedKey>,
 		) -> MigrationState<T::AccountId, Username<T>> {
-			use frame_support::IterableStorageMap;
 			if let Some(last_key) =
 				IdentityOf::<T>::translate_next::<
 					(
@@ -439,22 +425,35 @@ pub mod v2 {
 		#[cfg(feature = "runtime-benchmarks")]
 		pub(crate) fn setup_benchmark_env() {
 			use frame_benchmarking::account;
+			use frame_support::Hashable;
 			let suffix: Suffix<T> = b"bench".to_vec().try_into().unwrap();
 			let authority: T::AccountId = account("authority", 0, 0);
 			let account_with_username: T::AccountId = account("account", 1, 0);
 			let account_without_username: T::AccountId = account("account", 2, 0);
 
-			v1::UsernameAuthorities::<T>::insert(
-				&authority,
-				AuthorityProperties { account_id: suffix.clone(), allocation: 10 },
-			);
+			let prop: AuthorityProperties<Suffix<T>> =
+				AuthorityProperties { account_id: suffix.clone(), allocation: 10 };
+			v1::UsernameAuthorities::<T>::insert(&authority, &prop);
 
 			let username: Username<T> = b"account.bench".to_vec().try_into().unwrap();
 			let info = T::IdentityInformation::create_identity_info();
-			let registration =
-				Registration { judgements: Default::default(), deposit: 10u32.into(), info };
-			v1::IdentityOf::<T>::insert(&account_with_username, (&registration, Some(&username)));
-			v1::IdentityOf::<T>::insert(&account_without_username, &(registration, None));
+			let registration: Registration<
+				BalanceOf<T>,
+				<T as Config>::MaxRegistrars,
+				<T as Config>::IdentityInformation,
+			> = Registration { judgements: Default::default(), deposit: 10u32.into(), info };
+			frame_support::migration::put_storage_value(
+				b"Identity",
+				b"IdentityOf",
+				&account_with_username.twox_64_concat(),
+				(&registration, Some(username.clone())),
+			);
+			frame_support::migration::put_storage_value(
+				b"Identity",
+				b"IdentityOf",
+				&account_without_username.twox_64_concat(),
+				(&registration, None::<Username<T>>),
+			);
 			v1::AccountOfUsername::<T>::insert(&username, &account_with_username);
 			v1::PendingUsernames::<T>::insert(&username, &(account_with_username, 0u32.into()));
 		}
@@ -462,6 +461,8 @@ pub mod v2 {
 
 	#[cfg(test)]
 	mod tests {
+		use frame_support::Hashable;
+
 		use super::*;
 		use crate::tests::{new_test_ext, Test};
 
@@ -483,12 +484,14 @@ pub mod v2 {
 			[byte; 32].into()
 		}
 
+		fn account_into_u8(account_id: &<Test as frame_system::Config>::AccountId) -> u8 {
+			let bytes: &[u8] = account_id.as_ref();
+			bytes[0]
+		}
+
 		#[test]
 		fn migrate_to_v2() {
 			new_test_ext().execute_with(|| {
-				// let storage_version = StorageVersion::new(1);
-				// storage_version.put::<Pallet<Test>>();
-
 				let authority_1 = account_from_u8(151);
 				let suffix_1: Suffix<Test> = b"evn".to_vec().try_into().unwrap();
 				let prop = AuthorityProperties { account_id: suffix_1.clone(), allocation: 10 };
@@ -511,8 +514,10 @@ pub mod v2 {
 					if i % 2 == 0 {
 						let has_identity = i % 4 == 0;
 						let reg = registration(has_identity);
-						v1::IdentityOf::<Test>::insert(
-							&account_id,
+						frame_support::migration::put_storage_value(
+							b"Identity",
+							b"IdentityOf",
+							&account_id.twox_64_concat(),
 							(reg, Some(username_1.clone())),
 						);
 						usernames.push((account_id, username_1, None, has_identity));
@@ -523,8 +528,10 @@ pub mod v2 {
 						let username_2: Username<Test> = username_2.try_into().unwrap();
 						v1::AccountOfUsername::<Test>::insert(&username_2, &account_id);
 						let reg = registration(has_identity);
-						v1::IdentityOf::<Test>::insert(
-							&account_id,
+						frame_support::migration::put_storage_value(
+							b"Identity",
+							b"IdentityOf",
+							&account_id.twox_64_concat(),
 							(reg, Some(username_2.clone())),
 						);
 						usernames.push((account_id, username_2, Some(username_1), has_identity));
@@ -545,9 +552,12 @@ pub mod v2 {
 				let mut identity_only = vec![];
 				for i in 30u8..35u8 {
 					let account_id = account_from_u8(i);
-					v1::IdentityOf::<Test>::insert(
-						&account_id,
-						(registration(true), None::<Username<Test>>),
+					let reg = registration(true);
+					frame_support::migration::put_storage_value(
+						b"Identity",
+						b"IdentityOf",
+						&account_id.twox_64_concat(),
+						(reg, None::<Username<Test>>),
 					);
 					identity_only.push(account_id);
 				}
@@ -566,11 +576,11 @@ pub mod v2 {
 
 				let expected_prop =
 					AuthorityProperties { account_id: authority_1.clone(), allocation: 10 };
-				assert_eq!(UsernameAuthorities::<Test>::get(&suffix_1), Some(expected_prop));
+				assert_eq!(AuthorityOf::<Test>::get(&suffix_1), Some(expected_prop));
 
 				let expected_prop =
 					AuthorityProperties { account_id: authority_2.clone(), allocation: 10 };
-				assert_eq!(UsernameAuthorities::<Test>::get(&suffix_2), Some(expected_prop));
+				assert_eq!(AuthorityOf::<Test>::get(&suffix_2), Some(expected_prop));
 
 				for (owner, primary, maybe_secondary, has_identity) in usernames.iter() {
 					let username_info = UsernameInfoOf::<Test>::get(primary).unwrap();
@@ -599,6 +609,10 @@ pub mod v2 {
 					assert_eq!(IdentityOf::<Test>::get(id), Some(expected_reg));
 					assert!(!UsernameOf::<Test>::contains_key(id));
 				}
+
+				assert_eq!(v1::AccountOfUsername::<Test>::iter().count(), 0);
+				assert_eq!(v1::PendingUsernames::<Test>::iter().count(), 0);
+				assert_eq!(v1::UsernameAuthorities::<Test>::iter().count(), 0);
 			});
 		}
 	}

@@ -973,7 +973,7 @@ fn adding_and_removing_authorities_should_work() {
 		));
 		let suffix: Suffix<Test> = suffix.try_into().unwrap();
 		assert_eq!(
-			UsernameAuthorities::<Test>::get(&suffix),
+			AuthorityOf::<Test>::get(&suffix),
 			Some(AuthorityProperties::<AccountIdOf<Test>> {
 				account_id: authority.clone(),
 				allocation
@@ -988,7 +988,7 @@ fn adding_and_removing_authorities_should_work() {
 			11u32
 		));
 		assert_eq!(
-			UsernameAuthorities::<Test>::get(&suffix),
+			AuthorityOf::<Test>::get(&suffix),
 			Some(AuthorityProperties::<AccountIdOf<Test>> {
 				account_id: authority.clone(),
 				allocation: 11
@@ -1001,7 +1001,7 @@ fn adding_and_removing_authorities_should_work() {
 			suffix.clone().into(),
 			authority.clone(),
 		));
-		assert!(UsernameAuthorities::<Test>::get(&suffix).is_none());
+		assert!(AuthorityOf::<Test>::get(&suffix).is_none());
 	});
 }
 
@@ -1052,7 +1052,7 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 		assert_eq!(Balances::free_balance(&authority), initial_authority_balance);
 		// But the allocation decreased.
 		assert_eq!(
-			UsernameAuthorities::<Test>::get(&Identity::suffix_of_username(&username).unwrap())
+			AuthorityOf::<Test>::get(&Identity::suffix_of_username(&username).unwrap())
 				.unwrap()
 				.allocation,
 			9
@@ -1096,11 +1096,9 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 		);
 		// But the allocation was preserved.
 		assert_eq!(
-			UsernameAuthorities::<Test>::get(
-				&Identity::suffix_of_username(&second_username).unwrap()
-			)
-			.unwrap()
-			.allocation,
+			AuthorityOf::<Test>::get(&Identity::suffix_of_username(&second_username).unwrap())
+				.unwrap()
+				.allocation,
 			9
 		);
 	});
@@ -1688,7 +1686,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 
 		let suffix: Suffix<Test> = suffix.try_into().unwrap();
 
-		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 10);
+		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 10);
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			who.clone(),
@@ -1697,7 +1695,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 			true,
 		));
 		assert_eq!(Balances::free_balance(&authority), initial_authority_balance);
-		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 9);
+		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 9);
 
 		// Should be pending
 		assert_eq!(
@@ -1722,7 +1720,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 		));
 		assert_eq!(Balances::free_balance(&authority), initial_authority_balance);
 		// Allocation wasn't refunded
-		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 9);
+		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 9);
 
 		// No more pending
 		assert!(PendingAcceptance::<Test>::get::<&Username<Test>>(&username).is_none());
@@ -1753,7 +1751,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 		let suffix: Suffix<Test> = suffix.try_into().unwrap();
 		let username_deposit: BalanceOf<Test> = <Test as Config>::UsernameDeposit::get();
 
-		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 10);
+		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 10);
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			who.clone(),
@@ -1765,7 +1763,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 			Balances::free_balance(&authority),
 			initial_authority_balance - username_deposit
 		);
-		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 10);
+		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 10);
 
 		// Should be pending
 		assert_eq!(
@@ -1796,7 +1794,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 		// Deposit was refunded
 		assert_eq!(Balances::free_balance(&authority), initial_authority_balance);
 		// Allocation wasn't refunded
-		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 10);
+		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 10);
 
 		// No more pending
 		assert!(PendingAcceptance::<Test>::get::<&Username<Test>>(&username).is_none());
@@ -2191,7 +2189,7 @@ fn unbind_and_remove_username_should_work() {
 			Error::<Test>::NotUsernameAuthority
 		);
 		// Simulate a dummy authority.
-		UsernameAuthorities::<Test>::insert(
+		AuthorityOf::<Test>::insert(
 			dummy_suffix.clone(),
 			AuthorityProperties { account_id: dummy_authority.clone(), allocation: 10 },
 		);
@@ -2206,7 +2204,7 @@ fn unbind_and_remove_username_should_work() {
 		);
 		// Clean up storage.
 		let _ = UsernameInfoOf::<Test>::take(dummy_username.clone());
-		let _ = UsernameAuthorities::<Test>::take(dummy_suffix);
+		let _ = AuthorityOf::<Test>::take(dummy_suffix);
 
 		// We can successfully unbind the username as the authority that granted it.
 		assert_ok!(Identity::unbind_username(
@@ -2251,7 +2249,7 @@ fn unbind_and_remove_username_should_work() {
 			initial_authority_balance - username_deposit
 		);
 		// Allocation wasn't refunded.
-		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 9);
+		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 9);
 
 		// Unbind the first username as well.
 		assert_ok!(Identity::unbind_username(
@@ -2271,6 +2269,6 @@ fn unbind_and_remove_username_should_work() {
 		// The username deposit was released.
 		assert_eq!(Balances::free_balance(authority.clone()), initial_authority_balance);
 		// Allocation didn't change.
-		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 9);
+		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 9);
 	});
 }

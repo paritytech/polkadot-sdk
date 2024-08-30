@@ -662,7 +662,7 @@ mod benchmarks {
 		);
 		if use_allocation {
 			let suffix: Suffix<T> = suffix.try_into().unwrap();
-			assert_eq!(UsernameAuthorities::<T>::get(&suffix).unwrap().allocation, 9);
+			assert_eq!(AuthorityOf::<T>::get(&suffix).unwrap().allocation, 9);
 		} else {
 			assert_eq!(
 				T::Currency::free_balance(&authority),
@@ -732,7 +732,7 @@ mod benchmarks {
 			},
 			1 => {
 				let suffix: Suffix<T> = suffix.try_into().unwrap();
-				assert_eq!(UsernameAuthorities::<T>::get(&suffix).unwrap().allocation, 10);
+				assert_eq!(AuthorityOf::<T>::get(&suffix).unwrap().allocation, 10);
 			},
 			_ => unreachable!(),
 		}
@@ -887,7 +887,7 @@ mod benchmarks {
 			},
 			1 => {
 				let suffix: Suffix<T> = suffix.try_into().unwrap();
-				assert_eq!(UsernameAuthorities::<T>::get(&suffix).unwrap().allocation, 10);
+				assert_eq!(AuthorityOf::<T>::get(&suffix).unwrap().allocation, 10);
 			},
 			_ => unreachable!(),
 		}

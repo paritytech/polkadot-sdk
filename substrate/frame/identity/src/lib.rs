@@ -280,7 +280,7 @@ pub mod pallet {
 
 	/// A map of the accounts who are authorized to grant usernames.
 	#[pallet::storage]
-	pub type UsernameAuthorities<T: Config> =
+	pub type AuthorityOf<T: Config> =
 		StorageMap<_, Twox64Concat, Suffix<T>, AuthorityProperties<T::AccountId>, OptionQuery>;
 
 	/// Reverse lookup from `username` to the `AccountId` that has registered it and the provider of
@@ -1048,7 +1048,7 @@ pub mod pallet {
 			let suffix = Suffix::<T>::try_from(suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
 			// The authority may already exist, but we don't need to check. They might be changing
 			// their suffix or adding allocation, so we just want to overwrite whatever was there.
-			UsernameAuthorities::<T>::insert(
+			AuthorityOf::<T>::insert(
 				&suffix,
 				AuthorityProperties::<T::AccountId> { account_id: authority.clone(), allocation },
 			);
@@ -1068,7 +1068,7 @@ pub mod pallet {
 			let suffix = Suffix::<T>::try_from(suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
 			let authority = T::Lookup::lookup(authority)?;
 			let properties =
-				UsernameAuthorities::<T>::take(&suffix).ok_or(Error::<T>::NotUsernameAuthority)?;
+				AuthorityOf::<T>::take(&suffix).ok_or(Error::<T>::NotUsernameAuthority)?;
 			ensure!(properties.account_id == authority, Error::<T>::InvalidSuffix);
 			Self::deposit_event(Event::AuthorityRemoved { authority });
 			Ok(())
@@ -1096,7 +1096,7 @@ pub mod pallet {
 			// allocation by one.
 			let sender = ensure_signed(origin)?;
 			let suffix = Self::validate_username(&username)?;
-			let provider = UsernameAuthorities::<T>::try_mutate(
+			let provider = AuthorityOf::<T>::try_mutate(
 				&suffix,
 				|maybe_authority| -> Result<ProviderOf<T>, DispatchError> {
 					let properties =
@@ -1175,7 +1175,7 @@ pub mod pallet {
 					Provider::Authority(deposit) => {
 						let suffix = Self::suffix_of_username(&username)
 							.ok_or(Error::<T>::InvalidUsername)?;
-						let authority_account = UsernameAuthorities::<T>::get(&suffix)
+						let authority_account = AuthorityOf::<T>::get(&suffix)
 							.map(|auth_info| auth_info.account_id)
 							.ok_or(Error::<T>::NotUsernameAuthority)?;
 						let err_amount = T::Currency::unreserve(&authority_account, deposit);
@@ -1232,7 +1232,7 @@ pub mod pallet {
 					let suffix =
 						Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
 					if let Some(authority_account) =
-						UsernameAuthorities::<T>::get(&suffix).map(|auth_info| auth_info.account_id)
+						AuthorityOf::<T>::get(&suffix).map(|auth_info| auth_info.account_id)
 					{
 						let err_amount =
 							T::Currency::unreserve(&authority_account, username_deposit);
@@ -1264,7 +1264,7 @@ pub mod pallet {
 			let username_info =
 				UsernameInfoOf::<T>::get(&username).ok_or(Error::<T>::NoUsername)?;
 			let suffix = Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
-			let authority_account = UsernameAuthorities::<T>::get(&suffix)
+			let authority_account = AuthorityOf::<T>::get(&suffix)
 				.map(|auth_info| auth_info.account_id)
 				.ok_or(Error::<T>::NotUsernameAuthority)?;
 			ensure!(who == authority_account, Error::<T>::NotUsernameAuthority);
@@ -1316,7 +1316,7 @@ pub mod pallet {
 					let suffix =
 						Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
 					if let Some(authority_account) =
-						UsernameAuthorities::<T>::get(&suffix).map(|auth_info| auth_info.account_id)
+						AuthorityOf::<T>::get(&suffix).map(|auth_info| auth_info.account_id)
 					{
 						let err_amount =
 							T::Currency::unreserve(&authority_account, username_deposit);
@@ -1358,7 +1358,7 @@ pub mod pallet {
 					let suffix =
 						Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
 					if let Some(authority_account) =
-						UsernameAuthorities::<T>::get(&suffix).map(|auth_info| auth_info.account_id)
+						AuthorityOf::<T>::get(&suffix).map(|auth_info| auth_info.account_id)
 					{
 						T::Slashed::on_unbalanced(
 							T::Currency::slash_reserved(&authority_account, username_deposit).0,
