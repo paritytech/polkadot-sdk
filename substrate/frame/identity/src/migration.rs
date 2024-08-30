@@ -206,7 +206,7 @@ pub mod v2 {
 	pub enum MigrationState<A, U> {
 		Authority(A),
 		FinishedAuthorities,
-		Identity(A),
+		Identity(BoundedVec<u8, ConstU32<256>>),
 		FinishedIdentities,
 		Username(U),
 		FinishedUsernames,
@@ -215,10 +215,6 @@ pub mod v2 {
 		CleanupUsernames(U),
 		FinishedCleanupUsernames,
 		CleanupPendingUsernames(U),
-		FinishedCleanupPendingUsernames,
-		CleanupIdentitiesWithUsername(U),
-		FinishedCleanupIdentitiesWithUsernames,
-		CleanupIdentitiesWithoutUsername(A),
 		Finished,
 	}
 
@@ -262,8 +258,8 @@ pub mod v2 {
 					Some(MigrationState::Username(maybe_last_username)) =>
 						Self::username_step(Some(maybe_last_username)),
 					Some(MigrationState::FinishedUsernames) => Self::identity_step(None),
-					Some(MigrationState::Identity(maybe_last_identity)) =>
-						Self::identity_step(Some(maybe_last_identity)),
+					Some(MigrationState::Identity(last_key)) =>
+						Self::identity_step(Some(last_key.clone())),
 					Some(MigrationState::FinishedIdentities) => Self::pending_username_step(None),
 					Some(MigrationState::PendingUsername(maybe_last_username)) =>
 						Self::pending_username_step(Some(maybe_last_username)),
@@ -275,14 +271,6 @@ pub mod v2 {
 						Self::cleanup_pending_username_step(None),
 					Some(MigrationState::CleanupPendingUsernames(maybe_last_username)) =>
 						Self::cleanup_pending_username_step(Some(maybe_last_username)),
-					Some(MigrationState::FinishedCleanupPendingUsernames) =>
-						Self::cleanup_identity_with_username_step(None),
-					Some(MigrationState::CleanupIdentitiesWithUsername(maybe_last_identity)) =>
-						Self::cleanup_identity_with_username_step(Some(maybe_last_identity)),
-					Some(MigrationState::FinishedCleanupIdentitiesWithUsernames) =>
-						Self::cleanup_identity_without_username_step(None),
-					Some(MigrationState::CleanupIdentitiesWithoutUsername(maybe_last_identity)) =>
-						Self::cleanup_identity_without_username_step(Some(maybe_last_identity)),
 					Some(MigrationState::Finished) => return Ok(None),
 				};
 
@@ -294,6 +282,7 @@ pub mod v2 {
 	}
 
 	impl<T: Config, W: weights::WeightInfo> LazyMigrationV2<T, W> {
+		#[allow(unused)]
 		fn pretty_username(username: &Username<T>) -> String {
 			String::from_utf8(username.to_vec()).unwrap()
 		}
@@ -311,12 +300,6 @@ pub mod v2 {
 					W::migration_v2_cleanup_username_step(),
 				MigrationState::FinishedCleanupUsernames |
 				MigrationState::CleanupPendingUsernames(_) => W::migration_v2_cleanup_pending_username_step(),
-				MigrationState::FinishedCleanupPendingUsernames |
-				MigrationState::CleanupIdentitiesWithUsername(_) =>
-					W::migration_v2_cleanup_primary_username_identity_step(),
-				MigrationState::FinishedCleanupIdentitiesWithUsernames |
-				MigrationState::CleanupIdentitiesWithoutUsername(_) =>
-					W::migration_v2_cleanup_identity_without_username_step(),
 				MigrationState::Finished => Weight::zero(),
 			}
 		}
@@ -355,7 +338,6 @@ pub mod v2 {
 			};
 
 			if let Some((username, owner_account)) = iter.next() {
-				log::error!("STEPPING USERNAME {}", Self::pretty_username(&username));
 				let username_info =
 					UsernameInformation { owner: owner_account, provider: Provider::Governance };
 				UsernameInfoOf::<T>::insert(&username, username_info);
@@ -367,24 +349,31 @@ pub mod v2 {
 		}
 
 		pub(crate) fn identity_step(
-			maybe_last_key: Option<&T::AccountId>,
+			maybe_last_key: Option<BoundedVec<u8, ConstU32<256>>>,
 		) -> MigrationState<T::AccountId, Username<T>> {
-			let mut iter = if let Some(last_key) = maybe_last_key {
-				v1::IdentityOf::<T>::iter_from(v1::IdentityOf::<T>::hashed_key_for(last_key))
-			} else {
-				v1::IdentityOf::<T>::iter()
-			};
-
-			if let Some((account, (identity, maybe_username))) = iter.next() {
-				log::error!("STEPPING IDENTITY {}", account);
-				if identity.deposit > BalanceOf::<T>::zero() {
-					IdentityOf::<T>::insert(&account, identity);
-				}
-				if let Some(primary_username) = maybe_username {
-					UsernameOf::<T>::insert(&account, primary_username);
-				}
-
-				MigrationState::Identity(account)
+			use frame_support::IterableStorageMap;
+			if let Some(last_key) =
+				IdentityOf::<T>::translate_next::<
+					(
+						Registration<
+							BalanceOf<T>,
+							<T as pallet::Config>::MaxRegistrars,
+							<T as pallet::Config>::IdentityInformation,
+						>,
+						Option<Username<T>>,
+					),
+					_,
+				>(maybe_last_key.map(|b| b.to_vec()), |account, (identity, maybe_username)| {
+					if let Some(primary_username) = maybe_username {
+						UsernameOf::<T>::insert(&account, primary_username);
+					}
+					if identity.deposit > BalanceOf::<T>::zero() {
+						Some(identity)
+					} else {
+						None
+					}
+				}) {
+				MigrationState::Identity(last_key.try_into().unwrap())
 			} else {
 				MigrationState::FinishedIdentities
 			}
@@ -402,7 +391,6 @@ pub mod v2 {
 			};
 
 			if let Some((username, (owner_account, since))) = iter.next() {
-				log::error!("STEPPING PENDING USERNAME {}", Self::pretty_username(&username));
 				PendingAcceptance::<T>::insert(
 					&username,
 					(owner_account, since, Provider::Governance),
@@ -423,7 +411,6 @@ pub mod v2 {
 			};
 
 			if let Some((username, _)) = iter.next() {
-				log::error!("STEPPING CLEANUP USERNAME {}", Self::pretty_username(&username));
 				let _ = v1::AccountOfUsername::<T>::take(&username);
 				MigrationState::CleanupUsernames(username)
 			} else {
@@ -441,57 +428,9 @@ pub mod v2 {
 			};
 
 			if let Some((username, _)) = iter.next() {
-				log::error!(
-					"STEPPING CLEANUP PENDING USERNAME {}",
-					Self::pretty_username(&username)
-				);
 				let _ = v1::PendingUsernames::<T>::take(&username);
 
 				MigrationState::CleanupPendingUsernames(username)
-			} else {
-				MigrationState::FinishedCleanupPendingUsernames
-			}
-		}
-
-		pub(crate) fn cleanup_identity_with_username_step(
-			maybe_last_key: Option<&Username<T>>,
-		) -> MigrationState<T::AccountId, Username<T>> {
-			let mut iter = if let Some(last_key) = maybe_last_key {
-				UsernameInfoOf::<T>::iter_from(UsernameInfoOf::<T>::hashed_key_for(last_key))
-			} else {
-				UsernameInfoOf::<T>::iter()
-			};
-
-			if let Some((username, username_info)) = iter.next() {
-				log::error!(
-					"STEPPING CLEANUP IDENTITY WITH USERNAME {} FOR {}",
-					Self::pretty_username(&username),
-					username_info.owner
-				);
-				let _ = v1::IdentityOf::<T>::take(&username_info.owner);
-
-				MigrationState::CleanupIdentitiesWithUsername(username)
-			} else {
-				MigrationState::FinishedCleanupIdentitiesWithUsernames
-			}
-		}
-
-		pub(crate) fn cleanup_identity_without_username_step(
-			maybe_last_key: Option<&T::AccountId>,
-		) -> MigrationState<T::AccountId, Username<T>> {
-			let mut iter = if let Some(last_key) = maybe_last_key {
-				IdentityOf::<T>::iter_from(IdentityOf::<T>::hashed_key_for(last_key))
-			} else {
-				IdentityOf::<T>::iter()
-			};
-
-			if let Some((owner_account, username)) = iter.next() {
-				log::error!("STEPPING CLEANUP IDENTITY WITHOUT USERNAME {}", owner_account);
-				if UsernameOf::<T>::contains_key(&owner_account) {
-					let _ = v1::IdentityOf::<T>::take(&owner_account);
-				}
-
-				MigrationState::CleanupIdentitiesWithoutUsername(owner_account)
 			} else {
 				MigrationState::Finished
 			}

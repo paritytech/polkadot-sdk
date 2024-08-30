@@ -954,17 +954,5 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
-	fn migration_v2_cleanup_identity_step() -> Result<(), BenchmarkError> {
-		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
-		#[block]
-		{
-			LazyMigrationV2::<T, <T as Config>::WeightInfo>::cleanup_identity_without_username_step(
-				None,
-			);
-		}
-		Ok(())
-	}
-
 	impl_benchmark_test_suite!(Identity, crate::tests::new_test_ext(), crate::tests::Test);
 }
