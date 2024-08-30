@@ -102,14 +102,14 @@ pub fn create2(deployer: &H160, code: &[u8], input_data: &[u8], salt: &[u8; 32])
 #[cfg(test)]
 mod test {
 	use super::*;
+	use crate::test_utils::ALICE_ADDR;
 	use sp_core::{hex2array, H160};
 
 	#[test]
 	fn create1_works() {
-		let deployer = H160(hex2array!("deadbeef00000000000000000000000000000000"));
 		assert_eq!(
-			create1(&deployer, 1u64),
-			H160(hex2array!("d663cb208b6f5b4eac7a6c6f6e78e800291c1b42")),
+			create1(&ALICE_ADDR, 1u64),
+			H160(hex2array!("c851da37e4e8d3a20d8d56be2963934b4ad71c3b")),
 		)
 	}
 
@@ -117,19 +117,12 @@ mod test {
 	fn create2_works() {
 		assert_eq!(
 			create2(
-				&H160(hex2array!("0123456789012345678901234567890123456789")),
+				&ALICE_ADDR,
 				&hex2array!("600060005560016000"),
 				&hex2array!("55"),
 				&hex2array!("1234567890123456789012345678901234567890123456789012345678901234")
 			),
-			H160(hex2array!("e7b9e8bb7fe0d392269d203e2332435a85da9d3f")),
+			H160(hex2array!("7f31e795e5836a19a8f919ab5a9de9a197ecd2b6")),
 		)
 	}
 }
-
-/*
-Sender Address: 0x0123456789012345678901234567890123456789
-	•	Salt: 0x1234567890123456789012345678901234567890123456789012345678901234
-	•	Initialization Code: 0x60006000556001600055 (a minimal example that sets a storage slot)
-	•	Resulting Contract Address: 0xe7b9e8bb7fe0d392269d203e2332435a85da9d3f
-	*/
