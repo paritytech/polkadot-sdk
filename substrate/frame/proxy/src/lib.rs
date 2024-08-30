@@ -393,9 +393,12 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let real = T::Lookup::lookup(real)?;
 
-			// if proxy is not found then same error of NotProxy still applies
-			let (proxy, _) = Proxies::<T>::try_get(&real).map_err(|_| Error::<T>::NotProxy)?;
-			proxy.into_iter().find(|x| x.delegate == who).ok_or(Error::<T>::NotProxy)?;
+			Proxies::<T>::try_get(&real)
+				.map(|i| i.0)
+				.iter()
+				.flatten()
+				.find(|x| x.delegate == who)
+				.ok_or(Error::<T>::NotProxy)?;
 
 			let announcement = Announcement {
 				real: real.clone(),
