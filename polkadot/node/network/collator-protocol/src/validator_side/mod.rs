@@ -2043,10 +2043,7 @@ fn is_seconded_limit_reached(
 	relay_parent_state: &PerRelayParent,
 	para_id: &ParaId,
 ) -> bool {
-	// Get the number of claims for `para_id` at `relay_parent`
-	// TODO: should be compared against the number of items in the claim queue!?
 	let claims_for_para = relay_parent_state.collations.claims_for_para(para_id);
-
 	let seconded_and_pending_at_ancestors = seconded_and_pending_for_para_in_view(
 		implicit_view,
 		per_relay_parent,
@@ -2054,7 +2051,16 @@ fn is_seconded_limit_reached(
 		para_id,
 	);
 
-	claims_for_para >= seconded_and_pending_at_ancestors
+	gum::trace!(
+		target: LOG_TARGET,
+		?relay_parent,
+		?para_id,
+		claims_for_para,
+		seconded_and_pending_at_ancestors,
+		"Checking if seconded limit is reached"
+	);
+
+	seconded_and_pending_at_ancestors >= claims_for_para
 }
 
 fn seconded_and_pending_for_para_in_view(
