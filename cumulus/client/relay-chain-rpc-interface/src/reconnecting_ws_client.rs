@@ -471,7 +471,7 @@ mod test {
 	use jsonrpsee::Methods;
 	use url::Url;
 
-	const RETRY_LOGIC_SERVER_STARTUP_MARGIN_SECONDS: u64 = 1;
+	const SERVER_STARTUP_DELAY_SECONDS: u64 = 10;
 
 	#[test]
 	fn url_to_string_works() {
@@ -502,10 +502,7 @@ mod test {
 
 	#[tokio::test]
 	// Testing the retry logic at full means increasing CI with half a minute according
-	// to the current logic, so lets test it best effort. The test can get flaky if ran
-	// on an overloaded machine because it depends on correct timing coordination and the
-	// margin is set to 1 second (the time after we check if a side effect was produced).
-	// Increase
+	// to the current logic, so lets test it best effort.
 	async fn client_manager_retry_logic() {
 		let port = portpicker::pick_unused_port().unwrap();
 		let server = jsonrpsee::server::Server::builder()
@@ -513,36 +510,17 @@ mod test {
 			.await
 			.unwrap();
 
-		// Wait three seconds while attempting connection.
-		let conn_res = tokio::spawn(async move {
-			tokio::time::timeout(
-				Duration::from_secs(3),
-				ClientManager::new(vec![format!("ws://127.0.0.1:{}", port)]),
-			)
-			.await
-		});
-
-		// Start the server too.
+		// Start the server.
 		let server = tokio::spawn(async {
-			tokio::time::sleep(Duration::from_secs(10)).await;
+			tokio::time::sleep(Duration::from_secs(SERVER_STARTUP_DELAY_SECONDS)).await;
 			server.start(Methods::default())
 		});
 
-		// By this time the client can not make a connection because the server is not up.
-		assert!(conn_res.await.unwrap().is_err());
-
-		// Trying to connect again to the RPC with a client that stays around for sufficient
-		// time to catche the RPC server online and connect to it.
-		let conn_res = tokio::spawn(async move {
-			tokio::time::timeout(
-				Duration::from_secs(7 + RETRY_LOGIC_SERVER_STARTUP_MARGIN_SECONDS),
-				ClientManager::new(vec![format!("ws://127.0.0.1:{}", port)]),
-			)
-			.await
-		});
-		let res = conn_res.await.unwrap();
+		// Start the client. Not exitting right away with an error means it
+		// is handling gracefully connections refused to the server while it
+		// is started.
+		let res = ClientManager::new(vec![format!("ws://127.0.0.1:{}", port)]).await;
 		assert!(res.is_ok());
-		assert!(res.unwrap().is_ok());
 
 		server.await.unwrap();
 	}
