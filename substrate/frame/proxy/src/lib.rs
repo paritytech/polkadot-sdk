@@ -425,7 +425,7 @@ pub mod pallet {
 						)
 					};
 					pending.try_push(announcement).map_err(|_| Error::<T>::TooMany)?;
-					let new_ticket = ticket.clone().update(
+					let new_ticket = ticket.update(
 						&who,
 						Footprint::from_parts(pending.len(), Self::announcement_size_bytes()),
 					)?;
