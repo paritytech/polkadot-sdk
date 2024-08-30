@@ -93,7 +93,7 @@ jobs:
           commit_with_message "Bump node version to $NODE_VERSION in polkadot-cli"
 
           SPEC_VERSION=$(get_spec_version $NODE_VERSION)
-          runtimes_list=$(get_filtered_runtimes_list_for_repo $(get_repo))
+          runtimes_list=$(get_filtered_runtimes_list)
           set_spec_versions $SPEC_VERSION "${runtimes_list[@]}"
 
           reorder_prdocs $NODE_VERSION

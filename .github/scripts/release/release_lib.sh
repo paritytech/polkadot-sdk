@@ -25,11 +25,10 @@ commit_with_message() {
     git commit -a -m "$MESSAGE" || true
 }
 
-# Retun list of the runtimes filterd based on the repo (i.e. cumulus or polkadot)
-# input: repo (cumulus, polkadot)
+# Retun list of the runtimes filterd
+# input: none
 # output: list of filtered runtimes
-get_filtered_runtimes_list_for_repo() {
-    repo=$1
+get_filtered_runtimes_list() {
     grep_filters=("runtime.*" "test|template|starters|substrate")
 
     git grep spec_version: | grep .rs: | grep -e "${grep_filters[0]}" | grep "lib.rs" | grep -vE "${grep_filters[1]}" | cut -d: -f1
