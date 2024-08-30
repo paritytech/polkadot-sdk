@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724946765705,
+  "lastUpdate": 1725020577763,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -16684,6 +16684,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.991209605630178,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "09035a7d5d14fc3f2df3db304cd0fcc8fc9ed27b",
+          "message": "Polkadot Primitives v8  (#5525)\n\nAs Runtime release 1.3.0 includes all of the remaining staging\nprimitives and APIs we can now release primitives version 8.\nNo other changes other than renaming/moving done here.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-08-30T10:39:48Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/09035a7d5d14fc3f2df3db304cd0fcc8fc9ed27b"
+        },
+        "date": 1725020548855,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63996.44,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.2202637420301734,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.916932131970007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.019167913949934,
             "unit": "seconds"
           }
         ]
