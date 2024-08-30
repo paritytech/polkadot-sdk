@@ -21,7 +21,7 @@
 use common::{input, output};
 use uapi::{HostFn, HostFnImpl as api};
 
-const DJANGO: [u8; 32] = [4u8; 32];
+const DJANGO: [u8; 20] = [4u8; 20];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

@@ -1410,7 +1410,7 @@ pub mod env {
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Address)?;
-		let address = <E::T as Config>::AddressMapper::to_address(self.ext.account_id());
+		let address = self.ext.address();
 		Ok(self.write_sandbox_output(
 			memory,
 			out_ptr,

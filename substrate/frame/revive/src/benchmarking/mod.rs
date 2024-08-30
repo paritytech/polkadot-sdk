@@ -629,7 +629,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_address() {
-		let len = <AccountIdOf<T> as MaxEncodedLen>::max_encoded_len() as u32;
+		let len = H160::len_bytes();
 		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 
 		let result;
@@ -638,10 +638,7 @@ mod benchmarks {
 			result = runtime.bench_address(memory.as_mut_slice(), 4, 0);
 		}
 		assert_ok!(result);
-		assert_eq!(
-			&<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().account_id()
-		);
+		assert_eq!(<H160 as Decode>::decode(&mut &memory[4..]).unwrap(), runtime.ext().address());
 	}
 
 	#[benchmark(pov_mode = Measured)]

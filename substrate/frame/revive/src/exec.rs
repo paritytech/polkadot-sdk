@@ -296,6 +296,11 @@ pub trait Ext: sealing::Sealed {
 	/// Returns a reference to the account id of the current contract.
 	fn account_id(&self) -> &AccountIdOf<Self::T>;
 
+	/// Returns a reference to the [`H160`] address of the current contract.
+	fn address(&self) -> H160 {
+		<Self::T as Config>::AddressMapper::to_address(self.account_id())
+	}
+
 	/// Returns the balance of the current contract.
 	///
 	/// The `value_transferred` is already added.
@@ -1667,10 +1672,9 @@ mod tests {
 			test_utils::{get_balance, place_contract, set_balance},
 			ExtBuilder, RuntimeCall, RuntimeEvent as MetaEvent, Test, TestFilter,
 		},
-		Error,
+		AddressMapper, Error,
 	};
 	use assert_matches::assert_matches;
-	use codec::Encode;
 	use frame_support::{assert_err, assert_ok, parameter_types};
 	use frame_system::{EventRecord, Phase};
 	use pallet_revive_uapi::ReturnFlags;
@@ -1779,7 +1783,8 @@ mod tests {
 		}
 
 		fn code(&self) -> &[u8] {
-			unimplemented!("The mock executable doesn't have code")
+			// The mock executable doesn't have code", so we return the code hash.
+			self.code_hash.as_ref()
 		}
 
 		fn code_hash(&self) -> &H256 {
@@ -1861,7 +1866,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(&BOB, success_ch);
 			set_balance(&ALICE, 100);
-			let balance = get_balance(&BOB);
+			let balance = get_balance(&BOB_CONTRACT_ID);
 			let origin = Origin::from_account_id(ALICE);
 			let mut storage_meter = storage::meter::Meter::new(&origin, 0, value).unwrap();
 
@@ -1877,7 +1882,7 @@ mod tests {
 			.unwrap();
 
 			assert_eq!(get_balance(&ALICE), 100 - value);
-			assert_eq!(get_balance(&BOB), balance + value);
+			assert_eq!(get_balance(&BOB_CONTRACT_ID), balance + value);
 		});
 	}
 
@@ -1899,7 +1904,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(&BOB, delegate_ch);
 			set_balance(&ALICE, 100);
-			let balance = get_balance(&BOB);
+			let balance = get_balance(&BOB_CONTRACT_ID);
 			let origin = Origin::from_account_id(ALICE);
 			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 55).unwrap();
 
@@ -1915,7 +1920,7 @@ mod tests {
 			.unwrap();
 
 			assert_eq!(get_balance(&ALICE), 100 - value);
-			assert_eq!(get_balance(&BOB), balance + value);
+			assert_eq!(get_balance(&BOB_CONTRACT_ID), balance + value);
 		});
 	}
 
@@ -2148,14 +2153,17 @@ mod tests {
 	#[test]
 	fn caller_returns_proper_values() {
 		parameter_types! {
-			static WitnessedCallerBob: Option<AccountIdOf<Test>> = None;
-			static WitnessedCallerCharlie: Option<AccountIdOf<Test>> = None;
+			static WitnessedCallerBob: Option<H160> = None;
+			static WitnessedCallerCharlie: Option<H160> = None;
 		}
 
 		let bob_ch = MockLoader::insert(Call, |ctx, _| {
 			// Record the caller for bob.
 			WitnessedCallerBob::mutate(|caller| {
-				*caller = Some(ctx.ext.caller().account_id().unwrap().clone())
+				let origin = ctx.ext.caller();
+				*caller = Some(<Test as Config>::AddressMapper::to_address(
+					&origin.account_id().unwrap(),
+				));
 			});
 
 			// Call into CHARLIE contract.
@@ -2176,7 +2184,10 @@ mod tests {
 		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
 			// Record the caller for charlie.
 			WitnessedCallerCharlie::mutate(|caller| {
-				*caller = Some(ctx.ext.caller().account_id().unwrap().clone())
+				let origin = ctx.ext.caller();
+				*caller = Some(<Test as Config>::AddressMapper::to_address(
+					&origin.account_id().unwrap(),
+				));
 			});
 			exec_success()
 		});
@@ -2200,8 +2211,8 @@ mod tests {
 			assert_matches!(result, Ok(_));
 		});
 
-		assert_eq!(WitnessedCallerBob::get(), Some(ALICE));
-		assert_eq!(WitnessedCallerCharlie::get(), Some(BOB));
+		assert_eq!(WitnessedCallerBob::get(), Some(ALICE_ADDR));
+		assert_eq!(WitnessedCallerCharlie::get(), Some(BOB_ADDR));
 	}
 
 	#[test]
@@ -2426,7 +2437,7 @@ mod tests {
 	fn address_returns_proper_values() {
 		let bob_ch = MockLoader::insert(Call, |ctx, _| {
 			// Verify that address matches BOB.
-			assert_eq!(*ctx.ext.account_id(), BOB);
+			assert_eq!(ctx.ext.address(), BOB_ADDR);
 
 			// Call into charlie contract.
 			assert_matches!(
@@ -2444,7 +2455,7 @@ mod tests {
 			exec_success()
 		});
 		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
-			assert_eq!(*ctx.ext.account_id(), CHARLIE);
+			assert_eq!(ctx.ext.address(), CHARLIE_ADDR);
 			exec_success()
 		});
 
@@ -2705,7 +2716,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				set_balance(&ALICE, 1000);
-				set_balance(&BOB, 100);
+				set_balance(&BOB_CONTRACT_ID, 100);
 				place_contract(&BOB, instantiator_ch);
 				let origin = Origin::from_account_id(ALICE);
 				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
@@ -3000,7 +3011,7 @@ mod tests {
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
 				0,
-				CHARLIE.encode(),
+				CHARLIE_ADDR.as_bytes().to_vec(),
 				None,
 			));
 
@@ -3012,7 +3023,7 @@ mod tests {
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
 					0,
-					BOB.encode(),
+					BOB_ADDR.as_bytes().to_vec(),
 					None,
 				)
 				.map_err(|e| e.error),
@@ -3112,7 +3123,7 @@ mod tests {
 					EventRecord {
 						phase: Phase::Initialization,
 						event: MetaEvent::System(frame_system::Event::Remarked {
-							sender: BOB,
+							sender: BOB_CONTRACT_ID,
 							hash: remark_hash
 						}),
 						topics: vec![],
@@ -3196,7 +3207,7 @@ mod tests {
 					EventRecord {
 						phase: Phase::Initialization,
 						event: MetaEvent::System(frame_system::Event::Remarked {
-							sender: BOB,
+							sender: BOB_CONTRACT_ID,
 							hash: remark_hash
 						}),
 						topics: vec![],

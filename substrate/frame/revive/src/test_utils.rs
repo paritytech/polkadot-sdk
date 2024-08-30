@@ -27,11 +27,29 @@ use frame_support::weights::Weight;
 use sp_core::H160;
 pub use sp_runtime::AccountId32;
 
+const fn contract_id(addr: H160) -> AccountId32 {
+	let mut id = [0u8; 32];
+	let mut i = 0;
+	while i < 20 {
+		id[i] = addr.0[i];
+		i += 1;
+	}
+
+	let mut j = 20;
+	while j < 32 {
+		id[j] = 0xee;
+		j += 1;
+	}
+
+	AccountId32::new(id)
+}
+
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
 pub const ALICE_ADDR: H160 = H160([1u8; 20]);
 
 pub const BOB: AccountId32 = AccountId32::new([2u8; 32]);
 pub const BOB_ADDR: H160 = H160([2u8; 20]);
+pub const BOB_CONTRACT_ID: AccountId32 = contract_id(BOB_ADDR);
 
 pub const CHARLIE: AccountId32 = AccountId32::new([3u8; 32]);
 pub const CHARLIE_ADDR: H160 = H160([3u8; 20]);
