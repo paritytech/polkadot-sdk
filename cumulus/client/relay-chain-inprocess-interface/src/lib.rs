@@ -36,7 +36,7 @@ use sc_client_api::{
 	StorageProof,
 };
 use sc_telemetry::TelemetryWorkerHandle;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{CallApiAt, CallApiAtParams, CallContext, ProvideRuntimeApi};
 use sp_consensus::SyncOracle;
 use sp_core::Pair;
 use sp_state_machine::{Backend as StateBackend, StorageValue};
@@ -180,26 +180,20 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		Ok(self.backend.blockchain().info().finalized_hash)
 	}
 
-	async fn call_remote_runtime_function_encoded(
+	async fn call_runtime_api(
 		&self,
 		method_name: &'static str,
 		hash: PHash,
 		payload: &[u8],
 	) -> RelayChainResult<Vec<u8>> {
-		use sp_api::{CallApiAt, CallApiAtParams, CallContext, __private::Extensions};
-		use sp_state_machine::OverlayedChanges;
-		use std::cell::RefCell;
-
-		let overlayed_changes = OverlayedChanges::default();
-
 		Ok(self.full_client.call_api_at(CallApiAtParams {
 			at: hash,
 			function: method_name,
 			arguments: payload.to_vec(),
-			overlayed_changes: &RefCell::new(overlayed_changes),
+			overlayed_changes: &Default::default(),
 			call_context: CallContext::Offchain,
 			recorder: &None,
-			extensions: &RefCell::new(Extensions::new()),
+			extensions: &Default::default(),
 		})?)
 	}
 

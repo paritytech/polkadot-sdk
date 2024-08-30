@@ -117,7 +117,8 @@ pub trait RelayChainInterface: Send + Sync {
 	/// Get the hash of the finalized block.
 	async fn finalized_block_hash(&self) -> RelayChainResult<PHash>;
 
-	async fn call_remote_runtime_function_encoded(
+	/// Call an arbitrary runtime api. The input and output are SCALE-encoded.
+	async fn call_runtime_api(
 		&self,
 		method_name: &'static str,
 		hash: RelayHash,
@@ -303,13 +304,13 @@ where
 		(**self).finalized_block_hash().await
 	}
 
-	async fn call_remote_runtime_function_encoded(
+	async fn call_runtime_api(
 		&self,
 		method_name: &'static str,
 		hash: RelayHash,
 		payload: &[u8],
 	) -> RelayChainResult<Vec<u8>> {
-		(**self).call_remote_runtime_function_encoded(method_name, hash, payload).await
+		(**self).call_runtime_api(method_name, hash, payload).await
 	}
 
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
@@ -381,7 +382,7 @@ where
 	}
 }
 
-pub async fn call_remote_runtime_function<R>(
+pub async fn call_runtime_api<R>(
 	client: &(impl RelayChainInterface + ?Sized),
 	method_name: &'static str,
 	hash: RelayHash,
@@ -391,7 +392,7 @@ where
 	R: Decode,
 {
 	let res = client
-		.call_remote_runtime_function_encoded(method_name, hash, &payload.encode())
+		.call_runtime_api(method_name, hash, &payload.encode())
 		.await?;
 	Decode::decode(&mut &*res).map_err(Into::into)
 }

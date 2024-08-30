@@ -163,7 +163,7 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		self.rpc_client.chain_get_finalized_head().await
 	}
 
-	async fn call_remote_runtime_function_encoded(
+	async fn call_runtime_api(
 		&self,
 		method_name: &'static str,
 		hash: RelayHash,
