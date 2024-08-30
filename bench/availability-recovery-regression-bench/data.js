@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725021182424,
+  "lastUpdate": 1725029408027,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -19151,6 +19151,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1795792806333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "zjb0807",
+            "username": "zjb0807",
+            "email": "zjb0807@qq.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9cdf3d999e9de7996495c891af7085f55acc695a",
+          "message": "Add more logs for AcceptanceCheckErr (#5513)\n\n# Description\n\nThe error message should be logged out when the check method returns an\nerror.\n\nBecause specific information is lost when `UmpAcceptanceCheckErr`,\n`ProcessedDownwardMessagesAcceptanceErr`, `HrmpWatermarkAcceptanceErr`,\n`OutboundHrmpAcceptanceErr` are converted to `AcceptanceCheckErr`, a log\nis added to each check.\n\n## Integration\n\n## Review Notes\n\n# Checklist\n\n* [ ] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [ ] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* External contributors: ask maintainers to put the right label on your\nPR.\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2024-08-30T12:55:57Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9cdf3d999e9de7996495c891af7085f55acc695a"
+        },
+        "date": 1725029379322,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.052733902866667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20825051699999997,
             "unit": "seconds"
           }
         ]
