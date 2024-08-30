@@ -695,8 +695,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
 <a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -719,9 +717,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>alloc::format;
 <span class="kw">use </span>alloc::vec::Vec;
-<span class="kw">use </span>polkadot_primitives::{
-	vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId,
-};
+<span class="kw">use </span>polkadot_primitives::{AccountId, AccountPublic, AssignmentId, SchedulerParams, ValidatorId};
 <span class="kw">use </span>rococo_runtime_constants::currency::UNITS <span class="kw">as </span>ROC;
 <span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
 <span class="kw">use </span>sp_consensus_babe::AuthorityId <span class="kw">as </span>BabeId;

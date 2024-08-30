@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fetch_claim_queue","get_disabled_validators_with_fallback"],"struct":["ClaimQueueSnapshot"]};
+window.SIDEBAR_ITEMS = {};

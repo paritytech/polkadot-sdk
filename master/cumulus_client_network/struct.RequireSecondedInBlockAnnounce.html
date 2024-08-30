@@ -169,7 +169,7 @@ For more information on the block announcement, see <a href="struct.WaitToAnnoun
 will call this validator and provides the extra data that was attached to the announcement.
 We call this extra data <code>justification</code>.
 It is expected that the attached data is a SCALE encoded <a href="struct.BlockAnnounceData.html" title="struct cumulus_client_network::BlockAnnounceData"><code>BlockAnnounceData</code></a>. The
-statement is checked to be a <a href="../polkadot_primitives/v7/enum.CompactStatement.html#variant.Seconded" title="variant polkadot_primitives::v7::CompactStatement::Seconded"><code>CompactStatement::Seconded</code></a> and that it is signed by an active
+statement is checked to be a <a href="../polkadot_primitives/v8/enum.CompactStatement.html#variant.Seconded" title="variant polkadot_primitives::v8::CompactStatement::Seconded"><code>CompactStatement::Seconded</code></a> and that it is signed by an active
 parachain validator.</p>
 <p>If no justification was provided we check if the block announcement is at the tip of the known
 chain. If it is at the tip, it is required to provide a justification or otherwise we reject

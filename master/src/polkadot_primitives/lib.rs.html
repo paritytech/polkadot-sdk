@@ -219,6 +219,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -240,8 +241,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![warn(missing_docs)]
 #![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="comment">// `v6` is currently the latest stable version of the runtime API.
-</span><span class="kw">pub mod </span>v7;
+</span><span class="comment">// `v11` is currently the latest stable version of the runtime API.
+</span><span class="kw">pub mod </span>v8;
 
 <span class="comment">// The 'staging' version is special - it contains primitives which are
 // still in development. Once they are considered stable, they will be
@@ -256,7 +257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Current primitives not requiring versioning are exported here.
 // Primitives requiring versioning must not be exported and must be referred by an exact version.
-</span><span class="kw">pub use </span>v7::{
+</span><span class="kw">pub use </span>v8::{
 	async_backing, byzantine_threshold, check_candidate_backing, collator_signature_payload,
 	effective_minimum_backing_votes, executor_params, metric_definitions, node_features, slashing,
 	supermajority_threshold, well_known_keys, AbridgedHostConfiguration, AbridgedHrmpChannel,
@@ -275,19 +276,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	OutboundHrmpMessage, ParathreadClaim, ParathreadEntry, PersistedValidationData,
 	PvfCheckStatement, PvfExecKind, PvfPrepKind, RuntimeMetricLabel, RuntimeMetricLabelValue,
 	RuntimeMetricLabelValues, RuntimeMetricLabels, RuntimeMetricOp, RuntimeMetricUpdate,
-	ScheduledCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signature, Signed,
-	SignedAvailabilityBitfield, SignedAvailabilityBitfields, SignedStatement, SigningContext, Slot,
-	UncheckedSigned, UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields,
-	UncheckedSignedStatement, UpgradeGoAhead, UpgradeRestriction, UpwardMessage,
-	ValidDisputeStatementKind, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature, ValidityAttestation, ValidityError, ASSIGNMENT_KEY_TYPE_ID,
-	LEGACY_MIN_BACKING_VOTES, LOWEST_PUBLIC_ID, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
-	MIN_CODE_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
-	PARACHAINS_INHERENT_IDENTIFIER, PARACHAIN_KEY_TYPE_ID,
+	ScheduledCore, SchedulerParams, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signature,
+	Signed, SignedAvailabilityBitfield, SignedAvailabilityBitfields, SignedStatement,
+	SigningContext, Slot, UncheckedSigned, UncheckedSignedAvailabilityBitfield,
+	UncheckedSignedAvailabilityBitfields, UncheckedSignedStatement, UpgradeGoAhead,
+	UpgradeRestriction, UpwardMessage, ValidDisputeStatementKind, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
+	ValidityError, ASSIGNMENT_KEY_TYPE_ID, LEGACY_MIN_BACKING_VOTES, LOWEST_PUBLIC_ID,
+	MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, MIN_CODE_SIZE,
+	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE, PARACHAINS_INHERENT_IDENTIFIER,
+	PARACHAIN_KEY_TYPE_ID,
 };
 
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-</span><span class="kw">pub use </span>v7::{AssignmentPair, CollatorPair, ValidatorPair};
+</span><span class="kw">pub use </span>v8::{AssignmentPair, CollatorPair, ValidatorPair};
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

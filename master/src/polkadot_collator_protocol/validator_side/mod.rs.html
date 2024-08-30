@@ -2263,7 +2263,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2111" id="2111">2111</a>
 <a href="#2112" id="2112">2112</a>
 <a href="#2113" id="2113">2113</a>
-<a href="#2114" id="2114">2114</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2316,8 +2315,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem_util::{
 	backing_implicit_view::View <span class="kw">as </span>ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
-	vstaging::fetch_claim_queue,
+	runtime::{fetch_claim_queue, prospective_parachains_mode, ProspectiveParachainsMode},
 };
 <span class="kw">use </span>polkadot_primitives::{
 	CandidateHash, CollatorId, CoreState, Hash, HeadData, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption,

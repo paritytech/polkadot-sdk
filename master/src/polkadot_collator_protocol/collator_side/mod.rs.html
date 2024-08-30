@@ -1759,7 +1759,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1607" id="1607">1607</a>
 <a href="#1608" id="1608">1608</a>
 <a href="#1609" id="1609">1609</a>
-<a href="#1610" id="1610">1610</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1810,10 +1809,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	backing_implicit_view::View <span class="kw">as </span>ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
 	runtime::{
-		get_availability_cores, get_group_rotation_info, prospective_parachains_mode,
-		ProspectiveParachainsMode, RuntimeInfo,
+		fetch_claim_queue, get_availability_cores, get_group_rotation_info,
+		prospective_parachains_mode, ProspectiveParachainsMode, RuntimeInfo,
 	},
-	vstaging::fetch_claim_queue,
 	TimeoutExt,
 };
 <span class="kw">use </span>polkadot_primitives::{

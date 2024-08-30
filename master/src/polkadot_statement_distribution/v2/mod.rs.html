@@ -3655,6 +3655,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3503" id="3503">3503</a>
 <a href="#3504" id="3504">3504</a>
 <a href="#3505" id="3505">3505</a>
+<a href="#3506" id="3506">3506</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3702,8 +3703,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem_util::{
 	backing_implicit_view::View <span class="kw">as </span>ImplicitView,
 	reputation::ReputationAggregator,
-	runtime::{request_min_backing_votes, ProspectiveParachainsMode},
-	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
+	runtime::{
+		fetch_claim_queue, request_min_backing_votes, ClaimQueueSnapshot, ProspectiveParachainsMode,
+	},
 };
 <span class="kw">use </span>polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, CoreState, GroupIndex,
@@ -4227,7 +4229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">for </span>new_relay_parent <span class="kw">in </span>new_relay_parents.iter().cloned() {
 		<span class="kw">let </span>disabled_validators: HashSet&lt;<span class="kw">_</span>&gt; =
-			polkadot_node_subsystem_util::vstaging::get_disabled_validators_with_fallback(
+			polkadot_node_subsystem_util::runtime::get_disabled_validators_with_fallback(
 				ctx.sender(),
 				new_relay_parent,
 			)

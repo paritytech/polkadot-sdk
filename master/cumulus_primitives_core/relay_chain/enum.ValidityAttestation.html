@@ -160,13 +160,13 @@ This corresponds to issuance of a <code>Candidate</code> statement.</p>
 <code>Valid</code> statement.</p>
 </div></div><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-ValidityAttestation" class="impl"><a href="#impl-ValidityAttestation" class="anchor">§</a><h3 class="code-header">impl <a class="enum" href="enum.ValidityAttestation.html" title="enum cumulus_primitives_core::relay_chain::ValidityAttestation">ValidityAttestation</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.to_compact_statement" class="method"><h4 class="code-header">pub fn <a href="#method.to_compact_statement" class="fn">to_compact_statement</a>(
     &amp;self,
-    candidate_hash: <a class="struct" href="v7/struct.CandidateHash.html" title="struct cumulus_primitives_core::relay_chain::v7::CandidateHash">CandidateHash</a>
+    candidate_hash: <a class="struct" href="v8/struct.CandidateHash.html" title="struct cumulus_primitives_core::relay_chain::v8::CandidateHash">CandidateHash</a>
 ) -&gt; <a class="enum" href="enum.CompactStatement.html" title="enum cumulus_primitives_core::relay_chain::CompactStatement">CompactStatement</a></h4></section></summary><div class="docblock"><p>Produce the underlying signed payload of the attestation, given the hash of the candidate,
 which should be known in context.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.signature" class="method"><h4 class="code-header">pub fn <a href="#method.signature" class="fn">signature</a>(&amp;self) -&gt; &amp;Signature</h4></section></summary><div class="docblock"><p>Get a reference to the signature.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.signed_payload" class="method"><h4 class="code-header">pub fn <a href="#method.signed_payload" class="fn">signed_payload</a>&lt;H&gt;(
     &amp;self,
-    candidate_hash: <a class="struct" href="v7/struct.CandidateHash.html" title="struct cumulus_primitives_core::relay_chain::v7::CandidateHash">CandidateHash</a>,
+    candidate_hash: <a class="struct" href="v8/struct.CandidateHash.html" title="struct cumulus_primitives_core::relay_chain::v8::CandidateHash">CandidateHash</a>,
     signing_context: &amp;<a class="struct" href="struct.SigningContext.html" title="struct cumulus_primitives_core::relay_chain::SigningContext">SigningContext</a>&lt;H&gt;
 ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a><div class="where">where
     H: Encode,</div></h4></section></summary><div class="docblock"><p>Produce the underlying signed payload of the attestation, given the hash of the candidate,

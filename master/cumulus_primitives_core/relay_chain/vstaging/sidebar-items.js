@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SchedulerParams"]};
+window.SIDEBAR_ITEMS = {};

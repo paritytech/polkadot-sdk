@@ -741,6 +741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ValidatorSignature,
 };
 <span class="kw">pub use </span>rand;
+<span class="kw">use </span>runtime::get_disabled_validators_with_fallback;
 <span class="kw">use </span>sp_application_crypto::AppCrypto;
 <span class="kw">use </span>sp_core::ByteArray;
 <span class="kw">use </span>sp_keystore::{Error <span class="kw">as </span>KeystoreError, KeystorePtr};
@@ -749,7 +750,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	time::Duration,
 };
 <span class="kw">use </span>thiserror::Error;
-<span class="kw">use </span>vstaging::get_disabled_validators_with_fallback;
 
 <span class="kw">pub use </span>determine_new_blocks::determine_new_blocks;
 <span class="kw">pub use </span>metered;

@@ -158,7 +158,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div><section id="variant.Invalid" class="variant"><a href="#variant.Invalid" class="anchor">§</a><h3 class="code-header">Invalid(<a class="enum" href="enum.InvalidDisputeStatementKind.html" title="enum cumulus_primitives_core::relay_chain::InvalidDisputeStatementKind">InvalidDisputeStatementKind</a>)</h3></section><div class="docblock"><p>An invalid statement, of the given kind.</p>
 </div></div><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-DisputeStatement" class="impl"><a href="#impl-DisputeStatement" class="anchor">§</a><h3 class="code-header">impl <a class="enum" href="enum.DisputeStatement.html" title="enum cumulus_primitives_core::relay_chain::DisputeStatement">DisputeStatement</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.payload_data" class="method"><h4 class="code-header">pub fn <a href="#method.payload_data" class="fn">payload_data</a>(
     &amp;self,
-    candidate_hash: <a class="struct" href="v7/struct.CandidateHash.html" title="struct cumulus_primitives_core::relay_chain::v7::CandidateHash">CandidateHash</a>,
+    candidate_hash: <a class="struct" href="v8/struct.CandidateHash.html" title="struct cumulus_primitives_core::relay_chain::v8::CandidateHash">CandidateHash</a>,
     session: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Get the payload data for this type of dispute statement.</p>
 <p>Returns Error if the candidate_hash is not included in the list of signed
@@ -166,7 +166,7 @@ candidate from ApprovalCheckingMultipleCandidate.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.check_signature" class="method"><h4 class="code-header">pub fn <a href="#method.check_signature" class="fn">check_signature</a>(
     &amp;self,
     validator_public: &amp;Public,
-    candidate_hash: <a class="struct" href="v7/struct.CandidateHash.html" title="struct cumulus_primitives_core::relay_chain::v7::CandidateHash">CandidateHash</a>,
+    candidate_hash: <a class="struct" href="v8/struct.CandidateHash.html" title="struct cumulus_primitives_core::relay_chain::v8::CandidateHash">CandidateHash</a>,
     session: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     validator_signature: &amp;Signature
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Check the signature on a dispute statement.</p>

@@ -1180,7 +1180,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1028" id="1028">1028</a>
 <a href="#1029" id="1029">1029</a>
 <a href="#1030" id="1030">1030</a>
-<a href="#1031" id="1031">1031</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1229,8 +1228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	backing_implicit_view::{BlockInfoProspectiveParachains <span class="kw">as </span>BlockInfo, View <span class="kw">as </span>ImplicitView},
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
 	request_session_index_for_child,
-	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
-	vstaging::fetch_claim_queue,
+	runtime::{fetch_claim_queue, prospective_parachains_mode, ProspectiveParachainsMode},
 };
 <span class="kw">use </span>polkadot_primitives::{
 	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash,

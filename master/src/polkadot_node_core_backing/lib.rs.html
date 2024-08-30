@@ -2465,9 +2465,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
 	request_validator_groups, request_validators,
 	runtime::{
-		<span class="self">self</span>, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
+		<span class="self">self</span>, fetch_claim_queue, prospective_parachains_mode, request_min_backing_votes,
+		ClaimQueueSnapshot, ProspectiveParachainsMode,
 	},
-	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
 	Validator,
 };
 <span class="kw">use </span>polkadot_primitives::{
@@ -2486,7 +2486,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Config <span class="kw">as </span>TableConfig, Context <span class="kw">as </span>TableContextTrait, Table,
 };
 <span class="kw">use </span>sp_keystore::KeystorePtr;
-<span class="kw">use </span>util::{runtime::request_node_features, vstaging::get_disabled_validators_with_fallback};
+<span class="kw">use </span>util::runtime::{get_disabled_validators_with_fallback, request_node_features};
 
 <span class="kw">mod </span>error;
 
