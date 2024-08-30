@@ -313,6 +313,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -475,6 +480,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// &lt;https://ethereum.org/en/developers/docs/apis/json-rpc/#net_version&gt;
 		</span><span class="kw">pub </span>EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: <span class="number">11155111 </span>};
 	}
+}
+
+<span class="kw">pub mod </span>xcm_version {
+	<span class="doccomment">/// The default XCM version to set in genesis config.
+	</span><span class="kw">pub const </span>SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

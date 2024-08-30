@@ -752,11 +752,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>get_preset(id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;sp_genesis_builder::PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-			get_preset::&lt;RuntimeGenesisConfig&gt;(id, |<span class="kw">_</span>| <span class="prelude-val">None</span>)
+			get_preset::&lt;RuntimeGenesisConfig&gt;(id, <span class="kw">crate</span>::genesis_config_presets::get_preset)
 		}
 
 		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;sp_genesis_builder::PresetId&gt; {
-			Default::default()
+			<span class="kw">crate</span>::genesis_config_presets::preset_names()
 		}
 	}
 }

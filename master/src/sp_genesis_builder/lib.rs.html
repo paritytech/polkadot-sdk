@@ -251,6 +251,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -314,6 +318,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The type representing preset ID.
 </span><span class="kw">pub type </span>PresetId = sp_runtime::RuntimeString;
+
+<span class="doccomment">/// The default `development` preset used to communicate with the runtime via
+/// [`GenesisBuilder`] interface.
+</span><span class="kw">pub const </span>DEV_RUNTIME_PRESET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"development"</span>;
 
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// API to interact with RuntimeGenesisConfig for the runtime

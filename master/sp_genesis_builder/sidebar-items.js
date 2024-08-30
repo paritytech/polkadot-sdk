@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["GenesisBuilder"],"type":["PresetId","Result"]};
+window.SIDEBAR_ITEMS = {"constant":["DEV_RUNTIME_PRESET"],"trait":["GenesisBuilder"],"type":["PresetId","Result"]};

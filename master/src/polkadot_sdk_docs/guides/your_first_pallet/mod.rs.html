@@ -956,7 +956,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ## Writing Your First Pallet
 //!
-//! To get started, use one of the templates mentioned in [`crate::polkadot_sdk::templates`]. We
+//! To get started, clone one of the templates mentioned in [`crate::polkadot_sdk::templates`]. We
 //! recommend using the `polkadot-sdk-minimal-template`. You might need to change small parts of
 //! this guide, namely the crate/package names, based on which template you use.
 //!
@@ -1335,11 +1335,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>sender_balance &lt; amount {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"InsufficientBalance"</span>.into())
 			}
-			<span class="kw">let </span>reminder = sender_balance - amount;
+			<span class="kw">let </span>remainder = sender_balance - amount;
 
 			<span class="comment">// update sender and dest balances.
 			</span>Balances::&lt;T&gt;::mutate(dest, |b| <span class="kw-2">*</span>b = <span class="prelude-val">Some</span>(b.unwrap_or(<span class="number">0</span>) + amount));
-			Balances::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sender, reminder);
+			Balances::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sender, remainder);
 
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -1357,7 +1357,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(sender_balance &gt;= amount, <span class="string">"InsufficientBalance"</span>);
-			<span class="kw">let </span>reminder = sender_balance - amount;
+			<span class="kw">let </span>remainder = sender_balance - amount;
 
 			<span class="comment">// .. snip
 			</span><span class="prelude-val">Ok</span>(())
@@ -1373,7 +1373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
-			<span class="kw">let </span>reminder = sender_balance.checked_sub(amount).ok_or(<span class="string">"InsufficientBalance"</span>)<span class="question-mark">?</span>;
+			<span class="kw">let </span>remainder = sender_balance.checked_sub(amount).ok_or(<span class="string">"InsufficientBalance"</span>)<span class="question-mark">?</span>;
 
 			<span class="comment">// .. snip
 			</span><span class="prelude-val">Ok</span>(())
@@ -1657,11 +1657,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// ensure sender has enough balance, and if so, calculate what is left after `amount`.
 			</span><span class="kw">let </span>sender_balance =
 				Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(Error::&lt;T&gt;::NonExistentAccount)<span class="question-mark">?</span>;
-			<span class="kw">let </span>reminder =
+			<span class="kw">let </span>remainder =
 				sender_balance.checked_sub(amount).ok_or(Error::&lt;T&gt;::InsufficientBalance)<span class="question-mark">?</span>;
 
 			Balances::&lt;T&gt;::mutate(<span class="kw-2">&amp;</span>dest, |b| <span class="kw-2">*</span>b = <span class="prelude-val">Some</span>(b.unwrap_or(<span class="number">0</span>) + amount));
-			Balances::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sender, reminder);
+			Balances::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sender, remainder);
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Transferred { from: sender, to: dest, amount });
 

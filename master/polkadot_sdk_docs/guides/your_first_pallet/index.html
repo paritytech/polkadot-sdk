@@ -167,7 +167,7 @@ FRAME-based runtimes use various techniques to re-use a currency pallet instead 
 one. Further advanced FRAME related topics are discussed in <a href="../../reference_docs/index.html" title="mod polkadot_sdk_docs::reference_docs"><code>crate::reference_docs</code></a>.</p>
 </blockquote>
 <h3 id="writing-your-first-pallet"><a class="doc-anchor" href="#writing-your-first-pallet">§</a>Writing Your First Pallet</h3>
-<p>To get started, use one of the templates mentioned in <a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>crate::polkadot_sdk::templates</code></a>. We
+<p>To get started, clone one of the templates mentioned in <a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>crate::polkadot_sdk::templates</code></a>. We
 recommend using the <code>polkadot-sdk-minimal-template</code>. You might need to change small parts of
 this guide, namely the crate/package names, based on which template you use.</p>
 <blockquote>
@@ -261,11 +261,11 @@ as normal <code>fn</code>s attached to <code>struct Pallet</code>.</p>
 		<span class="kw">if </span>sender_balance &lt; amount {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"InsufficientBalance"</span>.into())
 		}
-		<span class="kw">let </span>reminder = sender_balance - amount;
+		<span class="kw">let </span>remainder = sender_balance - amount;
 
 		<span class="comment">// update sender and dest balances.
 		</span>Balances::&lt;T&gt;::mutate(dest, |b| <span class="kw-2">*</span>b = <span class="prelude-val">Some</span>(b.unwrap_or(<span class="number">0</span>) + amount));
-		Balances::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sender, reminder);
+		Balances::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sender, remainder);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -328,7 +328,7 @@ This macro will call <code>.into()</code> under the hood.</p>
 
 	<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
 	<span class="macro">ensure!</span>(sender_balance &gt;= amount, <span class="string">"InsufficientBalance"</span>);
-	<span class="kw">let </span>reminder = sender_balance - amount;
+	<span class="kw">let </span>remainder = sender_balance - amount;
 
 	<span class="comment">// .. snip
 	</span><span class="prelude-val">Ok</span>(())
@@ -347,7 +347,7 @@ ergonomic.</p>
 	<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
-	<span class="kw">let </span>reminder = sender_balance.checked_sub(amount).ok_or(<span class="string">"InsufficientBalance"</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>remainder = sender_balance.checked_sub(amount).ok_or(<span class="string">"InsufficientBalance"</span>)<span class="question-mark">?</span>;
 
 	<span class="comment">// .. snip
 	</span><span class="prelude-val">Ok</span>(())
@@ -697,11 +697,11 @@ doing.</p>
 	<span class="comment">// ensure sender has enough balance, and if so, calculate what is left after `amount`.
 	</span><span class="kw">let </span>sender_balance =
 		Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(Error::&lt;T&gt;::NonExistentAccount)<span class="question-mark">?</span>;
-	<span class="kw">let </span>reminder =
+	<span class="kw">let </span>remainder =
 		sender_balance.checked_sub(amount).ok_or(Error::&lt;T&gt;::InsufficientBalance)<span class="question-mark">?</span>;
 
 	Balances::&lt;T&gt;::mutate(<span class="kw-2">&amp;</span>dest, |b| <span class="kw-2">*</span>b = <span class="prelude-val">Some</span>(b.unwrap_or(<span class="number">0</span>) + amount));
-	Balances::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sender, reminder);
+	Balances::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sender, remainder);
 
 	<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Transferred { from: sender, to: dest, amount });
 
