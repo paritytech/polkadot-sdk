@@ -58,7 +58,7 @@ mod enter {
 	use core::panic;
 	use frame_support::assert_ok;
 	use frame_system::limits;
-	use polkadot_primitives::{AvailabilityBitfield, SchedulerParams, UncheckedSigned};
+	use polkadot_primitives::{AvailabilityBitfield, SchedulerParams, UncheckedSigned, vstaging::InternalVersion};
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
@@ -988,6 +988,7 @@ mod enter {
 				fill_claimqueue: true,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1633,7 +1634,7 @@ mod sanitizers {
 	use bitvec::order::Lsb0;
 	use polkadot_primitives::{
 		AvailabilityBitfield, GroupIndex, Hash, Id as ParaId, SignedAvailabilityBitfield,
-		ValidatorIndex,
+		ValidatorIndex
 	};
 	use rstest::rstest;
 	use sp_core::crypto::UncheckedFrom;
