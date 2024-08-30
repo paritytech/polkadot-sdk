@@ -13143,6 +13143,7 @@ dependencies = [
  "rstest",
  "sc-keystore",
  "sc-network",
+ "schnellru",
  "sp-core",
  "sp-keyring",
  "sp-keystore",
@@ -18787,9 +18788,9 @@ dependencies = [
 
 [[package]]
 name = "schnellru"
-version = "0.2.1"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "772575a524feeb803e5b0fcbc6dd9f367e579488197c94c6e4023aad2305774d"
+checksum = "c9a8ef13a93c54d20580de1e5c413e624e53121d42fc7e2c11d10ef7f8b02367"
 dependencies = [
  "ahash 0.8.11",
  "cfg-if",

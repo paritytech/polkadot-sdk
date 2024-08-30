@@ -1178,7 +1178,7 @@ sc-transaction-pool-api = { path = "substrate/client/transaction-pool/api", defa
 sc-utils = { path = "substrate/client/utils", default-features = false }
 scale-info = { version = "2.11.1", default-features = false }
 schemars = { version = "0.8.13", default-features = false }
-schnellru = { version = "0.2.1" }
+schnellru = { version = "0.2.3" }
 schnorrkel = { version = "0.11.4", default-features = false }
 seccompiler = { version = "0.4.0" }
 secp256k1 = { version = "0.28.0", default-features = false }
