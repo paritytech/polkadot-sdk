@@ -145,6 +145,7 @@ async fn connect_next_available_rpc_server(
 		};
 	}
 
+	tracing::error!(target: LOG_TARGET, "Retrying to connect to any external relaychain node failed.");
 	Err(())
 }
 
