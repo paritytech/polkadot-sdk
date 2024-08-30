@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725029105410,
+  "lastUpdate": 1725034381110,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -24127,6 +24127,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16583100776,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk",
+            "email": "1728078+michalkucharczyk@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "95f39778575e46bf830fe1241ee096e87cd31391",
+          "message": "asset-hub-rococo: genesis config presets added (#3996)\n\nGensis config presets moved from `polkadot-parachain` binary into\n`asset-hub-rococo` runtime.\n\nrelates to: #3944\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-08-30T15:33:10Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95f39778575e46bf830fe1241ee096e87cd31391"
+        },
+        "date": 1725034351873,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17337086393333329,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013108959340000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022624447813333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01085513130666667,
             "unit": "seconds"
           }
         ]
