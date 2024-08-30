@@ -56,6 +56,7 @@ use sp_runtime::{
 	traits::{Hash, Header as HeaderT, Keccak256, NumberFor},
 	OpaqueValue,
 };
+use sp_weights::Weight;
 
 /// Key type for BEEFY module.
 pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;
@@ -142,10 +143,10 @@ pub mod ecdsa_crypto {
 #[cfg(feature = "bls-experimental")]
 pub mod bls_crypto {
 	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
-	use sp_application_crypto::{app_crypto, bls377};
-	use sp_core::{bls377::Pair as BlsPair, crypto::Wraps, Pair as _};
+	use sp_application_crypto::{app_crypto, bls381};
+	use sp_core::{bls381::Pair as BlsPair, crypto::Wraps, Pair as _};
 
-	app_crypto!(bls377, KEY_TYPE);
+	app_crypto!(bls381, KEY_TYPE);
 
 	/// Identity of a BEEFY authority using BLS as its crypto.
 	pub type AuthorityId = Public;
@@ -184,10 +185,10 @@ pub mod bls_crypto {
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls_crypto {
 	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
-	use sp_application_crypto::{app_crypto, ecdsa_bls377};
-	use sp_core::{crypto::Wraps, ecdsa_bls377::Pair as EcdsaBlsPair};
+	use sp_application_crypto::{app_crypto, ecdsa_bls381};
+	use sp_core::{crypto::Wraps, ecdsa_bls381::Pair as EcdsaBlsPair};
 
-	app_crypto!(ecdsa_bls377, KEY_TYPE);
+	app_crypto!(ecdsa_bls381, KEY_TYPE);
 
 	/// Identity of a BEEFY authority using (ECDSA,BLS) as its crypto.
 	pub type AuthorityId = Public;
@@ -458,6 +459,15 @@ pub trait AncestryHelper<Header: HeaderT> {
 		proof: Self::Proof,
 		context: Self::ValidationContext,
 	) -> bool;
+}
+
+/// Weight information for the logic in `AncestryHelper`.
+pub trait AncestryHelperWeightInfo<Header: HeaderT>: AncestryHelper<Header> {
+	/// Weight info for the `AncestryHelper::extract_validation_context()` method.
+	fn extract_validation_context() -> Weight;
+
+	/// Weight info for the `AncestryHelper::is_non_canonical()` method.
+	fn is_non_canonical(proof: &<Self as AncestryHelper<Header>>::Proof) -> Weight;
 }
 
 /// An opaque type used to represent the key ownership proof at the runtime API

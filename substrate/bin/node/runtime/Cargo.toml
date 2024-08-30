@@ -6,7 +6,7 @@ description = "Substrate node kitchensink runtime."
 edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -31,7 +31,7 @@ serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 # pallet-asset-conversion: turn on "num-traits" feature
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 
-polkadot-sdk = { features = ["runtime", "tuples-96"], workspace = true }
+polkadot-sdk = { features = ["runtime-full", "tuples-96"], workspace = true }
 
 # shared code between runtime and node
 node-primitives = { workspace = true }
@@ -71,5 +71,5 @@ try-runtime = [
 experimental = [
 	"pallet-example-tasks/experimental",
 ]
-
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+riscv = ["polkadot-sdk/riscv"]

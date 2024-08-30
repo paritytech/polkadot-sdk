@@ -658,7 +658,8 @@ fn westend_local_testnet_genesis() -> serde_json::Value {
 #[cfg(feature = "westend-native")]
 pub fn westend_local_testnet_config() -> Result<WestendChainSpec, String> {
 	Ok(WestendChainSpec::builder(
-		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
+		westend::fast_runtime_binary::WASM_BINARY
+			.ok_or("Westend development wasm not available")?,
 		Default::default(),
 	)
 	.with_name("Westend Local Testnet")

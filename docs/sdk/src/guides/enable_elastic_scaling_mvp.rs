@@ -1,7 +1,7 @@
 //! # Enable elastic scaling MVP for a parachain
 //!
 //! <div class="warning">This guide assumes full familiarity with Asynchronous Backing and its
-//! terminology, as defined in https://wiki.polkadot.network/docs/maintain-guides-async-backing.
+//! terminology, as defined in <a href="https://wiki.polkadot.network/docs/maintain-guides-async-backing">the Polkadot Wiki</a>.
 //! Furthermore, the parachain should have already been upgraded according to the guide.</div>
 //!
 //! ## Quick introduction to elastic scaling
@@ -70,9 +70,10 @@
 //! - Ensure enough coretime is assigned to the parachain. For maximum throughput the upper bound is
 //!   3 cores.
 //!
-//! <div class="warning">Phase 1 is not needed if using the `polkadot-parachain` binary built
-//! from the latest polkadot-sdk release! Simply pass the `--experimental-use-slot-based` parameter
-//! to the command line and jump to Phase 2.</div>
+//! <div class="warning">Phase 1 is not needed if using the <code>polkadot-parachain</code> binary
+//! built from the latest polkadot-sdk release! Simply pass the
+//! <code>--experimental-use-slot-based</code> parameter to the command line and jump to Phase
+//! 2.</div>
 //!
 //! The following steps assume using the cumulus parachain template.
 //!
@@ -84,7 +85,7 @@
 //! This phase consists of plugging in the new slot-based collator.
 //!
 //! 1. In `node/src/service.rs` import the slot based collator instead of the lookahead collator.
-#![doc = docify::embed!("../../cumulus/polkadot-parachain/src/service.rs", slot_based_colator_import)]
+#![doc = docify::embed!("../../cumulus/polkadot-parachain/polkadot-parachain-lib/src/service.rs", slot_based_colator_import)]
 //!
 //! 2. In `start_consensus()`
 //!     - Remove the `overseer_handle` param (also remove the
@@ -93,7 +94,7 @@
 //!     `slot_drift` field with a   value of `Duration::from_secs(1)`.
 //!     - Replace the single future returned by `aura::run` with the two futures returned by it and
 //!     spawn them as separate tasks:
-#![doc = docify::embed!("../../cumulus/polkadot-parachain/src/service.rs", launch_slot_based_collator)]
+#![doc = docify::embed!("../../cumulus/polkadot-parachain/polkadot-parachain-lib/src/service.rs", launch_slot_based_collator)]
 //!
 //! 3. In `start_parachain_node()` remove the `overseer_handle` param passed to `start_consensus`.
 //!
