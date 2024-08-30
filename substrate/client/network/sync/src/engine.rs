@@ -318,8 +318,7 @@ where
 			if net_config.network_config.max_blocks_per_request > MAX_BLOCKS_IN_RESPONSE as u32 {
 				log::info!(
 					target: LOG_TARGET,
-					"clamping maximum blocks per request to {}",
-					MAX_BLOCKS_IN_RESPONSE,
+					"clamping maximum blocks per request to {MAX_BLOCKS_IN_RESPONSE}",
 				);
 				MAX_BLOCKS_IN_RESPONSE as u32
 			} else {
@@ -340,12 +339,7 @@ where
 				imp_p.insert(reserved.peer_id);
 			}
 			for config in net_config.notification_protocols() {
-				let peer_ids = config
-					.set_config()
-					.reserved_nodes
-					.iter()
-					.map(|info| info.peer_id)
-					.collect::<Vec<PeerId>>();
+				let peer_ids = config.set_config().reserved_nodes.iter().map(|info| info.peer_id);
 				imp_p.extend(peer_ids);
 			}
 
@@ -379,18 +373,16 @@ where
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) as usize
 		};
 
+		let info = client.info();
+
 		let (block_announce_config, notification_service) =
 			Self::get_block_announce_proto_config::<N>(
 				protocol_id,
 				fork_id,
 				roles,
-				client.info().best_number,
-				client.info().best_hash,
-				client
-					.block_hash(Zero::zero())
-					.ok()
-					.flatten()
-					.expect("Genesis block exists; qed"),
+				info.best_number,
+				info.best_hash,
+				info.genesis_hash,
 				&net_config.network_config.default_peers_set,
 				network_metrics,
 				Arc::clone(&peer_store_handle),
@@ -403,11 +395,6 @@ where
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
 		let num_connected = Arc::new(AtomicUsize::new(0));
 		let is_major_syncing = Arc::new(AtomicBool::new(false));
-		let genesis_hash = client
-			.block_hash(0u32.into())
-			.ok()
-			.flatten()
-			.expect("Genesis block exists; qed");
 
 		// `default_peers_set.in_peers` contains an unspecified amount of light peers so the number
 		// of full inbound peers must be calculated from the total full peer count
@@ -436,7 +423,7 @@ where
 				num_connected: num_connected.clone(),
 				is_major_syncing: is_major_syncing.clone(),
 				service_rx,
-				genesis_hash,
+				genesis_hash: info.genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
 				boot_node_ids,
@@ -534,7 +521,7 @@ where
 					"Received block announce from disconnected peer {peer_id}",
 				);
 				debug_assert!(false);
-				return
+				return;
 			},
 		};
 		peer.known_blocks.insert(hash);
@@ -559,17 +546,17 @@ where
 			Ok(Some(header)) => header,
 			Ok(None) => {
 				log::warn!(target: LOG_TARGET, "Trying to announce unknown block: {hash}");
-				return
+				return;
 			},
 			Err(e) => {
 				log::warn!(target: LOG_TARGET, "Error reading block header {hash}: {e}");
-				return
+				return;
 			},
 		};
 
 		// don't announce genesis block since it will be ignored
 		if header.number().is_zero() {
-			return
+			return;
 		}
 
 		let is_best = self.client.info().best_hash == hash;
@@ -615,7 +602,6 @@ where
 			}
 
 			// Update atomic variables
-			self.num_connected.store(self.peers.len(), Ordering::Relaxed);
 			self.is_major_syncing.store(self.strategy.is_major_syncing(), Ordering::Relaxed);
 
 			// Process actions requested by a syncing strategy.
@@ -624,7 +610,7 @@ where
 					target: LOG_TARGET,
 					"Terminating `SyncingEngine` due to fatal error: {e:?}.",
 				);
-				return
+				return;
 			}
 		}
 	}
@@ -761,24 +747,10 @@ where
 				);
 			},
 			ToServiceCommand::Status(tx) => {
-				let mut status = self.strategy.status();
-				status.num_connected_peers = self.peers.len() as u32;
-				let _ = tx.send(status);
+				let _ = tx.send(self.strategy.status());
 			},
 			ToServiceCommand::NumActivePeers(tx) => {
 				let _ = tx.send(self.num_active_peers());
-			},
-			ToServiceCommand::SyncState(tx) => {
-				let _ = tx.send(self.strategy.status());
-			},
-			ToServiceCommand::BestSeenBlock(tx) => {
-				let _ = tx.send(self.strategy.status().best_seen_block);
-			},
-			ToServiceCommand::NumSyncPeers(tx) => {
-				let _ = tx.send(self.strategy.status().num_peers);
-			},
-			ToServiceCommand::NumQueuedBlocks(tx) => {
-				let _ = tx.send(self.strategy.status().queued_blocks);
 			},
 			ToServiceCommand::NumDownloadedBlocks(tx) => {
 				let _ = tx.send(self.strategy.num_downloaded_blocks());
@@ -787,11 +759,8 @@ where
 				let _ = tx.send(self.strategy.num_sync_requests());
 			},
 			ToServiceCommand::PeersInfo(tx) => {
-				let peers_info = self
-					.peers
-					.iter()
-					.map(|(peer_id, peer)| (*peer_id, peer.info.clone()))
-					.collect();
+				let peers_info =
+					self.peers.iter().map(|(peer_id, peer)| (*peer_id, peer.info)).collect();
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::OnBlockFinalized(hash, header) =>
@@ -843,12 +812,12 @@ where
 						target: LOG_TARGET,
 						"received notification from {peer} who had been earlier refused by `SyncingEngine`",
 					);
-					return
+					return;
 				}
 
 				let Ok(announce) = BlockAnnounce::decode(&mut notification.as_ref()) else {
 					log::warn!(target: LOG_TARGET, "failed to decode block announce");
-					return
+					return;
 				};
 
 				self.push_block_announce_validation(peer, announce);
@@ -862,11 +831,12 @@ where
 	fn on_sync_peer_disconnected(&mut self, peer_id: PeerId) {
 		let Some(info) = self.peers.remove(&peer_id) else {
 			log::debug!(target: LOG_TARGET, "{peer_id} does not exist in `SyncingEngine`");
-			return
+			return;
 		};
 		if let Some(metrics) = &self.metrics {
 			metrics.peers.dec();
 		}
+		self.num_connected.fetch_sub(1, Ordering::AcqRel);
 
 		if self.important_peers.contains(&peer_id) {
 			log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
@@ -935,7 +905,7 @@ where
 				);
 			}
 
-			return Err(true)
+			return Err(true);
 		}
 
 		Ok(handshake)
@@ -970,7 +940,7 @@ where
 				"Called `validate_connection()` with already connected peer {peer_id}",
 			);
 			debug_assert!(false);
-			return Err(false)
+			return Err(false);
 		}
 
 		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&peer_id);
@@ -983,7 +953,7 @@ where
 					this_peer_reserved_slot
 		{
 			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {peer_id}");
-			return Err(false)
+			return Err(false);
 		}
 
 		// make sure to accept no more than `--in-peers` many full nodes
@@ -993,7 +963,7 @@ where
 			self.num_in_peers == self.max_in_peers
 		{
 			log::debug!(target: LOG_TARGET, "All inbound slots have been consumed, rejecting {peer_id}");
-			return Err(false)
+			return Err(false);
 		}
 
 		// make sure that all slots are not occupied by light peers
@@ -1004,7 +974,7 @@ where
 			(self.peers.len() - self.strategy.num_peers()) >= self.default_peers_set_num_light
 		{
 			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {peer_id}");
-			return Err(false)
+			return Err(false);
 		}
 
 		Ok(handshake)
@@ -1046,6 +1016,7 @@ where
 			if let Some(metrics) = &self.metrics {
 				metrics.peers.inc();
 			}
+			self.num_connected.fetch_add(1, Ordering::AcqRel);
 		}
 		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
@@ -1065,7 +1036,7 @@ where
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {peer_id}");
 			debug_assert!(false);
-			return
+			return;
 		}
 
 		let downloader = self.block_downloader.clone();
@@ -1087,7 +1058,7 @@ where
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {peer_id}");
 			debug_assert!(false);
-			return
+			return;
 		}
 
 		let (tx, rx) = oneshot::channel();
@@ -1122,7 +1093,7 @@ where
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {peer_id}");
 			debug_assert!(false);
-			return
+			return;
 		}
 
 		let (tx, rx) = oneshot::channel();
@@ -1185,7 +1156,7 @@ where
 								peer_id,
 								self.block_announce_protocol_name.clone(),
 							);
-							return
+							return;
 						},
 						Err(BlockResponseError::ExtractionFailed(e)) => {
 							debug!(
@@ -1195,7 +1166,7 @@ where
 								e
 							);
 							self.network_service.report_peer(peer_id, rep::BAD_MESSAGE);
-							return
+							return;
 						},
 					}
 				},
@@ -1212,7 +1183,7 @@ where
 								peer_id,
 								self.block_announce_protocol_name.clone(),
 							);
-							return
+							return;
 						},
 					};
 

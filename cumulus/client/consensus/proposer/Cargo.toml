@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-anyhow = { workspace = true }
+anyhow = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 thiserror = { workspace = true }
 
