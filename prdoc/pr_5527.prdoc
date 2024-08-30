@@ -10,10 +10,6 @@ doc:
       reporting a `BestBlock` event after a `NewBlock`.
       There was a race condition in the chainHead follow logic which led to the `BestBlock`
       event to be emitted without an associated `NewBlock` event.
-      Developers should note that multiple `BestBlock` events can be emitted for the same
-      block hash, as per spec. For example, this may be because a block that was considered best is now part of
-      a pruned fork, or that the chainHead logic decided to optimize tree route searches and
-      relied on this aspect of the RPC-v2 spec.
 
 crates:
   - name: sc-rpc-spec-v2
