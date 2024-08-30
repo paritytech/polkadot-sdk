@@ -19,10 +19,10 @@ use crate::{ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
 use super::{
-	async_backing::Constraints, Balance, BlakeTwo256, BlockNumber, CandidateCommitments,
+	async_backing::Constraints, BlakeTwo256, BlockNumber, CandidateCommitments,
 	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CoreIndex, GroupIndex, Hash,
 	HashT, HeadData, Header, Id, Id as ParaId, MultiDisputeStatementSet, ScheduledCore,
-	UncheckedSignedAvailabilityBitfields, ValidationCodeHash, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
 };
 use bitvec::prelude::*;
 use sp_application_crypto::ByteArray;
@@ -30,7 +30,6 @@ use sp_application_crypto::ByteArray;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_arithmetic::Perbill;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
