@@ -52,11 +52,11 @@ jobs:
 
       - name: Config git
         run: |
-          git config commit.gpgsign true
-          git config gpg.program pgpkms-git
-          git config user.name "ParityReleases"
-          git config user.email "release-team@parity.io"
-          git config user.signingKey ${{ secrets.GPG_KEY_FINGERPRINT }}
+          git config --global commit.gpgsign true
+          git config --global gpg.program pgpkms-git
+          git config --global user.name "ParityReleases"
+          git config --global user.email "release-team@parity.io"
+          git config --global user.signingKey ${{ secrets.GPG_KEY_FINGERPRINT }}
 
 
   create-stable-branch:
