@@ -40,7 +40,7 @@ set_spec_versions() {
   NEW_VERSION=$1
   runtimes_list=(${@:2})
 
-  printf "Setting spec_version to $NEW_VERSION, please prepare your Yubikey and be ready to tap it"
+  printf "Setting spec_version to $NEW_VERSION\n"
 
   for f in ${runtimes_list[@]}; do
       printf "  processing $f"
