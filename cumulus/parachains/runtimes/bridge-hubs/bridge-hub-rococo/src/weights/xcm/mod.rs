@@ -234,4 +234,8 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()
 	}
+
+	fn set_asset_claimer(location: &Location) -> Weight {
+		todo!()
+	}
 }
