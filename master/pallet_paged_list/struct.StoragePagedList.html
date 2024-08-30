@@ -167,10 +167,10 @@ at [<code>first_page</code>][StoragePagedListMeta::first_page]/
 as long as there are elements in the page and there are pages in storage. All elements of a page
 are loaded once a page is read from storage. Iteration then happens on the cached elements. This
 reduces the number of storage <code>read</code> calls on the overlay. <strong>Appending</strong> to the list happens by
-appending to the last page by utilizing <a href="../sp_io/storage/fn.append.html" title="fn sp_io::storage::append"><code>sp_io::storage::append</code></a>. It allows to directly extend
+appending to the last page by utilizing [<code>sp_io::storage::append</code>]. It allows to directly extend
 the elements of <code>values</code> vector of the page without loading the whole vector from storage. A new
 page is instantiated once [<code>Page::next</code>] overflows <code>ValuesPerNewPage</code>. Its vector will also be
-created through <a href="../sp_io/storage/fn.append.html" title="fn sp_io::storage::append"><code>sp_io::storage::append</code></a>. <strong>Draining</strong> advances the internal indices identical
+created through [<code>sp_io::storage::append</code>]. <strong>Draining</strong> advances the internal indices identical
 to Iteration. It additionally persists the increments to storage and thereby ‘drains’ elements.
 Completely drained pages are deleted from storage.</p>
 <h2 id="further-observations"><a class="doc-anchor" href="#further-observations">§</a>Further Observations</h2>

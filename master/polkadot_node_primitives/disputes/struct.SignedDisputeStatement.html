@@ -167,7 +167,7 @@ that is available on-chain, and hence already can be trusted.</p>
     validator_signature: ValidatorSignature
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Create a new <code>SignedDisputeStatement</code>, which is only possible by checking the signature.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.sign_explicit" class="method"><a class="src rightside" href="../../src/polkadot_node_primitives/disputes/mod.rs.html#220-247">source</a><h4 class="code-header">pub fn <a href="#method.sign_explicit" class="fn">sign_explicit</a>(
-    keystore: &amp;<a class="type" href="../../sp_keystore/type.KeystorePtr.html" title="type sp_keystore::KeystorePtr">KeystorePtr</a>,
+    keystore: &amp;KeystorePtr,
     valid: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>,
     candidate_hash: CandidateHash,
     session_index: SessionIndex,

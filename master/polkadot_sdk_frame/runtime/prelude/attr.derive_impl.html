@@ -149,7 +149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In polkadot_sdk_frame::runtime::prelude</a></h2></div></nav><div class="sidebar-resizer"></div>
-    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_frame/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../index.html">runtime</a>::<wbr><a href="index.html">prelude</a>::<wbr><a class="attr" href="#">derive_impl</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/frame_support_procedural/lib.rs.html#663-674">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[derive_impl]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Macro to easily derive the <code>Config</code> trait of various pallet for <code>Runtime</code>.
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_frame/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../index.html">runtime</a>::<wbr><a href="index.html">prelude</a>::<wbr><a class="attr" href="#">derive_impl</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[derive_impl]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Macro to easily derive the <code>Config</code> trait of various pallet for <code>Runtime</code>.
 This attribute can be used to derive a full implementation of a trait based on a local partial
 impl and an external impl containing defaults that can be overridden in the local impl.</p>
 <p>For a full end-to-end example, see <a href="#use-case-auto-derive-test-pallet-config-traits">below</a>.</p>
@@ -157,7 +157,7 @@ impl and an external impl containing defaults that can be overridden in the loca
 <p>The attribute should be attached to an impl block (strictly speaking a <code>syn::ItemImpl</code>) for
 which we want to inject defaults in the event of missing trait items in the block.</p>
 <p>The attribute minimally takes a single <code>default_impl_path</code> argument, which should be the module
-path to an impl registered via <a href="../../../frame_support_procedural/attr.register_default_impl.html" title="attr frame_support_procedural::register_default_impl"><code>#[register_default_impl]</code></a> that
+path to an impl registered via <a href="%60macro@register_default_impl%60"><code>#[register_default_impl]</code></a> that
 contains the default trait items we want to potentially inject, with the general form:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive_impl(default_impl_path)]
@@ -199,12 +199,12 @@ context of the foreign impl and the pallet (or context) in which it is defined.<
 <h3 id="use-case-example-auto-derive-test-pallet-config-traits"><a class="doc-anchor" href="#use-case-example-auto-derive-test-pallet-config-traits">§</a>Use-Case Example: Auto-Derive Test Pallet Config Traits</h3>
 <p>The <code>#[derive_imp(..)]</code> attribute can be used to derive a test pallet <code>Config</code> based on an
 existing pallet <code>Config</code> that has been marked with
-<a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>#[pallet::config(with_default)]</code></a> (which under the hood, generates a
+<a href="%60macro@config%60"><code>#[pallet::config(with_default)]</code></a> (which under the hood, generates a
 <code>DefaultConfig</code> trait in the pallet in which the macro was invoked).</p>
 <p>In this case, the <code>#[derive_impl(..)]</code> attribute should be attached to an <code>impl</code> block that
 implements a compatible <code>Config</code> such as <code>frame_system::Config</code> for a test/mock runtime, and
 should receive as its first argument the path to a <code>DefaultConfig</code> impl that has been registered
-via <a href="../../../frame_support_procedural/attr.register_default_impl.html" title="attr frame_support_procedural::register_default_impl"><code>#[register_default_impl]</code></a>, and as its second argument, the
+via <a href="%60macro@register_default_impl%60"><code>#[register_default_impl]</code></a>, and as its second argument, the
 path to the auto-generated <code>DefaultConfig</code> for the existing pallet <code>Config</code> we want to base our
 test config off of.</p>
 <p>The following is what the <code>basic</code> example pallet would look like with a default testing config:</p>
@@ -281,11 +281,11 @@ test config off of.</p>
 <p>Note that items that are <em>not</em> present in our local <code>DefaultConfig</code> are automatically copied
 from the foreign trait (in this case <code>TestDefaultConfig</code>) into the local trait impl (in this
 case <code>Test</code>), unless the trait item in the local trait impl is marked with
-<a href="../../../frame_support_procedural/attr.no_default.html" title="attr frame_support_procedural::no_default"><code>#[pallet::no_default]</code></a>, in which case it cannot be overridden, and any
+<a href="%60macro@no_default%60"><code>#[pallet::no_default]</code></a>, in which case it cannot be overridden, and any
 attempts to do so will result in a compiler error.</p>
 <p>See <code>frame/examples/default-config/tests.rs</code> for a runnable end-to-end example pallet that makes
 use of <code>derive_impl</code> to derive its testing config.</p>
-<p>See <a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config">here</a> for more information and caveats about the auto-generated
+<p>See <a href="%60macro@config%60">here</a> for more information and caveats about the auto-generated
 <code>DefaultConfig</code> trait.</p>
 <h3 id="optional-conventions"><a class="doc-anchor" href="#optional-conventions">§</a>Optional Conventions</h3>
 <p>Note that as an optional convention, we encourage creating a <code>config_preludes</code> module inside of

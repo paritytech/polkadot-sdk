@@ -1466,19 +1466,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1314" id="1314">1314</a>
 <a href="#1315" id="1315">1315</a>
 <a href="#1316" id="1316">1316</a>
-<a href="#1317" id="1317">1317</a>
-<a href="#1318" id="1318">1318</a>
-<a href="#1319" id="1319">1319</a>
-<a href="#1320" id="1320">1320</a>
-<a href="#1321" id="1321">1321</a>
-<a href="#1322" id="1322">1322</a>
-<a href="#1323" id="1323">1323</a>
-<a href="#1324" id="1324">1324</a>
-<a href="#1325" id="1325">1325</a>
-<a href="#1326" id="1326">1326</a>
-<a href="#1327" id="1327">1327</a>
-<a href="#1328" id="1328">1328</a>
-<a href="#1329" id="1329">1329</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1799,8 +1786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>net_config.network_config.max_blocks_per_request &gt; MAX_BLOCKS_IN_RESPONSE <span class="kw">as </span>u32 {
 				<span class="macro">log::info!</span>(
 					target: LOG_TARGET,
-					<span class="string">"clamping maximum blocks per request to {}"</span>,
-					MAX_BLOCKS_IN_RESPONSE,
+					<span class="string">"clamping maximum blocks per request to {MAX_BLOCKS_IN_RESPONSE}"</span>,
 				);
 				MAX_BLOCKS_IN_RESPONSE <span class="kw">as </span>u32
 			} <span class="kw">else </span>{
@@ -1821,12 +1807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				imp_p.insert(reserved.peer_id);
 			}
 			<span class="kw">for </span>config <span class="kw">in </span>net_config.notification_protocols() {
-				<span class="kw">let </span>peer_ids = config
-					.set_config()
-					.reserved_nodes
-					.iter()
-					.map(|info| info.peer_id)
-					.collect::&lt;Vec&lt;PeerId&gt;&gt;();
+				<span class="kw">let </span>peer_ids = config.set_config().reserved_nodes.iter().map(|info| info.peer_id);
 				imp_p.extend(peer_ids);
 			}
 
@@ -1860,18 +1841,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) <span class="kw">as </span>usize
 		};
 
+		<span class="kw">let </span>info = client.info();
+
 		<span class="kw">let </span>(block_announce_config, notification_service) =
 			<span class="self">Self</span>::get_block_announce_proto_config::&lt;N&gt;(
 				protocol_id,
 				fork_id,
 				roles,
-				client.info().best_number,
-				client.info().best_hash,
-				client
-					.block_hash(Zero::zero())
-					.ok()
-					.flatten()
-					.expect(<span class="string">"Genesis block exists; qed"</span>),
+				info.best_number,
+				info.best_hash,
+				info.genesis_hash,
 				<span class="kw-2">&amp;</span>net_config.network_config.default_peers_set,
 				network_metrics,
 				Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
@@ -1884,11 +1863,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(tx, service_rx) = tracing_unbounded(<span class="string">"mpsc_chain_sync"</span>, <span class="number">100_000</span>);
 		<span class="kw">let </span>num_connected = Arc::new(AtomicUsize::new(<span class="number">0</span>));
 		<span class="kw">let </span>is_major_syncing = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
-		<span class="kw">let </span>genesis_hash = client
-			.block_hash(<span class="number">0u32</span>.into())
-			.ok()
-			.flatten()
-			.expect(<span class="string">"Genesis block exists; qed"</span>);
 
 		<span class="comment">// `default_peers_set.in_peers` contains an unspecified amount of light peers so the number
 		// of full inbound peers must be calculated from the total full peer count
@@ -1917,7 +1891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				num_connected: num_connected.clone(),
 				is_major_syncing: is_major_syncing.clone(),
 				service_rx,
-				genesis_hash,
+				genesis_hash: info.genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
 				boot_node_ids,
@@ -2015,8 +1989,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">"Received block announce from disconnected peer {peer_id}"</span>,
 				);
 				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-				<span class="kw">return
-			</span>},
+				<span class="kw">return</span>;
+			},
 		};
 		peer.known_blocks.insert(hash);
 
@@ -2040,18 +2014,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(header)) =&gt; header,
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
 				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Trying to announce unknown block: {hash}"</span>);
-				<span class="kw">return
-			</span>},
+				<span class="kw">return</span>;
+			},
 			<span class="prelude-val">Err</span>(e) =&gt; {
 				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Error reading block header {hash}: {e}"</span>);
-				<span class="kw">return
-			</span>},
+				<span class="kw">return</span>;
+			},
 		};
 
 		<span class="comment">// don't announce genesis block since it will be ignored
 		</span><span class="kw">if </span>header.number().is_zero() {
-			<span class="kw">return
-		</span>}
+			<span class="kw">return</span>;
+		}
 
 		<span class="kw">let </span>is_best = <span class="self">self</span>.client.info().best_hash == hash;
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Reannouncing block {hash:?} is_best: {is_best}"</span>);
@@ -2104,8 +2078,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="string">"Terminating `SyncingEngine` due to fatal error: {e:?}."</span>,
 				);
-				<span class="kw">return
-			</span>}
+				<span class="kw">return</span>;
+			}
 		}
 	}
 
@@ -2306,13 +2280,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="string">"received notification from {peer} who had been earlier refused by `SyncingEngine`"</span>,
 					);
-					<span class="kw">return
-				</span>}
+					<span class="kw">return</span>;
+				}
 
 				<span class="kw">let </span><span class="prelude-val">Ok</span>(announce) = BlockAnnounce::decode(<span class="kw-2">&amp;mut </span>notification.as_ref()) <span class="kw">else </span>{
 					<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"failed to decode block announce"</span>);
-					<span class="kw">return
-				</span>};
+					<span class="kw">return</span>;
+				};
 
 				<span class="self">self</span>.push_block_announce_validation(peer, announce);
 			},
@@ -2325,8 +2299,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>on_sync_peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId) {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(info) = <span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer_id) <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{peer_id} does not exist in `SyncingEngine`"</span>);
-			<span class="kw">return
-		</span>};
+			<span class="kw">return</span>;
+		};
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 			metrics.peers.dec();
 		}
@@ -2399,7 +2373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 			}
 
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">true</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">true</span>);
 		}
 
 		<span class="prelude-val">Ok</span>(handshake)
@@ -2434,7 +2408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="string">"Called `validate_connection()` with already connected peer {peer_id}"</span>,
 			);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>);
 		}
 
 		<span class="kw">let </span>no_slot_peer = <span class="self">self</span>.default_peers_set_no_slot_peers.contains(<span class="kw-2">&amp;</span>peer_id);
@@ -2447,7 +2421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					this_peer_reserved_slot
 		{
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Too many full nodes, rejecting {peer_id}"</span>);
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>);
 		}
 
 		<span class="comment">// make sure to accept no more than `--in-peers` many full nodes
@@ -2457,7 +2431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.num_in_peers == <span class="self">self</span>.max_in_peers
 		{
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"All inbound slots have been consumed, rejecting {peer_id}"</span>);
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>);
 		}
 
 		<span class="comment">// make sure that all slots are not occupied by light peers
@@ -2468,7 +2442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="self">self</span>.peers.len() - <span class="self">self</span>.strategy.num_peers()) &gt;= <span class="self">self</span>.default_peers_set_num_light
 		{
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Too many light nodes, rejecting {peer_id}"</span>);
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>);
 		}
 
 		<span class="prelude-val">Ok</span>(handshake)
@@ -2530,8 +2504,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Cannot send block request to unknown peer {peer_id}"</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-			<span class="kw">return
-		</span>}
+			<span class="kw">return</span>;
+		}
 
 		<span class="kw">let </span>downloader = <span class="self">self</span>.block_downloader.clone();
 
@@ -2552,8 +2526,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Cannot send state request to unknown peer {peer_id}"</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-			<span class="kw">return
-		</span>}
+			<span class="kw">return</span>;
+		}
 
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 
@@ -2587,8 +2561,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Cannot send warp proof request to unknown peer {peer_id}"</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-			<span class="kw">return
-		</span>}
+			<span class="kw">return</span>;
+		}
 
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 
@@ -2650,8 +2624,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								peer_id,
 								<span class="self">self</span>.block_announce_protocol_name.clone(),
 							);
-							<span class="kw">return
-						</span>},
+							<span class="kw">return</span>;
+						},
 						<span class="prelude-val">Err</span>(BlockResponseError::ExtractionFailed(e)) =&gt; {
 							<span class="macro">debug!</span>(
 								target: LOG_TARGET,
@@ -2660,8 +2634,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								e
 							);
 							<span class="self">self</span>.network_service.report_peer(peer_id, rep::BAD_MESSAGE);
-							<span class="kw">return
-						</span>},
+							<span class="kw">return</span>;
+						},
 					}
 				},
 				PeerRequest::State =&gt; {
@@ -2677,8 +2651,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								peer_id,
 								<span class="self">self</span>.block_announce_protocol_name.clone(),
 							);
-							<span class="kw">return
-						</span>},
+							<span class="kw">return</span>;
+						},
 					};
 
 					<span class="self">self</span>.strategy.on_state_response(peer_id, key, response);
