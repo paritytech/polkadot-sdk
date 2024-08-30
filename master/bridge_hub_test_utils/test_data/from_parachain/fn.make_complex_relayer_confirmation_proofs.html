@@ -157,7 +157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     relayer_id_at_this_chain: AccountIdOf&lt;ThisChainWithMessages&gt;,
     relayers_state: UnrewardedRelayersState
 ) -&gt; (HeaderOf&lt;BridgedRelayChain&gt;, GrandpaJustification&lt;HeaderOf&lt;BridgedRelayChain&gt;&gt;, ParaHead, <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(ParaId, ParaHash)&gt;, ParaHeadsProof, FromBridgedChainMessagesDeliveryProof&lt;ParaHash&gt;)<div class="where">where
-    BridgedRelayChain: Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
+    BridgedRelayChain: Chain&lt;Hash = <a class="type" href="../../../pallet_bridge_parachains/type.RelayBlockHash.html" title="type pallet_bridge_parachains::RelayBlockHash">RelayBlockHash</a>, BlockNumber = <a class="type" href="../../../pallet_bridge_parachains/type.RelayBlockNumber.html" title="type pallet_bridge_parachains::RelayBlockNumber">RelayBlockNumber</a>&gt; + ChainWithGrandpa,
     BridgedParachain: Chain&lt;Hash = ParaHash&gt; + Parachain,
     ThisChainWithMessages: ChainWithMessages,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Prepare storage proofs of message confirmations, stored at the target parachain.</p>
 </div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

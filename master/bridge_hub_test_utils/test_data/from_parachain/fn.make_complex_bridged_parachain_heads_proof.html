@@ -156,7 +156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     bridged_para_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     is_minimal_call: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
 ) -&gt; (HeaderOf&lt;BridgedRelayChain&gt;, GrandpaJustification&lt;HeaderOf&lt;BridgedRelayChain&gt;&gt;, ParaHead, <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(ParaId, ParaHash)&gt;, ParaHeadsProof)<div class="where">where
-    BridgedRelayChain: Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
+    BridgedRelayChain: Chain&lt;Hash = <a class="type" href="../../../pallet_bridge_parachains/type.RelayBlockHash.html" title="type pallet_bridge_parachains::RelayBlockHash">RelayBlockHash</a>, BlockNumber = <a class="type" href="../../../pallet_bridge_parachains/type.RelayBlockNumber.html" title="type pallet_bridge_parachains::RelayBlockNumber">RelayBlockNumber</a>&gt; + ChainWithGrandpa,
     BridgedParachain: Chain&lt;Hash = ParaHash&gt; + Parachain,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Make bridged parachain header with given state root and relay header that is finalizing it.</p>
 </div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
