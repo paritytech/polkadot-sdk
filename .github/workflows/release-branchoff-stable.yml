@@ -50,6 +50,8 @@ jobs:
           # Install pgpkms that is used to sign commits
           pip install git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69
 
+          which pgpkms-git
+
 
   create-stable-branch:
     # needs: [check-workflow-can-run, prepare-tooling]
