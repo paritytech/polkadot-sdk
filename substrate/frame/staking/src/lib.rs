@@ -1326,7 +1326,7 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 {
 	fn decision(
 		offender_stash: &T::AccountId,
-		offender_slash_severity: Perbill,
+		_offender_slash_severity: Perbill,
 		slash_era: EraIndex,
 		currently_disabled: &Vec<(u32, Perbill)>,
 	) -> DisablingDecision {
@@ -1350,19 +1350,19 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 				Pallet::<T>::current_era().unwrap_or_default(),
 				slash_era
 			);
-			return (None, None)
+			return DisablingDecision { disable: None, reenable: None }
 		}
 
 		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
 			idx as u32
 		} else {
 			log!(debug, "Won't disable: offender not in active set",);
-			return (None, None)
+			return DisablingDecision { disable: None, reenable: None }
 		};
 
 		log!(debug, "Will disable {:?}", offender_idx);
 
-		(Some(offender_idx), None)
+		DisablingDecision { disable: Some(offender_idx), reenable: None }
 	}
 }
 
@@ -1406,16 +1406,18 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 				Pallet::<T>::current_era().unwrap_or_default(),
 				slash_era
 			);
-			return (None, None)
+			return DisablingDecision { disable: None, reenable: None }
 		}
+
+		// We don't disable validators that are not in the active set
 		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
 			idx as u32
 		} else {
 			log!(debug, "Won't disable: offender not in active set",);
-			return (None, None)
+			return DisablingDecision { disable: None, reenable: None }
 		};
 
-		// We don't disable more than the limit (but we can re-enable a smaller offender)
+		// We don't disable more than the limit (but we can re-enable a smaller offender to make space)
 		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
 			log!(
 				debug,
@@ -1430,15 +1432,15 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 				.min_by_key(|(_, perbill)| *perbill) 
 			{
 				log!(debug, "Will disable {:?} and re-enable {:?}", offender_idx, smallest_idx);
-				return (Some(offender_idx), Some(*smallest_idx));
+				return DisablingDecision { disable: Some(offender_idx), reenable: Some(*smallest_idx) }
 			} else {
 				log!(debug, "No smaller offender found to re-enable");
-				return (None, None);
+				return DisablingDecision { disable: None, reenable: None }
 			}
 		}
 
 		// If we are not at the limit, just disable the new offender and dont re-enable anyone
 		log!(debug, "Will disable {:?}", offender_idx);
-		(Some(offender_idx), None)
+		DisablingDecision { disable: Some(offender_idx), reenable: None }
 	}
 }
