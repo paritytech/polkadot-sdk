@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725029165024,
+  "lastUpdate": 1725034029376,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -16778,6 +16778,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.2357357417901773,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maksym H",
+            "username": "mordamax",
+            "email": "1177472+mordamax@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d34f6878a337f6211a4708560e7e669d9bd7c1d6",
+          "message": "fix cmd bot PR context (#5531)\n\n- restore update-ui.sh (accidentally removed with bunch of bash 😅\n- fix empty context and pushing to dev branch (supporting forks)\ntested fork here: https://github.com/paritytech-stg/polkadot-sdk/pull/45",
+          "timestamp": "2024-08-30T14:05:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d34f6878a337f6211a4708560e7e669d9bd7c1d6"
+        },
+        "date": 1725034000542,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64033.719999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.594213815609926,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.640363231350281,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.914871208359951,
             "unit": "seconds"
           }
         ]
