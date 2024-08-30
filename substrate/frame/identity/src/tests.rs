@@ -1329,7 +1329,7 @@ fn set_username_with_acceptance_should_work() {
 
 		// Should be pending
 		assert_eq!(
-			PendingUsernames::<Test>::get::<&Username<Test>>(&username),
+			PendingAcceptance::<Test>::get::<&Username<Test>>(&username),
 			Some((who.clone(), expiration, Provider::Governance))
 		);
 
@@ -1337,7 +1337,7 @@ fn set_username_with_acceptance_should_work() {
 		assert_ok!(Identity::accept_username(RuntimeOrigin::signed(who.clone()), username.clone()));
 
 		// No more pending
-		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&username).is_none());
+		assert!(PendingAcceptance::<Test>::get::<&Username<Test>>(&username).is_none());
 		// Check Identity storage
 		assert_eq!(UsernameOf::<Test>::get(&who), Some(username.clone()));
 		// Check reverse lookup
@@ -1361,7 +1361,7 @@ fn set_username_with_acceptance_should_work() {
 		// Should be pending
 		let username_deposit = <Test as Config>::UsernameDeposit::get();
 		assert_eq!(
-			PendingUsernames::<Test>::get::<&Username<Test>>(&second_username),
+			PendingAcceptance::<Test>::get::<&Username<Test>>(&second_username),
 			Some((second_caller.clone(), expiration, Provider::Authority(username_deposit)))
 		);
 		assert_eq!(
@@ -1375,7 +1375,7 @@ fn set_username_with_acceptance_should_work() {
 		));
 
 		// No more pending
-		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&second_username).is_none());
+		assert!(PendingAcceptance::<Test>::get::<&Username<Test>>(&second_username).is_none());
 		// Check Identity storage
 		assert_eq!(UsernameOf::<Test>::get(&second_caller), Some(second_username.clone()));
 		// Check reverse lookup
@@ -1701,7 +1701,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 
 		// Should be pending
 		assert_eq!(
-			PendingUsernames::<Test>::get::<&Username<Test>>(&username),
+			PendingAcceptance::<Test>::get::<&Username<Test>>(&username),
 			Some((who.clone(), expiration, Provider::Governance))
 		);
 
@@ -1725,7 +1725,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 9);
 
 		// No more pending
-		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&username).is_none());
+		assert!(PendingAcceptance::<Test>::get::<&Username<Test>>(&username).is_none());
 	});
 }
 
@@ -1769,7 +1769,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 
 		// Should be pending
 		assert_eq!(
-			PendingUsernames::<Test>::get::<&Username<Test>>(&username),
+			PendingAcceptance::<Test>::get::<&Username<Test>>(&username),
 			Some((who.clone(), expiration, Provider::Authority(username_deposit)))
 		);
 
@@ -1799,7 +1799,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 		assert_eq!(UsernameAuthorities::<Test>::get(&suffix).unwrap().allocation, 10);
 
 		// No more pending
-		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&username).is_none());
+		assert!(PendingAcceptance::<Test>::get::<&Username<Test>>(&username).is_none());
 	});
 }
 
