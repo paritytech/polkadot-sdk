@@ -559,11 +559,13 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 							if let Some(system_version) = system_version {
 								let new_value = map.next_value::<u8>()?;
 								if system_version != new_value {
-									return Err(<A::Error as serde::de::Error>::custom(format!(
-										r#"Duplicated "stateVersion" and "systemVersion" fields \
-										must have the same value, but different values were \
-										provided: {system_version} vs {new_value}"#
-									)));
+									return Err(<A::Error as serde::de::Error>::custom(
+										alloc::format!(
+											r#"Duplicated "stateVersion" and "systemVersion" \
+											fields must have the same value, but different values \
+											were provided: {system_version} vs {new_value}"#
+										),
+									));
 								}
 							} else {
 								system_version = Some(map.next_value()?);
