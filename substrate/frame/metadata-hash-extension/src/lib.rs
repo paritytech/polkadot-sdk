@@ -72,8 +72,8 @@ const RUNTIME_METADATA: Option<[u8; 32]> = if let Some(hex) = option_env!("RUNTI
 	match const_hex::const_decode_to_array(hex.as_bytes()) {
 		Ok(hex) => Some(hex),
 		Err(_) => panic!("Invalid RUNTIME_METADATA_HASH environment variable: it must be a 32 \
-			bytes value in hexadecimal: e.g. 0x1234567890abcdef1234567890ABCDEF. Upper case or \
-			lower case, 0x prefix is optional."),
+			bytes value in hexadecimal: e.g. 0x123ABCabd...123ABCabc. Upper case or lower case, \
+			0x prefix is optional."),
 	}
 } else {
 	None
