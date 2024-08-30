@@ -291,7 +291,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_none(origin.clone()).or_else(|_| ensure_authorized(origin))?;
 
-			// Checked by ValidateUnsigned
+			// Checked by ValidateUnsigned or authorize
 			debug_assert_eq!(registration.session_index, CurrentSessionIndex::<T>::get());
 			debug_assert!(registration.authority_index < T::MaxAuthorities::get());
 
