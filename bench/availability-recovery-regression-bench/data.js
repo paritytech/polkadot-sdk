@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725029408027,
+  "lastUpdate": 1725034624408,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -19193,6 +19193,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.20825051699999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk",
+            "email": "1728078+michalkucharczyk@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "95f39778575e46bf830fe1241ee096e87cd31391",
+          "message": "asset-hub-rococo: genesis config presets added (#3996)\n\nGensis config presets moved from `polkadot-parachain` binary into\n`asset-hub-rococo` runtime.\n\nrelates to: #3944\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-08-30T15:33:10Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95f39778575e46bf830fe1241ee096e87cd31391"
+        },
+        "date": 1725034595336,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.822376789499998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1711797795,
             "unit": "seconds"
           }
         ]
