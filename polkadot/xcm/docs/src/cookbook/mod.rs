@@ -20,8 +20,21 @@
 //!
 //! Each recipe is tested and explains all the code necessary to run it -- they're not just snippets
 //! to copy and paste.
+//!
+//! ## Recipes
+//!
+//! ### Configuration
+//! - [Parachain without a native token, using DOT](crate::cookbook::relay_token_transactor)
+//!
+//! ### Messages
+//! - [Reserve asset transfers](crate::cookbook::writing_messages::reserve_asset_transfers)
 
 /// Configuring a parachain that only uses the Relay Chain native token.
 /// In the case of Polkadot, this recipe will show you how to launch a parachain with no native
 /// token -- dealing only on DOT.
 pub mod relay_token_transactor;
+
+/// Recipes regarding writing messages.
+///
+/// They all use the same network for tests.
+pub mod writing_messages;
