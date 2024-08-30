@@ -71,6 +71,21 @@ fn account<AccountId: Decode>(name: &'static str, index: u32, seed: u32) -> Acco
 		.expect("infinite input; no invalid input; qed")
 }
 
+pub fn generate_validator_pairs<T: frame_system::Config>(
+	validator_count: u32,
+) -> Vec<(T::AccountId, ValidatorId)> {
+	(0..validator_count)
+		.map(|i| {
+			let public = ValidatorId::generate_pair(None);
+
+			// The account Id is not actually used anywhere, just necessary to fulfill the
+			// expected type of the `validators` param of `test_trigger_on_new_session`.
+			let account: T::AccountId = account("validator", i, i);
+			(account, public)
+		})
+		.collect()
+}
+
 /// Create a 32 byte slice based on the given number.
 fn byte32_slice_from(n: u32) -> [u8; 32] {
 	let mut slice = [0u8; 32];
@@ -224,9 +239,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.expect("self.block_number is u32")
 	}
 
-	/// Maximum number of validators that may be part of a validator group.
+	/// Fallback for the maximum number of validators participating in parachains consensus (a.k.a.
+	/// active validators).
 	pub(crate) fn fallback_max_validators() -> u32 {
-		configuration::ActiveConfig::<T>::get().max_validators.unwrap_or(200)
+		configuration::ActiveConfig::<T>::get().max_validators.unwrap_or(1024)
 	}
 
 	/// Maximum number of validators participating in parachains consensus (a.k.a. active
@@ -288,8 +304,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 	/// Get the minimum number of validity votes in order for a backed candidate to be included.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn fallback_min_validity_votes() -> u32 {
-		(Self::fallback_max_validators() / 2) + 1
+	pub(crate) fn fallback_min_backing_votes() -> u32 {
+		2
 	}
 
 	fn mock_head_data() -> HeadData {
@@ -359,11 +375,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			availability_votes,
 			commitments,
 		);
-		inclusion::PendingAvailability::<T>::mutate(para_id, |maybe_andidates| {
-			if let Some(candidates) = maybe_andidates {
+		inclusion::PendingAvailability::<T>::mutate(para_id, |maybe_candidates| {
+			if let Some(candidates) = maybe_candidates {
 				candidates.push_back(candidate_availability);
 			} else {
-				*maybe_andidates =
+				*maybe_candidates =
 					Some([candidate_availability].into_iter().collect::<VecDeque<_>>());
 			}
 		});
@@ -423,20 +439,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			)
 			.unwrap();
 		}
-	}
-
-	/// Generate validator key pairs and account ids.
-	fn generate_validator_pairs(validator_count: u32) -> Vec<(T::AccountId, ValidatorId)> {
-		(0..validator_count)
-			.map(|i| {
-				let public = ValidatorId::generate_pair(None);
-
-				// The account Id is not actually used anywhere, just necessary to fulfill the
-				// expected type of the `validators` param of `test_trigger_on_new_session`.
-				let account: T::AccountId = account("validator", i, i);
-				(account, public)
-			})
-			.collect()
 	}
 
 	fn signing_context(&self) -> SigningContext<T::Hash> {
@@ -802,7 +804,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			c.scheduler_params.num_cores = used_cores as u32;
 		});
 
-		let validator_ids = Self::generate_validator_pairs(self.max_validators());
+		let validator_ids = generate_validator_pairs::<T>(self.max_validators());
 		let target_session = SessionIndex::from(self.target_session);
 		let builder = self.setup_session(target_session, validator_ids, used_cores, extra_cores);
 

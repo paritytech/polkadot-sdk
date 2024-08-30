@@ -65,18 +65,23 @@ mod benchmarking;
 pub mod migration;
 
 pub trait WeightInfo {
-	fn receive_upward_messages(i: u32) -> Weight;
+	/// Weight for `enact_candidate` extrinsic given the number of sent messages
+	/// (ump, hrmp) and whether there is a new code for a runtime upgrade.
+	///
+	/// NOTE: due to a shortcoming of the current benchmarking framework,
+	/// we use `u32` for the code upgrade, even though it is a `bool`.
+	fn enact_candidate(u: u32, h: u32, c: u32) -> Weight;
 }
 
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
-	fn receive_upward_messages(_: u32) -> Weight {
-		Weight::MAX
+	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+		Weight::zero()
 	}
 }
 
 impl WeightInfo for () {
-	fn receive_upward_messages(_: u32) -> Weight {
+	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
 		Weight::zero()
 	}
 }
@@ -498,7 +503,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn update_pending_availability_and_get_freed_cores(
 		validators: &[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
-	) -> Vec<(CoreIndex, CandidateHash)> {
+	) -> (Weight, Vec<(CoreIndex, CandidateHash)>) {
 		let threshold = availability_threshold(validators.len());
 
 		let mut votes_per_core: BTreeMap<CoreIndex, BTreeSet<ValidatorIndex>> = BTreeMap::new();
@@ -519,6 +524,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let mut freed_cores = vec![];
+		let mut weight = Weight::zero();
 
 		let pending_paraids: Vec<_> = PendingAvailability::<T>::iter_keys().collect();
 		for paraid in pending_paraids {
@@ -572,7 +578,17 @@ impl<T: Config> Pallet<T> {
 								descriptor: candidate.descriptor,
 								commitments: candidate.commitments,
 							};
-							let _weight = Self::enact_candidate(
+
+							let has_runtime_upgrade =
+								receipt.commitments.new_validation_code.as_ref().map_or(0, |_| 1);
+							let u = receipt.commitments.upward_messages.len() as u32;
+							let h = receipt.commitments.horizontal_messages.len() as u32;
+							let enact_weight = <T as Config>::WeightInfo::enact_candidate(
+								u,
+								h,
+								has_runtime_upgrade,
+							);
+							Self::enact_candidate(
 								candidate.relay_parent_number,
 								receipt,
 								candidate.backers,
@@ -580,13 +596,14 @@ impl<T: Config> Pallet<T> {
 								candidate.core,
 								candidate.backing_group,
 							);
+							weight.saturating_accrue(enact_weight);
 						}
 					}
 				}
 			});
 		}
 
-		freed_cores
+		(weight, freed_cores)
 	}
 
 	/// Process candidates that have been backed. Provide a set of
@@ -831,7 +848,7 @@ impl<T: Config> Pallet<T> {
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		core_index: CoreIndex,
 		backing_group: GroupIndex,
-	) -> Weight {
+	) {
 		let plain = receipt.to_plain();
 		let commitments = receipt.commitments;
 		let config = configuration::ActiveConfig::<T>::get();
@@ -852,38 +869,36 @@ impl<T: Config> Pallet<T> {
 				.map(|(i, _)| ValidatorIndex(i as _)),
 		);
 
-		// initial weight is config read.
-		let mut weight = T::DbWeight::get().reads_writes(1, 0);
 		if let Some(new_code) = commitments.new_validation_code {
 			// Block number of candidate's inclusion.
 			let now = frame_system::Pallet::<T>::block_number();
 
-			weight.saturating_add(paras::Pallet::<T>::schedule_code_upgrade(
+			paras::Pallet::<T>::schedule_code_upgrade(
 				receipt.descriptor.para_id,
 				new_code,
 				now,
 				&config,
 				UpgradeStrategy::SetGoAheadSignal,
-			));
+			);
 		}
 
 		// enact the messaging facet of the candidate.
-		weight.saturating_accrue(dmp::Pallet::<T>::prune_dmq(
+		dmp::Pallet::<T>::prune_dmq(
 			receipt.descriptor.para_id,
 			commitments.processed_downward_messages,
-		));
-		weight.saturating_accrue(Self::receive_upward_messages(
+		);
+		Self::receive_upward_messages(
 			receipt.descriptor.para_id,
 			commitments.upward_messages.as_slice(),
-		));
-		weight.saturating_accrue(hrmp::Pallet::<T>::prune_hrmp(
+		);
+		hrmp::Pallet::<T>::prune_hrmp(
 			receipt.descriptor.para_id,
 			BlockNumberFor::<T>::from(commitments.hrmp_watermark),
-		));
-		weight.saturating_accrue(hrmp::Pallet::<T>::queue_outbound_hrmp(
+		);
+		hrmp::Pallet::<T>::queue_outbound_hrmp(
 			receipt.descriptor.para_id,
 			commitments.horizontal_messages,
-		));
+		);
 
 		Self::deposit_event(Event::<T>::CandidateIncluded(
 			plain,
@@ -892,11 +907,11 @@ impl<T: Config> Pallet<T> {
 			backing_group,
 		));
 
-		weight.saturating_add(paras::Pallet::<T>::note_new_head(
+		paras::Pallet::<T>::note_new_head(
 			receipt.descriptor.para_id,
 			commitments.head_data,
 			relay_parent_number,
-		))
+		);
 	}
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
@@ -961,7 +976,7 @@ impl<T: Config> Pallet<T> {
 	/// This function is infallible since the candidate was already accepted and we therefore need
 	/// to deal with the messages as given. Messages that are too long will be ignored since such
 	/// candidates should have already been rejected in [`Self::check_upward_messages`].
-	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) -> Weight {
+	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) {
 		let bounded = upward_messages
 			.iter()
 			.filter_map(|d| {
@@ -980,19 +995,17 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn receive_bounded_upward_messages(
 		para: ParaId,
 		messages: Vec<BoundedSlice<'_, u8, MaxUmpMessageLenOf<T>>>,
-	) -> Weight {
+	) {
 		let count = messages.len() as u32;
 		if count == 0 {
-			return Weight::zero()
+			return
 		}
 
 		T::MessageQueue::enqueue_messages(
 			messages.into_iter(),
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
 		);
-		let weight = <T as Config>::WeightInfo::receive_upward_messages(count);
 		Self::deposit_event(Event::UpwardMessagesReceived { from: para, count });
-		weight
 	}
 
 	/// Cleans up all timed out candidates as well as their descendant candidates.

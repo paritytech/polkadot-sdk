@@ -34,11 +34,11 @@ pub trait AuthorApi<Hash, BlockHash> {
 	async fn submit_extrinsic(&self, extrinsic: Bytes) -> Result<Hash, Error>;
 
 	/// Insert a key into the keystore.
-	#[method(name = "author_insertKey")]
+	#[method(name = "author_insertKey", with_extensions)]
 	fn insert_key(&self, key_type: String, suri: String, public: Bytes) -> Result<(), Error>;
 
 	/// Generate new session keys and returns the corresponding public keys.
-	#[method(name = "author_rotateKeys")]
+	#[method(name = "author_rotateKeys", with_extensions)]
 	fn rotate_keys(&self) -> Result<Bytes, Error>;
 
 	/// Checks if the keystore has private keys for the given session public keys.
@@ -46,13 +46,13 @@ pub trait AuthorApi<Hash, BlockHash> {
 	/// `session_keys` is the SCALE encoded session keys object from the runtime.
 	///
 	/// Returns `true` iff all private keys could be found.
-	#[method(name = "author_hasSessionKeys")]
+	#[method(name = "author_hasSessionKeys", with_extensions)]
 	fn has_session_keys(&self, session_keys: Bytes) -> Result<bool, Error>;
 
 	/// Checks if the keystore has private keys for the given public key and key type.
 	///
 	/// Returns `true` if a private key could be found.
-	#[method(name = "author_hasKey")]
+	#[method(name = "author_hasKey", with_extensions)]
 	fn has_key(&self, public_key: Bytes, key_type: String) -> Result<bool, Error>;
 
 	/// Returns all pending extrinsics, potentially grouped by sender.
@@ -60,7 +60,7 @@ pub trait AuthorApi<Hash, BlockHash> {
 	fn pending_extrinsics(&self) -> Result<Vec<Bytes>, Error>;
 
 	/// Remove given extrinsic from the pool and temporarily ban it to prevent reimporting.
-	#[method(name = "author_removeExtrinsic")]
+	#[method(name = "author_removeExtrinsic", with_extensions)]
 	fn remove_extrinsic(
 		&self,
 		bytes_or_hash: Vec<hash::ExtrinsicOrHash<Hash>>,
