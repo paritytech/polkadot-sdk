@@ -15,9 +15,7 @@
 
 //! # Asset Hub Rococo Runtime genesis config presets
 
-#[cfg(not(feature = "std"))]
-use crate::vec;
-use crate::Vec;
+use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::{genesis_config_helpers::*, AccountId, AuraId, Balance as AssetHubBalance};
@@ -84,7 +82,7 @@ pub mod preset_names {
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
-pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
+pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
 	let patch = match id.try_into() {
 		Ok(PRESET_GENESIS) => asset_hub_rococo_genesis(

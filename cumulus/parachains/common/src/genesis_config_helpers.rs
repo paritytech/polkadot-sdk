@@ -17,10 +17,10 @@
 // note: copied from: cumulus/polkadot-parachain/src/chain_spec/mod.rs
 
 use crate::{AccountId, Signature};
+#[cfg(not(feature = "std"))]
+use alloc::format;
 use sp_core::{Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::format;
 
 /// Helper function to generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
