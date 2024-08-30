@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -16,14 +16,13 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-bytes = { version = "1.1.0", default-features = false }
-sp-core = { path = "../../core", default-features = false }
-sp-io = { path = "../../io", default-features = false }
-sp-runtime-interface = { path = "..", default-features = false }
-sp-std = { path = "../../std", default-features = false }
+bytes = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime-interface = { workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -32,6 +31,5 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime-interface/std",
-	"sp-std/std",
 	"substrate-wasm-builder",
 ]

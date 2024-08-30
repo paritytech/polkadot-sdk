@@ -54,6 +54,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo},
@@ -68,7 +71,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, Dispatchable, Saturating, Zero},
 	ArithmeticError, DispatchError, RuntimeDebug,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =

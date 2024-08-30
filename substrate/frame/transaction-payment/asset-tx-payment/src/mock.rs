@@ -29,8 +29,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::EnsureRoot;
 use pallet_transaction_payment::FungibleAdapter;
-use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, ConvertInto, IdentityLookup, SaturatedConversion};
+use sp_runtime::traits::{ConvertInto, SaturatedConversion};
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 type Balance = u64;
@@ -73,48 +72,19 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 10;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<10>;
 	type AccountStore = System;
-	type MaxLocks = ();
-	type WeightInfo = ();
-	type MaxReserves = ConstU32<50>;
-	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl WeightToFeeT for WeightToFee {

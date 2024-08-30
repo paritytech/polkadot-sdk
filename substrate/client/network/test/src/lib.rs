@@ -34,7 +34,7 @@ use std::{
 	time::Duration,
 };
 
-use futures::{channel::oneshot, future::BoxFuture, pin_mut, prelude::*};
+use futures::{future::BoxFuture, pin_mut, prelude::*};
 use libp2p::PeerId;
 use log::trace;
 use parking_lot::Mutex;
@@ -67,7 +67,7 @@ use sc_network_sync::{
 	service::{network::NetworkServiceProvider, syncing_service::SyncingService},
 	state_request_handler::StateRequestHandler,
 	strategy::warp::{
-		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncParams, WarpSyncProvider,
+		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig, WarpSyncProvider,
 	},
 	warp_request_handler,
 };
@@ -114,7 +114,7 @@ impl PassThroughVerifier {
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for PassThroughVerifier {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		if block.fork_choice.is_none() {
@@ -210,14 +210,14 @@ impl BlockImport<Block> for PeersClient {
 	type Error = ConsensusError;
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.client.check_block(block).await
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.client.import_block(block).await
@@ -266,7 +266,7 @@ where
 
 	/// Returns the number of peers we're connected to.
 	pub async fn num_peers(&self) -> usize {
-		self.sync_service.status().await.unwrap().num_connected_peers as usize
+		self.sync_service.num_connected_peers()
 	}
 
 	/// Returns the number of downloaded blocks.
@@ -600,14 +600,14 @@ where
 	type Error = ConsensusError;
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.import_block(block).await
@@ -622,10 +622,7 @@ struct VerifierAdapter<B: BlockT> {
 
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for VerifierAdapter<B> {
-	async fn verify(
-		&mut self,
-		block: BlockImportParams<B>,
-	) -> Result<BlockImportParams<B>, String> {
+	async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
 		let hash = block.header.hash();
 		self.verifier.lock().await.verify(block).await.map_err(|e| {
 			self.failed_verifications.lock().insert(hash, e.clone());
@@ -704,7 +701,7 @@ pub struct FullPeerConfig {
 	/// Enable transaction indexing.
 	pub storage_chain: bool,
 	/// Optional target block header to sync to
-	pub target_block: Option<<Block as BlockT>::Header>,
+	pub target_header: Option<<Block as BlockT>::Header>,
 	/// Force genesis even in case of warp & light state sync.
 	pub force_genesis: bool,
 }
@@ -827,7 +824,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			network_config.default_peers_set.reserved_nodes = addrs;
 			network_config.default_peers_set.non_reserved_mode = NonReservedPeerMode::Deny;
 		}
-		let mut full_net_config = FullNetworkConfiguration::new(&network_config);
+		let mut full_net_config = FullNetworkConfiguration::new(&network_config, None);
 
 		let protocol_id = ProtocolId::from("test-protocol-name");
 
@@ -868,13 +865,9 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let warp_sync = Arc::new(TestWarpSyncProvider(client.clone()));
 
-		let warp_sync_params = match config.target_block {
-			Some(target_block) => {
-				let (sender, receiver) = oneshot::channel::<<Block as BlockT>::Header>();
-				let _ = sender.send(target_block);
-				WarpSyncParams::WaitForTarget(receiver)
-			},
-			_ => WarpSyncParams::WithProvider(warp_sync.clone()),
+		let warp_sync_config = match config.target_header {
+			Some(target_header) => WarpSyncConfig::WithTarget(target_header),
+			_ => WarpSyncConfig::WithProvider(warp_sync.clone()),
 		};
 
 		let warp_protocol_config = {
@@ -899,6 +892,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				.iter()
 				.map(|bootnode| bootnode.peer_id.into())
 				.collect(),
+			None,
 		);
 		let peer_store_handle = Arc::new(peer_store.handle());
 		self.spawn_task(peer_store.run().boxed());
@@ -921,7 +915,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				protocol_id.clone(),
 				&fork_id,
 				block_announce_validator,
-				Some(warp_sync_params),
+				Some(warp_sync_config),
 				chain_sync_network_handle,
 				import_queue.service(),
 				block_relay_params.downloader,
@@ -1022,7 +1016,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		for peer in peers {
 			if peer.sync_service.is_major_syncing() ||
-				peer.sync_service.num_queued_blocks().await.unwrap() != 0
+				peer.sync_service.status().await.unwrap().queued_blocks != 0
 			{
 				return false
 			}
@@ -1042,7 +1036,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 	async fn is_idle(&mut self) -> bool {
 		let peers = self.peers_mut();
 		for peer in peers {
-			if peer.sync_service.num_queued_blocks().await.unwrap() != 0 {
+			if peer.sync_service.status().await.unwrap().queued_blocks != 0 {
 				return false
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {
@@ -1100,9 +1094,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		'outer: loop {
 			for sync_service in &sync_services {
-				if sync_service.status().await.unwrap().num_connected_peers as usize !=
-					num_peers - 1
-				{
+				if sync_service.num_connected_peers() != num_peers - 1 {
 					futures::future::poll_fn::<(), _>(|cx| {
 						self.poll(cx);
 						Poll::Ready(())

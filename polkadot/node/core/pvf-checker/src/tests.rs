@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use ::test_helpers::{dummy_digest, dummy_hash, validator_pubkeys};
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use polkadot_node_subsystem::{
 	messages::{
@@ -30,6 +29,7 @@ use polkadot_primitives::{
 	BlockNumber, Hash, Header, PvfCheckStatement, SessionIndex, ValidationCode, ValidationCodeHash,
 	ValidatorId,
 };
+use polkadot_primitives_test_helpers::{dummy_digest, dummy_hash, validator_pubkeys};
 use sp_application_crypto::AppCrypto;
 use sp_core::testing::TaskExecutor;
 use sp_keyring::Sr25519Keyring;

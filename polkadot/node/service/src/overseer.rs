@@ -82,7 +82,7 @@ where
 	/// Underlying network service implementation.
 	pub network_service: Arc<dyn sc_network::service::traits::NetworkService>,
 	/// Underlying syncing service implementation.
-	pub sync_service: Arc<dyn consensus_common::SyncOracle + Send + Sync>,
+	pub sync_service: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
 	/// Underlying authority discovery service.
 	pub authority_discovery_service: AuthorityDiscoveryService,
 	/// Collations request receiver for network protocol v1.
@@ -275,6 +275,7 @@ where
 		))
 		.candidate_validation(CandidateValidationSubsystem::with_config(
 			candidate_validation_config,
+			keystore.clone(),
 			Metrics::register(registry)?, // candidate-validation metrics
 			Metrics::register(registry)?, // validation host metrics
 		))

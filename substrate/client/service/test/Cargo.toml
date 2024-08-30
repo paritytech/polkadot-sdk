@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 publish = false
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 
 [lints]
@@ -15,33 +15,33 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-channel = "1.8.0"
-array-bytes = "6.2.2"
-fdlimit = "0.3.0"
-futures = "0.3.30"
+async-channel = { workspace = true }
+array-bytes = { workspace = true, default-features = true }
+fdlimit = { workspace = true }
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
-parity-scale-codec = "3.6.12"
-parking_lot = "0.12.1"
-tempfile = "3.1.0"
-tokio = { version = "1.22.0", features = ["time"] }
-sc-block-builder = { path = "../../block-builder" }
-sc-client-api = { path = "../../api" }
-sc-client-db = { path = "../../db", default-features = false }
-sc-consensus = { path = "../../consensus/common" }
-sc-executor = { path = "../../executor" }
-sc-network = { path = "../../network" }
-sc-network-sync = { path = "../../network/sync" }
-sc-service = { path = "..", features = ["test-helpers"] }
-sc-transaction-pool-api = { path = "../../transaction-pool/api" }
-sp-api = { path = "../../../primitives/api" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-core = { path = "../../../primitives/core" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-state-machine = { path = "../../../primitives/state-machine" }
-sp-storage = { path = "../../../primitives/storage" }
-sp-tracing = { path = "../../../primitives/tracing" }
-sp-trie = { path = "../../../primitives/trie" }
-sp-io = { path = "../../../primitives/io" }
-substrate-test-runtime = { path = "../../../test-utils/runtime" }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+codec = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+tempfile = { workspace = true }
+tokio = { features = ["time"], workspace = true, default-features = true }
+sc-block-builder = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-client-db = { workspace = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
+sc-service = { features = ["test-helpers"], workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+substrate-test-runtime = { workspace = true }
+substrate-test-runtime-client = { workspace = true }

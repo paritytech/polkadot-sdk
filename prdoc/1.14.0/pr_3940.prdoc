@@ -1,0 +1,31 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "RFC-5: Add request revenue info"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Partially implemented RFC-5 in terms of revenue requests and notifications
+  - audience: Runtime User
+    description: |
+      Instantaneous Coretime sold on the relay chain now generates revenue for its provider.
+      The revenue may be claimed by its provider on the Coretime chain.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: pallet-broker
+    bump: minor
+  - name: rococo-runtime-constants
+    bump: minor
+  - name: westend-runtime-constants
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor

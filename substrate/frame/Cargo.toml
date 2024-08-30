@@ -18,51 +18,50 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # external deps
-parity-scale-codec = { version = "3.6.12", default-features = false, features = [
+codec = { features = [
 	"derive",
-] }
-scale-info = { version = "2.11.1", default-features = false, features = [
+], workspace = true }
+scale-info = { features = [
 	"derive",
-] }
+], workspace = true }
 
 # primitive deps, used for developing FRAME pallets.
-sp-runtime = { default-features = false, path = "../primitives/runtime" }
-sp-std = { default-features = false, path = "../primitives/std" }
-sp-io = { default-features = false, path = "../primitives/io" }
-sp-core = { default-features = false, path = "../primitives/core" }
-sp-arithmetic = { default-features = false, path = "../primitives/arithmetic" }
+sp-runtime = { workspace = true }
+sp-io = { workspace = true }
+sp-core = { workspace = true }
+sp-arithmetic = { workspace = true }
 
 # frame deps, for developing FRAME pallets.
-frame-support = { default-features = false, path = "support" }
-frame-system = { default-features = false, path = "system" }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
 # primitive types used for developing FRAME runtimes.
-sp-version = { default-features = false, path = "../primitives/version", optional = true }
-sp-api = { default-features = false, path = "../primitives/api", optional = true }
-sp-block-builder = { default-features = false, path = "../primitives/block-builder", optional = true }
-sp-transaction-pool = { default-features = false, path = "../primitives/transaction-pool", optional = true }
-sp-offchain = { default-features = false, path = "../primitives/offchain", optional = true }
-sp-session = { default-features = false, path = "../primitives/session", optional = true }
-sp-consensus-aura = { default-features = false, path = "../primitives/consensus/aura", optional = true }
-sp-consensus-grandpa = { default-features = false, path = "../primitives/consensus/grandpa", optional = true }
-sp-inherents = { default-features = false, path = "../primitives/inherents", optional = true }
-sp-storage = { default-features = false, path = "../primitives/storage", optional = true }
+sp-version = { optional = true, workspace = true }
+sp-api = { optional = true, workspace = true }
+sp-block-builder = { optional = true, workspace = true }
+sp-transaction-pool = { optional = true, workspace = true }
+sp-offchain = { optional = true, workspace = true }
+sp-session = { optional = true, workspace = true }
+sp-consensus-aura = { optional = true, workspace = true }
+sp-consensus-grandpa = { optional = true, workspace = true }
+sp-inherents = { optional = true, workspace = true }
+sp-storage = { optional = true, workspace = true }
 
-frame-executive = { default-features = false, path = "../frame/executive", optional = true }
-frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
+frame-executive = { optional = true, workspace = true }
+frame-system-rpc-runtime-api = { optional = true, workspace = true }
 
 # Used for runtime benchmarking
-frame-benchmarking = { default-features = false, path = "../frame/benchmarking", optional = true }
-frame-system-benchmarking = { default-features = false, path = "../frame/system/benchmarking", optional = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
 
 # Used for try-runtime
-frame-try-runtime = { default-features = false, path = "../frame/try-runtime", optional = true }
+frame-try-runtime = { optional = true, workspace = true }
 
-docify = "0.2.8"
+docify = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
-pallet-examples = { path = "./examples" }
+pallet-examples = { workspace = true }
 
 [features]
 default = ["runtime", "std"]
@@ -83,6 +82,7 @@ runtime = [
 	"frame-system-rpc-runtime-api",
 ]
 std = [
+	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-executive?/std",
 	"frame-support/std",
@@ -91,7 +91,6 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime?/std",
 	"log/std",
-	"parity-scale-codec/std",
 	"scale-info/std",
 	"sp-api?/std",
 	"sp-arithmetic/std",
@@ -104,7 +103,6 @@ std = [
 	"sp-offchain?/std",
 	"sp-runtime/std",
 	"sp-session?/std",
-	"sp-std/std",
 	"sp-storage/std",
 	"sp-transaction-pool?/std",
 	"sp-version?/std",

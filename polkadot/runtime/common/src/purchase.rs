@@ -16,20 +16,20 @@
 
 //! Pallet to process purchase of DOTs.
 
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, EnsureOrigin, ExistenceRequirement, Get, VestingSchedule},
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::sr25519;
 use sp_runtime::{
 	traits::{CheckedAdd, Saturating, Verify, Zero},
 	AnySignature, DispatchError, DispatchResult, Permill, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -534,24 +534,9 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
-	parameter_types! {
-		pub const ExistentialDeposit: u64 = 1;
-	}
-
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
-		type MaxLocks = ();
-		type MaxReserves = ();
-		type ReserveIdentifier = [u8; 8];
-		type WeightInfo = ();
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	parameter_types! {

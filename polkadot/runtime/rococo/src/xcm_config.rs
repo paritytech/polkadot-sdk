@@ -29,11 +29,11 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
-use rococo_runtime_constants::{currency::CENTS, system_parachain::*};
-use runtime_common::{
+use polkadot_runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
+use rococo_runtime_constants::{currency::CENTS, system_parachain::*};
 use sp_core::ConstU32;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -41,10 +41,10 @@ use xcm_builder::{
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
 	ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily, FixedWeightBounds,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsChildSystemParachain,
-	IsConcrete, MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	IsConcrete, MintLocation, OriginToPluralityVoice, SendXcmFeeToAccount,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -213,7 +213,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;

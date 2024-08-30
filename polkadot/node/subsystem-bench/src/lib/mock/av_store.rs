@@ -17,8 +17,8 @@
 //! A generic av store subsystem mockup suitable to be used in benchmarks.
 
 use crate::network::{HandleNetworkMessage, NetworkMessage};
+use codec::Encode;
 use futures::{channel::oneshot, FutureExt};
-use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::request_response::{
 	v1::AvailableDataFetchingResponse, v2::ChunkFetchingResponse, Protocol, ReqProtocolNames,
 	Requests,

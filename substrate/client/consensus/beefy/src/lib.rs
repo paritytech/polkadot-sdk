@@ -32,13 +32,14 @@ use crate::{
 	metrics::register_metrics,
 };
 use futures::{stream::Fuse, FutureExt, StreamExt};
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use parking_lot::Mutex;
-use prometheus::Registry;
-use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
+use prometheus_endpoint::Registry;
+use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotification, Finalizer};
 use sc_consensus::BlockImport;
 use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
+use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Error as ConsensusError, SyncOracle};
@@ -49,7 +50,9 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
 use std::{
 	collections::{BTreeMap, VecDeque},
+	future::Future,
 	marker::PhantomData,
+	pin::Pin,
 	sync::Arc,
 	time::Duration,
 };
@@ -87,6 +90,8 @@ const LOG_TARGET: &str = "beefy";
 
 const HEADER_SYNC_DELAY: Duration = Duration::from_secs(60);
 
+type FinalityNotifications<Block> =
+	sc_utils::mpsc::TracingUnboundedReceiver<UnpinnedFinalityNotification<Block>>;
 /// A convenience BEEFY client trait that defines all the type bounds a BEEFY client
 /// has to satisfy. Ideally that should actually be a trait alias. Unfortunately as
 /// of today, Rust does not allow a type alias to be used as a trait bound. Tracking
@@ -446,7 +451,8 @@ where
 			state.set_best_grandpa(best_grandpa.clone());
 			// Overwrite persisted data with newly provided `min_block_delta`.
 			state.set_min_block_delta(min_block_delta);
-			debug!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
+			debug!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db.");
+			trace!(target: LOG_TARGET, "🥩 Loaded state: {:?}.", state);
 
 			// Make sure that all the headers that we need have been synced.
 			let mut new_sessions = vec![];
@@ -481,6 +487,30 @@ where
 
 		// No valid voter-state persisted, re-initialize from pallet genesis.
 		Self::init_state(beefy_genesis, best_grandpa, min_block_delta, backend, runtime).await
+	}
+}
+
+/// Finality notification for consumption by BEEFY worker.
+/// This is a stripped down version of `sc_client_api::FinalityNotification` which does not keep
+/// blocks pinned.
+struct UnpinnedFinalityNotification<B: Block> {
+	/// Finalized block header hash.
+	pub hash: B::Hash,
+	/// Finalized block header.
+	pub header: B::Header,
+	/// Path from the old finalized to new finalized parent (implicitly finalized blocks).
+	///
+	/// This maps to the range `(old_finalized, new_finalized)`.
+	pub tree_route: Arc<[B::Hash]>,
+}
+
+impl<B: Block> From<FinalityNotification<B>> for UnpinnedFinalityNotification<B> {
+	fn from(value: FinalityNotification<B>) -> Self {
+		UnpinnedFinalityNotification {
+			hash: value.hash,
+			header: value.header,
+			tree_route: value.tree_route,
+		}
 	}
 }
 
@@ -525,10 +555,13 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 
 	let metrics = register_metrics(prometheus_registry.clone());
 
+	let mut block_import_justif = links.from_block_import_justif_stream.subscribe(100_000).fuse();
+
 	// Subscribe to finality notifications and justifications before waiting for runtime pallet and
 	// reuse the streams, so we don't miss notifications while waiting for pallet to be available.
-	let mut finality_notifications = client.finality_notification_stream().fuse();
-	let mut block_import_justif = links.from_block_import_justif_stream.subscribe(100_000).fuse();
+	let finality_notifications = client.finality_notification_stream();
+	let (mut transformer, mut finality_notifications) =
+		finality_notification_transformer_future(finality_notifications);
 
 	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
 	// Default votes filter is to discard everything.
@@ -582,7 +615,11 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 			_ = &mut beefy_comms.gossip_engine => {
 				error!(target: LOG_TARGET, "🥩 Gossip engine has unexpectedly terminated.");
 				return
-			}
+			},
+			_ = &mut transformer => {
+				error!(target: LOG_TARGET, "🥩 Finality notification transformer task has unexpectedly terminated.");
+				return
+			},
 		};
 
 		let worker = worker_builder.build(
@@ -594,28 +631,52 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 			is_authority,
 		);
 
-		match futures::future::select(
-			Box::pin(worker.run(&mut block_import_justif, &mut finality_notifications)),
-			Box::pin(on_demand_justifications_handler.run()),
-		)
-		.await
-		{
-			// On `ConsensusReset` error, just reinit and restart voter.
-			futures::future::Either::Left(((error::Error::ConsensusReset, reuse_comms), _)) => {
-				error!(target: LOG_TARGET, "🥩 Error: {:?}. Restarting voter.", error::Error::ConsensusReset);
-				beefy_comms = reuse_comms;
-				continue;
+		futures::select! {
+			result = worker.run(&mut block_import_justif, &mut finality_notifications).fuse() => {
+				match result {
+					(error::Error::ConsensusReset, reuse_comms) => {
+						error!(target: LOG_TARGET, "🥩 Error: {:?}. Restarting voter.", error::Error::ConsensusReset);
+						beefy_comms = reuse_comms;
+						continue;
+					},
+					(err, _) => {
+						error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", err)
+					}
+				}
 			},
-			// On other errors, bring down / finish the task.
-			futures::future::Either::Left(((worker_err, _), _)) => {
-				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", worker_err)
+			odj_handler_error = on_demand_justifications_handler.run().fuse() => {
+				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", odj_handler_error)
 			},
-			futures::future::Either::Right((odj_handler_err, _)) => {
-				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", odj_handler_err)
-			},
-		};
+			_ = &mut transformer => {
+				error!(target: LOG_TARGET, "🥩 Finality notification transformer task has unexpectedly terminated.");
+			}
+		}
 		return;
 	}
+}
+
+/// Produce a future that transformes finality notifications into a struct that does not keep blocks
+/// pinned.
+fn finality_notification_transformer_future<B>(
+	mut finality_notifications: sc_client_api::FinalityNotifications<B>,
+) -> (
+	Pin<Box<futures::future::Fuse<impl Future<Output = ()> + Sized>>>,
+	Fuse<TracingUnboundedReceiver<UnpinnedFinalityNotification<B>>>,
+)
+where
+	B: Block,
+{
+	let (tx, rx) = tracing_unbounded("beefy-notification-transformer-channel", 10000);
+	let transformer_fut = async move {
+		while let Some(notification) = finality_notifications.next().await {
+			debug!(target: LOG_TARGET, "🥩 Transforming grandpa notification. #{}({:?})", notification.header.number(), notification.hash);
+			if let Err(err) = tx.unbounded_send(UnpinnedFinalityNotification::from(notification)) {
+				error!(target: LOG_TARGET, "🥩 Unable to send transformed notification. Shutting down. err = {}", err);
+				return
+			};
+		}
+	};
+	(Box::pin(transformer_fut.fuse()), rx.fuse())
 }
 
 /// Waits until the parent header of `current` is available and returns it.

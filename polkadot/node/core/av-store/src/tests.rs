@@ -21,7 +21,6 @@ use futures::{channel::oneshot, executor, future, Future};
 use util::availability_chunks::availability_chunk_index;
 
 use self::test_helpers::mock::new_leaf;
-use ::test_helpers::TestCandidateBuilder;
 use parking_lot::Mutex;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV, Proof};
 use polkadot_node_subsystem::{
@@ -35,6 +34,7 @@ use polkadot_primitives::{
 	node_features, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, HeadData, Header,
 	PersistedValidationData, ValidatorId,
 };
+use polkadot_primitives_test_helpers::TestCandidateBuilder;
 use sp_keyring::Sr25519Keyring;
 
 mod columns {
@@ -45,7 +45,8 @@ mod columns {
 
 const TEST_CONFIG: Config = Config { col_data: columns::DATA, col_meta: columns::META };
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<AvailabilityStoreMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<AvailabilityStoreMessage>;
 
 #[derive(Clone)]
 struct TestClock {
@@ -121,14 +122,11 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	store: Arc<dyn Database>,
 	test: impl FnOnce(VirtualOverseer) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some("polkadot_node_core_av_store"), log::LevelFilter::Trace)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = AvailabilityStoreSubsystem::with_pruning_config_and_clock(
 		store,
@@ -485,9 +483,11 @@ fn store_pov_and_queries_work() {
 					validation_data: test_state.persisted_validation_data.clone(),
 				};
 
-				let chunks = erasure::obtain_chunks_v1(n_validators as _, &available_data).unwrap();
+				let chunks =
+					polkadot_erasure_coding::obtain_chunks_v1(n_validators as _, &available_data)
+						.unwrap();
 
-				let branches = erasure::branches(chunks.as_ref());
+				let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 				let (tx, rx) = oneshot::channel();
 				let block_msg = AvailabilityStoreMessage::StoreAvailableData {
@@ -568,9 +568,11 @@ fn store_pov_and_queries_work() {
 					validation_data: test_state.persisted_validation_data.clone(),
 				};
 
-				let chunks = erasure::obtain_chunks_v1(n_validators as _, &available_data).unwrap();
+				let chunks =
+					polkadot_erasure_coding::obtain_chunks_v1(n_validators as _, &available_data)
+						.unwrap();
 
-				let branches = erasure::branches(chunks.as_ref());
+				let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 				let core_index = CoreIndex(core_index);
 
 				let (tx, rx) = oneshot::channel();
@@ -667,8 +669,9 @@ fn query_all_chunks_works() {
 
 		{
 			let chunks_expected =
-				erasure::obtain_chunks_v1(n_validators as _, &available_data).unwrap();
-			let branches = erasure::branches(chunks_expected.as_ref());
+				polkadot_erasure_coding::obtain_chunks_v1(n_validators as _, &available_data)
+					.unwrap();
+			let branches = polkadot_erasure_coding::branches(chunks_expected.as_ref());
 			let (tx, rx) = oneshot::channel();
 			let block_msg = AvailabilityStoreMessage::StoreAvailableData {
 				candidate_hash: candidate_hash_1,
@@ -762,8 +765,9 @@ fn stored_but_not_included_data_is_pruned() {
 		};
 
 		let (tx, rx) = oneshot::channel();
-		let chunks = erasure::obtain_chunks_v1(n_validators as _, &available_data).unwrap();
-		let branches = erasure::branches(chunks.as_ref());
+		let chunks =
+			polkadot_erasure_coding::obtain_chunks_v1(n_validators as _, &available_data).unwrap();
+		let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 		let block_msg = AvailabilityStoreMessage::StoreAvailableData {
 			candidate_hash,
@@ -819,8 +823,9 @@ fn stored_data_kept_until_finalized() {
 		let parent = Hash::repeat_byte(2);
 		let block_number = 10;
 
-		let chunks = erasure::obtain_chunks_v1(n_validators as _, &available_data).unwrap();
-		let branches = erasure::branches(chunks.as_ref());
+		let chunks =
+			polkadot_erasure_coding::obtain_chunks_v1(n_validators as _, &available_data).unwrap();
+		let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 		let (tx, rx) = oneshot::channel();
 		let block_msg = AvailabilityStoreMessage::StoreAvailableData {
@@ -1096,8 +1101,10 @@ fn forkfullness_works() {
 			validation_data: test_state.persisted_validation_data.clone(),
 		};
 
-		let chunks = erasure::obtain_chunks_v1(n_validators as _, &available_data_1).unwrap();
-		let branches = erasure::branches(chunks.as_ref());
+		let chunks =
+			polkadot_erasure_coding::obtain_chunks_v1(n_validators as _, &available_data_1)
+				.unwrap();
+		let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 		let (tx, rx) = oneshot::channel();
 		let msg = AvailabilityStoreMessage::StoreAvailableData {
@@ -1114,8 +1121,10 @@ fn forkfullness_works() {
 
 		rx.await.unwrap().unwrap();
 
-		let chunks = erasure::obtain_chunks_v1(n_validators as _, &available_data_2).unwrap();
-		let branches = erasure::branches(chunks.as_ref());
+		let chunks =
+			polkadot_erasure_coding::obtain_chunks_v1(n_validators as _, &available_data_2)
+				.unwrap();
+		let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 		let (tx, rx) = oneshot::channel();
 		let msg = AvailabilityStoreMessage::StoreAvailableData {

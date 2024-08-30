@@ -15,30 +15,30 @@ name = "adder-collator"
 path = "src/main.rs"
 
 [dependencies]
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
-clap = { version = "4.5.3", features = ["derive"] }
-futures = "0.3.30"
-futures-timer = "3.0.2"
+codec = { features = ["derive"], workspace = true }
+clap = { features = ["derive"], workspace = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 
-test-parachain-adder = { path = ".." }
-polkadot-primitives = { path = "../../../../primitives" }
-polkadot-cli = { path = "../../../../cli" }
-polkadot-service = { path = "../../../../node/service", features = ["rococo-native"] }
-polkadot-node-primitives = { path = "../../../../node/primitives" }
-polkadot-node-subsystem = { path = "../../../../node/subsystem" }
+test-parachain-adder = { workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-cli = { workspace = true, default-features = true }
+polkadot-service = { features = ["rococo-native"], workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
 
-sc-cli = { path = "../../../../../substrate/client/cli" }
-sp-core = { path = "../../../../../substrate/primitives/core" }
-sc-service = { path = "../../../../../substrate/client/service" }
+sc-cli = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
 
 [dev-dependencies]
-polkadot-parachain-primitives = { path = "../../.." }
-polkadot-test-service = { path = "../../../../node/test/service" }
-polkadot-node-core-pvf = { path = "../../../../node/core/pvf", features = ["test-utils"] }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-test-service = { workspace = true }
+polkadot-node-core-pvf = { features = ["test-utils"], workspace = true, default-features = true }
 
-substrate-test-utils = { path = "../../../../../substrate/test-utils" }
-sc-service = { path = "../../../../../substrate/client/service" }
-sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
+substrate-test-utils = { workspace = true }
+sc-service = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
 
-tokio = { version = "1.24.2", features = ["macros"] }
+tokio = { features = ["macros"], workspace = true, default-features = true }

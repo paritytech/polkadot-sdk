@@ -16,13 +16,17 @@
 
 use super::*;
 
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{
+	collections::{BTreeMap, HashSet, VecDeque},
+	sync::Arc,
+	time::Duration,
+};
 
 use assert_matches::assert_matches;
 use futures::{executor, future, Future};
 use futures_timer::Delay;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use sc_network::config::IncomingRequest as RawIncomingRequest;
 use sp_core::crypto::Pair;
@@ -66,7 +70,7 @@ struct TestState {
 	group_rotation_info: GroupRotationInfo,
 	validator_peer_id: Vec<PeerId>,
 	relay_parent: Hash,
-	availability_cores: Vec<CoreState>,
+	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
 	session_index: SessionIndex,
@@ -105,8 +109,9 @@ impl Default for TestState {
 		let group_rotation_info =
 			GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 100, now: 1 };
 
-		let availability_cores =
-			vec![CoreState::Scheduled(ScheduledCore { para_id, collator: None }), CoreState::Free];
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(CoreIndex(0), [para_id].into_iter().collect());
+		claim_queue.insert(CoreIndex(1), VecDeque::new());
 
 		let relay_parent = Hash::random();
 
@@ -133,7 +138,7 @@ impl Default for TestState {
 			group_rotation_info,
 			validator_peer_id,
 			relay_parent,
-			availability_cores,
+			claim_queue,
 			local_peer_id,
 			collator_pair,
 			session_index: 1,
@@ -147,17 +152,14 @@ impl TestState {
 	pub fn with_elastic_scaling() -> Self {
 		let mut state = Self::default();
 		let para_id = state.para_id;
-		state
-			.availability_cores
-			.push(CoreState::Scheduled(ScheduledCore { para_id, collator: None }));
-		state
-			.availability_cores
-			.push(CoreState::Scheduled(ScheduledCore { para_id, collator: None }));
+
+		state.claim_queue.insert(CoreIndex(2), [para_id].into_iter().collect());
+		state.claim_queue.insert(CoreIndex(3), [para_id].into_iter().collect());
 		state
 	}
 
 	fn current_group_validator_indices(&self) -> &[ValidatorIndex] {
-		let core_num = self.availability_cores.len();
+		let core_num = self.claim_queue.len();
 		let GroupIndex(group_idx) = self.group_rotation_info.group_for_core(CoreIndex(0), core_num);
 		&self.session_info.validator_groups.get(GroupIndex::from(group_idx)).unwrap()
 	}
@@ -222,7 +224,8 @@ impl TestState {
 	}
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
 
 struct TestHarness {
 	virtual_overseer: VirtualOverseer,
@@ -236,15 +239,12 @@ fn test_harness<T: Future<Output = TestHarness>>(
 	reputation: ReputationAggregator,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some("polkadot_collator_protocol"), log::LevelFilter::Trace)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	let _ = sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, None);
@@ -393,7 +393,36 @@ async fn distribute_collation_with_receipt(
 			RuntimeApiRequest::AvailabilityCores(tx)
 		)) => {
 			assert_eq!(relay_parent, _relay_parent);
-			tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+			tx.send(Ok(test_state.claim_queue.values().map(|paras|
+				if let Some(para) = paras.front() {
+					CoreState::Scheduled(ScheduledCore { para_id: *para, collator: None })
+				} else {
+					CoreState::Free
+				}
+			).collect())).unwrap();
+		}
+	);
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_relay_parent,
+			RuntimeApiRequest::Version(tx)
+		)) => {
+			assert_eq!(relay_parent, _relay_parent);
+			tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)).unwrap();
+		}
+	);
+
+	// obtain the claim queue schedule.
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_relay_parent,
+			RuntimeApiRequest::ClaimQueue(tx)
+		)) => {
+			assert_eq!(relay_parent, _relay_parent);
+			tx.send(Ok(test_state.claim_queue.clone())).unwrap();
 		}
 	);
 

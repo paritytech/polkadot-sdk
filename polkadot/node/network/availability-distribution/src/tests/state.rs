@@ -55,7 +55,9 @@ use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 use super::mock::{make_session_info, OccupiedCoreBuilder};
 use crate::LOG_TARGET;
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<AvailabilityDistributionMessage>;
+type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<
+	AvailabilityDistributionMessage,
+>;
 pub struct TestHarness {
 	pub virtual_overseer: VirtualOverseer,
 	pub pov_req_cfg: RequestResponseConfig,
@@ -214,7 +216,7 @@ impl TestState {
 		// Test will fail if this does not happen until timeout.
 		let mut remaining_stores = self.valid_chunks.len();
 
-		let TestSubsystemContextHandle { tx, mut rx } = harness.virtual_overseer;
+		let TestSubsystemContextHandle { tx, mut rx, .. } = harness.virtual_overseer;
 
 		// Spawning necessary as incoming queue can only hold a single item, we don't want to dead
 		// lock ;-)

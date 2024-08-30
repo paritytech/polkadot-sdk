@@ -37,8 +37,8 @@ use polkadot_node_subsystem::{
 
 pub use polkadot_node_metrics::{metrics, Metronome};
 
+use codec::Encode;
 use futures::channel::{mpsc, oneshot};
-use parity_scale_codec::Encode;
 
 use polkadot_primitives::{
 	async_backing::BackingState, slashing, AsyncBackingParams, AuthorityDiscoveryId,
@@ -49,6 +49,7 @@ use polkadot_primitives::{
 	ValidatorSignature,
 };
 pub use rand;
+use runtime::get_disabled_validators_with_fallback;
 use sp_application_crypto::AppCrypto;
 use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
@@ -57,7 +58,6 @@ use std::{
 	time::Duration,
 };
 use thiserror::Error;
-use vstaging::get_disabled_validators_with_fallback;
 
 pub use determine_new_blocks::determine_new_blocks;
 pub use metered;

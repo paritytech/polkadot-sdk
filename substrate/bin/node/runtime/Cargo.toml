@@ -6,7 +6,7 @@ description = "Substrate node kitchensink runtime."
 edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -19,29 +19,29 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 
 # third-party dependencies
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+codec = { features = [
 	"derive",
 	"max-encoded-len",
-] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
-static_assertions = "1.1.0"
+], workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+static_assertions = { workspace = true, default-features = true }
 log = { workspace = true }
 serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 
 # pallet-asset-conversion: turn on "num-traits" feature
-primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "num-traits", "scale-info"] }
+primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 
-polkadot-sdk = { path = "../../../../umbrella", features = ["runtime", "tuples-96"], default-features = false }
+polkadot-sdk = { features = ["runtime-full", "tuples-96"], workspace = true }
 
 # shared code between runtime and node
-node-primitives = { path = "../primitives", default-features = false }
+node-primitives = { workspace = true }
 
 # Example pallets that are not published:
-pallet-example-mbm = { path = "../../../frame/examples/multi-block-migrations", default-features = false }
-pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
+pallet-example-mbm = { workspace = true }
+pallet-example-tasks = { workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -71,5 +71,5 @@ try-runtime = [
 experimental = [
 	"pallet-example-tasks/experimental",
 ]
-
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+riscv = ["polkadot-sdk/riscv"]

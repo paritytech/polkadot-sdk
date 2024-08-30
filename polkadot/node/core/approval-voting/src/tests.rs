@@ -68,7 +68,7 @@ use super::{
 	},
 };
 
-use ::test_helpers::{dummy_candidate_receipt, dummy_candidate_receipt_bad_sig};
+use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_candidate_receipt_bad_sig};
 
 const SLOT_DURATION_MILLIS: u64 = 5000;
 
@@ -463,7 +463,8 @@ fn sign_approval_multiple_candidates(
 		.into()
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
 
 #[derive(Default)]
 struct HarnessConfigBuilder {
@@ -542,17 +543,14 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	config: HarnessConfig,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some("polkadot_node_core_approval_voting"), log::LevelFilter::Trace)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let HarnessConfig { sync_oracle, sync_oracle_handle, clock, backend, assignment_criteria } =
 		config;
 
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool);
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let keystore = LocalKeystore::in_memory();
 	let _ = keystore.sr25519_generate_new(
@@ -5066,6 +5064,7 @@ fn test_gathering_assignments_statements() {
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
+		no_show_stats: NoShowStats::default(),
 	};
 
 	for i in 0..200i32 {
@@ -5160,6 +5159,7 @@ fn test_observe_assignment_gathering_status() {
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
+		no_show_stats: NoShowStats::default(),
 	};
 
 	let metrics_inner = MetricsInner {

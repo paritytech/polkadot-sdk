@@ -18,6 +18,7 @@
 #![cfg(test)]
 
 use crate::{test_fungibles::TestFungibles, *};
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{
 	assert_ok, derive_impl, ensure, ord_parameter_types, parameter_types,
 	traits::{
@@ -31,10 +32,9 @@ use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Identity},
+	traits::{BlockNumberProvider, Identity, MaybeConvert},
 	BuildStorage, Saturating,
 };
-use sp_std::collections::btree_map::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -70,7 +70,6 @@ parameter_types! {
 	pub static CoretimeWorkplan: BTreeMap<(u32, CoreIndex), Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeUsage: BTreeMap<CoreIndex, Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeInPool: CoreMaskBitCount = 0;
-	pub static NotifyRevenueInfo: Vec<(u32, u64)> = Default::default();
 }
 
 pub struct TestCoretimeProvider;
@@ -90,11 +89,10 @@ impl CoretimeInterface for TestCoretimeProvider {
 			);
 		}
 
-		let when = when as u32;
 		let mut total = 0;
 		CoretimeSpending::mutate(|s| {
 			s.retain(|(n, a)| {
-				if *n < when {
+				if *n < when as u32 {
 					total += a;
 					false
 				} else {
@@ -102,7 +100,8 @@ impl CoretimeInterface for TestCoretimeProvider {
 				}
 			})
 		});
-		NotifyRevenueInfo::mutate(|s| s.insert(0, (when, total)));
+		mint_to_pot(total);
+		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: when, amount: total });
 	}
 	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
 		CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
@@ -125,19 +124,13 @@ impl CoretimeInterface for TestCoretimeProvider {
 		);
 		CoretimeTrace::mutate(|v| v.push(item));
 	}
-	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
-		NotifyRevenueInfo::mutate(|s| s.pop()).map(|v| (v.0 as _, v.1))
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance) {
-		NotifyRevenueInfo::mutate(|s| s.push((when as u32, revenue)));
-	}
 }
+
 impl TestCoretimeProvider {
-	pub fn spend_instantaneous(who: u64, price: u64) -> Result<(), ()> {
-		let mut c = CoretimeCredit::get();
+	pub fn spend_instantaneous(_who: u64, price: u64) -> Result<(), ()> {
+		let c = CoretimeCredit::get();
 		ensure!(CoretimeInPool::get() > 0, ());
-		c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
+		// c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
 		CoretimeCredit::set(c);
 		CoretimeSpending::mutate(|v| {
 			v.push((RCBlockNumberProviderOf::<Self>::current_block_number() as u32, price))
@@ -187,6 +180,14 @@ ord_parameter_types! {
 }
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
+// Dummy implementation which converts `TaskId` to `AccountId`.
+pub struct SovereignAccountOf;
+impl MaybeConvert<TaskId, u64> for SovereignAccountOf {
+	fn maybe_convert(task: TaskId) -> Option<u64> {
+		Some(task.into())
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = ItemOf<TestFungibles<(), u64, (), ConstU64<0>, ()>, (), u64>;
@@ -199,6 +200,8 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
+	type SovereignAccountOf = SovereignAccountOf;
+	type MaxAutoRenewals = ConstU32<3>;
 	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 }
 
@@ -221,6 +224,11 @@ pub fn advance_sale_period() {
 
 pub fn pot() -> u64 {
 	balance(Broker::account_id())
+}
+
+pub fn mint_to_pot(amount: u64) {
+	let imb = <Test as crate::Config>::Currency::issue(amount);
+	let _ = <Test as crate::Config>::Currency::resolve(&Broker::account_id(), imb);
 }
 
 pub fn revenue() -> u64 {
@@ -246,6 +254,10 @@ pub fn new_config() -> ConfigRecordOf<Test> {
 		renewal_bump: Perbill::from_percent(10),
 		contribution_timeout: 5,
 	}
+}
+
+pub fn endow(who: u64, amount: u64) {
+	assert_ok!(<<Test as Config>::Currency as Mutate<_>>::mint_into(&who, amount));
 }
 
 pub struct TestExt(ConfigRecordOf<Test>);
@@ -300,7 +312,7 @@ impl TestExt {
 	}
 
 	pub fn endow(self, who: u64, amount: u64) -> Self {
-		assert_ok!(<<Test as Config>::Currency as Mutate<_>>::mint_into(&who, amount));
+		endow(who, amount);
 		self
 	}
 

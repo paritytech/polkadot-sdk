@@ -21,7 +21,7 @@ use std::collections::BTreeMap;
 
 use core::cell::RefCell;
 use frame_support::{
-	assert_noop, assert_ok, derive_impl, ord_parameter_types,
+	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
 	traits::{tokens::GetSalary, ConstU32, IsInVec, TryMapSuccess},
@@ -115,6 +115,7 @@ impl Config for Test {
 	type InductOrigin = EnsureInducted<Test, (), 1>;
 	type ApproveOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type PromoteOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
+	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<1024>;
 	type MaxRank = ConstU32<9>;
 }
@@ -188,6 +189,40 @@ fn set_params_works() {
 }
 
 #[test]
+fn set_partial_params_works() {
+	new_test_ext().execute_with(|| {
+		let params = ParamsType {
+			active_salary: bounded_vec![None; 9],
+			passive_salary: bounded_vec![None; 9],
+			demotion_period: bounded_vec![None, Some(10), None, None, None, None, None, None, None],
+			min_promotion_period: bounded_vec![None; 9],
+			offboard_timeout: Some(2),
+		};
+		assert_noop!(
+			CoreFellowship::set_partial_params(signed(2), Box::new(params.clone())),
+			DispatchError::BadOrigin
+		);
+		assert_ok!(CoreFellowship::set_partial_params(signed(1), Box::new(params)));
+
+		// Update params from the base params value declared in `new_test_ext`
+		let raw_updated_params = ParamsType {
+			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
+			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+			demotion_period: bounded_vec![2, 10, 6, 8, 10, 12, 14, 16, 18],
+			min_promotion_period: bounded_vec![3, 6, 9, 12, 15, 18, 21, 24, 27],
+			offboard_timeout: 2,
+		};
+		// Updated params stored in Params storage value
+		let updated_params = Params::<Test>::get();
+		assert_eq!(raw_updated_params, updated_params);
+
+		System::assert_last_event(
+			Event::<Test, _>::ParamsChanged { params: updated_params }.into(),
+		);
+	});
+}
+
+#[test]
 fn induct_works() {
 	new_test_ext().execute_with(|| {
 		set_rank(0, 0);
@@ -219,6 +254,99 @@ fn promote_works() {
 		assert_ok!(CoreFellowship::promote(signed(1), 10, 1));
 		set_rank(11, 0);
 		assert_noop!(CoreFellowship::promote(signed(1), 11, 1), Error::<Test>::NotTracked);
+	});
+}
+
+#[test]
+fn promote_fast_works() {
+	let alice = 1;
+
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			CoreFellowship::promote_fast(signed(alice), alice, 1),
+			Error::<Test>::Unranked
+		);
+		set_rank(alice, 0);
+		assert_noop!(
+			CoreFellowship::promote_fast(signed(alice), alice, 1),
+			Error::<Test>::NotTracked
+		);
+		assert_ok!(CoreFellowship::import(signed(alice)));
+
+		// Cannot fast promote to the same rank:
+		assert_noop!(
+			CoreFellowship::promote_fast(signed(alice), alice, 0),
+			Error::<Test>::UnexpectedRank
+		);
+		assert_ok!(CoreFellowship::promote_fast(signed(alice), alice, 1));
+		assert_eq!(TestClub::rank_of(&alice), Some(1));
+
+		// Cannot promote normally because of the period:
+		assert_noop!(CoreFellowship::promote(signed(2), alice, 2), Error::<Test>::TooSoon);
+		// But can fast promote:
+		assert_ok!(CoreFellowship::promote_fast(signed(2), alice, 2));
+		assert_eq!(TestClub::rank_of(&alice), Some(2));
+
+		// Cannot promote to lower rank:
+		assert_noop!(
+			CoreFellowship::promote_fast(signed(alice), alice, 0),
+			Error::<Test>::UnexpectedRank
+		);
+		assert_noop!(
+			CoreFellowship::promote_fast(signed(alice), alice, 1),
+			Error::<Test>::UnexpectedRank
+		);
+		// Permission is checked:
+		assert_noop!(
+			CoreFellowship::promote_fast(signed(alice), alice, 2),
+			Error::<Test>::NoPermission
+		);
+
+		// Can fast promote up to the maximum:
+		assert_ok!(CoreFellowship::promote_fast(signed(9), alice, 9));
+		// But not past the maximum:
+		assert_noop!(
+			CoreFellowship::promote_fast(RuntimeOrigin::root(), alice, 10),
+			Error::<Test>::InvalidRank
+		);
+	});
+}
+
+/// Compare the storage root hashes of a normal promote and a fast promote.
+#[test]
+fn promote_fast_identical_to_promote() {
+	let alice = 1;
+
+	new_test_ext().execute_with(|| {
+		set_rank(alice, 0);
+		assert_eq!(TestClub::rank_of(&alice), Some(0));
+		assert_ok!(CoreFellowship::import(signed(alice)));
+		run_to(3);
+		assert_eq!(TestClub::rank_of(&alice), Some(0));
+		assert_ok!(CoreFellowship::submit_evidence(
+			signed(alice),
+			Wish::Promotion,
+			bounded_vec![0; 1024]
+		));
+
+		let root_promote = hypothetically!({
+			assert_ok!(CoreFellowship::promote(signed(alice), alice, 1));
+			// Don't clean the events since they should emit the same events:
+			sp_io::storage::root(sp_runtime::StateVersion::V1)
+		});
+
+		// This is using thread locals instead of storage...
+		TestClub::demote(&alice).unwrap();
+
+		let root_promote_fast = hypothetically!({
+			assert_ok!(CoreFellowship::promote_fast(signed(alice), alice, 1));
+
+			sp_io::storage::root(sp_runtime::StateVersion::V1)
+		});
+
+		assert_eq!(root_promote, root_promote_fast);
+		// Ensure that we don't compare trivial stuff like `()` from a type error above.
+		assert_eq!(root_promote.len(), 32);
 	});
 }
 

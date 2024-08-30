@@ -72,6 +72,26 @@ async fn assert_assign_incoming(
 			tx.send(Ok(test_state.cores.clone())).unwrap();
 		}
 	);
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::Version(tx),
+		)) if parent == hash => {
+			let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
+		}
+	);
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::ClaimQueue(tx),
+		)) if parent == hash => {
+			let _ = tx.send(Ok(test_state.claim_queue.clone()));
+		}
+	);
 }
 
 /// Handle a view update.

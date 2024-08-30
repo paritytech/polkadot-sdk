@@ -31,16 +31,16 @@ use sp_runtime::{
 /// the extension does not affect any other fields of `TransactionValidity` directly.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct CheckGenesis<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);
+pub struct CheckGenesis<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckGenesis<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckGenesis<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckGenesis")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -48,7 +48,7 @@ impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckGenesis<T> {
 impl<T: Config + Send + Sync> CheckGenesis<T> {
 	/// Creates new `SignedExtension` to check genesis hash.
 	pub fn new() -> Self {
-		Self(sp_std::marker::PhantomData)
+		Self(core::marker::PhantomData)
 	}
 }
 

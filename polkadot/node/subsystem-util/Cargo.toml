@@ -10,47 +10,46 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-async-trait = "0.1.79"
-futures = "0.3.30"
-futures-channel = "0.3.23"
-itertools = "0.11"
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
-parking_lot = "0.12.1"
-pin-project = "1.0.9"
-rand = "0.8.5"
+async-trait = { workspace = true }
+futures = { workspace = true }
+futures-channel = { workspace = true }
+itertools = { workspace = true }
+codec = { features = ["derive"], workspace = true }
+parking_lot = { workspace = true, default-features = true }
+pin-project = { workspace = true }
+rand = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-fatality = "0.1.1"
-gum = { package = "tracing-gum", path = "../gum" }
-derive_more = "0.99.17"
-schnellru = "0.2.1"
+fatality = { workspace = true }
+gum = { workspace = true, default-features = true }
+derive_more = { workspace = true, default-features = true }
+schnellru = { workspace = true }
 
-erasure-coding = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
-polkadot-node-subsystem = { path = "../subsystem" }
-polkadot-node-subsystem-types = { path = "../subsystem-types" }
-polkadot-node-jaeger = { path = "../jaeger" }
-polkadot-node-metrics = { path = "../metrics" }
-polkadot-node-network-protocol = { path = "../network/protocol" }
-polkadot-primitives = { path = "../../primitives" }
-polkadot-node-primitives = { path = "../primitives" }
-polkadot-overseer = { path = "../overseer" }
-metered = { package = "prioritized-metered-channel", version = "0.6.1", default-features = false, features = ["futures_channel"] }
+polkadot-erasure-coding = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-types = { workspace = true, default-features = true }
+polkadot-node-jaeger = { workspace = true, default-features = true }
+polkadot-node-metrics = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+metered = { features = ["futures_channel"], workspace = true }
 
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
-sp-keystore = { path = "../../../substrate/primitives/keystore" }
-sc-client-api = { path = "../../../substrate/client/api" }
+sp-core = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
 
-kvdb = "0.13.0"
-parity-db = { version = "0.4.12" }
+kvdb = { workspace = true }
+parity-db = { workspace = true }
 
 [dev-dependencies]
-assert_matches = "1.4.0"
-env_logger = "0.11"
-futures = { version = "0.3.30", features = ["thread-pool"] }
+assert_matches = { workspace = true }
+futures = { features = ["thread-pool"], workspace = true }
 log = { workspace = true, default-features = true }
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-lazy_static = "1.4.0"
-polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
-kvdb-shared-tests = "0.11.0"
-tempfile = "3.1.0"
-kvdb-memorydb = "0.13.0"
+polkadot-node-subsystem-test-helpers = { workspace = true }
+lazy_static = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+kvdb-shared-tests = { workspace = true }
+tempfile = { workspace = true }
+kvdb-memorydb = { workspace = true }

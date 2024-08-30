@@ -22,7 +22,7 @@ use futures::{
 	FutureExt, SinkExt,
 };
 
-use parity_scale_codec::Decode;
+use codec::Decode;
 use polkadot_erasure_coding::branch_hash;
 use polkadot_node_network_protocol::request_response::{
 	outgoing::{OutgoingRequest, Recipient, RequestError, Requests},

@@ -4,7 +4,7 @@ version = "0.35.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Substrate service. Starts a thread that spins up the network, client, and extrinsic pool. Manages communication between them."
 readme = "README.md"
@@ -28,64 +28,64 @@ runtime-benchmarks = [
 ]
 
 [dependencies]
-jsonrpsee = { version = "0.22", features = ["server"] }
+jsonrpsee = { features = ["server"], workspace = true }
 thiserror = { workspace = true }
-futures = "0.3.30"
-rand = "0.8.5"
-parking_lot = "0.12.1"
+futures = { workspace = true }
+rand = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-futures-timer = "3.0.1"
-exit-future = "0.2.0"
-pin-project = "1.0.12"
+futures-timer = { workspace = true }
+exit-future = { workspace = true }
+pin-project = { workspace = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sc-keystore = { path = "../keystore" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-trie = { path = "../../primitives/trie" }
-sp-externalities = { path = "../../primitives/externalities" }
-sc-utils = { path = "../utils" }
-sp-version = { path = "../../primitives/version" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-session = { path = "../../primitives/session" }
-sp-state-machine = { path = "../../primitives/state-machine" }
-sp-consensus = { path = "../../primitives/consensus/common" }
-sc-consensus = { path = "../consensus/common" }
-sp-storage = { path = "../../primitives/storage" }
-sc-network = { path = "../network" }
-sc-network-common = { path = "../network/common" }
-sc-network-light = { path = "../network/light" }
-sc-network-sync = { path = "../network/sync" }
-sc-network-types = { path = "../network/types" }
-sc-network-transactions = { path = "../network/transactions" }
-sc-chain-spec = { path = "../chain-spec" }
-sc-client-api = { path = "../api" }
-sp-api = { path = "../../primitives/api" }
-sc-client-db = { path = "../db", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-sc-executor = { path = "../executor" }
-sc-transaction-pool = { path = "../transaction-pool" }
-sp-transaction-pool = { path = "../../primitives/transaction-pool" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sp-transaction-storage-proof = { path = "../../primitives/transaction-storage-proof" }
-sc-rpc-server = { path = "../rpc-servers" }
-sc-rpc = { path = "../rpc" }
-sc-rpc-spec-v2 = { path = "../rpc-spec-v2" }
-sc-informant = { path = "../informant" }
-sc-telemetry = { path = "../telemetry" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
-sc-tracing = { path = "../tracing" }
-sc-sysinfo = { path = "../sysinfo" }
-tracing = "0.1.29"
-tracing-futures = { version = "0.2.4" }
-async-trait = "0.1.79"
-tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "time"] }
-tempfile = "3.1.0"
-directories = "5.0.1"
-static_init = "1.0.3"
-schnellru = "0.2.1"
+sc-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-session = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
+sc-network-light = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sc-network-transactions = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sc-client-db = { workspace = true }
+codec = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sc-transaction-pool = { workspace = true, default-features = true }
+sp-transaction-pool = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sp-transaction-storage-proof = { workspace = true, default-features = true }
+sc-rpc-server = { workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true }
+sc-rpc-spec-v2 = { workspace = true, default-features = true }
+sc-informant = { workspace = true, default-features = true }
+sc-telemetry = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+sc-tracing = { workspace = true, default-features = true }
+sc-sysinfo = { workspace = true, default-features = true }
+tracing = { workspace = true, default-features = true }
+tracing-futures = { workspace = true }
+async-trait = { workspace = true }
+tokio = { features = ["parking_lot", "rt-multi-thread", "time"], workspace = true, default-features = true }
+tempfile = { workspace = true }
+directories = { workspace = true }
+static_init = { workspace = true }
+schnellru = { workspace = true }
 
 [dev-dependencies]
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
-substrate-test-runtime = { path = "../../test-utils/runtime" }
+substrate-test-runtime-client = { workspace = true }
+substrate-test-runtime = { workspace = true }

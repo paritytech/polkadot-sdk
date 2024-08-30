@@ -59,12 +59,12 @@ where
 
 const SEED: u32 = 0;
 
-// Create the pre-requisite information needed to create a treasury `propose_spend`.
+// Create the pre-requisite information needed to create a treasury `spend_local`.
 fn setup_proposal<T: Config<I>, I: 'static>(
 	u: u32,
 ) -> (T::AccountId, BalanceOf<T, I>, AccountIdLookupOf<T>) {
 	let caller = account("caller", u, SEED);
-	let value: BalanceOf<T, I> = T::ProposalBondMinimum::get().saturating_mul(100u32.into());
+	let value: BalanceOf<T, I> = T::Currency::minimum_balance() * 100u32.into();
 	let _ = T::Currency::make_free_balance_be(&caller, value);
 	let beneficiary = account("beneficiary", u, SEED);
 	let beneficiary_lookup = T::Lookup::unlookup(beneficiary);
@@ -73,14 +73,12 @@ fn setup_proposal<T: Config<I>, I: 'static>(
 
 // Create proposals that are approved for use in `on_initialize`.
 fn create_approved_proposals<T: Config<I>, I: 'static>(n: u32) -> Result<(), &'static str> {
+	let origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	for i in 0..n {
-		let (caller, value, lookup) = setup_proposal::<T, I>(i);
-		#[allow(deprecated)]
-		Treasury::<T, I>::propose_spend(RawOrigin::Signed(caller).into(), value, lookup)?;
-		let proposal_id = <ProposalCount<T, I>>::get() - 1;
-		Approvals::<T, I>::try_append(proposal_id).unwrap();
+		let (_, value, lookup) = setup_proposal::<T, I>(i);
+		Treasury::<T, I>::spend_local(origin.clone(), value, lookup)?;
 	}
-	ensure!(<Approvals<T, I>>::get().len() == n as usize, "Not all approved");
+	ensure!(Approvals::<T, I>::get().len() == n as usize, "Not all approved");
 	Ok(())
 }
 
@@ -127,70 +125,12 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn propose_spend() -> Result<(), BenchmarkError> {
-		let (caller, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
-		// Whitelist caller account from further DB operations.
-		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
-		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), value, beneficiary_lookup);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn reject_proposal() -> Result<(), BenchmarkError> {
-		let (caller, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
-		#[allow(deprecated)]
-		Treasury::<T, _>::propose_spend(
-			RawOrigin::Signed(caller).into(),
-			value,
-			beneficiary_lookup,
-		)?;
-		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
-		let reject_origin =
-			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-
-		#[extrinsic_call]
-		_(reject_origin as T::RuntimeOrigin, proposal_id);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn approve_proposal(
-		p: Linear<0, { T::MaxApprovals::get() - 1 }>,
-	) -> Result<(), BenchmarkError> {
-		let approve_origin =
-			T::ApproveOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		create_approved_proposals::<T, _>(p)?;
-		let (caller, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
-		#[allow(deprecated)]
-		Treasury::<T, _>::propose_spend(
-			RawOrigin::Signed(caller).into(),
-			value,
-			beneficiary_lookup,
-		)?;
-		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
-
-		#[extrinsic_call]
-		_(approve_origin as T::RuntimeOrigin, proposal_id);
-
-		Ok(())
-	}
-
-	#[benchmark]
 	fn remove_approval() -> Result<(), BenchmarkError> {
-		let (caller, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
-		#[allow(deprecated)]
-		Treasury::<T, _>::propose_spend(
-			RawOrigin::Signed(caller).into(),
-			value,
-			beneficiary_lookup,
-		)?;
-		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
-		Approvals::<T, _>::try_append(proposal_id).unwrap();
+		let origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let (_, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
+		Treasury::<T, _>::spend_local(origin, value, beneficiary_lookup)?;
+		let proposal_id = ProposalCount::<T, _>::get() - 1;
 		let reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 

@@ -79,6 +79,7 @@ impl substrate_test_client::GenesisInit for GenesisParameters {
 		cumulus_test_service::chain_spec::get_chain_spec_with_extra_endowed(
 			None,
 			self.endowed_accounts.clone(),
+			cumulus_test_runtime::WASM_BINARY.expect("WASM binary not compiled!"),
 		)
 		.build_storage()
 		.expect("Builds test runtime genesis storage")

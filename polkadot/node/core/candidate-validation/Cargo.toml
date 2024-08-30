@@ -10,29 +10,31 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-async-trait = "0.1.79"
-futures = "0.3.30"
-futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum" }
+async-trait = { workspace = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+gum = { workspace = true, default-features = true }
 
-sp-maybe-compressed-blob = { package = "sp-maybe-compressed-blob", path = "../../../../substrate/primitives/maybe-compressed-blob" }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
+sp-keystore = { workspace = true }
+sp-application-crypto = { workspace = true }
+codec = { features = ["bit-vec", "derive"], workspace = true }
 
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-parachain-primitives = { path = "../../../parachain" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-overseer = { path = "../../overseer" }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-node-metrics = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "unknown")))'.dependencies]
-polkadot-node-core-pvf = { path = "../pvf" }
+polkadot-node-core-pvf = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-futures = { version = "0.3.30", features = ["thread-pool"] }
-assert_matches = "1.4.0"
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-sp-core = { path = "../../../../substrate/primitives/core" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
+sp-keyring = { workspace = true, default-features = true }
+futures = { features = ["thread-pool"], workspace = true }
+assert_matches = { workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+polkadot-primitives-test-helpers = { workspace = true }

@@ -10,31 +10,31 @@ description = "Polkadot specific RPC functionality."
 workspace = true
 
 [dependencies]
-jsonrpsee = { version = "0.22", features = ["server"] }
-polkadot-primitives = { path = "../primitives" }
-sc-client-api = { path = "../../substrate/client/api" }
-sp-blockchain = { path = "../../substrate/primitives/blockchain" }
-sp-keystore = { path = "../../substrate/primitives/keystore" }
-sp-runtime = { path = "../../substrate/primitives/runtime" }
-sp-api = { path = "../../substrate/primitives/api" }
-sp-application-crypto = { path = "../../substrate/primitives/application-crypto" }
-sp-consensus = { path = "../../substrate/primitives/consensus/common" }
-sp-consensus-babe = { path = "../../substrate/primitives/consensus/babe" }
-sp-consensus-beefy = { path = "../../substrate/primitives/consensus/beefy" }
-sc-chain-spec = { path = "../../substrate/client/chain-spec" }
-sc-rpc = { path = "../../substrate/client/rpc" }
-sc-rpc-spec-v2 = { path = "../../substrate/client/rpc-spec-v2" }
-sc-consensus-babe = { path = "../../substrate/client/consensus/babe" }
-sc-consensus-babe-rpc = { path = "../../substrate/client/consensus/babe/rpc" }
-sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy" }
-sc-consensus-beefy-rpc = { path = "../../substrate/client/consensus/beefy/rpc" }
-sc-consensus-epochs = { path = "../../substrate/client/consensus/epochs" }
-sc-consensus-grandpa = { path = "../../substrate/client/consensus/grandpa" }
-sc-consensus-grandpa-rpc = { path = "../../substrate/client/consensus/grandpa/rpc" }
-sc-sync-state-rpc = { path = "../../substrate/client/sync-state-rpc" }
-txpool-api = { package = "sc-transaction-pool-api", path = "../../substrate/client/transaction-pool/api" }
-frame-rpc-system = { package = "substrate-frame-rpc-system", path = "../../substrate/utils/frame/rpc/system" }
-mmr-rpc = { path = "../../substrate/client/merkle-mountain-range/rpc" }
-pallet-transaction-payment-rpc = { path = "../../substrate/frame/transaction-payment/rpc" }
-sp-block-builder = { path = "../../substrate/primitives/block-builder" }
-substrate-state-trie-migration-rpc = { path = "../../substrate/utils/frame/rpc/state-trie-migration-rpc" }
+jsonrpsee = { features = ["server"], workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-consensus-beefy = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true }
+sc-rpc-spec-v2 = { workspace = true, default-features = true }
+sc-consensus-babe = { workspace = true, default-features = true }
+sc-consensus-babe-rpc = { workspace = true, default-features = true }
+sc-consensus-beefy = { workspace = true, default-features = true }
+sc-consensus-beefy-rpc = { workspace = true, default-features = true }
+sc-consensus-epochs = { workspace = true, default-features = true }
+sc-consensus-grandpa = { workspace = true, default-features = true }
+sc-consensus-grandpa-rpc = { workspace = true, default-features = true }
+sc-sync-state-rpc = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+substrate-frame-rpc-system = { workspace = true, default-features = true }
+mmr-rpc = { workspace = true, default-features = true }
+pallet-transaction-payment-rpc = { workspace = true, default-features = true }
+sp-block-builder = { workspace = true, default-features = true }
+substrate-state-trie-migration-rpc = { workspace = true, default-features = true }

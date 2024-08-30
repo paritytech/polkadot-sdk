@@ -62,6 +62,13 @@ pub struct Schedule<T: Config> {
 	pub instruction_weights: InstructionWeights<T>,
 }
 
+impl<T: Config> Schedule<T> {
+	/// Returns the reference time per engine fuel.
+	pub fn ref_time_by_fuel(&self) -> u64 {
+		self.instruction_weights.base as u64
+	}
+}
+
 /// Describes the upper limits on various metrics.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "runtime-benchmarks", derive(Debug))]
@@ -82,6 +89,14 @@ pub struct Limits {
 	/// The maximum node runtime memory. This is for integrity checks only and does not affect the
 	/// real setting.
 	pub runtime_memory: u32,
+
+	/// The maximum validator node runtime memory. This is for integrity checks only and does not
+	/// affect the real setting.
+	pub validator_runtime_memory: u32,
+
+	/// The additional ref_time added to the `deposit_event` host function call per event data
+	/// byte.
+	pub event_ref_time: u64,
 }
 
 impl Limits {
@@ -114,6 +129,8 @@ impl Default for Limits {
 			subject_len: 32,
 			payload_len: 16 * 1024,
 			runtime_memory: 1024 * 1024 * 128,
+			validator_runtime_memory: 1024 * 1024 * 512,
+			event_ref_time: 60_000,
 		}
 	}
 }

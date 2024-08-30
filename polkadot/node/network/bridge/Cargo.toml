@@ -10,28 +10,28 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-always-assert = "0.1"
-async-trait = "0.1.79"
-futures = "0.3.30"
-gum = { package = "tracing-gum", path = "../../gum" }
-polkadot-primitives = { path = "../../../primitives" }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
-sc-network = { path = "../../../../substrate/client/network" }
-sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-node-network-protocol = { path = "../protocol" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-overseer = { path = "../../overseer" }
-parking_lot = "0.12.1"
-bytes = "1"
-fatality = "0.1.1"
+always-assert = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+gum = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true }
+sc-network = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+polkadot-node-metrics = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+bytes = { workspace = true, default-features = true }
+fatality = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-assert_matches = "1.4.0"
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-futures-timer = "3"
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+assert_matches = { workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+futures-timer = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }

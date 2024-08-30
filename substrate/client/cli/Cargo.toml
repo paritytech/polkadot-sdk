@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Substrate CLI interface."
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 
@@ -16,46 +16,46 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = "6.2.2"
-chrono = "0.4.31"
-clap = { version = "4.5.3", features = ["derive", "string", "wrap_help"] }
-fdlimit = "0.3.0"
-futures = "0.3.30"
-itertools = "0.11"
-libp2p-identity = { version = "0.1.3", features = ["ed25519", "peerid"] }
+array-bytes = { workspace = true, default-features = true }
+chrono = { workspace = true }
+clap = { features = ["derive", "string", "wrap_help"], workspace = true }
+fdlimit = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
+libp2p-identity = { features = ["ed25519", "peerid"], workspace = true }
 log = { workspace = true, default-features = true }
-names = { version = "0.14.0", default-features = false }
-parity-scale-codec = "3.6.12"
-rand = "0.8.5"
-regex = "1.6.0"
-rpassword = "7.0.0"
+names = { workspace = true }
+codec = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
+regex = { workspace = true }
+rpassword = { workspace = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
-tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "signal"] }
-sc-client-api = { path = "../api" }
-sc-client-db = { path = "../db", default-features = false }
-sc-keystore = { path = "../keystore" }
-sc-mixnet = { path = "../mixnet" }
-sc-network = { path = "../network" }
-sc-service = { path = "../service", default-features = false }
-sc-telemetry = { path = "../telemetry" }
-sc-tracing = { path = "../tracing" }
-sc-utils = { path = "../utils" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-keyring = { path = "../../primitives/keyring" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-panic-handler = { path = "../../primitives/panic-handler" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-version = { path = "../../primitives/version" }
+tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-client-db = { workspace = true }
+sc-keystore = { workspace = true, default-features = true }
+sc-mixnet = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-service = { workspace = true }
+sc-telemetry = { workspace = true, default-features = true }
+sc-tracing = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-panic-handler = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
 
 [dev-dependencies]
-tempfile = "3.1.0"
-futures-timer = "3.0.1"
-sp-tracing = { path = "../../primitives/tracing" }
+tempfile = { workspace = true }
+futures-timer = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["rocksdb"]

@@ -33,7 +33,7 @@ use crate::{
 use colored::Colorize;
 use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_availability_bitfield_distribution::BitfieldDistribution;
 use polkadot_availability_distribution::{
 	AvailabilityDistributionSubsystem, IncomingRequestReceivers,

@@ -273,7 +273,7 @@ async fn handle_communication<Context>(
 				let span = state.span.child("provisionable-data");
 				let _timer = metrics.time_provisionable_data();
 
-				gum::trace!(target: LOG_TARGET, ?relay_parent, "Received provisionable data.");
+				gum::trace!(target: LOG_TARGET, ?relay_parent, "Received provisionable data: {:?}", &data);
 
 				note_provisionable_data(state, &span, data);
 			}
@@ -794,9 +794,11 @@ async fn select_candidates(
 	relay_parent: Hash,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
 ) -> Result<Vec<BackedCandidate>, Error> {
-	gum::trace!(target: LOG_TARGET,
+	gum::trace!(
+		target: LOG_TARGET,
 		leaf_hash=?relay_parent,
-		"before GetBackedCandidates");
+		"before GetBackedCandidates"
+	);
 
 	let selected_candidates = match prospective_parachains_mode {
 		ProspectiveParachainsMode::Enabled { .. } =>
@@ -822,7 +824,7 @@ async fn select_candidates(
 
 	// now get the backed candidates corresponding to these candidate receipts
 	let (tx, rx) = oneshot::channel();
-	sender.send_unbounded_message(CandidateBackingMessage::GetBackedCandidates(
+	sender.send_unbounded_message(CandidateBackingMessage::GetBackableCandidates(
 		selected_candidates.clone(),
 		tx,
 	));

@@ -55,6 +55,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 pub mod weights;
 
@@ -75,6 +77,8 @@ pub mod pallet {
 
 	pub use crate::weights::WeightInfo;
 
+	use alloc::{vec, vec::Vec};
+	use core::ops::Deref;
 	use frame_support::{
 		dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 		ensure,
@@ -93,7 +97,6 @@ pub mod pallet {
 		self,
 		traits::{Saturating, Zero},
 	};
-	use sp_std::{ops::Deref, prelude::*};
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -109,7 +112,6 @@ pub mod pallet {
 		MaxEncodedLen,
 	)]
 	#[scale_info(skip_type_params(MaxKeyLen))]
-	#[codec(mel_bound())]
 	pub enum Progress<MaxKeyLen: Get<u32>> {
 		/// Yet to begin.
 		ToStart,
@@ -126,7 +128,6 @@ pub mod pallet {
 	///
 	/// It tracks the last top and child keys read.
 	#[derive(Clone, Encode, Decode, scale_info::TypeInfo, PartialEq, Eq, MaxEncodedLen)]
-	#[codec(mel_bound(T: Config))]
 	#[scale_info(skip_type_params(T))]
 	pub struct MigrationTask<T: Config> {
 		/// The current top trie migration progress.
@@ -171,11 +172,11 @@ pub mod pallet {
 		pub(crate) child_items: u32,
 
 		#[codec(skip)]
-		pub(crate) _ph: sp_std::marker::PhantomData<T>,
+		pub(crate) _ph: core::marker::PhantomData<T>,
 	}
 
-	impl<Size: Get<u32>> sp_std::fmt::Debug for Progress<Size> {
-		fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	impl<Size: Get<u32>> core::fmt::Debug for Progress<Size> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 			match self {
 				Progress::ToStart => f.write_str("To start"),
 				Progress::LastKey(key) => write!(f, "Last: {:?}", HexDisplay::from(key.deref())),
@@ -184,8 +185,8 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> sp_std::fmt::Debug for MigrationTask<T> {
-		fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	impl<T: Config> core::fmt::Debug for MigrationTask<T> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 			f.debug_struct("MigrationTask")
 				.field("top", &self.progress_top)
 				.field("child", &self.progress_child)
@@ -955,8 +956,8 @@ pub mod pallet {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks {
 	use super::{pallet::Pallet as StateTrieMigration, *};
+	use alloc::vec;
 	use frame_support::traits::fungible::{Inspect, Mutate};
-	use sp_std::prelude::*;
 
 	// The size of the key seemingly makes no difference in the read/write time, so we make it
 	// constant.
@@ -1082,7 +1083,7 @@ mod benchmarks {
 		process_top_key {
 			let v in 1 .. (4 * 1024 * 1024);
 
-			let value = sp_std::vec![1u8; v as usize];
+			let value = alloc::vec![1u8; v as usize];
 			sp_io::storage::set(KEY, &value);
 		}: {
 			let data = sp_io::storage::get(KEY).unwrap();
@@ -1103,6 +1104,7 @@ mod benchmarks {
 mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
+	use alloc::{vec, vec::Vec};
 	use frame_support::{derive_impl, parameter_types, traits::Hooks, weights::Weight};
 	use frame_system::{EnsureRoot, EnsureSigned};
 	use sp_core::{

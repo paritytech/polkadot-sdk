@@ -81,14 +81,16 @@ use core::marker::PhantomData;
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::ArgumentsFactory;
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+use alloc::{boxed::Box, collections::btree_map::BTreeMap};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	Permill, RuntimeDebug,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -98,7 +100,7 @@ use frame_support::{
 		ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
-	PalletId,
+	BoundedVec, PalletId,
 };
 
 pub use pallet::*;
@@ -205,31 +207,12 @@ pub mod pallet {
 		/// The staking balance.
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
-		/// Origin from which approvals must come.
-		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// Origin from which rejections must come.
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// Handler for the unbalanced decrease when slashing for a rejected proposal or bounty.
-		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
-
-		/// Fraction of a proposal's value that should be bonded in order to place the proposal.
-		/// An accepted proposal gets these back. A rejected proposal does not.
-		#[pallet::constant]
-		type ProposalBond: Get<Permill>;
-
-		/// Minimum amount of funds that should be placed in a deposit for making a proposal.
-		#[pallet::constant]
-		type ProposalBondMinimum: Get<BalanceOf<Self, I>>;
-
-		/// Maximum amount of funds that should be placed in a deposit for making a proposal.
-		#[pallet::constant]
-		type ProposalBondMaximum: Get<Option<BalanceOf<Self, I>>>;
 
 		/// Period between successive spends.
 		#[pallet::constant]
@@ -295,12 +278,10 @@ pub mod pallet {
 
 	/// Number of proposals that have been made.
 	#[pallet::storage]
-	#[pallet::getter(fn proposal_count)]
-	pub(crate) type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
+	pub type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
 
 	/// Proposals that have been made.
 	#[pallet::storage]
-	#[pallet::getter(fn proposals)]
 	pub type Proposals<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -316,7 +297,6 @@ pub mod pallet {
 
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
-	#[pallet::getter(fn approvals)]
 	pub type Approvals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<ProposalIndex, T::MaxApprovals>, ValueQuery>;
 
@@ -345,14 +325,14 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<(T, I)>,
+		_config: core::marker::PhantomData<(T, I)>,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
 			// Create Treasury account
-			let account_id = <Pallet<T, I>>::account_id();
+			let account_id = Pallet::<T, I>::account_id();
 			let min = T::Currency::minimum_balance();
 			if T::Currency::free_balance(&account_id) < min {
 				let _ = T::Currency::make_free_balance_be(&account_id, min);
@@ -363,14 +343,10 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		/// New proposal.
-		Proposed { proposal_index: ProposalIndex },
 		/// We have ended a spend period and will now allocate funds.
 		Spending { budget_remaining: BalanceOf<T, I> },
 		/// Some funds have been allocated.
 		Awarded { proposal_index: ProposalIndex, award: BalanceOf<T, I>, account: T::AccountId },
-		/// A proposal was rejected; funds were slashed.
-		Rejected { proposal_index: ProposalIndex, slashed: BalanceOf<T, I> },
 		/// Some of our funds have been burnt.
 		Burnt { burnt_funds: BalanceOf<T, I> },
 		/// Spending has finished; this is the amount that rolls over until next spend.
@@ -408,8 +384,6 @@ pub mod pallet {
 	/// Error for the treasury pallet.
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
-		/// Proposer's balance is too low.
-		InsufficientProposersBalance,
 		/// No proposal, bounty or spend at that index.
 		InvalidIndex,
 		/// Too many approvals in the queue.
@@ -476,123 +450,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Put forward a suggestion for spending.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be signed.
-		///
-		/// ## Details
-		/// A deposit proportional to the value is reserved and slashed if the proposal is rejected.
-		/// It is returned once the proposal is awarded.
-		///
-		/// ### Complexity
-		/// - O(1)
-		///
-		/// ## Events
-		///
-		/// Emits [`Event::Proposed`] if successful.
-		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::propose_spend())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`propose_spend` will be removed in February 2024. Use `spend` instead."
-		)]
-		pub fn propose_spend(
-			origin: OriginFor<T>,
-			#[pallet::compact] value: BalanceOf<T, I>,
-			beneficiary: AccountIdLookupOf<T>,
-		) -> DispatchResult {
-			let proposer = ensure_signed(origin)?;
-			let beneficiary = T::Lookup::lookup(beneficiary)?;
-
-			let bond = Self::calculate_bond(value);
-			T::Currency::reserve(&proposer, bond)
-				.map_err(|_| Error::<T, I>::InsufficientProposersBalance)?;
-
-			let c = Self::proposal_count();
-			<ProposalCount<T, I>>::put(c + 1);
-			<Proposals<T, I>>::insert(c, Proposal { proposer, value, beneficiary, bond });
-
-			Self::deposit_event(Event::Proposed { proposal_index: c });
-			Ok(())
-		}
-
-		/// Reject a proposed spend.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be [`Config::RejectOrigin`].
-		///
-		/// ## Details
-		/// The original deposit will be slashed.
-		///
-		/// ### Complexity
-		/// - O(1)
-		///
-		/// ## Events
-		///
-		/// Emits [`Event::Rejected`] if successful.
-		#[pallet::call_index(1)]
-		#[pallet::weight((T::WeightInfo::reject_proposal(), DispatchClass::Operational))]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`reject_proposal` will be removed in February 2024. Use `spend` instead."
-		)]
-		pub fn reject_proposal(
-			origin: OriginFor<T>,
-			#[pallet::compact] proposal_id: ProposalIndex,
-		) -> DispatchResult {
-			T::RejectOrigin::ensure_origin(origin)?;
-
-			let proposal =
-				<Proposals<T, I>>::take(&proposal_id).ok_or(Error::<T, I>::InvalidIndex)?;
-			let value = proposal.bond;
-			let imbalance = T::Currency::slash_reserved(&proposal.proposer, value).0;
-			T::OnSlash::on_unbalanced(imbalance);
-
-			Self::deposit_event(Event::<T, I>::Rejected {
-				proposal_index: proposal_id,
-				slashed: value,
-			});
-			Ok(())
-		}
-
-		/// Approve a proposal.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be [`Config::ApproveOrigin`].
-		///
-		/// ## Details
-		///
-		/// At a later time, the proposal will be allocated to the beneficiary and the original
-		/// deposit will be returned.
-		///
-		/// ### Complexity
-		///  - O(1).
-		///
-		/// ## Events
-		///
-		/// No events are emitted from this dispatch.
-		#[pallet::call_index(2)]
-		#[pallet::weight((T::WeightInfo::approve_proposal(T::MaxApprovals::get()), DispatchClass::Operational))]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`approve_proposal` will be removed in February 2024. Use `spend` instead."
-		)]
-		pub fn approve_proposal(
-			origin: OriginFor<T>,
-			#[pallet::compact] proposal_id: ProposalIndex,
-		) -> DispatchResult {
-			T::ApproveOrigin::ensure_origin(origin)?;
-
-			ensure!(<Proposals<T, I>>::contains_key(proposal_id), Error::<T, I>::InvalidIndex);
-			Approvals::<T, I>::try_append(proposal_id)
-				.map_err(|_| Error::<T, I>::TooManyApprovals)?;
-			Ok(())
-		}
-
 		/// Propose and approve a spend of treasury funds.
 		///
 		/// ## Dispatch Origin
@@ -641,7 +498,7 @@ pub mod pallet {
 			.unwrap_or(Ok(()))?;
 
 			let beneficiary = T::Lookup::lookup(beneficiary)?;
-			let proposal_index = Self::proposal_count();
+			let proposal_index = ProposalCount::<T, I>::get();
 			Approvals::<T, I>::try_append(proposal_index)
 				.map_err(|_| Error::<T, I>::TooManyApprovals)?;
 			let proposal = Proposal {
@@ -794,7 +651,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be signed.
+		/// Must be signed
 		///
 		/// ## Details
 		///
@@ -934,13 +791,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::PalletId::get().into_account_truncating()
 	}
 
-	/// The needed bond for a proposal whose spend is `value`.
-	fn calculate_bond(value: BalanceOf<T, I>) -> BalanceOf<T, I> {
-		let mut r = T::ProposalBondMinimum::get().max(T::ProposalBond::get() * value);
-		if let Some(m) = T::ProposalBondMaximum::get() {
-			r = r.min(m);
-		}
-		r
+	/// Public function to proposal_count storage.
+	pub fn proposal_count() -> ProposalIndex {
+		ProposalCount::<T, I>::get()
+	}
+
+	/// Public function to proposals storage.
+	pub fn proposals(index: ProposalIndex) -> Option<Proposal<T::AccountId, BalanceOf<T, I>>> {
+		Proposals::<T, I>::get(index)
+	}
+
+	/// Public function to approvals storage.
+	pub fn approvals() -> BoundedVec<ProposalIndex, T::MaxApprovals> {
+		Approvals::<T, I>::get()
 	}
 
 	/// Spend some money! returns number of approvals before spend.
@@ -952,15 +815,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let account_id = Self::account_id();
 
 		let mut missed_any = false;
-		let mut imbalance = <PositiveImbalanceOf<T, I>>::zero();
+		let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
 		let proposals_len = Approvals::<T, I>::mutate(|v| {
 			let proposals_approvals_len = v.len() as u32;
 			v.retain(|&index| {
 				// Should always be true, but shouldn't panic if false or we're screwed.
-				if let Some(p) = Self::proposals(index) {
+				if let Some(p) = Proposals::<T, I>::get(index) {
 					if p.value <= budget_remaining {
 						budget_remaining -= p.value;
-						<Proposals<T, I>>::remove(index);
+						Proposals::<T, I>::remove(index);
 
 						// return their deposit.
 						let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
@@ -1131,6 +994,6 @@ where
 {
 	type Type = <R as frame_system::Config>::AccountId;
 	fn get() -> Self::Type {
-		<crate::Pallet<R>>::account_id()
+		crate::Pallet::<R>::account_id()
 	}
 }

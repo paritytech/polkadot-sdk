@@ -4,7 +4,7 @@ version = "16.0.0"
 license = "Apache-2.0"
 authors.workspace = true
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Instrumentation primitives and macros for Substrate."
 readme = "README.md"
@@ -21,13 +21,12 @@ features = ["with-tracing"]
 targets = ["wasm32-unknown-unknown", "x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { version = "3.6.12", package = "parity-scale-codec", default-features = false, features = [
-	"derive",
-] }
-tracing = { version = "0.1.29", default-features = false }
-tracing-core = { version = "0.1.32", default-features = false }
+codec = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
+tracing-core = { workspace = true }
 tracing-subscriber = { workspace = true, optional = true, features = [
 	"env-filter",
+	"time",
 	"tracing-log",
 ] }
 

@@ -25,6 +25,13 @@ use scale_info::TypeInfo;
 // with `LayoutV0`.
 use crate::LayoutV1 as Layout;
 
+/// Error associated with the `storage_proof` module.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum StorageProofError {
+	/// The proof contains duplicate nodes.
+	DuplicateNodes,
+}
+
 /// A proof that some set of key-value pairs are included in the storage trie. The proof contains
 /// the storage values so that the partial storage backend can be reconstructed by a verifier that
 /// does not already have access to the key-value pairs.
@@ -43,6 +50,22 @@ impl StorageProof {
 		StorageProof { trie_nodes: BTreeSet::from_iter(trie_nodes) }
 	}
 
+	/// Constructs a storage proof from a subset of encoded trie nodes in a storage backend.
+	///
+	/// Returns an error if the provided subset of encoded trie nodes contains duplicates.
+	pub fn new_with_duplicate_nodes_check(
+		trie_nodes: impl IntoIterator<Item = Vec<u8>>,
+	) -> Result<Self, StorageProofError> {
+		let mut trie_nodes_set = BTreeSet::new();
+		for node in trie_nodes {
+			if !trie_nodes_set.insert(node) {
+				return Err(StorageProofError::DuplicateNodes);
+			}
+		}
+
+		Ok(StorageProof { trie_nodes: trie_nodes_set })
+	}
+
 	/// Returns a new empty proof.
 	///
 	/// An empty proof is capable of only proving trivial statements (ie. that an empty set of
@@ -54,6 +77,11 @@ impl StorageProof {
 	/// Returns whether this is an empty proof.
 	pub fn is_empty(&self) -> bool {
 		self.trie_nodes.is_empty()
+	}
+
+	/// Returns the number of nodes in the proof.
+	pub fn len(&self) -> usize {
+		self.trie_nodes.len()
 	}
 
 	/// Convert into an iterator over encoded trie nodes in lexicographical order constructed
@@ -196,5 +224,25 @@ impl CompactProof {
 		)?;
 
 		Ok((db, root))
+	}
+}
+
+#[cfg(test)]
+pub mod tests {
+	use super::*;
+	use crate::{tests::create_storage_proof, StorageProof};
+
+	type Layout = crate::LayoutV1<sp_core::Blake2Hasher>;
+
+	const TEST_DATA: &[(&[u8], &[u8])] =
+		&[(b"key1", &[1; 64]), (b"key2", &[2; 64]), (b"key3", &[3; 64]), (b"key11", &[4; 64])];
+
+	#[test]
+	fn proof_with_duplicate_nodes_is_rejected() {
+		let (raw_proof, _root) = create_storage_proof::<Layout>(TEST_DATA);
+		assert!(matches!(
+			StorageProof::new_with_duplicate_nodes_check(raw_proof),
+			Err(StorageProofError::DuplicateNodes)
+		));
 	}
 }

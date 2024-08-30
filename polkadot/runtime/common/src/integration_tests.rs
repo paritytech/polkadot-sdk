@@ -24,6 +24,8 @@ use crate::{
 	slots,
 	traits::{AuctionStatus, Auctioneer, Leaser, Registrar as RegistrarT},
 };
+use alloc::sync::Arc;
+use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, Currency, OnFinalize, OnInitialize},
@@ -33,12 +35,11 @@ use frame_support::{
 use frame_support_test::TestRandomness;
 use frame_system::EnsureRoot;
 use pallet_identity::{self, legacy::IdentityInfo};
-use parity_scale_codec::Encode;
-use primitives::{
+use polkadot_primitives::{
 	BlockNumber, HeadData, Id as ParaId, SessionIndex, ValidationCode, LOWEST_PUBLIC_ID,
 	MAX_CODE_SIZE,
 };
-use runtime_parachains::{
+use polkadot_runtime_parachains::{
 	configuration, dmp, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
 use sp_core::H256;
@@ -50,7 +51,6 @@ use sp_runtime::{
 	transaction_validity::TransactionPriority,
 	AccountId32, BuildStorage, MultiSignature,
 };
-use sp_std::sync::Arc;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -173,23 +173,12 @@ impl pallet_timestamp::Config for Test {
 
 parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
-	pub const MaxReserves: u32 = 50;
 }
-
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 impl configuration::Config for Test {

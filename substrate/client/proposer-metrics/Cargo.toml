@@ -4,7 +4,7 @@ version = "0.17.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Basic metrics for block production."
 readme = "README.md"
@@ -17,4 +17,4 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 log = { workspace = true, default-features = true }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+prometheus-endpoint = { workspace = true, default-features = true }

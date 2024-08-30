@@ -110,8 +110,6 @@ test-linux-stable-codecov:
         codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;
       fi
 
-  #
-
 test-linux-stable:
   stage: test
   extends:
@@ -398,24 +396,12 @@ test-frame-ui:
   script:
     - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
     - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental
+    - time cargo test --locked -q --profile testnet -p xcm-procedural
+    - time cargo test --locked -q --profile testnet -p frame-election-provider-solution-type
+    - time cargo test --locked -q --profile testnet -p sp-api-test
+    # There is multiple version of sp-runtime-interface in the repo. So we point to the manifest.
+    - time cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml
     - cat /cargo_target_dir/debug/.fingerprint/memory_units-759eddf317490d2b/lib-memory_units.json || true
-
-# This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
-quick-benchmarks:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-  variables:
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-C debug-assertions -D warnings"
-    RUST_BACKTRACE: "full"
-    WASM_BUILD_NO_COLOR: 1
-    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
-  script:
-    - time cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks --quiet -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
 
 quick-benchmarks-omni:
   stage: test

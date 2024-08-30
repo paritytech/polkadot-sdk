@@ -17,10 +17,10 @@
 //! Primitive types which are strictly necessary from a parachain-execution point
 //! of view.
 
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use bounded_collections::{BoundedVec, ConstU32};
-use parity_scale_codec::{CompactAs, Decode, Encode, MaxEncodedLen};
+use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::{bytes, RuntimeDebug, TypeId};
@@ -89,14 +89,14 @@ impl ValidationCode {
 #[derive(Clone, Copy, Encode, Decode, Hash, Eq, PartialEq, PartialOrd, Ord, TypeInfo)]
 pub struct ValidationCodeHash(Hash);
 
-impl sp_std::fmt::Display for ValidationCodeHash {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Display for ValidationCodeHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
 
-impl sp_std::fmt::Debug for ValidationCodeHash {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for ValidationCodeHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "{:?}", self.0)
 	}
 }
@@ -119,9 +119,9 @@ impl From<[u8; 32]> for ValidationCodeHash {
 	}
 }
 
-impl sp_std::fmt::LowerHex for ValidationCodeHash {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		sp_std::fmt::LowerHex::fmt(&self.0, f)
+impl core::fmt::LowerHex for ValidationCodeHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::LowerHex::fmt(&self.0, f)
 	}
 }
 
@@ -225,7 +225,7 @@ impl IsSystem for Id {
 	}
 }
 
-impl sp_std::ops::Add<u32> for Id {
+impl core::ops::Add<u32> for Id {
 	type Output = Self;
 
 	fn add(self, other: u32) -> Self {
@@ -233,7 +233,7 @@ impl sp_std::ops::Add<u32> for Id {
 	}
 }
 
-impl sp_std::ops::Sub<u32> for Id {
+impl core::ops::Sub<u32> for Id {
 	type Output = Self;
 
 	fn sub(self, other: u32) -> Self {

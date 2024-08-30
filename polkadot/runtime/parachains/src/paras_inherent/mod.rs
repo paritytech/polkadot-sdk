@@ -32,6 +32,11 @@ use crate::{
 	shared::{self, AllowedRelayParentsTracker},
 	ParaId,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use bitvec::prelude::BitVec;
 use frame_support::{
 	defensive,
@@ -42,7 +47,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
-use primitives::{
+use polkadot_primitives::{
 	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate, CandidateHash,
 	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
 	DisputeStatementSet, HeadData, InherentData as ParachainsInherentData,
@@ -53,11 +58,6 @@ use primitives::{
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Header as HeaderT, One};
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	prelude::*,
-	vec::Vec,
-};
 
 mod misc;
 mod weights;
@@ -295,7 +295,7 @@ impl<T: Config> Pallet<T> {
 	fn process_inherent_data(
 		data: ParachainsInherentData<HeaderFor<T>>,
 		context: ProcessInherentDataContext,
-	) -> sp_std::result::Result<
+	) -> core::result::Result<
 		(ParachainsInherentData<HeaderFor<T>>, PostDispatchInfo),
 		DispatchErrorWithPostInfo,
 	> {
@@ -347,12 +347,12 @@ impl<T: Config> Pallet<T> {
 		let bitfields_weight = signed_bitfields_weight::<T>(&bitfields);
 		let disputes_weight = multi_dispute_statement_sets_weight::<T>(&disputes);
 
-		// Weight before filtering/sanitization
-		let all_weight_before = candidates_weight + bitfields_weight + disputes_weight;
+		// Weight before filtering/sanitization except for enacting the candidates
+		let weight_before_filtering = candidates_weight + bitfields_weight + disputes_weight;
 
-		METRICS.on_before_filter(all_weight_before.ref_time());
-		log::debug!(target: LOG_TARGET, "Size before filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_before.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
-		log::debug!(target: LOG_TARGET, "Time weight before filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_before.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
+		METRICS.on_before_filter(weight_before_filtering.ref_time());
+		log::debug!(target: LOG_TARGET, "Size before filter: {}, candidates + bitfields: {}, disputes: {}", weight_before_filtering.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
+		log::debug!(target: LOG_TARGET, "Time weight before filter: {}, candidates + bitfields: {}, disputes: {}", weight_before_filtering.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
 
 		let current_session = shared::CurrentSessionIndex::<T>::get();
 		let expected_bits = scheduler::AvailabilityCores::<T>::get().len();
@@ -409,7 +409,7 @@ impl<T: Config> Pallet<T> {
 				max_block_weight,
 			);
 
-		let all_weight_after = if context == ProcessInherentDataContext::ProvideInherent {
+		let mut all_weight_after = if context == ProcessInherentDataContext::ProvideInherent {
 			// Assure the maximum block weight is adhered, by limiting bitfields and backed
 			// candidates. Dispute statement sets were already limited before.
 			let non_disputes_weight = apply_weight_limit::<T>(
@@ -424,11 +424,11 @@ impl<T: Config> Pallet<T> {
 
 			METRICS.on_after_filter(all_weight_after.ref_time());
 			log::debug!(
-			target: LOG_TARGET,
-			"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}",
-			bitfields.len(),
-			backed_candidates.len(),
-			checked_disputes_sets.len()
+				target: LOG_TARGET,
+				"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}",
+				bitfields.len(),
+				backed_candidates.len(),
+				checked_disputes_sets.len()
 			);
 			log::debug!(target: LOG_TARGET, "Size after filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_after.proof_size(), non_disputes_weight.proof_size(), checked_disputes_sets_consumed_weight.proof_size());
 			log::debug!(target: LOG_TARGET, "Time weight after filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_after.ref_time(), non_disputes_weight.ref_time(), checked_disputes_sets_consumed_weight.ref_time());
@@ -440,17 +440,20 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// This check is performed in the context of block execution. Ensures inherent weight
 			// invariants guaranteed by `create_inherent_data` for block authorship.
-			if all_weight_before.any_gt(max_block_weight) {
+			if weight_before_filtering.any_gt(max_block_weight) {
 				log::error!(
 					"Overweight para inherent data reached the runtime {:?}: {} > {}",
 					parent_hash,
-					all_weight_before,
+					weight_before_filtering,
 					max_block_weight
 				);
 			}
 
-			ensure!(all_weight_before.all_lte(max_block_weight), Error::<T>::InherentOverweight);
-			all_weight_before
+			ensure!(
+				weight_before_filtering.all_lte(max_block_weight),
+				Error::<T>::InherentOverweight
+			);
+			weight_before_filtering
 		};
 
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
@@ -529,11 +532,32 @@ impl<T: Config> Pallet<T> {
 
 		// Process new availability bitfields, yielding any availability cores whose
 		// work has now concluded.
-		let freed_concluded =
+		let (enact_weight, freed_concluded) =
 			inclusion::Pallet::<T>::update_pending_availability_and_get_freed_cores(
 				&validator_public[..],
 				bitfields.clone(),
 			);
+		all_weight_after.saturating_accrue(enact_weight);
+		log::debug!(
+			target: LOG_TARGET,
+			"Enacting weight: {}, all weight: {}",
+			enact_weight.ref_time(),
+			all_weight_after.ref_time(),
+		);
+
+		// It's possible that that after the enacting the candidates, the total weight
+		// goes over the limit, however, we can't do anything about it at this point.
+		// By using the `Mandatory` weight, we ensure the block is still accepted,
+		// but no other (user) transactions can be included.
+		if all_weight_after.any_gt(max_block_weight) {
+			log::warn!(
+				target: LOG_TARGET,
+				"Overweight para inherent data after enacting the candidates {:?}: {} > {}",
+				parent_hash,
+				all_weight_after,
+				max_block_weight,
+			);
+		}
 
 		// Inform the disputes module of all included candidates.
 		for (_, candidate_hash) in &freed_concluded {
@@ -560,7 +584,7 @@ impl<T: Config> Pallet<T> {
 			.chain(freed_disputed.into_iter().map(|core| (core, FreedReason::Concluded)))
 			.chain(freed_timeout.into_iter().map(|c| (c, FreedReason::TimedOut)))
 			.collect::<BTreeMap<CoreIndex, FreedReason>>();
-		scheduler::Pallet::<T>::free_cores_and_fill_claimqueue(freed, now);
+		scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(freed, now);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
@@ -570,12 +594,13 @@ impl<T: Config> Pallet<T> {
 			.map(|b| *b)
 			.unwrap_or(false);
 
-		let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-		let mut total_scheduled_cores = 0;
+		let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
+		let mut total_eligible_cores = 0;
 
-		for (core_idx, para_id) in scheduler::Pallet::<T>::scheduled_paras() {
-			total_scheduled_cores += 1;
-			scheduled.entry(para_id).or_default().insert(core_idx);
+		for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras() {
+			total_eligible_cores += 1;
+			log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
+			eligible.entry(para_id).or_default().insert(core_idx);
 		}
 
 		let initial_candidate_count = backed_candidates.len();
@@ -583,12 +608,12 @@ impl<T: Config> Pallet<T> {
 			backed_candidates,
 			&allowed_relay_parents,
 			concluded_invalid_hashes,
-			scheduled,
+			eligible,
 			core_index_enabled,
 		);
 		let count = count_backed_candidates(&backed_candidates_with_core);
 
-		ensure!(count <= total_scheduled_cores, Error::<T>::UnscheduledCandidate);
+		ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
 
 		METRICS.on_candidates_sanitized(count as u64);
 
@@ -761,7 +786,7 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 	let mut chained_candidates: Vec<Vec<_>> = Vec::new();
 	let mut current_para_id = None;
 
-	for candidate in sp_std::mem::take(candidates).into_iter() {
+	for candidate in core::mem::take(candidates).into_iter() {
 		let candidate_para_id = candidate.descriptor().para_id;
 		if Some(candidate_para_id) == current_para_id {
 			let chain = chained_candidates
@@ -1242,22 +1267,27 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 	candidates: &mut BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 ) {
-	let mut para_latest_head_data: BTreeMap<ParaId, HeadData> = BTreeMap::new();
+	let mut para_latest_context: BTreeMap<ParaId, (HeadData, BlockNumberFor<T>)> = BTreeMap::new();
 	for para_id in candidates.keys() {
-		let latest_head_data = match inclusion::Pallet::<T>::para_latest_head_data(&para_id) {
-			None => {
-				defensive!("Latest included head data for paraid {:?} is None", para_id);
-				continue
-			},
-			Some(latest_head_data) => latest_head_data,
+		let Some(latest_head_data) = inclusion::Pallet::<T>::para_latest_head_data(&para_id) else {
+			defensive!("Latest included head data for paraid {:?} is None", para_id);
+			continue
 		};
-		para_latest_head_data.insert(*para_id, latest_head_data);
+		let Some(latest_relay_parent) = inclusion::Pallet::<T>::para_most_recent_context(&para_id)
+		else {
+			defensive!("Latest relay parent for paraid {:?} is None", para_id);
+			continue
+		};
+		para_latest_context.insert(*para_id, (latest_head_data, latest_relay_parent));
 	}
 
 	let mut para_visited_candidates: BTreeMap<ParaId, BTreeSet<CandidateHash>> = BTreeMap::new();
 
 	retain_candidates::<T, _, _>(candidates, |para_id, candidate| {
-		let Some(latest_head_data) = para_latest_head_data.get(&para_id) else { return false };
+		let Some((latest_head_data, latest_relay_parent)) = para_latest_context.get(&para_id)
+		else {
+			return false
+		};
 		let candidate_hash = candidate.candidate().hash();
 
 		let visited_candidates =
@@ -1276,15 +1306,23 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 			visited_candidates.insert(candidate_hash);
 		}
 
-		let prev_context = paras::MostRecentContext::<T>::get(para_id);
-		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
+		let check_ctx = CandidateCheckContext::<T>::new(Some(*latest_relay_parent));
 
-		let res = match check_ctx.verify_backed_candidate(
+		match check_ctx.verify_backed_candidate(
 			&allowed_relay_parents,
 			candidate.candidate(),
 			latest_head_data.clone(),
 		) {
-			Ok(_) => true,
+			Ok(relay_parent_block_number) => {
+				para_latest_context.insert(
+					para_id,
+					(
+						candidate.candidate().commitments.head_data.clone(),
+						relay_parent_block_number,
+					),
+				);
+				true
+			},
 			Err(err) => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -1295,14 +1333,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 				);
 				false
 			},
-		};
-
-		if res {
-			para_latest_head_data
-				.insert(para_id, candidate.candidate().commitments.head_data.clone());
 		}
-
-		res
 	});
 }
 
@@ -1422,7 +1453,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 		} else {
 			log::debug!(
 				target: LOG_TARGET,
-				"Paraid: {:?} has no scheduled cores but {} candidates were supplied.",
+				"Paraid: {:?} has no entry in scheduled cores but {} candidates were supplied.",
 				para_id,
 				backed_candidates.len()
 			);

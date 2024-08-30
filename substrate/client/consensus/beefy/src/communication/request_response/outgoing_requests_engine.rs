@@ -85,7 +85,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 		network: Arc<dyn NetworkRequest + Send + Sync>,
 		protocol_name: ProtocolName,
 		live_peers: Arc<Mutex<KnownPeers<B>>>,
-		prometheus_registry: Option<prometheus::Registry>,
+		prometheus_registry: Option<prometheus_endpoint::Registry>,
 	) -> Self {
 		let metrics = register_metrics(prometheus_registry);
 		Self {
@@ -249,9 +249,16 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 				if let Some(peer) = self.try_next_peer() {
 					self.request_from_peer(peer, req_info);
 				} else {
+					metric_inc!(
+						self.metrics,
+						beefy_on_demand_justification_no_peer_to_request_from
+					);
+
+					let num_cache = self.peers_cache.len();
+					let num_live = self.live_peers.lock().len();
 					warn!(
 						target: BEEFY_SYNC_LOG_TARGET,
-						"🥩 ran out of peers to request justif #{:?} from", block
+						"🥩 ran out of peers to request justif #{block:?} from num_cache={num_cache} num_live={num_live} err={err:?}",
 					);
 				}
 				// Report peer based on error type.
@@ -265,7 +272,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 				metric_inc!(self.metrics, beefy_on_demand_justification_good_proof);
 				debug!(
 					target: BEEFY_SYNC_LOG_TARGET,
-					"🥩 received valid on-demand justif #{:?} from {:?}", block, peer
+					"🥩 received valid on-demand justif #{block:?} from {peer:?}",
 				);
 				let peer_report = PeerReport { who: peer, cost_benefit: benefit::VALIDATED_PROOF };
 				ResponseInfo::ValidProof(proof, peer_report)

@@ -140,8 +140,8 @@ pub struct RelayerRewardsKeyProvider<AccountId, Reward>(PhantomData<(AccountId, 
 
 impl<AccountId, Reward> StorageDoubleMapKeyProvider for RelayerRewardsKeyProvider<AccountId, Reward>
 where
-	AccountId: Codec + EncodeLike,
-	Reward: Codec + EncodeLike,
+	AccountId: 'static + Codec + EncodeLike + Send + Sync,
+	Reward: 'static + Codec + EncodeLike + Send + Sync,
 {
 	const MAP_NAME: &'static str = "RelayerRewards";
 

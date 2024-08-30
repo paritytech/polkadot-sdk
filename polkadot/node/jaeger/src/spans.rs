@@ -83,7 +83,7 @@
 //! # }
 //! ```
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{
 	BlakeTwo256, CandidateHash, ChunkIndex, Hash, HashT, Id as ParaId, ValidatorIndex,

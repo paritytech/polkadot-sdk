@@ -18,19 +18,21 @@ use async_trait::async_trait;
 use futures::{executor, pending, pin_mut, poll, select, stream, FutureExt};
 use std::{collections::HashMap, sync::atomic, task::Poll};
 
-use ::test_helpers::{dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash};
-use node_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_network_protocol::{PeerId, UnifiedReputationChange};
 use polkadot_node_primitives::{
 	BlockData, CollationGenerationConfig, CollationResult, DisputeMessage, InvalidDisputeVote, PoV,
 	UncheckedDisputeMessage, ValidDisputeVote,
 };
+use polkadot_node_subsystem_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_subsystem_types::messages::{
 	NetworkBridgeEvent, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
 	PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash,
 };
 
 use crate::{
@@ -811,7 +813,7 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 
 fn test_candidate_backing_msg() -> CandidateBackingMessage {
 	let (sender, _) = oneshot::channel();
-	CandidateBackingMessage::GetBackedCandidates(Default::default(), sender)
+	CandidateBackingMessage::GetBackableCandidates(Default::default(), sender)
 }
 
 fn test_chain_api_msg() -> ChainApiMessage {

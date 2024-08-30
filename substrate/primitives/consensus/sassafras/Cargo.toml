@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Primitives for Sassafras consensus"
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository = "https://github.com/paritytech/polkadot-sdk/"
 documentation = "https://docs.rs/sp-consensus-sassafras"
 readme = "README.md"
@@ -18,19 +18,19 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-scale-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], optional = true, workspace = true }
-sp-api = { path = "../../api", default-features = false }
-sp-application-crypto = { path = "../../application-crypto", default-features = false, features = ["bandersnatch-experimental"] }
-sp-consensus-slots = { path = "../slots", default-features = false }
-sp-core = { path = "../../core", default-features = false, features = ["bandersnatch-experimental"] }
-sp-runtime = { path = "../../runtime", default-features = false }
+sp-api = { workspace = true }
+sp-application-crypto = { features = ["bandersnatch-experimental"], workspace = true }
+sp-consensus-slots = { workspace = true }
+sp-core = { features = ["bandersnatch-experimental"], workspace = true }
+sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
-	"scale-codec/std",
+	"codec/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-api/std",

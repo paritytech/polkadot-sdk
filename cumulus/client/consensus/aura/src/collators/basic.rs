@@ -41,7 +41,6 @@ use sc_consensus::BlockImport;
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::SyncOracle;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
@@ -53,7 +52,7 @@ use std::{sync::Arc, time::Duration};
 use crate::collator as collator_util;
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, RClient, SO, Proposer, CS> {
+pub struct Params<BI, CIDP, Client, RClient, Proposer, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -64,8 +63,6 @@ pub struct Params<BI, CIDP, Client, RClient, SO, Proposer, CS> {
 	pub para_client: Arc<Client>,
 	/// A handle to the relay-chain client.
 	pub relay_client: RClient,
-	/// A chain synchronization oracle.
-	pub sync_oracle: SO,
 	/// The underlying keystore, which should contain Aura consensus keys.
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
@@ -89,8 +86,8 @@ pub struct Params<BI, CIDP, Client, RClient, SO, Proposer, CS> {
 }
 
 /// Run bare Aura consensus as a relay-chain-driven collator.
-pub fn run<Block, P, BI, CIDP, Client, RClient, SO, Proposer, CS>(
-	params: Params<BI, CIDP, Client, RClient, SO, Proposer, CS>,
+pub fn run<Block, P, BI, CIDP, Client, RClient, Proposer, CS>(
+	params: Params<BI, CIDP, Client, RClient, Proposer, CS>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT + Send,
@@ -108,7 +105,6 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	SO: SyncOracle + Send + Sync + Clone + 'static,
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	P: Pair,
@@ -142,6 +138,7 @@ where
 		};
 
 		let mut last_processed_slot = 0;
+		let mut last_relay_chain_block = Default::default();
 
 		while let Some(request) = collation_requests.next().await {
 			macro_rules! reject_with_error {
@@ -219,11 +216,13 @@ where
 			//
 			// Most parachains currently run with 12 seconds slots and thus, they would try to
 			// produce multiple blocks per slot which very likely would fail on chain. Thus, we have
-			// this "hack" to only produce on block per slot.
+			// this "hack" to only produce one block per slot per relay chain fork.
 			//
 			// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
 			// obsolete and also the underlying issue will be fixed.
-			if last_processed_slot >= *claim.slot() {
+			if last_processed_slot >= *claim.slot() &&
+				last_relay_chain_block < *relay_parent_header.number()
+			{
 				continue
 			}
 
@@ -238,6 +237,16 @@ where
 					.await
 			);
 
+			let allowed_pov_size = if cfg!(feature = "full-pov-size") {
+				validation_data.max_pov_size
+			} else {
+				// Set the block limit to 50% of the maximum PoV size.
+				//
+				// TODO: If we got benchmarking that includes the proof size,
+				// we should be able to use the maximum pov size.
+				validation_data.max_pov_size / 2
+			} as usize;
+
 			let maybe_collation = try_request!(
 				collator
 					.collate(
@@ -246,11 +255,7 @@ where
 						None,
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
-						// Set the block limit to 50% of the maximum PoV size.
-						//
-						// TODO: If we got benchmarking that includes the proof size,
-						// we should be able to use the maximum pov size.
-						(validation_data.max_pov_size / 2) as usize,
+						allowed_pov_size,
 					)
 					.await
 			);
@@ -265,6 +270,7 @@ where
 			}
 
 			last_processed_slot = *claim.slot();
+			last_relay_chain_block = *relay_parent_header.number();
 		}
 	}
 }

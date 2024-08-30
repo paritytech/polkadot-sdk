@@ -150,7 +150,7 @@ impl HostFnReturn {
 			Self::U64 => quote! { ::core::primitive::u64 },
 		};
 		quote! {
-			::core::result::Result<#ok, ::wasmi::core::Trap>
+			::core::result::Result<#ok, ::wasmi::Error>
 		}
 	}
 }
@@ -649,7 +649,7 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 			quote! {
 				let result = #body;
 				if ::log::log_enabled!(target: "runtime::contracts::strace", ::log::Level::Trace) {
-						use sp_std::fmt::Write;
+						use core::fmt::Write;
 						let mut w = sp_std::Writer::default();
 						let _ = core::write!(&mut w, #trace_fmt_str, #( #trace_fmt_args, )* result);
 						let msg = core::str::from_utf8(&w.inner()).unwrap_or_default();
@@ -694,7 +694,7 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 		let into_host = if expand_blocks {
 			quote! {
 				|reason| {
-					::wasmi::core::Trap::from(reason)
+					::wasmi::Error::host(reason)
 				}
 			}
 		} else {
@@ -711,13 +711,13 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 			quote! {
 				// Write gas from wasmi into pallet-contracts before entering the host function.
 				let __gas_left_before__ = {
-					let executor_total =
-						__caller__.fuel_consumed().expect("Fuel metering is enabled; qed");
+					let fuel =
+						__caller__.get_fuel().expect("Fuel metering is enabled; qed");
 					__caller__
 						.data_mut()
 						.ext()
 						.gas_meter_mut()
-						.sync_from_executor(executor_total)
+						.sync_from_executor(fuel)
 						.map_err(TrapReason::from)
 						.map_err(#into_host)?
 				};
@@ -733,15 +733,18 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 		// Write gas from pallet-contracts into wasmi after leaving the host function.
 		let sync_gas_after = if expand_blocks {
 			quote! {
-				let fuel_consumed = __caller__
+				let fuel = __caller__
 					.data_mut()
 					.ext()
 					.gas_meter_mut()
 					.sync_to_executor(__gas_left_before__)
-					.map_err(TrapReason::from)?;
+					.map_err(|err| {
+						let err = TrapReason::from(err);
+						wasmi::Error::host(err)
+					})?;
 				 __caller__
-					 .consume_fuel(fuel_consumed.into())
-					 .map_err(|_| TrapReason::from(Error::<E::T>::OutOfGas))?;
+					 .set_fuel(fuel.into())
+					 .expect("Fuel metering is enabled; qed");
 			}
 		} else {
 			quote! { }

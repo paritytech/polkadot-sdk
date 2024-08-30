@@ -18,11 +18,17 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	dmp, ensure_parachain, initializer, paras,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
+use codec::{Decode, Encode};
+use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
-use primitives::{
+use polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
 	SessionIndex,
 };
@@ -30,11 +36,6 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto, Zero},
 	ArithmeticError,
-};
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	fmt, mem,
-	prelude::*,
 };
 
 pub use pallet::*;
@@ -487,7 +488,7 @@ pub mod pallet {
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: core::marker::PhantomData<T>,
 		preopen_hrmp_channels: Vec<(ParaId, ParaId, u32, u32)>,
 	}
 
@@ -1304,9 +1305,7 @@ impl<T: Config> Pallet<T> {
 		remaining
 	}
 
-	pub(crate) fn prune_hrmp(recipient: ParaId, new_hrmp_watermark: BlockNumberFor<T>) -> Weight {
-		let mut weight = Weight::zero();
-
+	pub(crate) fn prune_hrmp(recipient: ParaId, new_hrmp_watermark: BlockNumberFor<T>) {
 		// sift through the incoming messages digest to collect the paras that sent at least one
 		// message to this parachain between the old and new watermarks.
 		let senders = HrmpChannelDigests::<T>::mutate(&recipient, |digest| {
@@ -1322,7 +1321,6 @@ impl<T: Config> Pallet<T> {
 			*digest = leftover;
 			senders
 		});
-		weight += T::DbWeight::get().reads_writes(1, 1);
 
 		// having all senders we can trivially find out the channels which we need to prune.
 		let channels_to_prune =
@@ -1355,21 +1353,13 @@ impl<T: Config> Pallet<T> {
 					channel.total_size -= pruned_size as u32;
 				}
 			});
-
-			weight += T::DbWeight::get().reads_writes(2, 2);
 		}
 
 		HrmpWatermarks::<T>::insert(&recipient, new_hrmp_watermark);
-		weight += T::DbWeight::get().reads_writes(0, 1);
-
-		weight
 	}
 
 	/// Process the outbound HRMP messages by putting them into the appropriate recipient queues.
-	///
-	/// Returns the amount of weight consumed.
-	pub(crate) fn queue_outbound_hrmp(sender: ParaId, out_hrmp_msgs: HorizontalMessages) -> Weight {
-		let mut weight = Weight::zero();
+	pub(crate) fn queue_outbound_hrmp(sender: ParaId, out_hrmp_msgs: HorizontalMessages) {
 		let now = frame_system::Pallet::<T>::block_number();
 
 		for out_msg in out_hrmp_msgs {
@@ -1425,11 +1415,7 @@ impl<T: Config> Pallet<T> {
 				recipient_digest.push((now, vec![sender]));
 			}
 			HrmpChannelDigests::<T>::insert(&channel_id.recipient, recipient_digest);
-
-			weight += T::DbWeight::get().reads_writes(2, 2);
 		}
-
-		weight
 	}
 
 	/// Initiate opening a channel from a parachain to a given recipient with given channel
@@ -1864,7 +1850,7 @@ impl<T: Config> Pallet<T> {
 	/// If the XCM version is unknown, the latest XCM version is used as a best effort.
 	fn wrap_notification(
 		mut notification: impl FnMut() -> xcm::opaque::latest::opaque::Xcm,
-	) -> impl FnOnce(ParaId) -> primitives::DownwardMessage {
+	) -> impl FnOnce(ParaId) -> polkadot_primitives::DownwardMessage {
 		use xcm::{
 			opaque::VersionedXcm,
 			prelude::{Junction, Location},
@@ -1892,7 +1878,7 @@ impl<T: Config> Pallet<T> {
 		log_label: &str,
 		config: &HostConfiguration<BlockNumberFor<T>>,
 		dest: ParaId,
-		notification_bytes_for: impl FnOnce(ParaId) -> primitives::DownwardMessage,
+		notification_bytes_for: impl FnOnce(ParaId) -> polkadot_primitives::DownwardMessage,
 	) {
 		// prepare notification
 		let notification_bytes = notification_bytes_for(dest);
