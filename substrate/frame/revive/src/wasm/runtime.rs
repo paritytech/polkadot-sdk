@@ -1410,7 +1410,7 @@ pub mod env {
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Address)?;
-		let address = <E::T as Config>::AddressMapper::to_address(self.ext.address());
+		let address = <E::T as Config>::AddressMapper::to_address(self.ext.account_id());
 		Ok(self.write_sandbox_output(
 			memory,
 			out_ptr,
@@ -1757,7 +1757,7 @@ pub mod env {
 			dispatch_info,
 			RuntimeCosts::CallXcmExecute,
 			|runtime| {
-				let origin = crate::RawOrigin::Signed(runtime.ext.address().clone()).into();
+				let origin = crate::RawOrigin::Signed(runtime.ext.account_id().clone()).into();
 				let weight_used = <<E::T as Config>::Xcm>::execute(
 					origin,
 					Box::new(message),
@@ -1789,7 +1789,7 @@ pub mod env {
 		let message: VersionedXcm<()> = memory.read_as_unbounded(msg_ptr, msg_len)?;
 		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
 		self.charge_gas(RuntimeCosts::CallRuntime(weight))?;
-		let origin = crate::RawOrigin::Signed(self.ext.address().clone()).into();
+		let origin = crate::RawOrigin::Signed(self.ext.account_id().clone()).into();
 
 		match <<E::T as Config>::Xcm>::send(origin, dest.into(), message.into()) {
 			Ok(message_id) => {

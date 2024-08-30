@@ -294,7 +294,7 @@ pub trait Ext: sealing::Sealed {
 	fn caller_is_root(&self) -> bool;
 
 	/// Returns a reference to the account id of the current contract.
-	fn address(&self) -> &AccountIdOf<Self::T>;
+	fn account_id(&self) -> &AccountIdOf<Self::T>;
 
 	/// Returns the balance of the current contract.
 	///
@@ -899,7 +899,7 @@ where
 		read_only: bool,
 	) -> Result<E, ExecError> {
 		if self.frames.len() as u32 == limits::CALL_STACK_DEPTH {
-			return Err(Error::<T>::MaxCallDepthReached.into())
+			return Err(Error::<T>::MaxCallDepthReached.into());
 		}
 
 		// We need to make sure that changes made to the contract info are not discarded.
@@ -980,7 +980,7 @@ where
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
-				return Ok(output)
+				return Ok(output);
 			}
 
 			// Storage limit is normally enforced as late as possible (when the last frame returns)
@@ -1000,7 +1000,7 @@ where
 				(ExportedFunction::Constructor, _) => {
 					// It is not allowed to terminate a contract inside its constructor.
 					if matches!(frame.contract_info, CachedContract::Terminated) {
-						return Err(Error::<T>::TerminatedInConstructor.into())
+						return Err(Error::<T>::TerminatedInConstructor.into());
 					}
 
 					// If a special limit was set for the sub-call, we enforce it here.
@@ -1096,7 +1096,7 @@ where
 
 			// Only gas counter changes are persisted in case of a failure.
 			if !persist {
-				return
+				return;
 			}
 
 			// Record the storage meter changes of the nested call into the parent meter.
@@ -1115,7 +1115,7 @@ where
 				// trigger a rollback.
 				if prev.account_id == *account_id {
 					prev.contract_info = CachedContract::Cached(contract);
-					return
+					return;
 				}
 
 				// Predecessor is a different contract: We persist the info and invalidate the first
@@ -1138,7 +1138,7 @@ where
 			}
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
-				return
+				return;
 			}
 			let mut contract = self.first_frame.contract_info.as_contract();
 			self.storage_meter.absorb(
@@ -1176,7 +1176,7 @@ where
 		// If it is a delegate call, then we've already transferred tokens in the
 		// last non-delegate frame.
 		if frame.delegate_caller.is_some() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let value = frame.value_transferred;
@@ -1252,7 +1252,7 @@ where
 
 		let try_call = || {
 			if !self.allows_reentry(&dest) {
-				return Err(<Error<T>>::ReentranceDenied.into())
+				return Err(<Error<T>>::ReentranceDenied.into());
 			}
 
 			// We ignore instantiate frames in our search for a cached contract.
@@ -1338,7 +1338,7 @@ where
 
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult {
 		if self.is_recursive() {
-			return Err(Error::<T>::TerminatedWhileReentrant.into())
+			return Err(Error::<T>::TerminatedWhileReentrant.into());
 		}
 		let frame = self.top_frame_mut();
 		let info = frame.terminate();
@@ -1397,11 +1397,13 @@ where
 	}
 
 	fn get_transient_storage(&self, key: &Key) -> Option<Vec<u8>> {
-		self.transient_storage.read(self.address(), key)
+		self.transient_storage.read(self.account_id(), key)
 	}
 
 	fn get_transient_storage_size(&self, key: &Key) -> Option<u32> {
-		self.transient_storage.read(self.address(), key).map(|value| value.len() as _)
+		self.transient_storage
+			.read(self.account_id(), key)
+			.map(|value| value.len() as _)
 	}
 
 	fn set_transient_storage(
@@ -1410,11 +1412,11 @@ where
 		value: Option<Vec<u8>>,
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
-		let account_id = self.address().clone();
+		let account_id = self.account_id().clone();
 		self.transient_storage.write(&account_id, key, value, take_old)
 	}
 
-	fn address(&self) -> &T::AccountId {
+	fn account_id(&self) -> &T::AccountId {
 		&self.top_frame().account_id
 	}
 
@@ -1473,7 +1475,10 @@ where
 	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
 		Contracts::<Self::T>::deposit_indexed_event(
 			topics,
-			Event::ContractEmitted { contract: T::AddressMapper::to_address(self.address()), data },
+			Event::ContractEmitted {
+				contract: T::AddressMapper::to_address(self.account_id()),
+				data,
+			},
 		);
 	}
 
@@ -1524,7 +1529,7 @@ where
 	}
 
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
-		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.address().clone()).into();
+		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.account_id().clone()).into();
 		origin.add_filter(T::CallFilter::contains);
 		call.dispatch(origin)
 	}
@@ -2421,7 +2426,7 @@ mod tests {
 	fn address_returns_proper_values() {
 		let bob_ch = MockLoader::insert(Call, |ctx, _| {
 			// Verify that address matches BOB.
-			assert_eq!(*ctx.ext.address(), BOB);
+			assert_eq!(*ctx.ext.account_id(), BOB);
 
 			// Call into charlie contract.
 			assert_matches!(
@@ -2439,7 +2444,7 @@ mod tests {
 			exec_success()
 		});
 		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
-			assert_eq!(*ctx.ext.address(), CHARLIE);
+			assert_eq!(*ctx.ext.account_id(), CHARLIE);
 			exec_success()
 		});
 
@@ -2835,7 +2840,7 @@ mod tests {
 	#[test]
 	fn recursive_call_during_constructor_fails() {
 		let code = MockLoader::insert(Constructor, |ctx, _| {
-			let account_id = ctx.ext.address().clone();
+			let account_id = ctx.ext.account_id().clone();
 			let addr = <Test as Config>::AddressMapper::to_address(&account_id);
 
 			assert_matches!(
@@ -3241,7 +3246,7 @@ mod tests {
 		});
 		let succ_succ_code = MockLoader::insert(Constructor, move |ctx, _| {
 			let alice_nonce = System::account_nonce(&ALICE);
-			assert_eq!(System::account_nonce(ctx.ext.address()), 0);
+			assert_eq!(System::account_nonce(ctx.ext.account_id()), 0);
 			assert_eq!(ctx.ext.caller().account_id().unwrap(), &ALICE);
 			let (addr, _) = ctx
 				.ext
@@ -3258,7 +3263,7 @@ mod tests {
 			let account_id = <Test as Config>::AddressMapper::to_account_id_contract(&addr);
 
 			assert_eq!(System::account_nonce(&ALICE), alice_nonce);
-			assert_eq!(System::account_nonce(ctx.ext.address()), 1);
+			assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
 			assert_eq!(System::account_nonce(&account_id), 0);
 
 			// a plain call should not influence the account counter
@@ -3267,7 +3272,7 @@ mod tests {
 				.unwrap();
 
 			assert_eq!(System::account_nonce(ALICE), alice_nonce);
-			assert_eq!(System::account_nonce(ctx.ext.address()), 1);
+			assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
 			assert_eq!(System::account_nonce(&account_id), 0);
 
 			exec_success()

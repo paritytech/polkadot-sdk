@@ -640,7 +640,7 @@ mod benchmarks {
 		assert_ok!(result);
 		assert_eq!(
 			&<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().address()
+			runtime.ext().account_id()
 		);
 	}
 
