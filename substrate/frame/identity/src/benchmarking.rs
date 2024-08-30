@@ -935,6 +935,16 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn migration_v2_cleanup_authority_step() -> Result<(), BenchmarkError> {
+		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
+		#[block]
+		{
+			LazyMigrationV2::<T, <T as Config>::WeightInfo>::cleanup_authority_step(None);
+		}
+		Ok(())
+	}
+
+	#[benchmark]
 	fn migration_v2_cleanup_username_step() -> Result<(), BenchmarkError> {
 		LazyMigrationV2::<T, <T as Config>::WeightInfo>::setup_benchmark_env();
 		#[block]

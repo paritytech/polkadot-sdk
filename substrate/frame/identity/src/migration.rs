@@ -190,7 +190,7 @@ pub mod v2 {
 	}
 
 	#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
-	pub enum MigrationState<A, U> {
+	pub enum MigrationState<A, U, S> {
 		Authority(A),
 		FinishedAuthorities,
 		Identity(HashedKey),
@@ -199,6 +199,8 @@ pub mod v2 {
 		FinishedUsernames,
 		PendingUsername(U),
 		FinishedPendingUsernames,
+		CleanupAuthorities(S),
+		FinishedCleanupAuthorities,
 		CleanupUsernames(U),
 		FinishedCleanupUsernames,
 		CleanupPendingUsernames(U),
@@ -207,7 +209,7 @@ pub mod v2 {
 
 	pub struct LazyMigrationV2<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
 	impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV2<T, W> {
-		type Cursor = MigrationState<T::AccountId, Username<T>>;
+		type Cursor = MigrationState<T::AccountId, Username<T>, Suffix<T>>;
 		type Identifier = MigrationId<15>;
 
 		fn id() -> Self::Identifier {
@@ -251,6 +253,10 @@ pub mod v2 {
 					Some(MigrationState::PendingUsername(maybe_last_username)) =>
 						Self::pending_username_step(Some(maybe_last_username)),
 					Some(MigrationState::FinishedPendingUsernames) =>
+						Self::cleanup_authority_step(None),
+					Some(MigrationState::CleanupAuthorities(maybe_last_username)) =>
+						Self::cleanup_authority_step(Some(maybe_last_username)),
+					Some(MigrationState::FinishedCleanupAuthorities) =>
 						Self::cleanup_username_step(None),
 					Some(MigrationState::CleanupUsernames(maybe_last_username)) =>
 						Self::cleanup_username_step(Some(maybe_last_username)),
@@ -274,7 +280,9 @@ pub mod v2 {
 			String::from_utf8(username.to_vec()).unwrap()
 		}
 
-		pub(crate) fn required_weight(step: &MigrationState<T::AccountId, Username<T>>) -> Weight {
+		pub(crate) fn required_weight(
+			step: &MigrationState<T::AccountId, Username<T>, Suffix<T>>,
+		) -> Weight {
 			match step {
 				MigrationState::Authority(_) => W::migration_v2_authority_step(),
 				MigrationState::FinishedAuthorities | MigrationState::Identity(_) =>
@@ -283,8 +291,10 @@ pub mod v2 {
 					W::migration_v2_username_step(),
 				MigrationState::FinishedUsernames | MigrationState::PendingUsername(_) =>
 					W::migration_v2_pending_username_step(),
-				MigrationState::FinishedPendingUsernames | MigrationState::CleanupUsernames(_) =>
-					W::migration_v2_cleanup_username_step(),
+				MigrationState::FinishedPendingUsernames |
+				MigrationState::CleanupAuthorities(_) => W::migration_v2_cleanup_authority_step(),
+				MigrationState::FinishedCleanupAuthorities |
+				MigrationState::CleanupUsernames(_) => W::migration_v2_cleanup_username_step(),
 				MigrationState::FinishedCleanupUsernames |
 				MigrationState::CleanupPendingUsernames(_) => W::migration_v2_cleanup_pending_username_step(),
 				MigrationState::Finished => Weight::zero(),
@@ -293,7 +303,7 @@ pub mod v2 {
 
 		pub(crate) fn authority_step(
 			maybe_last_key: Option<&T::AccountId>,
-		) -> MigrationState<T::AccountId, Username<T>> {
+		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
 				v1::UsernameAuthorities::<T>::iter_from(
 					v1::UsernameAuthorities::<T>::hashed_key_for(last_key),
@@ -315,7 +325,7 @@ pub mod v2 {
 
 		pub(crate) fn username_step(
 			maybe_last_key: Option<&Username<T>>,
-		) -> MigrationState<T::AccountId, Username<T>> {
+		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
 				v1::AccountOfUsername::<T>::iter_from(v1::AccountOfUsername::<T>::hashed_key_for(
 					last_key,
@@ -337,7 +347,7 @@ pub mod v2 {
 
 		pub(crate) fn identity_step(
 			maybe_last_key: Option<HashedKey>,
-		) -> MigrationState<T::AccountId, Username<T>> {
+		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
 			if let Some(last_key) =
 				IdentityOf::<T>::translate_next::<
 					(
@@ -367,7 +377,7 @@ pub mod v2 {
 
 		pub(crate) fn pending_username_step(
 			maybe_last_key: Option<&Username<T>>,
-		) -> MigrationState<T::AccountId, Username<T>> {
+		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
 				v1::PendingUsernames::<T>::iter_from(v1::PendingUsernames::<T>::hashed_key_for(
 					last_key,
@@ -387,9 +397,26 @@ pub mod v2 {
 			}
 		}
 
+		pub(crate) fn cleanup_authority_step(
+			maybe_last_key: Option<&Suffix<T>>,
+		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
+			let mut iter = if let Some(last_key) = maybe_last_key {
+				AuthorityOf::<T>::iter_from(AuthorityOf::<T>::hashed_key_for(last_key))
+			} else {
+				AuthorityOf::<T>::iter()
+			};
+
+			if let Some((suffix, properties)) = iter.next() {
+				let _ = v1::UsernameAuthorities::<T>::take(&properties.account_id);
+				MigrationState::CleanupAuthorities(suffix)
+			} else {
+				MigrationState::FinishedCleanupAuthorities
+			}
+		}
+
 		pub(crate) fn cleanup_username_step(
 			maybe_last_key: Option<&Username<T>>,
-		) -> MigrationState<T::AccountId, Username<T>> {
+		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
 				UsernameInfoOf::<T>::iter_from(UsernameInfoOf::<T>::hashed_key_for(last_key))
 			} else {
@@ -406,7 +433,7 @@ pub mod v2 {
 
 		pub(crate) fn cleanup_pending_username_step(
 			maybe_last_key: Option<&Username<T>>,
-		) -> MigrationState<T::AccountId, Username<T>> {
+		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
 				PendingAcceptance::<T>::iter_from(PendingAcceptance::<T>::hashed_key_for(last_key))
 			} else {
@@ -482,11 +509,6 @@ pub mod v2 {
 
 		fn account_from_u8(byte: u8) -> <Test as frame_system::Config>::AccountId {
 			[byte; 32].into()
-		}
-
-		fn account_into_u8(account_id: &<Test as frame_system::Config>::AccountId) -> u8 {
-			let bytes: &[u8] = account_id.as_ref();
-			bytes[0]
 		}
 
 		#[test]

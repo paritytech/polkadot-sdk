@@ -81,6 +81,7 @@ pub trait WeightInfo {
 	fn migration_v2_identity_step() -> Weight;
 	fn migration_v2_username_step() -> Weight;
 	fn migration_v2_pending_username_step() -> Weight;
+	fn migration_v2_cleanup_authority_step() -> Weight;
 	fn migration_v2_cleanup_username_step() -> Weight;
 	fn migration_v2_cleanup_pending_username_step() -> Weight;
 }
@@ -469,6 +470,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::zero()	
 	}
 	fn migration_v2_identity_step() -> Weight {
+		Weight::zero()	
+	}
+	fn migration_v2_cleanup_authority_step() -> Weight {
 		Weight::zero()	
 	}
 	fn migration_v2_cleanup_username_step() -> Weight {
@@ -862,6 +866,9 @@ impl WeightInfo for () {
 		Weight::zero()	
 	}
 	fn migration_v2_identity_step() -> Weight {
+		Weight::zero()	
+	}
+	fn migration_v2_cleanup_authority_step() -> Weight {
 		Weight::zero()	
 	}
 	fn migration_v2_cleanup_username_step() -> Weight {
