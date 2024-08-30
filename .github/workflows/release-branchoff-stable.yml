@@ -18,7 +18,7 @@ jobs:
   #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
 
 
-  validate-inputs:
+  prepare-tooling:
     runs-on: ubuntu-latest
     outputs:
       node_version: ${{ steps.validate_inputs.outputs.node_version }}
@@ -39,41 +39,41 @@ jobs:
           stable_version=$(validate_stable_tag ${{ inputs.stable_version }})
           echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
 
-  create-stable-branch:
-    # needs: [check-workflow-can-run, validate-inputs]
-    needs: [validate-inputs]
-    # if: needs. check-workflow-can-run.outputs.checks_passed == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Install pgpkkms
-        run: |
-          # Install pgpkms that is used to sign commits
-          pip install git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69
-
-
-      - name: Checkout sources
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-        with:
-          ref: master
-
       - name: Import gpg keys
         run: |
           . ./.github/scripts/common/lib.sh
 
           import_gpg_keys
 
+      - name: Install pgpkkms
+        run: |
+          # Install pgpkms that is used to sign commits
+          pip install git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69
+
       - name: Config git
         run: |
-          git config --local commit.gpgsign true
-          git config --local gpg.program pgpkms-git
-          git config --local user.name "ParityReleases"
-          git config --local user.email "release-team@parity.io"
-          git config --local user.signingKey ${{ secrets.GPG_KEY_FINGERPRINT }}
+          git config commit.gpgsign true
+          git config gpg.program pgpkms-git
+          git config user.name "ParityReleases"
+          git config user.email "release-team@parity.io"
+          git config user.signingKey ${{ secrets.GPG_KEY_FINGERPRINT }}
+
+
+  create-stable-branch:
+    # needs: [check-workflow-can-run, prepare-tooling]
+    needs: [prepare-tooling]
+    # if: needs. check-workflow-can-run.outputs.checks_passed == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: master
 
       - name: Create stable branch
         run: |
-          stable_branch_name=${{ needs.validate-inputs.outputs.stable_version }}
+          stable_branch_name=${{ needs.prepare-tooling.outputs.stable_version }}
           git checkout -b "$stable_branch_name"
           git show-ref "$stable_branch_name"
 
@@ -81,7 +81,7 @@ jobs:
         run: |
           . ./.github/scripts/release/release.sh
 
-          BUMPED_VERSION="${{ needs.validate-inputs.outputs.node_version }}"
+          BUMPED_VERSION="${{ needs.prepare-tooling.outputs.node_version }}"
           set_version "\(NODE_VERSION[^=]*= \)\".*\"" $BUMPED_VERSION "polkadot/node/primitives/src/lib.rs"
           commit_with_message "Bump node version to $BUMPED_VERSION in polkadot-cli"
 
