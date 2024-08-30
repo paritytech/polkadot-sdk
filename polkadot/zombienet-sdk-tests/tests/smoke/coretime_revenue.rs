@@ -283,7 +283,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	)
 	.await;
 
-	// RC's total issuance doen't change, but PC's one increses after the teleport
+	// RC's total issuance doen't change, but PC's one increases after the teleport.
 
 	total_issuance.1 += 1_500_000_000;
 	assert_total_issuance(relay_client.clone(), para_client.clone(), total_issuance).await;
@@ -309,9 +309,6 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 								renewal_bump: Perbill(10),
 								contribution_timeout: 5,
 							},
-						}),
-						CoretimeRuntimeCall::Broker(CoretimeBrokerCall::request_core_count {
-							core_count: 3,
 						}),
 						CoretimeRuntimeCall::Broker(CoretimeBrokerCall::set_lease {
 							task: 1005,
