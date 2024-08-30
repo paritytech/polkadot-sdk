@@ -4023,16 +4023,7 @@ async fn follow_report_best_block_of_a_known_block() {
 	// Finalize the block 4 from the fork.
 	client.finalize_block(block_4_hash, None).unwrap();
 
-	// Expect to report the best block changed before the finalized event.
-	// This does not rely on the `generate_finalized_events`, that will
-	// not generate a new `BestBlock` event. Instead this is captured by the
-	// last condition of `handle_finalized_blocks`.
-	let event: FollowEvent<String> = get_next_event(&mut sub).await;
-	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
-		best_block_hash: format!("{:?}", block_4_hash),
-	});
-	assert_eq!(event, expected);
-
+	// Block 5 is already reported as best block.
 	// Block 2 must be reported as pruned, even if it was the previous best.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
@@ -4053,13 +4044,6 @@ async fn follow_report_best_block_of_a_known_block() {
 
 	// Finalize the block 5.
 	client.finalize_block(block_5_hash, None).unwrap();
-	// Block 5 was reported as best in the past. It is ok to report this
-	// multiple time as an optimization to not calculate the tree routes.
-	let event: FollowEvent<String> = get_next_event(&mut sub).await;
-	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
-		best_block_hash: format!("{:?}", block_5_hash),
-	});
-	assert_eq!(event, expected);
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
