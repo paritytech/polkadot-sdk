@@ -42,7 +42,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
@@ -557,7 +557,7 @@ pub mod pallet {
 	/// The list is sorted ascending by session index. Also, this list can only contain at most
 	/// 2 items: for the next session and for the `scheduled_session`.
 	#[pallet::storage]
-	pub(crate) type PendingConfigs<T: Config> =
+	pub type PendingConfigs<T: Config> =
 		StorageValue<_, Vec<(SessionIndex, HostConfiguration<BlockNumberFor<T>>)>, ValueQuery>;
 
 	/// If this is set, then the configuration setters will bypass the consistency checks. This

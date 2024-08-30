@@ -889,6 +889,7 @@ dependencies = [
  "primitive-types",
  "rococo-runtime-constants",
  "scale-info",
+ "serde_json",
  "snowbridge-router-primitives",
  "sp-api 26.0.0",
  "sp-block-builder",
@@ -4543,7 +4544,7 @@ dependencies = [
  "async-trait",
  "cumulus-primitives-core",
  "futures",
- "jsonrpsee-core 0.23.2",
+ "jsonrpsee-core 0.24.3",
  "parity-scale-codec",
  "polkadot-overseer",
  "sc-client-api",
@@ -4598,7 +4599,7 @@ dependencies = [
  "either",
  "futures",
  "futures-timer",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "parity-scale-codec",
  "pin-project",
  "polkadot-overseer",
@@ -4744,7 +4745,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parachains-common",
@@ -6308,7 +6309,7 @@ dependencies = [
  "sc-cli",
  "sp-runtime 31.0.1",
  "sp-statement-store",
- "sp-tracing 16.0.0",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
@@ -6317,7 +6318,7 @@ version = "0.35.0"
 dependencies = [
  "futures",
  "indicatif",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "parity-scale-codec",
  "serde",
@@ -7786,6 +7787,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
 
 [[package]]
+name = "jemalloc_pprof"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96368c0fc161a0a1a20b3952b6fd31ee342fffc87ed9e48ac1ed49fb25686655"
+dependencies = [
+ "anyhow",
+ "libc",
+ "mappings",
+ "once_cell",
+ "pprof_util",
+ "tempfile",
+ "tikv-jemalloc-ctl",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "jni"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7883,11 +7901,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62b089779ad7f80768693755a031cc14a7766aba707cbe886674e3f79e9b7e47"
 dependencies = [
  "jsonrpsee-core 0.23.2",
- "jsonrpsee-http-client 0.23.2",
+ "jsonrpsee-types 0.23.2",
+ "jsonrpsee-ws-client 0.23.2",
+]
+
+[[package]]
+name = "jsonrpsee"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ec465b607a36dc5dd45d48b7689bc83f679f66a3ac6b6b21cc787a11e0f8685"
+dependencies = [
+ "jsonrpsee-core 0.24.3",
+ "jsonrpsee-http-client 0.24.3",
  "jsonrpsee-proc-macros",
  "jsonrpsee-server",
- "jsonrpsee-types 0.23.2",
- "jsonrpsee-ws-client",
+ "jsonrpsee-types 0.24.3",
+ "jsonrpsee-ws-client 0.24.3",
  "tokio",
  "tracing",
 ]
@@ -7937,6 +7966,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonrpsee-client-transport"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90f0977f9c15694371b8024c35ab58ca043dbbf4b51ccb03db8858a021241df1"
+dependencies = [
+ "base64 0.22.1",
+ "futures-util",
+ "http 1.1.0",
+ "jsonrpsee-core 0.24.3",
+ "pin-project",
+ "rustls 0.23.12",
+ "rustls-pki-types",
+ "rustls-platform-verifier",
+ "soketto 0.8.0",
+ "thiserror",
+ "tokio",
+ "tokio-rustls 0.26.0",
+ "tokio-util",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "jsonrpsee-core"
 version = "0.22.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7968,17 +8020,37 @@ dependencies = [
  "anyhow",
  "async-trait",
  "beef",
+ "futures-timer",
+ "futures-util",
+ "jsonrpsee-types 0.23.2",
+ "pin-project",
+ "rustc-hash 1.1.0",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+]
+
+[[package]]
+name = "jsonrpsee-core"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e942c55635fbf5dc421938b8558a8141c7e773720640f4f1dbe1f4164ca4e221"
+dependencies = [
+ "async-trait",
  "bytes",
  "futures-timer",
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.1",
  "http-body-util",
- "jsonrpsee-types 0.23.2",
+ "jsonrpsee-types 0.24.3",
  "parking_lot 0.12.3",
  "pin-project",
  "rand",
- "rustc-hash 1.1.0",
+ "rustc-hash 2.0.0",
  "serde",
  "serde_json",
  "thiserror",
@@ -8009,9 +8081,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-http-client"
-version = "0.23.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d90064e04fb9d7282b1c71044ea94d0bbc6eff5621c66f1a0bce9e9de7cf3ac"
+checksum = "e33774602df12b68a2310b38a535733c477ca4a498751739f89fe8dbbb62ec4c"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -8019,8 +8091,8 @@ dependencies = [
  "hyper 1.4.1",
  "hyper-rustls 0.27.2",
  "hyper-util",
- "jsonrpsee-core 0.23.2",
- "jsonrpsee-types 0.23.2",
+ "jsonrpsee-core 0.24.3",
+ "jsonrpsee-types 0.24.3",
  "rustls 0.23.12",
  "rustls-platform-verifier",
  "serde",
@@ -8034,9 +8106,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-proc-macros"
-version = "0.23.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7895f186d5921065d96e16bd795e5ca89ac8356ec423fafc6e3d7cf8ec11aee4"
+checksum = "6b07a2daf52077ab1b197aea69a5c990c060143835bf04c77070e98903791715"
 dependencies = [
  "heck 0.5.0",
  "proc-macro-crate 3.1.0",
@@ -8047,19 +8119,18 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-server"
-version = "0.23.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "654afab2e92e5d88ebd8a39d6074483f3f2bfdf91c5ac57fe285e7127cdd4f51"
+checksum = "038fb697a709bec7134e9ccbdbecfea0e2d15183f7140254afef7c5610a3f488"
 dependencies = [
- "anyhow",
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.4.1",
  "hyper-util",
- "jsonrpsee-core 0.23.2",
- "jsonrpsee-types 0.23.2",
+ "jsonrpsee-core 0.24.3",
+ "jsonrpsee-types 0.24.3",
  "pin-project",
  "route-recognizer",
  "serde",
@@ -8100,6 +8171,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonrpsee-types"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b67d6e008164f027afbc2e7bb79662650158d26df200040282d2aa1cbb093b"
+dependencies = [
+ "http 1.1.0",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "jsonrpsee-ws-client"
 version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8109,6 +8192,19 @@ dependencies = [
  "jsonrpsee-client-transport 0.23.2",
  "jsonrpsee-core 0.23.2",
  "jsonrpsee-types 0.23.2",
+ "url",
+]
+
+[[package]]
+name = "jsonrpsee-ws-client"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "992bf67d1132f88edf4a4f8cff474cf01abb2be203004a2b8e11c2b20795b99e"
+dependencies = [
+ "http 1.1.0",
+ "jsonrpsee-client-transport 0.24.3",
+ "jsonrpsee-core 0.24.3",
+ "jsonrpsee-types 0.24.3",
  "url",
 ]
 
@@ -9218,6 +9314,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
+name = "mappings"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fa2605f461115ef6336342b12f0d8cabdfd7b258fed86f5f98c725535843601"
+dependencies = [
+ "anyhow",
+ "libc",
+ "once_cell",
+ "pprof_util",
+ "tracing",
+]
+
+[[package]]
 name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9392,50 +9501,20 @@ dependencies = [
  "docify",
  "futures",
  "futures-timer",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "minimal-template-runtime",
- "polkadot-sdk-frame",
- "sc-basic-authorship",
- "sc-cli",
- "sc-client-api",
- "sc-consensus",
- "sc-consensus-manual-seal",
- "sc-executor 0.32.0",
- "sc-network",
- "sc-offchain",
- "sc-rpc-api",
- "sc-service",
- "sc-telemetry",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
+ "polkadot-sdk",
  "serde_json",
- "sp-api 26.0.0",
- "sp-block-builder",
- "sp-blockchain",
- "sp-io 30.0.0",
- "sp-keyring",
- "sp-runtime 31.0.1",
- "sp-timestamp",
- "substrate-build-script-utils",
- "substrate-frame-rpc-system",
 ]
 
 [[package]]
 name = "minimal-template-runtime"
 version = "0.0.0"
 dependencies = [
- "pallet-balances",
  "pallet-minimal-template",
- "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
- "polkadot-sdk-frame",
+ "polkadot-sdk",
  "scale-info",
- "sp-genesis-builder",
- "sp-runtime 31.0.1",
- "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -9511,7 +9590,7 @@ dependencies = [
 name = "mmr-rpc"
 version = "28.0.0"
 dependencies = [
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "parity-scale-codec",
  "serde",
  "serde_json",
@@ -9984,7 +10063,7 @@ dependencies = [
 name = "node-rpc"
 version = "3.0.0-dev"
 dependencies = [
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "mmr-rpc",
  "node-primitives",
  "pallet-transaction-payment-rpc",
@@ -9998,7 +10077,6 @@ dependencies = [
  "sc-consensus-grandpa-rpc",
  "sc-mixnet",
  "sc-rpc",
- "sc-rpc-api",
  "sc-sync-state-rpc",
  "sc-transaction-pool-api",
  "sp-api 26.0.0",
@@ -10279,6 +10357,15 @@ name = "object"
 version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6a622008b6e321afc04970976f62ee297fdbaa6f95318ca343e3eebb9648441"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "object"
+version = "0.36.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "084f1a5821ac4c651660a94a7153d27ac9d8a53736203f58b31945ded098070a"
 dependencies = [
  "memchr",
 ]
@@ -11078,7 +11165,7 @@ dependencies = [
  "anyhow",
  "frame-system",
  "parity-wasm",
- "polkavm-linker",
+ "polkavm-linker 0.9.2",
  "sp-runtime 31.0.1",
  "tempfile",
  "toml 0.8.19",
@@ -11684,7 +11771,7 @@ name = "pallet-minimal-template"
 version = "0.0.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk-frame",
+ "polkadot-sdk",
  "scale-info",
 ]
 
@@ -12134,6 +12221,115 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-revive"
+version = "0.1.0"
+dependencies = [
+ "array-bytes",
+ "assert_matches",
+ "bitflags 1.3.2",
+ "environmental",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-proxy",
+ "pallet-revive-fixtures",
+ "pallet-revive-proc-macro",
+ "pallet-revive-uapi",
+ "pallet-timestamp",
+ "pallet-utility",
+ "parity-scale-codec",
+ "paste",
+ "polkavm 0.10.0",
+ "pretty_assertions",
+ "scale-info",
+ "serde",
+ "sp-api 26.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "wat",
+]
+
+[[package]]
+name = "pallet-revive-fixtures"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "frame-system",
+ "parity-wasm",
+ "polkavm-linker 0.10.0",
+ "sp-runtime 31.0.1",
+ "tempfile",
+ "toml 0.8.19",
+]
+
+[[package]]
+name = "pallet-revive-mock-network"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-proxy",
+ "pallet-revive",
+ "pallet-revive-fixtures",
+ "pallet-revive-proc-macro",
+ "pallet-revive-uapi",
+ "pallet-timestamp",
+ "pallet-utility",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "pretty_assertions",
+ "scale-info",
+ "sp-api 26.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "xcm-simulator",
+]
+
+[[package]]
+name = "pallet-revive-proc-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.86",
+ "quote 1.0.36",
+ "syn 2.0.75",
+]
+
+[[package]]
+name = "pallet-revive-uapi"
+version = "0.1.0"
+dependencies = [
+ "bitflags 1.3.2",
+ "parity-scale-codec",
+ "paste",
+ "polkavm-derive 0.10.0",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-root-offences"
 version = "25.0.0"
 dependencies = [
@@ -12512,7 +12708,7 @@ dependencies = [
 name = "pallet-transaction-payment-rpc"
 version = "30.0.0"
 dependencies = [
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "sp-api 26.0.0",
@@ -12771,7 +12967,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "futures",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "pallet-transaction-payment-rpc",
  "parachain-template-runtime",
@@ -14588,19 +14784,48 @@ dependencies = [
 name = "polkadot-parachain-bin"
 version = "4.0.0"
 dependencies = [
- "assert_cmd",
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
- "async-trait",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
- "clap 4.5.16",
  "collectives-westend-runtime",
  "color-eyre",
- "color-print",
  "contracts-rococo-runtime",
  "coretime-rococo-runtime",
  "coretime-westend-runtime",
+ "cumulus-primitives-core",
+ "glutton-westend-runtime",
+ "hex-literal",
+ "log",
+ "parachains-common",
+ "penpal-runtime",
+ "people-rococo-runtime",
+ "people-westend-runtime",
+ "polkadot-parachain-lib",
+ "polkadot-service",
+ "rococo-parachain-runtime",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-service",
+ "seedling-runtime",
+ "serde",
+ "serde_json",
+ "shell-runtime",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm",
+ "substrate-build-script-utils",
+ "testnet-parachains-constants",
+]
+
+[[package]]
+name = "polkadot-parachain-lib"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "async-trait",
+ "clap 4.5.16",
+ "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -14619,9 +14844,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "futures",
- "glutton-westend-runtime",
- "hex-literal",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "nix 0.28.0",
  "pallet-transaction-payment",
@@ -14629,56 +14852,40 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
- "people-rococo-runtime",
- "people-westend-runtime",
  "polkadot-cli",
  "polkadot-primitives",
- "polkadot-service",
- "rococo-parachain-runtime",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-cli",
  "sc-client-api",
+ "sc-client-db",
  "sc-consensus",
  "sc-executor 0.32.0",
  "sc-network",
- "sc-network-sync",
  "sc-rpc",
  "sc-service",
  "sc-sysinfo",
  "sc-telemetry",
  "sc-tracing",
  "sc-transaction-pool",
- "sc-transaction-pool-api",
- "seedling-runtime",
  "serde",
  "serde_json",
- "shell-runtime",
  "sp-api 26.0.0",
  "sp-block-builder",
- "sp-blockchain",
  "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 30.0.0",
  "sp-keystore 0.34.0",
- "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
- "sp-std 14.0.0",
  "sp-timestamp",
- "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-version 29.0.0",
- "staging-xcm",
- "substrate-build-script-utils",
+ "sp-weights 27.0.0",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
- "tempfile",
- "testnet-parachains-constants",
  "tokio",
  "wait-timeout",
 ]
@@ -14739,7 +14946,7 @@ dependencies = [
 name = "polkadot-rpc"
 version = "7.0.0"
 dependencies = [
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "mmr-rpc",
  "pallet-transaction-payment-rpc",
  "polkadot-primitives",
@@ -15038,6 +15245,11 @@ dependencies = [
  "pallet-recovery",
  "pallet-referenda",
  "pallet-remark",
+ "pallet-revive",
+ "pallet-revive-fixtures",
+ "pallet-revive-mock-network",
+ "pallet-revive-proc-macro",
+ "pallet-revive-uapi",
  "pallet-root-offences",
  "pallet-root-testing",
  "pallet-safe-mode",
@@ -15110,6 +15322,7 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
+ "polkadot-parachain-lib",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-rpc",
@@ -15580,6 +15793,7 @@ dependencies = [
  "futures-timer",
  "hex",
  "itertools 0.11.0",
+ "jemalloc_pprof",
  "kvdb-memorydb",
  "log",
  "orchestra",
@@ -15603,6 +15817,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-service",
  "polkadot-statement-distribution",
  "prometheus",
  "pyroscope",
@@ -15631,6 +15846,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "strum 0.26.3",
  "substrate-prometheus-endpoint",
+ "tikv-jemallocator",
  "tokio",
  "tracing-gum",
 ]
@@ -15844,9 +16060,22 @@ checksum = "8a3693e5efdb2bf74e449cd25fd777a28bd7ed87e41f5d5da75eb31b4de48b94"
 dependencies = [
  "libc",
  "log",
- "polkavm-assembler",
+ "polkavm-assembler 0.9.0",
  "polkavm-common 0.9.0",
- "polkavm-linux-raw",
+ "polkavm-linux-raw 0.9.0",
+]
+
+[[package]]
+name = "polkavm"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7ec0c5935f2eff23cfc4653002f4f8d12b37f87a720e0631282d188c32089d6"
+dependencies = [
+ "libc",
+ "log",
+ "polkavm-assembler 0.10.0",
+ "polkavm-common 0.10.0",
+ "polkavm-linux-raw 0.10.0",
 ]
 
 [[package]]
@@ -15854,6 +16083,15 @@ name = "polkavm-assembler"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fa96d6d868243acc12de813dd48e756cbadcc8e13964c70d272753266deadc1"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "polkavm-assembler"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8e4fd5a43100bf1afe9727b8130d01f966f5cfc9144d5604b21e795c2bcd80e"
 dependencies = [
  "log",
 ]
@@ -15874,6 +16112,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-common"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0097b48bc0bedf9f3f537ce8f37e8f1202d8d83f9b621bdb21ff2c59b9097c50"
+dependencies = [
+ "log",
+ "polkavm-assembler 0.10.0",
+]
+
+[[package]]
 name = "polkavm-derive"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15889,6 +16137,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae8c4bea6f3e11cd89bb18bcdddac10bd9a24015399bd1c485ad68a985a19606"
 dependencies = [
  "polkavm-derive-impl-macro 0.9.0",
+]
+
+[[package]]
+name = "polkavm-derive"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dcc701385c08c31bdb0569f0c51a290c580d892fa77f1dd88a7352a62679ecf"
+dependencies = [
+ "polkavm-derive-impl-macro 0.10.0",
 ]
 
 [[package]]
@@ -15916,6 +16173,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-derive-impl"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7855353a5a783dd5d09e3b915474bddf66575f5a3cf45dec8d1c5e051ba320dc"
+dependencies = [
+ "polkavm-common 0.10.0",
+ "proc-macro2 1.0.86",
+ "quote 1.0.36",
+ "syn 2.0.75",
+]
+
+[[package]]
 name = "polkavm-derive-impl-macro"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15936,6 +16205,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-derive-impl-macro"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9324fe036de37c17829af233b46ef6b5562d4a0c09bb7fdb9f8378856dee30cf"
+dependencies = [
+ "polkavm-derive-impl 0.10.0",
+ "syn 2.0.75",
+]
+
+[[package]]
 name = "polkavm-linker"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15951,10 +16230,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-linker"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d704edfe7bdcc876784f19436d53d515b65eb07bc9a0fae77085d552c2dbbb5"
+dependencies = [
+ "gimli 0.28.1",
+ "hashbrown 0.14.5",
+ "log",
+ "object 0.36.4",
+ "polkavm-common 0.10.0",
+ "regalloc2 0.9.3",
+ "rustc-demangle",
+]
+
+[[package]]
 name = "polkavm-linux-raw"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26e85d3456948e650dff0cfc85603915847faf893ed1e66b020bb82ef4557120"
+
+[[package]]
+name = "polkavm-linux-raw"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26e45fa59c7e1bb12ef5289080601e9ec9b31435f6e32800a5c90c132453d126"
 
 [[package]]
 name = "polling"
@@ -16049,6 +16349,19 @@ dependencies = [
  "symbolic-demangle",
  "tempfile",
  "thiserror",
+]
+
+[[package]]
+name = "pprof_util"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c620a1858d6ebf10d7c60256629078b2d106968d0e6ff63b850d9ecd84008fbe"
+dependencies = [
+ "anyhow",
+ "flate2",
+ "num",
+ "paste",
+ "prost 0.11.9",
 ]
 
 [[package]]
@@ -17025,7 +17338,7 @@ dependencies = [
  "finality-relay",
  "frame-support",
  "futures",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "num-traits",
  "pallet-transaction-payment",
@@ -18275,7 +18588,7 @@ name = "sc-consensus-babe-rpc"
 version = "0.34.0"
 dependencies = [
  "futures",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "sc-consensus",
  "sc-consensus-babe",
  "sc-consensus-epochs",
@@ -18347,7 +18660,7 @@ name = "sc-consensus-beefy-rpc"
 version = "13.0.0"
 dependencies = [
  "futures",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -18432,7 +18745,7 @@ version = "0.19.0"
 dependencies = [
  "finality-grandpa",
  "futures",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "parity-scale-codec",
  "sc-block-builder",
@@ -18458,7 +18771,7 @@ dependencies = [
  "async-trait",
  "futures",
  "futures-timer",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "parity-scale-codec",
  "sc-basic-authorship",
@@ -18602,7 +18915,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
- "polkavm",
+ "polkavm 0.9.3",
  "sc-allocator 23.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-wasm-interface 20.0.0",
@@ -18616,7 +18929,7 @@ version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aad16187c613f81feab35f0d6c12c15c1d88eea0794c886b5dca3495d26746de"
 dependencies = [
- "polkavm",
+ "polkavm 0.9.3",
  "sc-allocator 28.0.0",
  "sp-maybe-compressed-blob 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-wasm-interface 21.0.0",
@@ -18629,7 +18942,7 @@ name = "sc-executor-polkavm"
 version = "0.29.0"
 dependencies = [
  "log",
- "polkavm",
+ "polkavm 0.9.3",
  "sc-executor-common 0.29.0",
  "sp-wasm-interface 20.0.0",
 ]
@@ -18641,7 +18954,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db336a08ea53b6a89972a6ad6586e664c15db2add9d1cfb508afc768de387304"
 dependencies = [
  "log",
- "polkavm",
+ "polkavm 0.9.3",
  "sc-executor-common 0.34.0",
  "sp-wasm-interface 21.0.0",
 ]
@@ -19054,7 +19367,7 @@ version = "29.0.0"
 dependencies = [
  "assert_matches",
  "futures",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -19083,18 +19396,16 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-session",
  "sp-statement-store",
- "sp-tracing 16.0.0",
  "sp-version 29.0.0",
  "substrate-test-runtime-client",
  "tokio",
- "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
 name = "sc-rpc-api"
 version = "0.33.0"
 dependencies = [
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-mixnet",
@@ -19113,6 +19424,7 @@ dependencies = [
 name = "sc-rpc-server"
 version = "11.0.0"
 dependencies = [
+ "dyn-clone",
  "forwarded-header-value",
  "futures",
  "governor",
@@ -19120,8 +19432,9 @@ dependencies = [
  "http-body-util",
  "hyper 1.4.1",
  "ip_network",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
+ "sc-rpc-api",
  "serde",
  "serde_json",
  "substrate-prometheus-endpoint",
@@ -19139,7 +19452,7 @@ dependencies = [
  "futures",
  "futures-util",
  "hex",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -19193,7 +19506,7 @@ dependencies = [
  "exit-future",
  "futures",
  "futures-timer",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -19331,7 +19644,7 @@ dependencies = [
 name = "sc-sync-state-rpc"
 version = "0.34.0"
 dependencies = [
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-client-api",
@@ -20947,7 +21260,7 @@ dependencies = [
  "frame-metadata-hash-extension",
  "frame-system",
  "futures",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
@@ -20959,7 +21272,6 @@ dependencies = [
  "sc-executor 0.32.0",
  "sc-network",
  "sc-offchain",
- "sc-rpc-api",
  "sc-service",
  "sc-telemetry",
  "sc-transaction-pool",
@@ -23026,7 +23338,7 @@ dependencies = [
  "clap_complete",
  "criterion",
  "futures",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "kitchensink-runtime",
  "log",
  "nix 0.28.0",
@@ -23411,7 +23723,7 @@ version = "29.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "parity-scale-codec",
  "sc-rpc-api",
  "scale-info",
@@ -23430,7 +23742,7 @@ dependencies = [
  "docify",
  "frame-system-rpc-runtime-api",
  "futures",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "parity-scale-codec",
  "sc-rpc-api",
@@ -23507,7 +23819,7 @@ name = "substrate-rpc-client"
 version = "0.33.0"
 dependencies = [
  "async-trait",
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "log",
  "sc-rpc-api",
  "serde",
@@ -23536,7 +23848,7 @@ dependencies = [
 name = "substrate-state-trie-migration-rpc"
 version = "27.0.0"
 dependencies = [
- "jsonrpsee 0.23.2",
+ "jsonrpsee 0.24.3",
  "parity-scale-codec",
  "sc-client-api",
  "sc-rpc-api",
@@ -23683,7 +23995,7 @@ dependencies = [
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
- "polkavm-linker",
+ "polkavm-linker 0.9.2",
  "sc-executor 0.32.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
