@@ -357,7 +357,8 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, .. } = WasmModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
-		let addr = crate::address::create2::<T>(&caller, &code, &input, &salt);
+		let deployer = T::AddressMapper::to_address(&caller);
+		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let account_id = T::AddressMapper::to_account_id_contract(&addr);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
@@ -388,7 +389,8 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(caller.clone());
 		let WasmModule { code, .. } = WasmModule::dummy();
 		let storage_deposit = default_deposit_limit::<T>();
-		let addr = crate::address::create2::<T>(&caller, &code, &input, &salt);
+		let deployer = T::AddressMapper::to_address(&caller);
+		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let hash =
 			Contracts::<T>::bare_upload_code(origin.into(), code, storage_deposit)?.code_hash;
 		let account_id = T::AddressMapper::to_account_id_contract(&addr);
@@ -1556,7 +1558,8 @@ mod benchmarks {
 
 		let input = vec![42u8; i as _];
 		let salt = [42u8; 32];
-		let addr = crate::address::create2::<T>(&account_id, &code.code, &input, &salt);
+		let deployer = T::AddressMapper::to_address(&account_id);
+		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
 		let account_id = T::AddressMapper::to_account_id_contract(&addr);
 		let mut memory = memory!(hash_bytes, deposit_bytes, value_bytes, input, salt,);
 

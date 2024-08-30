@@ -17,8 +17,9 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	BalanceOf, Code, CollectEvents, Config, ContractExecResult, ContractInstantiateResult,
-	DebugInfo, EventRecordOf, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
+	address::AddressMapper, AccountIdOf, BalanceOf, Code, CollectEvents, Config,
+	ContractExecResult, ContractInstantiateResult, DebugInfo, EventRecordOf, ExecReturnValue,
+	InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
@@ -72,6 +73,11 @@ macro_rules! builder {
             $($extra)*
 		}
 	}
+}
+
+pub struct Contract<T: Config> {
+	pub account_id: AccountIdOf<T>,
+	pub addr: H160,
 }
 
 builder!(
@@ -144,7 +150,15 @@ builder!(
 
 	/// Build the instantiate call and unwrap the account id.
 	pub fn build_and_unwrap_account_id(self) -> H160 {
-		self.build().result.unwrap().account_id
+		let addr = self.build().result.unwrap().account_id;
+		addr
+	}
+
+	/// Build the instantiate call and unwrap the account id.
+	pub fn build_and_unwrap_contract(self) -> Contract<T> {
+		let addr = self.build().result.unwrap().account_id;
+		let account_id = T::AddressMapper::to_account_id(&addr);
+		Contract{ account_id,  addr }
 	}
 
 	pub fn bare_instantiate(origin: OriginFor<T>, code: Code) -> Self {

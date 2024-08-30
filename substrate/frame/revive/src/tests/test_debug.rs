@@ -16,18 +16,19 @@
 // limitations under the License.
 
 use super::*;
+
 use crate::{
 	debug::{CallInterceptor, CallSpan, ExecResult, ExportedFunction, Tracing},
 	primitives::ExecReturnValue,
 	test_utils::*,
-	AccountIdOf,
 };
 use frame_support::traits::Currency;
+use sp_core::H160;
 use std::cell::RefCell;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct DebugFrame {
-	contract_account: AccountId32,
+	contract_account: sp_core::H160,
 	call: ExportedFunction,
 	input: Vec<u8>,
 	result: Option<Vec<u8>>,
@@ -35,12 +36,12 @@ struct DebugFrame {
 
 thread_local! {
 	static DEBUG_EXECUTION_TRACE: RefCell<Vec<DebugFrame>> = RefCell::new(Vec::new());
-	static INTERCEPTED_ADDRESS: RefCell<Option<AccountId32>> = RefCell::new(None);
+	static INTERCEPTED_ADDRESS: RefCell<Option<sp_core::H160>> = RefCell::new(None);
 }
 
 pub struct TestDebug;
 pub struct TestCallSpan {
-	contract_account: AccountId32,
+	contract_account: sp_core::H160,
 	call: ExportedFunction,
 	input: Vec<u8>,
 }
@@ -49,7 +50,7 @@ impl Tracing<Test> for TestDebug {
 	type CallSpan = TestCallSpan;
 
 	fn new_call_span(
-		contract_account: &AccountIdOf<Test>,
+		contract_account: &crate::H160,
 		entry_point: ExportedFunction,
 		input_data: &[u8],
 	) -> TestCallSpan {
@@ -71,7 +72,7 @@ impl Tracing<Test> for TestDebug {
 
 impl CallInterceptor<Test> for TestDebug {
 	fn intercept_call(
-		contract_address: &<Test as frame_system::Config>::AccountId,
+		contract_address: &sp_core::H160,
 		_entry_point: ExportedFunction,
 		_input_data: &[u8],
 	) -> Option<ExecResult> {
@@ -106,14 +107,14 @@ mod run_tests {
 
 	#[test]
 	fn debugging_works() {
-		let (wasm_caller, _) = compile_module::<Test>("call").unwrap();
-		let (wasm_callee, _) = compile_module::<Test>("store_call").unwrap();
+		let (wasm_caller, _) = compile_module("call").unwrap();
+		let (wasm_callee, _) = compile_module("store_call").unwrap();
 
 		fn current_stack() -> Vec<DebugFrame> {
 			DEBUG_EXECUTION_TRACE.with(|stack| stack.borrow().clone())
 		}
 
-		fn deploy(wasm: Vec<u8>) -> AccountId32 {
+		fn deploy(wasm: Vec<u8>) -> H160 {
 			Contracts::bare_instantiate(
 				RuntimeOrigin::signed(ALICE),
 				0,
@@ -121,7 +122,7 @@ mod run_tests {
 				deposit_limit::<Test>(),
 				Code::Upload(wasm),
 				vec![],
-				vec![],
+				[0u8; 32],
 				DebugInfo::Skip,
 				CollectEvents::Skip,
 			)
@@ -130,7 +131,7 @@ mod run_tests {
 			.account_id
 		}
 
-		fn constructor_frame(contract_account: &AccountId32, after: bool) -> DebugFrame {
+		fn constructor_frame(contract_account: &H160, after: bool) -> DebugFrame {
 			DebugFrame {
 				contract_account: contract_account.clone(),
 				call: ExportedFunction::Constructor,
@@ -139,7 +140,7 @@ mod run_tests {
 			}
 		}
 
-		fn call_frame(contract_account: &AccountId32, args: Vec<u8>, after: bool) -> DebugFrame {
+		fn call_frame(contract_account: &H160, args: Vec<u8>, after: bool) -> DebugFrame {
 			DebugFrame {
 				contract_account: contract_account.clone(),
 				call: ExportedFunction::Call,
@@ -171,7 +172,7 @@ mod run_tests {
 
 			assert_ok!(Contracts::call(
 				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
+				addr_caller,
 				0,
 				GAS_LIMIT,
 				deposit_limit::<Test>(),
@@ -193,7 +194,7 @@ mod run_tests {
 
 	#[test]
 	fn call_interception_works() {
-		let (wasm, _) = compile_module::<Test>("dummy").unwrap();
+		let (wasm, _) = compile_module("dummy").unwrap();
 
 		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 			let _ = Balances::deposit_creating(&ALICE, 1_000_000);
@@ -206,7 +207,7 @@ mod run_tests {
 				Code::Upload(wasm),
 				vec![],
 				// some salt to ensure that the address of this contract is unique among all tests
-				vec![0x41, 0x41, 0x41, 0x41],
+				[0x41; 32],
 				DebugInfo::Skip,
 				CollectEvents::Skip,
 			)

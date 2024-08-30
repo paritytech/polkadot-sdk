@@ -17,7 +17,6 @@
 
 //! Functions that deal contract addresses.
 
-use crate::Config;
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
 use sp_runtime::AccountId32;
@@ -76,6 +75,7 @@ impl AddressMapper<AccountId32> for DefaultAddressMapper {
 }
 
 /// Determine the address of a contract using CREATE semantics.
+#[allow(dead_code)]
 pub fn create1(deployer: &H160, nonce: u64) -> H160 {
 	let mut list = rlp::RlpStream::new_list(2);
 	list.append(&deployer.as_bytes());
@@ -85,17 +85,11 @@ pub fn create1(deployer: &H160, nonce: u64) -> H160 {
 }
 
 /// Determine the address of a contract using the CREATE2 semantics.
-pub fn create2<T: Config>(
-	deployer: &T::AccountId,
-	code: &[u8],
-	input_data: &[u8],
-	salt: &[u8; 32],
-) -> H160 {
+pub fn create2(deployer: &H160, code: &[u8], input_data: &[u8], salt: &[u8; 32]) -> H160 {
 	let init_code_hash = {
 		let init_code: Vec<u8> = code.into_iter().chain(input_data).cloned().collect();
 		keccak_256(init_code.as_ref())
 	};
-	let deployer = T::AddressMapper::to_address(deployer);
 	let mut bytes = [0; 85];
 	bytes[0] = 0xff;
 	bytes[1..21].copy_from_slice(deployer.as_bytes());
@@ -107,26 +101,28 @@ pub fn create2<T: Config>(
 
 #[cfg(test)]
 mod test {
-	use sp_core::hex2array;
+	use super::*;
+	use sp_core::{hex2array, H160};
 
 	#[test]
-	fn create1() {
+	fn create1_works() {
+		let deployer = H160(hex2array!("deadbeef00000000000000000000000000000000"));
 		assert_eq!(
-			create1(H160(hex2array!(0xdeadbeef00000000000000000000000000000000)), 1),
-			H160(hex2array!("0xd663cb208b6f5b4eac7a6c6f6e78e800291c1b42")),
+			create1(&deployer, 1u64),
+			H160(hex2array!("d663cb208b6f5b4eac7a6c6f6e78e800291c1b42")),
 		)
 	}
 
 	#[test]
-	fn create2() {
+	fn create2_works() {
 		assert_eq!(
 			create2(
-				H160(hex2array!(0x0123456789012345678901234567890123456789)),
-				hex2array!(0x600060005560016000),
-				hex2array!(0x55),
-				hex2array!(0x1234567890123456789012345678901234567890123456789012345678901234)
+				&H160(hex2array!("0123456789012345678901234567890123456789")),
+				&hex2array!("600060005560016000"),
+				&hex2array!("55"),
+				&hex2array!("1234567890123456789012345678901234567890123456789012345678901234")
 			),
-			H160(hex2array!("0xe7b9e8bb7fe0d392269d203e2332435a85da9d3f")),
+			H160(hex2array!("e7b9e8bb7fe0d392269d203e2332435a85da9d3f")),
 		)
 	}
 }
