@@ -69,7 +69,7 @@ jobs:
           git config --global gpg.program /home/runner/.local/bin/pgpkms-git
           git config --global user.name "ParityReleases"
           git config --global user.email "release-team@parity.io"
-          git config --global user.signingKey ${{ secrets.GPG_KEY_FINGERPRINT }}
+          git config --global user.signingKey "90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
 
       - name: Create stable branch
         run: |
@@ -80,6 +80,9 @@ jobs:
       - name: Bump versions and reorder prdocs
         run: |
           . ./.github/scripts/release/release.sh
+
+          echo "Double checking gpg key:"
+          gpg -k
 
           BUMPED_VERSION="${{ needs.prepare-tooling.outputs.node_version }}"
           set_version "\(NODE_VERSION[^=]*= \)\".*\"" $BUMPED_VERSION "polkadot/node/primitives/src/lib.rs"
