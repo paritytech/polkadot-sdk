@@ -615,7 +615,6 @@ where
 			}
 
 			// Update atomic variables
-			self.num_connected.store(self.peers.len(), Ordering::Relaxed);
 			self.is_major_syncing.store(self.strategy.is_major_syncing(), Ordering::Relaxed);
 
 			// Process actions requested by a syncing strategy.
@@ -761,24 +760,10 @@ where
 				);
 			},
 			ToServiceCommand::Status(tx) => {
-				let mut status = self.strategy.status();
-				status.num_connected_peers = self.peers.len() as u32;
-				let _ = tx.send(status);
+				let _ = tx.send(self.strategy.status());
 			},
 			ToServiceCommand::NumActivePeers(tx) => {
 				let _ = tx.send(self.num_active_peers());
-			},
-			ToServiceCommand::SyncState(tx) => {
-				let _ = tx.send(self.strategy.status());
-			},
-			ToServiceCommand::BestSeenBlock(tx) => {
-				let _ = tx.send(self.strategy.status().best_seen_block);
-			},
-			ToServiceCommand::NumSyncPeers(tx) => {
-				let _ = tx.send(self.strategy.status().num_peers);
-			},
-			ToServiceCommand::NumQueuedBlocks(tx) => {
-				let _ = tx.send(self.strategy.status().queued_blocks);
 			},
 			ToServiceCommand::NumDownloadedBlocks(tx) => {
 				let _ = tx.send(self.strategy.num_downloaded_blocks());
@@ -787,11 +772,8 @@ where
 				let _ = tx.send(self.strategy.num_sync_requests());
 			},
 			ToServiceCommand::PeersInfo(tx) => {
-				let peers_info = self
-					.peers
-					.iter()
-					.map(|(peer_id, peer)| (*peer_id, peer.info.clone()))
-					.collect();
+				let peers_info =
+					self.peers.iter().map(|(peer_id, peer)| (*peer_id, peer.info)).collect();
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::OnBlockFinalized(hash, header) =>
@@ -867,6 +849,7 @@ where
 		if let Some(metrics) = &self.metrics {
 			metrics.peers.dec();
 		}
+		self.num_connected.fetch_sub(1, Ordering::AcqRel);
 
 		if self.important_peers.contains(&peer_id) {
 			log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
@@ -1047,6 +1030,7 @@ where
 			if let Some(metrics) = &self.metrics {
 				metrics.peers.inc();
 			}
+			self.num_connected.fetch_add(1, Ordering::AcqRel);
 		}
 		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
