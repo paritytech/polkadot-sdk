@@ -34,7 +34,6 @@ use alloc::{
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
-#[cfg(feature = "std")]
 use core::fmt;
 use frame_support::{
 	defensive,
@@ -381,7 +380,7 @@ pub mod pallet {
 const LOG_TARGET: &str = "runtime::inclusion";
 
 /// The reason that a candidate's outputs were rejected for.
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Debug)]
 enum AcceptanceCheckErr {
 	HeadDataTooLarge,
 	/// Code upgrades are not permitted at the current time.
@@ -439,7 +438,6 @@ pub(crate) enum UmpAcceptanceCheckErr {
 	IsOffboarding,
 }
 
-#[cfg(feature = "std")]
 impl fmt::Debug for UmpAcceptanceCheckErr {
 	fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
 		match *self {
@@ -828,23 +826,20 @@ impl<T: Config> Pallet<T> {
 		let prev_context = Self::para_most_recent_context(&para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
-		if check_ctx
-			.check_validation_outputs(
-				para_id,
-				relay_parent_number,
-				&validation_outputs.head_data,
-				&validation_outputs.new_validation_code,
-				validation_outputs.processed_downward_messages,
-				&validation_outputs.upward_messages,
-				BlockNumberFor::<T>::from(validation_outputs.hrmp_watermark),
-				&validation_outputs.horizontal_messages,
-			)
-			.is_err()
-		{
+		if let Err(err) = check_ctx.check_validation_outputs(
+			para_id,
+			relay_parent_number,
+			&validation_outputs.head_data,
+			&validation_outputs.new_validation_code,
+			validation_outputs.processed_downward_messages,
+			&validation_outputs.upward_messages,
+			BlockNumberFor::<T>::from(validation_outputs.hrmp_watermark),
+			&validation_outputs.horizontal_messages,
+		) {
 			log::debug!(
 				target: LOG_TARGET,
-				"Validation outputs checking for parachain `{}` failed",
-				u32::from(para_id),
+				"Validation outputs checking for parachain `{}` failed, error: {:?}",
+				u32::from(para_id), err
 			);
 			false
 		} else {
@@ -1307,9 +1302,10 @@ impl<T: Config> CandidateCheckContext<T> {
 		) {
 			log::debug!(
 				target: LOG_TARGET,
-				"Validation outputs checking during inclusion of a candidate {:?} for parachain `{}` failed",
+				"Validation outputs checking during inclusion of a candidate {:?} for parachain `{}` failed, error: {:?}",
 				backed_candidate_receipt.hash(),
 				u32::from(para_id),
+				err
 			);
 			Err(err.strip_into_dispatch_err::<T>())?;
 		};
@@ -1365,10 +1361,49 @@ impl<T: Config> CandidateCheckContext<T> {
 			para_id,
 			relay_parent_number,
 			processed_downward_messages,
+		)
+		.map_err(|e| {
+			log::debug!(
+				target: LOG_TARGET,
+				"Check processed downward messages for parachain `{}` on relay parent number `{:?}` failed, error: {:?}",
+				u32::from(para_id),
+				relay_parent_number,
+				e
+			);
+			e
+		})?;
+		Pallet::<T>::check_upward_messages(&self.config, para_id, upward_messages).map_err(
+			|e| {
+				log::debug!(
+					target: LOG_TARGET,
+					"Check upward messages for parachain `{}` failed, error: {:?}",
+					u32::from(para_id),
+					e
+				);
+				e
+			},
 		)?;
-		Pallet::<T>::check_upward_messages(&self.config, para_id, upward_messages)?;
-		hrmp::Pallet::<T>::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)?;
-		hrmp::Pallet::<T>::check_outbound_hrmp(&self.config, para_id, horizontal_messages)?;
+		hrmp::Pallet::<T>::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)
+			.map_err(|e| {
+				log::debug!(
+					target: LOG_TARGET,
+					"Check hrmp watermark for parachain `{}` on relay parent number `{:?}` failed, error: {:?}",
+					u32::from(para_id),
+					relay_parent_number,
+					e
+				);
+				e
+			})?;
+		hrmp::Pallet::<T>::check_outbound_hrmp(&self.config, para_id, horizontal_messages)
+			.map_err(|e| {
+				log::debug!(
+					target: LOG_TARGET,
+					"Check outbound hrmp for parachain `{}` failed, error: {:?}",
+					u32::from(para_id),
+					e
+				);
+				e
+			})?;
 
 		Ok(())
 	}
