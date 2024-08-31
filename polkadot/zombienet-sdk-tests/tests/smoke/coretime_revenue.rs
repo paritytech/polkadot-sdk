@@ -69,7 +69,7 @@ async fn get_total_issuance(
 			.at_latest()
 			.await
 			.unwrap()
-			.fetch(&rococo_api::storage().balances().total_issuance())
+			.fetch(&coretime_api::storage().balances().total_issuance())
 			.await
 			.unwrap()
 			.unwrap(),
