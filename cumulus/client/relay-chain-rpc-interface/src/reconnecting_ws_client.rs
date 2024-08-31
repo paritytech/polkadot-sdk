@@ -134,7 +134,7 @@ async fn connect_next_available_rpc_server(
 		let index = (starting_position + counter) % urls.len();
 		tracing::info!(
 			target: LOG_TARGET,
-			current_iteration,
+			attempt = current_iteration,
 			index,
 			url,
 			"Trying to connect to next external relaychain node.",
