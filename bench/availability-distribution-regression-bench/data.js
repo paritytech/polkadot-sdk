@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725064528676,
+  "lastUpdate": 1725109451732,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -24283,6 +24283,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012214904059999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maksym H",
+            "username": "mordamax",
+            "email": "1177472+mordamax@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b7d5f15aede020d65b2b9634e858dac863c0520a",
+          "message": "Update cmd.yml (#5536)\n\nTiny fix for subweight diff in /cmd",
+          "timestamp": "2024-08-31T11:13:52Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b7d5f15aede020d65b2b9634e858dac863c0520a"
+        },
+        "date": 1725109422528,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17902385450666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022484158899999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011537849520000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013709825626666665,
             "unit": "seconds"
           }
         ]
