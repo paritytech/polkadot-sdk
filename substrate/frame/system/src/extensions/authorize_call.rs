@@ -63,7 +63,7 @@ where
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		if origin.as_system_ref().map_or(false, |system_origin| system_origin.is_none()) {
+		if let Some(crate::RawOrigin::None) = origin.as_system_ref() {
 			// TODO TODO: refund
 			if let Some(authorize) = call.authorize() {
 				return authorize.map(|validity| (validity, Weight::zero(), crate::Origin::<T>::Authorized.into()))

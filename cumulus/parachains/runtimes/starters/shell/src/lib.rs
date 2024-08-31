@@ -275,16 +275,16 @@ construct_runtime! {
 	}
 }
 
-/// Simple implementation which fails any transaction which is signed.
+/// Simple implementation which fails any transaction which is signed or general.
 #[derive(Eq, PartialEq, Clone, Default, sp_core::RuntimeDebug, Encode, Decode, TypeInfo)]
-pub struct DisallowSigned;
+pub struct DisallowTransaction;
 
-impl TransactionExtensionBase for DisallowSigned {
-	const IDENTIFIER: &'static str = "DisallowSigned";
+impl TransactionExtensionBase for DisallowTransaction {
+	const IDENTIFIER: &'static str = "DisallowTransaction";
 	type Implicit = ();
 }
 
-impl TransactionExtension<RuntimeCall> for DisallowSigned {
+impl TransactionExtension<RuntimeCall> for DisallowTransaction {
 	type Val = ();
 	type Pre = ();
 	fn validate(
@@ -327,7 +327,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = DisallowSigned;
+pub type TxExtension = DisallowTransaction;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
