@@ -74,6 +74,7 @@ use xcm_runtime_apis::{
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
+use xcm_executor::traits::{FeeManager, FeeReason};
 
 pub trait WeightInfo {
 	fn send() -> Weight;
@@ -239,7 +240,7 @@ pub mod pallet {
 		type XcmExecuteFilter: Contains<(Location, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers + FeeManager;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(Location, Vec<Asset>)>;
@@ -2421,17 +2422,16 @@ impl<T: Config> Pallet<T> {
 		mut message: Xcm<()>,
 	) -> Result<XcmHash, SendError> {
 		let interior = interior.into();
+		let origin_dest = interior.clone().into();
 		let dest = dest.into();
-		let maybe_fee_payer = if interior != Junctions::Here {
-			message.0.insert(0, DescendOrigin(interior.clone()));
-			Some(interior.into())
-		} else {
-			None
-		};
+		let is_waived = <T::XcmExecutor as FeeManager>::is_waived(Some(&origin_dest), FeeReason::ChargeFees);
+		if !is_waived {
+			message.0.insert(0, DescendOrigin(interior));
+		}
 		log::debug!(target: "xcm::send_xcm", "dest: {:?}, message: {:?}", &dest, &message);
 		let (ticket, price) = validate_send::<T::XcmRouter>(dest, message)?;
-		if let Some(fee_payer) = maybe_fee_payer {
-			Self::charge_fees(fee_payer, price).map_err(|_| SendError::Fees)?;
+		if !is_waived {
+			Self::charge_fees(origin_dest, price).map_err(|_| SendError::Fees)?;
 		}
 		T::XcmRouter::deliver(ticket)
 	}
