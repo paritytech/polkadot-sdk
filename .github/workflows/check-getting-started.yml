@@ -198,7 +198,7 @@ jobs:
           [ "${{ runner.debug }}" = "1" ] && EXPECT_FLAGS="-d" || EXPECT_FLAGS=""
           echo "EXPECT_FLAGS=${EXPECT_FLAGS}" >> $GITHUB_ENV
 
-      - name: Check the first run if the script
+      - name: Check the first run of the script
         run: |
           expect $EXPECT_FLAGS -c '
           set timeout 120
