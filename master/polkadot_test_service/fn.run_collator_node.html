@@ -153,7 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     tokio_handle: Handle,
     key: <a class="enum" href="../sp_keyring/sr25519/enum.Keyring.html" title="enum sp_keyring::sr25519::Keyring">Sr25519Keyring</a>,
     storage_update_func: impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(),
-    boot_nodes: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../sc_network/config/struct.MultiaddrWithPeerId.html" title="struct sc_network::config::MultiaddrWithPeerId">MultiaddrWithPeerId</a>&gt;,
+    boot_nodes: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;MultiaddrWithPeerId&gt;,
     collator_pair: <a class="type" href="../polkadot_primitives/v8/type.CollatorPair.html" title="type polkadot_primitives::v8::CollatorPair">CollatorPair</a>
 ) -&gt; <a class="struct" href="struct.PolkadotTestNode.html" title="struct polkadot_test_service::PolkadotTestNode">PolkadotTestNode</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run a test collator node that uses the test runtime.</p>
 <p>The node will be using an in-memory socket, therefore you need to provide boot nodes if you
