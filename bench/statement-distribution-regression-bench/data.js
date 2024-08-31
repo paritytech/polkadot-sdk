@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725065030216,
+  "lastUpdate": 1725110051486,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -9995,6 +9995,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04631456604400004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maksym H",
+            "username": "mordamax",
+            "email": "1177472+mordamax@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b7d5f15aede020d65b2b9634e858dac863c0520a",
+          "message": "Update cmd.yml (#5536)\n\nTiny fix for subweight diff in /cmd",
+          "timestamp": "2024-08-31T11:13:52Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b7d5f15aede020d65b2b9634e858dac863c0520a"
+        },
+        "date": 1725110022433,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.93599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04804965213800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039167046632,
             "unit": "seconds"
           }
         ]
