@@ -1693,19 +1693,19 @@ impl<Block: BlockT> Backend<Block> {
 							number,
 							hash,
 						)?;
-					}
-					if start > end {
-						transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-						block_gap = None;
-						debug!(target: "db", "Removed block gap.");
-					} else {
-						block_gap = Some((start, end));
-						debug!(target: "db", "Update block gap. {:?}", block_gap);
-						transaction.set(
-							columns::META,
-							meta_keys::BLOCK_GAP,
-							&(start, end).encode(),
-						);
+						if start > end {
+							transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+							block_gap = None;
+							debug!(target: "db", "Removed block gap.");
+						} else {
+							block_gap = Some((start, end));
+							debug!(target: "db", "Update block gap. {:?}", block_gap);
+							transaction.set(
+								columns::META,
+								meta_keys::BLOCK_GAP,
+								&(start, end).encode(),
+							);
+						}
 					}
 				} else if number > best_num + One::one() &&
 					number > One::one() && self.blockchain.header(parent_hash)?.is_none()
