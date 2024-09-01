@@ -1610,13 +1610,22 @@ async fn distribution_messages_for_activation<Context>(
 			candidates: block_entry
 				.candidates()
 				.iter()
-				.flat_map(|(core_index, c_hash)| {
+				.map(|(core_index, c_hash)| {
 					let candidate = db.load_candidate_entry(c_hash).ok().flatten();
-					candidate
+					let group_index = candidate
 						.and_then(|entry| {
 							entry.approval_entry(&block_hash).map(|entry| entry.backing_group())
 						})
-						.and_then(|group_index| Some((*c_hash, *core_index, group_index)))
+						.unwrap_or_else(|| {
+							gum::warn!(
+								target: LOG_TARGET,
+								?block_hash,
+								?c_hash,
+								"Missing candidate entry or approval entry",
+							);
+							GroupIndex::default()
+						});
+					(*c_hash, *core_index, group_index)
 				})
 				.collect(),
 			slot: block_entry.slot(),
