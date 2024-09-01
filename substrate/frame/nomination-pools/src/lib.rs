@@ -3658,6 +3658,7 @@ impl<T: Config> Pallet<T> {
 	/// * each `member.pool_id` must correspond to an existing `BondedPool.id` (which implies the
 	///   existence of the reward pool as well).
 	/// * count of all members must be less than `MaxPoolMembers`.
+	/// * each `BondedPool.points` must never be lower than the pool's balance.
 	///
 	/// Then, considering unbonding members:
 	///
@@ -3784,6 +3785,11 @@ impl<T: Config> Pallet<T> {
 					depositor.active_points() >= MinCreateBond::<T>::get(),
 				"depositor must always have MinCreateBond stake in the pool, except for when the \
 				pool is being destroyed and the depositor is the last member",
+			);
+
+			ensure!(
+				bonded_pool.points >= bonded_pool.points_to_balance(bonded_pool.points),
+				"Each `BondedPool.points` must never be lower than the pool's balance"
 			);
 
 			expected_tvl += T::StakeAdapter::total_stake(Pool::from(bonded_pool.bonded_account()));

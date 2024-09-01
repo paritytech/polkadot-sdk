@@ -78,7 +78,7 @@ fn create_approved_proposals<T: Config<I>, I: 'static>(n: u32) -> Result<(), &'s
 		let (_, value, lookup) = setup_proposal::<T, I>(i);
 		Treasury::<T, I>::spend_local(origin.clone(), value, lookup)?;
 	}
-	ensure!(<Approvals<T, I>>::get().len() == n as usize, "Not all approved");
+	ensure!(Approvals::<T, I>::get().len() == n as usize, "Not all approved");
 	Ok(())
 }
 
@@ -130,7 +130,7 @@ mod benchmarks {
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let (_, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
 		Treasury::<T, _>::spend_local(origin, value, beneficiary_lookup)?;
-		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
+		let proposal_id = ProposalCount::<T, _>::get() - 1;
 		let reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
