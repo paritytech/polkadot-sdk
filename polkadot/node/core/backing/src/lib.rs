@@ -100,9 +100,9 @@ use polkadot_node_subsystem_util::{
 	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
 	request_validator_groups, request_validators,
 	runtime::{
-		self, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
+		self, fetch_claim_queue, prospective_parachains_mode, request_min_backing_votes,
+		ClaimQueueSnapshot, ProspectiveParachainsMode,
 	},
-	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
 	Validator,
 };
 use polkadot_primitives::{
@@ -121,7 +121,7 @@ use polkadot_statement_table::{
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
 use sp_keystore::KeystorePtr;
-use util::{runtime::request_node_features, vstaging::get_disabled_validators_with_fallback};
+use util::runtime::{get_disabled_validators_with_fallback, request_node_features};
 
 mod error;
 

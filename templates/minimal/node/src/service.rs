@@ -17,12 +17,15 @@
 
 use futures::FutureExt;
 use minimal_template_runtime::{interface::OpaqueBlock as Block, RuntimeApi};
-use sc_client_api::backend::Backend;
-use sc_executor::WasmExecutor;
-use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
-use sc_telemetry::{Telemetry, TelemetryWorker};
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_runtime::traits::Block as BlockT;
+use polkadot_sdk::{
+	sc_client_api::backend::Backend,
+	sc_executor::WasmExecutor,
+	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
+	sc_telemetry::{Telemetry, TelemetryWorker},
+	sc_transaction_pool_api::OffchainTransactionPoolFactory,
+	sp_runtime::traits::Block as BlockT,
+	*,
+};
 use std::sync::Arc;
 
 use crate::cli::Consensus;

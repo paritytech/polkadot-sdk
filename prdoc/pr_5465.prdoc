@@ -1,0 +1,10 @@
+title: try-state check invariant for nomination-pools (points >= stake)
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a new try-state invariant to the nomination pools that checks that for each bonded pool, the pool's points can never be lower than its staked balance.
+
+crates:
+  - name: pallet-nomination-pools
+    bump: minor
