@@ -108,17 +108,20 @@ pub fn slash<T: Config>(
 	T::Currency::slash(&HoldReason::Staking.into(), who, value)
 }
 
-/// Mint reward into an existing account.
+/// Mint `value` into an existing account.
 ///
 /// This does not increase the total issuance.
 pub fn mint_existing<T: Config>(
 	who: &T::AccountId,
 	value: BalanceOf<T>,
 ) -> Option<PositiveImbalanceOf<T>> {
-	T::Currency::deposit(who, value, Precision::BestEffort).ok()
+	// since the account already exists, we mint exact value even if value is below ED.
+	T::Currency::deposit(who, value, Precision::Exact).ok()
 }
 
-/// Mint reward and create account for `who` if it does not exist.
+/// Mint `value` and create account for `who` if it does not exist.
+///
+/// If value is below existential deposit, the account is not created.
 ///
 /// This does not increase the total issuance.
 pub fn mint_creating<T: Config>(who: &T::AccountId, value: BalanceOf<T>) -> PositiveImbalanceOf<T> {
