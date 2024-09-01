@@ -657,7 +657,10 @@ where
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+		let Some(who) = origin.as_system_origin_signer()  else {
+			return Ok((ValidTransaction::default(), (), origin));
+		};
+
 		if let Some(local_call) = call.is_sub_type() {
 			if let Call::attest { statement: attested_statement } = local_call {
 				let signer = Preclaims::<T>::get(who)
