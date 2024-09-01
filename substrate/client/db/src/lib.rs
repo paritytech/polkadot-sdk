@@ -1446,6 +1446,8 @@ impl<Block: BlockT> Backend<Block> {
 			(meta.best_number, meta.finalized_hash, meta.finalized_number, meta.block_gap)
 		};
 
+		let mut block_gap_updated = false;
+
 		let mut current_transaction_justifications: HashMap<Block::Hash, Justification> =
 			HashMap::new();
 		let mut finalized_blocks = operation.finalized_blocks.into_iter().peekable();
@@ -1691,6 +1693,7 @@ impl<Block: BlockT> Backend<Block> {
 								&(start, end).encode(),
 							);
 						}
+						block_gap_updated = true;
 					}
 				} else if number > best_num + One::one() &&
 					number > One::one() && self.blockchain.header(parent_hash)?.is_none()
@@ -1698,6 +1701,7 @@ impl<Block: BlockT> Backend<Block> {
 					let gap = (best_num + One::one(), number - One::one());
 					transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
 					block_gap = Some(gap);
+					block_gap_updated = true;
 					debug!(target: "db", "Detected block gap {block_gap:?}");
 				}
 			}
@@ -1752,7 +1756,9 @@ impl<Block: BlockT> Backend<Block> {
 		for m in meta_updates {
 			self.blockchain.update_meta(m);
 		}
-		self.blockchain.update_block_gap(block_gap);
+		if block_gap_updated {
+			self.blockchain.update_block_gap(block_gap);
+		}
 
 		Ok(())
 	}
