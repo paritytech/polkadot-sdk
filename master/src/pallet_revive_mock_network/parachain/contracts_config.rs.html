@@ -199,7 +199,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 </span><span class="kw">impl </span>pallet_revive::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>AddressGenerator = pallet_revive::DefaultAddressGenerator;
+	<span class="kw">type </span>AddressMapper = pallet_revive::DefaultAddressMapper;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>Time = <span class="kw">super</span>::Timestamp;
 	<span class="kw">type </span>Xcm = pallet_xcm::Pallet&lt;<span class="self">Self</span>&gt;;

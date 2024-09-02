@@ -454,7 +454,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-</span><span class="kw">use </span>alloc::vec::Vec;
+</span><span class="kw">use </span><span class="kw">crate</span>::H160;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::weights::Weight;
 <span class="kw">use </span>pallet_revive_uapi::ReturnFlags;
@@ -523,12 +524,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ContractResult&lt;<span class="prelude-ty">Result</span>&lt;ExecReturnValue, DispatchError&gt;, Balance, EventRecord&gt;;
 
 <span class="doccomment">/// Result type of a `bare_instantiate` call as well as `ContractsApi::instantiate`.
-</span><span class="kw">pub type </span>ContractInstantiateResult&lt;AccountId, Balance, EventRecord&gt; =
-	ContractResult&lt;<span class="prelude-ty">Result</span>&lt;InstantiateReturnValue&lt;AccountId&gt;, DispatchError&gt;, Balance, EventRecord&gt;;
+</span><span class="kw">pub type </span>ContractInstantiateResult&lt;Balance, EventRecord&gt; =
+	ContractResult&lt;<span class="prelude-ty">Result</span>&lt;InstantiateReturnValue, DispatchError&gt;, Balance, EventRecord&gt;;
 
 <span class="doccomment">/// Result type of a `bare_code_upload` call.
-</span><span class="kw">pub type </span>CodeUploadResult&lt;CodeHash, Balance&gt; =
-	<span class="prelude-ty">Result</span>&lt;CodeUploadReturnValue&lt;CodeHash, Balance&gt;, DispatchError&gt;;
+</span><span class="kw">pub type </span>CodeUploadResult&lt;Balance&gt; = <span class="prelude-ty">Result</span>&lt;CodeUploadReturnValue&lt;Balance&gt;, DispatchError&gt;;
 
 <span class="doccomment">/// Result type of a `get_storage` call.
 </span><span class="kw">pub type </span>GetStorageResult = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, ContractAccessError&gt;;
@@ -562,29 +562,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The result of a successful contract instantiation.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
-</span><span class="kw">pub struct </span>InstantiateReturnValue&lt;AccountId&gt; {
+</span><span class="kw">pub struct </span>InstantiateReturnValue {
 	<span class="doccomment">/// The output of the called constructor.
 	</span><span class="kw">pub </span>result: ExecReturnValue,
-	<span class="doccomment">/// The account id of the new contract.
-	</span><span class="kw">pub </span>account_id: AccountId,
+	<span class="doccomment">/// The address of the new contract.
+	</span><span class="kw">pub </span>addr: H160,
 }
 
 <span class="doccomment">/// The result of successfully uploading a contract.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
-</span><span class="kw">pub struct </span>CodeUploadReturnValue&lt;CodeHash, Balance&gt; {
+</span><span class="kw">pub struct </span>CodeUploadReturnValue&lt;Balance&gt; {
 	<span class="doccomment">/// The key under which the new code is stored.
-	</span><span class="kw">pub </span>code_hash: CodeHash,
+	</span><span class="kw">pub </span>code_hash: sp_core::H256,
 	<span class="doccomment">/// The deposit that was reserved at the caller. Is zero when the code already existed.
 	</span><span class="kw">pub </span>deposit: Balance,
 }
 
 <span class="doccomment">/// Reference to an existing code hash or a new wasm module.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-</span><span class="kw">pub enum </span>Code&lt;Hash&gt; {
+</span><span class="kw">pub enum </span>Code {
 	<span class="doccomment">/// A wasm module as raw bytes.
 	</span>Upload(Vec&lt;u8&gt;),
 	<span class="doccomment">/// The code hash of an on-chain wasm blob.
-	</span>Existing(Hash),
+	</span>Existing(sp_core::H256),
 }
 
 <span class="doccomment">/// The amount of balance that was either charged or refunded in order to pay for storage.

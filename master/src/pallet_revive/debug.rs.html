@@ -259,9 +259,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -284,6 +281,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	primitives::ExecReturnValue,
 };
 <span class="kw">use crate</span>::{Config, LOG_TARGET};
+<span class="kw">use </span>sp_core::H160;
 
 <span class="doccomment">/// Umbrella trait for all interfaces that serves for debugging.
 </span><span class="kw">pub trait </span>Debugger&lt;T: Config&gt;: Tracing&lt;T&gt; + CallInterceptor&lt;T&gt; {}
@@ -307,7 +305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * `entry_point` - Describes whether the call is the constructor or a regular call.
 	/// * `input_data` - The raw input data of the call.
 	</span><span class="kw">fn </span>new_call_span(
-		contract_address: <span class="kw-2">&amp;</span>T::AccountId,
+		contract_address: <span class="kw-2">&amp;</span>H160,
 		entry_point: ExportedFunction,
 		input_data: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="self">Self</span>::CallSpan;
@@ -326,11 +324,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; Tracing&lt;T&gt; <span class="kw">for </span>() {
 	<span class="kw">type </span>CallSpan = ();
 
-	<span class="kw">fn </span>new_call_span(
-		contract_address: <span class="kw-2">&amp;</span>T::AccountId,
-		entry_point: ExportedFunction,
-		input_data: <span class="kw-2">&amp;</span>[u8],
-	) {
+	<span class="kw">fn </span>new_call_span(contract_address: <span class="kw-2">&amp;</span>H160, entry_point: ExportedFunction, input_data: <span class="kw-2">&amp;</span>[u8]) {
 		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"call {entry_point:?} account: {contract_address:?}, input_data: {input_data:?}"</span>)
 	}
 }
@@ -359,7 +353,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// is returned.
 	/// * `None` - otherwise, i.e. the call should be executed normally.
 	</span><span class="kw">fn </span>intercept_call(
-		contract_address: <span class="kw-2">&amp;</span>T::AccountId,
+		contract_address: <span class="kw-2">&amp;</span>H160,
 		entry_point: ExportedFunction,
 		input_data: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Option</span>&lt;ExecResult&gt;;
@@ -367,7 +361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&gt; CallInterceptor&lt;T&gt; <span class="kw">for </span>() {
 	<span class="kw">fn </span>intercept_call(
-		_contract_address: <span class="kw-2">&amp;</span>T::AccountId,
+		_contract_address: <span class="kw-2">&amp;</span>H160,
 		_entry_point: ExportedFunction,
 		_input_data: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Option</span>&lt;ExecResult&gt; {

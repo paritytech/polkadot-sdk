@@ -367,6 +367,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -385,6 +389,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use crate</span>::{
+	address::AddressMapper,
 	benchmarking::{default_deposit_limit, Contract, WasmModule},
 	exec::{ExportedFunction, Ext, Key, Stack},
 	storage::meter::Meter,
@@ -428,7 +433,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>HasCompact&gt;::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 {
 	<span class="doccomment">/// Setup a new call for the given module.
-	</span><span class="kw">pub fn </span>new(module: WasmModule&lt;T&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(module: WasmModule) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>contract = Contract::&lt;T&gt;::new(module.clone(), <span class="macro">vec!</span>[]).unwrap();
 		<span class="kw">let </span>dest = contract.account_id.clone();
 		<span class="kw">let </span>origin = Origin::from_account_id(contract.caller.clone());
@@ -443,7 +448,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Whitelist the contract's contractInfo as it is already accounted for in the call
 		// benchmark
 		</span>benchmarking::add_to_whitelist(
-			<span class="kw">crate</span>::ContractInfoOf::&lt;T&gt;::hashed_key_for(<span class="kw-2">&amp;</span>contract.account_id).into(),
+			<span class="kw">crate</span>::ContractInfoOf::&lt;T&gt;::hashed_key_for(<span class="kw-2">&amp;</span>T::AddressMapper::to_address(
+				<span class="kw-2">&amp;</span>contract.account_id,
+			))
+			.into(),
 		);
 
 		<span class="self">Self </span>{
@@ -507,7 +515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Build the call stack.
 	</span><span class="kw">pub fn </span>ext(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (StackExt&lt;<span class="lifetime">'_</span>, T&gt;, WasmBlob&lt;T&gt;) {
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = StackExt::bench_new_call(
-			<span class="self">self</span>.dest.clone(),
+			T::AddressMapper::to_address(<span class="kw-2">&amp;</span><span class="self">self</span>.dest),
 			<span class="self">self</span>.origin.clone(),
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>.gas_meter,
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>.storage_meter,

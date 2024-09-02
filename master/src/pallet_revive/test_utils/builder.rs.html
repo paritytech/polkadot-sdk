@@ -368,6 +368,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -387,7 +396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::{deposit_limit, GAS_LIMIT};
 <span class="kw">use crate</span>::{
-	AccountIdLookupOf, AccountIdOf, BalanceOf, Code, CodeHash, CollectEvents, Config,
+	address::AddressMapper, AccountIdOf, BalanceOf, Code, CollectEvents, Config,
 	ContractExecResult, ContractInstantiateResult, DebugInfo, EventRecordOf, ExecReturnValue,
 	InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
@@ -396,6 +405,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::pallet_prelude::DispatchResultWithPostInfo;
 <span class="kw">use </span>paste::paste;
 <span class="kw">use </span>scale_info::TypeInfo;
+<span class="kw">use </span>sp_core::H160;
 
 <span class="doccomment">/// Helper macro to generate a builder for contract API calls.
 </span><span class="macro">macro_rules! </span>builder {
@@ -444,6 +454,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="kw">pub struct </span>Contract&lt;T: Config&gt; {
+	<span class="kw">pub </span>account_id: AccountIdOf&lt;T&gt;,
+	<span class="kw">pub </span>addr: H160,
+}
+
 <span class="macro">builder!</span>(
 	instantiate_with_code(
 		origin: OriginFor&lt;T&gt;,
@@ -452,7 +467,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
 		code: Vec&lt;u8&gt;,
 		data: Vec&lt;u8&gt;,
-		salt: Vec&lt;u8&gt;,
+		salt: [u8; <span class="number">32</span>],
 	) -&gt; DispatchResultWithPostInfo;
 
 	<span class="doccomment">/// Create an [`InstantiateWithCodeBuilder`] with default values.
@@ -464,7 +479,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_deposit_limit: deposit_limit::&lt;T&gt;(),
 			code,
 			data: <span class="macro">vec!</span>[],
-			salt: <span class="macro">vec!</span>[],
+			salt: [<span class="number">0</span>; <span class="number">32</span>],
 		}
 	}
 );
@@ -475,13 +490,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value: BalanceOf&lt;T&gt;,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
-		code_hash: CodeHash&lt;T&gt;,
+		code_hash: sp_core::H256,
 		data: Vec&lt;u8&gt;,
-		salt: Vec&lt;u8&gt;,
+		salt: [u8; <span class="number">32</span>],
 	) -&gt; DispatchResultWithPostInfo;
 
 	<span class="doccomment">/// Create an [`InstantiateBuilder`] with default values.
-	</span><span class="kw">pub fn </span>instantiate(origin: OriginFor&lt;T&gt;, code_hash: CodeHash&lt;T&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>instantiate(origin: OriginFor&lt;T&gt;, code_hash: sp_core::H256) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			origin,
 			value: <span class="number">0u32</span>.into(),
@@ -489,7 +504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_deposit_limit: deposit_limit::&lt;T&gt;(),
 			code_hash,
 			data: <span class="macro">vec!</span>[],
-			salt: <span class="macro">vec!</span>[],
+			salt: [<span class="number">0</span>; <span class="number">32</span>],
 		}
 	}
 );
@@ -500,24 +515,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value: BalanceOf&lt;T&gt;,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
-		code: Code&lt;CodeHash&lt;T&gt;&gt;,
+		code: Code,
 		data: Vec&lt;u8&gt;,
-		salt: Vec&lt;u8&gt;,
+		salt: [u8; <span class="number">32</span>],
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -&gt; ContractInstantiateResult&lt;AccountIdOf&lt;T&gt;, BalanceOf&lt;T&gt;, EventRecordOf&lt;T&gt;&gt;;
+	) -&gt; ContractInstantiateResult&lt;BalanceOf&lt;T&gt;, EventRecordOf&lt;T&gt;&gt;;
 
 	<span class="doccomment">/// Build the instantiate call and unwrap the result.
-	</span><span class="kw">pub fn </span>build_and_unwrap_result(<span class="self">self</span>) -&gt; InstantiateReturnValue&lt;AccountIdOf&lt;T&gt;&gt; {
+	</span><span class="kw">pub fn </span>build_and_unwrap_result(<span class="self">self</span>) -&gt; InstantiateReturnValue {
 		<span class="self">self</span>.build().result.unwrap()
 	}
 
 	<span class="doccomment">/// Build the instantiate call and unwrap the account id.
-	</span><span class="kw">pub fn </span>build_and_unwrap_account_id(<span class="self">self</span>) -&gt; AccountIdOf&lt;T&gt; {
-		<span class="self">self</span>.build().result.unwrap().account_id
+	</span><span class="kw">pub fn </span>build_and_unwrap_contract(<span class="self">self</span>) -&gt; Contract&lt;T&gt; {
+		<span class="kw">let </span>addr = <span class="self">self</span>.build().result.unwrap().addr;
+		<span class="kw">let </span>account_id = T::AddressMapper::to_account_id(<span class="kw-2">&amp;</span>addr);
+		Contract{ account_id,  addr }
 	}
 
-	<span class="kw">pub fn </span>bare_instantiate(origin: OriginFor&lt;T&gt;, code: Code&lt;CodeHash&lt;T&gt;&gt;) -&gt; <span class="self">Self </span>{
+	<span class="doccomment">/// Create a [`BareInstantiateBuilder`] with default values.
+	</span><span class="kw">pub fn </span>bare_instantiate(origin: OriginFor&lt;T&gt;, code: Code) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			origin,
 			value: <span class="number">0u32</span>.into(),
@@ -525,7 +543,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_deposit_limit: deposit_limit::&lt;T&gt;(),
 			code,
 			data: <span class="macro">vec!</span>[],
-			salt: <span class="macro">vec!</span>[],
+			salt: [<span class="number">0</span>; <span class="number">32</span>],
 			debug: DebugInfo::UnsafeDebug,
 			collect_events: CollectEvents::Skip,
 		}
@@ -535,7 +553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">builder!</span>(
 	call(
 		origin: OriginFor&lt;T&gt;,
-		dest: AccountIdLookupOf&lt;T&gt;,
+		dest: H160,
 		value: BalanceOf&lt;T&gt;,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
@@ -543,7 +561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; DispatchResultWithPostInfo;
 
 	<span class="doccomment">/// Create a [`CallBuilder`] with default values.
-	</span><span class="kw">pub fn </span>call(origin: OriginFor&lt;T&gt;, dest: AccountIdLookupOf&lt;T&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>call(origin: OriginFor&lt;T&gt;, dest: H160) -&gt; <span class="self">Self </span>{
 		CallBuilder {
 			origin,
 			dest,
@@ -558,7 +576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">builder!</span>(
 	bare_call(
 		origin: OriginFor&lt;T&gt;,
-		dest: AccountIdOf&lt;T&gt;,
+		dest: H160,
 		value: BalanceOf&lt;T&gt;,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
@@ -573,7 +591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Create a [`BareCallBuilder`] with default values.
-	</span><span class="kw">pub fn </span>bare_call(origin: OriginFor&lt;T&gt;, dest: AccountIdOf&lt;T&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>bare_call(origin: OriginFor&lt;T&gt;, dest: H160) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			origin,
 			dest,

@@ -603,6 +603,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#451" id="451">451</a>
 <a href="#452" id="452">452</a>
 <a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -626,12 +630,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 <span class="kw">use </span>polkadot_primitives::{
-	runtime_api, slashing, AccountId, AuthorityDiscoveryId, Balance, Block, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
-	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, Nonce, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	runtime_api, slashing,
+	vstaging::{
+		CandidateEvent, CommittedCandidateReceiptV2 <span class="kw">as </span>CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	AccountId, AuthorityDiscoveryId, Balance, Block, BlockNumber, CandidateCommitments,
+	CandidateHash, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId,
+	InboundDownwardMessage, InboundHrmpMessage, Nonce, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 <span class="kw">use </span>sp_consensus_beefy::ecdsa_crypto::{AuthorityId <span class="kw">as </span>BeefyId, Signature <span class="kw">as </span>BeefySignature};
 <span class="kw">use </span>sp_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;

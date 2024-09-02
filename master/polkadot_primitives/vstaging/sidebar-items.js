@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {};
+window.SIDEBAR_ITEMS = {"constant":["UMP_SEPARATOR"],"enum":["CandidateDescriptorVersion","CandidateEvent","CandidateReceiptError","CoreState","UMPSignal"],"mod":["async_backing"],"struct":["BackedCandidate","CandidateDescriptorV2","CandidateReceiptV2","ClaimQueueOffset","CommittedCandidateReceiptV2","CoreSelector","InherentData","InternalVersion","OccupiedCore","ScrapedOnChainVotes"]};

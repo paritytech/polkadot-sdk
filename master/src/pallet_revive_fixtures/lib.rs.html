@@ -223,12 +223,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -252,18 +246,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Load a given wasm module and returns a wasm binary contents along with it's hash.
 </span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-</span><span class="kw">pub fn </span>compile_module&lt;T&gt;(
-	fixture_name: <span class="kw-2">&amp;</span>str,
-) -&gt; anyhow::Result&lt;(Vec&lt;u8&gt;, &lt;T::Hashing <span class="kw">as </span>sp_runtime::traits::Hash&gt;::Output)&gt;
-<span class="kw">where
-	</span>T: frame_system::Config,
-{
-	<span class="kw">use </span>sp_runtime::traits::Hash;
+</span><span class="kw">pub fn </span>compile_module(fixture_name: <span class="kw-2">&amp;</span>str) -&gt; anyhow::Result&lt;(Vec&lt;u8&gt;, sp_core::H256)&gt; {
 	<span class="kw">let </span>out_dir: std::path::PathBuf = <span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>).into();
 	<span class="kw">let </span>fixture_path = out_dir.join(<span class="macro">format!</span>(<span class="string">"{fixture_name}.polkavm"</span>));
 	<span class="kw">let </span>binary = std::fs::read(fixture_path)<span class="question-mark">?</span>;
-	<span class="kw">let </span>code_hash = T::Hashing::hash(<span class="kw-2">&amp;</span>binary);
-	<span class="prelude-val">Ok</span>((binary, code_hash))
+	<span class="kw">let </span>code_hash = sp_io::hashing::keccak_256(<span class="kw-2">&amp;</span>binary);
+	<span class="prelude-val">Ok</span>((binary, sp_core::H256(code_hash)))
 }
 
 <span class="doccomment">/// Fixtures used in runtime benchmarks.

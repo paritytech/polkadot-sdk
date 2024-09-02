@@ -301,7 +301,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -329,10 +328,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_benchmarking::benchmarks;
 <span class="kw">use </span>pallet_message_queue <span class="kw">as </span>mq;
 <span class="kw">use </span>polkadot_primitives::{
-	CandidateCommitments, CollatorId, CollatorSignature, CommittedCandidateReceipt, HrmpChannelId,
-	OutboundHrmpMessage, SessionIndex,
+	vstaging::CommittedCandidateReceiptV2 <span class="kw">as </span>CommittedCandidateReceipt, CandidateCommitments,
+	HrmpChannelId, OutboundHrmpMessage, SessionIndex,
 };
-<span class="kw">use </span>sp_core::sr25519;
 
 <span class="kw">fn </span>create_candidate_commitments&lt;T: <span class="kw">crate</span>::hrmp::pallet::Config&gt;(
 	para_id: ParaId,
@@ -428,17 +426,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>core_index = CoreIndex::from(<span class="number">0</span>);
 		<span class="kw">let </span>backing_group = GroupIndex::from(<span class="number">0</span>);
 
-		<span class="kw">let </span>descriptor = CandidateDescriptor::&lt;T::Hash&gt; {
-			para_id: para,
-			relay_parent: Default::default(),
-			collator: CollatorId::from(sr25519::Public::from_raw([<span class="number">42u8</span>; <span class="number">32</span>])),
-			persisted_validation_data_hash: Default::default(),
-			pov_hash: Default::default(),
-			erasure_root: Default::default(),
-			signature: CollatorSignature::from(sr25519::Signature::from_raw([<span class="number">42u8</span>; <span class="number">64</span>])),
-			para_head: Default::default(),
-			validation_code_hash: ValidationCode(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]).hash(),
-		};
+		<span class="kw">let </span>descriptor = CandidateDescriptor::&lt;T::Hash&gt;::new(
+			para,
+			Default::default(),
+			CoreIndex(<span class="number">0</span>),
+			<span class="number">1</span>,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			ValidationCode(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]).hash(),
+		);
 
 		<span class="kw">let </span>receipt = CommittedCandidateReceipt::&lt;T::Hash&gt; {
 			descriptor,

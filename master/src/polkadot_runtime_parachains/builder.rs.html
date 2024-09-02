@@ -1061,6 +1061,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1093,32 +1127,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>polkadot_primitives::{
-	node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
-	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt,
-	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
-	Id <span class="kw">as </span>ParaId, IndexedVec, InherentData <span class="kw">as </span>ParachainsInherentData, InvalidDisputeStatementKind,
+	node_features::FeatureIndex,
+	vstaging::{
+		BackedCandidate, CandidateDescriptorV2,
+		CommittedCandidateReceiptV2 <span class="kw">as </span>CommittedCandidateReceipt,
+		InherentData <span class="kw">as </span>ParachainsInherentData,
+	},
+	AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
+	CollatorSignature, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,
+	GroupIndex, HeadData, Id <span class="kw">as </span>ParaId, IndexedVec, InvalidDisputeStatementKind,
 	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
 	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
 };
-<span class="kw">use </span>sp_core::{sr25519, ByteArray, H256};
+<span class="kw">use </span>sp_core::{ByteArray, H256};
 <span class="kw">use </span>sp_runtime::{
 	generic::Digest,
 	traits::{Header <span class="kw">as </span>HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
 };
-
-<span class="doccomment">/// Create a null collator id.
-</span><span class="kw">pub fn </span>dummy_collator() -&gt; CollatorId {
-	CollatorId::from_slice(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">32</span>]).expect(<span class="string">"32 bytes; qed"</span>)
-}
-
-<span class="doccomment">/// Create a null collator signature.
-</span><span class="kw">pub fn </span>dummy_collator_signature() -&gt; CollatorSignature {
-	CollatorSignature::from_slice(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">64</span>]).expect(<span class="string">"64 bytes; qed"</span>)
-}
-
 <span class="kw">fn </span>mock_validation_code() -&gt; ValidationCode {
 	ValidationCode(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>])
+}
+
+<span class="comment">// Create a dummy collator id suitable to be used in a V1 candidate descriptor.
+</span><span class="kw">fn </span>junk_collator() -&gt; CollatorId {
+	CollatorId::from_slice(<span class="kw-2">&amp;mut </span>(<span class="number">0</span>..<span class="number">32</span>).into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().as_slice())
+		.expect(<span class="string">"32 bytes; qed"</span>)
+}
+
+<span class="comment">// Creates a dummy collator signature suitable to be used in a V1 candidate descriptor.
+</span><span class="kw">fn </span>junk_collator_signature() -&gt; CollatorSignature {
+	CollatorSignature::from_slice(<span class="kw-2">&amp;mut </span>(<span class="number">0</span>..<span class="number">64</span>).into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().as_slice())
+		.expect(<span class="string">"64 bytes; qed"</span>)
 }
 
 <span class="doccomment">/// Grab an account, seeded by a name and index.
@@ -1199,6 +1239,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>fill_claimqueue: bool,
 	<span class="doccomment">/// Cores which should not be available when being populated with pending candidates.
 	</span>unavailable_cores: Vec&lt;u32&gt;,
+	<span class="doccomment">/// Use v2 candidate descriptor.
+	</span>candidate_descriptor_v2: bool,
 	_phantom: core::marker::PhantomData&lt;T&gt;,
 }
 
@@ -1230,6 +1272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			code_upgrade: <span class="prelude-val">None</span>,
 			fill_claimqueue: <span class="bool-val">true</span>,
 			unavailable_cores: <span class="macro">vec!</span>[],
+			candidate_descriptor_v2: <span class="bool-val">false</span>,
 			_phantom: core::marker::PhantomData::&lt;T&gt;,
 		}
 	}
@@ -1338,6 +1381,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self
 	</span>}
 
+	<span class="doccomment">/// Toggle usage of v2 candidate descriptors.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_candidate_descriptor_v2(<span class="kw-2">mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.candidate_descriptor_v2 = enable;
+		<span class="self">self
+	</span>}
+
 	<span class="doccomment">/// Get the maximum number of validators per core.
 	</span><span class="kw">fn </span>max_validators_per_core(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
 		<span class="self">self</span>.max_validators_per_core.unwrap_or(<span class="self">Self</span>::fallback_max_validators_per_core())
@@ -1373,18 +1422,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		HeadData(<span class="macro">vec!</span>[<span class="number">0xFF</span>; max_head_size <span class="kw">as </span>usize])
 	}
 
-	<span class="kw">fn </span>candidate_descriptor_mock() -&gt; CandidateDescriptor&lt;T::Hash&gt; {
-		CandidateDescriptor::&lt;T::Hash&gt; {
+	<span class="kw">fn </span>candidate_descriptor_mock() -&gt; CandidateDescriptorV2&lt;T::Hash&gt; {
+		<span class="comment">// Use a v1 descriptor.
+		</span>CandidateDescriptor::&lt;T::Hash&gt; {
 			para_id: <span class="number">0</span>.into(),
 			relay_parent: Default::default(),
-			collator: CollatorId::from(sr25519::Public::from_raw([<span class="number">42u8</span>; <span class="number">32</span>])),
+			collator: junk_collator(),
 			persisted_validation_data_hash: Default::default(),
 			pov_hash: Default::default(),
 			erasure_root: Default::default(),
-			signature: CollatorSignature::from(sr25519::Signature::from_raw([<span class="number">42u8</span>; <span class="number">64</span>])),
+			signature: junk_collator_signature(),
 			para_head: Default::default(),
 			validation_code_hash: mock_validation_code().hash(),
 		}
+		.into()
 	}
 
 	<span class="doccomment">/// Create a mock of `CandidatePendingAvailability`.
@@ -1695,18 +1746,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span>group_validators =
 							scheduler::Pallet::&lt;T&gt;::group_validators(group_idx).unwrap();
 
-						<span class="kw">let </span>candidate = CommittedCandidateReceipt::&lt;T::Hash&gt; {
-							descriptor: CandidateDescriptor::&lt;T::Hash&gt; {
+						<span class="kw">let </span>descriptor = <span class="kw">if </span><span class="self">self</span>.candidate_descriptor_v2 {
+							CandidateDescriptorV2::new(
 								para_id,
 								relay_parent,
-								collator: dummy_collator(),
+								core_idx,
+								<span class="number">1</span>,
+								persisted_validation_data_hash,
+								pov_hash,
+								Default::default(),
+								head_data.hash(),
+								validation_code_hash,
+							)
+						} <span class="kw">else </span>{
+							CandidateDescriptor::&lt;T::Hash&gt; {
+								para_id,
+								relay_parent,
+								collator: junk_collator(),
 								persisted_validation_data_hash,
 								pov_hash,
 								erasure_root: Default::default(),
-								signature: dummy_collator_signature(),
+								signature: junk_collator_signature(),
 								para_head: head_data.hash(),
 								validation_code_hash,
-							},
+							}
+							.into()
+						};
+
+						<span class="kw">let </span>candidate = CommittedCandidateReceipt::&lt;T::Hash&gt; {
+							descriptor,
 							commitments: CandidateCommitments::&lt;u32&gt; {
 								upward_messages: Default::default(),
 								horizontal_messages: Default::default(),

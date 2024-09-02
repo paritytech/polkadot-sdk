@@ -2455,7 +2455,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2303" id="2303">2303</a>
 <a href="#2304" id="2304">2304</a>
 <a href="#2305" id="2305">2305</a>
-<a href="#2306" id="2306">2306</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2473,7 +2472,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="doccomment">//! `V7` Primitives.
-
 </span><span class="kw">use </span>alloc::{
 	vec,
 	vec::{IntoIter, Vec},
@@ -3615,7 +3613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Free,
 }
 
-<span class="doccomment">/// An even concerning a candidate.
+<span class="doccomment">/// An event concerning a candidate.
 </span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub enum </span>CandidateEvent&lt;H = Hash&gt; {
@@ -4588,7 +4586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests {
+</span><span class="kw">pub mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>bitvec::bitvec;
 	<span class="kw">use </span>sp_core::sr25519;

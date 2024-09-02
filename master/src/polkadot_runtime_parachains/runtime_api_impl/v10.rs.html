@@ -695,6 +695,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
 <a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -724,15 +728,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>polkadot_primitives::{
 	async_backing::{
-		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
-		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
+		AsyncBackingParams, Constraints, InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	NodeFeatures, OccupiedCore, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	slashing,
+	vstaging::{
+		async_backing::{BackingState, CandidatePendingAvailability},
+		CandidateEvent, CommittedCandidateReceiptV2 <span class="kw">as </span>CommittedCandidateReceipt, CoreState,
+		OccupiedCore, ScrapedOnChainVotes,
+	},
+	ApprovalVotingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, DisputeState,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 <span class="kw">use </span>sp_runtime::traits::One;
 

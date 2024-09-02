@@ -794,6 +794,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#642" id="642">642</a>
 <a href="#643" id="643">643</a>
 <a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! Ethereum Beacon Client
@@ -829,7 +860,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>benchmarking;
 
 <span class="kw">use </span>frame_support::{
-	dispatch::DispatchResult, pallet_prelude::OptionQuery, traits::Get, transactional,
+	dispatch::{DispatchResult, PostDispatchInfo},
+	pallet_prelude::OptionQuery,
+	traits::Get,
+	transactional,
 };
 <span class="kw">use </span>frame_system::ensure_signed;
 <span class="kw">use </span>snowbridge_beacon_primitives::{
@@ -878,6 +912,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 		<span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>ForkVersions: Get&lt;ForkVersions&gt;;
+		<span class="doccomment">/// Minimum gap between finalized headers for an update to be free.
+		</span><span class="attr">#[pallet::constant]
+		</span><span class="kw">type </span>FreeHeadersInterval: Get&lt;u32&gt;;
 		<span class="kw">type </span>WeightInfo: WeightInfo;
 	}
 
@@ -1000,11 +1037,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[transactional]
 		</span><span class="doccomment">/// Submits a new finalized beacon header update. The update may contain the next
 		/// sync committee.
-		</span><span class="kw">pub fn </span>submit(origin: OriginFor&lt;T&gt;, update: Box&lt;Update&gt;) -&gt; DispatchResult {
+		</span><span class="kw">pub fn </span>submit(origin: OriginFor&lt;T&gt;, update: Box&lt;Update&gt;) -&gt; DispatchResultWithPostInfo {
 			ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(!<span class="self">Self</span>::operating_mode().is_halted(), Error::&lt;T&gt;::Halted);
-			<span class="self">Self</span>::process_update(<span class="kw-2">&amp;</span>update)<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(())
+			<span class="self">Self</span>::process_update(<span class="kw-2">&amp;</span>update)
 		}
 
 		<span class="doccomment">/// Halt or resume all pallet operations. May only be called by root.
@@ -1076,10 +1112,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_update(update: <span class="kw-2">&amp;</span>Update) -&gt; DispatchResult {
+		<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_update(update: <span class="kw-2">&amp;</span>Update) -&gt; DispatchResultWithPostInfo {
 			<span class="self">Self</span>::verify_update(update)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::apply_update(update)<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(())
+			<span class="self">Self</span>::apply_update(update)
 		}
 
 		<span class="doccomment">/// References and strictly follows &lt;https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update&gt;
@@ -1228,8 +1263,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Reference and strictly follows &lt;https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 		/// Applies a finalized beacon header update to the beacon client. If a next sync committee
 		/// is present in the update, verify the sync committee by converting it to a
-		/// SyncCommitteePrepared type. Stores the provided finalized header.
-		</span><span class="kw">fn </span>apply_update(update: <span class="kw-2">&amp;</span>Update) -&gt; DispatchResult {
+		/// SyncCommitteePrepared type. Stores the provided finalized header. Updates are free
+		/// if the certain conditions specified in `check_refundable` are met.
+		</span><span class="kw">fn </span>apply_update(update: <span class="kw-2">&amp;</span>Update) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>latest_finalized_state =
 				FinalizedBeaconState::&lt;T&gt;::get(LatestFinalizedBlockRoot::&lt;T&gt;::get())
 					.ok_or(Error::&lt;T&gt;::NotBootstrapped)<span class="question-mark">?</span>;
@@ -1261,11 +1297,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 			};
 
+			<span class="kw">let </span>pays_fee = <span class="self">Self</span>::check_refundable(update, latest_finalized_state.slot);
+			<span class="kw">let </span>actual_weight = <span class="kw">match </span>update.next_sync_committee_update {
+				<span class="prelude-val">None </span>=&gt; T::WeightInfo::submit(),
+				<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; T::WeightInfo::submit_with_sync_committee(),
+			};
+
 			<span class="kw">if </span>update.finalized_header.slot &gt; latest_finalized_state.slot {
 				<span class="self">Self</span>::store_finalized_header(update.finalized_header, update.block_roots_root)<span class="question-mark">?</span>;
 			}
 
-			<span class="prelude-val">Ok</span>(())
+			<span class="prelude-val">Ok</span>(PostDispatchInfo { actual_weight: <span class="prelude-val">Some</span>(actual_weight), pays_fee })
 		}
 
 		<span class="doccomment">/// Computes the signing root for a given beacon header and domain. The hash tree root
@@ -1430,11 +1472,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				config::SLOTS_PER_EPOCH <span class="kw">as </span>u64,
 			));
 			<span class="kw">let </span>domain_type = config::DOMAIN_SYNC_COMMITTEE.to_vec();
-			<span class="comment">// Domains are used for for seeds, for signatures, and for selecting aggregators.
+			<span class="comment">// Domains are used for seeds, for signatures, and for selecting aggregators.
 			</span><span class="kw">let </span>domain = <span class="self">Self</span>::compute_domain(domain_type, fork_version, validators_root)<span class="question-mark">?</span>;
 			<span class="comment">// Hash tree root of SigningData - object root + domain
 			</span><span class="kw">let </span>signing_root = <span class="self">Self</span>::compute_signing_root(header, domain)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(signing_root)
+		}
+
+		<span class="doccomment">/// Updates are free if the update is successful and the interval between the latest
+		/// finalized header in storage and the newly imported header is large enough. All
+		/// successful sync committee updates are free.
+		</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>check_refundable(update: <span class="kw-2">&amp;</span>Update, latest_slot: u64) -&gt; Pays {
+			<span class="comment">// If the sync committee was successfully updated, the update may be free.
+			</span><span class="kw">if </span>update.next_sync_committee_update.is_some() {
+				<span class="kw">return </span>Pays::No;
+			}
+
+			<span class="comment">// If the latest finalized header is larger than the minimum slot interval, the header
+			// import transaction is free.
+			</span><span class="kw">if </span>update.finalized_header.slot &gt;=
+				latest_slot.saturating_add(T::FreeHeadersInterval::get() <span class="kw">as </span>u64)
+			{
+				<span class="kw">return </span>Pays::No;
+			}
+
+			Pays::Yes
 		}
 	}
 }

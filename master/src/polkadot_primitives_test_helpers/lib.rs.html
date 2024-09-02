@@ -460,6 +460,70 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -485,9 +549,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Note that `dummy_` prefixed values are meant to be fillers, that should not matter, and will
 //! contain randomness based data.
 </span><span class="kw">use </span>polkadot_primitives::{
+	vstaging::{CandidateDescriptorV2, CandidateReceiptV2, CommittedCandidateReceiptV2},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, CollatorId, CollatorSignature,
-	CommittedCandidateReceipt, Hash, HeadData, Id <span class="kw">as </span>ParaId, PersistedValidationData,
-	ValidationCode, ValidationCodeHash, ValidatorId,
+	CommittedCandidateReceipt, CoreIndex, Hash, HeadData, Id <span class="kw">as </span>ParaId, PersistedValidationData,
+	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
 };
 <span class="kw">pub use </span>rand;
 <span class="kw">use </span>sp_application_crypto::sr25519;
@@ -504,12 +569,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="doccomment">/// Creates a v2 candidate receipt with filler data.
+</span><span class="kw">pub fn </span>dummy_candidate_receipt_v2&lt;H: AsRef&lt;[u8]&gt;&gt;(relay_parent: H) -&gt; CandidateReceiptV2&lt;H&gt; {
+	CandidateReceiptV2::&lt;H&gt; {
+		commitments_hash: dummy_candidate_commitments(dummy_head_data()).hash(),
+		descriptor: dummy_candidate_descriptor_v2(relay_parent),
+	}
+}
+
 <span class="doccomment">/// Creates a committed candidate receipt with filler data.
 </span><span class="kw">pub fn </span>dummy_committed_candidate_receipt&lt;H: AsRef&lt;[u8]&gt;&gt;(
 	relay_parent: H,
 ) -&gt; CommittedCandidateReceipt&lt;H&gt; {
 	CommittedCandidateReceipt::&lt;H&gt; {
 		descriptor: dummy_candidate_descriptor::&lt;H&gt;(relay_parent),
+		commitments: dummy_candidate_commitments(dummy_head_data()),
+	}
+}
+
+<span class="doccomment">/// Creates a v2 committed candidate receipt with filler data.
+</span><span class="kw">pub fn </span>dummy_committed_candidate_receipt_v2&lt;H: AsRef&lt;[u8]&gt;&gt;(
+	relay_parent: H,
+) -&gt; CommittedCandidateReceiptV2&lt;H&gt; {
+	CommittedCandidateReceiptV2 {
+		descriptor: dummy_candidate_descriptor_v2::&lt;H&gt;(relay_parent),
 		commitments: dummy_candidate_commitments(dummy_head_data()),
 	}
 }
@@ -586,6 +669,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	descriptor
 }
 
+<span class="doccomment">/// Create a v2 candidate descriptor with filler data.
+</span><span class="kw">pub fn </span>dummy_candidate_descriptor_v2&lt;H: AsRef&lt;[u8]&gt;&gt;(relay_parent: H) -&gt; CandidateDescriptorV2&lt;H&gt; {
+	<span class="kw">let </span>invalid = Hash::zero();
+	<span class="kw">let </span>descriptor = make_valid_candidate_descriptor_v2(
+		<span class="number">1</span>.into(),
+		relay_parent,
+		CoreIndex(<span class="number">1</span>),
+		<span class="number">1</span>,
+		invalid,
+		invalid,
+		invalid,
+		invalid,
+		invalid,
+	);
+	descriptor
+}
+
 <span class="doccomment">/// Create meaningless validation code.
 </span><span class="kw">pub fn </span>dummy_validation_code() -&gt; ValidationCode {
 	ValidationCode(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>])
@@ -596,14 +696,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	HeadData(<span class="macro">vec!</span>[])
 }
 
-<span class="doccomment">/// Create a meaningless collator id.
-</span><span class="kw">pub fn </span>dummy_collator() -&gt; CollatorId {
-	CollatorId::from(sr25519::Public::default())
-}
-
 <span class="doccomment">/// Create a meaningless validator id.
 </span><span class="kw">pub fn </span>dummy_validator() -&gt; ValidatorId {
 	ValidatorId::from(sr25519::Public::default())
+}
+
+<span class="doccomment">/// Create a meaningless collator id.
+</span><span class="kw">pub fn </span>dummy_collator() -&gt; CollatorId {
+	CollatorId::from(sr25519::Public::default())
 }
 
 <span class="doccomment">/// Create a meaningless collator signature.
@@ -694,6 +794,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	descriptor
 }
 
+<span class="doccomment">/// Create a v2 candidate descriptor.
+</span><span class="kw">pub fn </span>make_valid_candidate_descriptor_v2&lt;H: AsRef&lt;[u8]&gt;&gt;(
+	para_id: ParaId,
+	relay_parent: H,
+	core_index: CoreIndex,
+	session_index: SessionIndex,
+	persisted_validation_data_hash: Hash,
+	pov_hash: Hash,
+	validation_code_hash: <span class="kw">impl </span>Into&lt;ValidationCodeHash&gt;,
+	para_head: Hash,
+	erasure_root: Hash,
+) -&gt; CandidateDescriptorV2&lt;H&gt; {
+	<span class="kw">let </span>validation_code_hash = validation_code_hash.into();
+
+	<span class="kw">let </span>descriptor = CandidateDescriptorV2::new(
+		para_id,
+		relay_parent,
+		core_index,
+		session_index,
+		persisted_validation_data_hash,
+		pov_hash,
+		erasure_root,
+		para_head,
+		validation_code_hash,
+	);
+
+	descriptor
+}
 <span class="doccomment">/// After manually modifying the candidate descriptor, resign with a defined collator key.
 </span><span class="kw">pub fn </span>resign_candidate_descriptor_with_collator&lt;H: AsRef&lt;[u8]&gt;&gt;(
 	descriptor: <span class="kw-2">&amp;mut </span>CandidateDescriptor&lt;H&gt;,

@@ -218,6 +218,67 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -235,55 +296,116 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! Functions that deal with address derivation.
+</span><span class="doccomment">//! Functions that deal contract addresses.
 
-</span><span class="kw">use crate</span>::{CodeHash, Config};
-<span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>sp_runtime::traits::{Hash, TrailingZeroInput};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>sp_core::H160;
+<span class="kw">use </span>sp_io::hashing::keccak_256;
+<span class="kw">use </span>sp_runtime::AccountId32;
 
-<span class="doccomment">/// Provides the contract address generation method.
+<span class="doccomment">/// Map between the native chain account id `T` and an Ethereum [`H160`].
 ///
-/// See [`DefaultAddressGenerator`] for the default implementation.
+/// This trait exists only to emulate specialization for different concrete
+/// native account ids. **Not** to make the mapping user configurable. Hence
+/// the trait is `Sealed` and only one mandatory implementor [`DefaultAddressMapper`]
+/// exists.
 ///
-/// # Note for implementors
-///
-/// 1. Make sure that there are no collisions, different inputs never lead to the same output.
-/// 2. Make sure that the same inputs lead to the same output.
-</span><span class="kw">pub trait </span>AddressGenerator&lt;T: Config&gt; {
-	<span class="doccomment">/// The address of a contract based on the given instantiate parameters.
+/// Please note that we assume that the native account is at least 20 bytes and
+/// only implement this type for a `T` where this is the case. Luckily, this is the
+/// case for all existing runtimes as of right now. Reasing is that this will allow
+/// us to reverse an address -&gt; account_id mapping by just stripping the prefix.
+</span><span class="kw">pub trait </span>AddressMapper&lt;T&gt;: private::Sealed {
+	<span class="doccomment">/// Convert an account id to an ethereum adress.
 	///
-	/// Changing the formular for an already deployed chain is fine as long as no collisions
-	/// with the old formular. Changes only affect existing contracts.
-	</span><span class="kw">fn </span>contract_address(
-		deploying_address: <span class="kw-2">&amp;</span>T::AccountId,
-		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;,
-		input_data: <span class="kw-2">&amp;</span>[u8],
-		salt: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; T::AccountId;
+	/// This mapping is **not** required to be reversible.
+	</span><span class="kw">fn </span>to_address(account_id: <span class="kw-2">&amp;</span>T) -&gt; H160;
+
+	<span class="doccomment">/// Convert an ethereum address to a native account id.
+	///
+	/// This mapping is **required** to be reversible.
+	</span><span class="kw">fn </span>to_account_id(address: <span class="kw-2">&amp;</span>H160) -&gt; T;
+
+	<span class="doccomment">/// Same as [`Self::to_account_id`] but when we know the address is a contract.
+	///
+	/// This is only the case when we just generated the new address.
+	</span><span class="kw">fn </span>to_account_id_contract(address: <span class="kw-2">&amp;</span>H160) -&gt; T;
 }
 
-<span class="doccomment">/// Default address generator.
-///
-/// This is the default address generator used by contract instantiation. Its result
-/// is only dependent on its inputs. It can therefore be used to reliably predict the
-/// address of a contract. This is akin to the formula of eth's CREATE2 opcode. There
-/// is no CREATE equivalent because CREATE2 is strictly more powerful.
-/// Formula:
-/// `hash("contract_addr_v1" ++ deploying_address ++ code_hash ++ input_data ++ salt)`
-</span><span class="kw">pub struct </span>DefaultAddressGenerator;
+<span class="kw">mod </span>private {
+	<span class="kw">pub trait </span>Sealed {}
+	<span class="kw">impl </span>Sealed <span class="kw">for </span><span class="kw">super</span>::DefaultAddressMapper {}
+}
 
-<span class="kw">impl</span>&lt;T: Config&gt; AddressGenerator&lt;T&gt; <span class="kw">for </span>DefaultAddressGenerator {
-	<span class="doccomment">/// Formula: `hash("contract_addr_v1" ++ deploying_address ++ code_hash ++ input_data ++ salt)`
-	</span><span class="kw">fn </span>contract_address(
-		deploying_address: <span class="kw-2">&amp;</span>T::AccountId,
-		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;,
-		input_data: <span class="kw-2">&amp;</span>[u8],
-		salt: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; T::AccountId {
-		<span class="kw">let </span>entropy = (<span class="string">b"contract_addr_v1"</span>, deploying_address, code_hash, input_data, salt)
-			.using_encoded(T::Hashing::hash);
-		Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(entropy.as_ref()))
-			.expect(<span class="string">"infinite length input; no invalid inputs for type; qed"</span>)
+<span class="doccomment">/// The only implementor for `AddressMapper`.
+</span><span class="kw">pub enum </span>DefaultAddressMapper {}
+
+<span class="kw">impl </span>AddressMapper&lt;AccountId32&gt; <span class="kw">for </span>DefaultAddressMapper {
+	<span class="kw">fn </span>to_address(account_id: <span class="kw-2">&amp;</span>AccountId32) -&gt; H160 {
+		H160::from_slice(<span class="kw-2">&amp;</span>&lt;AccountId32 <span class="kw">as </span>AsRef&lt;[u8; <span class="number">32</span>]&gt;&gt;::as_ref(<span class="kw-2">&amp;</span>account_id)[..<span class="number">20</span>])
+	}
+
+	<span class="kw">fn </span>to_account_id(address: <span class="kw-2">&amp;</span>H160) -&gt; AccountId32 {
+		<span class="kw">let </span><span class="kw-2">mut </span>account_id = AccountId32::new([<span class="number">0xEE</span>; <span class="number">32</span>]);
+		&lt;AccountId32 <span class="kw">as </span>AsMut&lt;[u8; <span class="number">32</span>]&gt;&gt;::as_mut(<span class="kw-2">&amp;mut </span>account_id)[..<span class="number">20</span>]
+			.copy_from_slice(address.as_bytes());
+		account_id
+	}
+
+	<span class="kw">fn </span>to_account_id_contract(address: <span class="kw-2">&amp;</span>H160) -&gt; AccountId32 {
+		<span class="self">Self</span>::to_account_id(address)
+	}
+}
+
+<span class="doccomment">/// Determine the address of a contract using CREATE semantics.
+</span><span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub fn </span>create1(deployer: <span class="kw-2">&amp;</span>H160, nonce: u64) -&gt; H160 {
+	<span class="kw">let </span><span class="kw-2">mut </span>list = rlp::RlpStream::new_list(<span class="number">2</span>);
+	list.append(<span class="kw-2">&amp;</span>deployer.as_bytes());
+	list.append(<span class="kw-2">&amp;</span>nonce);
+	<span class="kw">let </span>hash = keccak_256(<span class="kw-2">&amp;</span>list.out());
+	H160::from_slice(<span class="kw-2">&amp;</span>hash[<span class="number">12</span>..])
+}
+
+<span class="doccomment">/// Determine the address of a contract using the CREATE2 semantics.
+</span><span class="kw">pub fn </span>create2(deployer: <span class="kw-2">&amp;</span>H160, code: <span class="kw-2">&amp;</span>[u8], input_data: <span class="kw-2">&amp;</span>[u8], salt: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; H160 {
+	<span class="kw">let </span>init_code_hash = {
+		<span class="kw">let </span>init_code: Vec&lt;u8&gt; = code.into_iter().chain(input_data).cloned().collect();
+		keccak_256(init_code.as_ref())
+	};
+	<span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0</span>; <span class="number">85</span>];
+	bytes[<span class="number">0</span>] = <span class="number">0xff</span>;
+	bytes[<span class="number">1</span>..<span class="number">21</span>].copy_from_slice(deployer.as_bytes());
+	bytes[<span class="number">21</span>..<span class="number">53</span>].copy_from_slice(salt);
+	bytes[<span class="number">53</span>..<span class="number">85</span>].copy_from_slice(<span class="kw-2">&amp;</span>init_code_hash);
+	<span class="kw">let </span>hash = keccak_256(<span class="kw-2">&amp;</span>bytes);
+	H160::from_slice(<span class="kw-2">&amp;</span>hash[<span class="number">12</span>..])
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>test {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span><span class="kw">crate</span>::test_utils::ALICE_ADDR;
+	<span class="kw">use </span>sp_core::{hex2array, H160};
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>create1_works() {
+		<span class="macro">assert_eq!</span>(
+			create1(<span class="kw-2">&amp;</span>ALICE_ADDR, <span class="number">1u64</span>),
+			H160(<span class="macro">hex2array!</span>(<span class="string">"c851da37e4e8d3a20d8d56be2963934b4ad71c3b"</span>)),
+		)
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>create2_works() {
+		<span class="macro">assert_eq!</span>(
+			create2(
+				<span class="kw-2">&amp;</span>ALICE_ADDR,
+				<span class="kw-2">&amp;</span><span class="macro">hex2array!</span>(<span class="string">"600060005560016000"</span>),
+				<span class="kw-2">&amp;</span><span class="macro">hex2array!</span>(<span class="string">"55"</span>),
+				<span class="kw-2">&amp;</span><span class="macro">hex2array!</span>(<span class="string">"1234567890123456789012345678901234567890123456789012345678901234"</span>)
+			),
+			H160(<span class="macro">hex2array!</span>(<span class="string">"7f31e795e5836a19a8f919ab5a9de9a197ecd2b6"</span>)),
+		)
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

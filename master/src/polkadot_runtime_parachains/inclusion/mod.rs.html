@@ -1568,6 +1568,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1416" id="1416">1416</a>
 <a href="#1417" id="1417">1417</a>
 <a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1614,11 +1618,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>pallet_message_queue::OnQueueChanged;
 <span class="kw">use </span>polkadot_primitives::{
-	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, BackedCandidate,
-	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id <span class="kw">as </span>ParaId,
-	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold,
+	vstaging::{
+		BackedCandidate, CandidateDescriptorV2 <span class="kw">as </span>CandidateDescriptor,
+		CandidateReceiptV2 <span class="kw">as </span>CandidateReceipt,
+		CommittedCandidateReceiptV2 <span class="kw">as </span>CommittedCandidateReceipt,
+	},
+	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Hash, HeadData,
+	Id <span class="kw">as </span>ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
+	ValidatorIndex, ValidityAttestation,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
@@ -2334,7 +2342,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>backers = <span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; validators.len()];
 		<span class="kw">let </span>signing_context = SigningContext {
-			parent_hash: backed_candidate.descriptor().relay_parent,
+			parent_hash: backed_candidate.descriptor().relay_parent(),
 			session_index: shared::CurrentSessionIndex::&lt;T&gt;::get(),
 		};
 
@@ -2450,7 +2458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 
 			paras::Pallet::&lt;T&gt;::schedule_code_upgrade(
-				receipt.descriptor.para_id,
+				receipt.descriptor.para_id(),
 				new_code,
 				now,
 				<span class="kw-2">&amp;</span>config,
@@ -2460,19 +2468,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// enact the messaging facet of the candidate.
 		</span>dmp::Pallet::&lt;T&gt;::prune_dmq(
-			receipt.descriptor.para_id,
+			receipt.descriptor.para_id(),
 			commitments.processed_downward_messages,
 		);
 		<span class="self">Self</span>::receive_upward_messages(
-			receipt.descriptor.para_id,
+			receipt.descriptor.para_id(),
 			commitments.upward_messages.as_slice(),
 		);
 		hrmp::Pallet::&lt;T&gt;::prune_hrmp(
-			receipt.descriptor.para_id,
+			receipt.descriptor.para_id(),
 			BlockNumberFor::&lt;T&gt;::from(commitments.hrmp_watermark),
 		);
 		hrmp::Pallet::&lt;T&gt;::queue_outbound_hrmp(
-			receipt.descriptor.para_id,
+			receipt.descriptor.para_id(),
 			commitments.horizontal_messages,
 		);
 
@@ -2484,7 +2492,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		));
 
 		paras::Pallet::&lt;T&gt;::note_new_head(
-			receipt.descriptor.para_id,
+			receipt.descriptor.para_id(),
 			commitments.head_data,
 			relay_parent_number,
 		);
@@ -2820,8 +2828,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		backed_candidate_receipt: <span class="kw-2">&amp;</span>CommittedCandidateReceipt&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash&gt;,
 		parent_head_data: HeadData,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockNumberFor&lt;T&gt;, Error&lt;T&gt;&gt; {
-		<span class="kw">let </span>para_id = backed_candidate_receipt.descriptor().para_id;
-		<span class="kw">let </span>relay_parent = backed_candidate_receipt.descriptor().relay_parent;
+		<span class="kw">let </span>para_id = backed_candidate_receipt.descriptor.para_id();
+		<span class="kw">let </span>relay_parent = backed_candidate_receipt.descriptor.relay_parent();
 
 		<span class="comment">// Check that the relay-parent is one of the allowed relay-parents.
 		</span><span class="kw">let </span>(relay_parent_storage_root, relay_parent_number) = {
@@ -2841,7 +2849,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>expected = persisted_validation_data.hash();
 
 			<span class="macro">ensure!</span>(
-				expected == backed_candidate_receipt.descriptor().persisted_validation_data_hash,
+				expected == backed_candidate_receipt.descriptor.persisted_validation_data_hash(),
 				Error::&lt;T&gt;::ValidationDataHashMismatch,
 			);
 		}
@@ -2850,12 +2858,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// A candidate for a parachain without current validation code is not scheduled.
 			</span>.ok_or_else(|| Error::&lt;T&gt;::UnscheduledCandidate)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(
-			backed_candidate_receipt.descriptor().validation_code_hash == validation_code_hash,
+			backed_candidate_receipt.descriptor.validation_code_hash() == validation_code_hash,
 			Error::&lt;T&gt;::InvalidValidationCodeHash,
 		);
 
 		<span class="macro">ensure!</span>(
-			backed_candidate_receipt.descriptor().para_head ==
+			backed_candidate_receipt.descriptor.para_head() ==
 				backed_candidate_receipt.commitments.head_data.hash(),
 			Error::&lt;T&gt;::ParaHeadMismatch,
 		);

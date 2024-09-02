@@ -3696,7 +3696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	mmr::MmrLeafVersion,
 };
 <span class="kw">use </span>sp_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
-<span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+<span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 <span class="kw">use </span>sp_inherents::{CheckInherentsResult, InherentData};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str,
@@ -4997,7 +4997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightPrice = pallet_transaction_payment::Pallet&lt;<span class="self">Self</span>&gt;;
 	<span class="kw">type </span>WeightInfo = pallet_revive::weights::SubstrateWeight&lt;<span class="self">Self</span>&gt;;
 	<span class="kw">type </span>ChainExtension = ();
-	<span class="kw">type </span>AddressGenerator = pallet_revive::DefaultAddressGenerator;
+	<span class="kw">type </span>AddressMapper = pallet_revive::DefaultAddressMapper;
 	<span class="kw">type </span>MaxCodeLen = ConstU32&lt;{ <span class="number">123 </span>* <span class="number">1024 </span>}&gt;;
 	<span class="kw">type </span>RuntimeMemory = ConstU32&lt;{ <span class="number">128 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>}&gt;;
 	<span class="kw">type </span>PVFMemory = ConstU32&lt;{ <span class="number">512 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>}&gt;;
@@ -6593,11 +6593,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>pallet_revive::ReviveApi&lt;Block, AccountId, Balance, BlockNumber, Hash, EventRecord&gt; <span class="kw">for </span>Runtime
+	<span class="kw">impl </span>pallet_revive::ReviveApi&lt;Block, AccountId, Balance, BlockNumber, EventRecord&gt; <span class="kw">for </span>Runtime
 	{
 		<span class="kw">fn </span>call(
 			origin: AccountId,
-			dest: AccountId,
+			dest: H160,
 			value: Balance,
 			gas_limit: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
@@ -6620,10 +6620,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			value: Balance,
 			gas_limit: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
-			code: pallet_revive::Code&lt;Hash&gt;,
+			code: pallet_revive::Code,
 			data: Vec&lt;u8&gt;,
-			salt: Vec&lt;u8&gt;,
-		) -&gt; pallet_revive::ContractInstantiateResult&lt;AccountId, Balance, EventRecord&gt;
+			salt: [u8; <span class="number">32</span>],
+		) -&gt; pallet_revive::ContractInstantiateResult&lt;Balance, EventRecord&gt;
 		{
 			Revive::bare_instantiate(
 				RuntimeOrigin::signed(origin),
@@ -6642,7 +6642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			origin: AccountId,
 			code: Vec&lt;u8&gt;,
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
-		) -&gt; pallet_revive::CodeUploadResult&lt;Hash, Balance&gt;
+		) -&gt; pallet_revive::CodeUploadResult&lt;Balance&gt;
 		{
 			Revive::bare_upload_code(
 				RuntimeOrigin::signed(origin),
@@ -6652,8 +6652,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>get_storage(
-			address: AccountId,
-			key: Vec&lt;u8&gt;,
+			address: H160,
+			key: [u8; <span class="number">32</span>],
 		) -&gt; pallet_revive::GetStorageResult {
 			Revive::get_storage(
 				address,

@@ -369,6 +369,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -412,6 +415,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{ConstU32, ConstU8, Keccak256},
 	FixedU128,
 };
+
+<span class="kw">pub const </span>SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH <span class="kw">as </span>u32;
 
 <span class="doccomment">/// Exports message to the Ethereum Gateway contract.
 </span><span class="kw">pub type </span>SnowbridgeExporter = EthereumBlobExporter&lt;
@@ -534,6 +539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>snowbridge_pallet_ethereum_client::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>ForkVersions = ChainForkVersions;
+	<span class="kw">type </span>FreeHeadersInterval = ConstU32&lt;SLOTS_PER_EPOCH&gt;;
 	<span class="kw">type </span>WeightInfo = <span class="kw">crate</span>::weights::snowbridge_pallet_ethereum_client::WeightInfo&lt;Runtime&gt;;
 }
 

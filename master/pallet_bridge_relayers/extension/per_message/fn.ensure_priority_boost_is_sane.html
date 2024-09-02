@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     Runtime: Config + Config&lt;MessagesInstance&gt;,
     MessagesInstance: 'static,
     PriorityBoostPerMessage: Get&lt;TransactionPriority&gt;,
-    Runtime::<a class="associatedtype" href="../../../frame_system/pallet/trait.Config.html#associatedtype.RuntimeCall" title="type frame_system::pallet::Config::RuntimeCall">RuntimeCall</a>: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
+    Runtime::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
     &lt;&lt;Runtime as Config&gt;::OnChargeTransaction as OnChargeTransaction&lt;Runtime&gt;&gt;::Balance: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + FixedPointOperand,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Ensures that the value of <code>PriorityBoostPerMessage</code> matches the value of
 <code>tip_boost_per_message</code>.</p>
 <p>We want two transactions, <code>TX1</code> with <code>N</code> messages and <code>TX2</code> with <code>N+1</code> messages, have

@@ -1473,37 +1473,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1321" id="1321">1321</a>
 <a href="#1322" id="1322">1322</a>
 <a href="#1323" id="1323">1323</a>
-<a href="#1324" id="1324">1324</a>
-<a href="#1325" id="1325">1325</a>
-<a href="#1326" id="1326">1326</a>
-<a href="#1327" id="1327">1327</a>
-<a href="#1328" id="1328">1328</a>
-<a href="#1329" id="1329">1329</a>
-<a href="#1330" id="1330">1330</a>
-<a href="#1331" id="1331">1331</a>
-<a href="#1332" id="1332">1332</a>
-<a href="#1333" id="1333">1333</a>
-<a href="#1334" id="1334">1334</a>
-<a href="#1335" id="1335">1335</a>
-<a href="#1336" id="1336">1336</a>
-<a href="#1337" id="1337">1337</a>
-<a href="#1338" id="1338">1338</a>
-<a href="#1339" id="1339">1339</a>
-<a href="#1340" id="1340">1340</a>
-<a href="#1341" id="1341">1341</a>
-<a href="#1342" id="1342">1342</a>
-<a href="#1343" id="1343">1343</a>
-<a href="#1344" id="1344">1344</a>
-<a href="#1345" id="1345">1345</a>
-<a href="#1346" id="1346">1346</a>
-<a href="#1347" id="1347">1347</a>
-<a href="#1348" id="1348">1348</a>
-<a href="#1349" id="1349">1349</a>
-<a href="#1350" id="1350">1350</a>
-<a href="#1351" id="1351">1351</a>
-<a href="#1352" id="1352">1352</a>
-<a href="#1353" id="1353">1353</a>
-<a href="#1354" id="1354">1354</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1576,13 +1545,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	EventRecord, Pallet <span class="kw">as </span>System,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
+<span class="kw">use </span>sp_core::{H160, H256};
 <span class="kw">use </span>sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Saturating, StaticLookup},
+	traits::{BadOrigin, Convert, Dispatchable, Saturating},
 	DispatchError,
 };
 
 <span class="kw">pub use crate</span>::{
-	address::{AddressGenerator, DefaultAddressGenerator},
+	address::{AddressMapper, DefaultAddressMapper},
 	debug::Tracing,
 	migration::{MigrateSequence, Migration, NoopMigration},
 	pallet::<span class="kw-2">*</span>,
@@ -1592,12 +1562,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(doc)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::wasm::SyscallDoc;
 
-<span class="kw">type </span>CodeHash&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash;
 <span class="kw">type </span>TrieId = BoundedVec&lt;u8, ConstU32&lt;<span class="number">128</span>&gt;&gt;;
 <span class="kw">type </span>BalanceOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
 <span class="kw">type </span>CodeVec&lt;T&gt; = BoundedVec&lt;u8, &lt;T <span class="kw">as </span>Config&gt;::MaxCodeLen&gt;;
-<span class="kw">type </span>AccountIdLookupOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source;
 <span class="kw">type </span>EventRecordOf&lt;T&gt; =
 	EventRecord&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent, &lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash&gt;;
 <span class="kw">type </span>DebugBuffer = BoundedVec&lt;u8, ConstU32&lt;{ limits::DEBUG_BUFFER_BYTES }&gt;&gt;;
@@ -1734,9 +1702,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>CodeHashLockupDepositPercent: Get&lt;Perbill&gt;;
 
-		<span class="doccomment">/// The address generator used to generate the addresses of contracts.
+		<span class="doccomment">/// Only valid type is [`DefaultAddressMapper`].
 		</span><span class="attr">#[pallet::no_default_bounds]
-		</span><span class="kw">type </span>AddressGenerator: AddressGenerator&lt;<span class="self">Self</span>&gt;;
+		</span><span class="kw">type </span>AddressMapper: AddressMapper&lt;AccountIdOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The maximum length of a contract code in bytes.
 		///
@@ -1882,8 +1850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>RuntimeCall = ();
-
-			<span class="kw">type </span>AddressGenerator = DefaultAddressGenerator;
+			<span class="kw">type </span>AddressMapper = DefaultAddressMapper;
 			<span class="kw">type </span>CallFilter = ();
 			<span class="kw">type </span>ChainExtension = ();
 			<span class="kw">type </span>CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
@@ -1907,7 +1874,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::event]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
 		<span class="doccomment">/// Contract deployed by address at the specified address.
-		</span>Instantiated { deployer: T::AccountId, contract: T::AccountId },
+		</span>Instantiated { deployer: H160, contract: H160 },
 
 		<span class="doccomment">/// Contract has been removed.
 		///
@@ -1917,34 +1884,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// `seal_terminate`.
 		</span>Terminated {
 			<span class="doccomment">/// The contract that was terminated.
-			</span>contract: T::AccountId,
+			</span>contract: H160,
 			<span class="doccomment">/// The account that received the contracts remaining balance
-			</span>beneficiary: T::AccountId,
+			</span>beneficiary: H160,
 		},
 
 		<span class="doccomment">/// Code with the specified hash has been stored.
-		</span>CodeStored { code_hash: T::Hash, deposit_held: BalanceOf&lt;T&gt;, uploader: T::AccountId },
+		</span>CodeStored { code_hash: H256, deposit_held: BalanceOf&lt;T&gt;, uploader: H160 },
 
 		<span class="doccomment">/// A custom event emitted by the contract.
 		</span>ContractEmitted {
 			<span class="doccomment">/// The contract that emitted the event.
-			</span>contract: T::AccountId,
+			</span>contract: H160,
 			<span class="doccomment">/// Data supplied by the contract. Metadata generated during contract compilation
 			/// is needed to decode it.
 			</span>data: Vec&lt;u8&gt;,
 		},
 
 		<span class="doccomment">/// A code with the specified hash was removed.
-		</span>CodeRemoved { code_hash: T::Hash, deposit_released: BalanceOf&lt;T&gt;, remover: T::AccountId },
+		</span>CodeRemoved { code_hash: H256, deposit_released: BalanceOf&lt;T&gt;, remover: H160 },
 
 		<span class="doccomment">/// A contract's code was updated.
 		</span>ContractCodeUpdated {
 			<span class="doccomment">/// The contract that has been updated.
-			</span>contract: T::AccountId,
+			</span>contract: H160,
 			<span class="doccomment">/// New code hash that was set for the contract.
-			</span>new_code_hash: T::Hash,
+			</span>new_code_hash: H256,
 			<span class="doccomment">/// Previous code hash of the contract.
-			</span>old_code_hash: T::Hash,
+			</span>old_code_hash: H256,
 		},
 
 		<span class="doccomment">/// A contract was called either by a plain account or another contract.
@@ -1958,7 +1925,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="doccomment">/// The caller of the `contract`.
 			</span>caller: Origin&lt;T&gt;,
 			<span class="doccomment">/// The contract that was called.
-			</span>contract: T::AccountId,
+			</span>contract: H160,
 		},
 
 		<span class="doccomment">/// A contract delegate called a code hash.
@@ -1971,24 +1938,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>DelegateCalled {
 			<span class="doccomment">/// The contract that performed the delegate call and hence in whose context
 			/// the `code_hash` is executed.
-			</span>contract: T::AccountId,
+			</span>contract: H160,
 			<span class="doccomment">/// The code hash that was delegate called.
-			</span>code_hash: CodeHash&lt;T&gt;,
+			</span>code_hash: H256,
 		},
 
 		<span class="doccomment">/// Some funds have been transferred and held as storage deposit.
-		</span>StorageDepositTransferredAndHeld {
-			from: T::AccountId,
-			to: T::AccountId,
-			amount: BalanceOf&lt;T&gt;,
-		},
+		</span>StorageDepositTransferredAndHeld { from: H160, to: H160, amount: BalanceOf&lt;T&gt; },
 
 		<span class="doccomment">/// Some storage deposit funds have been transferred and released.
-		</span>StorageDepositTransferredAndReleased {
-			from: T::AccountId,
-			to: T::AccountId,
-			amount: BalanceOf&lt;T&gt;,
-		},
+		</span>StorageDepositTransferredAndReleased { from: H160, to: H160, amount: BalanceOf&lt;T&gt; },
 	}
 
 	<span class="attr">#[pallet::error]
@@ -2098,16 +2057,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// A mapping from a contract's code hash to its code.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>PristineCode&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, CodeHash&lt;T&gt;, CodeVec&lt;T&gt;&gt;;
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>PristineCode&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, H256, CodeVec&lt;T&gt;&gt;;
 
 	<span class="doccomment">/// A mapping from a contract's code hash to its code info.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>CodeInfoOf&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, CodeHash&lt;T&gt;, CodeInfo&lt;T&gt;&gt;;
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>CodeInfoOf&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, H256, CodeInfo&lt;T&gt;&gt;;
 
 	<span class="doccomment">/// The code associated with a given account.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ContractInfoOf&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Identity, T::AccountId, ContractInfo&lt;T&gt;&gt;;
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ContractInfoOf&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, H160, ContractInfo&lt;T&gt;&gt;;
 
 	<span class="doccomment">/// Evicted contracts that await child trie deletion.
 	///
@@ -2310,13 +2268,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight(T::WeightInfo::call().saturating_add(<span class="kw-2">*</span>gas_limit))]
 		</span><span class="kw">pub fn </span>call(
 			origin: OriginFor&lt;T&gt;,
-			dest: AccountIdLookupOf&lt;T&gt;,
+			dest: H160,
 			<span class="attr">#[pallet::compact] </span>value: BalanceOf&lt;T&gt;,
 			gas_limit: Weight,
 			<span class="attr">#[pallet::compact] </span>storage_deposit_limit: BalanceOf&lt;T&gt;,
 			data: Vec&lt;u8&gt;,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="kw">let </span>dest = T::Lookup::lookup(dest)<span class="question-mark">?</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>output = <span class="self">Self</span>::bare_call(
 				origin,
 				dest,
@@ -2349,9 +2306,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[pallet::compact] </span>value: BalanceOf&lt;T&gt;,
 			gas_limit: Weight,
 			<span class="attr">#[pallet::compact] </span>storage_deposit_limit: BalanceOf&lt;T&gt;,
-			code_hash: CodeHash&lt;T&gt;,
+			code_hash: sp_core::H256,
 			data: Vec&lt;u8&gt;,
-			salt: Vec&lt;u8&gt;,
+			salt: [u8; <span class="number">32</span>],
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>data_len = data.len() <span class="kw">as </span>u32;
 			<span class="kw">let </span>salt_len = salt.len() <span class="kw">as </span>u32;
@@ -2393,7 +2350,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///   from the caller to pay for the storage consumed.
 		/// * `code`: The contract code to deploy in raw bytes.
 		/// * `data`: The input data to pass to the contract constructor.
-		/// * `salt`: Used for the address derivation. See [`Pallet::contract_address`].
+		/// * `salt`: Used for the address derivation. See [`crate::address::create2`].
 		///
 		/// Instantiation is executed as follows:
 		///
@@ -2415,7 +2372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[pallet::compact] </span>storage_deposit_limit: BalanceOf&lt;T&gt;,
 			code: Vec&lt;u8&gt;,
 			data: Vec&lt;u8&gt;,
-			salt: Vec&lt;u8&gt;,
+			salt: [u8; <span class="number">32</span>],
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>code_len = code.len() <span class="kw">as </span>u32;
 			<span class="kw">let </span>data_len = data.len() <span class="kw">as </span>u32;
@@ -2473,7 +2430,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight(T::WeightInfo::remove_code())]
 		</span><span class="kw">pub fn </span>remove_code(
 			origin: OriginFor&lt;T&gt;,
-			code_hash: CodeHash&lt;T&gt;,
+			code_hash: sp_core::H256,
 		) -&gt; DispatchResultWithPostInfo {
 			Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
 			<span class="kw">let </span>origin = ensure_signed(origin)<span class="question-mark">?</span>;
@@ -2496,12 +2453,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight(T::WeightInfo::set_code())]
 		</span><span class="kw">pub fn </span>set_code(
 			origin: OriginFor&lt;T&gt;,
-			dest: AccountIdLookupOf&lt;T&gt;,
-			code_hash: CodeHash&lt;T&gt;,
+			dest: H160,
+			code_hash: sp_core::H256,
 		) -&gt; DispatchResult {
 			Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
 			ensure_root(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>dest = T::Lookup::lookup(dest)<span class="question-mark">?</span>;
 			&lt;ContractInfoOf&lt;T&gt;&gt;::try_mutate(<span class="kw-2">&amp;</span>dest, |contract| {
 				<span class="kw">let </span>contract = <span class="kw">if let </span><span class="prelude-val">Some</span>(contract) = contract {
 					contract
@@ -2511,7 +2467,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				&lt;ExecStack&lt;T, WasmBlob&lt;T&gt;&gt;&gt;::increment_refcount(code_hash)<span class="question-mark">?</span>;
 				&lt;ExecStack&lt;T, WasmBlob&lt;T&gt;&gt;&gt;::decrement_refcount(contract.code_hash);
 				<span class="self">Self</span>::deposit_event(Event::ContractCodeUpdated {
-					contract: dest.clone(),
+					contract: dest,
 					new_code_hash: code_hash,
 					old_code_hash: contract.code_hash,
 				});
@@ -2581,7 +2537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// collection).
 	</span><span class="kw">pub fn </span>bare_call(
 		origin: OriginFor&lt;T&gt;,
-		dest: T::AccountId,
+		dest: H160,
 		value: BalanceOf&lt;T&gt;,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
@@ -2639,12 +2595,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value: BalanceOf&lt;T&gt;,
 		gas_limit: Weight,
 		<span class="kw-2">mut </span>storage_deposit_limit: BalanceOf&lt;T&gt;,
-		code: Code&lt;CodeHash&lt;T&gt;&gt;,
+		code: Code,
 		data: Vec&lt;u8&gt;,
-		salt: Vec&lt;u8&gt;,
+		salt: [u8; <span class="number">32</span>],
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -&gt; ContractInstantiateResult&lt;T::AccountId, BalanceOf&lt;T&gt;, EventRecordOf&lt;T&gt;&gt; {
+	) -&gt; ContractInstantiateResult&lt;BalanceOf&lt;T&gt;, EventRecordOf&lt;T&gt;&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::new(gas_limit);
 		<span class="kw">let </span><span class="kw-2">mut </span>storage_deposit = Default::default();
 		<span class="kw">let </span><span class="kw-2">mut </span>debug_message =
@@ -2693,7 +2649,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>};
 		ContractInstantiateResult {
 			result: output
-				.map(|(account_id, result)| InstantiateReturnValue { result, account_id })
+				.map(|(addr, result)| InstantiateReturnValue { result, addr })
 				.map_err(|e| e.error),
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
@@ -2710,7 +2666,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		origin: OriginFor&lt;T&gt;,
 		code: Vec&lt;u8&gt;,
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
-	) -&gt; CodeUploadResult&lt;CodeHash&lt;T&gt;, BalanceOf&lt;T&gt;&gt; {
+	) -&gt; CodeUploadResult&lt;BalanceOf&lt;T&gt;&gt; {
 		Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
 		<span class="kw">let </span>origin = T::UploadOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(module, deposit) = <span class="self">Self</span>::try_upload_code(origin, code, storage_deposit_limit, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
@@ -2718,32 +2674,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Query storage of a specified contract under a specified key.
-	</span><span class="kw">pub fn </span>get_storage(address: T::AccountId, key: Vec&lt;u8&gt;) -&gt; GetStorageResult {
+	</span><span class="kw">pub fn </span>get_storage(address: H160, key: [u8; <span class="number">32</span>]) -&gt; GetStorageResult {
 		<span class="kw">if </span>Migration::&lt;T&gt;::in_progress() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(ContractAccessError::MigrationInProgress)
 		}
 		<span class="kw">let </span>contract_info =
 			ContractInfoOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>address).ok_or(ContractAccessError::DoesntExist)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>maybe_value = contract_info.read(
-			<span class="kw-2">&amp;</span>Key::try_from_var(key)
-				.map_err(|<span class="kw">_</span>| ContractAccessError::KeyDecodingFailed)<span class="question-mark">?
-				</span>.into(),
-		);
+		<span class="kw">let </span>maybe_value = contract_info.read(<span class="kw-2">&amp;</span>Key::from_fixed(key));
 		<span class="prelude-val">Ok</span>(maybe_value)
-	}
-
-	<span class="doccomment">/// Determine the address of a contract.
-	///
-	/// This is the address generation function used by contract instantiation. See
-	/// [`DefaultAddressGenerator`] for the default implementation.
-	</span><span class="kw">pub fn </span>contract_address(
-		deploying_address: <span class="kw-2">&amp;</span>T::AccountId,
-		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;,
-		input_data: <span class="kw-2">&amp;</span>[u8],
-		salt: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; T::AccountId {
-		T::AddressGenerator::contract_address(deploying_address, code_hash, input_data, salt)
 	}
 
 	<span class="doccomment">/// Uploads new code and returns the Wasm blob and deposit amount collected.
@@ -2806,11 +2745,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// The API used to dry-run contract interactions.
 	</span><span class="attr">#[api_version(<span class="number">1</span>)]
-	</span><span class="kw">pub trait </span>ReviveApi&lt;AccountId, Balance, BlockNumber, Hash, EventRecord&gt; <span class="kw">where
+	</span><span class="kw">pub trait </span>ReviveApi&lt;AccountId, Balance, BlockNumber, EventRecord&gt; <span class="kw">where
 		</span>AccountId: Codec,
 		Balance: Codec,
 		BlockNumber: Codec,
-		Hash: Codec,
 		EventRecord: Codec,
 	{
 		<span class="doccomment">/// Perform a call from a specified account to a given contract.
@@ -2818,7 +2756,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// See [`crate::Pallet::bare_call`].
 		</span><span class="kw">fn </span>call(
 			origin: AccountId,
-			dest: AccountId,
+			dest: H160,
 			value: Balance,
 			gas_limit: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
@@ -2833,10 +2771,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			value: Balance,
 			gas_limit: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
-			code: Code&lt;Hash&gt;,
+			code: Code,
 			data: Vec&lt;u8&gt;,
-			salt: Vec&lt;u8&gt;,
-		) -&gt; ContractInstantiateResult&lt;AccountId, Balance, EventRecord&gt;;
+			salt: [u8; <span class="number">32</span>],
+		) -&gt; ContractInstantiateResult&lt;Balance, EventRecord&gt;;
 
 		<span class="doccomment">/// Upload new code without instantiating a contract from it.
 		///
@@ -2845,7 +2783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			origin: AccountId,
 			code: Vec&lt;u8&gt;,
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
-		) -&gt; CodeUploadResult&lt;Hash, Balance&gt;;
+		) -&gt; CodeUploadResult&lt;Balance&gt;;
 
 		<span class="doccomment">/// Query a given storage key in a given contract.
 		///
@@ -2853,8 +2791,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// specified account and `Ok(None)` if it doesn't. If the account specified by the address
 		/// doesn't exist, or doesn't have a contract then `Err` is returned.
 		</span><span class="kw">fn </span>get_storage(
-			address: AccountId,
-			key: Vec&lt;u8&gt;,
+			address: H160,
+			key: [u8; <span class="number">32</span>],
 		) -&gt; GetStorageResult;
 	}
 }

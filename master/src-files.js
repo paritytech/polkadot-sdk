@@ -326,7 +326,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["polkadot_parachain_lib",["",[["common",[],["aura.rs","chain_spec.rs","command.rs","mod.rs","rpc.rs","runtime.rs","spec.rs","types.rs"]],["fake_runtime_api",[],["mod.rs","utils.rs"]]],["cli.rs","command.rs","lib.rs","service.rs"]]],\
 ["polkadot_parachain_primitives",["",[],["lib.rs","primitives.rs"]]],\
 ["polkadot_prepare_worker",["",[],["prepare-worker.rs"]]],\
-["polkadot_primitives",["",[["v8",[],["async_backing.rs","executor_params.rs","metrics.rs","mod.rs","signed.rs","slashing.rs"]],["vstaging",[],["mod.rs"]]],["lib.rs","runtime_api.rs"]]],\
+["polkadot_primitives",["",[["v8",[],["async_backing.rs","executor_params.rs","metrics.rs","mod.rs","signed.rs","slashing.rs"]],["vstaging",[],["async_backing.rs","mod.rs"]]],["lib.rs","runtime_api.rs"]]],\
 ["polkadot_primitives_test_helpers",["",[],["lib.rs"]]],\
 ["polkadot_rpc",["",[],["lib.rs"]]],\
 ["polkadot_runtime_common",["",[["assigned_slots",[],["benchmarking.rs","migration.rs","mod.rs"]],["crowdloan",[],["migration.rs","mod.rs"]],["paras_registrar",[],["migration.rs","mod.rs"]],["slots",[],["migration.rs","mod.rs"]]],["auctions.rs","claims.rs","elections.rs","identity_migrator.rs","impls.rs","lib.rs","paras_sudo_wrapper.rs","purchase.rs","slot_range.rs","traits.rs","try_runtime.rs","xcm_sender.rs"]]],\

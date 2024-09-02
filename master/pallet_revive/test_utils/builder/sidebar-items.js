@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BareCallBuilder","BareInstantiateBuilder","CallBuilder","InstantiateBuilder","InstantiateWithCodeBuilder"]};
+window.SIDEBAR_ITEMS = {"struct":["BareCallBuilder","BareInstantiateBuilder","CallBuilder","Contract","InstantiateBuilder","InstantiateWithCodeBuilder"]};

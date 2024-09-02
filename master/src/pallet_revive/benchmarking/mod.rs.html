@@ -1960,11 +1960,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1808" id="1808">1808</a>
 <a href="#1809" id="1809">1809</a>
 <a href="#1810" id="1810">1810</a>
-<a href="#1811" id="1811">1811</a>
-<a href="#1812" id="1812">1812</a>
-<a href="#1813" id="1813">1813</a>
-<a href="#1814" id="1814">1814</a>
-<a href="#1815" id="1815">1815</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2032,7 +2027,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">struct </span>Contract&lt;T: Config&gt; {
 	caller: T::AccountId,
 	account_id: T::AccountId,
-	addr: AccountIdLookupOf&lt;T&gt;,
+	addr: T::AccountId,
 }
 
 <span class="kw">impl</span>&lt;T&gt; Contract&lt;T&gt;
@@ -2041,14 +2036,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>HasCompact&gt;::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 {
 	<span class="doccomment">/// Create new contract and use a default account id as instantiator.
-	</span><span class="kw">fn </span>new(module: WasmModule&lt;T&gt;, data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	</span><span class="kw">fn </span>new(module: WasmModule, data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="self">Self</span>::with_index(<span class="number">0</span>, module, data)
 	}
 
 	<span class="doccomment">/// Create new contract and use an account id derived from the supplied index as instantiator.
 	</span><span class="kw">fn </span>with_index(
 		index: u32,
-		module: WasmModule&lt;T&gt;,
+		module: WasmModule,
 		data: Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="self">Self</span>::with_caller(account(<span class="string">"instantiator"</span>, index, <span class="number">0</span>), module, data)
@@ -2057,11 +2052,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Create new contract and use the supplied `caller` as instantiator.
 	</span><span class="kw">fn </span>with_caller(
 		caller: T::AccountId,
-		module: WasmModule&lt;T&gt;,
+		module: WasmModule,
 		data: Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		T::Currency::set_balance(<span class="kw-2">&amp;</span>caller, caller_funding::&lt;T&gt;());
-		<span class="kw">let </span>salt = <span class="macro">vec!</span>[<span class="number">0xff</span>];
+		<span class="kw">let </span>salt = [<span class="number">0xffu8</span>; <span class="number">32</span>];
 
 		<span class="kw">let </span>outcome = Contracts::&lt;T&gt;::bare_instantiate(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -2075,20 +2070,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			CollectEvents::Skip,
 		);
 
-		<span class="kw">let </span>addr = outcome.result<span class="question-mark">?</span>.account_id;
-		<span class="kw">let </span>result = Contract { caller, account_id: addr.clone(), addr: T::Lookup::unlookup(addr) };
+		<span class="kw">let </span>address = outcome.result<span class="question-mark">?</span>.addr;
+		<span class="kw">let </span>account_id = T::AddressMapper::to_account_id_contract(<span class="kw-2">&amp;</span>address);
+		<span class="kw">let </span>result = Contract { caller, account_id: account_id.clone(), addr: account_id };
 
-		ContractInfoOf::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>result.account_id, result.info()<span class="question-mark">?</span>);
+		ContractInfoOf::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>address, result.info()<span class="question-mark">?</span>);
 
 		<span class="prelude-val">Ok</span>(result)
 	}
 
 	<span class="doccomment">/// Create a new contract with the supplied storage item count and size each.
-	</span><span class="kw">fn </span>with_storage(
-		code: WasmModule&lt;T&gt;,
-		stor_num: u32,
-		stor_size: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	</span><span class="kw">fn </span>with_storage(code: WasmModule, stor_num: u32, stor_size: u32) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>contract = Contract::&lt;T&gt;::new(code, <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
 		<span class="kw">let </span>storage_items = (<span class="number">0</span>..stor_num)
 			.map(|i| {
@@ -2110,12 +2102,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			info.write(<span class="kw-2">&amp;</span>Key::Fix(item.<span class="number">0</span>), <span class="prelude-val">Some</span>(item.<span class="number">1</span>.clone()), <span class="prelude-val">None</span>, <span class="bool-val">false</span>)
 				.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write storage to restoration dest"</span>)<span class="question-mark">?</span>;
 		}
-		&lt;ContractInfoOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.account_id, info);
+		&lt;ContractInfoOf&lt;T&gt;&gt;::insert(T::AddressMapper::to_address(<span class="kw-2">&amp;</span><span class="self">self</span>.account_id), info);
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Create a new contract with the specified unbalanced storage trie.
-	</span><span class="kw">fn </span>with_unbalanced_storage_trie(code: WasmModule&lt;T&gt;, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	</span><span class="kw">fn </span>with_unbalanced_storage_trie(code: WasmModule, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">if </span>(key.len() <span class="kw">as </span>u32) &lt; (UNBALANCED_TRIE_LAYERS + <span class="number">1</span>) / <span class="number">2 </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Key size too small to create the specified trie"</span>);
 		}
@@ -2146,7 +2138,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get the `ContractInfo` of the `addr` or an error if it no longer exists.
 	</span><span class="kw">fn </span>address_info(addr: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;ContractInfo&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
-		ContractInfoOf::&lt;T&gt;::get(addr).ok_or(<span class="string">"Expected contract to exist at this point."</span>)
+		ContractInfoOf::&lt;T&gt;::get(T::AddressMapper::to_address(addr))
+			.ok_or(<span class="string">"Expected contract to exist at this point."</span>)
 	}
 
 	<span class="doccomment">/// Get the `ContractInfo` of this contract or an error if it no longer exists.
@@ -2160,12 +2153,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns `true` iff all storage entries related to code storage exist.
-	</span><span class="kw">fn </span>code_exists(hash: <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;) -&gt; bool {
+	</span><span class="kw">fn </span>code_exists(hash: <span class="kw-2">&amp;</span>sp_core::H256) -&gt; bool {
 		&lt;PristineCode&lt;T&gt;&gt;::contains_key(hash) &amp;&amp; &lt;CodeInfoOf&lt;T&gt;&gt;::contains_key(<span class="kw-2">&amp;</span>hash)
 	}
 
 	<span class="doccomment">/// Returns `true` iff no storage entry related to code storage exist.
-	</span><span class="kw">fn </span>code_removed(hash: <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;) -&gt; bool {
+	</span><span class="kw">fn </span>code_removed(hash: <span class="kw-2">&amp;</span>sp_core::H256) -&gt; bool {
 		!&lt;PristineCode&lt;T&gt;&gt;::contains_key(hash) &amp;&amp; !&lt;CodeInfoOf&lt;T&gt;&gt;::contains_key(<span class="kw-2">&amp;</span>hash)
 	}
 }
@@ -2295,7 +2288,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>instance =
 			Contract::&lt;T&gt;::with_caller(whitelisted_caller(), WasmModule::sized(c), <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
 		<span class="kw">let </span>value = Pallet::&lt;T&gt;::min_balance();
-		<span class="kw">let </span>callee = instance.addr;
+		<span class="kw">let </span>callee = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>instance.addr);
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
 
 		<span class="attr">#[extrinsic_call]
@@ -2318,22 +2311,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>instantiate_with_code(
 		c: Linear&lt;<span class="number">0</span>, { T::MaxCodeLen::get() }&gt;,
 		i: Linear&lt;<span class="number">0</span>, { limits::MEMORY_BYTES }&gt;,
-		s: Linear&lt;<span class="number">0</span>, { limits::MEMORY_BYTES }&gt;,
 	) {
 		<span class="kw">let </span>input = <span class="macro">vec!</span>[<span class="number">42u8</span>; i <span class="kw">as </span>usize];
-		<span class="kw">let </span>salt = <span class="macro">vec!</span>[<span class="number">42u8</span>; s <span class="kw">as </span>usize];
+		<span class="kw">let </span>salt = [<span class="number">42u8</span>; <span class="number">32</span>];
 		<span class="kw">let </span>value = Pallet::&lt;T&gt;::min_balance();
 		<span class="kw">let </span>caller = whitelisted_caller();
 		T::Currency::set_balance(<span class="kw-2">&amp;</span>caller, caller_funding::&lt;T&gt;());
-		<span class="kw">let </span>WasmModule { code, hash, .. } = WasmModule::&lt;T&gt;::sized(c);
+		<span class="kw">let </span>WasmModule { code, .. } = WasmModule::sized(c);
 		<span class="kw">let </span>origin = RawOrigin::Signed(caller.clone());
-		<span class="kw">let </span>addr = Contracts::&lt;T&gt;::contract_address(<span class="kw-2">&amp;</span>caller, <span class="kw-2">&amp;</span>hash, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>salt);
+		<span class="kw">let </span>deployer = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>caller);
+		<span class="kw">let </span>addr = <span class="kw">crate</span>::address::create2(<span class="kw-2">&amp;</span>deployer, <span class="kw-2">&amp;</span>code, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>salt);
+		<span class="kw">let </span>account_id = T::AddressMapper::to_account_id_contract(<span class="kw-2">&amp;</span>addr);
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(origin, value, Weight::MAX, storage_deposit, code, input, salt);
 
 		<span class="kw">let </span>deposit =
-			T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>HoldReason::StorageDepositReserve.into(), <span class="kw-2">&amp;</span>addr);
+			T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>HoldReason::StorageDepositReserve.into(), <span class="kw-2">&amp;</span>account_id);
 		<span class="comment">// uploading the code reserves some balance in the callers account
 		</span><span class="kw">let </span>code_deposit =
 			T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>HoldReason::CodeUploadDepositReserve.into(), <span class="kw-2">&amp;</span>caller);
@@ -2342,27 +2336,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			caller_funding::&lt;T&gt;() - value - deposit - code_deposit - Pallet::&lt;T&gt;::min_balance(),
 		);
 		<span class="comment">// contract has the full value
-		</span><span class="macro">assert_eq!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>addr), value + Pallet::&lt;T&gt;::min_balance());
+		</span><span class="macro">assert_eq!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>account_id), value + Pallet::&lt;T&gt;::min_balance());
 	}
 
 	<span class="comment">// `i`: Size of the input in bytes.
 	// `s`: Size of the salt in bytes.
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-	</span><span class="kw">fn </span>instantiate(
-		i: Linear&lt;<span class="number">0</span>, { limits::MEMORY_BYTES }&gt;,
-		s: Linear&lt;<span class="number">0</span>, { limits::MEMORY_BYTES }&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+	</span><span class="kw">fn </span>instantiate(i: Linear&lt;<span class="number">0</span>, { limits::MEMORY_BYTES }&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>input = <span class="macro">vec!</span>[<span class="number">42u8</span>; i <span class="kw">as </span>usize];
-		<span class="kw">let </span>salt = <span class="macro">vec!</span>[<span class="number">42u8</span>; s <span class="kw">as </span>usize];
+		<span class="kw">let </span>salt = [<span class="number">42u8</span>; <span class="number">32</span>];
 		<span class="kw">let </span>value = Pallet::&lt;T&gt;::min_balance();
 		<span class="kw">let </span>caller = whitelisted_caller();
 		T::Currency::set_balance(<span class="kw-2">&amp;</span>caller, caller_funding::&lt;T&gt;());
 		<span class="kw">let </span>origin = RawOrigin::Signed(caller.clone());
-		<span class="kw">let </span>WasmModule { code, .. } = WasmModule::&lt;T&gt;::dummy();
+		<span class="kw">let </span>WasmModule { code, .. } = WasmModule::dummy();
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
+		<span class="kw">let </span>deployer = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>caller);
+		<span class="kw">let </span>addr = <span class="kw">crate</span>::address::create2(<span class="kw-2">&amp;</span>deployer, <span class="kw-2">&amp;</span>code, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>salt);
 		<span class="kw">let </span>hash =
 			Contracts::&lt;T&gt;::bare_upload_code(origin.into(), code, storage_deposit)<span class="question-mark">?</span>.code_hash;
-		<span class="kw">let </span>addr = Contracts::&lt;T&gt;::contract_address(<span class="kw-2">&amp;</span>caller, <span class="kw-2">&amp;</span>hash, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>salt);
+		<span class="kw">let </span>account_id = T::AddressMapper::to_account_id_contract(<span class="kw-2">&amp;</span>addr);
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(
@@ -2376,16 +2369,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="kw">let </span>deposit =
-			T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>HoldReason::StorageDepositReserve.into(), <span class="kw-2">&amp;</span>addr);
+			T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>HoldReason::StorageDepositReserve.into(), <span class="kw-2">&amp;</span>account_id);
 		<span class="kw">let </span>code_deposit =
-			T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>HoldReason::CodeUploadDepositReserve.into(), <span class="kw-2">&amp;</span>caller);
+			T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>HoldReason::CodeUploadDepositReserve.into(), <span class="kw-2">&amp;</span>account_id);
 		<span class="comment">// value was removed from the caller
 		</span><span class="macro">assert_eq!</span>(
-			T::Currency::balance(<span class="kw-2">&amp;</span>caller),
+			T::Currency::total_balance(<span class="kw-2">&amp;</span>caller),
 			caller_funding::&lt;T&gt;() - value - deposit - code_deposit - Pallet::&lt;T&gt;::min_balance(),
 		);
 		<span class="comment">// contract has the full value
-		</span><span class="macro">assert_eq!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>addr), value + Pallet::&lt;T&gt;::min_balance());
+		</span><span class="macro">assert_eq!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>account_id), value + Pallet::&lt;T&gt;::min_balance());
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -2404,7 +2397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Contract::&lt;T&gt;::with_caller(whitelisted_caller(), WasmModule::dummy(), <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
 		<span class="kw">let </span>value = Pallet::&lt;T&gt;::min_balance();
 		<span class="kw">let </span>origin = RawOrigin::Signed(instance.caller.clone());
-		<span class="kw">let </span>callee = instance.addr.clone();
+		<span class="kw">let </span>callee = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>instance.addr);
 		<span class="kw">let </span>before = T::Currency::balance(<span class="kw-2">&amp;</span>instance.account_id);
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
 		<span class="attr">#[extrinsic_call]
@@ -2437,7 +2430,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>upload_code(c: Linear&lt;<span class="number">0</span>, { T::MaxCodeLen::get() }&gt;) {
 		<span class="kw">let </span>caller = whitelisted_caller();
 		T::Currency::set_balance(<span class="kw-2">&amp;</span>caller, caller_funding::&lt;T&gt;());
-		<span class="kw">let </span>WasmModule { code, hash, .. } = WasmModule::&lt;T&gt;::sized(c);
+		<span class="kw">let </span>WasmModule { code, hash, .. } = WasmModule::sized(c);
 		<span class="kw">let </span>origin = RawOrigin::Signed(caller.clone());
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
 		<span class="attr">#[extrinsic_call]
@@ -2454,7 +2447,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>remove_code() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>caller = whitelisted_caller();
 		T::Currency::set_balance(<span class="kw-2">&amp;</span>caller, caller_funding::&lt;T&gt;());
-		<span class="kw">let </span>WasmModule { code, hash, .. } = WasmModule::&lt;T&gt;::dummy();
+		<span class="kw">let </span>WasmModule { code, hash, .. } = WasmModule::dummy();
 		<span class="kw">let </span>origin = RawOrigin::Signed(caller.clone());
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
 		<span class="kw">let </span>uploaded =
@@ -2475,12 +2468,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>instance =
 			&lt;Contract&lt;T&gt;&gt;::with_caller(whitelisted_caller(), WasmModule::dummy(), <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
 		<span class="comment">// we just add some bytes so that the code hash is different
-		</span><span class="kw">let </span>WasmModule { code, .. } = &lt;WasmModule&lt;T&gt;&gt;::dummy_unique(<span class="number">128</span>);
+		</span><span class="kw">let </span>WasmModule { code, .. } = WasmModule::dummy_unique(<span class="number">128</span>);
 		<span class="kw">let </span>origin = RawOrigin::Signed(instance.caller.clone());
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
 		<span class="kw">let </span>hash =
 			&lt;Contracts&lt;T&gt;&gt;::bare_upload_code(origin.into(), code, storage_deposit)<span class="question-mark">?</span>.code_hash;
-		<span class="kw">let </span>callee = instance.addr.clone();
+		<span class="kw">let </span>callee = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>instance.addr);
 		<span class="macro">assert_ne!</span>(instance.info()<span class="question-mark">?</span>.code_hash, hash);
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Root, callee, hash);
@@ -2501,7 +2494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_caller() {
-		<span class="kw">let </span>len = &lt;T::AccountId <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
+		<span class="kw">let </span>len = H160::len_bytes();
 		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
 
 		<span class="kw">let </span>result;
@@ -2512,8 +2505,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_ok!</span>(result);
 		<span class="macro">assert_eq!</span>(
-			<span class="kw-2">&amp;</span>&lt;T::AccountId <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
-			runtime.ext().caller().account_id().unwrap()
+			&lt;H160 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
+			T::AddressMapper::to_address(<span class="kw-2">&amp;</span>runtime.ext().caller().account_id().unwrap())
 		);
 	}
 
@@ -2536,7 +2529,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_code_hash() {
 		<span class="kw">let </span>contract = Contract::&lt;T&gt;::with_index(<span class="number">1</span>, WasmModule::dummy(), <span class="macro">vec!</span>[]).unwrap();
-		<span class="kw">let </span>len = &lt;CodeHash&lt;T&gt; <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
+		<span class="kw">let </span>len = &lt;sp_core::H256 <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
 		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], contract.account_id.encode(), ]);
 
 		<span class="kw">let </span>result;
@@ -2547,14 +2540,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_ok!</span>(result);
 		<span class="macro">assert_eq!</span>(
-			&lt;CodeHash&lt;T&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
+			&lt;sp_core::H256 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
 			contract.info().unwrap().code_hash
 		);
 	}
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_own_code_hash() {
-		<span class="kw">let </span>len = &lt;CodeHash&lt;T&gt; <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
+		<span class="kw">let </span>len = &lt;sp_core::H256 <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
 		<span class="macro">build_runtime!</span>(runtime, contract, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
@@ -2564,7 +2557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_ok!</span>(result);
 		<span class="macro">assert_eq!</span>(
-			&lt;CodeHash&lt;T&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
+			&lt;sp_core::H256 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
 			contract.info().unwrap().code_hash
 		);
 	}
@@ -2598,7 +2591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_address() {
-		<span class="kw">let </span>len = &lt;AccountIdOf&lt;T&gt; <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
+		<span class="kw">let </span>len = H160::len_bytes();
 		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
 
 		<span class="kw">let </span>result;
@@ -2607,10 +2600,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			result = runtime.bench_address(memory.as_mut_slice(), <span class="number">4</span>, <span class="number">0</span>);
 		}
 		<span class="macro">assert_ok!</span>(result);
-		<span class="macro">assert_eq!</span>(
-			<span class="kw-2">&amp;</span>&lt;T::AccountId <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
-			runtime.ext().address()
-		);
+		<span class="macro">assert_eq!</span>(&lt;H160 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(), runtime.ext().address());
 	}
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
@@ -2776,7 +2766,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">build_runtime!</span>(runtime, memory: [beneficiary.encode(),]);
 
 		(<span class="number">0</span>..n).for_each(|i| {
-			<span class="kw">let </span>new_code = WasmModule::&lt;T&gt;::dummy_unique(<span class="number">65 </span>+ i);
+			<span class="kw">let </span>new_code = WasmModule::dummy_unique(<span class="number">65 </span>+ i);
 			Contracts::&lt;T&gt;::bare_upload_code(origin.clone().into(), new_code.code, storage_deposit)
 				.unwrap();
 			runtime.ext().lock_delegate_dependency(new_code.hash).unwrap();
@@ -3503,10 +3493,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// i: size of input in bytes
 	// s: size of salt in bytes
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-	</span><span class="kw">fn </span>seal_instantiate(
-		i: Linear&lt;<span class="number">0</span>, { limits::MEMORY_BYTES }&gt;,
-		s: Linear&lt;<span class="number">0</span>, { limits::MEMORY_BYTES }&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+	</span><span class="kw">fn </span>seal_instantiate(i: Linear&lt;<span class="number">0</span>, { limits::MEMORY_BYTES }&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+		<span class="kw">let </span>code = WasmModule::dummy();
 		<span class="kw">let </span>hash = Contract::&lt;T&gt;::with_index(<span class="number">1</span>, WasmModule::dummy(), <span class="macro">vec!</span>[])<span class="question-mark">?</span>.info()<span class="question-mark">?</span>.code_hash;
 		<span class="kw">let </span>hash_bytes = hash.encode();
 		<span class="kw">let </span>hash_len = hash_bytes.len() <span class="kw">as </span>u32;
@@ -3528,8 +3516,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>runtime = <span class="kw">crate</span>::wasm::Runtime::&lt;<span class="kw">_</span>, [u8]&gt;::new(<span class="kw-2">&amp;mut </span>ext, <span class="macro">vec!</span>[]);
 
 		<span class="kw">let </span>input = <span class="macro">vec!</span>[<span class="number">42u8</span>; i <span class="kw">as _</span>];
-		<span class="kw">let </span>salt = <span class="macro">vec!</span>[<span class="number">42u8</span>; s <span class="kw">as _</span>];
-		<span class="kw">let </span>addr = Contracts::&lt;T&gt;::contract_address(<span class="kw-2">&amp;</span>account_id, <span class="kw-2">&amp;</span>hash, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>salt);
+		<span class="kw">let </span>salt = [<span class="number">42u8</span>; <span class="number">32</span>];
+		<span class="kw">let </span>deployer = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>account_id);
+		<span class="kw">let </span>addr = <span class="kw">crate</span>::address::create2(<span class="kw-2">&amp;</span>deployer, <span class="kw-2">&amp;</span>code.code, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>salt);
+		<span class="kw">let </span>account_id = T::AddressMapper::to_account_id_contract(<span class="kw-2">&amp;</span>addr);
 		<span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="macro">memory!</span>(hash_bytes, deposit_bytes, value_bytes, input, salt,);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>offset = {
@@ -3559,13 +3549,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>SENTINEL,            <span class="comment">// output_ptr
 				</span><span class="number">0</span>,                   <span class="comment">// output_len_ptr
 				</span>offset(i),           <span class="comment">// salt_ptr
-				</span>s,                   <span class="comment">// salt_len
+				</span><span class="number">32</span>,                  <span class="comment">// salt_len
 			</span>);
 		}
 
 		<span class="macro">assert_ok!</span>(result);
 		<span class="macro">assert!</span>(ContractInfoOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>addr).is_some());
-		<span class="macro">assert_eq!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>addr), Pallet::&lt;T&gt;::min_balance() + value);
+		<span class="macro">assert_eq!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>account_id), Pallet::&lt;T&gt;::min_balance() + value);
 		<span class="prelude-val">Ok</span>(())
 	}
 

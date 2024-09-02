@@ -245,19 +245,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! we define this simple definition of a contract that can be passed to `create_code` that
 //! compiles it down into a `WasmModule` that can be used as a contract's code.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::Config;
-<span class="kw">use </span>alloc::vec::Vec;
+</span><span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>pallet_revive_fixtures::bench <span class="kw">as </span>bench_fixtures;
-<span class="kw">use </span>sp_runtime::traits::Hash;
+<span class="kw">use </span>sp_core::H256;
+<span class="kw">use </span>sp_io::hashing::keccak_256;
 
 <span class="doccomment">/// A wasm module ready to be put on chain.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>WasmModule&lt;T: Config&gt; {
+</span><span class="kw">pub struct </span>WasmModule {
 	<span class="kw">pub </span>code: Vec&lt;u8&gt;,
-	<span class="kw">pub </span>hash: &lt;T::Hashing <span class="kw">as </span>Hash&gt;::Output,
+	<span class="kw">pub </span>hash: H256,
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; WasmModule&lt;T&gt; {
+<span class="kw">impl </span>WasmModule {
 	<span class="doccomment">/// Return a contract code that does nothing.
 	</span><span class="kw">pub fn </span>dummy() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::new(bench_fixtures::DUMMY.to_vec())
@@ -284,8 +284,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>new(code: Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>hash = T::Hashing::hash(<span class="kw-2">&amp;</span>code);
-		<span class="self">Self </span>{ code, hash }
+		<span class="kw">let </span>hash = keccak_256(<span class="kw-2">&amp;</span>code);
+		<span class="self">Self </span>{ code, hash: H256(hash) }
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -447,6 +447,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -563,11 +567,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! separated from the stable primitives.
 
 </span><span class="kw">use crate</span>::{
-	async_backing, slashing, ApprovalVotingParams, AsyncBackingParams, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
+	slashing,
+	vstaging::{
+		<span class="self">self</span>, CandidateEvent, CommittedCandidateReceiptV2 <span class="kw">as </span>CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateHash,
+	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, SessionIndex, SessionInfo,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 <span class="kw">use </span>alloc::{
@@ -709,7 +717,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		</span><span class="doccomment">/// Returns the state of parachain backing for a given para.
 		</span><span class="attr">#[api_version(<span class="number">7</span>)]
-		</span><span class="kw">fn </span>para_backing_state(<span class="kw">_</span>: ppp::Id) -&gt; <span class="prelude-ty">Option</span>&lt;async_backing::BackingState&lt;Hash, BlockNumber&gt;&gt;;
+		</span><span class="kw">fn </span>para_backing_state(<span class="kw">_</span>: ppp::Id) -&gt; <span class="prelude-ty">Option</span>&lt;vstaging::async_backing::BackingState&lt;Hash, BlockNumber&gt;&gt;;
 
 		<span class="doccomment">/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
 		</span><span class="attr">#[api_version(<span class="number">7</span>)]

@@ -500,6 +500,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -534,12 +540,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span><span class="kw">crate</span>::wasm::runtime::{ApiVersion, Memory, Runtime, RuntimeCosts};
 
 <span class="kw">use crate</span>::{
+	address::AddressMapper,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, Event,
-	ExecError, HoldReason, Pallet, PristineCode, Weight, API_VERSION, LOG_TARGET,
+	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, Event, ExecError,
+	HoldReason, Pallet, PristineCode, Weight, API_VERSION, LOG_TARGET,
 };
 <span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
@@ -549,7 +556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
 <span class="kw">use </span>sp_core::Get;
-<span class="kw">use </span>sp_runtime::{traits::Hash, DispatchError};
+<span class="kw">use </span>sp_runtime::DispatchError;
 
 <span class="doccomment">/// Validated Wasm module ready for execution.
 /// This data structure is immutable once created and stored.
@@ -563,7 +570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>code_info: CodeInfo&lt;T&gt;,
 	<span class="comment">// This is for not calculating the hash every time we need it.
 	</span><span class="attr">#[codec(skip)]
-	</span>code_hash: CodeHash&lt;T&gt;,
+	</span>code_hash: sp_core::H256,
 }
 
 <span class="doccomment">/// Contract code related data, such as:
@@ -645,14 +652,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			api_version: API_VERSION,
 			behaviour_version: Default::default(),
 		};
-		<span class="kw">let </span>code_hash = T::Hashing::hash(<span class="kw-2">&amp;</span>code);
+		<span class="kw">let </span>code_hash = sp_core::H256(sp_io::hashing::keccak_256(<span class="kw-2">&amp;</span>code));
 		<span class="prelude-val">Ok</span>(WasmBlob { code, code_info, code_hash })
 	}
 
 	<span class="doccomment">/// Remove the code from storage and refund the deposit to its owner.
 	///
 	/// Applies all necessary checks before removing the code.
-	</span><span class="kw">pub fn </span>remove(origin: <span class="kw-2">&amp;</span>T::AccountId, code_hash: CodeHash&lt;T&gt;) -&gt; DispatchResult {
+	</span><span class="kw">pub fn </span>remove(origin: <span class="kw-2">&amp;</span>T::AccountId, code_hash: sp_core::H256) -&gt; DispatchResult {
 		&lt;CodeInfoOf&lt;T&gt;&gt;::try_mutate_exists(<span class="kw-2">&amp;</span>code_hash, |existing| {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(code_info) = existing {
 				<span class="macro">ensure!</span>(code_info.refcount == <span class="number">0</span>, &lt;Error&lt;T&gt;&gt;::CodeInUse);
@@ -664,7 +671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					BestEffort,
 				);
 				<span class="kw">let </span>deposit_released = code_info.deposit;
-				<span class="kw">let </span>remover = code_info.owner.clone();
+				<span class="kw">let </span>remover = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>code_info.owner);
 
 				<span class="kw-2">*</span>existing = <span class="prelude-val">None</span>;
 				&lt;PristineCode&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>code_hash);
@@ -703,10 +710,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.code_info.refcount = <span class="number">0</span>;
 					&lt;PristineCode&lt;T&gt;&gt;::insert(code_hash, <span class="kw-2">&amp;</span><span class="self">self</span>.code);
 					<span class="kw-2">*</span>stored_code_info = <span class="prelude-val">Some</span>(<span class="self">self</span>.code_info.clone());
+					<span class="kw">let </span>uploader = T::AddressMapper::to_address(<span class="kw-2">&amp;</span><span class="self">self</span>.code_info.owner);
 					&lt;Pallet&lt;T&gt;&gt;::deposit_event(Event::CodeStored {
 						code_hash,
 						deposit_held: deposit,
-						uploader: <span class="self">self</span>.code_info.owner.clone(),
+						uploader,
 					});
 					<span class="prelude-val">Ok</span>(deposit)
 				},
@@ -817,7 +825,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&gt; Executable&lt;T&gt; <span class="kw">for </span>WasmBlob&lt;T&gt; {
 	<span class="kw">fn </span>from_storage(
-		code_hash: CodeHash&lt;T&gt;,
+		code_hash: sp_core::H256,
 		gas_meter: <span class="kw-2">&amp;mut </span>GasMeter&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
 		<span class="kw">let </span>code_info = &lt;CodeInfoOf&lt;T&gt;&gt;::get(code_hash).ok_or(Error::&lt;T&gt;::CodeNotFound)<span class="question-mark">?</span>;
@@ -842,12 +850,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prepared_call.call()
 	}
 
-	<span class="kw">fn </span>code_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CodeInfo&lt;T&gt; {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.code_info
+	<span class="kw">fn </span>code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
+		<span class="self">self</span>.code.as_ref()
 	}
 
-	<span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CodeHash&lt;T&gt; {
+	<span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>sp_core::H256 {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.code_hash
+	}
+
+	<span class="kw">fn </span>code_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CodeInfo&lt;T&gt; {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.code_info
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -2779,6 +2779,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2627" id="2627">2627</a>
 <a href="#2628" id="2628">2628</a>
 <a href="#2629" id="2629">2629</a>
+<a href="#2630" id="2630">2630</a>
+<a href="#2631" id="2631">2631</a>
+<a href="#2632" id="2632">2632</a>
+<a href="#2633" id="2633">2633</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2816,12 +2820,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>pallet_nis::WithMaximumOf;
 <span class="kw">use </span>polkadot_primitives::{
-	slashing, AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateEvent,
-	CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment,
-	NodeFeatures, Nonce, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
-	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	PARACHAIN_KEY_TYPE_ID,
+	slashing,
+	vstaging::{
+		CandidateEvent, CommittedCandidateReceiptV2 <span class="kw">as </span>CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateHash, CoreIndex,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, Moment, NodeFeatures, Nonce, OccupiedCoreAssumption,
+	PersistedValidationData, SessionInfo, Signature, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 <span class="kw">use </span>polkadot_runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
@@ -4813,7 +4821,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			parachains_runtime_api_impl::minimum_backing_votes::&lt;Runtime&gt;()
 		}
 
-		<span class="kw">fn </span>para_backing_state(para_id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;polkadot_primitives::async_backing::BackingState&gt; {
+		<span class="kw">fn </span>para_backing_state(para_id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;polkadot_primitives::vstaging::async_backing::BackingState&gt; {
 			parachains_runtime_api_impl::backing_state::&lt;Runtime&gt;(para_id)
 		}
 

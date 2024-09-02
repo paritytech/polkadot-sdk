@@ -4098,6 +4098,78 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3946" id="3946">3946</a>
 <a href="#3947" id="3947">3947</a>
 <a href="#3948" id="3948">3948</a>
+<a href="#3949" id="3949">3949</a>
+<a href="#3950" id="3950">3950</a>
+<a href="#3951" id="3951">3951</a>
+<a href="#3952" id="3952">3952</a>
+<a href="#3953" id="3953">3953</a>
+<a href="#3954" id="3954">3954</a>
+<a href="#3955" id="3955">3955</a>
+<a href="#3956" id="3956">3956</a>
+<a href="#3957" id="3957">3957</a>
+<a href="#3958" id="3958">3958</a>
+<a href="#3959" id="3959">3959</a>
+<a href="#3960" id="3960">3960</a>
+<a href="#3961" id="3961">3961</a>
+<a href="#3962" id="3962">3962</a>
+<a href="#3963" id="3963">3963</a>
+<a href="#3964" id="3964">3964</a>
+<a href="#3965" id="3965">3965</a>
+<a href="#3966" id="3966">3966</a>
+<a href="#3967" id="3967">3967</a>
+<a href="#3968" id="3968">3968</a>
+<a href="#3969" id="3969">3969</a>
+<a href="#3970" id="3970">3970</a>
+<a href="#3971" id="3971">3971</a>
+<a href="#3972" id="3972">3972</a>
+<a href="#3973" id="3973">3973</a>
+<a href="#3974" id="3974">3974</a>
+<a href="#3975" id="3975">3975</a>
+<a href="#3976" id="3976">3976</a>
+<a href="#3977" id="3977">3977</a>
+<a href="#3978" id="3978">3978</a>
+<a href="#3979" id="3979">3979</a>
+<a href="#3980" id="3980">3980</a>
+<a href="#3981" id="3981">3981</a>
+<a href="#3982" id="3982">3982</a>
+<a href="#3983" id="3983">3983</a>
+<a href="#3984" id="3984">3984</a>
+<a href="#3985" id="3985">3985</a>
+<a href="#3986" id="3986">3986</a>
+<a href="#3987" id="3987">3987</a>
+<a href="#3988" id="3988">3988</a>
+<a href="#3989" id="3989">3989</a>
+<a href="#3990" id="3990">3990</a>
+<a href="#3991" id="3991">3991</a>
+<a href="#3992" id="3992">3992</a>
+<a href="#3993" id="3993">3993</a>
+<a href="#3994" id="3994">3994</a>
+<a href="#3995" id="3995">3995</a>
+<a href="#3996" id="3996">3996</a>
+<a href="#3997" id="3997">3997</a>
+<a href="#3998" id="3998">3998</a>
+<a href="#3999" id="3999">3999</a>
+<a href="#4000" id="4000">4000</a>
+<a href="#4001" id="4001">4001</a>
+<a href="#4002" id="4002">4002</a>
+<a href="#4003" id="4003">4003</a>
+<a href="#4004" id="4004">4004</a>
+<a href="#4005" id="4005">4005</a>
+<a href="#4006" id="4006">4006</a>
+<a href="#4007" id="4007">4007</a>
+<a href="#4008" id="4008">4008</a>
+<a href="#4009" id="4009">4009</a>
+<a href="#4010" id="4010">4010</a>
+<a href="#4011" id="4011">4011</a>
+<a href="#4012" id="4012">4012</a>
+<a href="#4013" id="4013">4013</a>
+<a href="#4014" id="4014">4014</a>
+<a href="#4015" id="4015">4015</a>
+<a href="#4016" id="4016">4016</a>
+<a href="#4017" id="4017">4017</a>
+<a href="#4018" id="4018">4018</a>
+<a href="#4019" id="4019">4019</a>
+<a href="#4020" id="4020">4020</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4116,6 +4188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use crate</span>::{
+	address::{<span class="self">self</span>, AddressMapper},
 	debug::{CallInterceptor, CallSpan, Tracing},
 	gas::GasMeter,
 	limits,
@@ -4123,8 +4196,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{<span class="self">self</span>, meter::Diff, WriteOutcome},
 	transient_storage::TransientStorage,
-	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer,
-	Error, Event, Pallet <span class="kw">as </span>Contracts, LOG_TARGET,
+	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer, Error,
+	Event, Pallet <span class="kw">as </span>Contracts, LOG_TARGET,
 };
 <span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>core::{fmt::Debug, marker::PhantomData, mem};
@@ -4148,7 +4221,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::{
 	ecdsa::Public <span class="kw">as </span>ECDSAPublic,
 	sr25519::{Public <span class="kw">as </span>SR25519Public, Signature <span class="kw">as </span>SR25519Signature},
-	ConstU32, Get,
+	ConstU32, Get, H160, H256,
 };
 <span class="kw">use </span>sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 <span class="kw">use </span>sp_runtime::{
@@ -4284,7 +4357,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
-		to: AccountIdOf&lt;<span class="self">Self</span>::T&gt;,
+		to: <span class="kw-2">&amp;</span>H160,
 		value: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
 		input_data: Vec&lt;u8&gt;,
 		allows_reentry: bool,
@@ -4296,7 +4369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Returns the code size of the called contract.
 	</span><span class="kw">fn </span>delegate_call(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		code: CodeHash&lt;<span class="self">Self</span>::T&gt;,
+		code: H256,
 		input_data: Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ExecReturnValue, ExecError&gt;;
 
@@ -4309,11 +4382,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
-		code: CodeHash&lt;<span class="self">Self</span>::T&gt;,
+		code: H256,
 		value: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
 		input_data: Vec&lt;u8&gt;,
-		salt: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(AccountIdOf&lt;<span class="self">Self</span>::T&gt;, ExecReturnValue), ExecError&gt;;
+		salt: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(H160, ExecReturnValue), ExecError&gt;;
 
 	<span class="doccomment">/// Transfer all funds to `beneficiary` and delete the contract.
 	///
@@ -4322,10 +4395,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	</span><span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
+	</span><span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>H160) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Transfer some amount of funds into the specified account.
-	</span><span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;, value: BalanceOf&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
+	</span><span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>H160, value: BalanceOf&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Returns the storage entry of the executing account by the given `key`.
 	///
@@ -4373,15 +4446,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>caller(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Origin&lt;<span class="self">Self</span>::T&gt;;
 
 	<span class="doccomment">/// Check if a contract lives at the specified `address`.
-	</span><span class="kw">fn </span>is_contract(<span class="kw-2">&amp;</span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;) -&gt; bool;
+	</span><span class="kw">fn </span>is_contract(<span class="kw-2">&amp;</span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>H160) -&gt; bool;
 
 	<span class="doccomment">/// Returns the code hash of the contract for the given `address`.
 	///
 	/// Returns `None` if the `address` does not belong to a contract.
-	</span><span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;CodeHash&lt;<span class="self">Self</span>::T&gt;&gt;;
+	</span><span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>H160) -&gt; <span class="prelude-ty">Option</span>&lt;H256&gt;;
 
 	<span class="doccomment">/// Returns the code hash of the contract being executed.
-	</span><span class="kw">fn </span>own_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;;
+	</span><span class="kw">fn </span>own_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>H256;
 
 	<span class="doccomment">/// Check if the caller of the current contract is the origin of the whole call stack.
 	///
@@ -4393,7 +4466,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>caller_is_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
 
 	<span class="doccomment">/// Returns a reference to the account id of the current contract.
-	</span><span class="kw">fn </span>address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;;
+	</span><span class="kw">fn </span>account_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;;
+
+	<span class="doccomment">/// Returns a reference to the [`H160`] address of the current contract.
+	</span><span class="kw">fn </span>address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H160 {
+		&lt;<span class="self">Self</span>::T <span class="kw">as </span>Config&gt;::AddressMapper::to_address(<span class="self">self</span>.account_id())
+	}
 
 	<span class="doccomment">/// Returns the balance of the current contract.
 	///
@@ -4468,7 +4546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>transient_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>TransientStorage&lt;<span class="self">Self</span>::T&gt;;
 
 	<span class="doccomment">/// Sets new code hash for existing contract.
-	</span><span class="kw">fn </span>set_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
+	</span><span class="kw">fn </span>set_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: H256) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Returns the number of times the specified contract exists on the call stack. Delegated calls
 	/// Increment the reference count of a of a stored code by one.
@@ -4477,7 +4555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
 	/// `code_hash`.
-	</span><span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
+	</span><span class="kw">fn </span>increment_refcount(code_hash: H256) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Decrement the reference count of a stored code by one.
 	///
@@ -4485,7 +4563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// A contract whose reference count dropped to zero isn't automatically removed. A
 	/// `remove_code` transaction must be submitted by the original uploader to do so.
-	</span><span class="kw">fn </span>decrement_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;);
+	</span><span class="kw">fn </span>decrement_refcount(code_hash: H256);
 
 	<span class="doccomment">/// Adds a delegate dependency to [`ContractInfo`]'s `delegate_dependencies` field.
 	///
@@ -4498,7 +4576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - [`Error::MaxDelegateDependenciesReached`]
 	/// - [`Error::CannotAddSelfAsDelegateDependency`]
 	/// - [`Error::DelegateDependencyAlreadyExists`]
-	</span><span class="kw">fn </span>lock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
+	</span><span class="kw">fn </span>lock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: H256) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
@@ -4508,7 +4586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Errors
 	///
 	/// - [`Error::DelegateDependencyNotFound`]
-	</span><span class="kw">fn </span>unlock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
+	</span><span class="kw">fn </span>unlock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: <span class="kw-2">&amp;</span>H256) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Returns the number of locked delegate dependencies.
 	///
@@ -4547,10 +4625,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Note
 	/// Charges size base load weight from the gas meter.
-	</span><span class="kw">fn </span>from_storage(
-		code_hash: CodeHash&lt;T&gt;,
-		gas_meter: <span class="kw-2">&amp;mut </span>GasMeter&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt;;
+	</span><span class="kw">fn </span>from_storage(code_hash: H256, gas_meter: <span class="kw-2">&amp;mut </span>GasMeter&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt;;
 
 	<span class="doccomment">/// Execute the specified exported function and return the result.
 	///
@@ -4571,8 +4646,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The code info of the executable.
 	</span><span class="kw">fn </span>code_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CodeInfo&lt;T&gt;;
 
+	<span class="doccomment">/// The raw code of the executable.
+	</span><span class="kw">fn </span>code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8];
+
 	<span class="doccomment">/// The code hash of the executable.
-	</span><span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;;
+	</span><span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>H256;
 }
 
 <span class="doccomment">/// The complete call stack of a contract execution.
@@ -4619,7 +4697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// For each nested contract call or instantiate one frame is created. It holds specific
 /// information for the said call and caches the in-storage `ContractInfo` data structure.
 </span><span class="kw">struct </span>Frame&lt;T: Config&gt; {
-	<span class="doccomment">/// The account id of the executing contract.
+	<span class="doccomment">/// The address of the executing contract.
 	</span>account_id: T::AccountId,
 	<span class="doccomment">/// The cached in-storage data of the contract.
 	</span>contract_info: CachedContract&lt;T&gt;,
@@ -4667,7 +4745,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The executable whose `deploy` function is run.
 		</span>executable: E,
 		<span class="doccomment">/// A salt used in the contract address derivation of the new contract.
-		</span>salt: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
+		</span>salt: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8; <span class="number">32</span>],
 		<span class="doccomment">/// The input data is used in the contract address derivation of the new contract.
 		</span>input_data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
 	},
@@ -4768,7 +4846,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Load the `contract_info` from storage if necessary.
 	</span><span class="kw">fn </span>load(<span class="kw-2">&amp;mut </span><span class="self">self</span>, account_id: <span class="kw-2">&amp;</span>T::AccountId) {
 		<span class="kw">if let </span>CachedContract::Invalidated = <span class="self">self </span>{
-			<span class="kw">let </span>contract = &lt;ContractInfoOf&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>account_id);
+			<span class="kw">let </span>contract = &lt;ContractInfoOf&lt;T&gt;&gt;::get(T::AddressMapper::to_address(account_id));
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(contract) = contract {
 				<span class="kw-2">*</span><span class="self">self </span>= CachedContract::Cached(contract);
 			}
@@ -4805,7 +4883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Result&lt;(ExecReturnValue, CodeSize), (ExecError, CodeSize)&gt;
 	</span><span class="kw">pub fn </span>run_call(
 		origin: Origin&lt;T&gt;,
-		dest: T::AccountId,
+		dest: H160,
 		gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
 		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
 		value: BalanceOf&lt;T&gt;,
@@ -4813,7 +4891,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DebugBuffer&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ExecReturnValue, ExecError&gt; {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>stack, executable) = <span class="self">Self</span>::new(
-			FrameArgs::Call { dest, cached_info: <span class="prelude-val">None</span>, delegated_call: <span class="prelude-val">None </span>},
+			FrameArgs::Call {
+				dest: T::AddressMapper::to_account_id(<span class="kw-2">&amp;</span>dest),
+				cached_info: <span class="prelude-val">None</span>,
+				delegated_call: <span class="prelude-val">None</span>,
+			},
 			origin,
 			gas_meter,
 			storage_meter,
@@ -4840,9 +4922,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
 		value: BalanceOf&lt;T&gt;,
 		input_data: Vec&lt;u8&gt;,
-		salt: <span class="kw-2">&amp;</span>[u8],
+		salt: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
 		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DebugBuffer&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(T::AccountId, ExecReturnValue), ExecError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(H160, ExecReturnValue), ExecError&gt; {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>stack, executable) = <span class="self">Self</span>::new(
 			FrameArgs::Instantiate {
 				sender: origin.clone(),
@@ -4856,13 +4938,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			value,
 			debug_message,
 		)<span class="question-mark">?</span>;
-		<span class="kw">let </span>account_id = stack.top_frame().account_id.clone();
-		stack.run(executable, input_data).map(|ret| (account_id, ret))
+		<span class="kw">let </span>address = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>stack.top_frame().account_id);
+		stack.run(executable, input_data).map(|ret| (address, ret))
 	}
 
 	<span class="attr">#[cfg(all(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"riscv"</span>))]
 	</span><span class="kw">pub fn </span>bench_new_call(
-		dest: T::AccountId,
+		dest: H160,
 		origin: Origin&lt;T&gt;,
 		gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
 		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
@@ -4870,7 +4952,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DebugBuffer&gt;,
 	) -&gt; (<span class="self">Self</span>, E) {
 		<span class="self">Self</span>::new(
-			FrameArgs::Call { dest, cached_info: <span class="prelude-val">None</span>, delegated_call: <span class="prelude-val">None </span>},
+			FrameArgs::Call {
+				dest: T::AddressMapper::to_account_id(<span class="kw-2">&amp;</span>dest),
+				cached_info: <span class="prelude-val">None</span>,
+				delegated_call: <span class="prelude-val">None</span>,
+			},
 			origin,
 			gas_meter,
 			storage_meter,
@@ -4934,7 +5020,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>contract = <span class="kw">if let </span><span class="prelude-val">Some</span>(contract) = cached_info {
 					contract
 				} <span class="kw">else </span>{
-					&lt;ContractInfoOf&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>dest).ok_or(&lt;Error&lt;T&gt;&gt;::ContractNotFound)<span class="question-mark">?
+					&lt;ContractInfoOf&lt;T&gt;&gt;::get(T::AddressMapper::to_address(<span class="kw-2">&amp;</span>dest))
+						.ok_or(&lt;Error&lt;T&gt;&gt;::ContractNotFound)<span class="question-mark">?
 				</span>};
 
 				<span class="kw">let </span>(executable, delegate_caller) =
@@ -4947,18 +5034,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(dest, contract, executable, delegate_caller, ExportedFunction::Call)
 			},
 			FrameArgs::Instantiate { sender, executable, salt, input_data } =&gt; {
-				<span class="kw">let </span>account_id = Contracts::&lt;T&gt;::contract_address(
-					<span class="kw-2">&amp;</span>sender,
-					<span class="kw-2">&amp;</span>executable.code_hash(),
-					input_data,
-					salt,
-				);
+				<span class="kw">let </span>deployer = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>sender);
+				<span class="kw">let </span>address = address::create2(<span class="kw-2">&amp;</span>deployer, executable.code(), input_data, salt);
 				<span class="kw">let </span>contract = ContractInfo::new(
-					<span class="kw-2">&amp;</span>account_id,
+					<span class="kw-2">&amp;</span>address,
 					&lt;System&lt;T&gt;&gt;::account_nonce(<span class="kw-2">&amp;</span>sender),
 					<span class="kw-2">*</span>executable.code_hash(),
 				)<span class="question-mark">?</span>;
-				(account_id, contract, executable, <span class="prelude-val">None</span>, ExportedFunction::Constructor)
+				(
+					T::AddressMapper::to_account_id_contract(<span class="kw-2">&amp;</span>address),
+					contract,
+					executable,
+					<span class="prelude-val">None</span>,
+					ExportedFunction::Constructor,
+				)
 			},
 		};
 
@@ -4987,7 +5076,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		read_only: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;E, ExecError&gt; {
 		<span class="kw">if </span><span class="self">self</span>.frames.len() <span class="kw">as </span>u32 == limits::CALL_STACK_DEPTH {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::MaxCallDepthReached.into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::MaxCallDepthReached.into());
 		}
 
 		<span class="comment">// We need to make sure that changes made to the contract info are not discarded.
@@ -4998,7 +5087,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span>(CachedContract::Cached(contract), ExportedFunction::Call) =
 			(<span class="kw-2">&amp;</span>frame.contract_info, frame.entry_point)
 		{
-			&lt;ContractInfoOf&lt;T&gt;&gt;::insert(frame.account_id.clone(), contract.clone());
+			&lt;ContractInfoOf&lt;T&gt;&gt;::insert(
+				T::AddressMapper::to_address(<span class="kw-2">&amp;</span>frame.account_id),
+				contract.clone(),
+			);
 		}
 
 		<span class="kw">let </span>frame = <span class="macro">top_frame_mut!</span>(<span class="self">self</span>);
@@ -5050,11 +5142,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Every non delegate call or instantiate also optionally transfers the balance.
 			</span><span class="self">self</span>.initial_transfer()<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>contract_address = <span class="kw-2">&amp;</span><span class="macro">top_frame!</span>(<span class="self">self</span>).account_id;
+			<span class="kw">let </span>contract_address = T::AddressMapper::to_address(<span class="kw-2">&amp;</span><span class="macro">top_frame!</span>(<span class="self">self</span>).account_id);
 
-			<span class="kw">let </span>call_span = T::Debug::new_call_span(contract_address, entry_point, <span class="kw-2">&amp;</span>input_data);
+			<span class="kw">let </span>call_span = T::Debug::new_call_span(<span class="kw-2">&amp;</span>contract_address, entry_point, <span class="kw-2">&amp;</span>input_data);
 
-			<span class="kw">let </span>output = T::Debug::intercept_call(contract_address, entry_point, <span class="kw-2">&amp;</span>input_data)
+			<span class="kw">let </span>output = T::Debug::intercept_call(<span class="kw-2">&amp;</span>contract_address, entry_point, <span class="kw-2">&amp;</span>input_data)
 				.unwrap_or_else(|| {
 					executable
 						.execute(<span class="self">self</span>, entry_point, input_data)
@@ -5065,7 +5157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Avoid useless work that would be reverted anyways.
 			</span><span class="kw">if </span>output.did_revert() {
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(output)
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(output);
 			}
 
 			<span class="comment">// Storage limit is normally enforced as late as possible (when the last frame returns)
@@ -5080,12 +5172,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="kw">let </span>frame = <span class="self">self</span>.top_frame();
-			<span class="kw">let </span>account_id = <span class="kw-2">&amp;</span>frame.account_id.clone();
+			<span class="kw">let </span>account_id = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>frame.account_id);
 			<span class="kw">match </span>(entry_point, delegated_code_hash) {
 				(ExportedFunction::Constructor, <span class="kw">_</span>) =&gt; {
 					<span class="comment">// It is not allowed to terminate a contract inside its constructor.
 					</span><span class="kw">if </span><span class="macro">matches!</span>(frame.contract_info, CachedContract::Terminated) {
-						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::TerminatedInConstructor.into())
+						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::TerminatedInConstructor.into());
 					}
 
 					<span class="comment">// If a special limit was set for the sub-call, we enforce it here.
@@ -5095,17 +5187,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)<span class="question-mark">?</span>;
 
-					<span class="kw">let </span>caller = <span class="self">self</span>.caller().account_id()<span class="question-mark">?</span>.clone();
+					<span class="kw">let </span>caller = T::AddressMapper::to_address(<span class="self">self</span>.caller().account_id()<span class="question-mark">?</span>);
 
 					<span class="comment">// Deposit an instantiation event.
 					</span>Contracts::&lt;T&gt;::deposit_event(Event::Instantiated {
 						deployer: caller,
-						contract: account_id.clone(),
+						contract: account_id,
 					});
 				},
 				(ExportedFunction::Call, <span class="prelude-val">Some</span>(code_hash)) =&gt; {
 					Contracts::&lt;T&gt;::deposit_event(Event::DelegateCalled {
-						contract: account_id.clone(),
+						contract: account_id,
 						code_hash,
 					});
 				},
@@ -5119,7 +5211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>caller = <span class="self">self</span>.caller();
 					Contracts::&lt;T&gt;::deposit_event(Event::Called {
 						caller: caller.clone(),
-						contract: account_id.clone(),
+						contract: account_id,
 					});
 				},
 			}
@@ -5181,8 +5273,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Only gas counter changes are persisted in case of a failure.
 			</span><span class="kw">if </span>!persist {
-				<span class="kw">return
-			</span>}
+				<span class="kw">return</span>;
+			}
 
 			<span class="comment">// Record the storage meter changes of the nested call into the parent meter.
 			// If the dropped frame's contract wasn't terminated we update the deposit counter
@@ -5200,15 +5292,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// trigger a rollback.
 				</span><span class="kw">if </span>prev.account_id == <span class="kw-2">*</span>account_id {
 					prev.contract_info = CachedContract::Cached(contract);
-					<span class="kw">return
-				</span>}
+					<span class="kw">return</span>;
+				}
 
 				<span class="comment">// Predecessor is a different contract: We persist the info and invalidate the first
 				// stale cache we find. This triggers a reload from storage on next use. We skip(1)
 				// because that case is already handled by the optimization above. Only the first
 				// cache needs to be invalidated because that one will invalidate the next cache
 				// when it is popped from the stack.
-				</span>&lt;ContractInfoOf&lt;T&gt;&gt;::insert(account_id, contract);
+				</span>&lt;ContractInfoOf&lt;T&gt;&gt;::insert(T::AddressMapper::to_address(account_id), contract);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(c) = <span class="self">self</span>.frames_mut().skip(<span class="number">1</span>).find(|f| f.account_id == <span class="kw-2">*</span>account_id) {
 					c.contract_info = CachedContract::Invalidated;
 				}
@@ -5223,8 +5315,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 			<span class="self">self</span>.gas_meter.absorb_nested(mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.first_frame.nested_gas));
 			<span class="kw">if </span>!persist {
-				<span class="kw">return
-			</span>}
+				<span class="kw">return</span>;
+			}
 			<span class="kw">let </span><span class="kw-2">mut </span>contract = <span class="self">self</span>.first_frame.contract_info.as_contract();
 			<span class="self">self</span>.storage_meter.absorb(
 				mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.first_frame.nested_storage),
@@ -5232,7 +5324,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				contract.as_deref_mut(),
 			);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(contract) = contract {
-				&lt;ContractInfoOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.first_frame.account_id, contract);
+				&lt;ContractInfoOf&lt;T&gt;&gt;::insert(
+					T::AddressMapper::to_address(<span class="kw-2">&amp;</span><span class="self">self</span>.first_frame.account_id),
+					contract,
+				);
 			}
 		}
 	}
@@ -5258,7 +5353,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// If it is a delegate call, then we've already transferred tokens in the
 		// last non-delegate frame.
 		</span><span class="kw">if </span>frame.delegate_caller.is_some() {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 		}
 
 		<span class="kw">let </span>value = frame.value_transferred;
@@ -5303,7 +5398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns whether the specified contract allows to be reentered right now.
-	</span><span class="kw">fn </span>allows_reentry(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>AccountIdOf&lt;T&gt;) -&gt; bool {
+	</span><span class="kw">fn </span>allows_reentry(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 		!<span class="self">self</span>.frames().any(|f| <span class="kw-2">&amp;</span>f.account_id == id &amp;&amp; !f.allows_reentry)
 	}
 }
@@ -5319,7 +5414,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf&lt;T&gt;,
-		to: T::AccountId,
+		dest: <span class="kw-2">&amp;</span>H160,
 		value: BalanceOf&lt;T&gt;,
 		input_data: Vec&lt;u8&gt;,
 		allows_reentry: bool,
@@ -5330,9 +5425,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// is caught by it.
 		</span><span class="self">self</span>.top_frame_mut().allows_reentry = allows_reentry;
 
+		<span class="kw">let </span>dest = T::AddressMapper::to_account_id(dest);
+
 		<span class="kw">let </span>try_call = || {
-			<span class="kw">if </span>!<span class="self">self</span>.allows_reentry(<span class="kw-2">&amp;</span>to) {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::ReentranceDenied.into())
+			<span class="kw">if </span>!<span class="self">self</span>.allows_reentry(<span class="kw-2">&amp;</span>dest) {
+				<span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::ReentranceDenied.into());
 			}
 
 			<span class="comment">// We ignore instantiate frames in our search for a cached contract.
@@ -5340,13 +5437,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// constructor: We disallow calling not fully constructed contracts.
 			</span><span class="kw">let </span>cached_info = <span class="self">self
 				</span>.frames()
-				.find(|f| f.entry_point == ExportedFunction::Call &amp;&amp; f.account_id == to)
+				.find(|f| f.entry_point == ExportedFunction::Call &amp;&amp; f.account_id == dest)
 				.and_then(|f| <span class="kw">match </span><span class="kw-2">&amp;</span>f.contract_info {
 					CachedContract::Cached(contract) =&gt; <span class="prelude-val">Some</span>(contract.clone()),
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 				});
 			<span class="kw">let </span>executable = <span class="self">self</span>.push_frame(
-				FrameArgs::Call { dest: to, cached_info, delegated_call: <span class="prelude-val">None </span>},
+				FrameArgs::Call { dest, cached_info, delegated_call: <span class="prelude-val">None </span>},
 				value,
 				gas_limit,
 				deposit_limit,
@@ -5367,7 +5464,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>delegate_call(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;,
+		code_hash: H256,
 		input_data: Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ExecReturnValue, ExecError&gt; {
 		<span class="kw">let </span>executable = E::from_storage(code_hash, <span class="self">self</span>.gas_meter_mut())<span class="question-mark">?</span>;
@@ -5393,11 +5490,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
-		code_hash: CodeHash&lt;T&gt;,
+		code_hash: H256,
 		value: BalanceOf&lt;T&gt;,
 		input_data: Vec&lt;u8&gt;,
-		salt: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(AccountIdOf&lt;T&gt;, ExecReturnValue), ExecError&gt; {
+		salt: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(H160, ExecReturnValue), ExecError&gt; {
 		<span class="kw">let </span>executable = E::from_storage(code_hash, <span class="self">self</span>.gas_meter_mut())<span class="question-mark">?</span>;
 		<span class="kw">let </span>sender = <span class="kw-2">&amp;</span><span class="self">self</span>.top_frame().account_id;
 		<span class="kw">let </span>executable = <span class="self">self</span>.push_frame(
@@ -5412,20 +5509,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			deposit_limit,
 			<span class="self">self</span>.is_read_only(),
 		)<span class="question-mark">?</span>;
-		<span class="kw">let </span>account_id = <span class="self">self</span>.top_frame().account_id.clone();
-		<span class="self">self</span>.run(executable, input_data).map(|ret| (account_id, ret))
+		<span class="kw">let </span>address = T::AddressMapper::to_address(<span class="kw-2">&amp;</span><span class="self">self</span>.top_frame().account_id);
+		<span class="self">self</span>.run(executable, input_data).map(|ret| (address, ret))
 	}
 
-	<span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
+	<span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>H160) -&gt; DispatchResult {
 		<span class="kw">if </span><span class="self">self</span>.is_recursive() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::TerminatedWhileReentrant.into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::TerminatedWhileReentrant.into());
 		}
 		<span class="kw">let </span>frame = <span class="self">self</span>.top_frame_mut();
 		<span class="kw">let </span>info = frame.terminate();
-		frame.nested_storage.terminate(<span class="kw-2">&amp;</span>info, beneficiary.clone());
+		<span class="kw">let </span>beneficiary_account = T::AddressMapper::to_account_id(beneficiary);
+		frame.nested_storage.terminate(<span class="kw-2">&amp;</span>info, beneficiary_account);
 
 		info.queue_trie_for_deletion();
-		ContractInfoOf::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>frame.account_id);
+		<span class="kw">let </span>account_address = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>frame.account_id);
+		ContractInfoOf::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>account_address);
 		<span class="self">Self</span>::decrement_refcount(info.code_hash);
 
 		<span class="kw">for </span>(code_hash, deposit) <span class="kw">in </span>info.delegate_dependencies() {
@@ -5436,14 +5535,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		Contracts::&lt;T&gt;::deposit_event(Event::Terminated {
-			contract: frame.account_id.clone(),
-			beneficiary: beneficiary.clone(),
+			contract: account_address,
+			beneficiary: <span class="kw-2">*</span>beneficiary,
 		});
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>T::AccountId, value: BalanceOf&lt;T&gt;) -&gt; DispatchResult {
-		<span class="self">Self</span>::transfer(Preservation::Preserve, <span class="kw-2">&amp;</span><span class="self">self</span>.top_frame().account_id, to, value)
+	<span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>H160, value: BalanceOf&lt;T&gt;) -&gt; DispatchResult {
+		<span class="self">Self</span>::transfer(
+			Preservation::Preserve,
+			<span class="kw-2">&amp;</span><span class="self">self</span>.top_frame().account_id,
+			<span class="kw-2">&amp;</span>T::AddressMapper::to_account_id(to),
+			value,
+		)
 	}
 
 	<span class="kw">fn </span>get_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
@@ -5470,11 +5574,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>get_transient_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="self">self</span>.transient_storage.read(<span class="self">self</span>.address(), key)
+		<span class="self">self</span>.transient_storage.read(<span class="self">self</span>.account_id(), key)
 	}
 
 	<span class="kw">fn </span>get_transient_storage_size(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
-		<span class="self">self</span>.transient_storage.read(<span class="self">self</span>.address(), key).map(|value| value.len() <span class="kw">as _</span>)
+		<span class="self">self</span>.transient_storage
+			.read(<span class="self">self</span>.account_id(), key)
+			.map(|value| value.len() <span class="kw">as _</span>)
 	}
 
 	<span class="kw">fn </span>set_transient_storage(
@@ -5483,11 +5589,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
 		take_old: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;WriteOutcome, DispatchError&gt; {
-		<span class="kw">let </span>account_id = <span class="self">self</span>.address().clone();
+		<span class="kw">let </span>account_id = <span class="self">self</span>.account_id().clone();
 		<span class="self">self</span>.transient_storage.write(<span class="kw-2">&amp;</span>account_id, key, value, take_old)
 	}
 
-	<span class="kw">fn </span>address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>T::AccountId {
+	<span class="kw">fn </span>account_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>T::AccountId {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.top_frame().account_id
 	}
 
@@ -5502,15 +5608,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>is_contract(<span class="kw-2">&amp;</span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
+	<span class="kw">fn </span>is_contract(<span class="kw-2">&amp;</span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>H160) -&gt; bool {
 		ContractInfoOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>address)
 	}
 
-	<span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Option</span>&lt;CodeHash&lt;<span class="self">Self</span>::T&gt;&gt; {
+	<span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>H160) -&gt; <span class="prelude-ty">Option</span>&lt;H256&gt; {
 		&lt;ContractInfoOf&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>address).map(|contract| contract.code_hash)
 	}
 
-	<span class="kw">fn </span>own_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt; {
+	<span class="kw">fn </span>own_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>H256 {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.top_frame_mut().contract_info().code_hash
 	}
 
@@ -5546,7 +5652,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>deposit_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topics: Vec&lt;T::Hash&gt;, data: Vec&lt;u8&gt;) {
 		Contracts::&lt;<span class="self">Self</span>::T&gt;::deposit_indexed_event(
 			topics,
-			Event::ContractEmitted { contract: <span class="self">self</span>.top_frame().account_id.clone(), data },
+			Event::ContractEmitted {
+				contract: T::AddressMapper::to_address(<span class="self">self</span>.account_id()),
+				data,
+			},
 		);
 	}
 
@@ -5597,7 +5706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>call_runtime(<span class="kw-2">&amp;</span><span class="self">self</span>, call: &lt;<span class="self">Self</span>::T <span class="kw">as </span>Config&gt;::RuntimeCall) -&gt; DispatchResultWithPostInfo {
-		<span class="kw">let </span><span class="kw-2">mut </span>origin: T::RuntimeOrigin = RawOrigin::Signed(<span class="self">self</span>.address().clone()).into();
+		<span class="kw">let </span><span class="kw-2">mut </span>origin: T::RuntimeOrigin = RawOrigin::Signed(<span class="self">self</span>.account_id().clone()).into();
 		origin.add_filter(T::CallFilter::contains);
 		call.dispatch(origin)
 	}
@@ -5628,7 +5737,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>.transient_storage
 	}
 
-	<span class="kw">fn </span>set_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
+	<span class="kw">fn </span>set_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: H256) -&gt; DispatchResult {
 		<span class="kw">let </span>frame = <span class="macro">top_frame_mut!</span>(<span class="self">self</span>);
 
 		<span class="kw">let </span>info = frame.contract_info();
@@ -5648,14 +5757,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::increment_refcount(hash)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::decrement_refcount(prev_hash);
 		Contracts::&lt;<span class="self">Self</span>::T&gt;::deposit_event(Event::ContractCodeUpdated {
-			contract: frame.account_id.clone(),
+			contract: T::AddressMapper::to_address(<span class="kw-2">&amp;</span>frame.account_id),
 			new_code_hash: hash,
 			old_code_hash: prev_hash,
 		});
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
+	<span class="kw">fn </span>increment_refcount(code_hash: H256) -&gt; DispatchResult {
 		&lt;CodeInfoOf&lt;<span class="self">Self</span>::T&gt;&gt;::mutate(code_hash, |existing| -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = existing {
 				<span class="kw-2">*</span>info.refcount_mut() = info.refcount().saturating_add(<span class="number">1</span>);
@@ -5666,7 +5775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="kw">fn </span>decrement_refcount(code_hash: CodeHash&lt;T&gt;) {
+	<span class="kw">fn </span>decrement_refcount(code_hash: H256) {
 		&lt;CodeInfoOf&lt;T&gt;&gt;::mutate(code_hash, |existing| {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = existing {
 				<span class="kw-2">*</span>info.refcount_mut() = info.refcount().saturating_sub(<span class="number">1</span>);
@@ -5674,7 +5783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 	}
 
-	<span class="kw">fn </span>lock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
+	<span class="kw">fn </span>lock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: H256) -&gt; DispatchResult {
 		<span class="kw">let </span>frame = <span class="self">self</span>.top_frame_mut();
 		<span class="kw">let </span>info = frame.contract_info.get(<span class="kw-2">&amp;</span>frame.account_id);
 		<span class="macro">ensure!</span>(code_hash != info.code_hash, Error::&lt;T&gt;::CannotAddSelfAsDelegateDependency);
@@ -5690,7 +5799,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>unlock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
+	<span class="kw">fn </span>unlock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: <span class="kw-2">&amp;</span>H256) -&gt; DispatchResult {
 		<span class="kw">let </span>frame = <span class="self">self</span>.top_frame_mut();
 		<span class="kw">let </span>info = frame.contract_info.get(<span class="kw-2">&amp;</span>frame.account_id);
 
@@ -5735,10 +5844,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			test_utils::{get_balance, place_contract, set_balance},
 			ExtBuilder, RuntimeCall, RuntimeEvent <span class="kw">as </span>MetaEvent, Test, TestFilter,
 		},
-		Error,
+		AddressMapper, Error,
 	};
 	<span class="kw">use </span>assert_matches::assert_matches;
-	<span class="kw">use </span>codec::{Decode, Encode};
 	<span class="kw">use </span>frame_support::{assert_err, assert_ok, parameter_types};
 	<span class="kw">use </span>frame_system::{EventRecord, Phase};
 	<span class="kw">use </span>pallet_revive_uapi::ReturnFlags;
@@ -5773,25 +5881,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">struct </span>MockExecutable {
 		func: Rc&lt;<span class="kw">dyn for</span>&lt;<span class="lifetime">'a</span>&gt; Fn(MockCtx&lt;<span class="lifetime">'a</span>&gt;, <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; ExecResult + <span class="lifetime">'static</span>&gt;,
 		func_type: ExportedFunction,
-		code_hash: CodeHash&lt;Test&gt;,
+		code_hash: H256,
 		code_info: CodeInfo&lt;Test&gt;,
 	}
 
 	<span class="attr">#[derive(Default, Clone)]
 	</span><span class="kw">pub struct </span>MockLoader {
-		map: HashMap&lt;CodeHash&lt;Test&gt;, MockExecutable&gt;,
+		map: HashMap&lt;H256, MockExecutable&gt;,
 		counter: u64,
 	}
 
 	<span class="kw">impl </span>MockLoader {
-		<span class="kw">fn </span>code_hashes() -&gt; Vec&lt;CodeHash&lt;Test&gt;&gt; {
+		<span class="kw">fn </span>code_hashes() -&gt; Vec&lt;H256&gt; {
 			Loader::get().map.keys().copied().collect()
 		}
 
 		<span class="kw">fn </span>insert(
 			func_type: ExportedFunction,
 			f: <span class="kw">impl </span>Fn(MockCtx, <span class="kw-2">&amp;</span>MockExecutable) -&gt; ExecResult + <span class="lifetime">'static</span>,
-		) -&gt; CodeHash&lt;Test&gt; {
+		) -&gt; H256 {
 			Loader::mutate(|loader| {
 				<span class="comment">// Generate code hashes as monotonically increasing values.
 				</span><span class="kw">let </span>hash = &lt;Test <span class="kw">as </span>frame_system::Config&gt;::Hash::from_low_u64_be(loader.counter);
@@ -5812,7 +5920,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>Executable&lt;Test&gt; <span class="kw">for </span>MockExecutable {
 		<span class="kw">fn </span>from_storage(
-			code_hash: CodeHash&lt;Test&gt;,
+			code_hash: H256,
 			_gas_meter: <span class="kw-2">&amp;mut </span>GasMeter&lt;Test&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
 			Loader::mutate(|loader| {
@@ -5846,7 +5954,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CodeHash&lt;Test&gt; {
+		<span class="kw">fn </span>code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
+			<span class="comment">// The mock executable doesn't have code", so we return the code hash.
+			</span><span class="self">self</span>.code_hash.as_ref()
+		}
+
+		<span class="kw">fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>H256 {
 			<span class="kw-2">&amp;</span><span class="self">self</span>.code_hash
 		}
 
@@ -5884,7 +5997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_matches!</span>(
 				MockStack::run_call(
 					Origin::from_account_id(ALICE),
-					BOB,
+					BOB_ADDR,
 					<span class="kw-2">&amp;mut </span>gas_meter,
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					value,
@@ -5902,24 +6015,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>transfer_works() {
 		<span class="comment">// This test verifies that a contract is able to transfer
 		// some funds to another account.
-		</span><span class="kw">let </span>origin = ALICE;
-		<span class="kw">let </span>dest = BOB;
+		</span>ExtBuilder::default().build().execute_with(|| {
+			set_balance(<span class="kw-2">&amp;</span>ALICE, <span class="number">100</span>);
+			set_balance(<span class="kw-2">&amp;</span>BOB, <span class="number">0</span>);
 
-		ExtBuilder::default().build().execute_with(|| {
-			set_balance(<span class="kw-2">&amp;</span>origin, <span class="number">100</span>);
-			set_balance(<span class="kw-2">&amp;</span>dest, <span class="number">0</span>);
+			MockStack::transfer(Preservation::Preserve, <span class="kw-2">&amp;</span>ALICE, <span class="kw-2">&amp;</span>BOB, <span class="number">55</span>).unwrap();
 
-			MockStack::transfer(Preservation::Preserve, <span class="kw-2">&amp;</span>origin, <span class="kw-2">&amp;</span>dest, <span class="number">55</span>).unwrap();
-
-			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>origin), <span class="number">45</span>);
-			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>dest), <span class="number">55</span>);
+			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>ALICE), <span class="number">45</span>);
+			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>BOB), <span class="number">55</span>);
 		});
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>correct_transfer_on_call() {
-		<span class="kw">let </span>origin = ALICE;
-		<span class="kw">let </span>dest = BOB;
 		<span class="kw">let </span>value = <span class="number">55</span>;
 
 		<span class="kw">let </span>success_ch = MockLoader::insert(Call, <span class="kw">move </span>|ctx, <span class="kw">_</span>| {
@@ -5928,15 +6036,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			place_contract(<span class="kw-2">&amp;</span>dest, success_ch);
-			set_balance(<span class="kw-2">&amp;</span>origin, <span class="number">100</span>);
-			<span class="kw">let </span>balance = get_balance(<span class="kw-2">&amp;</span>dest);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(origin.clone());
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, value).unwrap();
+			place_contract(<span class="kw-2">&amp;</span>BOB, success_ch);
+			set_balance(<span class="kw-2">&amp;</span>ALICE, <span class="number">100</span>);
+			<span class="kw">let </span>balance = get_balance(<span class="kw-2">&amp;</span>BOB_CONTRACT_ID);
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, value).unwrap();
 
 			<span class="kw">let _ </span>= MockStack::run_call(
-				contract_origin.clone(),
-				dest.clone(),
+				origin.clone(),
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				value,
@@ -5945,15 +6053,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.unwrap();
 
-			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>origin), <span class="number">100 </span>- value);
-			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>dest), balance + value);
+			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>ALICE), <span class="number">100 </span>- value);
+			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>BOB_CONTRACT_ID), balance + value);
 		});
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>correct_transfer_on_delegate_call() {
-		<span class="kw">let </span>origin = ALICE;
-		<span class="kw">let </span>dest = BOB;
 		<span class="kw">let </span>value = <span class="number">35</span>;
 
 		<span class="kw">let </span>success_ch = MockLoader::insert(Call, <span class="kw">move </span>|ctx, <span class="kw">_</span>| {
@@ -5968,15 +6074,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			place_contract(<span class="kw-2">&amp;</span>dest, delegate_ch);
-			set_balance(<span class="kw-2">&amp;</span>origin, <span class="number">100</span>);
-			<span class="kw">let </span>balance = get_balance(<span class="kw-2">&amp;</span>dest);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(origin.clone());
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">55</span>).unwrap();
+			place_contract(<span class="kw-2">&amp;</span>BOB, delegate_ch);
+			set_balance(<span class="kw-2">&amp;</span>ALICE, <span class="number">100</span>);
+			<span class="kw">let </span>balance = get_balance(<span class="kw-2">&amp;</span>BOB_CONTRACT_ID);
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">55</span>).unwrap();
 
 			<span class="kw">let _ </span>= MockStack::run_call(
-				contract_origin.clone(),
-				dest.clone(),
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				value,
@@ -5985,8 +6091,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.unwrap();
 
-			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>origin), <span class="number">100 </span>- value);
-			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>dest), balance + value);
+			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>ALICE), <span class="number">100 </span>- value);
+			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>BOB_CONTRACT_ID), balance + value);
 		});
 	}
 
@@ -5994,23 +6100,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>changes_are_reverted_on_failing_call() {
 		<span class="comment">// This test verifies that changes are reverted on a call which fails (or equally, returns
 		// a non-zero status code).
-		</span><span class="kw">let </span>origin = ALICE;
-		<span class="kw">let </span>dest = BOB;
 
-		<span class="kw">let </span>return_ch = MockLoader::insert(Call, |<span class="kw">_</span>, <span class="kw">_</span>| {
+		</span><span class="kw">let </span>return_ch = MockLoader::insert(Call, |<span class="kw">_</span>, <span class="kw">_</span>| {
 			<span class="prelude-val">Ok</span>(ExecReturnValue { flags: ReturnFlags::REVERT, data: Vec::new() })
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			place_contract(<span class="kw-2">&amp;</span>dest, return_ch);
-			set_balance(<span class="kw-2">&amp;</span>origin, <span class="number">100</span>);
-			<span class="kw">let </span>balance = get_balance(<span class="kw-2">&amp;</span>dest);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(origin.clone());
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">55</span>).unwrap();
+			place_contract(<span class="kw-2">&amp;</span>BOB, return_ch);
+			set_balance(<span class="kw-2">&amp;</span>ALICE, <span class="number">100</span>);
+			<span class="kw">let </span>balance = get_balance(<span class="kw-2">&amp;</span>BOB);
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">55</span>).unwrap();
 
 			<span class="kw">let </span>output = MockStack::run_call(
-				contract_origin.clone(),
-				dest.clone(),
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">55</span>,
@@ -6020,8 +6124,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 
 			<span class="macro">assert!</span>(output.did_revert());
-			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>origin), <span class="number">100</span>);
-			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>dest), balance);
+			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>ALICE), <span class="number">100</span>);
+			<span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>BOB), balance);
 		});
 	}
 
@@ -6047,20 +6151,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>output_is_returned_on_success() {
 		<span class="comment">// Verifies that if a contract returns data with a successful exit status, this data
 		// is returned from the execution context.
-		</span><span class="kw">let </span>origin = ALICE;
-		<span class="kw">let </span>dest = BOB;
-		<span class="kw">let </span>return_ch = MockLoader::insert(Call, |<span class="kw">_</span>, <span class="kw">_</span>| {
+		</span><span class="kw">let </span>return_ch = MockLoader::insert(Call, |<span class="kw">_</span>, <span class="kw">_</span>| {
 			<span class="prelude-val">Ok</span>(ExecReturnValue { flags: ReturnFlags::empty(), data: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>] })
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(origin);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			place_contract(<span class="kw-2">&amp;</span>BOB, return_ch);
 
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				dest,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6078,20 +6180,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>output_is_returned_on_failure() {
 		<span class="comment">// Verifies that if a contract returns data with a failing exit status, this data
 		// is returned from the execution context.
-		</span><span class="kw">let </span>origin = ALICE;
-		<span class="kw">let </span>dest = BOB;
-		<span class="kw">let </span>return_ch = MockLoader::insert(Call, |<span class="kw">_</span>, <span class="kw">_</span>| {
+		</span><span class="kw">let </span>return_ch = MockLoader::insert(Call, |<span class="kw">_</span>, <span class="kw">_</span>| {
 			<span class="prelude-val">Ok</span>(ExecReturnValue { flags: ReturnFlags::REVERT, data: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>] })
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, return_ch);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(origin);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				dest,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6115,12 +6215,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// This one tests passing the input data into a contract via call.
 		</span>ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, input_data_ch);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6148,13 +6248,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>executable =
 					MockExecutable::from_storage(input_data_ch, <span class="kw-2">&amp;mut </span>gas_meter).unwrap();
 				set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">10_000</span>);
-				<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(
-					<span class="kw-2">&amp;</span>contract_origin,
-					deposit_limit::&lt;Test&gt;(),
-					min_balance,
-				)
-				.unwrap();
+				<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
+					storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), min_balance)
+						.unwrap();
 
 				<span class="kw">let </span>result = MockStack::run_instantiate(
 					ALICE,
@@ -6163,7 +6260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance,
 					<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>],
-					<span class="kw-2">&amp;</span>[],
+					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 					<span class="prelude-val">None</span>,
 				);
 				<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Ok</span>(<span class="kw">_</span>));
@@ -6183,7 +6280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>r = ctx.ext.call(
 				Weight::zero(),
 				BalanceOf::&lt;Test&gt;::zero(),
-				BOB,
+				<span class="kw-2">&amp;</span>BOB_ADDR,
 				<span class="number">0</span>,
 				<span class="macro">vec!</span>[],
 				<span class="bool-val">true</span>,
@@ -6208,12 +6305,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ExtBuilder::default().build().execute_with(|| {
 			set_balance(<span class="kw-2">&amp;</span>BOB, <span class="number">1</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, recurse_ch);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, value).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, value).unwrap();
 
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				value,
@@ -6227,18 +6324,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>caller_returns_proper_values() {
-		<span class="kw">let </span>origin = ALICE;
-		<span class="kw">let </span>dest = BOB;
-
 		<span class="macro">parameter_types! </span>{
-			<span class="kw">static </span>WitnessedCallerBob: <span class="prelude-ty">Option</span>&lt;AccountIdOf&lt;Test&gt;&gt; = <span class="prelude-val">None</span>;
-			<span class="kw">static </span>WitnessedCallerCharlie: <span class="prelude-ty">Option</span>&lt;AccountIdOf&lt;Test&gt;&gt; = <span class="prelude-val">None</span>;
+			<span class="kw">static </span>WitnessedCallerBob: <span class="prelude-ty">Option</span>&lt;H160&gt; = <span class="prelude-val">None</span>;
+			<span class="kw">static </span>WitnessedCallerCharlie: <span class="prelude-ty">Option</span>&lt;H160&gt; = <span class="prelude-val">None</span>;
 		}
 
 		<span class="kw">let </span>bob_ch = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="comment">// Record the caller for bob.
 			</span>WitnessedCallerBob::mutate(|caller| {
-				<span class="kw-2">*</span>caller = <span class="prelude-val">Some</span>(ctx.ext.caller().account_id().unwrap().clone())
+				<span class="kw">let </span>origin = ctx.ext.caller();
+				<span class="kw-2">*</span>caller = <span class="prelude-val">Some</span>(&lt;Test <span class="kw">as </span>Config&gt;::AddressMapper::to_address(
+					<span class="kw-2">&amp;</span>origin.account_id().unwrap(),
+				));
 			});
 
 			<span class="comment">// Call into CHARLIE contract.
@@ -6246,7 +6343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ctx.ext.call(
 					Weight::zero(),
 					BalanceOf::&lt;Test&gt;::zero(),
-					CHARLIE,
+					<span class="kw-2">&amp;</span>CHARLIE_ADDR,
 					<span class="number">0</span>,
 					<span class="macro">vec!</span>[],
 					<span class="bool-val">true</span>,
@@ -6259,20 +6356,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>charlie_ch = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="comment">// Record the caller for charlie.
 			</span>WitnessedCallerCharlie::mutate(|caller| {
-				<span class="kw-2">*</span>caller = <span class="prelude-val">Some</span>(ctx.ext.caller().account_id().unwrap().clone())
+				<span class="kw">let </span>origin = ctx.ext.caller();
+				<span class="kw-2">*</span>caller = <span class="prelude-val">Some</span>(&lt;Test <span class="kw">as </span>Config&gt;::AddressMapper::to_address(
+					<span class="kw-2">&amp;</span>origin.account_id().unwrap(),
+				));
 			});
 			exec_success()
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			place_contract(<span class="kw-2">&amp;</span>dest, bob_ch);
+			place_contract(<span class="kw-2">&amp;</span>BOB, bob_ch);
 			place_contract(<span class="kw-2">&amp;</span>CHARLIE, charlie_ch);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(origin.clone());
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin.clone(),
-				dest.clone(),
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6283,28 +6383,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Ok</span>(<span class="kw">_</span>));
 		});
 
-		<span class="macro">assert_eq!</span>(WitnessedCallerBob::get(), <span class="prelude-val">Some</span>(origin));
-		<span class="macro">assert_eq!</span>(WitnessedCallerCharlie::get(), <span class="prelude-val">Some</span>(dest));
+		<span class="macro">assert_eq!</span>(WitnessedCallerBob::get(), <span class="prelude-val">Some</span>(ALICE_ADDR));
+		<span class="macro">assert_eq!</span>(WitnessedCallerCharlie::get(), <span class="prelude-val">Some</span>(BOB_ADDR));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>is_contract_returns_proper_values() {
 		<span class="kw">let </span>bob_ch = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="comment">// Verify that BOB is a contract
-			</span><span class="macro">assert!</span>(ctx.ext.is_contract(<span class="kw-2">&amp;</span>BOB));
+			</span><span class="macro">assert!</span>(ctx.ext.is_contract(<span class="kw-2">&amp;</span>BOB_ADDR));
 			<span class="comment">// Verify that ALICE is not a contract
-			</span><span class="macro">assert!</span>(!ctx.ext.is_contract(<span class="kw-2">&amp;</span>ALICE));
+			</span><span class="macro">assert!</span>(!ctx.ext.is_contract(<span class="kw-2">&amp;</span>ALICE_ADDR));
 			exec_success()
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, bob_ch);
 
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6319,20 +6419,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>code_hash_returns_proper_values() {
 		<span class="kw">let </span>code_bob = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="comment">// ALICE is not a contract and hence they do not have a code_hash
-			</span><span class="macro">assert!</span>(ctx.ext.code_hash(<span class="kw-2">&amp;</span>ALICE).is_none());
+			</span><span class="macro">assert!</span>(ctx.ext.code_hash(<span class="kw-2">&amp;</span>ALICE_ADDR).is_none());
 			<span class="comment">// BOB is a contract and hence it has a code_hash
-			</span><span class="macro">assert!</span>(ctx.ext.code_hash(<span class="kw-2">&amp;</span>BOB).is_some());
+			</span><span class="macro">assert!</span>(ctx.ext.code_hash(<span class="kw-2">&amp;</span>BOB_ADDR).is_some());
 			exec_success()
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_bob);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			<span class="comment">// ALICE (not contract) -&gt; BOB (contract)
 			</span><span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6346,19 +6446,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>own_code_hash_returns_proper_values() {
 		<span class="kw">let </span>bob_ch = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
-			<span class="kw">let </span>code_hash = ctx.ext.code_hash(<span class="kw-2">&amp;</span>BOB).unwrap();
+			<span class="kw">let </span>code_hash = ctx.ext.code_hash(<span class="kw-2">&amp;</span>BOB_ADDR).unwrap();
 			<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>ctx.ext.own_code_hash(), code_hash);
 			exec_success()
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, bob_ch);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			<span class="comment">// ALICE (not contract) -&gt; BOB (contract)
 			</span><span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6381,19 +6481,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// ALICE is the origin of the call stack
 			</span><span class="macro">assert!</span>(ctx.ext.caller_is_origin());
 			<span class="comment">// BOB calls CHARLIE
-			</span>ctx.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), CHARLIE, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
+			</span>ctx.ext.call(
+				Weight::zero(),
+				BalanceOf::&lt;Test&gt;::zero(),
+				<span class="kw-2">&amp;</span>CHARLIE_ADDR,
+				<span class="number">0</span>,
+				<span class="macro">vec!</span>[],
+				<span class="bool-val">true</span>,
+				<span class="bool-val">false</span>,
+			)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_bob);
 			place_contract(<span class="kw-2">&amp;</span>CHARLIE, code_charlie);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			<span class="comment">// ALICE -&gt; BOB (caller is origin) -&gt; CHARLIE (caller is not origin)
 			</span><span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6414,12 +6521,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_bob);
-			<span class="kw">let </span>contract_origin = Origin::Root;
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::Root;
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			<span class="comment">// root -&gt; BOB (caller is root)
 			</span><span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6440,12 +6547,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_bob);
-			<span class="kw">let </span>contract_origin = Origin::Root;
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::Root;
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			<span class="comment">// root -&gt; BOB (caller is root)
 			</span><span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">1</span>,
@@ -6468,19 +6575,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// root is the origin of the call stack.
 			</span><span class="macro">assert!</span>(ctx.ext.caller_is_root());
 			<span class="comment">// BOB calls CHARLIE.
-			</span>ctx.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), CHARLIE, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
+			</span>ctx.ext.call(
+				Weight::zero(),
+				BalanceOf::&lt;Test&gt;::zero(),
+				<span class="kw-2">&amp;</span>CHARLIE_ADDR,
+				<span class="number">0</span>,
+				<span class="macro">vec!</span>[],
+				<span class="bool-val">true</span>,
+				<span class="bool-val">false</span>,
+			)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_bob);
 			place_contract(<span class="kw-2">&amp;</span>CHARLIE, code_charlie);
-			<span class="kw">let </span>contract_origin = Origin::Root;
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::Root;
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			<span class="comment">// root -&gt; BOB (caller is root) -&gt; CHARLIE (caller is not root)
 			</span><span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6495,14 +6609,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>address_returns_proper_values() {
 		<span class="kw">let </span>bob_ch = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="comment">// Verify that address matches BOB.
-			</span><span class="macro">assert_eq!</span>(<span class="kw-2">*</span>ctx.ext.address(), BOB);
+			</span><span class="macro">assert_eq!</span>(ctx.ext.address(), BOB_ADDR);
 
 			<span class="comment">// Call into charlie contract.
 			</span><span class="macro">assert_matches!</span>(
 				ctx.ext.call(
 					Weight::zero(),
 					BalanceOf::&lt;Test&gt;::zero(),
-					CHARLIE,
+					<span class="kw-2">&amp;</span>CHARLIE_ADDR,
 					<span class="number">0</span>,
 					<span class="macro">vec!</span>[],
 					<span class="bool-val">true</span>,
@@ -6513,19 +6627,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			exec_success()
 		});
 		<span class="kw">let </span>charlie_ch = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
-			<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>ctx.ext.address(), CHARLIE);
+			<span class="macro">assert_eq!</span>(ctx.ext.address(), CHARLIE_ADDR);
 			exec_success()
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, bob_ch);
 			place_contract(<span class="kw-2">&amp;</span>CHARLIE, charlie_ch);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6544,8 +6658,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ExtBuilder::default().existential_deposit(<span class="number">15</span>).build().execute_with(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			<span class="kw">let </span>executable = MockExecutable::from_storage(dummy_ch, <span class="kw-2">&amp;mut </span>gas_meter).unwrap();
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 
 			<span class="macro">assert_matches!</span>(
 				MockStack::run_instantiate(
@@ -6555,7 +6669,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					<span class="number">0</span>, <span class="comment">// &lt;- zero value
 					</span><span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[],
+					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 					<span class="prelude-val">None</span>,
 				),
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>)
@@ -6578,10 +6692,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 				<span class="kw">let </span>executable = MockExecutable::from_storage(dummy_ch, <span class="kw-2">&amp;mut </span>gas_meter).unwrap();
 				set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">1000</span>);
-				<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
+				<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
 				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-					storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, min_balance * <span class="number">100</span>, min_balance)
-						.unwrap();
+					storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, min_balance * <span class="number">100</span>, min_balance).unwrap();
 
 				<span class="kw">let </span>instantiated_contract_address = <span class="macro">assert_matches!</span>(
 					MockStack::run_instantiate(
@@ -6592,22 +6705,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						min_balance,
 						<span class="macro">vec!</span>[],
-						<span class="kw-2">&amp;</span>[],
+						<span class="kw-2">&amp;</span>[<span class="number">0</span>;<span class="number">32</span>],
 						<span class="prelude-val">None</span>,
 					),
 					<span class="prelude-val">Ok</span>((address, <span class="kw-2">ref </span>output)) <span class="kw">if </span>output.data == <span class="macro">vec!</span>[<span class="number">80</span>, <span class="number">65</span>, <span class="number">83</span>, <span class="number">83</span>] =&gt; address
 				);
+				<span class="kw">let </span>instantiated_contract_id =
+					&lt;Test <span class="kw">as </span>Config&gt;::AddressMapper::to_account_id_contract(
+						<span class="kw-2">&amp;</span>instantiated_contract_address,
+					);
 
 				<span class="comment">// Check that the newly created account has the expected code hash and
 				// there are instantiation event.
 				</span><span class="macro">assert_eq!</span>(
-					ContractInfo::&lt;Test&gt;::load_code_hash(<span class="kw-2">&amp;</span>instantiated_contract_address).unwrap(),
+					ContractInfo::&lt;Test&gt;::load_code_hash(<span class="kw-2">&amp;</span>instantiated_contract_id).unwrap(),
 					dummy_ch
 				);
 				<span class="macro">assert_eq!</span>(
 					<span class="kw-2">&amp;</span>events(),
 					<span class="kw-2">&amp;</span>[Event::Instantiated {
-						deployer: ALICE,
+						deployer: ALICE_ADDR,
 						contract: instantiated_contract_address
 					}]
 				);
@@ -6629,10 +6746,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 				<span class="kw">let </span>executable = MockExecutable::from_storage(dummy_ch, <span class="kw-2">&amp;mut </span>gas_meter).unwrap();
 				set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">1000</span>);
-				<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
+				<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
 				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-					storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, min_balance * <span class="number">100</span>, min_balance)
-						.unwrap();
+					storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, min_balance * <span class="number">100</span>, min_balance).unwrap();
 
 				<span class="kw">let </span>instantiated_contract_address = <span class="macro">assert_matches!</span>(
 					MockStack::run_instantiate(
@@ -6643,16 +6759,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						min_balance,
 						<span class="macro">vec!</span>[],
-						<span class="kw-2">&amp;</span>[],
+						<span class="kw-2">&amp;</span>[<span class="number">0</span>;<span class="number">32</span>],
 						<span class="prelude-val">None</span>,
 					),
 					<span class="prelude-val">Ok</span>((address, <span class="kw-2">ref </span>output)) <span class="kw">if </span>output.data == <span class="macro">vec!</span>[<span class="number">70</span>, <span class="number">65</span>, <span class="number">73</span>, <span class="number">76</span>] =&gt; address
 				);
 
+				<span class="kw">let </span>instantiated_contract_id =
+					&lt;Test <span class="kw">as </span>Config&gt;::AddressMapper::to_account_id_contract(
+						<span class="kw-2">&amp;</span>instantiated_contract_address,
+					);
+
 				<span class="comment">// Check that the account has not been created.
-				</span><span class="macro">assert!</span>(
-					ContractInfo::&lt;Test&gt;::load_code_hash(<span class="kw-2">&amp;</span>instantiated_contract_address).is_none()
-				);
+				</span><span class="macro">assert!</span>(ContractInfo::&lt;Test&gt;::load_code_hash(<span class="kw-2">&amp;</span>instantiated_contract_id).is_none());
 				<span class="macro">assert!</span>(events().is_empty());
 			});
 	}
@@ -6660,7 +6779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>instantiation_from_contract() {
 		<span class="kw">let </span>dummy_ch = MockLoader::insert(Call, |<span class="kw">_</span>, <span class="kw">_</span>| exec_success());
-		<span class="kw">let </span>instantiated_contract_address = Rc::new(RefCell::new(<span class="prelude-val">None</span>::&lt;AccountIdOf&lt;Test&gt;&gt;));
+		<span class="kw">let </span>instantiated_contract_address = Rc::new(RefCell::new(<span class="prelude-val">None</span>::&lt;H160&gt;));
 		<span class="kw">let </span>instantiator_ch = MockLoader::insert(Call, {
 			<span class="kw">let </span>instantiated_contract_address = Rc::clone(<span class="kw-2">&amp;</span>instantiated_contract_address);
 			<span class="kw">move </span>|ctx, <span class="kw">_</span>| {
@@ -6673,11 +6792,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						dummy_ch,
 						&lt;Test <span class="kw">as </span>Config&gt;::Currency::minimum_balance(),
 						<span class="macro">vec!</span>[],
-						<span class="kw-2">&amp;</span>[<span class="number">48</span>, <span class="number">49</span>, <span class="number">50</span>],
+						<span class="kw-2">&amp;</span>[<span class="number">48</span>; <span class="number">32</span>],
 					)
 					.unwrap();
 
-				<span class="kw-2">*</span>instantiated_contract_address.borrow_mut() = address.into();
+				<span class="kw-2">*</span>instantiated_contract_address.borrow_mut() = <span class="prelude-val">Some</span>(address);
 				<span class="prelude-val">Ok</span>(output)
 			}
 		});
@@ -6690,18 +6809,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>min_balance = &lt;Test <span class="kw">as </span>Config&gt;::Currency::minimum_balance();
 				set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">100</span>);
 				place_contract(<span class="kw-2">&amp;</span>BOB, instantiator_ch);
-				<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(
-					<span class="kw-2">&amp;</span>contract_origin,
-					min_balance * <span class="number">10</span>,
-					min_balance * <span class="number">10</span>,
-				)
-				.unwrap();
+				<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
+					storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, min_balance * <span class="number">10</span>, min_balance * <span class="number">10</span>)
+						.unwrap();
 
 				<span class="macro">assert_matches!</span>(
 					MockStack::run_call(
-						contract_origin,
-						BOB,
+						origin,
+						BOB_ADDR,
 						<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 						<span class="kw-2">&amp;mut </span>storage_meter,
 						min_balance * <span class="number">10</span>,
@@ -6712,22 +6828,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 
 				<span class="kw">let </span>instantiated_contract_address =
-					instantiated_contract_address.borrow().as_ref().unwrap().clone();
+					<span class="kw-2">*</span>instantiated_contract_address.borrow().as_ref().unwrap();
+
+				<span class="kw">let </span>instantiated_contract_id =
+					&lt;Test <span class="kw">as </span>Config&gt;::AddressMapper::to_account_id_contract(
+						<span class="kw-2">&amp;</span>instantiated_contract_address,
+					);
 
 				<span class="comment">// Check that the newly created account has the expected code hash and
 				// there are instantiation event.
 				</span><span class="macro">assert_eq!</span>(
-					ContractInfo::&lt;Test&gt;::load_code_hash(<span class="kw-2">&amp;</span>instantiated_contract_address).unwrap(),
+					ContractInfo::&lt;Test&gt;::load_code_hash(<span class="kw-2">&amp;</span>instantiated_contract_id).unwrap(),
 					dummy_ch
 				);
 				<span class="macro">assert_eq!</span>(
 					<span class="kw-2">&amp;</span>events(),
 					<span class="kw-2">&amp;</span>[
 						Event::Instantiated {
-							deployer: BOB,
+							deployer: BOB_ADDR,
 							contract: instantiated_contract_address
 						},
-						Event::Called { caller: Origin::from_account_id(ALICE), contract: BOB },
+						Event::Called {
+							caller: Origin::from_account_id(ALICE),
+							contract: BOB_ADDR
+						},
 					]
 				);
 			});
@@ -6746,7 +6870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						dummy_ch,
 						&lt;Test <span class="kw">as </span>Config&gt;::Currency::minimum_balance(),
 						<span class="macro">vec!</span>[],
-						<span class="kw-2">&amp;</span>[],
+						<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 					),
 					<span class="prelude-val">Err</span>(ExecError {
 						error: DispatchError::Other(<span class="string">"It's a trap!"</span>),
@@ -6764,16 +6888,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.build()
 			.execute_with(|| {
 				set_balance(<span class="kw-2">&amp;</span>ALICE, <span class="number">1000</span>);
-				set_balance(<span class="kw-2">&amp;</span>BOB, <span class="number">100</span>);
+				set_balance(<span class="kw-2">&amp;</span>BOB_CONTRACT_ID, <span class="number">100</span>);
 				place_contract(<span class="kw-2">&amp;</span>BOB, instantiator_ch);
-				<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-					storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">200</span>, <span class="number">0</span>).unwrap();
+				<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">200</span>, <span class="number">0</span>).unwrap();
 
 				<span class="macro">assert_matches!</span>(
 					MockStack::run_call(
-						contract_origin,
-						BOB,
+						origin,
+						BOB_ADDR,
 						<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 						<span class="kw-2">&amp;mut </span>storage_meter,
 						<span class="number">0</span>,
@@ -6787,7 +6910,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// event here.
 				</span><span class="macro">assert_eq!</span>(
 					<span class="kw-2">&amp;</span>events(),
-					<span class="kw-2">&amp;</span>[Event::Called { caller: Origin::from_account_id(ALICE), contract: BOB },]
+					<span class="kw-2">&amp;</span>[Event::Called { caller: Origin::from_account_id(ALICE), contract: BOB_ADDR },]
 				);
 			});
 	}
@@ -6795,7 +6918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>termination_from_instantiate_fails() {
 		<span class="kw">let </span>terminate_ch = MockLoader::insert(Constructor, |ctx, <span class="kw">_</span>| {
-			ctx.ext.terminate(<span class="kw-2">&amp;</span>ALICE).unwrap();
+			ctx.ext.terminate(<span class="kw-2">&amp;</span>ALICE_ADDR).unwrap();
 			exec_success()
 		});
 
@@ -6808,10 +6931,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>executable =
 					MockExecutable::from_storage(terminate_ch, <span class="kw-2">&amp;mut </span>gas_meter).unwrap();
 				set_balance(<span class="kw-2">&amp;</span>ALICE, <span class="number">10_000</span>);
-				<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
+				<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
 				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-					storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, deposit_limit::&lt;Test&gt;(), <span class="number">100</span>)
-						.unwrap();
+					storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), <span class="number">100</span>).unwrap();
 
 				<span class="macro">assert_eq!</span>(
 					MockStack::run_instantiate(
@@ -6821,7 +6943,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw-2">&amp;mut </span>storage_meter,
 						<span class="number">100</span>,
 						<span class="macro">vec!</span>[],
-						<span class="kw-2">&amp;</span>[],
+						<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 						<span class="prelude-val">None</span>,
 					),
 					<span class="prelude-val">Err</span>(Error::&lt;Test&gt;::TerminatedInConstructor.into())
@@ -6850,7 +6972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					ctx.ext.call(
 						Weight::zero(),
 						BalanceOf::&lt;Test&gt;::zero(),
-						CHARLIE,
+						<span class="kw-2">&amp;</span>CHARLIE_ADDR,
 						<span class="number">0</span>,
 						<span class="macro">vec!</span>[],
 						<span class="bool-val">true</span>,
@@ -6865,7 +6987,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="macro">assert!</span>(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), BOB, <span class="number">0</span>, <span class="macro">vec!</span>[<span class="number">99</span>], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
+				.call(
+					Weight::zero(),
+					BalanceOf::&lt;Test&gt;::zero(),
+					<span class="kw-2">&amp;</span>BOB_ADDR,
+					<span class="number">0</span>,
+					<span class="macro">vec!</span>[<span class="number">99</span>],
+					<span class="bool-val">true</span>,
+					<span class="bool-val">false
+				</span>)
 				.is_ok());
 			exec_trapped()
 		});
@@ -6874,12 +7004,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_bob);
 			place_contract(<span class="kw-2">&amp;</span>CHARLIE, code_charlie);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6893,10 +7023,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>recursive_call_during_constructor_fails() {
 		<span class="kw">let </span>code = MockLoader::insert(Constructor, |ctx, <span class="kw">_</span>| {
+			<span class="kw">let </span>account_id = ctx.ext.account_id().clone();
+			<span class="kw">let </span>addr = &lt;Test <span class="kw">as </span>Config&gt;::AddressMapper::to_address(<span class="kw-2">&amp;</span>account_id);
+
 			<span class="macro">assert_matches!</span>(
-				ctx.ext.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), ctx.ext.address().clone(), <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>, <span class="bool-val">false</span>),
-				<span class="prelude-val">Err</span>(ExecError{error, ..}) <span class="kw">if </span>error == &lt;Error&lt;Test&gt;&gt;::ContractNotFound.into()
-			);
+						   ctx.ext.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), <span class="kw-2">&amp;</span>addr, <span class="number">0</span>, <span class="macro">vec!</span>[],
+			<span class="bool-val">true</span>, <span class="bool-val">false</span>), 				<span class="prelude-val">Err</span>(ExecError{error, ..}) <span class="kw">if </span>error == &lt;Error&lt;Test&gt;&gt;::ContractNotFound.into()
+					   );
 			exec_success()
 		});
 
@@ -6909,13 +7042,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 				<span class="kw">let </span>executable = MockExecutable::from_storage(code, <span class="kw-2">&amp;mut </span>gas_meter).unwrap();
 				set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">10_000</span>);
-				<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(
-					<span class="kw-2">&amp;</span>contract_origin,
-					deposit_limit::&lt;Test&gt;(),
-					min_balance,
-				)
-				.unwrap();
+				<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
+					storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), min_balance)
+						.unwrap();
 
 				<span class="kw">let </span>result = MockStack::run_instantiate(
 					ALICE,
@@ -6924,7 +7054,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[],
+					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 					<span class="prelude-val">None</span>,
 				);
 				<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Ok</span>(<span class="kw">_</span>));
@@ -6947,11 +7077,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">10</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -6980,11 +7110,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">10</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7013,11 +7143,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">10</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7033,9 +7163,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>call_reentry_direct_recursion() {
 		<span class="comment">// call the contract passed as input with disabled reentry
 		</span><span class="kw">let </span>code_bob = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
-			<span class="kw">let </span>dest = Decode::decode(<span class="kw-2">&amp;mut </span>ctx.input_data.as_ref()).unwrap();
+			<span class="kw">let </span>dest = H160::from_slice(ctx.input_data.as_ref());
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), dest, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">false</span>, <span class="bool-val">false</span>)
+				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), <span class="kw-2">&amp;</span>dest, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">false</span>, <span class="bool-val">false</span>)
 		});
 
 		<span class="kw">let </span>code_charlie = MockLoader::insert(Call, |<span class="kw">_</span>, <span class="kw">_</span>| exec_success());
@@ -7043,29 +7173,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_bob);
 			place_contract(<span class="kw-2">&amp;</span>CHARLIE, code_charlie);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 
 			<span class="comment">// Calling another contract should succeed
 			</span><span class="macro">assert_ok!</span>(MockStack::run_call(
-				contract_origin.clone(),
-				BOB,
+				origin.clone(),
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
-				CHARLIE.encode(),
+				CHARLIE_ADDR.as_bytes().to_vec(),
 				<span class="prelude-val">None</span>,
 			));
 
 			<span class="comment">// Calling into oneself fails
 			</span><span class="macro">assert_err!</span>(
 				MockStack::run_call(
-					contract_origin,
-					BOB,
+					origin,
+					BOB_ADDR,
 					<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					<span class="number">0</span>,
-					BOB.encode(),
+					BOB_ADDR.as_bytes().to_vec(),
 					<span class="prelude-val">None</span>,
 				)
 				.map_err(|e| e.error),
@@ -7081,7 +7211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ctx.ext.call(
 					Weight::zero(),
 					BalanceOf::&lt;Test&gt;::zero(),
-					CHARLIE,
+					<span class="kw-2">&amp;</span>CHARLIE_ADDR,
 					<span class="number">0</span>,
 					<span class="macro">vec!</span>[],
 					<span class="bool-val">false</span>,
@@ -7094,21 +7224,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// call BOB with input set to '1'
 		</span><span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
-			ctx.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), BOB, <span class="number">0</span>, <span class="macro">vec!</span>[<span class="number">1</span>], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
+			ctx.ext.call(
+				Weight::zero(),
+				BalanceOf::&lt;Test&gt;::zero(),
+				<span class="kw-2">&amp;</span>BOB_ADDR,
+				<span class="number">0</span>,
+				<span class="macro">vec!</span>[<span class="number">1</span>],
+				<span class="bool-val">true</span>,
+				<span class="bool-val">false</span>,
+			)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_bob);
 			place_contract(<span class="kw-2">&amp;</span>CHARLIE, code_charlie);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 
 			<span class="comment">// BOB -&gt; CHARLIE -&gt; BOB fails as BOB denies reentry.
 			</span><span class="macro">assert_err!</span>(
 				MockStack::run_call(
-					contract_origin,
-					BOB,
+					origin,
+					BOB_ADDR,
 					<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					<span class="number">0</span>,
@@ -7137,12 +7274,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">10</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			System::reset_events();
 			MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7158,7 +7295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					EventRecord {
 						phase: Phase::Initialization,
 						event: MetaEvent::System(frame_system::Event::Remarked {
-							sender: BOB,
+							sender: BOB_CONTRACT_ID,
 							hash: remark_hash
 						}),
 						topics: <span class="macro">vec!</span>[],
@@ -7167,7 +7304,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						phase: Phase::Initialization,
 						event: MetaEvent::Contracts(<span class="kw">crate</span>::Event::Called {
 							caller: Origin::from_account_id(ALICE),
-							contract: BOB,
+							contract: BOB_ADDR,
 						}),
 						topics: <span class="macro">vec!</span>[],
 					},
@@ -7221,12 +7358,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">10</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			System::reset_events();
 			MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7242,7 +7379,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					EventRecord {
 						phase: Phase::Initialization,
 						event: MetaEvent::System(frame_system::Event::Remarked {
-							sender: BOB,
+							sender: BOB_CONTRACT_ID,
 							hash: remark_hash
 						}),
 						topics: <span class="macro">vec!</span>[],
@@ -7264,7 +7401,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						phase: Phase::Initialization,
 						event: MetaEvent::Contracts(<span class="kw">crate</span>::Event::Called {
 							caller: Origin::from_account_id(ALICE),
-							contract: BOB,
+							contract: BOB_ADDR,
 						}),
 						topics: <span class="macro">vec!</span>[],
 					},
@@ -7285,16 +7422,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					fail_code,
 					ctx.ext.minimum_balance() * <span class="number">100</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[],
+					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 				)
 				.ok();
 			exec_success()
 		});
 		<span class="kw">let </span>succ_succ_code = MockLoader::insert(Constructor, <span class="kw">move </span>|ctx, <span class="kw">_</span>| {
 			<span class="kw">let </span>alice_nonce = System::account_nonce(<span class="kw-2">&amp;</span>ALICE);
-			<span class="macro">assert_eq!</span>(System::account_nonce(ctx.ext.address()), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(System::account_nonce(ctx.ext.account_id()), <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(ctx.ext.caller().account_id().unwrap(), <span class="kw-2">&amp;</span>ALICE);
-			<span class="kw">let </span>(account_id, <span class="kw">_</span>) = ctx
+			<span class="kw">let </span>(addr, <span class="kw">_</span>) = ctx
 				.ext
 				.instantiate(
 					Weight::zero(),
@@ -7302,29 +7439,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					success_code,
 					ctx.ext.minimum_balance() * <span class="number">100</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[],
+					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 				)
 				.unwrap();
 
+			<span class="kw">let </span>account_id = &lt;Test <span class="kw">as </span>Config&gt;::AddressMapper::to_account_id_contract(<span class="kw-2">&amp;</span>addr);
+
 			<span class="macro">assert_eq!</span>(System::account_nonce(<span class="kw-2">&amp;</span>ALICE), alice_nonce);
-			<span class="macro">assert_eq!</span>(System::account_nonce(ctx.ext.address()), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(System::account_nonce(ctx.ext.account_id()), <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(System::account_nonce(<span class="kw-2">&amp;</span>account_id), <span class="number">0</span>);
 
 			<span class="comment">// a plain call should not influence the account counter
 			</span>ctx.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::&lt;Test&gt;::zero(),
-					account_id.clone(),
-					<span class="number">0</span>,
-					<span class="macro">vec!</span>[],
-					<span class="bool-val">false</span>,
-					<span class="bool-val">false</span>,
-				)
+				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), <span class="kw-2">&amp;</span>addr, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">false</span>, <span class="bool-val">false</span>)
 				.unwrap();
 
 			<span class="macro">assert_eq!</span>(System::account_nonce(ALICE), alice_nonce);
-			<span class="macro">assert_eq!</span>(System::account_nonce(ctx.ext.address()), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(System::account_nonce(ctx.ext.account_id()), <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(System::account_nonce(<span class="kw-2">&amp;</span>account_id), <span class="number">0</span>);
 
 			exec_success()
@@ -7346,13 +7477,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					MockExecutable::from_storage(succ_succ_code, <span class="kw-2">&amp;mut </span>gas_meter).unwrap();
 				set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">10_000</span>);
 				set_balance(<span class="kw-2">&amp;</span>BOB, min_balance * <span class="number">10_000</span>);
-				<span class="kw">let </span>contract_origin = Origin::from_account_id(BOB);
-				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(
-					<span class="kw-2">&amp;</span>contract_origin,
-					deposit_limit::&lt;Test&gt;(),
-					min_balance * <span class="number">100</span>,
-				)
-				.unwrap();
+				<span class="kw">let </span>origin = Origin::from_account_id(BOB);
+				<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
+					storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), min_balance * <span class="number">100</span>)
+						.unwrap();
 
 				<span class="comment">// fail should not increment
 				</span>MockStack::run_instantiate(
@@ -7362,7 +7490,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance * <span class="number">100</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[],
+					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 					<span class="prelude-val">None</span>,
 				)
 				.ok();
@@ -7375,7 +7503,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance * <span class="number">100</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[],
+					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 					<span class="prelude-val">None</span>,
 				));
 				<span class="macro">assert_eq!</span>(System::account_nonce(<span class="kw-2">&amp;</span>ALICE), <span class="number">1</span>);
@@ -7387,7 +7515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance * <span class="number">200</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[],
+					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 					<span class="prelude-val">None</span>,
 				));
 				<span class="macro">assert_eq!</span>(System::account_nonce(<span class="kw-2">&amp;</span>ALICE), <span class="number">2</span>);
@@ -7399,7 +7527,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance * <span class="number">200</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[],
+					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
 					<span class="prelude-val">None</span>,
 				));
 				<span class="macro">assert_eq!</span>(System::account_nonce(<span class="kw-2">&amp;</span>ALICE), <span class="number">3</span>);
@@ -7458,12 +7586,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">1000</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
 			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-				storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
+				storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
 			<span class="macro">assert_ok!</span>(MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7569,12 +7697,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">1000</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
 			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-				storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
+				storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
 			<span class="macro">assert_ok!</span>(MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7608,12 +7736,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">1000</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
 			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-				storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
+				storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
 			<span class="macro">assert_ok!</span>(MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7647,12 +7775,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">1000</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
 			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-				storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
+				storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
 			<span class="macro">assert_ok!</span>(MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7700,12 +7828,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">1000</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
 			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-				storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
+				storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
 			<span class="macro">assert_ok!</span>(MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7756,12 +7884,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(GAS_LIMIT);
 			set_balance(<span class="kw-2">&amp;</span>ALICE, min_balance * <span class="number">1000</span>);
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
 			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-				storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
+				storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
 			<span class="macro">assert_ok!</span>(MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>gas_meter,
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7831,12 +7959,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
 			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter =
-				storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
+				storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, deposit_limit::&lt;Test&gt;(), <span class="number">0</span>).unwrap();
 			<span class="macro">assert_ok!</span>(MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7862,7 +7990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					ctx.ext.call(
 						Weight::zero(),
 						BalanceOf::&lt;Test&gt;::zero(),
-						CHARLIE,
+						<span class="kw-2">&amp;</span>CHARLIE_ADDR,
 						<span class="number">0</span>,
 						<span class="macro">vec!</span>[],
 						<span class="bool-val">true</span>,
@@ -7888,7 +8016,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="macro">assert!</span>(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), BOB, <span class="number">0</span>, <span class="macro">vec!</span>[<span class="number">99</span>], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
+				.call(
+					Weight::zero(),
+					BalanceOf::&lt;Test&gt;::zero(),
+					<span class="kw-2">&amp;</span>BOB_ADDR,
+					<span class="number">0</span>,
+					<span class="macro">vec!</span>[<span class="number">99</span>],
+					<span class="bool-val">true</span>,
+					<span class="bool-val">false
+				</span>)
 				.is_ok());
 			<span class="comment">// CHARLIE can not read BOB`s storage.
 			</span><span class="macro">assert_eq!</span>(ctx.ext.get_transient_storage(storage_key_1), <span class="prelude-val">None</span>);
@@ -7899,12 +8035,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_bob);
 			place_contract(<span class="kw-2">&amp;</span>CHARLIE, code_charlie);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7938,11 +8074,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_hash);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			<span class="macro">assert_ok!</span>(MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -7966,7 +8102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					ctx.ext.call(
 						Weight::zero(),
 						BalanceOf::&lt;Test&gt;::zero(),
-						CHARLIE,
+						<span class="kw-2">&amp;</span>CHARLIE_ADDR,
 						<span class="number">0</span>,
 						<span class="macro">vec!</span>[],
 						<span class="bool-val">true</span>,
@@ -7988,7 +8124,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="macro">assert!</span>(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), BOB, <span class="number">0</span>, <span class="macro">vec!</span>[<span class="number">99</span>], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
+				.call(
+					Weight::zero(),
+					BalanceOf::&lt;Test&gt;::zero(),
+					<span class="kw-2">&amp;</span>BOB_ADDR,
+					<span class="number">0</span>,
+					<span class="macro">vec!</span>[<span class="number">99</span>],
+					<span class="bool-val">true</span>,
+					<span class="bool-val">false
+				</span>)
 				.is_ok());
 			exec_trapped()
 		});
@@ -7997,12 +8141,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, code_bob);
 			place_contract(<span class="kw-2">&amp;</span>CHARLIE, code_charlie);
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,
@@ -8031,11 +8175,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(<span class="kw-2">&amp;</span>BOB, bob_ch);
 
-			<span class="kw">let </span>contract_origin = Origin::from_account_id(ALICE);
-			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>contract_origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
+			<span class="kw">let </span>origin = Origin::from_account_id(ALICE);
+			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = storage::meter::Meter::new(<span class="kw-2">&amp;</span>origin, <span class="number">0</span>, <span class="number">0</span>).unwrap();
 			<span class="kw">let </span>result = MockStack::run_call(
-				contract_origin,
-				BOB,
+				origin,
+				BOB_ADDR,
 				<span class="kw-2">&amp;mut </span>GasMeter::&lt;Test&gt;::new(GAS_LIMIT),
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				<span class="number">0</span>,

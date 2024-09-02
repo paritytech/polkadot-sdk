@@ -1058,8 +1058,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! This module contains functions to meter the storage deposit.
 
 </span><span class="kw">use crate</span>::{
-	storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error, Event, HoldReason,
-	Inspect, Origin, Pallet, StorageDeposit <span class="kw">as </span>Deposit, System, LOG_TARGET,
+	address::AddressMapper, storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error,
+	Event, HoldReason, Inspect, Origin, Pallet, StorageDeposit <span class="kw">as </span>Deposit, System, LOG_TARGET,
 };
 
 <span class="kw">use </span>alloc::vec::Vec;
@@ -1577,8 +1577,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)<span class="question-mark">?</span>;
 
 				Pallet::&lt;T&gt;::deposit_event(Event::StorageDepositTransferredAndHeld {
-					from: origin.clone(),
-					to: contract.clone(),
+					from: T::AddressMapper::to_address(origin),
+					to: T::AddressMapper::to_address(contract),
 					amount: <span class="kw-2">*</span>amount,
 				});
 			},
@@ -1594,8 +1594,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)<span class="question-mark">?</span>;
 
 				Pallet::&lt;T&gt;::deposit_event(Event::StorageDepositTransferredAndReleased {
-					from: contract.clone(),
-					to: origin.clone(),
+					from: T::AddressMapper::to_address(contract),
+					to: T::AddressMapper::to_address(origin),
 					amount: transferred,
 				});
 

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"type":["SnowbridgeExporter"]};
+window.SIDEBAR_ITEMS = {"constant":["SLOTS_PER_EPOCH"],"mod":["benchmark_helpers"],"struct":["ChainForkVersions","CreateAssetCall","CreateAssetDeposit","EthereumGatewayAddress","Parameters"],"type":["SnowbridgeExporter"]};

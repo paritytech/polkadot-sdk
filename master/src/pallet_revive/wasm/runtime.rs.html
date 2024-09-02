@@ -2086,6 +2086,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1934" id="1934">1934</a>
 <a href="#1935" id="1935">1935</a>
 <a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2106,12 +2109,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Environment definition of the wasm smart-contract runtime.
 
 </span><span class="kw">use crate</span>::{
+	address::AddressMapper,
 	exec::{ExecError, ExecResult, Ext, Key, TopicOf},
 	gas::{ChargedAmount, Token},
 	limits,
 	primitives::ExecReturnValue,
 	weights::WeightInfo,
-	BalanceOf, CodeHash, Config, Error, LOG_TARGET, SENTINEL,
+	BalanceOf, Config, Error, LOG_TARGET, SENTINEL,
 };
 <span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
@@ -2122,6 +2126,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>pallet_revive_proc_macro::define_env;
 <span class="kw">use </span>pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
+<span class="kw">use </span>sp_core::{H160, H256};
 <span class="kw">use </span>sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
 <span class="kw">use </span>sp_runtime::{traits::Zero, DispatchError, RuntimeDebug};
 
@@ -3027,8 +3032,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>call_outcome = <span class="kw">match </span>call_type {
 			CallType::Call { callee_ptr, value_ptr, deposit_ptr, weight } =&gt; {
-				<span class="kw">let </span>callee: &lt;&lt;E <span class="kw">as </span>Ext&gt;::T <span class="kw">as </span>frame_system::Config&gt;::AccountId =
-					memory.read_as(callee_ptr)<span class="question-mark">?</span>;
+				<span class="kw">let </span><span class="kw-2">mut </span>callee = H160::zero();
+				memory.read_into_buf(callee_ptr, callee.as_bytes_mut())<span class="question-mark">?</span>;
 				<span class="kw">let </span>deposit_limit: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = <span class="kw">if </span>deposit_ptr == SENTINEL {
 					BalanceOf::&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt;::zero()
 				} <span class="kw">else </span>{
@@ -3047,7 +3052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.ext.call(
 					weight,
 					deposit_limit,
-					callee,
+					<span class="kw-2">&amp;</span>callee,
 					value,
 					input_data,
 					flags.contains(CallFlags::ALLOW_REENTRY),
@@ -3110,9 +3115,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			memory.read_as(deposit_ptr)<span class="question-mark">?
 		</span>};
 		<span class="kw">let </span>value: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = memory.read_as(value_ptr)<span class="question-mark">?</span>;
-		<span class="kw">let </span>code_hash: CodeHash&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = memory.read_as(code_hash_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span>code_hash: H256 = memory.read_as(code_hash_ptr)<span class="question-mark">?</span>;
 		<span class="kw">let </span>input_data = memory.read(input_data_ptr, input_data_len)<span class="question-mark">?</span>;
-		<span class="kw">let </span>salt = memory.read(salt_ptr, salt_len)<span class="question-mark">?</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>salt = [<span class="number">0u8</span>; <span class="number">32</span>];
+		memory.read_into_buf(salt_ptr, salt.as_mut_slice())<span class="question-mark">?</span>;
 		<span class="kw">let </span>instantiate_outcome =
 			<span class="self">self</span>.ext.instantiate(weight, deposit_limit, code_hash, value, input_data, <span class="kw-2">&amp;</span>salt);
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>((address, output)) = <span class="kw-2">&amp;</span>instantiate_outcome {
@@ -3142,8 +3148,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>count = <span class="self">self</span>.ext.locked_delegate_dependencies_count() <span class="kw">as _</span>;
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Terminate(count))<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>beneficiary: &lt;&lt;E <span class="kw">as </span>Ext&gt;::T <span class="kw">as </span>frame_system::Config&gt;::AccountId =
-			memory.read_as(beneficiary_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>beneficiary = H160::zero();
+		memory.read_into_buf(beneficiary_ptr, beneficiary.as_bytes_mut())<span class="question-mark">?</span>;
 		<span class="self">self</span>.ext.terminate(<span class="kw-2">&amp;</span>beneficiary)<span class="question-mark">?</span>;
 		<span class="prelude-val">Err</span>(TrapReason::Termination)
 	}
@@ -3249,8 +3255,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Transfer)<span class="question-mark">?</span>;
-		<span class="kw">let </span>callee: &lt;&lt;E <span class="kw">as </span>Ext&gt;::T <span class="kw">as </span>frame_system::Config&gt;::AccountId =
-			memory.read_as(account_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>callee = H160::zero();
+		memory.read_into_buf(account_ptr, callee.as_bytes_mut())<span class="question-mark">?</span>;
 		<span class="kw">let </span>value: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = memory.read_as(value_ptr)<span class="question-mark">?</span>;
 		<span class="kw">let </span>result = <span class="self">self</span>.ext.transfer(<span class="kw-2">&amp;</span>callee, value);
 		<span class="kw">match </span>result {
@@ -3399,12 +3405,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
 	</span><span class="kw">fn </span>caller(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32, out_len_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Caller)<span class="question-mark">?</span>;
-		<span class="kw">let </span>caller = <span class="self">self</span>.ext.caller().account_id()<span class="question-mark">?</span>.clone();
+		<span class="kw">let </span>caller = &lt;E::T <span class="kw">as </span>Config&gt;::AddressMapper::to_address(<span class="self">self</span>.ext.caller().account_id()<span class="question-mark">?</span>);
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
 			memory,
 			out_ptr,
 			out_len_ptr,
-			<span class="kw-2">&amp;</span>caller.encode(),
+			caller.as_bytes(),
 			<span class="bool-val">false</span>,
 			already_charged,
 		)<span class="question-mark">?</span>)
@@ -3415,9 +3421,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
 	</span><span class="kw">fn </span>is_contract(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, account_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;u32, TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::IsContract)<span class="question-mark">?</span>;
-		<span class="kw">let </span>address: &lt;&lt;E <span class="kw">as </span>Ext&gt;::T <span class="kw">as </span>frame_system::Config&gt;::AccountId =
-			memory.read_as(account_ptr)<span class="question-mark">?</span>;
-
+		<span class="kw">let </span><span class="kw-2">mut </span>address = H160::zero();
+		memory.read_into_buf(account_ptr, address.as_bytes_mut())<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.ext.is_contract(<span class="kw-2">&amp;</span>address) <span class="kw">as </span>u32)
 	}
 
@@ -3432,8 +3437,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		out_len_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::CodeHash)<span class="question-mark">?</span>;
-		<span class="kw">let </span>address: &lt;&lt;E <span class="kw">as </span>Ext&gt;::T <span class="kw">as </span>frame_system::Config&gt;::AccountId =
-			memory.read_as(account_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>address = H160::zero();
+		memory.read_into_buf(account_ptr, address.as_bytes_mut())<span class="question-mark">?</span>;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(value) = <span class="self">self</span>.ext.code_hash(<span class="kw-2">&amp;</span>address) {
 			<span class="self">self</span>.write_sandbox_output(
 				memory,
@@ -3496,11 +3501,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		out_len_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Address)<span class="question-mark">?</span>;
+		<span class="kw">let </span>address = <span class="self">self</span>.ext.address();
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
 			memory,
 			out_ptr,
 			out_len_ptr,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.ext.address().encode(),
+			address.as_bytes(),
 			<span class="bool-val">false</span>,
 			already_charged,
 		)<span class="question-mark">?</span>)
@@ -3842,7 +3848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			dispatch_info,
 			RuntimeCosts::CallXcmExecute,
 			|runtime| {
-				<span class="kw">let </span>origin = <span class="kw">crate</span>::RawOrigin::Signed(runtime.ext.address().clone()).into();
+				<span class="kw">let </span>origin = <span class="kw">crate</span>::RawOrigin::Signed(runtime.ext.account_id().clone()).into();
 				<span class="kw">let </span>weight_used = &lt;&lt;E::T <span class="kw">as </span>Config&gt;::Xcm&gt;::execute(
 					origin,
 					Box::new(message),
@@ -3874,7 +3880,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>message: VersionedXcm&lt;()&gt; = memory.read_as_unbounded(msg_ptr, msg_len)<span class="question-mark">?</span>;
 		<span class="kw">let </span>weight = &lt;&lt;E::T <span class="kw">as </span>Config&gt;::Xcm <span class="kw">as </span>SendController&lt;<span class="kw">_</span>&gt;&gt;::WeightInfo::send();
 		<span class="self">self</span>.charge_gas(RuntimeCosts::CallRuntime(weight))<span class="question-mark">?</span>;
-		<span class="kw">let </span>origin = <span class="kw">crate</span>::RawOrigin::Signed(<span class="self">self</span>.ext.address().clone()).into();
+		<span class="kw">let </span>origin = <span class="kw">crate</span>::RawOrigin::Signed(<span class="self">self</span>.ext.account_id().clone()).into();
 
 		<span class="kw">match </span>&lt;&lt;E::T <span class="kw">as </span>Config&gt;::Xcm&gt;::send(origin, dest.into(), message.into()) {
 			<span class="prelude-val">Ok</span>(message_id) =&gt; {
@@ -3960,7 +3966,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code_hash_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::SetCodeHash)<span class="question-mark">?</span>;
-		<span class="kw">let </span>code_hash: CodeHash&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = memory.read_as(code_hash_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span>code_hash: H256 = memory.read_as(code_hash_ptr)<span class="question-mark">?</span>;
 		<span class="kw">match </span><span class="self">self</span>.ext.set_code_hash(code_hash) {
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="kw">let </span>code = <span class="self">Self</span>::err_into_return_code(err)<span class="question-mark">?</span>;

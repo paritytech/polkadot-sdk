@@ -521,8 +521,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Traverse candidates and assert descriptors are as expected
 		</span><span class="kw">for </span>(para_id, backing_validators) <span class="kw">in </span>vote.backing_validators_per_candidate.iter().enumerate() {
 			<span class="kw">let </span>descriptor = backing_validators.<span class="number">0</span>.descriptor();
-			<span class="macro">assert_eq!</span>(ParaId::from(para_id), descriptor.para_id);
-			<span class="macro">assert_eq!</span>(header.hash(), descriptor.relay_parent);
+			<span class="macro">assert_eq!</span>(ParaId::from(para_id), descriptor.para_id());
+			<span class="macro">assert_eq!</span>(header.hash(), descriptor.relay_parent());
 			<span class="macro">assert_eq!</span>(backing_validators.<span class="number">1</span>.len(), votes);
 		}
 
@@ -580,8 +580,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">for </span>(para_id, backing_validators)
 			<span class="kw">in </span>vote.backing_validators_per_candidate.iter().enumerate() {
 				<span class="kw">let </span>descriptor = backing_validators.<span class="number">0</span>.descriptor();
-				<span class="macro">assert_eq!</span>(ParaId::from(para_id), descriptor.para_id);
-				<span class="macro">assert_eq!</span>(header.hash(), descriptor.relay_parent);
+				<span class="macro">assert_eq!</span>(ParaId::from(para_id), descriptor.para_id());
+				<span class="macro">assert_eq!</span>(header.hash(), descriptor.relay_parent());
 				<span class="macro">assert_eq!</span>(
 					backing_validators.<span class="number">1</span>.len(),
 					votes,

@@ -1386,6 +1386,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1234" id="1234">1234</a>
 <a href="#1235" id="1235">1235</a>
 <a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1447,10 +1451,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_timestamp::Now;
 <span class="kw">use </span>pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 <span class="kw">use </span>polkadot_primitives::{
-	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash <span class="kw">as </span>HashT, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
+	slashing,
+	vstaging::{
+		CandidateEvent, CommittedCandidateReceiptV2 <span class="kw">as </span>CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	AccountId, AccountIndex, Balance, BlockNumber, CandidateHash, CoreIndex, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash <span class="kw">as </span>HashT, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
 	SessionInfo <span class="kw">as </span>SessionInfoData, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
@@ -2366,7 +2374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			runtime_impl::minimum_backing_votes::&lt;Runtime&gt;()
 		}
 
-		<span class="kw">fn </span>para_backing_state(para_id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;polkadot_primitives::async_backing::BackingState&gt; {
+		<span class="kw">fn </span>para_backing_state(para_id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;polkadot_primitives::vstaging::async_backing::BackingState&gt; {
 			runtime_impl::backing_state::&lt;Runtime&gt;(para_id)
 		}
 

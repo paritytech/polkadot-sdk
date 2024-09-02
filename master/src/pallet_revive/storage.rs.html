@@ -632,6 +632,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -654,12 +655,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>meter;
 
 <span class="kw">use crate</span>::{
+	address::AddressMapper,
 	exec::{AccountIdOf, Key},
 	limits,
 	storage::meter::Diff,
 	weights::WeightInfo,
-	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
-	Error, TrieId, SENTINEL,
+	BalanceOf, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter, Error,
+	TrieId, SENTINEL,
 };
 <span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
@@ -670,7 +672,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CloneNoBound, DefaultNoBound,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_core::{ConstU32, Get};
+<span class="kw">use </span>sp_core::{ConstU32, Get, H160};
 <span class="kw">use </span>sp_io::KillStorageResult;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Hash, Saturating, Zero},
@@ -678,7 +680,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">type </span>DelegateDependencyMap&lt;T&gt; =
-	BoundedBTreeMap&lt;CodeHash&lt;T&gt;, BalanceOf&lt;T&gt;, ConstU32&lt;{ limits::DELEGATE_DEPENDENCIES }&gt;&gt;;
+	BoundedBTreeMap&lt;sp_core::H256, BalanceOf&lt;T&gt;, ConstU32&lt;{ limits::DELEGATE_DEPENDENCIES }&gt;&gt;;
 
 <span class="doccomment">/// Information for managing an account and its sub trie abstraction.
 /// This is the required info to cache for an account.
@@ -688,7 +690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Unique ID for the subtree encoded as a bytes vector.
 	</span><span class="kw">pub </span>trie_id: TrieId,
 	<span class="doccomment">/// The code associated with a given account.
-	</span><span class="kw">pub </span>code_hash: CodeHash&lt;T&gt;,
+	</span><span class="kw">pub </span>code_hash: sp_core::H256,
 	<span class="doccomment">/// How many bytes of storage are accumulated in this contract's child trie.
 	</span>storage_bytes: u32,
 	<span class="doccomment">/// How many items of storage are accumulated in this contract's child trie.
@@ -716,9 +718,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This returns an `Err` if an contract with the supplied `account` already exists
 	/// in storage.
 	</span><span class="kw">pub fn </span>new(
-		account: <span class="kw-2">&amp;</span>AccountIdOf&lt;T&gt;,
+		account: <span class="kw-2">&amp;</span>H160,
 		nonce: T::Nonce,
-		code_hash: CodeHash&lt;T&gt;,
+		code_hash: sp_core::H256,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
 		<span class="kw">if </span>&lt;ContractInfoOf&lt;T&gt;&gt;::contains_key(account) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::DuplicateContract.into())
@@ -893,7 +895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the delegate dependency already exists.
 	</span><span class="kw">pub fn </span>lock_delegate_dependency(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		code_hash: CodeHash&lt;T&gt;,
+		code_hash: sp_core::H256,
 		amount: BalanceOf&lt;T&gt;,
 	) -&gt; DispatchResult {
 		<span class="self">self</span>.delegate_dependencies
@@ -909,7 +911,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Returns an error if the entry doesn't exist.
 	</span><span class="kw">pub fn </span>unlock_delegate_dependency(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;,
+		code_hash: <span class="kw-2">&amp;</span>sp_core::H256,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
 		<span class="self">self</span>.delegate_dependencies
 			.remove(code_hash)
@@ -986,8 +988,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns the code hash of the contract specified by `account` ID.
-	</span><span class="kw">pub fn </span>load_code_hash(account: <span class="kw-2">&amp;</span>AccountIdOf&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;CodeHash&lt;T&gt;&gt; {
-		&lt;ContractInfoOf&lt;T&gt;&gt;::get(account).map(|i| i.code_hash)
+	</span><span class="kw">pub fn </span>load_code_hash(account: <span class="kw-2">&amp;</span>AccountIdOf&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;sp_core::H256&gt; {
+		&lt;ContractInfoOf&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>T::AddressMapper::to_address(account)).map(|i| i.code_hash)
 	}
 }
 

@@ -1675,6 +1675,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1523" id="1523">1523</a>
 <a href="#1524" id="1524">1524</a>
 <a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
+<a href="#1548" id="1548">1548</a>
+<a href="#1549" id="1549">1549</a>
+<a href="#1550" id="1550">1550</a>
+<a href="#1551" id="1551">1551</a>
+<a href="#1552" id="1552">1552</a>
+<a href="#1553" id="1553">1553</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1725,12 +1753,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>pallet_babe::{<span class="self">self</span>, ParentBlockRandomness};
 <span class="kw">use </span>polkadot_primitives::{
-	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate, CandidateHash,
-	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
-	DisputeStatementSet, HeadData, InherentData <span class="kw">as </span>ParachainsInherentData,
-	MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields,
-	SigningContext, UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields,
-	ValidatorId, ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
+	effective_minimum_backing_votes,
+	node_features::FeatureIndex,
+	vstaging::{
+		BackedCandidate, CandidateDescriptorVersion, CandidateReceiptV2 <span class="kw">as </span>CandidateReceipt,
+		InherentData <span class="kw">as </span>ParachainsInherentData, ScrapedOnChainVotes,
+	},
+	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
+	DisputeStatementSet, HeadData, MultiDisputeStatementSet, SessionIndex,
+	SignedAvailabilityBitfields, SigningContext, UncheckedSignedAvailabilityBitfield,
+	UncheckedSignedAvailabilityBitfields, ValidatorId, ValidatorIndex, ValidityAttestation,
+	PARACHAINS_INHERENT_IDENTIFIER,
 };
 <span class="kw">use </span>rand::{seq::SliceRandom, SeedableRng};
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -2271,6 +2304,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|b| <span class="kw-2">*</span>b)
 			.unwrap_or(<span class="bool-val">false</span>);
 
+		<span class="kw">let </span>allow_v2_receipts = configuration::ActiveConfig::&lt;T&gt;::get()
+			.node_features
+			.get(FeatureIndex::CandidateReceiptV2 <span class="kw">as </span>usize)
+			.map(|b| <span class="kw-2">*</span>b)
+			.unwrap_or(<span class="bool-val">false</span>);
+
 		<span class="kw">let </span><span class="kw-2">mut </span>eligible: BTreeMap&lt;ParaId, BTreeSet&lt;CoreIndex&gt;&gt; = BTreeMap::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>total_eligible_cores = <span class="number">0</span>;
 
@@ -2287,6 +2326,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			concluded_invalid_hashes,
 			eligible,
 			core_index_enabled,
+			allow_v2_receipts,
 		);
 		<span class="kw">let </span>count = count_backed_candidates(<span class="kw-2">&amp;</span>backed_candidates_with_core);
 
@@ -2464,7 +2504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>current_para_id = <span class="prelude-val">None</span>;
 
 	<span class="kw">for </span>candidate <span class="kw">in </span>core::mem::take(candidates).into_iter() {
-		<span class="kw">let </span>candidate_para_id = candidate.descriptor().para_id;
+		<span class="kw">let </span>candidate_para_id = candidate.descriptor().para_id();
 		<span class="kw">if </span><span class="prelude-val">Some</span>(candidate_para_id) == current_para_id {
 			<span class="kw">let </span>chain = chained_candidates
 				.last_mut()
@@ -2643,14 +2683,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// subsequent candidates after the filtered one.
 ///
 /// Filter out:
-/// 1. any candidates which don't form a chain with the other candidates of the paraid (even if they
+/// 1. Candidates that have v2 descriptors if the node `CandidateReceiptV2` feature is not enabled.
+/// 2. any candidates which don't form a chain with the other candidates of the paraid (even if they
 ///    do form a chain but are not in the right order).
-/// 2. any candidates that have a concluded invalid dispute or who are descendants of a concluded
+/// 3. any candidates that have a concluded invalid dispute or who are descendants of a concluded
 ///    invalid candidate.
-/// 3. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
+/// 4. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
 ///    but have no injected core index.
-/// 4. all backing votes from disabled validators
-/// 5. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
+/// 5. all backing votes from disabled validators
+/// 6. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
 ///
 /// Returns the scheduled
 /// backed candidates which passed filtering, mapped by para id and in the right dependency order.
@@ -2660,13 +2701,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	concluded_invalid_with_descendants: BTreeSet&lt;CandidateHash&gt;,
 	scheduled: BTreeMap&lt;ParaId, BTreeSet&lt;CoreIndex&gt;&gt;,
 	core_index_enabled: bool,
+	allow_v2_receipts: bool,
 ) -&gt; BTreeMap&lt;ParaId, Vec&lt;(BackedCandidate&lt;T::Hash&gt;, CoreIndex)&gt;&gt; {
 	<span class="comment">// Map the candidates to the right paraids, while making sure that the order between candidates
 	// of the same para is preserved.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>candidates_per_para: BTreeMap&lt;ParaId, Vec&lt;<span class="kw">_</span>&gt;&gt; = BTreeMap::new();
 	<span class="kw">for </span>candidate <span class="kw">in </span>backed_candidates {
+		<span class="comment">// Drop any v2 candidate receipts if nodes are not allowed to use them.
+		// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
+		// any v1 descendants of v2 candidates are dropped.
+		</span><span class="kw">if </span>!allow_v2_receipts &amp;&amp; candidate.descriptor().version() == CandidateDescriptorVersion::V2
+		{
+			<span class="macro">log::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}."</span>,
+				candidate.candidate().hash(),
+				candidate.descriptor().para_id()
+			);
+			<span class="kw">continue
+		</span>}
+
 		candidates_per_para
-			.entry(candidate.descriptor().para_id)
+			.entry(candidate.descriptor().para_id())
 			.or_default()
 			.push(candidate);
 	}
@@ -2685,7 +2741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="string">"Found backed candidate {:?} which was concluded invalid or is a descendant of a concluded invalid candidate, for paraid {:?}."</span>,
 				candidate.candidate().hash(),
-				candidate.descriptor().para_id
+				candidate.descriptor().para_id()
 			);
 		}
 		keep
@@ -2866,13 +2922,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Get relay parent block number of the candidate. We need this to get the group index
 		// assigned to this core at this block number
 		</span><span class="kw">let </span>relay_parent_block_number =
-			<span class="kw">match </span>allowed_relay_parents.acquire_info(bc.descriptor().relay_parent, <span class="prelude-val">None</span>) {
+			<span class="kw">match </span>allowed_relay_parents.acquire_info(bc.descriptor().relay_parent(), <span class="prelude-val">None</span>) {
 				<span class="prelude-val">Some</span>((<span class="kw">_</span>, block_num)) =&gt; block_num,
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">log::debug!</span>(
 						target: LOG_TARGET,
 						<span class="string">"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate."</span>,
-						bc.descriptor().relay_parent
+						bc.descriptor().relay_parent()
 					);
 					<span class="kw">return </span><span class="bool-val">false
 				</span>},
@@ -3073,7 +3129,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span><span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
 							<span class="string">"Found enough candidates for paraid: {:?}."</span>,
-							candidate.descriptor().para_id
+							candidate.descriptor().para_id()
 						);
 						<span class="kw">break</span>;
 					}
@@ -3092,7 +3148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="string">"Found a backed candidate {:?} with injected core index {}, which is not scheduled for paraid {:?}."</span>,
 								candidate.candidate().hash(),
 								core_index.<span class="number">0</span>,
-								candidate.descriptor().para_id
+								candidate.descriptor().para_id()
 							);
 
 							<span class="kw">break</span>;
@@ -3106,7 +3162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							target: LOG_TARGET,
 							<span class="string">"Found a backed candidate {:?} with no injected core index, for paraid {:?} which has multiple scheduled cores."</span>,
 							candidate.candidate().hash(),
-							candidate.descriptor().para_id
+							candidate.descriptor().para_id()
 						);
 
 						<span class="kw">break</span>;
@@ -3152,13 +3208,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="prelude-val">Some</span>(core_idx) = maybe_core_idx <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">None </span>};
 
 	<span class="kw">let </span>relay_parent_block_number =
-		<span class="kw">match </span>allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent, <span class="prelude-val">None</span>) {
+		<span class="kw">match </span>allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), <span class="prelude-val">None</span>) {
 			<span class="prelude-val">Some</span>((<span class="kw">_</span>, block_num)) =&gt; block_num,
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
 					<span class="string">"Relay parent {:?} for candidate {:?} is not in the allowed relay parents."</span>,
-					candidate.descriptor().relay_parent,
+					candidate.descriptor().relay_parent(),
 					candidate.candidate().hash(),
 				);
 				<span class="kw">return </span><span class="prelude-val">None

@@ -491,8 +491,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_support::{storage_alias, Twox64Concat};
 	<span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 	<span class="kw">use </span>polkadot_primitives::{
-		AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CoreIndex,
-		GroupIndex, Id <span class="kw">as </span>ParaId, ValidatorIndex,
+		vstaging::CandidateDescriptorV2 <span class="kw">as </span>CandidateDescriptor, AvailabilityBitfield,
+		CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Id <span class="kw">as </span>ParaId, ValidatorIndex,
 	};
 	<span class="kw">use </span>scale_info::TypeInfo;
 
@@ -690,7 +690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_support::traits::UncheckedOnRuntimeUpgrade;
 	<span class="kw">use </span>polkadot_primitives::{AvailabilityBitfield, Id <span class="kw">as </span>ParaId};
 	<span class="kw">use </span>polkadot_primitives_test_helpers::{
-		dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash,
+		dummy_candidate_commitments, dummy_candidate_descriptor_v2, dummy_hash,
 	};
 
 	<span class="attr">#[test]
@@ -706,7 +706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>expected = <span class="macro">vec!</span>[];
 
 			<span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..<span class="number">5 </span>{
-				<span class="kw">let </span>descriptor = dummy_candidate_descriptor(dummy_hash());
+				<span class="kw">let </span>descriptor = dummy_candidate_descriptor_v2(dummy_hash());
 				v0::PendingAvailability::&lt;Test&gt;::insert(
 					ParaId::from(i),
 					v0::CandidatePendingAvailability {
@@ -756,7 +756,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ParaId::from(<span class="number">6</span>),
 				v0::CandidatePendingAvailability {
 					core: CoreIndex(<span class="number">6</span>),
-					descriptor: dummy_candidate_descriptor(dummy_hash()),
+					descriptor: dummy_candidate_descriptor_v2(dummy_hash()),
 					relay_parent_number: <span class="number">6</span>,
 					hash: CandidateHash(dummy_hash()),
 					availability_votes: Default::default(),
