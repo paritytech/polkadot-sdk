@@ -1759,7 +1759,7 @@ mod run_tests {
 			for i in 0..3u8 {
 				let contract = builder::bare_instantiate(Code::Upload(code.clone()))
 					.value(min_balance * 100)
-					.salt([i; 32])
+					.salt(Some([i; 32]))
 					.build_and_unwrap_contract();
 
 				let info = get_contract(&contract.addr);
@@ -2000,7 +2000,7 @@ mod run_tests {
 			for i in 0..3u8 {
 				let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
 					.value(min_balance * 100)
-					.salt([i; 32])
+					.salt(Some([i; 32]))
 					.build_and_unwrap_contract();
 
 				let info = get_contract(&addr);
@@ -2042,19 +2042,19 @@ mod run_tests {
 			let Contract { addr: addr0, .. } =
 				builder::bare_instantiate(Code::Upload(wasm.clone()))
 					.value(min_balance * 100)
-					.salt([0; 32])
+					.salt(Some([0; 32]))
 					.build_and_unwrap_contract();
 			let Contract { addr: addr1, .. } =
 				builder::bare_instantiate(Code::Upload(wasm.clone()))
 					.value(min_balance * 100)
-					.salt([1; 32])
+					.salt(Some([1; 32]))
 					.build_and_unwrap_contract();
 			assert_refcount!(code_hash, 2);
 
 			// Sharing should also work with the usual instantiate call
 			let Contract { addr: addr2, .. } = builder::bare_instantiate(Code::Existing(code_hash))
 				.value(min_balance * 100)
-				.salt([2; 32])
+				.salt(Some([2; 32]))
 				.build_and_unwrap_contract();
 			assert_refcount!(code_hash, 3);
 
@@ -2241,7 +2241,7 @@ mod run_tests {
 			let Contract { addr: addr_caller, .. } =
 				builder::bare_instantiate(Code::Upload(caller_code))
 					.value(min_balance * 100)
-					.salt([0; 32])
+					.salt(Some([0; 32]))
 					.build_and_unwrap_contract();
 
 			// Call something trivial with a huge gas limit so that we can observe the effects
@@ -2279,13 +2279,13 @@ mod run_tests {
 			let Contract { addr: addr_caller, .. } =
 				builder::bare_instantiate(Code::Upload(caller_code))
 					.value(min_balance * 100)
-					.salt([0; 32])
+					.salt(Some([0; 32]))
 					.build_and_unwrap_contract();
 
 			let Contract { addr: addr_callee, .. } =
 				builder::bare_instantiate(Code::Upload(callee_code))
 					.value(min_balance * 100)
-					.salt([1; 32])
+					.salt(Some([1; 32]))
 					.build_and_unwrap_contract();
 
 			// Call pallet_revive call() dispatchable

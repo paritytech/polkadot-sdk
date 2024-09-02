@@ -2093,7 +2093,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance,
 					vec![1, 2, 3, 4],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				);
 				assert_matches!(result, Ok(_));
@@ -2502,7 +2502,7 @@ mod tests {
 					&mut storage_meter,
 					0, // <- zero value
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				),
 				Err(_)
@@ -2538,7 +2538,7 @@ mod tests {
 
 						min_balance,
 						vec![],
-						&[0;32],
+						Some(&[0 ;32]),
 						None,
 					),
 					Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
@@ -2592,7 +2592,7 @@ mod tests {
 
 						min_balance,
 						vec![],
-						&[0;32],
+						Some(&[0; 32]),
 						None,
 					),
 					Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
@@ -2625,7 +2625,7 @@ mod tests {
 						dummy_ch,
 						<Test as Config>::Currency::minimum_balance(),
 						vec![],
-						&[48; 32],
+						Some(&[48; 32]),
 					)
 					.unwrap();
 
@@ -2703,7 +2703,7 @@ mod tests {
 						dummy_ch,
 						<Test as Config>::Currency::minimum_balance(),
 						vec![],
-						&[0; 32],
+						Some(&[0; 32]),
 					),
 					Err(ExecError {
 						error: DispatchError::Other("It's a trap!"),
@@ -2776,7 +2776,7 @@ mod tests {
 						&mut storage_meter,
 						100,
 						vec![],
-						&[0; 32],
+						Some(&[0; 32]),
 						None,
 					),
 					Err(Error::<Test>::TerminatedInConstructor.into())
@@ -2887,7 +2887,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				);
 				assert_matches!(result, Ok(_));
@@ -3255,7 +3255,7 @@ mod tests {
 					fail_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 				)
 				.ok();
 			exec_success()
@@ -3272,7 +3272,7 @@ mod tests {
 					success_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 				)
 				.unwrap();
 
@@ -3323,7 +3323,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				)
 				.ok();
@@ -3336,7 +3336,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 1);
@@ -3348,7 +3348,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 200,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 2);
@@ -3360,7 +3360,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 200,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 3);
