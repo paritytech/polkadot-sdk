@@ -60,9 +60,9 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	ord_parameter_types, parameter_types,
 	traits::{
-		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg,
-		AtLeastOneLinearStoragePrice, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
-		EitherOfDiverse, Equals, InstanceFilter, TransformOrigin,
+		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
+		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
+		LinearStoragePrice, TransformOrigin, ZeroFootprintOr,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -648,13 +648,19 @@ impl pallet_proxy::Config for Runtime {
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
+		ZeroFootprintOr<
+			LinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
+			Balance,
+		>,
 	>;
 	type AnnouncementConsideration = fungible::HoldConsideration<
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
+		ZeroFootprintOr<
+			LinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
+			Balance,
+		>,
 	>;
 }
 

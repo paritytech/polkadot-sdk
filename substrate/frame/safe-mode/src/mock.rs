@@ -25,8 +25,8 @@ use crate as pallet_safe_mode;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{
-		AtLeastOneLinearStoragePrice, ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec,
-		SafeModeNotify,
+		ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec, LinearStoragePrice,
+		SafeModeNotify, ZeroFootprintOr,
 	},
 };
 use frame_system::EnsureSignedBy;
@@ -143,13 +143,13 @@ impl pallet_proxy::Config for Test {
 		u64,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>,
+		ZeroFootprintOr<LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>, u64>,
 	>;
 	type AnnouncementConsideration = HoldConsideration<
 		u64,
 		Balances,
 		AnnouncementHoldReason,
-		AtLeastOneLinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>,
+		ZeroFootprintOr<LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>, u64>,
 	>;
 	type MaxProxies = ConstU32<4>;
 	type WeightInfo = ();

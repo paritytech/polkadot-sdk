@@ -35,10 +35,10 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AtLeastOneLinearStoragePrice,
-		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, EverythingBut,
-		FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
-		ProcessMessageError, VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
+		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
+		VariantCountOf, WithdrawReasons, ZeroFootprintOr,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -1170,13 +1170,19 @@ impl pallet_proxy::Config for Runtime {
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
+		ZeroFootprintOr<
+			LinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
+			Balance,
+		>,
 	>;
 	type AnnouncementConsideration = HoldConsideration<
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
+		ZeroFootprintOr<
+			LinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
+			Balance,
+		>,
 	>;
 	type MaxProxies = MaxProxies;
 	type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;

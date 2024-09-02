@@ -49,10 +49,10 @@ use frame_support::{
 			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
 			GetSalary, PayFromAccount,
 		},
-		AsEnsureOriginWithArg, AtLeastOneLinearStoragePrice, ConstBool, ConstU128, ConstU16,
-		ConstU32, Contains, Currency, EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly,
-		Imbalance, InsideBoth, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice,
-		LockIdentifier, Nothing, OnUnbalanced, VariantCountOf, WithdrawReasons,
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
+		EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing,
+		OnUnbalanced, VariantCountOf, WithdrawReasons, ZeroFootprintOr,
 	},
 	weights::{
 		constants::{
@@ -441,13 +441,19 @@ impl pallet_proxy::Config for Runtime {
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
+		ZeroFootprintOr<
+			LinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
+			Balance,
+		>,
 	>;
 	type AnnouncementConsideration = HoldConsideration<
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
+		ZeroFootprintOr<
+			LinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
+			Balance,
+		>,
 	>;
 }
 

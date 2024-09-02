@@ -55,8 +55,8 @@ use frame_support::{
 	traits::{
 		fungible::{BalancedHold, HoldConsideration, Inspect, Mutate, MutateHold},
 		tokens::Preservation,
-		AtLeastOneLinearStoragePrice, ConstU32, ConstU64, Contains, OnIdle, OnInitialize,
-		StorageVersion,
+		ConstU32, ConstU64, Contains, LinearStoragePrice, OnIdle, OnInitialize, StorageVersion,
+		ZeroFootprintOr,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightMeter},
 };
@@ -400,13 +400,13 @@ impl pallet_proxy::Config for Test {
 		<Test as frame_system::Config>::AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>,
+		ZeroFootprintOr<LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>, u64>,
 	>;
 	type AnnouncementConsideration = HoldConsideration<
 		<Test as frame_system::Config>::AccountId,
 		Balances,
 		ProxyHoldReason,
-		AtLeastOneLinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>,
+		ZeroFootprintOr<LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>, u64>,
 	>;
 }
 
