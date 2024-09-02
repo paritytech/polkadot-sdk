@@ -246,6 +246,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -275,6 +276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>PARA_ID_A: u32 = <span class="number">2000</span>;
 <span class="kw">pub const </span>PARA_ID_B: u32 = <span class="number">2001</span>;
 <span class="kw">pub const </span>ED: Balance = penpal_runtime::EXISTENTIAL_DEPOSIT;
+<span class="kw">pub const </span>USDT_ED: Balance = <span class="number">70_000</span>;
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub </span>PenpalSudoAccount: AccountId = get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>);
@@ -329,8 +331,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>(RelayLocation::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
 				<span class="comment">// Sufficient AssetHub asset representation
 				</span>(LocalReservableFromAssetHub::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
-				<span class="comment">// USDT from Asset Hub
-				</span>(UsdtFromAssetHub::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
+				<span class="comment">// USDT from AssetHub
+				</span>(UsdtFromAssetHub::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, USDT_ED),
 			],
 			..Default::default()
 		},

@@ -844,6 +844,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#692" id="692">692</a>
 <a href="#693" id="693">693</a>
 <a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -867,7 +890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	XcmpQueue,
 };
 <span class="kw">use </span>assets_common::{
-	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset},
+	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
 	TrustBackedAssetsAsLocation,
 };
 <span class="kw">use </span>frame_support::{
@@ -889,7 +912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
 <span class="kw">use </span>snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
-<span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, ConvertInto};
+<span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
 <span class="kw">use </span>testnet_parachains_constants::rococo::snowbridge::{
 	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
 };
@@ -900,12 +923,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
-	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignPaidRemoteExporter,
+	MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignPaidRemoteExporter,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -1172,6 +1196,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	IsForeignConcreteAsset&lt;FromSiblingParachain&lt;parachain_info::Pallet&lt;Runtime&gt;&gt;&gt;,
 );
 
+<span class="doccomment">/// Asset converter for pool assets.
+/// Used to convert one asset to another, when there is a pool available between the two.
+/// This type thus allows paying fees with any asset as long as there is a pool between said
+/// asset and the asset required for fee payment.
+</span><span class="kw">pub type </span>PoolAssetsExchanger = SingleAssetExchangeAdapter&lt;
+	<span class="kw">crate</span>::AssetConversion,
+	<span class="kw">crate</span>::NativeAndAssets,
+	(
+		TrustBackedAssetsAsLocation&lt;TrustBackedAssetsPalletLocation, Balance, xcm::v4::Location&gt;,
+		ForeignAssetsConvertedConcreteId,
+		<span class="comment">// `ForeignAssetsConvertedConcreteId` excludes the relay token, so we add it back here.
+		</span>MatchedConvertedConcreteId&lt;
+			xcm::v4::Location,
+			Balance,
+			Equals&lt;ParentLocation&gt;,
+			WithLatestLocationConverter&lt;xcm::v4::Location&gt;,
+			TryConvertInto,
+		&gt;,
+	),
+	AccountId,
+&gt;;
+
 <span class="kw">pub struct </span>XcmConfig;
 <span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
 	<span class="kw">type </span>RuntimeCall = RuntimeCall;
@@ -1253,7 +1299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>PalletInstancesInfo = AllPalletsWithSystem;
 	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	<span class="kw">type </span>AssetLocker = ();
-	<span class="kw">type </span>AssetExchanger = ();
+	<span class="kw">type </span>AssetExchanger = PoolAssetsExchanger;
 	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
 		WaivedLocations,
 		SendXcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, TreasuryAccount&gt;,

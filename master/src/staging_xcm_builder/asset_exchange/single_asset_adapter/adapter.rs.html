@@ -498,7 +498,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					give.clone()
 				})<span class="question-mark">?</span>;
 
-			(credit_out, <span class="prelude-val">Some</span>(credit_change))
+			(credit_out, <span class="kw">if </span>credit_change.peek() &gt; <span class="number">0 </span>{ <span class="prelude-val">Some</span>(credit_change) } <span class="kw">else </span>{ <span class="prelude-val">None </span>})
 		};
 
 		<span class="comment">// We create an `AssetsInHolding` instance by putting in the resulting asset

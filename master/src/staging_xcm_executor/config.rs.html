@@ -277,6 +277,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -312,6 +319,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>RuntimeCall: Parameter + Dispatchable&lt;PostInfo = PostDispatchInfo&gt; + GetDispatchInfo;
 
 	<span class="doccomment">/// How to send an onward XCM message.
+	///
+	/// The sender is tasked with returning the assets it needs to pay for delivery fees.
+	/// Only one asset should be returned as delivery fees, any other will be ignored by
+	/// the executor.
 	</span><span class="kw">type </span>XcmSender: SendXcm;
 
 	<span class="doccomment">/// How to withdraw and deposit an asset.
@@ -353,6 +364,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>AssetLocker: AssetLock;
 
 	<span class="doccomment">/// Handler for exchanging assets.
+	///
+	/// This is used in the executor to swap the asset wanted for fees with the asset needed for
+	/// delivery fees.
 	</span><span class="kw">type </span>AssetExchanger: AssetExchange;
 
 	<span class="doccomment">/// The handler for when there is an instruction to claim assets.

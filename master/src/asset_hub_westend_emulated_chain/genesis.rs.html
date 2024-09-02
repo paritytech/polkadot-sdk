@@ -244,6 +244,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -273,6 +274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub const </span>PARA_ID: u32 = <span class="number">1000</span>;
 <span class="kw">pub const </span>ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
+<span class="kw">pub const </span>USDT_ED: Balance = <span class="number">70_000</span>;
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub </span>AssetHubWestendAssetOwner: AccountId = get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>);
@@ -313,7 +315,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assets: asset_hub_westend_runtime::AssetsConfig {
 			assets: <span class="macro">vec!</span>[
 				(RESERVABLE_ASSET_ID, AssetHubWestendAssetOwner::get(), <span class="bool-val">false</span>, ED),
-				(USDT_ID, AssetHubWestendAssetOwner::get(), <span class="bool-val">true</span>, ED),
+				(USDT_ID, AssetHubWestendAssetOwner::get(), <span class="bool-val">true</span>, USDT_ED),
 			],
 			..Default::default()
 		},

@@ -548,7 +548,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -580,7 +579,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::traits::{Equals, EverythingBut};
 <span class="kw">use </span>parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 <span class="kw">use </span>sp_runtime::traits::TryConvertInto;
-<span class="kw">use </span>xcm::latest::Location;
+<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
 };
@@ -689,7 +688,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sp_runtime::traits::MaybeEquivalence;
-	<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>xcm_builder::{StartsWithExplicitGlobalConsensus, WithLatestLocationConverter};
 	<span class="kw">use </span>xcm_executor::traits::{Error <span class="kw">as </span>MatchError, MatchesFungibles};
 
