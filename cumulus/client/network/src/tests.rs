@@ -330,7 +330,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	async fn call_runtime_api(
 		&self,
 		_method_name: &'static str,
-		_hash: RelayHash,
+		_hash: PHash,
 		_payload: &[u8],
 	) -> RelayChainResult<Vec<u8>> {
 		unimplemented!("Not needed for test")
