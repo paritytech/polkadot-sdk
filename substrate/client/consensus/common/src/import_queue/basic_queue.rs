@@ -525,7 +525,7 @@ mod tests {
 		}
 
 		async fn import_block(
-			&mut self,
+			&self,
 			_block: BlockImportParams<Block>,
 		) -> Result<ImportResult, Self::Error> {
 			Ok(ImportResult::imported(true))

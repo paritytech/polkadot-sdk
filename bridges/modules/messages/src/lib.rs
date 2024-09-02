@@ -620,18 +620,16 @@ pub mod pallet {
 
 				// collect message_nonces that were supposed to be pruned
 				let mut unpruned_message_nonces = Vec::new();
-				let mut nonce_to_check = expected_last_prunned_nonce;
-				loop {
+				const MAX_MESSAGES_ITERATION: u64 = 16;
+				let start_nonce =
+					expected_last_prunned_nonce.checked_sub(MAX_MESSAGES_ITERATION).unwrap_or(0);
+				for current_nonce in start_nonce..=expected_last_prunned_nonce {
+					// check a message for current_nonce
 					if OutboundMessages::<T, I>::contains_key(MessageKey {
 						lane_id,
-						nonce: nonce_to_check,
+						nonce: current_nonce,
 					}) {
-						unpruned_message_nonces.push(nonce_to_check);
-					}
-					if let Some(new_nonce_to_check) = nonce_to_check.checked_sub(One::one()) {
-						nonce_to_check = new_nonce_to_check;
-					} else {
-						break;
+						unpruned_message_nonces.push(current_nonce);
 					}
 				}
 

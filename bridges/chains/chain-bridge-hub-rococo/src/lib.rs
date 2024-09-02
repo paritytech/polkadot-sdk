@@ -105,15 +105,15 @@ frame_support::parameter_types! {
 	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
 	/// BridgeHub.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const BridgeHubRococoBaseXcmFeeInRocs: u128 = 59_034_266;
+	pub const BridgeHubRococoBaseXcmFeeInRocs: u128 = 57_145_832;
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 316_520_502;
+	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 297_644_174;
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 59_941_787;
+	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 56_740_432;
 }
 
 /// Wrapper over `BridgeHubRococo`'s `RuntimeCall` that can be used without a runtime.

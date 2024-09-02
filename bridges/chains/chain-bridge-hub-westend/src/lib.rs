@@ -94,15 +94,15 @@ frame_support::parameter_types! {
 	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Westend
 	/// BridgeHub.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const BridgeHubWestendBaseXcmFeeInWnds: u128 = 17_756_830_000;
+	pub const BridgeHubWestendBaseXcmFeeInWnds: u128 = 18_191_740_000;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 94_956_336_452;
+	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 89_293_427_116;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 17_982_586_452;
+	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 17_022_177_116;
 }
 
 /// Wrapper over `BridgeHubWestend`'s `RuntimeCall` that can be used without a runtime.

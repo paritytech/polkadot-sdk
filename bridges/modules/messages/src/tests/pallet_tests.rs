@@ -38,13 +38,13 @@ use bp_runtime::{BasicOperatingMode, PreComputedSize, RangeInclusiveExt, Size};
 use bp_test_utils::generate_owned_bridge_module_tests;
 use codec::Encode;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err, assert_noop, assert_ok,
 	dispatch::Pays,
 	storage::generator::{StorageMap, StorageValue},
 	weights::Weight,
 };
 use frame_system::{EventRecord, Pallet as System, Phase};
-use sp_runtime::DispatchError;
+use sp_runtime::{BoundedVec, DispatchError};
 
 fn get_ready_for_events() {
 	System::<TestRuntime>::set_block_number(1);
@@ -1195,4 +1195,35 @@ fn receive_messages_delivery_proof_fails_if_outbound_lane_is_unknown() {
 			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::UnknownOutboundLane),
 		);
 	});
+}
+
+#[test]
+fn do_try_state_for_outbound_lanes_works() {
+	run_test(|| {
+		let lane_id = test_lane_id();
+
+		// setup delivered nonce 1
+		OutboundLanes::<TestRuntime>::insert(
+			lane_id,
+			OutboundLaneData {
+				state: LaneState::Opened,
+				oldest_unpruned_nonce: 2,
+				latest_received_nonce: 1,
+				latest_generated_nonce: 0,
+			},
+		);
+		// store message for nonce 1
+		OutboundMessages::<TestRuntime>::insert(
+			MessageKey { lane_id, nonce: 1 },
+			BoundedVec::default(),
+		);
+		assert_err!(
+			Pallet::<TestRuntime>::do_try_state(),
+			sp_runtime::TryRuntimeError::Other("Found unpruned lanes!")
+		);
+
+		// remove message for nonce 1
+		OutboundMessages::<TestRuntime>::remove(MessageKey { lane_id, nonce: 1 });
+		assert_ok!(Pallet::<TestRuntime>::do_try_state());
+	})
 }

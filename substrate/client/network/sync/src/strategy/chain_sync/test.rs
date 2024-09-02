@@ -91,7 +91,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 
 #[test]
 fn restart_doesnt_affect_peers_downloading_finality_data() {
-	let mut client = Arc::new(TestClientBuilder::new().build());
+	let client = Arc::new(TestClientBuilder::new().build());
 
 	// we request max 8 blocks to always initiate block requests to both peers for the test to be
 	// deterministic
@@ -103,7 +103,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	let peer_id2 = PeerId::random();
 	let peer_id3 = PeerId::random();
 
-	let mut new_blocks = |n| {
+	let new_blocks = |n| {
 		for _ in 0..n {
 			let block = BlockBuilderBuilder::new(&*client)
 				.on_parent_block(client.chain_info().best_hash)
@@ -242,12 +242,12 @@ fn get_block_request(
 }
 
 /// Build and import a new best block.
-fn build_block(client: &mut Arc<TestClient>, at: Option<Hash>, fork: bool) -> Block {
+fn build_block(client: &TestClient, at: Option<Hash>, fork: bool) -> Block {
 	let at = at.unwrap_or_else(|| client.info().best_hash);
 
-	let mut block_builder = BlockBuilderBuilder::new(&**client)
+	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(at)
-		.fetch_parent_block_number(&**client)
+		.fetch_parent_block_number(client)
 		.unwrap()
 		.build()
 		.unwrap();
@@ -282,13 +282,13 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 	sp_tracing::try_init_simple();
 
 	let blocks = {
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = TestClientBuilder::new().build();
 		(0..MAX_DOWNLOAD_AHEAD * 2)
-			.map(|_| build_block(&mut client, None, false))
+			.map(|_| build_block(&client, None, false))
 			.collect::<Vec<_>>()
 	};
 
-	let mut client = Arc::new(TestClientBuilder::new().build());
+	let client = Arc::new(TestClientBuilder::new().build());
 	let info = client.info();
 
 	let mut sync =
@@ -415,13 +415,13 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 fn can_sync_huge_fork() {
 	sp_tracing::try_init_simple();
 
-	let mut client = Arc::new(TestClientBuilder::new().build());
+	let client = Arc::new(TestClientBuilder::new().build());
 	let blocks = (0..MAX_BLOCKS_TO_LOOK_BACKWARDS * 4)
-		.map(|_| build_block(&mut client, None, false))
+		.map(|_| build_block(&client, None, false))
 		.collect::<Vec<_>>();
 
 	let fork_blocks = {
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = TestClientBuilder::new().build();
 		let fork_blocks = blocks[..MAX_BLOCKS_TO_LOOK_BACKWARDS as usize * 2]
 			.into_iter()
 			.inspect(|b| block_on(client.import(BlockOrigin::Own, (*b).clone())).unwrap())
@@ -431,8 +431,7 @@ fn can_sync_huge_fork() {
 		fork_blocks
 			.into_iter()
 			.chain(
-				(0..MAX_BLOCKS_TO_LOOK_BACKWARDS * 2 + 1)
-					.map(|_| build_block(&mut client, None, true)),
+				(0..MAX_BLOCKS_TO_LOOK_BACKWARDS * 2 + 1).map(|_| build_block(&client, None, true)),
 			)
 			.collect::<Vec<_>>()
 	};
@@ -550,13 +549,13 @@ fn can_sync_huge_fork() {
 fn syncs_fork_without_duplicate_requests() {
 	sp_tracing::try_init_simple();
 
-	let mut client = Arc::new(TestClientBuilder::new().build());
+	let client = Arc::new(TestClientBuilder::new().build());
 	let blocks = (0..MAX_BLOCKS_TO_LOOK_BACKWARDS * 4)
-		.map(|_| build_block(&mut client, None, false))
+		.map(|_| build_block(&client, None, false))
 		.collect::<Vec<_>>();
 
 	let fork_blocks = {
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = TestClientBuilder::new().build();
 		let fork_blocks = blocks[..MAX_BLOCKS_TO_LOOK_BACKWARDS as usize * 2]
 			.into_iter()
 			.inspect(|b| block_on(client.import(BlockOrigin::Own, (*b).clone())).unwrap())
@@ -566,8 +565,7 @@ fn syncs_fork_without_duplicate_requests() {
 		fork_blocks
 			.into_iter()
 			.chain(
-				(0..MAX_BLOCKS_TO_LOOK_BACKWARDS * 2 + 1)
-					.map(|_| build_block(&mut client, None, true)),
+				(0..MAX_BLOCKS_TO_LOOK_BACKWARDS * 2 + 1).map(|_| build_block(&client, None, true)),
 			)
 			.collect::<Vec<_>>()
 	};
@@ -708,8 +706,8 @@ fn syncs_fork_without_duplicate_requests() {
 #[test]
 fn removes_target_fork_on_disconnect() {
 	sp_tracing::try_init_simple();
-	let mut client = Arc::new(TestClientBuilder::new().build());
-	let blocks = (0..3).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
+	let client = Arc::new(TestClientBuilder::new().build());
+	let blocks = (0..3).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
 
 	let mut sync =
 		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, std::iter::empty())
@@ -733,8 +731,8 @@ fn removes_target_fork_on_disconnect() {
 #[test]
 fn can_import_response_with_missing_blocks() {
 	sp_tracing::try_init_simple();
-	let mut client2 = Arc::new(TestClientBuilder::new().build());
-	let blocks = (0..4).map(|_| build_block(&mut client2, None, false)).collect::<Vec<_>>();
+	let client2 = TestClientBuilder::new().build();
+	let blocks = (0..4).map(|_| build_block(&client2, None, false)).collect::<Vec<_>>();
 
 	let empty_client = Arc::new(TestClientBuilder::new().build());
 
@@ -770,14 +768,14 @@ fn ancestor_search_repeat() {
 
 #[test]
 fn sync_restart_removes_block_but_not_justification_requests() {
-	let mut client = Arc::new(TestClientBuilder::new().build());
+	let client = Arc::new(TestClientBuilder::new().build());
 	let mut sync =
 		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, std::iter::empty())
 			.unwrap();
 
 	let peers = vec![PeerId::random(), PeerId::random()];
 
-	let mut new_blocks = |n| {
+	let new_blocks = |n| {
 		for _ in 0..n {
 			let block = BlockBuilderBuilder::new(&*client)
 				.on_parent_block(client.chain_info().best_hash)
@@ -880,11 +878,11 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 fn request_across_forks() {
 	sp_tracing::try_init_simple();
 
-	let mut client = Arc::new(TestClientBuilder::new().build());
-	let blocks = (0..100).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
+	let client = Arc::new(TestClientBuilder::new().build());
+	let blocks = (0..100).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
 
 	let fork_a_blocks = {
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = TestClientBuilder::new().build();
 		let mut fork_blocks = blocks[..]
 			.into_iter()
 			.inspect(|b| {
@@ -894,13 +892,13 @@ fn request_across_forks() {
 			.cloned()
 			.collect::<Vec<_>>();
 		for _ in 0..10 {
-			fork_blocks.push(build_block(&mut client, None, false));
+			fork_blocks.push(build_block(&client, None, false));
 		}
 		fork_blocks
 	};
 
 	let fork_b_blocks = {
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = TestClientBuilder::new().build();
 		let mut fork_blocks = blocks[..]
 			.into_iter()
 			.inspect(|b| {
@@ -910,7 +908,7 @@ fn request_across_forks() {
 			.cloned()
 			.collect::<Vec<_>>();
 		for _ in 0..10 {
-			fork_blocks.push(build_block(&mut client, None, true));
+			fork_blocks.push(build_block(&client, None, true));
 		}
 		fork_blocks
 	};
