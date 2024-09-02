@@ -16,7 +16,7 @@
 
 //! Cumulus extension pallet for AuRa
 //!
-//! This pallets extends the Substrate AuRa pallet to make it compatible with parachains. It
+//! This pallet extends the Substrate AuRa pallet to make it compatible with parachains. It
 //! provides the [`Pallet`], the [`Config`] and the [`GenesisConfig`].
 //!
 //! It is also required that the parachain runtime uses the provided [`BlockExecutor`] to properly

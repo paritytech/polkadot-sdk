@@ -14,12 +14,13 @@
 		headers.forEach(header => {
 			let link = document.createElement("a");
 			link.href = "#" + header.id;
-			link.textContent = header.textContent;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
 			link.className = header.tagName.toLowerCase();
 
 			toc.appendChild(link);
 
-			if (header.id == "modules" && header.textContent == "Modules") {
+			if (header.id == "modules" && headerTextContent == "Modules") {
 				modules.forEach(module => {
 					let link = document.createElement("a");
 					link.href = module.href;
