@@ -94,8 +94,9 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 }
 
 pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
+	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort).map(|_| ())?;
 	let _ = frame_system::Pallet::<T>::dec_providers(who);
-	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort).map(|_| ())
+	Ok(())
 }
 
 /// Slash the value from `who`.
