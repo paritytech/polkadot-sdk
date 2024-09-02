@@ -141,7 +141,13 @@ where
 			);
 			SendError::Unroutable
 		})?;
-		let bridge = Self::bridge(locations.bridge_id()).ok_or(SendError::Unroutable)?;
+		let Some(bridge) = Self::bridge(locations.bridge_id()) else {
+			log::error!(
+				target: LOG_TARGET,
+				"Missing opened bridge for requested locations: {locations:?}",
+			);
+			return Err(SendError::Unroutable)
+		};
 
 		let bridge_message = MessagesPallet::<T, I>::validate_message(bridge.lane_id, &blob)
 			.map_err(|e| {
@@ -466,7 +472,7 @@ mod tests {
 		run_test(|| {
 			let (bridge_id, _) = open_lane_and_send_regular_message();
 			assert!(!TestLocalXcmChannelManager::is_bridge_suspened());
-			assert_eq!(XcmOverBridge::bridge(bridge_id).unwrap().state, BridgeState::Opened);
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
 		});
 	}
 
@@ -495,11 +501,11 @@ mod tests {
 			}
 
 			assert!(!TestLocalXcmChannelManager::is_bridge_suspened());
-			assert_eq!(XcmOverBridge::bridge(bridge_id).unwrap().state, BridgeState::Opened);
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
 
 			open_lane_and_send_regular_message();
 			assert!(TestLocalXcmChannelManager::is_bridge_suspened());
-			assert_eq!(XcmOverBridge::bridge(bridge_id).unwrap().state, BridgeState::Suspended);
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Suspended);
 		});
 	}
 
@@ -516,7 +522,7 @@ mod tests {
 			);
 
 			assert!(!TestLocalXcmChannelManager::is_bridge_resumed());
-			assert_eq!(XcmOverBridge::bridge(bridge_id).unwrap().state, BridgeState::Suspended);
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Suspended);
 		});
 	}
 
@@ -530,7 +536,7 @@ mod tests {
 			);
 
 			assert!(!TestLocalXcmChannelManager::is_bridge_resumed());
-			assert_eq!(XcmOverBridge::bridge(bridge_id).unwrap().state, BridgeState::Opened);
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
 		});
 	}
 
@@ -547,7 +553,7 @@ mod tests {
 			);
 
 			assert!(TestLocalXcmChannelManager::is_bridge_resumed());
-			assert_eq!(XcmOverBridge::bridge(bridge_id).unwrap().state, BridgeState::Opened);
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
 		});
 	}
 
