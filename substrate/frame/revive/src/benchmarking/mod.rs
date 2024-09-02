@@ -411,8 +411,9 @@ mod benchmarks {
 		let code_deposit =
 			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &account_id);
 		// value was removed from the caller
+		let _balance = T::Currency::total_balance(&caller);
 		assert_eq!(
-			T::Currency::balance(&caller),
+			T::Currency::total_balance(&caller),
 			caller_funding::<T>() - value - deposit - code_deposit - Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
@@ -532,7 +533,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_caller() {
-		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len() as u32;
+		let len = H160::len_bytes();
 		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 
 		let result;
@@ -543,8 +544,9 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(
-			&<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().caller().account_id().unwrap()
+			//H160::from_slice(&mut &memory[4..]),
+			<H160 as Decode>::decode(&mut &memory[4..]).unwrap(),
+			T::AddressMapper::to_address(&runtime.ext().caller().account_id().unwrap())
 		);
 	}
 
