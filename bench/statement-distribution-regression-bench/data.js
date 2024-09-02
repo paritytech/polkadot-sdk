@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725274411412,
+  "lastUpdate": 1725280612228,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -10079,6 +10079,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04608136284999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre",
+            "email": "franciscoaguirreperez@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5291412e159d3b99c64d5f7f969dbde39d715769",
+          "message": "Swaps for XCM delivery fees (#5131)\n\n# Context\n\nFees can already be paid in other assets locally thanks to the Trader\nimplementations we have.\nThis doesn't work when sending messages because delivery fees go through\na different mechanism altogether.\nThe idea is to fix this leveraging the `AssetExchanger` config item\nthat's able to turn the asset the user wants to pay fees in into the\nasset the router expects for delivery fees.\n\n# Main addition\n\nAn adapter was needed to use `pallet-asset-conversion` for exchanging\nassets in XCM.\nThis was created in\nhttps://github.com/paritytech/polkadot-sdk/pull/5130.\n\nThe XCM executor was modified to use `AssetExchanger` (when available)\nto swap assets to pay for delivery fees.\n\n## Limitations\n\nWe can only pay for delivery fees in different assets in intermediate\nhops. We can't pay in different assets locally. The first hop will\nalways need the native token of the chain (or whatever is specified in\nthe `XcmRouter`).\nThis is a byproduct of using the `BuyExecution` instruction to know\nwhich asset should be used for delivery fee payment.\nSince this instruction is not present when executing an XCM locally, we\nare left with this limitation.\nTo illustrate this limitation, I'll show two scenarios. All chains\ninvolved have pools.\n\n### Scenario 1\n\nParachain A --> Parachain B\n\nHere, parachain A can use any asset in a pool with its native asset to\npay for local execution fees.\nHowever, as of now we can't use those for local delivery fees.\nThis means transfers from A to B need some amount of A's native token to\npay for delivery fees.\n\n### Scenario 2\n\nParachain A --> Parachain C --> Parachain B\n\nHere, Parachain C's remote delivery fees can be paid with any asset in a\npool with its native asset.\nThis allows a reserve asset transfer between A and B with C as the\nreserve to only need A's native token at the starting hop.\nAfter that, it could all be pool assets.\n\n## Future work\n\nThe fact that delivery fees go through a totally different mechanism\nresults in a lot of bugs and pain points.\nUnfortunately, this is not so easy to solve in a backwards compatible\nmanner.\nDelivery fees will be integrated into the language in future XCM\nversions, following\nhttps://github.com/polkadot-fellows/xcm-format/pull/53.\n\nOld PR: https://github.com/paritytech/polkadot-sdk/pull/4375.",
+          "timestamp": "2024-09-02T10:47:13Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5291412e159d3b99c64d5f7f969dbde39d715769"
+        },
+        "date": 1725280582976,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.93399999999991,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.046216483624000014,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03774881882199999,
             "unit": "seconds"
           }
         ]
