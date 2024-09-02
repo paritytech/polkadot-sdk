@@ -141,7 +141,10 @@ pub trait ConvertMessage {
 	type Balance: BalanceT + From<u128>;
 	type AccountId;
 	/// Converts a versioned message into an XCM message and an optional topicID
-	fn convert(message: VersionedMessage) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError>;
+	fn convert(
+		message_id: H256,
+		message: VersionedMessage,
+	) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError>;
 }
 
 pub type CallIndex = [u8; 2];
@@ -179,12 +182,15 @@ where
 	type Balance = Balance;
 	type AccountId = AccountId;
 
-	fn convert(message: VersionedMessage) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError> {
+	fn convert(
+		message_id: H256,
+		message: VersionedMessage,
+	) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError> {
 		use Command::*;
 		use VersionedMessage::*;
 		match message {
 			V1(MessageV1 { chain_id, command: RegisterToken { token, fee } }) =>
-				Ok(Self::convert_register_token(chain_id, token, fee)),
+				Ok(Self::convert_register_token(message_id, chain_id, token, fee)),
 			V1(MessageV1 { chain_id, command: SendToken { token, destination, amount, fee } }) =>
 				Ok(Self::convert_send_token(message_id, chain_id, token, destination, amount, fee)),
 			V1(MessageV1 {
@@ -232,7 +238,12 @@ where
 	UniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
 {
-	fn convert_register_token(chain_id: u64, token: H160, fee: u128) -> (Xcm<()>, Balance) {
+	fn convert_register_token(
+		message_id: H256,
+		chain_id: u64,
+		token: H160,
+		fee: u128,
+	) -> (Xcm<()>, Balance) {
 		let network = Ethereum { chain_id };
 		let xcm_fee: Asset = (Location::parent(), fee).into();
 		let deposit: Asset = (Location::parent(), CreateAssetDeposit::get()).into();
@@ -275,6 +286,8 @@ where
 			// Clear the origin so that remaining assets in holding
 			// are claimable by the physical origin (BridgeHub)
 			ClearOrigin,
+			// Forward message id to Asset Hub
+			SetTopic(message_id.into()),
 		]
 		.into();
 
@@ -282,6 +295,7 @@ where
 	}
 
 	fn convert_send_token(
+		message_id: H256,
 		chain_id: u64,
 		token: H160,
 		destination: Destination,
@@ -339,6 +353,8 @@ where
 							BuyExecution { fees: dest_para_fee_asset, weight_limit: Unlimited },
 							// Deposit asset to beneficiary.
 							DepositAsset { assets: Definite(asset.into()), beneficiary },
+							// Forward message id to destination parachain.
+							SetTopic(message_id.into()),
 						]
 						.into(),
 					},
@@ -353,6 +369,9 @@ where
 				]);
 			},
 		}
+
+		// Forward message id to Asset Hub.
+		instructions.push(SetTopic(message_id.into()));
 
 		(instructions.into(), total_fees.into())
 	}

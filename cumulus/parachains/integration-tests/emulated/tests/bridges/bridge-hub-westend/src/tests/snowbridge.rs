@@ -27,9 +27,9 @@ use rococo_westend_system_emulated_network::{
 };
 use snowbridge_core::{outbound::OperatingMode, AssetMetadata, TokenIdOf};
 use snowbridge_router_primitives::inbound::{
-	Command, ConvertMessage, Destination, GlobalConsensusEthereumConvertsFor, MessageV1,
-	VersionedMessage,
+	Command, Destination, GlobalConsensusEthereumConvertsFor, MessageV1, VersionedMessage,
 };
+use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
 
@@ -70,13 +70,11 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
-		type Converter = <bridge_hub_westend_runtime::Runtime as snowbridge_pallet_inbound_queue::Config>::MessageConverter;
-
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
 		});
-		let (xcm, _) = Converter::convert(message_id, message).unwrap();
+		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -131,8 +129,6 @@ fn send_token_from_ethereum_to_asset_hub() {
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
-		type Converter = <bridge_hub_westend_runtime::Runtime as snowbridge_pallet_inbound_queue::Config>::MessageConverter;
-
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::SendToken {
@@ -142,7 +138,7 @@ fn send_token_from_ethereum_to_asset_hub() {
 				fee: XCM_FEE,
 			},
 		});
-		let (xcm, _) = Converter::convert(message).unwrap();
+		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		// Check that the message was sent
@@ -194,8 +190,6 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		type Converter = <bridge_hub_westend_runtime::Runtime as
-	snowbridge_pallet_inbound_queue::Config>::MessageConverter;
 
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
@@ -206,7 +200,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 				fee: XCM_FEE,
 			},
 		});
-		let (xcm, _) = Converter::convert(message).unwrap();
+		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		// Check that the send token message was sent using xcm
