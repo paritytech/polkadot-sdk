@@ -790,6 +790,7 @@ name = "asset-hub-rococo-emulated-chain"
 version = "0.0.0"
 dependencies = [
  "asset-hub-rococo-runtime",
+ "bp-bridge-hub-rococo",
  "cumulus-primitives-core",
  "emulated-integration-tests-common",
  "frame-support",
@@ -915,6 +916,7 @@ name = "asset-hub-westend-emulated-chain"
 version = "0.0.0"
 dependencies = [
  "asset-hub-westend-runtime",
+ "bp-bridge-hub-westend",
  "cumulus-primitives-core",
  "emulated-integration-tests-common",
  "frame-support",
@@ -1794,7 +1796,9 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
  "bp-runtime",
+ "bp-xcm-bridge-hub",
  "frame-support",
+ "parity-scale-codec",
  "sp-api",
  "sp-runtime",
  "sp-std 14.0.0",
@@ -1807,7 +1811,9 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
  "bp-runtime",
+ "bp-xcm-bridge-hub",
  "frame-support",
+ "parity-scale-codec",
  "sp-api",
  "sp-runtime",
  "sp-std 14.0.0",
@@ -1857,6 +1863,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core",
+ "sp-io",
  "sp-std 14.0.0",
 ]
 
@@ -1927,11 +1934,15 @@ dependencies = [
 name = "bp-relayers"
 version = "0.7.0"
 dependencies = [
+ "bp-header-chain",
  "bp-messages",
+ "bp-parachains",
  "bp-runtime",
  "frame-support",
+ "frame-system",
  "hex",
  "hex-literal",
+ "pallet-utility",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
@@ -2008,7 +2019,16 @@ dependencies = [
 name = "bp-xcm-bridge-hub"
 version = "0.2.0"
 dependencies = [
+ "bp-messages",
+ "bp-runtime",
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
  "sp-std 14.0.0",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -2019,6 +2039,7 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-runtime",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -2033,6 +2054,7 @@ dependencies = [
  "snowbridge-core",
  "sp-core",
  "sp-runtime",
+ "sp-std 14.0.0",
  "staging-xcm",
 ]
 
@@ -2063,6 +2085,7 @@ dependencies = [
  "pallet-bridge-messages",
  "pallet-message-queue",
  "pallet-xcm",
+ "pallet-xcm-bridge-hub",
  "parachains-common",
  "parity-scale-codec",
  "rococo-system-emulated-network",
@@ -2187,10 +2210,12 @@ dependencies = [
  "asset-test-utils",
  "bp-header-chain",
  "bp-messages",
+ "bp-parachains",
  "bp-polkadot-core",
  "bp-relayers",
  "bp-runtime",
  "bp-test-utils",
+ "bp-xcm-bridge-hub",
  "bridge-runtime-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -2205,6 +2230,7 @@ dependencies = [
  "pallet-bridge-relayers",
  "pallet-timestamp",
  "pallet-utility",
+ "pallet-xcm-bridge-hub",
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
@@ -2248,6 +2274,7 @@ dependencies = [
  "pallet-bridge-messages",
  "pallet-message-queue",
  "pallet-xcm",
+ "pallet-xcm-bridge-hub",
  "parachains-common",
  "parity-scale-codec",
  "rococo-westend-system-emulated-network",
@@ -2375,7 +2402,6 @@ dependencies = [
  "bp-runtime",
  "bp-test-utils",
  "bp-xcm-bridge-hub",
- "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",
  "log",
@@ -2388,12 +2414,12 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "scale-info",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-trie",
  "staging-xcm",
- "staging-xcm-builder",
  "static_assertions",
  "tuplex",
 ]
@@ -5185,6 +5211,7 @@ version = "3.0.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
+ "bp-xcm-bridge-hub",
  "bridge-runtime-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -5195,6 +5222,7 @@ dependencies = [
  "pallet-bridge-messages",
  "pallet-message-queue",
  "pallet-xcm",
+ "pallet-xcm-bridge-hub",
  "parachains-common",
  "parity-scale-codec",
  "paste",
@@ -10206,18 +10234,27 @@ dependencies = [
 name = "pallet-bridge-relayers"
 version = "0.7.0"
 dependencies = [
+ "bp-header-chain",
  "bp-messages",
+ "bp-parachains",
+ "bp-polkadot-core",
  "bp-relayers",
  "bp-runtime",
+ "bp-test-utils",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-bridge-grandpa",
  "pallet-bridge-messages",
+ "pallet-bridge-parachains",
+ "pallet-transaction-payment",
+ "pallet-utility",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
@@ -12112,7 +12149,6 @@ dependencies = [
  "bp-messages",
  "bp-runtime",
  "bp-xcm-bridge-hub",
- "bridge-runtime-common",
  "frame-support",
  "frame-system",
  "log",
@@ -12120,6 +12156,7 @@ dependencies = [
  "pallet-bridge-messages",
  "pallet-xcm-bridge-hub-router",
  "parity-scale-codec",
+ "polkadot-parachain-primitives",
  "scale-info",
  "sp-core",
  "sp-io",
@@ -21579,6 +21616,7 @@ dependencies = [
  "rbtag",
  "relay-substrate-client",
  "relay-utils",
+ "rustc-hex",
  "scale-info",
  "sp-consensus-grandpa",
  "sp-core",
