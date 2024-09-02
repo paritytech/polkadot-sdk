@@ -243,7 +243,7 @@ impl PalletCmd {
 		let state = &state_without_tracking;
 		let runtime = self.runtime_blob(&state_without_tracking)?;
 		let runtime_code = runtime.code()?;
-		let alloc_strategy = Self::alloc_strategy(runtime_code.heap_pages);
+		let alloc_strategy = self.alloc_strategy(runtime_code.heap_pages);
 
 		let executor = WasmExecutor::<(
 			sp_io::SubstrateHostFunctions,
@@ -753,9 +753,9 @@ impl PalletCmd {
 	}
 
 	/// Allocation strategy for pallet benchmarking.
-	fn alloc_strategy(heap_pages: Option<u64>) -> HeapAllocStrategy {
-		heap_pages.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static {
-			extra_pages: p as _,
+	fn alloc_strategy(&self, runtime_heap_pages: Option<u64>) -> HeapAllocStrategy {
+		self.heap_pages.or(runtime_heap_pages).map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| {
+			HeapAllocStrategy::Static { extra_pages: p as _ }
 		})
 	}
 

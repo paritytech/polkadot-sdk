@@ -8,7 +8,7 @@ async function run(nodeName, networkInfo, args) {
     const bridgedNetworkName = args[2];
     while (true) {
         const foreignAssetAccount = await api.query.foreignAssets.account(
-            { parents: 2, interior: { X1: { GlobalConsensus: bridgedNetworkName } } },
+            { parents: 2, interior: { X1: [{ GlobalConsensus: bridgedNetworkName }] } },
             accountAddress
         );
         if (foreignAssetAccount.isSome) {

@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Simplify `SyncingEngine::new()` 
+
+doc:
+  - audience: Node Dev
+    description: |
+      Tiny changes to simplify the internal implemenation of API `SyncingEngine::new()` to prevent panics while fetching the genesis hash and to eliminate unnecessary allocation for reserved peers.
+
+crates:
+- name: sc-network-sync
+  bump: none
