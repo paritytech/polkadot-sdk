@@ -57,11 +57,3 @@ help: consider removing the borrow
    |
 33 |         fn test(data: &u64) {
    |
-
-warning: unused variable: `data`
-  --> tests/ui/type_reference_in_impl_runtime_apis_call.rs:33:11
-   |
-33 |         fn test(data: &u64) {
-   |                 ^^^^ help: if this is intentional, prefix it with an underscore: `_data`
-   |
-   = note: `#[warn(unused_variables)]` on by default
