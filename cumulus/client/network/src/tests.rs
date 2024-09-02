@@ -326,6 +326,15 @@ impl RelayChainInterface for DummyRelayChainInterface {
 			state_version: 1,
 		})
 	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: RelayHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn make_validator_and_api() -> (

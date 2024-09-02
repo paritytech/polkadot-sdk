@@ -382,6 +382,9 @@ where
 	}
 }
 
+/// Helper function to call an arbitrary runtime API using a `RelayChainInterface` client.
+/// Unlike the trait method, this function can be generic, so it handles the encoding of input and
+/// output params.
 pub async fn call_runtime_api<R>(
 	client: &(impl RelayChainInterface + ?Sized),
 	method_name: &'static str,

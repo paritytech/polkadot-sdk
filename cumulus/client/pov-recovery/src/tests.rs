@@ -487,6 +487,15 @@ impl RelayChainInterface for Relaychain {
 	) -> RelayChainResult<Vec<CoreState<PHash, NumberFor<Block>>>> {
 		unimplemented!("Not needed for test");
 	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: RelayHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCandidateReceipt> {

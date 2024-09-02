@@ -268,6 +268,15 @@ impl RelayChainInterface for Relaychain {
 	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
 		unimplemented!("Not needed for test")
 	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: RelayHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn sproof_with_best_parent(client: &Client) -> RelayStateSproofBuilder {
