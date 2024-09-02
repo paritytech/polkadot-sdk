@@ -44,8 +44,7 @@ impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, 
 		OutboundQueue,
 		AgentHashedDescription,
 		ConvertAssetId,
-	>
-where
+	> where
 	UniversalLocation: Get<InteriorLocation>,
 	EthereumNetwork: Get<NetworkId>,
 	OutboundQueue: SendMessage<Balance = u128>,
