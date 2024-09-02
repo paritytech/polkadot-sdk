@@ -14032,6 +14032,7 @@ dependencies = [
  "serde_json",
  "shell-runtime",
  "sp-core",
+ "sp-genesis-builder",
  "sp-runtime",
  "staging-xcm",
  "substrate-build-script-utils",

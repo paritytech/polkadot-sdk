@@ -160,7 +160,7 @@ pub mod rococo {
 		.with_id(super::ensure_id(id).expect("invalid id"))
 		.with_chain_type(chain_type.clone())
 		.with_genesis_config_preset_name(match chain_type {
-			ChainType::Development => "development",
+			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
 			ChainType::Local => "local",
 			_ => panic!("chain_type: {chain_type:?} not supported here!"),
 		})
