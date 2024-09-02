@@ -1199,18 +1199,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Query storage of a specified contract under a specified key.
-	pub fn get_storage(address: H160, key: Vec<u8>) -> GetStorageResult {
+	pub fn get_storage(address: H160, key: [u8; 32]) -> GetStorageResult {
 		if Migration::<T>::in_progress() {
 			return Err(ContractAccessError::MigrationInProgress)
 		}
 		let contract_info =
 			ContractInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
 
-		let maybe_value = contract_info.read(
-			&Key::try_from_var(key)
-				.map_err(|_| ContractAccessError::KeyDecodingFailed)?
-				.into(),
-		);
+		let maybe_value = contract_info.read(&Key::from_fixed(key));
 		Ok(maybe_value)
 	}
 
@@ -1321,7 +1317,7 @@ sp_api::decl_runtime_apis! {
 		/// doesn't exist, or doesn't have a contract then `Err` is returned.
 		fn get_storage(
 			address: H160,
-			key: Vec<u8>,
+			key: [u8; 32],
 		) -> GetStorageResult;
 	}
 }
