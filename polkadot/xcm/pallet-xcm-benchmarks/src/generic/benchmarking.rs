@@ -113,6 +113,20 @@ benchmarks! {
 		executor.bench_process(xcm)?;
 	} verify {}
 
+	set_asset_claimer {
+		let mut executor = new_executor::<T>(Default::default());
+		let (sender_account, sender_location) = account_and_location::<T>(1);
+
+		executor.set_asset_claimer(sender_location.clone());
+		let instruction = Instruction::SetAssetClaimer{ location: Some(sender_location.clone()) };
+
+		let xcm = Xcm(vec![instruction]);
+	}: {
+		executor.bench_process(xcm)?;
+	} verify {
+		assert_eq!(executor.asset_claimer(), sender_location.clone());
+	}
+
 	query_response {
 		let mut executor = new_executor::<T>(Default::default());
 		let (query_id, response) = T::worst_case_response();

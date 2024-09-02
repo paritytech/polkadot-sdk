@@ -236,6 +236,6 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 	}
 
 	fn set_asset_claimer(location: &Location) -> Weight {
-		todo!()
+		XcmGeneric::<Runtime>::set_asset_claimer()
 	}
 }

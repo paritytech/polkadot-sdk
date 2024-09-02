@@ -113,15 +113,16 @@ fn execute_test(
     });
 }
 
-fn claim_assets(
+fn transfer_assets(
     test: ParaToParaThroughAHTest,
     claimer: Location
 ) -> <PenpalA as Chain>::RuntimeCall {
     type RuntimeCall = <PenpalA as Chain>::RuntimeCall;
-    
+
     let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
-        .claim_asset(test.args.assets.clone(), Here)
-        .deposit_asset(AllCounted(test.args.assets.len() as u32), claimer)
+        .set_asset_claimer(claimer.clone())
+        .withdraw_asset(test.args.assets.clone())
+        .clear_origin()
         .build();
 
     RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
@@ -130,16 +131,15 @@ fn claim_assets(
     })
 }
 
-fn transfer_assets(
+fn claim_assets(
     test: ParaToParaThroughAHTest,
     claimer: Location
 ) -> <PenpalA as Chain>::RuntimeCall {
     type RuntimeCall = <PenpalA as Chain>::RuntimeCall;
-    
+
     let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
-        .set_asset_claimer(claimer.clone())
-        .withdraw_asset(test.args.assets.clone())
-        .clear_origin()
+        .claim_asset(test.args.assets.clone(), Here)
+        .deposit_asset(AllCounted(test.args.assets.len() as u32), claimer)
         .build();
 
     RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
