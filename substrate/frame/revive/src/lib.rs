@@ -875,7 +875,7 @@ pub mod pallet {
 		///   from the caller to pay for the storage consumed.
 		/// * `code`: The contract code to deploy in raw bytes.
 		/// * `data`: The input data to pass to the contract constructor.
-		/// * `salt`: Used for the address derivation. See [`Pallet::contract_address`].
+		/// * `salt`: Used for the address derivation. See [`crate::address::create2`].
 		///
 		/// Instantiation is executed as follows:
 		///
