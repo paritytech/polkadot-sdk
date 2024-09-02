@@ -7,6 +7,8 @@ on:
 
 jobs:
   build-docs:
+    # TODO: remove once GHA-migration migration is complete or this workflow is fully stable
+    if: false
     uses: ./.github/workflows/docs.yml
     secrets: inherit
 
