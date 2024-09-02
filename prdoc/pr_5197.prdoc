@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Prevent `ConsensusReset` by tolerating runtime API errors in BEEFY
+
+doc:
+  - audience: Node Operator
+    description: |
+      After warp sync, the BEEFY worker was trying to execute runtime calls on
+      blocks which had their state already pruned. This led to an error and restarting
+      of the beefy subsystem in a loop. After this PR, the worker tolerates call errors and therefore prevents this
+      worker restart loop.
+
+crates:
+  - name: sc-consensus-beefy
+    bump: minor

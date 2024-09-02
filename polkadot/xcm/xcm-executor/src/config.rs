@@ -33,6 +33,10 @@ pub trait Config {
 	type RuntimeCall: Parameter + Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo;
 
 	/// How to send an onward XCM message.
+	///
+	/// The sender is tasked with returning the assets it needs to pay for delivery fees.
+	/// Only one asset should be returned as delivery fees, any other will be ignored by
+	/// the executor.
 	type XcmSender: SendXcm;
 
 	/// How to withdraw and deposit an asset.
@@ -74,6 +78,9 @@ pub trait Config {
 	type AssetLocker: AssetLock;
 
 	/// Handler for exchanging assets.
+	///
+	/// This is used in the executor to swap the asset wanted for fees with the asset needed for
+	/// delivery fees.
 	type AssetExchanger: AssetExchange;
 
 	/// The handler for when there is an instruction to claim assets.

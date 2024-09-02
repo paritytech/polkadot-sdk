@@ -1,0 +1,11 @@
+title: make polkadot-parachain startup errors pretty
+
+doc:
+  - audience: Node Operator
+    description: |
+      Changed the format of how polkadot-parachain prints the startup errors to include
+      the full displayable context.
+
+crates:
+  - name: polkadot-parachain-bin
+    bump: minor

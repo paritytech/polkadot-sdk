@@ -70,7 +70,6 @@ use bp_runtime::{
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
-use sp_runtime::traits::UniqueSaturatedFrom;
 use sp_std::{marker::PhantomData, prelude::*};
 
 mod inbound_lane;
@@ -151,40 +150,6 @@ pub mod pallet {
 		type OwnerStorage = PalletOwner<T, I>;
 		type OperatingMode = MessagesOperatingMode;
 		type OperatingModeStorage = PalletOperatingMode<T, I>;
-	}
-
-	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I>
-	where
-		u32: TryFrom<BlockNumberFor<T>>,
-	{
-		fn on_idle(_block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			// we'll need at least to read outbound lane state, kill a message and update lane state
-			let db_weight = T::DbWeight::get();
-			if !remaining_weight.all_gte(db_weight.reads_writes(1, 2)) {
-				return Weight::zero()
-			}
-
-			// messages from lane with index `i` in `ActiveOutboundLanes` are pruned when
-			// `System::block_number() % lanes.len() == i`. Otherwise we need to read lane states on
-			// every block, wasting the whole `remaining_weight` for nothing and causing starvation
-			// of the last lane pruning
-			let active_lanes = T::ActiveOutboundLanes::get();
-			let active_lanes_len = (active_lanes.len() as u32).into();
-			let active_lane_index = u32::unique_saturated_from(
-				frame_system::Pallet::<T>::block_number() % active_lanes_len,
-			);
-			let active_lane_id = active_lanes[active_lane_index as usize];
-
-			// first db read - outbound lane state
-			let mut active_lane = outbound_lane::<T, I>(active_lane_id);
-			let mut used_weight = db_weight.reads(1);
-			// and here we'll have writes
-			used_weight += active_lane.prune_messages(db_weight, remaining_weight - used_weight);
-
-			// we already checked we have enough `remaining_weight` to cover this `used_weight`
-			used_weight
-		}
 	}
 
 	#[pallet::call]
@@ -610,6 +575,14 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Get stored data of the outbound message with given nonce.
 		pub fn outbound_message_data(lane: LaneId, nonce: MessageNonce) -> Option<MessagePayload> {
@@ -641,6 +614,58 @@ pub mod pallet {
 			lane: LaneId,
 		) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
 			InboundLanes::<T, I>::get(lane).0
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Ensure the correctness of the state of this pallet.
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state_for_outbound_lanes()
+		}
+
+		/// Ensure the correctness of the state of outbound lanes.
+		pub fn do_try_state_for_outbound_lanes() -> Result<(), sp_runtime::TryRuntimeError> {
+			use sp_runtime::traits::One;
+			use sp_std::vec::Vec;
+
+			// collect unpruned lanes
+			let mut unpruned_lanes = Vec::new();
+			for (lane_id, lane_data) in OutboundLanes::<T, I>::iter() {
+				let Some(expected_last_prunned_nonce) =
+					lane_data.oldest_unpruned_nonce.checked_sub(One::one())
+				else {
+					continue;
+				};
+
+				// collect message_nonces that were supposed to be pruned
+				let mut unpruned_message_nonces = Vec::new();
+				const MAX_MESSAGES_ITERATION: u64 = 16;
+				let start_nonce =
+					expected_last_prunned_nonce.checked_sub(MAX_MESSAGES_ITERATION).unwrap_or(0);
+				for current_nonce in start_nonce..=expected_last_prunned_nonce {
+					// check a message for current_nonce
+					if OutboundMessages::<T, I>::contains_key(MessageKey {
+						lane_id,
+						nonce: current_nonce,
+					}) {
+						unpruned_message_nonces.push(current_nonce);
+					}
+				}
+
+				if !unpruned_message_nonces.is_empty() {
+					log::warn!(
+						target: LOG_TARGET,
+						"do_try_state_for_outbound_lanes for lane_id: {lane_id:?} with lane_data: {lane_data:?} found unpruned_message_nonces: {unpruned_message_nonces:?}",
+					);
+					unpruned_lanes.push((lane_id, lane_data, unpruned_message_nonces));
+				}
+			}
+
+			// ensure messages before `oldest_unpruned_nonce` are really pruned.
+			ensure!(unpruned_lanes.is_empty(), "Found unpruned lanes!");
+
+			Ok(())
 		}
 	}
 
