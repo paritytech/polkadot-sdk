@@ -44,11 +44,15 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use polkadot_primitives::{
-	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, BackedCandidate,
-	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
-	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold,
+	vstaging::{
+		BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
+		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	},
+	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Hash, HeadData,
+	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
+	ValidatorIndex, ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
@@ -764,7 +768,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 		let signing_context = SigningContext {
-			parent_hash: backed_candidate.descriptor().relay_parent,
+			parent_hash: backed_candidate.descriptor().relay_parent(),
 			session_index: shared::CurrentSessionIndex::<T>::get(),
 		};
 
@@ -880,7 +884,7 @@ impl<T: Config> Pallet<T> {
 			let now = frame_system::Pallet::<T>::block_number();
 
 			paras::Pallet::<T>::schedule_code_upgrade(
-				receipt.descriptor.para_id,
+				receipt.descriptor.para_id(),
 				new_code,
 				now,
 				&config,
@@ -890,19 +894,19 @@ impl<T: Config> Pallet<T> {
 
 		// enact the messaging facet of the candidate.
 		dmp::Pallet::<T>::prune_dmq(
-			receipt.descriptor.para_id,
+			receipt.descriptor.para_id(),
 			commitments.processed_downward_messages,
 		);
 		Self::receive_upward_messages(
-			receipt.descriptor.para_id,
+			receipt.descriptor.para_id(),
 			commitments.upward_messages.as_slice(),
 		);
 		hrmp::Pallet::<T>::prune_hrmp(
-			receipt.descriptor.para_id,
+			receipt.descriptor.para_id(),
 			BlockNumberFor::<T>::from(commitments.hrmp_watermark),
 		);
 		hrmp::Pallet::<T>::queue_outbound_hrmp(
-			receipt.descriptor.para_id,
+			receipt.descriptor.para_id(),
 			commitments.horizontal_messages,
 		);
 
@@ -914,7 +918,7 @@ impl<T: Config> Pallet<T> {
 		));
 
 		paras::Pallet::<T>::note_new_head(
-			receipt.descriptor.para_id,
+			receipt.descriptor.para_id(),
 			commitments.head_data,
 			relay_parent_number,
 		);
@@ -1250,8 +1254,8 @@ impl<T: Config> CandidateCheckContext<T> {
 		backed_candidate_receipt: &CommittedCandidateReceipt<<T as frame_system::Config>::Hash>,
 		parent_head_data: HeadData,
 	) -> Result<BlockNumberFor<T>, Error<T>> {
-		let para_id = backed_candidate_receipt.descriptor().para_id;
-		let relay_parent = backed_candidate_receipt.descriptor().relay_parent;
+		let para_id = backed_candidate_receipt.descriptor.para_id();
+		let relay_parent = backed_candidate_receipt.descriptor.relay_parent();
 
 		// Check that the relay-parent is one of the allowed relay-parents.
 		let (relay_parent_storage_root, relay_parent_number) = {
@@ -1271,7 +1275,7 @@ impl<T: Config> CandidateCheckContext<T> {
 			let expected = persisted_validation_data.hash();
 
 			ensure!(
-				expected == backed_candidate_receipt.descriptor().persisted_validation_data_hash,
+				expected == backed_candidate_receipt.descriptor.persisted_validation_data_hash(),
 				Error::<T>::ValidationDataHashMismatch,
 			);
 		}
@@ -1280,12 +1284,12 @@ impl<T: Config> CandidateCheckContext<T> {
 			// A candidate for a parachain without current validation code is not scheduled.
 			.ok_or_else(|| Error::<T>::UnscheduledCandidate)?;
 		ensure!(
-			backed_candidate_receipt.descriptor().validation_code_hash == validation_code_hash,
+			backed_candidate_receipt.descriptor.validation_code_hash() == validation_code_hash,
 			Error::<T>::InvalidValidationCodeHash,
 		);
 
 		ensure!(
-			backed_candidate_receipt.descriptor().para_head ==
+			backed_candidate_receipt.descriptor.para_head() ==
 				backed_candidate_receipt.commitments.head_data.hash(),
 			Error::<T>::ParaHeadMismatch,
 		);

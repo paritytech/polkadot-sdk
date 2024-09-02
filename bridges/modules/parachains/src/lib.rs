@@ -28,7 +28,10 @@ pub use weights::WeightInfo;
 pub use weights_ext::WeightInfoExt;
 
 use bp_header_chain::{HeaderChain, HeaderChainError};
-use bp_parachains::{ParaInfo, ParaStoredHeaderData};
+use bp_parachains::{
+	ParaInfo, ParaStoredHeaderData, RelayBlockHash, RelayBlockHasher, RelayBlockNumber,
+	SubmitParachainHeadsInfo,
+};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain};
 use frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
@@ -60,13 +63,6 @@ mod proofs;
 
 /// The target that will be used when publishing logs related to this pallet.
 pub const LOG_TARGET: &str = "runtime::bridge-parachains";
-
-/// Block hash of the bridged relay chain.
-pub type RelayBlockHash = bp_polkadot_core::Hash;
-/// Block number of the bridged relay chain.
-pub type RelayBlockNumber = bp_polkadot_core::BlockNumber;
-/// Hasher of the bridged relay chain.
-pub type RelayBlockHasher = bp_polkadot_core::Hasher;
 
 /// Artifacts of the parachains head update.
 struct UpdateParachainHeadArtifacts {
@@ -739,7 +735,8 @@ pub mod pallet {
 		/// Initial pallet owner.
 		pub owner: Option<T::AccountId>,
 		/// Dummy marker.
-		pub phantom: sp_std::marker::PhantomData<I>,
+		#[serde(skip)]
+		pub _phantom: sp_std::marker::PhantomData<I>,
 	}
 
 	#[pallet::genesis_build]
