@@ -79,7 +79,8 @@ pub trait Config {
 
 	/// Handler for exchanging assets.
 	///
-	/// This is used in the executor to swap the asset wanted for fees with the asset needed for delivery fees.
+	/// This is used in the executor to swap the asset wanted for fees with the asset needed for
+	/// delivery fees.
 	type AssetExchanger: AssetExchange;
 
 	/// The handler for when there is an instruction to claim assets.

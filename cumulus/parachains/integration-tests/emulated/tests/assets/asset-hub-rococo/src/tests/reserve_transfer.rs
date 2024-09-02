@@ -1377,13 +1377,10 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	});
 
 	// We create a pool between WND and USDT in AssetHub.
-	let native_asset = v3::Parent.into();
-	let usdt = v3::Location::new(
+	let native_asset: Location = Parent.into();
+	let usdt = Location::new(
 		0,
-		[
-			v3::Junction::PalletInstance(ASSETS_PALLET_ID),
-			v3::Junction::GeneralIndex(usdt_id.into()),
-		],
+		[Junction::PalletInstance(ASSETS_PALLET_ID), Junction::GeneralIndex(usdt_id.into())],
 	);
 
 	// set up pool with USDT <> native pair
@@ -1399,8 +1396,8 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			Box::new(native_asset),
-			Box::new(usdt),
+			Box::new(native_asset.clone()),
+			Box::new(usdt.clone()),
 		));
 
 		assert_expected_events!(
