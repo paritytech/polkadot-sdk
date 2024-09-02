@@ -20,7 +20,7 @@ use polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemErr
 use sp_core::traits::SpawnNamed;
 
 use polkadot_availability_distribution::IncomingRequestReceivers;
-use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
+use polkadot_node_core_approval_voting::{Config as ApprovalVotingConfig, RealAssignmentCriteria};
 use polkadot_node_core_av_store::Config as AvailabilityConfig;
 use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig;
 use polkadot_node_core_chain_selection::Config as ChainSelectionConfig;
@@ -309,7 +309,11 @@ where
 			Metrics::register(registry)?,
 			rand::rngs::StdRng::from_entropy(),
 		))
-		.approval_distribution(ApprovalDistributionSubsystem::new(Metrics::register(registry)?))
+		.approval_distribution(ApprovalDistributionSubsystem::new(
+			Metrics::register(registry)?,
+			approval_voting_config.slot_duration_millis,
+			Arc::new(RealAssignmentCriteria {}),
+		))
 		.approval_voting(ApprovalVotingSubsystem::with_config(
 			approval_voting_config,
 			parachains_db.clone(),
