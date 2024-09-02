@@ -1021,11 +1021,12 @@ fn cannot_transfer_staked_balance_2() {
 		assert_eq!(asset::stakeable_balance::<Test>(&21), 2000);
 		// Confirm account 21 (via controller) is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &21).total, 1000);
-		// Confirm account 21 can transfer at most 1000
+		// Confirm account 21 cannot transfer more than 1000
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(21), 21, 1001),
 			TokenError::FundsUnavailable,
 		);
+		// Confirm account 21 needs to leave at least ED in free balance to be able to transfer
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(21), 21, 1000));
 	});
 }

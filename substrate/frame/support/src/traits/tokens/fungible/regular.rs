@@ -216,7 +216,7 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 		// FIXME(ank4n): add test for this case
 		// look at total balance to ensure ED is respected
 		let new_total_balance = amount.saturating_add(Self::total_balance(who));
-		if  new_total_balance < Self::minimum_balance() {
+		if new_total_balance < Self::minimum_balance() {
 			// Attempt to increase from 0 to below minimum -> stays at zero.
 			if let BestEffort = precision {
 				Ok(Default::default())

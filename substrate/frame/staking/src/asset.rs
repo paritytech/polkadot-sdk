@@ -24,6 +24,7 @@ use frame_support::traits::{
 		Balanced, Inspect as FunInspect,
 	},
 	tokens::Precision,
+	Defensive,
 };
 use sp_runtime::{traits::Zero, DispatchResult};
 
@@ -60,18 +61,19 @@ pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 
 /// Set balance that can be staked for `who`.
 ///
-/// If `value` is less than already staked, the difference is amount is unlocked. Otherwise,
-/// the difference is added to free balance.
+/// `Value` must be greater than already staked plus existential deposit for free balance.
 ///
 /// Should only be used with test.
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
 	use frame_support::traits::fungible::Mutate;
 
-	let reserved_balance = staked::<T>(who);
-	if reserved_balance < value {
-		let _ = T::Currency::set_balance(who, value - reserved_balance);
+	let staked_balance = staked::<T>(who);
+	// if value is greater than staked balance, we need to increase the free balance.
+	if value > staked_balance {
+		let _ = T::Currency::set_balance(who, value - staked_balance);
 	} else {
+		// else reduce the staked balance.
 		update_stake::<T>(who, value).expect("can remove from what is staked");
 		// burn all free
 		let _ = T::Currency::set_balance(who, Zero::zero());
@@ -90,8 +92,9 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 		frame_system::Pallet::<T>::inc_providers(who);
 	}
 
-	// FIXME(ank4n) hacky, find a better way.
-	// if all amount is getting staked, inc an extra provider that would get decremented on hold.
+	// Hacky but this allows us to replicate the old currency behaviour of allowing free balance to
+	// go below ED if an account transfers funds.
+	// FIXME(ank4n): probably not needed to replicate old behaviour and can be refactored.
 	if stakeable_balance::<T>(who) == amount {
 		frame_system::Pallet::<T>::inc_providers(who);
 	}
@@ -100,7 +103,10 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 }
 
 pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
-	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort).map(|_| ())?;
+	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort)
+		.map(|_| ())?;
+	// dec provider that we incremented for a new stake.
+	let _ = frame_system::Pallet::<T>::dec_providers(who).defensive();
 	Ok(())
 }
 
