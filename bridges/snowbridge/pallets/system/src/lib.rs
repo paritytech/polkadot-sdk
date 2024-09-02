@@ -254,12 +254,13 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn tokens)]
-	pub type Tokens<T: Config> = StorageMap<_, Twox64Concat, TokenId, Location, OptionQuery>;
+	pub type Tokens<T: Config> =
+		StorageMap<_, Twox64Concat, TokenId, xcm::v4::Location, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn location_tokens)]
 	pub type LocationToToken<T: Config> =
-		StorageMap<_, Twox64Concat, Location, TokenId, OptionQuery>;
+		StorageMap<_, Twox64Concat, xcm::v4::Location, TokenId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
