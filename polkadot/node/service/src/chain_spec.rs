@@ -523,10 +523,29 @@ pub fn westend_testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<AccountId>>,
 ) -> serde_json::Value {
-	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
+	let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
 
 	const ENDOWMENT: u128 = 1_000_000 * WND;
-	const STASH: u128 = 100 * WND;
+
+	let validators = 4_000;
+	let nominators = 10_000;
+	let edges = 16;
+
+	let mut stakers = vec![];
+
+	// add initial auths to stakers
+	for auth_staker in initial_authorities.iter().map(|x| {
+		(x.0.clone(), x.0.clone(), 1_000 * WND, westend::StakerStatus::<AccountId>::Validator)
+	}) {
+		stakers.push(auth_staker)
+	}
+
+	let gen_stakers = staking_genesis::generate(validators, nominators, edges);
+	// fund all generated stakers and add to stakers.
+	for s in gen_stakers.into_iter() {
+		endowed_accounts.push(s.0.clone());
+		stakers.push(s);
+	}
 
 	serde_json::json!({
 		"balances": {
@@ -553,11 +572,8 @@ pub fn westend_testnet_genesis(
 		},
 		"staking": {
 			"minimumValidatorCount": 1,
-			"validatorCount": initial_authorities.len() as u32,
-			"stakers": initial_authorities
-				.iter()
-				.map(|x| (x.0.clone(), x.0.clone(), STASH, westend::StakerStatus::<AccountId>::Validator))
-				.collect::<Vec<_>>(),
+			"validatorCount": stakers.len(),
+			"stakers": stakers,
 			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			"forceEra": Forcing::NotForcing,
 			"slashRewardFraction": Perbill::from_percent(10),
@@ -713,4 +729,86 @@ pub fn versi_local_testnet_config() -> Result<RococoChainSpec, String> {
 	.with_genesis_config_preset_name("versi_local_testnet")
 	.with_protocol_id("versi")
 	.build())
+}
+
+mod staking_genesis {
+	use super::*;
+	use pallet_staking::StakerStatus;
+	use polkadot_node_subsystem_util::rand;
+
+	use rand::Rng;
+
+	pub(crate) fn generate(
+		validators: u32,
+		nominators: u32,
+		edges: usize,
+	) -> Vec<(AccountId, AccountId, u128, StakerStatus<AccountId>)> {
+		let mut targets = vec![];
+		let mut stakers = vec![];
+
+		for i in 0..validators {
+			let stash =
+				utils::get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "validator"));
+			let stake = 1u128 << 50;
+			targets.push(stash.clone());
+
+			stakers.push((stash.clone(), stash, stake, StakerStatus::Validator));
+		}
+
+		for i in 0..nominators {
+			let stash =
+				utils::get_account_id_from_seed::<sr25519::Public>(&utils::as_seed(i, "nominator"));
+			let stake = rand::thread_rng().gen_range((1u128 << 50)..(2u128 << 50));
+			let nominations = utils::select_targets(edges, targets.clone());
+
+			stakers.push((stash.clone(), stash, stake, StakerStatus::Nominator(nominations)));
+		}
+
+		stakers
+	}
+}
+
+mod utils {
+	use super::*;
+	use polkadot_node_subsystem_util::{rand, rand::prelude::SliceRandom};
+	use polkadot_primitives::Signature;
+	use sp_runtime::traits::Verify;
+
+	type AccountPublic = <Signature as Verify>::Signer;
+
+	/// Helper function to generate a crypto pair from seed
+	pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+		TPublic::Pair::from_string(&format!("//{}", seed), None)
+			.expect("static values are valid; qed")
+			.public()
+	}
+
+	/// Generate collator keys from seed.
+	///
+	/// This function's return type must always match the session keys of the chain in tuple format.
+	pub fn get_collator_keys_from_seed(seed: &str) -> GrandpaId {
+		get_from_seed::<GrandpaId>(seed)
+	}
+
+	/// Helper function to generate an account ID from seed
+	pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+	where
+		AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+	{
+		AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	}
+
+	/// Seed generator from ID and domain.
+	pub(crate) fn as_seed(id: u32, domain: &str) -> String {
+		let seed = format!("{}-{}", domain, id);
+		seed
+	}
+
+	/// Selects `n` random targets from a list of accounts.
+	pub(crate) fn select_targets(n: usize, validators: Vec<AccountId>) -> Vec<AccountId> {
+		validators
+			.choose_multiple(&mut rand::thread_rng(), n)
+			.cloned()
+			.collect::<Vec<_>>()
+	}
 }

@@ -5890,6 +5890,7 @@ dependencies = [
  "frame-election-provider-solution-type",
  "frame-support",
  "frame-system",
+ "log",
  "parity-scale-codec",
  "rand",
  "scale-info",

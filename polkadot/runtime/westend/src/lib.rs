@@ -572,7 +572,7 @@ parameter_types! {
 	pub ElectionBounds: frame_election_provider_support::bounds::ElectionBounds =
 		ElectionBoundsBuilder::default().voters_count(MaxElectingVoters::get().into()).build();
 	// Maximum winners that can be chosen as active validators
-	pub const MaxActiveValidators: u32 = 1000;
+	pub const MaxActiveValidators: u32 = 50_000;
 
 }
 
@@ -583,7 +583,7 @@ frame_election_provider_support::generate_solution_type!(
 		TargetIndex = u16,
 		Accuracy = sp_runtime::PerU16,
 		MaxVoters = MaxElectingVoters,
-	>(16)
+	>(24)
 );
 
 pub struct OnChainSeqPhragmen;
@@ -1109,7 +1109,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
