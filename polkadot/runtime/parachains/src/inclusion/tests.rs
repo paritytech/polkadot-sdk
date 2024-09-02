@@ -354,10 +354,11 @@ pub(crate) fn process_bitfields(
 ) -> Vec<(CoreIndex, CandidateHash)> {
 	let validators = shared::ActiveValidatorKeys::<Test>::get();
 
-	ParaInclusion::update_pending_availability_and_get_freed_cores(
+	let (_weight, bitfields) = ParaInclusion::update_pending_availability_and_get_freed_cores(
 		&validators[..],
 		signed_bitfields,
-	)
+	);
+	bitfields
 }
 
 #[test]

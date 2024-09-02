@@ -19,10 +19,10 @@ use crate::{ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
 use super::{
-	async_backing::Constraints, Balance, BlakeTwo256, BlockNumber, CandidateCommitments,
+	async_backing::Constraints, BlakeTwo256, BlockNumber, CandidateCommitments,
 	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CoreIndex, GroupIndex, Hash,
 	HashT, HeadData, Header, Id, Id as ParaId, MultiDisputeStatementSet, ScheduledCore,
-	UncheckedSignedAvailabilityBitfields, ValidationCodeHash, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
 };
 use bitvec::prelude::*;
 use sp_application_crypto::ByteArray;
@@ -30,90 +30,14 @@ use sp_application_crypto::ByteArray;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_arithmetic::Perbill;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
 /// Async backing primitives
 pub mod async_backing;
 
-/// Scheduler configuration parameters. All coretime/ondemand parameters are here.
-#[derive(
-	RuntimeDebug,
-	Copy,
-	Clone,
-	PartialEq,
-	Encode,
-	Decode,
-	TypeInfo,
-	serde::Serialize,
-	serde::Deserialize,
-)]
-pub struct SchedulerParams<BlockNumber> {
-	/// How often parachain groups should be rotated across parachains.
-	///
-	/// Must be non-zero.
-	pub group_rotation_frequency: BlockNumber,
-	/// Availability timeout for a block on a core, measured in blocks.
-	///
-	/// This is the maximum amount of blocks after a core became occupied that validators have time
-	/// to make the block available.
-	///
-	/// This value only has effect on group rotations. If backers backed something at the end of
-	/// their rotation, the occupied core affects the backing group that comes afterwards. We limit
-	/// the effect one backing group can have on the next to `paras_availability_period` blocks.
-	///
-	/// Within a group rotation there is no timeout as backers are only affecting themselves.
-	///
-	/// Must be at least 1. With a value of 1, the previous group will not be able to negatively
-	/// affect the following group at the expense of a tight availability timeline at group
-	/// rotation boundaries.
-	pub paras_availability_period: BlockNumber,
-	/// The maximum number of validators to have per core.
-	///
-	/// `None` means no maximum.
-	pub max_validators_per_core: Option<u32>,
-	/// The amount of blocks ahead to schedule paras.
-	pub lookahead: u32,
-	/// How many cores are managed by the coretime chain.
-	pub num_cores: u32,
-	/// The max number of times a claim can time out in availability.
-	pub max_availability_timeouts: u32,
-	/// The maximum queue size of the pay as you go module.
-	pub on_demand_queue_max_size: u32,
-	/// The target utilization of the spot price queue in percentages.
-	pub on_demand_target_queue_utilization: Perbill,
-	/// How quickly the fee rises in reaction to increased utilization.
-	/// The lower the number the slower the increase.
-	pub on_demand_fee_variability: Perbill,
-	/// The minimum amount needed to claim a slot in the spot pricing queue.
-	pub on_demand_base_fee: Balance,
-	/// The number of blocks a claim stays in the scheduler's claim queue before getting cleared.
-	/// This number should go reasonably higher than the number of blocks in the async backing
-	/// lookahead.
-	pub ttl: BlockNumber,
-}
-
-impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> {
-	fn default() -> Self {
-		Self {
-			group_rotation_frequency: 1u32.into(),
-			paras_availability_period: 1u32.into(),
-			max_validators_per_core: Default::default(),
-			lookahead: 1,
-			num_cores: Default::default(),
-			max_availability_timeouts: Default::default(),
-			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
-			on_demand_target_queue_utilization: Perbill::from_percent(25),
-			on_demand_fee_variability: Perbill::from_percent(3),
-			on_demand_base_fee: 10_000_000u128,
-			ttl: 5u32.into(),
-		}
-	}
-}
-
 /// A type representing the version of the candidate descriptor and internal version number.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, TypeInfo, RuntimeDebug, Copy)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct InternalVersion(pub u8);
 
@@ -125,6 +49,8 @@ pub enum CandidateDescriptorVersion {
 	V1,
 	/// The new `CandidateDescriptorV2`.
 	V2,
+	/// An unknown version.
+	Unknown,
 }
 
 /// A unique descriptor of the candidate receipt.
@@ -266,25 +192,25 @@ pub enum CandidateEvent<H = Hash> {
 	CandidateTimedOut(CandidateReceiptV2<H>, HeadData, CoreIndex),
 }
 
-impl<H: Encode + Copy> From<CandidateEvent<H>> for super::v7::CandidateEvent<H> {
+impl<H: Encode + Copy> From<CandidateEvent<H>> for super::v8::CandidateEvent<H> {
 	fn from(value: CandidateEvent<H>) -> Self {
 		match value {
 			CandidateEvent::CandidateBacked(receipt, head_data, core_index, group_index) =>
-				super::v7::CandidateEvent::CandidateBacked(
+				super::v8::CandidateEvent::CandidateBacked(
 					receipt.into(),
 					head_data,
 					core_index,
 					group_index,
 				),
 			CandidateEvent::CandidateIncluded(receipt, head_data, core_index, group_index) =>
-				super::v7::CandidateEvent::CandidateIncluded(
+				super::v8::CandidateEvent::CandidateIncluded(
 					receipt.into(),
 					head_data,
 					core_index,
 					group_index,
 				),
 			CandidateEvent::CandidateTimedOut(receipt, head_data, core_index) =>
-				super::v7::CandidateEvent::CandidateTimedOut(receipt.into(), head_data, core_index),
+				super::v8::CandidateEvent::CandidateTimedOut(receipt.into(), head_data, core_index),
 		}
 	}
 }
@@ -348,13 +274,13 @@ impl Ord for CommittedCandidateReceiptV2 {
 	}
 }
 
-impl<H: Copy> From<CommittedCandidateReceiptV2<H>> for super::v7::CommittedCandidateReceipt<H> {
+impl<H: Copy> From<CommittedCandidateReceiptV2<H>> for super::v8::CommittedCandidateReceipt<H> {
 	fn from(value: CommittedCandidateReceiptV2<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments: value.commitments }
 	}
 }
 
-impl<H: Copy> From<CandidateReceiptV2<H>> for super::v7::CandidateReceipt<H> {
+impl<H: Copy> From<CandidateReceiptV2<H>> for super::v8::CandidateReceipt<H> {
 	fn from(value: CandidateReceiptV2<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments_hash: value.commitments_hash }
 	}
@@ -422,7 +348,9 @@ impl CandidateCommitments {
 /// CandidateReceipt construction errors.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum CandidateReceiptError {
-	/// The core index in commitments doesnt match the one in descriptor
+	/// The specified core index is invalid.
+	InvalidCoreIndex,
+	/// The core index in commitments doesn't match the one in descriptor
 	CoreIndexMismatch,
 	/// The core selector or claim queue offset is invalid.
 	InvalidSelectedCore,
@@ -430,6 +358,8 @@ pub enum CandidateReceiptError {
 	NoAssignment,
 	/// No core was selected.
 	NoCoreSelected,
+	/// Unknown version.
+	UnknownVersion(InternalVersion),
 }
 
 macro_rules! impl_getter {
@@ -460,7 +390,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 
 		match self.version.0 {
 			0 => CandidateDescriptorVersion::V2,
-			_ => CandidateDescriptorVersion::V1,
+			_ => CandidateDescriptorVersion::Unknown,
 		}
 	}
 
@@ -525,9 +455,11 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Input `assigned_cores` must contain the sorted cores assigned to the para at
 	/// the committed claim queue offset.
 	pub fn check(&self, assigned_cores: &[&CoreIndex]) -> Result<(), CandidateReceiptError> {
-		// Don't check v1 descriptors.
-		if self.descriptor.version() == CandidateDescriptorVersion::V1 {
-			return Ok(())
+		match self.descriptor.version() {
+			// Don't check v1 descriptors.
+			CandidateDescriptorVersion::V1 => return Ok(()),
+			CandidateDescriptorVersion::V2 => {},
+			CandidateDescriptorVersion::Unknown => return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
 		if self.commitments.selected_core().is_none() {
@@ -694,7 +626,7 @@ pub struct ScrapedOnChainVotes<H: Encode + Decode = Hash> {
 	pub disputes: MultiDisputeStatementSet,
 }
 
-impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>> for super::v7::ScrapedOnChainVotes<H> {
+impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>> for super::v8::ScrapedOnChainVotes<H> {
 	fn from(value: ScrapedOnChainVotes<H>) -> Self {
 		Self {
 			session: value.session,
@@ -757,7 +689,7 @@ pub enum CoreState<H = Hash, N = BlockNumber> {
 	Free,
 }
 
-impl<H: Copy> From<OccupiedCore<H>> for super::v7::OccupiedCore<H> {
+impl<H: Copy> From<OccupiedCore<H>> for super::v8::OccupiedCore<H> {
 	fn from(value: OccupiedCore<H>) -> Self {
 		Self {
 			next_up_on_available: value.next_up_on_available,
@@ -772,13 +704,13 @@ impl<H: Copy> From<OccupiedCore<H>> for super::v7::OccupiedCore<H> {
 	}
 }
 
-impl<H: Copy> From<CoreState<H>> for super::v7::CoreState<H> {
+impl<H: Copy> From<CoreState<H>> for super::v8::CoreState<H> {
 	fn from(value: CoreState<H>) -> Self {
 		match value {
-			CoreState::Free => super::v7::CoreState::Free,
-			CoreState::Scheduled(core) => super::v7::CoreState::Scheduled(core),
+			CoreState::Free => super::v8::CoreState::Free,
+			CoreState::Scheduled(core) => super::v8::CoreState::Scheduled(core),
 			CoreState::Occupied(occupied_core) =>
-				super::v7::CoreState::Occupied(occupied_core.into()),
+				super::v8::CoreState::Occupied(occupied_core.into()),
 		}
 	}
 }
@@ -787,7 +719,7 @@ impl<H: Copy> From<CoreState<H>> for super::v7::CoreState<H> {
 mod tests {
 	use super::*;
 	use crate::{
-		v7::{
+		v8::{
 			tests::dummy_committed_candidate_receipt as dummy_old_committed_candidate_receipt,
 			CommittedCandidateReceipt, Hash, HeadData, ValidationCode,
 		},
@@ -852,8 +784,9 @@ mod tests {
 	}
 
 	#[test]
-	fn is_invalid_version_decodes_as_v1() {
+	fn invalid_version_descriptor() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2();
+		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V2);
 		// Put some unknown version.
 		new_ccr.descriptor.version = InternalVersion(100);
 
@@ -861,7 +794,11 @@ mod tests {
 		let new_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut new_ccr.encode().as_slice()).unwrap();
 
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
+		assert_eq!(
+			new_ccr.check(&vec![].as_slice()),
+			Err(CandidateReceiptError::UnknownVersion(InternalVersion(100)))
+		)
 	}
 
 	#[test]

@@ -37,7 +37,7 @@ pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
 }
 
 impl<H: Copy> From<CandidatePendingAvailability<H>>
-	for crate::v7::async_backing::CandidatePendingAvailability<H>
+	for crate::v8::async_backing::CandidatePendingAvailability<H>
 {
 	fn from(value: CandidatePendingAvailability<H>) -> Self {
 		Self {
@@ -62,7 +62,7 @@ pub struct BackingState<H = Hash, N = BlockNumber> {
 	pub pending_availability: Vec<CandidatePendingAvailability<H, N>>,
 }
 
-impl<H: Copy> From<BackingState<H>> for crate::v7::async_backing::BackingState<H> {
+impl<H: Copy> From<BackingState<H>> for crate::v8::async_backing::BackingState<H> {
 	fn from(value: BackingState<H>) -> Self {
 		Self {
 			constraints: value.constraints,
