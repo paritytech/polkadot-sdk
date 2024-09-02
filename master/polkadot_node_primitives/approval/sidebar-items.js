@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["v1","v2"]};
+window.SIDEBAR_ITEMS = {"mod":["criteria","time","v1","v2"]};

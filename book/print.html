@@ -5748,8 +5748,8 @@ been approved.</p>
 <h2 id="protocol-11"><a class="header" href="#protocol-11">Protocol</a></h2>
 <p>Input:</p>
 <ul>
-<li><code>ApprovalVotingMessage::CheckAndImportAssignment</code></li>
-<li><code>ApprovalVotingMessage::CheckAndImportApproval</code></li>
+<li><code>ApprovalVotingMessage::ImportAssignment</code></li>
+<li><code>ApprovalVotingMessage::ImportApproval</code></li>
 <li><code>ApprovalVotingMessage::ApprovedAncestor</code></li>
 </ul>
 <p>Output:</p>
@@ -5976,61 +5976,18 @@ covered by the auxiliary signature aggregated in the <code>VRFPRoof</code>.</li>
 0-tranche assignment, kick off approval work, and schedule the next delay.</li>
 <li>Dispatch an <code>ApprovalDistributionMessage::NewBlocks</code> with the meta information filled out for each new block.</li>
 </ul>
-<h4 id="approvalvotingmessagecheckandimportassignment"><a class="header" href="#approvalvotingmessagecheckandimportassignment"><code>ApprovalVotingMessage::CheckAndImportAssignment</code></a></h4>
-<p>On receiving a <code>ApprovalVotingMessage::CheckAndImportAssignment</code> message, we check the assignment cert against the block
-entry. The cert itself contains information necessary to determine the candidate that is being assigned-to. In detail:</p>
+<h4 id="approvalvotingmessageimportassignment"><a class="header" href="#approvalvotingmessageimportassignment"><code>ApprovalVotingMessage::ImportAssignment</code></a></h4>
+<p>On receiving a <code>ApprovalVotingMessage::ImportAssignment</code> message, we assume the assignment cert itself has already been
+checked to be valid we proceed then to import the assignment inside the block entry. The cert itself contains
+information necessary to determine the candidate that is being assigned-to. In detail:</p>
 <ul>
-<li>
-<p>Load the <code>BlockEntry</code> for the relay-parent referenced by the message. If there is none, return
-<code>AssignmentCheckResult::Bad</code>.</p>
-</li>
-<li>
-<p>Fetch the <code>SessionInfo</code> for the session of the block</p>
-</li>
-<li>
-<p>Determine the assignment key of the validator based on that.</p>
-</li>
-<li>
-<p>Determine the claimed core index by looking up the candidate with given index in <code>block_entry.candidates</code>. Return
-<code>AssignmentCheckResult::Bad</code> if missing.</p>
-</li>
-<li>
-<p>Check the assignment cert</p>
-<ul>
-<li>
-<p>If the cert kind is <code>RelayVRFModulo</code>, then the certificate is valid as long as <code>sample &lt; session_info.relay_vrf_samples</code> and the VRF is valid for the validator's key with the input
-<code>block_entry.relay_vrf_story ++ sample.encode()</code> as described with
-<a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol section</a>. We set
-<code>core_index = vrf.make_bytes().to_u32() % session_info.n_cores</code>. If the <code>BlockEntry</code> causes
-inclusion of a candidate at <code>core_index</code>, then this is a valid assignment for the candidate
-at <code>core_index</code> and has delay tranche 0. Otherwise, it can be ignored.</p>
-</li>
-<li>
-<p>If the cert kind is <code>RelayVRFModuloCompact</code>, then the certificate is valid as long as the VRF
-is valid for the validator's key with the input <code>block_entry.relay_vrf_story ++ relay_vrf_samples.encode()</code>
-as described with <a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol section</a>.
-We enforce that all <code>core_bitfield</code> indices are included in the set of the core indices sampled from the
-VRF Output. The assignment is considered a valid tranche0 assignment for all claimed candidates if all
-<code>core_bitfield</code> indices match the core indices where the claimed candidates were included at.</p>
-</li>
-<li>
-<p>If the cert kind is <code>RelayVRFDelay</code>, then we check if the VRF is valid for the validator's key with the
-input <code>block_entry.relay_vrf_story ++ cert.core_index.encode()</code> as described in <a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol
-section</a>. The cert can be ignored if the block did not
-cause inclusion of a candidate on that core index. Otherwise, this is a valid assignment for the included
-candidate. The delay tranche for the assignment is determined by reducing
-<code>(vrf.make_bytes().to_u64() % (session_info.n_delay_tranches + session_info.zeroth_delay_tranche_width)).saturating_sub(session_info.zeroth_delay_tranche_width)</code>.</p>
-</li>
-<li>
-<p>We also check that the core index derived by the output is covered by the <code>VRFProof</code> by means of an auxiliary signature.</p>
-</li>
-<li>
-<p>If the delay tranche is too far in the future, return <code>AssignmentCheckResult::TooFarInFuture</code>.</p>
-</li>
-</ul>
-</li>
-<li>
-<p>Import the assignment.</p>
+<li>Load the <code>BlockEntry</code> for the relay-parent referenced by the message. If there is none, return
+<code>AssignmentCheckResult::Bad</code>.</li>
+<li>Fetch the <code>SessionInfo</code> for the session of the block</li>
+<li>Determine the assignment key of the validator based on that.</li>
+<li>Determine the claimed core index by looking up the candidate with given index in <code>block_entry.candidates</code>. Return
+<code>AssignmentCheckResult::Bad</code> if missing.</li>
+<li>Import the assignment.
 <ul>
 <li>Load the candidate in question and access the <code>approval_entry</code> for the block hash the cert references.</li>
 <li>Ignore if we already observe the validator as having been assigned.</li>
@@ -6040,21 +5997,15 @@ candidate. The delay tranche for the assignment is determined by reducing
 <li>Note the candidate index within the approval entry.</li>
 </ul>
 </li>
-<li>
-<p><a href="node/approval/approval-voting.html#schedule-wakeup">Schedule a wakeup</a> for this block, candidate pair.</p>
-</li>
-<li>
-<p>return the appropriate <code>AssignmentCheckResult</code> on the response channel.</p>
-</li>
+<li><a href="node/approval/approval-voting.html#schedule-wakeup">Schedule a wakeup</a> for this block, candidate pair.</li>
+<li>return the appropriate <code>AssignmentCheckResult</code> on the response channel.</li>
 </ul>
-<h4 id="approvalvotingmessagecheckandimportapproval"><a class="header" href="#approvalvotingmessagecheckandimportapproval"><code>ApprovalVotingMessage::CheckAndImportApproval</code></a></h4>
-<p>On receiving a <code>CheckAndImportApproval(indirect_approval_vote, response_channel)</code> message:</p>
+<h4 id="approvalvotingmessageimportapproval"><a class="header" href="#approvalvotingmessageimportapproval"><code>ApprovalVotingMessage::ImportApproval</code></a></h4>
+<p>On receiving a <code>ImportApproval(indirect_approval_vote, response_channel)</code> message:</p>
 <ul>
 <li>Fetch the <code>BlockEntry</code> from the indirect approval vote's <code>block_hash</code>. If none, return <code>ApprovalCheckResult::Bad</code>.</li>
 <li>Fetch all <code>CandidateEntry</code> from the indirect approval vote's <code>candidate_indices</code>. If the block did not trigger
 inclusion of enough candidates, return <code>ApprovalCheckResult::Bad</code>.</li>
-<li>Construct a <code>SignedApprovalVote</code> using the candidates hashes and check against the validator's approval key,
-based on the session info of the block. If invalid or no such validator, return <code>ApprovalCheckResult::Bad</code>.</li>
 <li>Send <code>ApprovalCheckResult::Accepted</code></li>
 <li><a href="node/approval/approval-voting.html#import-checked-approval">Import the checked approval vote</a> for all candidates</li>
 </ul>
@@ -6310,7 +6261,7 @@ false.</li>
 <li>Given the slot number of a block, and the current time, this informs about the current tranche.</li>
 <li>Convert <code>time.saturating_sub(slot_number.to_time())</code> to a delay tranches value</li>
 </ul>
-<footer id="last-change">Last change: 2024-05-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/523e62560e">523e62560e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-distribution"><a class="header" href="#approval-distribution">Approval Distribution</a></h1>
+<footer id="last-change">Last change: 2024-09-02, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/6b854acc69">6b854acc69</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-distribution"><a class="header" href="#approval-distribution">Approval Distribution</a></h1>
 <p>A subsystem for the distribution of assignments and approvals for approval checks on candidates over the network.</p>
 <p>The <a href="node/approval/approval-voting.html">Approval Voting</a> subsystem is responsible for active participation in a protocol designed to
 select a sufficient number of validators to check each and every candidate which appears in the relay chain. Statements
@@ -6371,8 +6322,8 @@ that aggression should be applied to, because descendants may be unfinalized onl
 </ul>
 <p>Output:</p>
 <ul>
-<li><code>ApprovalVotingMessage::CheckAndImportAssignment</code></li>
-<li><code>ApprovalVotingMessage::CheckAndImportApproval</code></li>
+<li><code>ApprovalVotingMessage::ImportAssignment</code></li>
+<li><code>ApprovalVotingMessage::ImportApproval</code></li>
 <li><code>NetworkBridgeMessage::SendValidationMessage::ApprovalDistribution</code></li>
 </ul>
 <h2 id="functionality-9"><a class="header" href="#functionality-9">Functionality</a></h2>
@@ -6530,9 +6481,33 @@ into the <code>received</code> knowledge and return.</li>
 boost, add the fingerprint to the peer's knowledge only if it knows about the block and return. Note that we must do
 this after checking for out-of-view and if the peers knows about the block to avoid being spammed. If we did this
 check earlier, a peer could provide data out-of-view repeatedly and be rewarded for it.</li>
-<li>Dispatch <code>ApprovalVotingMessage::CheckAndImportAssignment(assignment)</code> and wait for the response.</li>
+<li>Check the assignment certificate is valid.
+<ul>
+<li>If the cert kind is <code>RelayVRFModulo</code>, then the certificate is valid as long as <code>sample &lt; session_info.relay_vrf_samples</code> and the VRF is valid for the validator's key with the input
+<code>block_entry.relay_vrf_story ++ sample.encode()</code> as described with
+<a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol section</a>. We set
+<code>core_index = vrf.make_bytes().to_u32() % session_info.n_cores</code>. If the <code>BlockEntry</code> causes
+inclusion of a candidate at <code>core_index</code>, then this is a valid assignment for the candidate
+at <code>core_index</code> and has delay tranche 0. Otherwise, it can be ignored.</li>
+<li>If the cert kind is <code>RelayVRFModuloCompact</code>, then the certificate is valid as long as the VRF
+is valid for the validator's key with the input <code>block_entry.relay_vrf_story ++ relay_vrf_samples.encode()</code>
+as described with <a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol section</a>.
+We enforce that all <code>core_bitfield</code> indices are included in the set of the core indices sampled from the
+VRF Output. The assignment is considered a valid tranche0 assignment for all claimed candidates if all
+<code>core_bitfield</code> indices match the core indices where the claimed candidates were included at.</li>
+<li>If the cert kind is <code>RelayVRFDelay</code>, then we check if the VRF is valid for the validator's key with the
+input <code>block_entry.relay_vrf_story ++ cert.core_index.encode()</code> as described in <a href="node/approval/../../protocol-approval.html#assignment-criteria">the approvals protocol
+section</a>. The cert can be ignored if the block did not
+cause inclusion of a candidate on that core index. Otherwise, this is a valid assignment for the included
+candidate. The delay tranche for the assignment is determined by reducing
+<code>(vrf.make_bytes().to_u64() % (session_info.n_delay_tranches + session_info.zeroth_delay_tranche_width)).saturating_sub(session_info.zeroth_delay_tranche_width)</code>.</li>
+<li>We also check that the core index derived by the output is covered by the <code>VRFProof</code> by means of an auxiliary signature.</li>
+<li>If the delay tranche is too far in the future, return <code>AssignmentCheckResult::TooFarInFuture</code>.</li>
+</ul>
+</li>
 <li>If the result is <code>AssignmentCheckResult::Accepted</code>
 <ul>
+<li>Dispatch <code>ApprovalVotingMessage::ImportAssignment(assignment)</code> to approval-voting to import the assignment.</li>
 <li>If the vote was accepted but not duplicate, give the peer a positive reputation boost</li>
 <li>add the fingerprint to both our and the peer's knowledge in the <code>BlockEntry</code>. Note that we only doing this after
 making sure we have the right fingerprint.</li>
@@ -6577,13 +6552,15 @@ into the <code>received</code> knowledge and return.</li>
 boost, add the fingerprint to the peer's knowledge only if it knows about the block and return. Note that we must do
 this after checking for out-of-view to avoid being spammed. If we did this check earlier, a peer could provide data
 out-of-view repeatedly and be rewarded for it.</li>
-<li>Dispatch <code>ApprovalVotingMessage::CheckAndImportApproval(approval)</code> and wait for the response.</li>
-<li>If the result is <code>VoteCheckResult::Accepted(())</code>:
+<li>Construct a <code>SignedApprovalVote</code> using the candidates hashes and check against the validator's approval key,
+based on the session info of the block. If invalid or no such validator, return <code>Err(InvalidVoteError)</code>.</li>
+<li>If the result of checking the signature is <code>Ok(CheckedIndirectSignedApprovalVote)</code>:
 <ul>
+<li>Dispatch <code>ApprovalVotingMessage::ImportApproval(approval)</code> .</li>
 <li>Give the peer a positive reputation boost and add the fingerprint to both our and the peer's knowledge.</li>
 </ul>
 </li>
-<li>If the result is <code>VoteCheckResult::Bad</code>:
+<li>If the result is <code>Err(InvalidVoteError)</code>:
 <ul>
 <li>Report the peer and return.</li>
 </ul>
@@ -6628,7 +6605,7 @@ finalized number go to step 6.</p>
 peer.</p>
 </li>
 </ol>
-<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-subsystems"><a class="header" href="#disputes-subsystems">Disputes Subsystems</a></h1>
+<footer id="last-change">Last change: 2024-09-02, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/6b854acc69">6b854acc69</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-subsystems"><a class="header" href="#disputes-subsystems">Disputes Subsystems</a></h1>
 <p>If approval voting finds an invalid candidate, a dispute is raised. The disputes
 subsystems are concerned with the following:</p>
 <ol>
@@ -9060,21 +9037,15 @@ pub enum ApprovalCheckError {
 }
 
 enum ApprovalVotingMessage {
-    /// Check if the assignment is valid and can be accepted by our view of the protocol.
-    /// Should not be sent unless the block hash is known.
-    CheckAndImportAssignment(
-        IndirectAssignmentCert,
-        CandidateIndex, // The index of the candidate included in the block.
-        ResponseChannel&lt;AssignmentCheckResult&gt;,
-    ),
-    /// Check if the approval vote is valid and can be accepted by our view of the
-    /// protocol.
-    ///
-    /// Should not be sent unless the block hash within the indirect vote is known.
-    CheckAndImportApproval(
-        IndirectSignedApprovalVote,
-        ResponseChannel&lt;ApprovalCheckResult&gt;,
-    ),
+	/// Import an assignment into the approval-voting database.
+	///
+	/// Should not be sent unless the block hash is known and the VRF assignment checks out.
+	ImportAssignment(CheckedIndirectAssignment, Option&lt;oneshot::Sender&lt;AssignmentCheckResult&gt;&gt;),
+	/// Import an approval vote into approval-voting database
+	///
+	/// Should not be sent unless the block hash within the indirect vote is known, vote is
+	/// correctly signed and we had a previous assignment for the candidate.
+	ImportApproval(CheckedIndirectSignedApprovalVote, Option&lt;oneshot::Sender&lt;ApprovalCheckResult&gt;&gt;),
     /// Returns the highest possible ancestor hash of the provided block hash which is
     /// acceptable to vote on finality for. Along with that, return the lists of candidate hashes
     /// which appear in every block from the (non-inclusive) base number up to (inclusive) the specified
@@ -9888,7 +9859,7 @@ pub enum CandidateValidationMessage {
 pub enum PvfCheckerMessage { }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2024-05-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/523e62560e">523e62560e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
+<footer id="last-change">Last change: 2024-09-02, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/6b854acc69">6b854acc69</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
 <p>Types used within the runtime exclusively and pervasively.</p>
 <h2 id="host-configuration"><a class="header" href="#host-configuration">Host Configuration</a></h2>
 <p>The internal-to-runtime configuration of the parachain host is kept in <code>struct HostConfiguration</code>. This is expected to

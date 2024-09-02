@@ -455,22 +455,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -503,7 +487,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	aggression_l2_messages_total: prometheus::Counter&lt;prometheus::U64&gt;,
 	time_unify_with_peer: prometheus::Histogram,
 	time_import_pending_now_known: prometheus::Histogram,
-	time_awaiting_approval_voting: prometheus::Histogram,
 	assignments_received_result: prometheus::CounterVec&lt;prometheus::U64&gt;,
 	approvals_received_result: prometheus::CounterVec&lt;prometheus::U64&gt;,
 }
@@ -679,14 +662,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>time_awaiting_approval_voting(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;prometheus::prometheus::HistogramTimer&gt; {
-		<span class="self">self</span>.<span class="number">0
-			</span>.as_ref()
-			.map(|metrics| metrics.time_awaiting_approval_voting.start_timer())
-	}
-
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_aggression_l1(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
 			metrics.aggression_l1_messages_total.inc();
@@ -758,13 +733,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
 					<span class="string">"polkadot_parachain_time_import_pending_now_known"</span>,
 					<span class="string">"Time spent on importing pending assignments and approvals."</span>,
-				).buckets(<span class="macro">vec!</span>[<span class="number">0.0001</span>, <span class="number">0.0004</span>, <span class="number">0.0016</span>, <span class="number">0.0064</span>, <span class="number">0.0256</span>, <span class="number">0.1024</span>, <span class="number">0.4096</span>, <span class="number">1.6384</span>, <span class="number">3.2768</span>, <span class="number">4.9152</span>, <span class="number">6.5536</span>,]))<span class="question-mark">?</span>,
-				registry,
-			)<span class="question-mark">?</span>,
-			time_awaiting_approval_voting: prometheus::register(
-				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
-					<span class="string">"polkadot_parachain_time_awaiting_approval_voting"</span>,
-					<span class="string">"Time spent awaiting a reply from the Approval Voting Subsystem."</span>,
 				).buckets(<span class="macro">vec!</span>[<span class="number">0.0001</span>, <span class="number">0.0004</span>, <span class="number">0.0016</span>, <span class="number">0.0064</span>, <span class="number">0.0256</span>, <span class="number">0.1024</span>, <span class="number">0.4096</span>, <span class="number">1.6384</span>, <span class="number">3.2768</span>, <span class="number">4.9152</span>, <span class="number">6.5536</span>,]))<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,

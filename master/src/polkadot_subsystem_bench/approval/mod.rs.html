@@ -1243,6 +1243,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1091" id="1091">1091</a>
 <a href="#1092" id="1092">1092</a>
 <a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1294,9 +1302,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>orchestra::TimeoutExt;
 <span class="kw">use </span>overseer::{metrics::Metrics <span class="kw">as </span>OverseerMetrics, MetricsTrait};
 <span class="kw">use </span>polkadot_approval_distribution::ApprovalDistribution;
+<span class="kw">use </span>polkadot_node_primitives::approval::time::{
+	slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock,
+};
+
 <span class="kw">use </span>polkadot_node_core_approval_voting::{
-	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
 	ApprovalVotingSubsystem, Config <span class="kw">as </span>ApprovalVotingConfig, Metrics <span class="kw">as </span>ApprovalVotingMetrics,
+	RealAssignmentCriteria,
 };
 <span class="kw">use </span>polkadot_node_network_protocol::v3 <span class="kw">as </span>protocol_v3;
 <span class="kw">use </span>polkadot_node_primitives::approval::{<span class="self">self</span>, v1::RelayVRFStory};
@@ -2058,8 +2070,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Box::new(system_clock.clone()),
 	);
 
-	<span class="kw">let </span>approval_distribution =
-		ApprovalDistribution::new(Metrics::register(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>dependencies.registry)).unwrap());
+	<span class="kw">let </span>approval_distribution = ApprovalDistribution::new_with_clock(
+		Metrics::register(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>dependencies.registry)).unwrap(),
+		SLOT_DURATION_MILLIS,
+		Box::new(system_clock.clone()),
+		Arc::new(RealAssignmentCriteria {}),
+	);
 	<span class="kw">let </span>mock_chain_api = MockChainApi::new(state.build_chain_api_state());
 	<span class="kw">let </span>mock_chain_selection = MockChainSelection { state: state.clone(), clock: system_clock };
 	<span class="kw">let </span>mock_runtime_api = MockRuntimeApi::new(

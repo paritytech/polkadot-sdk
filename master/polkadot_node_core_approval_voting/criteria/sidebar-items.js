@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["compute_assignments"],"struct":["Config","InvalidAssignment","OurAssignment"]};
+window.SIDEBAR_ITEMS = {"enum":["InvalidAssignmentReason"],"fn":["compute_assignments"],"struct":["Config","InvalidAssignment","OurAssignment","RealAssignmentCriteria"],"trait":["AssignmentCriteria"]};

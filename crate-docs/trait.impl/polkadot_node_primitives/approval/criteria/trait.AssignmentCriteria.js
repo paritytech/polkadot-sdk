@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"polkadot_node_core_approval_voting":[["impl <a class=\"trait\" href=\"polkadot_node_core_approval_voting/trait.AssignmentCriteria.html\" title=\"trait polkadot_node_core_approval_voting::AssignmentCriteria\">AssignmentCriteria</a> for <a class=\"struct\" href=\"polkadot_node_core_approval_voting/criteria/struct.RealAssignmentCriteria.html\" title=\"struct polkadot_node_core_approval_voting::criteria::RealAssignmentCriteria\">RealAssignmentCriteria</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

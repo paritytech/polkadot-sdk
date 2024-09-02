@@ -296,7 +296,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["polkadot_gossip_support",["",[],["lib.rs","metrics.rs"]]],\
 ["polkadot_network_bridge",["",[["rx",[],["mod.rs"]],["tx",[],["mod.rs"]]],["errors.rs","lib.rs","metrics.rs","network.rs","validator_discovery.rs"]]],\
 ["polkadot_node_collation_generation",["",[],["error.rs","lib.rs","metrics.rs"]]],\
-["polkadot_node_core_approval_voting",["",[["approval_db",[["common",[],["migration_helpers.rs","mod.rs"]],["v1",[],["mod.rs"]],["v2",[],["migration_helpers.rs","mod.rs"]],["v3",[],["migration_helpers.rs","mod.rs"]]],["mod.rs"]]],["approval_checking.rs","backend.rs","criteria.rs","import.rs","lib.rs","ops.rs","persisted_entries.rs","time.rs"]]],\
+["polkadot_node_core_approval_voting",["",[["approval_db",[["common",[],["migration_helpers.rs","mod.rs"]],["v1",[],["mod.rs"]],["v2",[],["migration_helpers.rs","mod.rs"]],["v3",[],["migration_helpers.rs","mod.rs"]]],["mod.rs"]]],["approval_checking.rs","backend.rs","criteria.rs","import.rs","lib.rs","ops.rs","persisted_entries.rs"]]],\
 ["polkadot_node_core_av_store",["",[],["lib.rs","metrics.rs"]]],\
 ["polkadot_node_core_backing",["",[],["error.rs","lib.rs","metrics.rs"]]],\
 ["polkadot_node_core_bitfield_signing",["",[],["lib.rs","metrics.rs"]]],\
@@ -316,7 +316,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["polkadot_node_jaeger",["",[],["config.rs","errors.rs","lib.rs","spans.rs"]]],\
 ["polkadot_node_metrics",["",[["runtime",[],["mod.rs","parachain.rs"]]],["lib.rs","metronome.rs"]]],\
 ["polkadot_node_network_protocol",["",[["request_response",[["incoming",[],["error.rs","mod.rs"]]],["mod.rs","outgoing.rs","v1.rs","v2.rs"]]],["authority_discovery.rs","grid_topology.rs","lib.rs","peer_set.rs","reputation.rs"]]],\
-["polkadot_node_primitives",["",[["disputes",[],["message.rs","mod.rs","status.rs"]]],["approval.rs","lib.rs"]]],\
+["polkadot_node_primitives",["",[["approval",[],["criteria.rs","mod.rs","time.rs"]],["disputes",[],["message.rs","mod.rs","status.rs"]]],["lib.rs"]]],\
 ["polkadot_node_subsystem",["",[],["lib.rs"]]],\
 ["polkadot_node_subsystem_test_helpers",["",[],["lib.rs","mock.rs"]]],\
 ["polkadot_node_subsystem_types",["",[["messages",[],["network_bridge_event.rs"]]],["errors.rs","lib.rs","messages.rs","runtime_client.rs"]]],\

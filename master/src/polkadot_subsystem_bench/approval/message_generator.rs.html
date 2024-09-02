@@ -825,7 +825,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -856,16 +855,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>futures::SinkExt;
 <span class="kw">use </span>itertools::Itertools;
-<span class="kw">use </span>polkadot_node_core_approval_voting::{
-	criteria::{compute_assignments, Config},
-	time::tranche_to_tick,
-};
+<span class="kw">use </span>polkadot_node_core_approval_voting::criteria::{compute_assignments, Config};
+
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	grid_topology::{GridNeighbors, RandomRouting, RequiredRouting, SessionGridTopology},
 	v3 <span class="kw">as </span>protocol_v3,
 };
 <span class="kw">use </span>polkadot_node_primitives::approval::{
 	<span class="self">self</span>,
+	time::tranche_to_tick,
 	v2::{CoreBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 };
 <span class="kw">use </span>polkadot_primitives::{

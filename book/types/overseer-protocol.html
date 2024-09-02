@@ -252,21 +252,15 @@ pub enum ApprovalCheckError {
 }
 
 enum ApprovalVotingMessage {
-    /// Check if the assignment is valid and can be accepted by our view of the protocol.
-    /// Should not be sent unless the block hash is known.
-    CheckAndImportAssignment(
-        IndirectAssignmentCert,
-        CandidateIndex, // The index of the candidate included in the block.
-        ResponseChannel&lt;AssignmentCheckResult&gt;,
-    ),
-    /// Check if the approval vote is valid and can be accepted by our view of the
-    /// protocol.
-    ///
-    /// Should not be sent unless the block hash within the indirect vote is known.
-    CheckAndImportApproval(
-        IndirectSignedApprovalVote,
-        ResponseChannel&lt;ApprovalCheckResult&gt;,
-    ),
+	/// Import an assignment into the approval-voting database.
+	///
+	/// Should not be sent unless the block hash is known and the VRF assignment checks out.
+	ImportAssignment(CheckedIndirectAssignment, Option&lt;oneshot::Sender&lt;AssignmentCheckResult&gt;&gt;),
+	/// Import an approval vote into approval-voting database
+	///
+	/// Should not be sent unless the block hash within the indirect vote is known, vote is
+	/// correctly signed and we had a previous assignment for the candidate.
+	ImportApproval(CheckedIndirectSignedApprovalVote, Option&lt;oneshot::Sender&lt;ApprovalCheckResult&gt;&gt;),
     /// Returns the highest possible ancestor hash of the provided block hash which is
     /// acceptable to vote on finality for. Along with that, return the lists of candidate hashes
     /// which appear in every block from the (non-inclusive) base number up to (inclusive) the specified
@@ -1080,7 +1074,7 @@ pub enum CandidateValidationMessage {
 pub enum PvfCheckerMessage { }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2024-05-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/523e62560e">523e62560e</a></footer>
+<footer id="last-change">Last change: 2024-09-02, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/6b854acc69">6b854acc69</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

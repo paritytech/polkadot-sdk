@@ -232,7 +232,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">crate</span>::approval::{ApprovalTestState, PastSystemClock, LOG_TARGET, SLOT_DURATION_MILLIS};
 <span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>polkadot_node_core_approval_voting::time::{slot_number_to_tick, Clock, TICK_DURATION_MILLIS};
+<span class="kw">use </span>polkadot_node_primitives::approval::time::{slot_number_to_tick, Clock, TICK_DURATION_MILLIS};
 <span class="kw">use </span>polkadot_node_subsystem::{overseer, SpawnedSubsystem, SubsystemError};
 <span class="kw">use </span>polkadot_node_subsystem_types::messages::ChainSelectionMessage;
 

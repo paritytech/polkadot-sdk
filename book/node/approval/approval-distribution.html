@@ -207,8 +207,8 @@ that aggression should be applied to, because descendants may be unfinalized onl
 </ul>
 <p>Output:</p>
 <ul>
-<li><code>ApprovalVotingMessage::CheckAndImportAssignment</code></li>
-<li><code>ApprovalVotingMessage::CheckAndImportApproval</code></li>
+<li><code>ApprovalVotingMessage::ImportAssignment</code></li>
+<li><code>ApprovalVotingMessage::ImportApproval</code></li>
 <li><code>NetworkBridgeMessage::SendValidationMessage::ApprovalDistribution</code></li>
 </ul>
 <h2 id="functionality"><a class="header" href="#functionality">Functionality</a></h2>
@@ -366,9 +366,33 @@ into the <code>received</code> knowledge and return.</li>
 boost, add the fingerprint to the peer's knowledge only if it knows about the block and return. Note that we must do
 this after checking for out-of-view and if the peers knows about the block to avoid being spammed. If we did this
 check earlier, a peer could provide data out-of-view repeatedly and be rewarded for it.</li>
-<li>Dispatch <code>ApprovalVotingMessage::CheckAndImportAssignment(assignment)</code> and wait for the response.</li>
+<li>Check the assignment certificate is valid.
+<ul>
+<li>If the cert kind is <code>RelayVRFModulo</code>, then the certificate is valid as long as <code>sample &lt; session_info.relay_vrf_samples</code> and the VRF is valid for the validator's key with the input
+<code>block_entry.relay_vrf_story ++ sample.encode()</code> as described with
+<a href="../../protocol-approval.html#assignment-criteria">the approvals protocol section</a>. We set
+<code>core_index = vrf.make_bytes().to_u32() % session_info.n_cores</code>. If the <code>BlockEntry</code> causes
+inclusion of a candidate at <code>core_index</code>, then this is a valid assignment for the candidate
+at <code>core_index</code> and has delay tranche 0. Otherwise, it can be ignored.</li>
+<li>If the cert kind is <code>RelayVRFModuloCompact</code>, then the certificate is valid as long as the VRF
+is valid for the validator's key with the input <code>block_entry.relay_vrf_story ++ relay_vrf_samples.encode()</code>
+as described with <a href="../../protocol-approval.html#assignment-criteria">the approvals protocol section</a>.
+We enforce that all <code>core_bitfield</code> indices are included in the set of the core indices sampled from the
+VRF Output. The assignment is considered a valid tranche0 assignment for all claimed candidates if all
+<code>core_bitfield</code> indices match the core indices where the claimed candidates were included at.</li>
+<li>If the cert kind is <code>RelayVRFDelay</code>, then we check if the VRF is valid for the validator's key with the
+input <code>block_entry.relay_vrf_story ++ cert.core_index.encode()</code> as described in <a href="../../protocol-approval.html#assignment-criteria">the approvals protocol
+section</a>. The cert can be ignored if the block did not
+cause inclusion of a candidate on that core index. Otherwise, this is a valid assignment for the included
+candidate. The delay tranche for the assignment is determined by reducing
+<code>(vrf.make_bytes().to_u64() % (session_info.n_delay_tranches + session_info.zeroth_delay_tranche_width)).saturating_sub(session_info.zeroth_delay_tranche_width)</code>.</li>
+<li>We also check that the core index derived by the output is covered by the <code>VRFProof</code> by means of an auxiliary signature.</li>
+<li>If the delay tranche is too far in the future, return <code>AssignmentCheckResult::TooFarInFuture</code>.</li>
+</ul>
+</li>
 <li>If the result is <code>AssignmentCheckResult::Accepted</code>
 <ul>
+<li>Dispatch <code>ApprovalVotingMessage::ImportAssignment(assignment)</code> to approval-voting to import the assignment.</li>
 <li>If the vote was accepted but not duplicate, give the peer a positive reputation boost</li>
 <li>add the fingerprint to both our and the peer's knowledge in the <code>BlockEntry</code>. Note that we only doing this after
 making sure we have the right fingerprint.</li>
@@ -413,13 +437,15 @@ into the <code>received</code> knowledge and return.</li>
 boost, add the fingerprint to the peer's knowledge only if it knows about the block and return. Note that we must do
 this after checking for out-of-view to avoid being spammed. If we did this check earlier, a peer could provide data
 out-of-view repeatedly and be rewarded for it.</li>
-<li>Dispatch <code>ApprovalVotingMessage::CheckAndImportApproval(approval)</code> and wait for the response.</li>
-<li>If the result is <code>VoteCheckResult::Accepted(())</code>:
+<li>Construct a <code>SignedApprovalVote</code> using the candidates hashes and check against the validator's approval key,
+based on the session info of the block. If invalid or no such validator, return <code>Err(InvalidVoteError)</code>.</li>
+<li>If the result of checking the signature is <code>Ok(CheckedIndirectSignedApprovalVote)</code>:
 <ul>
+<li>Dispatch <code>ApprovalVotingMessage::ImportApproval(approval)</code> .</li>
 <li>Give the peer a positive reputation boost and add the fingerprint to both our and the peer's knowledge.</li>
 </ul>
 </li>
-<li>If the result is <code>VoteCheckResult::Bad</code>:
+<li>If the result is <code>Err(InvalidVoteError)</code>:
 <ul>
 <li>Report the peer and return.</li>
 </ul>
@@ -464,7 +490,7 @@ finalized number go to step 6.</p>
 peer.</p>
 </li>
 </ol>
-<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
+<footer id="last-change">Last change: 2024-09-02, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/6b854acc69">6b854acc69</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

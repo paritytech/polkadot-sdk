@@ -181,8 +181,8 @@ been approved.</p>
 <h2 id="protocol"><a class="header" href="#protocol">Protocol</a></h2>
 <p>Input:</p>
 <ul>
-<li><code>ApprovalVotingMessage::CheckAndImportAssignment</code></li>
-<li><code>ApprovalVotingMessage::CheckAndImportApproval</code></li>
+<li><code>ApprovalVotingMessage::ImportAssignment</code></li>
+<li><code>ApprovalVotingMessage::ImportApproval</code></li>
 <li><code>ApprovalVotingMessage::ApprovedAncestor</code></li>
 </ul>
 <p>Output:</p>
@@ -409,61 +409,18 @@ covered by the auxiliary signature aggregated in the <code>VRFPRoof</code>.</li>
 0-tranche assignment, kick off approval work, and schedule the next delay.</li>
 <li>Dispatch an <code>ApprovalDistributionMessage::NewBlocks</code> with the meta information filled out for each new block.</li>
 </ul>
-<h4 id="approvalvotingmessagecheckandimportassignment"><a class="header" href="#approvalvotingmessagecheckandimportassignment"><code>ApprovalVotingMessage::CheckAndImportAssignment</code></a></h4>
-<p>On receiving a <code>ApprovalVotingMessage::CheckAndImportAssignment</code> message, we check the assignment cert against the block
-entry. The cert itself contains information necessary to determine the candidate that is being assigned-to. In detail:</p>
+<h4 id="approvalvotingmessageimportassignment"><a class="header" href="#approvalvotingmessageimportassignment"><code>ApprovalVotingMessage::ImportAssignment</code></a></h4>
+<p>On receiving a <code>ApprovalVotingMessage::ImportAssignment</code> message, we assume the assignment cert itself has already been
+checked to be valid we proceed then to import the assignment inside the block entry. The cert itself contains
+information necessary to determine the candidate that is being assigned-to. In detail:</p>
 <ul>
-<li>
-<p>Load the <code>BlockEntry</code> for the relay-parent referenced by the message. If there is none, return
-<code>AssignmentCheckResult::Bad</code>.</p>
-</li>
-<li>
-<p>Fetch the <code>SessionInfo</code> for the session of the block</p>
-</li>
-<li>
-<p>Determine the assignment key of the validator based on that.</p>
-</li>
-<li>
-<p>Determine the claimed core index by looking up the candidate with given index in <code>block_entry.candidates</code>. Return
-<code>AssignmentCheckResult::Bad</code> if missing.</p>
-</li>
-<li>
-<p>Check the assignment cert</p>
-<ul>
-<li>
-<p>If the cert kind is <code>RelayVRFModulo</code>, then the certificate is valid as long as <code>sample &lt; session_info.relay_vrf_samples</code> and the VRF is valid for the validator's key with the input
-<code>block_entry.relay_vrf_story ++ sample.encode()</code> as described with
-<a href="../../protocol-approval.html#assignment-criteria">the approvals protocol section</a>. We set
-<code>core_index = vrf.make_bytes().to_u32() % session_info.n_cores</code>. If the <code>BlockEntry</code> causes
-inclusion of a candidate at <code>core_index</code>, then this is a valid assignment for the candidate
-at <code>core_index</code> and has delay tranche 0. Otherwise, it can be ignored.</p>
-</li>
-<li>
-<p>If the cert kind is <code>RelayVRFModuloCompact</code>, then the certificate is valid as long as the VRF
-is valid for the validator's key with the input <code>block_entry.relay_vrf_story ++ relay_vrf_samples.encode()</code>
-as described with <a href="../../protocol-approval.html#assignment-criteria">the approvals protocol section</a>.
-We enforce that all <code>core_bitfield</code> indices are included in the set of the core indices sampled from the
-VRF Output. The assignment is considered a valid tranche0 assignment for all claimed candidates if all
-<code>core_bitfield</code> indices match the core indices where the claimed candidates were included at.</p>
-</li>
-<li>
-<p>If the cert kind is <code>RelayVRFDelay</code>, then we check if the VRF is valid for the validator's key with the
-input <code>block_entry.relay_vrf_story ++ cert.core_index.encode()</code> as described in <a href="../../protocol-approval.html#assignment-criteria">the approvals protocol
-section</a>. The cert can be ignored if the block did not
-cause inclusion of a candidate on that core index. Otherwise, this is a valid assignment for the included
-candidate. The delay tranche for the assignment is determined by reducing
-<code>(vrf.make_bytes().to_u64() % (session_info.n_delay_tranches + session_info.zeroth_delay_tranche_width)).saturating_sub(session_info.zeroth_delay_tranche_width)</code>.</p>
-</li>
-<li>
-<p>We also check that the core index derived by the output is covered by the <code>VRFProof</code> by means of an auxiliary signature.</p>
-</li>
-<li>
-<p>If the delay tranche is too far in the future, return <code>AssignmentCheckResult::TooFarInFuture</code>.</p>
-</li>
-</ul>
-</li>
-<li>
-<p>Import the assignment.</p>
+<li>Load the <code>BlockEntry</code> for the relay-parent referenced by the message. If there is none, return
+<code>AssignmentCheckResult::Bad</code>.</li>
+<li>Fetch the <code>SessionInfo</code> for the session of the block</li>
+<li>Determine the assignment key of the validator based on that.</li>
+<li>Determine the claimed core index by looking up the candidate with given index in <code>block_entry.candidates</code>. Return
+<code>AssignmentCheckResult::Bad</code> if missing.</li>
+<li>Import the assignment.
 <ul>
 <li>Load the candidate in question and access the <code>approval_entry</code> for the block hash the cert references.</li>
 <li>Ignore if we already observe the validator as having been assigned.</li>
@@ -473,21 +430,15 @@ candidate. The delay tranche for the assignment is determined by reducing
 <li>Note the candidate index within the approval entry.</li>
 </ul>
 </li>
-<li>
-<p><a href="#schedule-wakeup">Schedule a wakeup</a> for this block, candidate pair.</p>
-</li>
-<li>
-<p>return the appropriate <code>AssignmentCheckResult</code> on the response channel.</p>
-</li>
+<li><a href="#schedule-wakeup">Schedule a wakeup</a> for this block, candidate pair.</li>
+<li>return the appropriate <code>AssignmentCheckResult</code> on the response channel.</li>
 </ul>
-<h4 id="approvalvotingmessagecheckandimportapproval"><a class="header" href="#approvalvotingmessagecheckandimportapproval"><code>ApprovalVotingMessage::CheckAndImportApproval</code></a></h4>
-<p>On receiving a <code>CheckAndImportApproval(indirect_approval_vote, response_channel)</code> message:</p>
+<h4 id="approvalvotingmessageimportapproval"><a class="header" href="#approvalvotingmessageimportapproval"><code>ApprovalVotingMessage::ImportApproval</code></a></h4>
+<p>On receiving a <code>ImportApproval(indirect_approval_vote, response_channel)</code> message:</p>
 <ul>
 <li>Fetch the <code>BlockEntry</code> from the indirect approval vote's <code>block_hash</code>. If none, return <code>ApprovalCheckResult::Bad</code>.</li>
 <li>Fetch all <code>CandidateEntry</code> from the indirect approval vote's <code>candidate_indices</code>. If the block did not trigger
 inclusion of enough candidates, return <code>ApprovalCheckResult::Bad</code>.</li>
-<li>Construct a <code>SignedApprovalVote</code> using the candidates hashes and check against the validator's approval key,
-based on the session info of the block. If invalid or no such validator, return <code>ApprovalCheckResult::Bad</code>.</li>
 <li>Send <code>ApprovalCheckResult::Accepted</code></li>
 <li><a href="#import-checked-approval">Import the checked approval vote</a> for all candidates</li>
 </ul>
@@ -743,7 +694,7 @@ false.</li>
 <li>Given the slot number of a block, and the current time, this informs about the current tranche.</li>
 <li>Convert <code>time.saturating_sub(slot_number.to_time())</code> to a delay tranches value</li>
 </ul>
-<footer id="last-change">Last change: 2024-05-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/523e62560e">523e62560e</a></footer>
+<footer id="last-change">Last change: 2024-09-02, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/6b854acc69">6b854acc69</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

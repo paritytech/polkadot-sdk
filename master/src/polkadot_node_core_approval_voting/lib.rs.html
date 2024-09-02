@@ -4043,75 +4043,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3891" id="3891">3891</a>
 <a href="#3892" id="3892">3892</a>
 <a href="#3893" id="3893">3893</a>
-<a href="#3894" id="3894">3894</a>
-<a href="#3895" id="3895">3895</a>
-<a href="#3896" id="3896">3896</a>
-<a href="#3897" id="3897">3897</a>
-<a href="#3898" id="3898">3898</a>
-<a href="#3899" id="3899">3899</a>
-<a href="#3900" id="3900">3900</a>
-<a href="#3901" id="3901">3901</a>
-<a href="#3902" id="3902">3902</a>
-<a href="#3903" id="3903">3903</a>
-<a href="#3904" id="3904">3904</a>
-<a href="#3905" id="3905">3905</a>
-<a href="#3906" id="3906">3906</a>
-<a href="#3907" id="3907">3907</a>
-<a href="#3908" id="3908">3908</a>
-<a href="#3909" id="3909">3909</a>
-<a href="#3910" id="3910">3910</a>
-<a href="#3911" id="3911">3911</a>
-<a href="#3912" id="3912">3912</a>
-<a href="#3913" id="3913">3913</a>
-<a href="#3914" id="3914">3914</a>
-<a href="#3915" id="3915">3915</a>
-<a href="#3916" id="3916">3916</a>
-<a href="#3917" id="3917">3917</a>
-<a href="#3918" id="3918">3918</a>
-<a href="#3919" id="3919">3919</a>
-<a href="#3920" id="3920">3920</a>
-<a href="#3921" id="3921">3921</a>
-<a href="#3922" id="3922">3922</a>
-<a href="#3923" id="3923">3923</a>
-<a href="#3924" id="3924">3924</a>
-<a href="#3925" id="3925">3925</a>
-<a href="#3926" id="3926">3926</a>
-<a href="#3927" id="3927">3927</a>
-<a href="#3928" id="3928">3928</a>
-<a href="#3929" id="3929">3929</a>
-<a href="#3930" id="3930">3930</a>
-<a href="#3931" id="3931">3931</a>
-<a href="#3932" id="3932">3932</a>
-<a href="#3933" id="3933">3933</a>
-<a href="#3934" id="3934">3934</a>
-<a href="#3935" id="3935">3935</a>
-<a href="#3936" id="3936">3936</a>
-<a href="#3937" id="3937">3937</a>
-<a href="#3938" id="3938">3938</a>
-<a href="#3939" id="3939">3939</a>
-<a href="#3940" id="3940">3940</a>
-<a href="#3941" id="3941">3941</a>
-<a href="#3942" id="3942">3942</a>
-<a href="#3943" id="3943">3943</a>
-<a href="#3944" id="3944">3944</a>
-<a href="#3945" id="3945">3945</a>
-<a href="#3946" id="3946">3946</a>
-<a href="#3947" id="3947">3947</a>
-<a href="#3948" id="3948">3948</a>
-<a href="#3949" id="3949">3949</a>
-<a href="#3950" id="3950">3950</a>
-<a href="#3951" id="3951">3951</a>
-<a href="#3952" id="3952">3952</a>
-<a href="#3953" id="3953">3953</a>
-<a href="#3954" id="3954">3954</a>
-<a href="#3955" id="3955">3955</a>
-<a href="#3956" id="3956">3956</a>
-<a href="#3957" id="3957">3957</a>
-<a href="#3958" id="3958">3958</a>
-<a href="#3959" id="3959">3959</a>
-<a href="#3960" id="3960">3960</a>
-<a href="#3961" id="3961">3961</a>
-<a href="#3962" id="3962">3962</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4154,8 +4085,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ApprovalCheckError, ApprovalCheckResult, ApprovalDistributionMessage,
 		ApprovalVotingMessage, AssignmentCheckError, AssignmentCheckResult,
 		AvailabilityRecoveryMessage, BlockDescription, CandidateValidationMessage, ChainApiMessage,
-		ChainSelectionMessage, DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
-		RuntimeApiMessage, RuntimeApiRequest,
+		ChainSelectionMessage, CheckedIndirectAssignment, CheckedIndirectSignedApprovalVote,
+		DisputeCoordinatorMessage, HighestApprovedAncestorBlock, RuntimeApiMessage,
+		RuntimeApiRequest,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
@@ -4169,9 +4101,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_primitives::{
 	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
-	CandidateIndex, CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex,
-	Hash, PvfExecKind, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId,
-	ValidatorIndex, ValidatorPair, ValidatorSignature,
+	CandidateIndex, CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex, Hash, PvfExecKind,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 <span class="kw">use </span>sc_keystore::LocalKeystore;
 <span class="kw">use </span>sp_application_crypto::Pair;
@@ -4205,9 +4136,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>approval_checking::RequiredTranches;
 <span class="kw">use </span>bitvec::{order::Lsb0, vec::BitVec};
-<span class="kw">use </span>criteria::{AssignmentCriteria, RealAssignmentCriteria};
+<span class="kw">pub use </span>criteria::{AssignmentCriteria, Config <span class="kw">as </span>AssignmentConfig, RealAssignmentCriteria};
 <span class="kw">use </span>persisted_entries::{ApprovalEntry, BlockEntry, CandidateEntry};
-<span class="kw">use </span>time::{slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick};
+<span class="kw">use </span>polkadot_node_primitives::approval::time::{
+	slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick,
+};
 
 <span class="kw">mod </span>approval_checking;
 <span class="kw">pub mod </span>approval_db;
@@ -4216,7 +4149,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>import;
 <span class="kw">mod </span>ops;
 <span class="kw">mod </span>persisted_entries;
-<span class="kw">pub mod </span>time;
 
 <span class="kw">use crate</span>::{
 	approval_checking::{Check, TranchesToApproveResult},
@@ -4237,8 +4169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">const </span>WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(<span class="number">500</span>);
 <span class="kw">const </span>APPROVAL_CACHE_SIZE: u32 = <span class="number">1024</span>;
 
-<span class="kw">const </span>TICK_TOO_FAR_IN_FUTURE: Tick = <span class="number">20</span>; <span class="comment">// 10 seconds.
-</span><span class="kw">const </span>APPROVAL_DELAY: Tick = <span class="number">2</span>;
+<span class="kw">const </span>APPROVAL_DELAY: Tick = <span class="number">2</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::approval-voting"</span>;
 
 <span class="comment">// The max number of ticks we delay sending the approval after we are ready to issue the approval
@@ -5721,9 +5652,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			hash: block_hash,
 			number: block_entry.block_number(),
 			parent_hash: block_entry.parent_hash(),
-			candidates: block_entry.candidates().iter().map(|(<span class="kw">_</span>, c_hash)| <span class="kw-2">*</span>c_hash).collect(),
+			candidates: block_entry
+				.candidates()
+				.iter()
+				.map(|(core_index, c_hash)| {
+					<span class="kw">let </span>candidate = db.load_candidate_entry(c_hash).ok().flatten();
+					<span class="kw">let </span>group_index = candidate
+						.and_then(|entry| {
+							entry.approval_entry(<span class="kw-2">&amp;</span>block_hash).map(|entry| entry.backing_group())
+						})
+						.unwrap_or_else(|| {
+							<span class="macro">gum::warn!</span>(
+								target: LOG_TARGET,
+								<span class="question-mark">?</span>block_hash,
+								<span class="question-mark">?</span>c_hash,
+								<span class="string">"Missing candidate entry or approval entry"</span>,
+							);
+							GroupIndex::default()
+						});
+					(<span class="kw-2">*</span>c_hash, <span class="kw-2">*</span>core_index, group_index)
+				})
+				.collect(),
 			slot: block_entry.slot(),
 			session: block_entry.session(),
+			vrf_story: block_entry.relay_vrf_story(),
 		});
 		<span class="kw">let </span><span class="kw-2">mut </span>signatures_queued = HashSet::new();
 		<span class="kw">for </span>(core_index, candidate_hash) <span class="kw">in </span>block_entry.candidates() {
@@ -5986,35 +5938,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">vec!</span>[Action::Conclude]
 		},
 		FromOrchestra::Communication { msg } =&gt; <span class="kw">match </span>msg {
-			ApprovalVotingMessage::CheckAndImportAssignment(a, claimed_cores, res) =&gt; {
-				<span class="kw">let </span>(check_outcome, actions) = check_and_import_assignment(
+			ApprovalVotingMessage::ImportAssignment(checked_assignment, tx) =&gt; {
+				<span class="kw">let </span>(check_outcome, actions) = import_assignment(
 					ctx.sender(),
 					state,
 					db,
 					session_info_provider,
-					a,
-					claimed_cores,
+					checked_assignment,
 				)
 				.<span class="kw">await</span><span class="question-mark">?</span>;
-				<span class="kw">let _ </span>= res.send(check_outcome);
-
+				<span class="comment">// approval-distribution makes sure this assignment is valid and expected,
+				// so this import should never fail, if it does it might mean one of two things,
+				// there is a bug in the code or the two subsystems got out of sync.
+				</span><span class="kw">if let </span>AssignmentCheckResult::Bad(<span class="kw-2">ref </span>err) = check_outcome {
+					<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Unexpected fail when importing an assignment"</span>);
+				}
+				<span class="kw">let _ </span>= tx.map(|tx| tx.send(check_outcome));
 				actions
 			},
-			ApprovalVotingMessage::CheckAndImportApproval(a, res) =&gt;
-				check_and_import_approval(
+			ApprovalVotingMessage::ImportApproval(a, tx) =&gt; {
+				<span class="kw">let </span>result = import_approval(
 					ctx.sender(),
 					state,
 					db,
 					session_info_provider,
 					metrics,
 					a,
-					|r| {
-						<span class="kw">let _ </span>= res.send(r);
-					},
 					<span class="kw-2">&amp;</span>wakeups,
 				)
-				.<span class="kw">await</span><span class="question-mark">?
-				</span>.<span class="number">0</span>,
+				.<span class="kw">await</span><span class="question-mark">?</span>;
+				<span class="comment">// approval-distribution makes sure this vote is valid and expected,
+				// so this import should never fail, if it does it might mean one of two things,
+				// there is a bug in the code or the two subsystems got out of sync.
+				</span><span class="kw">if let </span>ApprovalCheckResult::Bad(<span class="kw-2">ref </span>err) = result.<span class="number">1 </span>{
+					<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Unexpected fail when importing an approval"</span>);
+				}
+				<span class="kw">let _ </span>= tx.map(|tx| tx.send(result.<span class="number">1</span>));
+
+				result.<span class="number">0
+			</span>},
 			ApprovalVotingMessage::ApprovedAncestor(target, lower_bound, res) =&gt; {
 				<span class="kw">let </span><span class="kw-2">mut </span>approved_ancestor_span = state
 					.spans
@@ -6553,29 +6515,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	maybe_action
 }
 
-<span class="kw">async fn </span>check_and_import_assignment&lt;Sender&gt;(
+<span class="kw">async fn </span>import_assignment&lt;Sender&gt;(
 	sender: <span class="kw-2">&amp;mut </span>Sender,
 	state: <span class="kw-2">&amp;</span>State,
 	db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 	session_info_provider: <span class="kw-2">&amp;mut </span>RuntimeInfo,
-	assignment: IndirectAssignmentCertV2,
-	candidate_indices: CandidateBitfield,
+	checked_assignment: CheckedIndirectAssignment,
 ) -&gt; SubsystemResult&lt;(AssignmentCheckResult, Vec&lt;Action&gt;)&gt;
 <span class="kw">where
 	</span>Sender: SubsystemSender&lt;RuntimeApiMessage&gt;,
 {
 	<span class="kw">let </span>tick_now = state.clock.tick_now();
-
-	<span class="kw">let </span><span class="kw-2">mut </span>check_and_import_assignment_span = state
+	<span class="kw">let </span>assignment = checked_assignment.assignment();
+	<span class="kw">let </span>candidate_indices = checked_assignment.candidate_indices();
+	<span class="kw">let </span>tranche = checked_assignment.tranche();
+	<span class="kw">let </span><span class="kw-2">mut </span>import_assignment_span = state
 		.spans
 		.get(<span class="kw-2">&amp;</span>assignment.block_hash)
-		.map(|span| span.child(<span class="string">"check-and-import-assignment"</span>))
-		.unwrap_or_else(|| jaeger::Span::new(assignment.block_hash, <span class="string">"check-and-import-assignment"</span>))
+		.map(|span| span.child(<span class="string">"import-assignment"</span>))
+		.unwrap_or_else(|| jaeger::Span::new(assignment.block_hash, <span class="string">"import-assignment"</span>))
 		.with_relay_parent(assignment.block_hash)
 		.with_stage(jaeger::Stage::ApprovalChecking);
 
 	<span class="kw">for </span>candidate_index <span class="kw">in </span>candidate_indices.iter_ones() {
-		check_and_import_assignment_span.add_uint_tag(<span class="string">"candidate-index"</span>, candidate_index <span class="kw">as </span>u64);
+		import_assignment_span.add_uint_tag(<span class="string">"candidate-index"</span>, candidate_index <span class="kw">as </span>u64);
 	}
 
 	<span class="kw">let </span>block_entry = <span class="kw">match </span>db.load_block_entry(<span class="kw-2">&amp;</span>assignment.block_hash)<span class="question-mark">? </span>{
@@ -6628,8 +6591,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		))
 	}
 
-	<span class="comment">// The Compact VRF modulo assignment cert has multiple core assignments.
-	</span><span class="kw">let </span><span class="kw-2">mut </span>backing_groups = Vec::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>claimed_core_indices = Vec::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>assigned_candidate_hashes = Vec::new();
 
@@ -6658,26 +6619,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)), <span class="comment">// no candidate at core.
 		</span>};
 
-		check_and_import_assignment_span
+		import_assignment_span
 			.add_string_tag(<span class="string">"candidate-hash"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, assigned_candidate_hash));
-		check_and_import_assignment_span.add_string_tag(
+		import_assignment_span.add_string_tag(
 			<span class="string">"traceID"</span>,
 			<span class="macro">format!</span>(<span class="string">"{:?}"</span>, jaeger::hash_to_trace_identifier(assigned_candidate_hash.<span class="number">0</span>)),
 		);
 
-		<span class="kw">let </span>approval_entry = <span class="kw">match </span>candidate_entry.approval_entry_mut(<span class="kw-2">&amp;</span>assignment.block_hash) {
-			<span class="prelude-val">Some</span>(a) =&gt; a,
-			<span class="prelude-val">None </span>=&gt;
-				<span class="kw">return </span><span class="prelude-val">Ok</span>((
-					AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
-						assignment.block_hash,
-						assigned_candidate_hash,
-					)),
-					Vec::new(),
+		<span class="kw">if </span>candidate_entry.approval_entry_mut(<span class="kw-2">&amp;</span>assignment.block_hash).is_none() {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>((
+				AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
+					assignment.block_hash,
+					assigned_candidate_hash,
 				)),
+				Vec::new(),
+			));
 		};
 
-		backing_groups.push(approval_entry.backing_group());
 		claimed_core_indices.push(claimed_core_index);
 		assigned_candidate_hashes.push(assigned_candidate_hash);
 	}
@@ -6692,42 +6650,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Vec::new(),
 		))
 	}
-
-	<span class="comment">// Check the assignment certificate.
-	</span><span class="kw">let </span>res = state.assignment_criteria.check_assignment_cert(
-		claimed_core_indices
-			.clone()
-			.try_into()
-			.expect(<span class="string">"Checked for null assignment above; qed"</span>),
-		assignment.validator,
-		<span class="kw-2">&amp;</span>criteria::Config::from(session_info),
-		block_entry.relay_vrf_story(),
-		<span class="kw-2">&amp;</span>assignment.cert,
-		backing_groups,
-	);
-
-	<span class="kw">let </span>tranche = <span class="kw">match </span>res {
-		<span class="prelude-val">Err</span>(<span class="kw">crate</span>::criteria::InvalidAssignment(reason)) =&gt;
-			<span class="kw">return </span><span class="prelude-val">Ok</span>((
-				AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCert(
-					assignment.validator,
-					<span class="macro">format!</span>(<span class="string">"{:?}"</span>, reason),
-				)),
-				Vec::new(),
-			)),
-		<span class="prelude-val">Ok</span>(tranche) =&gt; {
-			<span class="kw">let </span>current_tranche =
-				state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
-
-			<span class="kw">let </span>too_far_in_future = current_tranche + TICK_TOO_FAR_IN_FUTURE <span class="kw">as </span>DelayTranche;
-
-			<span class="kw">if </span>tranche &gt;= too_far_in_future {
-				<span class="kw">return </span><span class="prelude-val">Ok</span>((AssignmentCheckResult::TooFarInFuture, Vec::new()))
-			}
-
-			tranche
-		},
-	};
 
 	<span class="kw">let </span><span class="kw-2">mut </span>actions = Vec::new();
 	<span class="kw">let </span>res = {
@@ -6761,7 +6683,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			is_duplicate &amp;= approval_entry.is_assigned(assignment.validator);
 			approval_entry.import_assignment(tranche, assignment.validator, tick_now);
-			check_and_import_assignment_span.add_uint_tag(<span class="string">"tranche"</span>, tranche <span class="kw">as </span>u64);
+			import_assignment_span.add_uint_tag(<span class="string">"tranche"</span>, tranche <span class="kw">as </span>u64);
 
 			<span class="comment">// We've imported a new assignment, so we need to schedule a wake-up for when that might
 			// no-show.
@@ -6818,30 +6740,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>((res, actions))
 }
 
-<span class="kw">async fn </span>check_and_import_approval&lt;T, Sender&gt;(
+<span class="kw">async fn </span>import_approval&lt;Sender&gt;(
 	sender: <span class="kw-2">&amp;mut </span>Sender,
 	state: <span class="kw-2">&amp;mut </span>State,
 	db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 	session_info_provider: <span class="kw-2">&amp;mut </span>RuntimeInfo,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
-	approval: IndirectSignedApprovalVoteV2,
-	with_response: <span class="kw">impl </span>FnOnce(ApprovalCheckResult) -&gt; T,
+	approval: CheckedIndirectSignedApprovalVote,
 	wakeups: <span class="kw-2">&amp;</span>Wakeups,
-) -&gt; SubsystemResult&lt;(Vec&lt;Action&gt;, T)&gt;
+) -&gt; SubsystemResult&lt;(Vec&lt;Action&gt;, ApprovalCheckResult)&gt;
 <span class="kw">where
 	</span>Sender: SubsystemSender&lt;RuntimeApiMessage&gt;,
 {
 	<span class="macro">macro_rules! </span>respond_early {
 		(<span class="macro-nonterminal">$e</span>: expr) =&gt; {{
-			<span class="kw">let </span>t = with_response(<span class="macro-nonterminal">$e</span>);
-			<span class="kw">return </span><span class="prelude-val">Ok</span>((Vec::new(), t))
+			<span class="kw">return </span><span class="prelude-val">Ok</span>((Vec::new(), <span class="macro-nonterminal">$e</span>))
 		}};
 	}
 	<span class="kw">let </span><span class="kw-2">mut </span>span = state
 		.spans
 		.get(<span class="kw-2">&amp;</span>approval.block_hash)
-		.map(|span| span.child(<span class="string">"check-and-import-approval"</span>))
-		.unwrap_or_else(|| jaeger::Span::new(approval.block_hash, <span class="string">"check-and-import-approval"</span>))
+		.map(|span| span.child(<span class="string">"import-approval"</span>))
+		.unwrap_or_else(|| jaeger::Span::new(approval.block_hash, <span class="string">"import-approval"</span>))
 		.with_string_fmt_debug_tag(<span class="string">"candidate-index"</span>, approval.candidate_indices.clone())
 		.with_relay_parent(approval.block_hash)
 		.with_stage(jaeger::Stage::ApprovalChecking);
@@ -6888,67 +6808,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		),
 	);
 
-	{
-		<span class="kw">let </span>session_info = <span class="kw">match </span>get_session_info(
-			session_info_provider,
-			sender,
-			approval.block_hash,
-			block_entry.session(),
-		)
-		.<span class="kw">await
-		</span>{
-			<span class="prelude-val">Some</span>(s) =&gt; s,
-			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">respond_early!</span>(ApprovalCheckResult::Bad(ApprovalCheckError::UnknownSessionIndex(
-					block_entry.session()
-				),))
-			},
-		};
-
-		<span class="kw">let </span>pubkey = <span class="kw">match </span>session_info.validators.get(approval.validator) {
-			<span class="prelude-val">Some</span>(k) =&gt; k,
-			<span class="prelude-val">None </span>=&gt; <span class="macro">respond_early!</span>(ApprovalCheckResult::Bad(
-				ApprovalCheckError::InvalidValidatorIndex(approval.validator),
-			)),
-		};
-
-		<span class="macro">gum::trace!</span>(
-			target: LOG_TARGET,
-			<span class="string">"Received approval for num_candidates {:}"</span>,
-			approval.candidate_indices.count_ones()
-		);
-
-		<span class="kw">let </span>candidate_hashes: Vec&lt;CandidateHash&gt; =
-			approved_candidates_info.iter().map(|candidate| candidate.<span class="number">1</span>).collect();
-		<span class="comment">// Signature check:
-		</span><span class="kw">match </span>DisputeStatement::Valid(
-			ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes.clone()),
-		)
-		.check_signature(
-			<span class="kw-2">&amp;</span>pubkey,
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(candidate_hash) = candidate_hashes.first() {
-				<span class="kw-2">*</span>candidate_hash
-			} <span class="kw">else </span>{
-				<span class="macro">respond_early!</span>(ApprovalCheckResult::Bad(ApprovalCheckError::InvalidValidatorIndex(
-					approval.validator
-				),))
-			},
-			block_entry.session(),
-			<span class="kw-2">&amp;</span>approval.signature,
-		) {
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-				<span class="macro">gum::error!</span>(
-					target: LOG_TARGET,
-					<span class="string">"Error while checking signature {:}"</span>,
-					approval.candidate_indices.count_ones()
-				);
-				<span class="macro">respond_early!</span>(ApprovalCheckResult::Bad(ApprovalCheckError::InvalidSignature(
-					approval.validator
-				),))
-			},
-			<span class="prelude-val">Ok</span>(()) =&gt; {},
-		};
-	}
+	<span class="macro">gum::trace!</span>(
+		target: LOG_TARGET,
+		<span class="string">"Received approval for num_candidates {:}"</span>,
+		approval.candidate_indices.count_ones()
+	);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>actions = Vec::new();
 	<span class="kw">for </span>(approval_candidate_index, approved_candidate_hash) <span class="kw">in </span>approved_candidates_info {
@@ -7012,9 +6876,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// importing the approval can be heavy as it may trigger acceptance for a series of blocks.
-	</span><span class="kw">let </span>t = with_response(ApprovalCheckResult::Accepted);
-
-	<span class="prelude-val">Ok</span>((actions, t))
+	</span><span class="prelude-val">Ok</span>((actions, ApprovalCheckResult::Accepted))
 }
 
 <span class="attr">#[derive(Debug)]

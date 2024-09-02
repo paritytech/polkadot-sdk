@@ -1,6 +1,6 @@
 (function() {var implementors = {
-"polkadot_node_core_approval_voting":[["impl Stream for <a class=\"struct\" href=\"polkadot_node_core_approval_voting/time/struct.DelayedApprovalTimer.html\" title=\"struct polkadot_node_core_approval_voting::time::DelayedApprovalTimer\">DelayedApprovalTimer</a>"]],
 "polkadot_node_metrics":[["impl Stream for <a class=\"struct\" href=\"polkadot_node_metrics/metronome/struct.Metronome.html\" title=\"struct polkadot_node_metrics::metronome::Metronome\">Metronome</a>"]],
+"polkadot_node_primitives":[["impl Stream for <a class=\"struct\" href=\"polkadot_node_primitives/approval/time/struct.DelayedApprovalTimer.html\" title=\"struct polkadot_node_primitives::approval::time::DelayedApprovalTimer\">DelayedApprovalTimer</a>"]],
 "polkadot_node_subsystem":[],
 "polkadot_node_subsystem_test_helpers":[["impl&lt;T&gt; Stream for <a class=\"struct\" href=\"polkadot_node_subsystem_test_helpers/struct.SingleItemStream.html\" title=\"struct polkadot_node_subsystem_test_helpers::SingleItemStream\">SingleItemStream</a>&lt;T&gt;"]],
 "relay_substrate_client":[["impl&lt;T&gt; Stream for <a class=\"struct\" href=\"relay_substrate_client/struct.Subscription.html\" title=\"struct relay_substrate_client::Subscription\">Subscription</a>&lt;T&gt;"]],

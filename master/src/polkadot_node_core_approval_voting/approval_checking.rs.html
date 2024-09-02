@@ -1630,9 +1630,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use crate</span>::{
 	persisted_entries::{ApprovalEntry, CandidateEntry, TrancheEntry},
-	time::Tick,
 	MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE,
 };
+<span class="kw">use </span>polkadot_node_primitives::approval::time::Tick;
 
 <span class="doccomment">/// Result of counting the necessary tranches needed for approving a block.
 </span><span class="attr">#[derive(Debug, PartialEq, Clone)]
@@ -2803,9 +2803,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">struct </span>NoShowTest {
 		assignments: Vec&lt;(ValidatorIndex, Tick)&gt;,
 		approvals: Vec&lt;usize&gt;,
-		clock_drift: <span class="kw">crate</span>::time::Tick,
-		no_show_duration: <span class="kw">crate</span>::time::Tick,
-		drifted_tick_now: <span class="kw">crate</span>::time::Tick,
+		clock_drift: Tick,
+		no_show_duration: Tick,
+		drifted_tick_now: Tick,
 		exp_no_shows: usize,
 		exp_next_no_show: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 	}

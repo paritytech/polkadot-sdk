@@ -1667,6 +1667,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1515" id="1515">1515</a>
 <a href="#1516" id="1516">1516</a>
 <a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1731,8 +1737,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	criteria::{AssignmentCriteria, OurAssignment},
 	get_extended_session_info, get_session_info,
 	persisted_entries::CandidateEntry,
-	time::{slot_number_to_tick, Tick},
 };
+
+<span class="kw">use </span>polkadot_node_primitives::approval::time::{slot_number_to_tick, Tick};
 
 <span class="kw">use super</span>::{State, LOG_TARGET};
 
@@ -2243,9 +2250,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			hash: block_hash,
 			number: block_header.number,
 			parent_hash: block_header.parent_hash,
-			candidates: included_candidates.iter().map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>hash).collect(),
+			candidates: included_candidates
+				.iter()
+				.map(|(hash, <span class="kw">_</span>, core_index, group_index)| (<span class="kw-2">*</span>hash, <span class="kw-2">*</span>core_index, <span class="kw-2">*</span>group_index))
+				.collect(),
 			slot,
 			session: session_index,
+			vrf_story: relay_vrf_story,
 		});
 
 		imported_candidates.push(BlockImportedCandidates {
@@ -2278,6 +2289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		approval_db::common::{load_block_entry, DbBackend},
 		RuntimeInfo, RuntimeInfoConfig, MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 	};
+	<span class="kw">use </span>approval_types::time::Clock;
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>polkadot_node_primitives::{
 		approval::v1::{VrfSignature, VrfTranscript},
@@ -2311,7 +2323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[derive(Default)]
 	</span><span class="kw">struct </span>MockClock;
 
-	<span class="kw">impl </span><span class="kw">crate</span>::time::Clock <span class="kw">for </span>MockClock {
+	<span class="kw">impl </span>Clock <span class="kw">for </span>MockClock {
 		<span class="kw">fn </span>tick_now(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Tick {
 			<span class="number">42 </span><span class="comment">// chosen by fair dice roll
 		</span>}

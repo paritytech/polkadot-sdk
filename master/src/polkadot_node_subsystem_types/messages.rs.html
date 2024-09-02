@@ -1428,6 +1428,53 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1276" id="1276">1276</a>
 <a href="#1277" id="1277">1277</a>
 <a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1463,7 +1510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_node_primitives::{
 	approval::{
-		v1::BlockApprovalMeta,
+		v1::{BlockApprovalMeta, DelayTranche},
 		v2::{CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
@@ -2309,7 +2356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>SubmitCollation(SubmitCollationParams),
 }
 
-<span class="doccomment">/// The result type of [`ApprovalVotingMessage::CheckAndImportAssignment`] request.
+<span class="doccomment">/// The result type of [`ApprovalVotingMessage::ImportAssignment`] request.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>AssignmentCheckResult {
 	<span class="doccomment">/// The vote was accepted and should be propagated onwards.
@@ -2322,7 +2369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Bad(AssignmentCheckError),
 }
 
-<span class="doccomment">/// The error result type of [`ApprovalVotingMessage::CheckAndImportAssignment`] request.
+<span class="doccomment">/// The error result type of [`ApprovalVotingMessage::ImportAssignment`] request.
 </span><span class="attr">#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>AssignmentCheckError {
@@ -2342,7 +2389,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>InvalidBitfield(usize),
 }
 
-<span class="doccomment">/// The result type of [`ApprovalVotingMessage::CheckAndImportApproval`] request.
+<span class="doccomment">/// The result type of [`ApprovalVotingMessage::ImportApproval`] request.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>ApprovalCheckResult {
 	<span class="doccomment">/// The vote was accepted and should be propagated onwards.
@@ -2351,7 +2398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Bad(ApprovalCheckError),
 }
 
-<span class="doccomment">/// The error result type of [`ApprovalVotingMessage::CheckAndImportApproval`] request.
+<span class="doccomment">/// The error result type of [`ApprovalVotingMessage::ImportApproval`] request.
 </span><span class="attr">#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>ApprovalCheckError {
@@ -2399,21 +2446,68 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>descriptions: Vec&lt;BlockDescription&gt;,
 }
 
+<span class="doccomment">/// A checked indirect assignment, the crypto for the cert has been validated
+/// and the `candidate_bitfield` is correctly claimed at `delay_tranche`.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>CheckedIndirectAssignment {
+	assignment: IndirectAssignmentCertV2,
+	candidate_indices: CandidateBitfield,
+	tranche: DelayTranche,
+}
+
+<span class="kw">impl </span>CheckedIndirectAssignment {
+	<span class="doccomment">/// Builds a checked assignment from an assignment that was checked to be valid for the
+	/// `claimed_candidate_indices` at the give tranche
+	</span><span class="kw">pub fn </span>from_checked(
+		assignment: IndirectAssignmentCertV2,
+		claimed_candidate_indices: CandidateBitfield,
+		tranche: DelayTranche,
+	) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ assignment, candidate_indices: claimed_candidate_indices, tranche }
+	}
+
+	<span class="doccomment">/// Returns the indirect assignment.
+	</span><span class="kw">pub fn </span>assignment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>IndirectAssignmentCertV2 {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.assignment
+	}
+
+	<span class="doccomment">/// Returns the candidate bitfield claimed by the assignment.
+	</span><span class="kw">pub fn </span>candidate_indices(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CandidateBitfield {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.candidate_indices
+	}
+
+	<span class="doccomment">/// Returns the tranche this assignment is claimed at.
+	</span><span class="kw">pub fn </span>tranche(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DelayTranche {
+		<span class="self">self</span>.tranche
+	}
+}
+
+<span class="doccomment">/// A checked indirect signed approval vote.
+///
+/// The crypto for the vote has been validated and the signature can be trusted as being valid and
+/// to correspond to the `validator_index` inside the structure.
+</span><span class="attr">#[derive(Debug, derive_more::Deref, derive_more::Into)]
+</span><span class="kw">pub struct </span>CheckedIndirectSignedApprovalVote(IndirectSignedApprovalVoteV2);
+
+<span class="kw">impl </span>CheckedIndirectSignedApprovalVote {
+	<span class="doccomment">/// Builds a checked vote from a vote that was checked to be valid and correctly signed.
+	</span><span class="kw">pub fn </span>from_checked(vote: IndirectSignedApprovalVoteV2) -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>(vote)
+	}
+}
+
 <span class="doccomment">/// Message to the Approval Voting subsystem.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>ApprovalVotingMessage {
-	<span class="doccomment">/// Check if the assignment is valid and can be accepted by our view of the protocol.
-	/// Should not be sent unless the block hash is known.
-	</span>CheckAndImportAssignment(
-		IndirectAssignmentCertV2,
-		CandidateBitfield,
-		oneshot::Sender&lt;AssignmentCheckResult&gt;,
-	),
-	<span class="doccomment">/// Check if the approval vote is valid and can be accepted by our view of the
-	/// protocol.
+	<span class="doccomment">/// Import an assignment into the approval-voting database.
 	///
-	/// Should not be sent unless the block hash within the indirect vote is known.
-	</span>CheckAndImportApproval(IndirectSignedApprovalVoteV2, oneshot::Sender&lt;ApprovalCheckResult&gt;),
+	/// Should not be sent unless the block hash is known and the VRF assignment checks out.
+	</span>ImportAssignment(CheckedIndirectAssignment, <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;AssignmentCheckResult&gt;&gt;),
+	<span class="doccomment">/// Import an approval vote into approval-voting database
+	///
+	/// Should not be sent unless the block hash within the indirect vote is known, vote is
+	/// correctly signed and we had a previous assignment for the candidate.
+	</span>ImportApproval(CheckedIndirectSignedApprovalVote, <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;ApprovalCheckResult&gt;&gt;),
 	<span class="doccomment">/// Returns the highest possible ancestor hash of the provided block hash which is
 	/// acceptable to vote on finality for.
 	/// The `BlockNumber` provided is the number of the block's ancestor which is the
