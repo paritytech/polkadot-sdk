@@ -1826,6 +1826,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1674" id="1674">1674</a>
 <a href="#1675" id="1675">1675</a>
 <a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
+<a href="#1694" id="1694">1694</a>
+<a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2053,7 +2075,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::{defer, H256};
 <span class="kw">use </span>sp_runtime::{
 	traits::{One, Zero},
-	SaturatedConversion, Saturating,
+	SaturatedConversion, Saturating, TransactionOutcome,
 };
 <span class="kw">use </span>sp_weights::WeightMeter;
 <span class="kw">pub use </span>weights::WeightInfo;
@@ -3263,6 +3285,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The base weight of this function needs to be accounted for by the caller. `weight` is the
 	/// remaining weight to process the message. `overweight_limit` is the maximum weight that a
 	/// message can ever consume. Messages above this limit are marked as permanently overweight.
+	/// This process is also transactional, any form of error that occurs in processing a message
+	/// causes storage changes to be rolled back.
 	</span><span class="kw">fn </span>process_message_payload(
 		origin: MessageOriginOf&lt;T&gt;,
 		page_index: PageIndex,
@@ -3275,7 +3299,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>ProcessMessageError::<span class="kw-2">*</span>;
 		<span class="kw">let </span>prev_consumed = meter.consumed();
 
-		<span class="kw">match </span>T::MessageProcessor::process_message(message, origin.clone(), meter, <span class="kw-2">&amp;mut </span>id) {
+		<span class="kw">let </span>transaction =
+			storage::with_transaction(|| -&gt; TransactionOutcome&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, DispatchError&gt;&gt; {
+				<span class="kw">let </span>res =
+					T::MessageProcessor::process_message(message, origin.clone(), meter, <span class="kw-2">&amp;mut </span>id);
+				<span class="kw">match </span><span class="kw-2">&amp;</span>res {
+					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; TransactionOutcome::Commit(<span class="prelude-val">Ok</span>(res)),
+					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; TransactionOutcome::Rollback(<span class="prelude-val">Ok</span>(res)),
+				}
+			});
+
+		<span class="kw">let </span>transaction = <span class="kw">match </span>transaction {
+			<span class="prelude-val">Ok</span>(result) =&gt; result,
+			<span class="kw">_ </span>=&gt; {
+				<span class="macro">defensive!</span>(
+					<span class="string">"Error occurred processing message, storage changes will be rolled back"
+				</span>);
+				<span class="kw">return </span>MessageExecutionStatus::Unprocessable { permanent: <span class="bool-val">true </span>}
+			},
+		};
+
+		<span class="kw">match </span>transaction {
 			<span class="prelude-val">Err</span>(Overweight(w)) <span class="kw">if </span>w.any_gt(overweight_limit) =&gt; {
 				<span class="comment">// Permanently overweight.
 				</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::OverweightEnqueued {
