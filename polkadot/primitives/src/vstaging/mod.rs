@@ -298,9 +298,9 @@ pub struct ClaimQueueOffset(pub u8);
 /// Signals that a parachain can send to the relay chain via the UMP queue.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum UMPSignal {
-	/// A message sent by a parachain to select the core the candidate is commited to.
+	/// A message sent by a parachain to select the core the candidate is committed to.
 	/// Relay chain validators, in particular backers, use the `CoreSelector` and
-	/// `ClaimQueueOffset` to compute the index of the core the candidate has commited to.
+	/// `ClaimQueueOffset` to compute the index of the core the candidate has committed to.
 	SelectCore(CoreSelector, ClaimQueueOffset),
 }
 /// Separator between `XCM` and `UMPSignal`.
@@ -451,7 +451,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 }
 
 impl<H: Copy> CommittedCandidateReceiptV2<H> {
-	/// Checks if descriptor core index is equal to the commited core index.
+	/// Checks if descriptor core index is equal to the committed core index.
 	/// Input `assigned_cores` must contain the sorted cores assigned to the para at
 	/// the committed claim queue offset.
 	pub fn check(&self, assigned_cores: &[&CoreIndex]) -> Result<(), CandidateReceiptError> {
