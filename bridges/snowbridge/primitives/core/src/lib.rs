@@ -168,7 +168,7 @@ impl DescribeLocation for DescribeHere {
 pub type AgentIdOf =
 	HashedDescription<AgentId, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
 
-#[derive(Clone, Default, Eq, Debug, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct AssetMetadata {
 	pub name: BoundedVec<u8, ConstU32<32>>,
 	pub symbol: BoundedVec<u8, ConstU32<32>>,
