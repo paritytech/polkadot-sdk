@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725299812346,
+  "lastUpdate": 1725313942802,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -10163,6 +10163,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.036970990025999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dharjeezy",
+            "username": "dharjeezy",
+            "email": "dharjeezy@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f6eeca91b6cf0810ca3d8e7ea23988d9510851ba",
+          "message": "[FRAME] MQ processor should be transactional (#5198)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/2441\n\nPolkadot address: 12GyGD3QhT4i2JJpNzvMf96sxxBLWymz4RdGCxRH5Rj5agKW\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-09-02T20:03:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6eeca91b6cf0810ca3d8e7ea23988d9510851ba"
+        },
+        "date": 1725313913511,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.41399999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.95199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03878114463799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04711857780800002,
             "unit": "seconds"
           }
         ]
