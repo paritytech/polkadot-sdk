@@ -196,14 +196,6 @@ fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
 	}
 }
 
-#[inline(always)]
-fn mut_ptr_or_sentinel<const N: usize>(data: &mut Option<&mut [u8; N]>) -> *mut u8 {
-	match data {
-		Some(ref mut data) => data.as_mut_ptr(),
-		None => crate::SENTINEL as _,
-	}
-}
-
 impl HostFn for HostFnImpl {
 	fn instantiate(
 		code_hash: &[u8],
@@ -216,7 +208,10 @@ impl HostFn for HostFnImpl {
 		mut output: Option<&mut &mut [u8]>,
 		salt: &[u8; 32],
 	) -> Result {
-		let address_ptr = mut_ptr_or_sentinel(&mut address);
+		let address = match address {
+			Some(ref mut data) => data.as_mut_ptr(),
+			None => crate::SENTINEL as _,
+		};
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
 		#[repr(packed)]
@@ -242,7 +237,7 @@ impl HostFn for HostFnImpl {
 			value: value.as_ptr(),
 			input: input.as_ptr(),
 			input_len: input.len(),
-			address: address_ptr,
+			address,
 			output: output_ptr,
 			output_len: &mut output_len as *mut _,
 			salt: salt.as_ptr(),
