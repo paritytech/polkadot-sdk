@@ -1,0 +1,56 @@
+name: Publish GH-Pages
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-docs:
+    uses: ./.github/workflows/docs.yml
+    secrets: inherit
+
+  publish-rustdoc:
+    runs-on: ubuntu-latest
+    environment: subsystem-benchmarks
+    needs: [build-docs]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
+          private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
+      - name: Ensure destination dir does not exist
+        run: |
+          rm -rf book/
+          rm -rf ${REF_NAME}
+        env:
+          REF_NAME: ${{ github.head_ref || github.ref_name }}
+      - name: Download rustdocs
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.sha }}-doc
+          path: ${{ github.head_ref || github.ref_name }}
+          run-id: ${{ needs.build-docs.outputs.run }}
+      - name: Download guide
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.sha }}-guide
+          path: /tmp
+          run-id: ${{ needs.build-docs.outputs.run }}
+      - run: mkdir -p book
+      - name: Move book files
+        run: mv /tmp/book/html/* book/
+      - name: Push to GH-Pages branch
+        uses: github-actions-x/commit@v2.9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          push-branch: "gh-pages"
+          commit-message: "___Updated docs for ${{ github.head_ref || github.ref_name }}___"
+          force-add: "true"
+          files: ${{ github.head_ref || github.ref_name }}/ book/
+          name: devops-parity
+          email: devops-team@parity.io
