@@ -29,8 +29,10 @@ crates:
 - name: pallet-xcm-bridge-hub-router
   bump: major
 - name: bp-header-chain
-  bump: major
+  bump: patch
 - name: bp-messages
+  bump: major
+- name: bp-parachains
   bump: major
 - name: bp-polkadot-core
   bump: none
@@ -39,7 +41,7 @@ crates:
 - name: bp-runtime
   bump: minor
 - name: bp-xcm-bridge-hub-router
-  bump: major
+  bump: patch
 - name: bp-xcm-bridge-hub
   bump: major
 - name: relay-substrate-client
@@ -55,10 +57,22 @@ crates:
 - name: parachains-relay
   bump: none
 - name: asset-hub-rococo-runtime
-  bump: patch
+  bump: major
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: major
 - name: bridge-hub-rococo-runtime
-  bump: patch
+  bump: major
 - name: bridge-hub-westend-runtime
+  bump: major
+- name: emulated-integration-tests-common
+  bump: minor
+- name: asset-test-utils
   bump: patch
+- name: parachains-runtimes-test-utils
+  bump: minor
+- name: bridge-hub-common
+  bump: minor
+- name: bridge-hub-test-utils
+  bump: major
+- name: xcm-emulator
+  bump: major
