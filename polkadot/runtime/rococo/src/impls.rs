@@ -90,7 +90,7 @@ where
 	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult {
 		use crate::{
 			impls::IdentityMigratorCalls::PokeDeposit,
-			weights::runtime_common_identity_migrator::WeightInfo as MigratorWeights,
+			weights::polkadot_runtime_common_identity_migrator::WeightInfo as MigratorWeights,
 		};
 
 		let total_to_send = Self::calculate_remote_deposit(fields, subs);
