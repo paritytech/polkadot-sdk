@@ -18,8 +18,6 @@
 
 #![cfg(test)]
 
-use crate::messages_xcm_extension::XcmAsPlainPayload;
-
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
@@ -28,6 +26,7 @@ use bp_messages::{
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_relayers::PayRewardFromAccount;
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, Parachain};
+use codec::Encode;
 use frame_support::{
 	derive_impl, parameter_types,
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight},
@@ -85,7 +84,11 @@ pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 >;
 
 /// Message lane used in tests.
-pub const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 0]);
+#[allow(unused)]
+pub fn test_lane_id() -> LaneId {
+	LaneId::new(1, 2)
+}
+
 /// Bridged chain id used in tests.
 pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
 /// Maximal extrinsic size at the `BridgedChain`.
@@ -111,7 +114,6 @@ crate::generate_bridge_reject_obsolete_headers_and_messages! {
 }
 
 parameter_types! {
-	pub const ActiveOutboundLanes: &'static [LaneId] = &[TEST_LANE_ID];
 	pub const BridgedParasPalletName: &'static str = "Paras";
 	pub const ExistentialDeposit: ThisChainBalance = 500;
 	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
@@ -185,9 +187,8 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<TestRuntime>;
-	type ActiveOutboundLanes = ActiveOutboundLanes;
 
-	type OutboundPayload = XcmAsPlainPayload;
+	type OutboundPayload = Vec<u8>;
 
 	type InboundPayload = Vec<u8>;
 	type DeliveryPayments = ();
@@ -218,8 +219,8 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 pub struct DummyMessageDispatch;
 
 impl DummyMessageDispatch {
-	pub fn deactivate() {
-		frame_support::storage::unhashed::put(&b"inactive"[..], &false);
+	pub fn deactivate(lane: LaneId) {
+		frame_support::storage::unhashed::put(&(b"inactive", lane).encode()[..], &false);
 	}
 }
 
@@ -227,8 +228,9 @@ impl MessageDispatch for DummyMessageDispatch {
 	type DispatchPayload = Vec<u8>;
 	type DispatchLevelResult = ();
 
-	fn is_active() -> bool {
-		frame_support::storage::unhashed::take::<bool>(&b"inactive"[..]) != Some(false)
+	fn is_active(lane: LaneId) -> bool {
+		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
+			Some(false)
 	}
 
 	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
