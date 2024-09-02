@@ -1125,7 +1125,7 @@ impl<T: Config> Pallet<T> {
 		salt: [u8; 32],
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> ContractInstantiateResult<H160, BalanceOf<T>, EventRecordOf<T>> {
+	) -> ContractInstantiateResult<BalanceOf<T>, EventRecordOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let mut debug_message =
@@ -1174,7 +1174,7 @@ impl<T: Config> Pallet<T> {
 		};
 		ContractInstantiateResult {
 			result: output
-				.map(|(account_id, result)| InstantiateReturnValue { result, account_id })
+				.map(|(addr, result)| InstantiateReturnValue { result, addr })
 				.map_err(|e| e.error),
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
@@ -1303,7 +1303,7 @@ sp_api::decl_runtime_apis! {
 			code: Code,
 			data: Vec<u8>,
 			salt: Vec<u8>,
-		) -> ContractInstantiateResult<AccountId, Balance, EventRecord>;
+		) -> ContractInstantiateResult<Balance, EventRecord>;
 
 		/// Upload new code without instantiating a contract from it.
 		///

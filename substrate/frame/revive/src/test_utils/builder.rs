@@ -141,20 +141,21 @@ builder!(
 		salt: [u8; 32],
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> ContractInstantiateResult<H160, BalanceOf<T>, EventRecordOf<T>>;
+	) -> ContractInstantiateResult<BalanceOf<T>, EventRecordOf<T>>;
 
 	/// Build the instantiate call and unwrap the result.
-	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue<H160> {
+	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue {
 		self.build().result.unwrap()
 	}
 
 	/// Build the instantiate call and unwrap the account id.
 	pub fn build_and_unwrap_contract(self) -> Contract<T> {
-		let addr = self.build().result.unwrap().account_id;
+		let addr = self.build().result.unwrap().addr;
 		let account_id = T::AddressMapper::to_account_id(&addr);
 		Contract{ account_id,  addr }
 	}
 
+	/// Create a [`BareInstantiateBuilder`] with default values.
 	pub fn bare_instantiate(origin: OriginFor<T>, code: Code) -> Self {
 		Self {
 			origin,

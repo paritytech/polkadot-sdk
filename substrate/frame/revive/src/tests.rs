@@ -65,12 +65,11 @@ use frame_support::{
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::{bench::dummy_unique, compile_module};
 use pallet_revive_uapi::ReturnErrorCode as RuntimeReturnCode;
-use sp_core::ByteArray;
 use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, Convert, Hash, IdentityLookup},
+	traits::{BlakeTwo256, Convert, IdentityLookup},
 	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
 };
 
@@ -1019,7 +1018,7 @@ mod run_tests {
 
 			// Create
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-			let Contract { addr: caller_addr, .. } =
+			let Contract { addr: caller_addr, account_id: caller_account } =
 				builder::bare_instantiate(Code::Upload(caller_wasm))
 					.value(100_000)
 					.build_and_unwrap_contract();
@@ -1030,6 +1029,7 @@ mod run_tests {
 				&[0, 1, 34, 51, 68, 85, 102, 119], // hard coded in wasm
 				&[0u8; 32],
 			);
+			let callee_account = <Test as Config>::AddressMapper::to_account_id(&callee_addr);
 
 			Contracts::upload_code(
 				RuntimeOrigin::signed(ALICE),
@@ -1037,9 +1037,6 @@ mod run_tests {
 				deposit_limit::<Test>(),
 			)
 			.unwrap();
-
-			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
-			let callee_account = <Test as Config>::AddressMapper::to_account_id(&callee_addr);
 
 			// Drop previous events
 			initialize_block(2);
@@ -1302,7 +1299,7 @@ mod run_tests {
 		let (wasm, code_hash) = compile_module("self_destruct").unwrap();
 		ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-			let _ = <Test as Config>::Currency::set_balance(&DJANGO, 1_000_000);
+			let _ = <Test as Config>::Currency::set_balance(&ETH_DJANGO, 1_000_000);
 			let min_balance = Contracts::min_balance();
 
 			// Instantiate the BOB contract.
@@ -1330,7 +1327,7 @@ mod run_tests {
 
 			// Check that the beneficiary (django) got remaining balance.
 			assert_eq!(
-				<Test as Config>::Currency::free_balance(DJANGO),
+				<Test as Config>::Currency::free_balance(ETH_DJANGO),
 				1_000_000 + 100_000 + min_balance
 			);
 
@@ -1382,7 +1379,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 							from: contract.account_id.clone(),
-							to: DJANGO,
+							to: ETH_DJANGO,
 							amount: 100_000 + min_balance,
 						}),
 						topics: vec![],
@@ -1418,7 +1415,8 @@ mod run_tests {
 					.build_and_unwrap_contract();
 
 			// Check that the CHARLIE contract has been instantiated.
-			let addr_charlie = crate::address::create2(&addr_bob, &callee_wasm, &[], &[0x47; 32]);
+			let salt = [47; 32]; // hard coded in fixture.
+			let addr_charlie = crate::address::create2(&addr_bob, &callee_wasm, &[], &salt);
 			get_contract(&addr_charlie);
 
 			// Call BOB, which calls CHARLIE, forcing CHARLIE to self-destruct.
@@ -3199,7 +3197,7 @@ mod run_tests {
 				.build_and_unwrap_result();
 			assert_eq!(result.result.flags, flags);
 			assert_eq!(result.result.data, buffer);
-			assert!(!<ContractInfoOf<Test>>::contains_key(result.account_id));
+			assert!(!<ContractInfoOf<Test>>::contains_key(result.addr));
 
 			// Pass empty flags and therefore successfully instantiate the contract for later use.
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
@@ -3538,10 +3536,11 @@ mod run_tests {
 			// No deposit has been taken from it.
 			assert_eq!(<Test as Config>::Currency::free_balance(&caller_id), ED);
 			// Get address of the deployed contract.
-			let addr_callee = AccountId32::from_slice(&returned.data[0..32]).unwrap();
+			let addr_callee = H160::from_slice(&returned.data[0..20]);
+			let callee_account_id = <Test as Config>::AddressMapper::to_account_id(&addr_callee);
 			// 10_000 should be sent to callee from the caller contract, plus ED to be sent from the
 			// origin.
-			assert_eq!(<Test as Config>::Currency::free_balance(&addr_callee), 10_000 + ED);
+			assert_eq!(<Test as Config>::Currency::free_balance(&callee_account_id), 10_000 + ED);
 			// The origin should be charged with:
 			//  - callee instantiation deposit = (callee_info_len + 2)
 			//  - callee account ED
@@ -3678,7 +3677,7 @@ mod run_tests {
 			(0..limits::DELEGATE_DEPENDENCIES + 1).map(|idx| dummy_unique(idx)).collect();
 		let callee_hashes: Vec<_> = callee_codes
 			.iter()
-			.map(|c| <Test as frame_system::Config>::Hashing::hash(c))
+			.map(|c| sp_core::H256(sp_io::hashing::keccak_256(c)))
 			.collect();
 
 		// Define inputs with various actions to test locking / unlocking delegate_dependencies.
@@ -3691,17 +3690,21 @@ mod run_tests {
 		// Instantiate the caller contract with the given input.
 		let instantiate = |input: &(u32, H256)| {
 			builder::bare_instantiate(Code::Upload(wasm_caller.clone()))
+				.origin(RuntimeOrigin::signed(ETH_ALICE))
 				.data(input.encode())
 				.build()
 		};
 
 		// Call contract with the given input.
 		let call = |addr_caller: &H160, input: &(u32, H256)| {
-			builder::bare_call(addr_caller.clone()).data(input.encode()).build()
+			builder::bare_call(addr_caller.clone())
+				.origin(RuntimeOrigin::signed(ETH_ALICE))
+				.data(input.encode())
+				.build()
 		};
 		const ED: u64 = 2000;
 		ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
-			let _ = Balances::set_balance(&ALICE, 1_000_000);
+			let _ = Balances::set_balance(&ETH_ALICE, 1_000_000);
 
 			// Instantiate with lock_delegate_dependency should fail since the code is not yet on
 			// chain.
@@ -3715,7 +3718,7 @@ mod run_tests {
 			for code in callee_codes.iter() {
 				let CodeUploadReturnValue { deposit: deposit_per_code, .. } =
 					Contracts::bare_upload_code(
-						RuntimeOrigin::signed(ALICE),
+						RuntimeOrigin::signed(ETH_ALICE),
 						code.clone(),
 						deposit_limit::<Test>(),
 					)
@@ -3724,8 +3727,7 @@ mod run_tests {
 			}
 
 			// Instantiate should now work.
-			let addr_caller =
-				instantiate(&lock_delegate_dependency_input).result.unwrap().account_id;
+			let addr_caller = instantiate(&lock_delegate_dependency_input).result.unwrap().addr;
 			let caller_account_id = <Test as Config>::AddressMapper::to_account_id(&addr_caller);
 
 			// There should be a dependency and a deposit.
@@ -3746,7 +3748,7 @@ mod run_tests {
 
 			// Removing the code should fail, since we have added a dependency.
 			assert_err!(
-				Contracts::remove_code(RuntimeOrigin::signed(ALICE), callee_hashes[0]),
+				Contracts::remove_code(RuntimeOrigin::signed(ETH_ALICE), callee_hashes[0]),
 				<Error<Test>>::CodeInUse
 			);
 
@@ -3804,14 +3806,14 @@ mod run_tests {
 			);
 
 			// Since we unlocked the dependency we should now be able to remove the code.
-			assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), callee_hashes[0]));
+			assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ETH_ALICE), callee_hashes[0]));
 
 			// Calling should fail since the delegated contract is not on chain anymore.
 			assert_err!(call(&addr_caller, &noop_input).result, Error::<Test>::ContractTrapped);
 
 			// Add the dependency back.
 			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed(ETH_ALICE),
 				callee_codes[0].clone(),
 				deposit_limit::<Test>(),
 			)
@@ -3819,15 +3821,15 @@ mod run_tests {
 			call(&addr_caller, &lock_delegate_dependency_input).result.unwrap();
 
 			// Call terminate should work, and return the deposit.
-			let balance_before = test_utils::get_balance(&ALICE);
+			let balance_before = test_utils::get_balance(&ETH_ALICE);
 			assert_ok!(call(&addr_caller, &terminate_input).result);
 			assert_eq!(
-				test_utils::get_balance(&ALICE),
+				test_utils::get_balance(&ETH_ALICE),
 				ED + balance_before + contract.storage_base_deposit() + dependency_deposit
 			);
 
 			// Terminate should also remove the dependency, so we can remove the code.
-			assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), callee_hashes[0]));
+			assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ETH_ALICE), callee_hashes[0]));
 		});
 	}
 
@@ -3870,7 +3872,7 @@ mod run_tests {
 				// Instantiate the set_code_hash contract.
 				let res = builder::bare_instantiate(code).build();
 
-				let addr = res.result.unwrap().account_id;
+				let addr = res.result.unwrap().addr;
 				let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
 				let base_deposit = test_utils::contract_info_storage_deposit(&addr);
 				let upload_deposit = test_utils::get_code_deposit(&code_hash);

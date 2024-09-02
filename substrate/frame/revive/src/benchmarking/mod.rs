@@ -108,7 +108,7 @@ where
 			CollectEvents::Skip,
 		);
 
-		let address = outcome.result?.account_id;
+		let address = outcome.result?.addr;
 		let account_id = T::AddressMapper::to_account_id_contract(&address);
 		let result = Contract { caller, account_id: account_id.clone(), addr: account_id };
 

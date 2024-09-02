@@ -128,7 +128,7 @@ mod run_tests {
 			)
 			.result
 			.unwrap()
-			.account_id
+			.addr
 		}
 
 		fn constructor_frame(contract_account: &H160, after: bool) -> DebugFrame {
@@ -213,7 +213,7 @@ mod run_tests {
 			)
 			.result
 			.unwrap()
-			.account_id;
+			.addr;
 
 			// no interception yet
 			assert_ok!(Contracts::call(

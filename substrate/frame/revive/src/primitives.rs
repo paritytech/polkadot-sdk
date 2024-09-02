@@ -17,6 +17,7 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
+use crate::H160;
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
@@ -86,8 +87,8 @@ pub type ContractExecResult<Balance, EventRecord> =
 	ContractResult<Result<ExecReturnValue, DispatchError>, Balance, EventRecord>;
 
 /// Result type of a `bare_instantiate` call as well as `ContractsApi::instantiate`.
-pub type ContractInstantiateResult<AccountId, Balance, EventRecord> =
-	ContractResult<Result<InstantiateReturnValue<AccountId>, DispatchError>, Balance, EventRecord>;
+pub type ContractInstantiateResult<Balance, EventRecord> =
+	ContractResult<Result<InstantiateReturnValue, DispatchError>, Balance, EventRecord>;
 
 /// Result type of a `bare_code_upload` call.
 pub type CodeUploadResult<Balance> = Result<CodeUploadReturnValue<Balance>, DispatchError>;
@@ -124,11 +125,11 @@ impl ExecReturnValue {
 
 /// The result of a successful contract instantiation.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct InstantiateReturnValue<AccountId> {
+pub struct InstantiateReturnValue {
 	/// The output of the called constructor.
 	pub result: ExecReturnValue,
-	/// The account id of the new contract.
-	pub account_id: AccountId,
+	/// The address of the new contract.
+	pub addr: H160,
 }
 
 /// The result of successfully uploading a contract.
