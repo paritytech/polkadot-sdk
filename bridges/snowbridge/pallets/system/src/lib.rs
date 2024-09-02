@@ -63,13 +63,16 @@ use frame_system::pallet_prelude::*;
 use snowbridge_core::{
 	meth,
 	outbound::{Command, Initializer, Message, OperatingMode, SendError, SendMessage},
-	sibling_sovereign_account, AgentId, Channel, ChannelId, ParaId,
-	PricingParameters as PricingParametersRecord, PRIMARY_GOVERNANCE_CHANNEL,
+	sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
+	PricingParameters as PricingParametersRecord, TokenId, TokenIdOf, PRIMARY_GOVERNANCE_CHANNEL,
 	SECONDARY_GOVERNANCE_CHANNEL,
 };
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{traits::BadOrigin, DispatchError, SaturatedConversion};
+use sp_runtime::{
+	traits::{BadOrigin, MaybeEquivalence},
+	DispatchError, SaturatedConversion,
+};
 use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -99,7 +102,7 @@ where
 }
 
 /// Hash the location to produce an agent id
-fn agent_id_of<T: Config>(location: &Location) -> Result<H256, DispatchError> {
+pub fn agent_id_of<T: Config>(location: &Location) -> Result<H256, DispatchError> {
 	T::AgentIdOf::convert_location(location).ok_or(Error::<T>::LocationConversionFailed.into())
 }
 
@@ -211,6 +214,11 @@ pub mod pallet {
 		PricingParametersChanged {
 			params: PricingParametersOf<T>,
 		},
+		/// Register token
+		RegisterToken {
+			asset_id: VersionedLocation,
+			token_id: H256,
+		},
 	}
 
 	#[pallet::error]
@@ -226,6 +234,7 @@ pub mod pallet {
 		InvalidTokenTransferFees,
 		InvalidPricingParameters,
 		InvalidUpgradeParameters,
+		TokenExists,
 	}
 
 	/// The set of registered agents
@@ -242,6 +251,15 @@ pub mod pallet {
 	#[pallet::getter(fn parameters)]
 	pub type PricingParameters<T: Config> =
 		StorageValue<_, PricingParametersOf<T>, ValueQuery, T::DefaultPricingParameters>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn tokens)]
+	pub type Tokens<T: Config> = StorageMap<_, Twox64Concat, TokenId, Location, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn location_tokens)]
+	pub type LocationToToken<T: Config> =
+		StorageMap<_, Twox64Concat, Location, TokenId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -574,6 +592,29 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		/// Sends a message to the Gateway contract to register a new
+		/// token that represents `asset`.
+		///
+		/// - `origin`: Must be `MultiLocation` from sibling parachain
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::register_token())]
+		pub fn register_token(
+			origin: OriginFor<T>,
+			location: Box<VersionedLocation>,
+			metadata: AssetMetadata,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let asset_loc: Location =
+				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
+
+			let pays_fee = PaysFee::<T>::Yes(who);
+
+			Self::do_register_token(asset_loc, metadata, pays_fee)?;
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -663,6 +704,30 @@ pub mod pallet {
 			let secondary_exists = Channels::<T>::contains_key(SECONDARY_GOVERNANCE_CHANNEL);
 			primary_exists && secondary_exists
 		}
+
+		pub(crate) fn do_register_token(
+			asset_loc: Location,
+			metadata: AssetMetadata,
+			pays_fee: PaysFee<T>,
+		) -> Result<(), DispatchError> {
+			// Record the token id or fail if it has already been created
+			let token_id = TokenIdOf::convert_location(&asset_loc)
+				.ok_or(Error::<T>::LocationConversionFailed)?;
+			Tokens::<T>::insert(token_id, asset_loc.clone());
+			LocationToToken::<T>::insert(asset_loc.clone(), token_id);
+
+			let command = Command::RegisterForeignToken {
+				token_id,
+				name: metadata.name.into_inner(),
+				symbol: metadata.symbol.into_inner(),
+				decimals: metadata.decimals,
+			};
+			Self::send(SECONDARY_GOVERNANCE_CHANNEL, command, pays_fee)?;
+
+			Self::deposit_event(Event::<T>::RegisterToken { asset_id: asset_loc.into(), token_id });
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> StaticLookup for Pallet<T> {
@@ -682,6 +747,15 @@ pub mod pallet {
 	impl<T: Config> Get<PricingParametersOf<T>> for Pallet<T> {
 		fn get() -> PricingParametersOf<T> {
 			PricingParameters::<T>::get()
+		}
+	}
+
+	impl<T: Config> MaybeEquivalence<TokenId, Location> for Pallet<T> {
+		fn convert(id: &TokenId) -> Option<Location> {
+			Tokens::<T>::get(id)
+		}
+		fn convert_back(loc: &Location) -> Option<TokenId> {
+			LocationToToken::<T>::get(loc)
 		}
 	}
 }

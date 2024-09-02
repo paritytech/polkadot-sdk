@@ -20,10 +20,7 @@ mod claim_assets;
 mod send_xcm;
 mod teleport;
 
-mod snowbridge {
-	pub const CHAIN_ID: u64 = 11155111;
-	pub const WETH: [u8; 20] = hex_literal::hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
-}
+mod snowbridge;
 
 pub(crate) fn asset_hub_rococo_location() -> Location {
 	Location::new(2, [GlobalConsensus(Rococo), Parachain(AssetHubRococo::para_id().into())])

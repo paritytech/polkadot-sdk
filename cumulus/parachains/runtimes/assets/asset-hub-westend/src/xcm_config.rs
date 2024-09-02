@@ -646,8 +646,8 @@ pub mod bridging {
 
 	pub mod to_ethereum {
 		use super::*;
-		use assets_common::matching::FromNetwork;
 		use alloc::collections::btree_set::BTreeSet;
+		use assets_common::matching::FromNetwork;
 		use testnet_parachains_constants::westend::snowbridge::{
 			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
 		};

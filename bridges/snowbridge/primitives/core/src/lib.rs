@@ -21,14 +21,16 @@ pub use ringbuffer::{RingBufferMap, RingBufferMapImpl};
 pub use sp_core::U256;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::Contains;
+use frame_support::{traits::Contains, BoundedVec};
 use hex_literal::hex;
 use scale_info::TypeInfo;
-use sp_core::H256;
+use sp_core::{ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
-use xcm::prelude::{Junction::Parachain, Location};
+use xcm::prelude::{
+	GeneralIndex, GeneralKey, GlobalConsensus, Junction::Parachain, Location, PalletInstance,
+};
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
 
 /// The ID of an agent contract
@@ -163,4 +165,48 @@ impl DescribeLocation for DescribeHere {
 
 /// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
 /// Ethereum which acts as the sovereign account for the Location.
-pub type AgentIdOf = HashedDescription<H256, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
+pub type AgentIdOf =
+	HashedDescription<AgentId, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
+
+#[derive(Clone, Default, Eq, Debug, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
+pub struct AssetMetadata {
+	pub name: BoundedVec<u8, ConstU32<32>>,
+	pub symbol: BoundedVec<u8, ConstU32<32>>,
+	pub decimals: u8,
+}
+
+pub type TokenId = H256;
+
+pub type TokenIdOf = HashedDescription<TokenId, DescribeGlobalPrefix<DescribeInner>>;
+
+pub struct DescribeGlobalPrefix<DescribeInterior>(sp_std::marker::PhantomData<DescribeInterior>);
+impl<Suffix: DescribeLocation> DescribeLocation for DescribeGlobalPrefix<Suffix> {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
+		match (l.parent_count(), l.first_interior()) {
+			(1, Some(GlobalConsensus(network))) => {
+				let tail = l.clone().split_first_interior().0;
+				let interior = Suffix::describe_location(&tail.into())?;
+				Some((b"pna", network, interior).encode())
+			},
+			_ => None,
+		}
+	}
+}
+
+pub struct DescribeInner;
+impl DescribeLocation for DescribeInner {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
+		match l.unpack().1 {
+			[] => Some(Vec::<u8>::new().encode()),
+			[Parachain(id)] => Some((*id).encode()),
+			[Parachain(id), PalletInstance(instance)] => Some((*id, *instance).encode()),
+			[Parachain(id), PalletInstance(instance), GeneralIndex(index)] =>
+				Some((*id, *instance, *index).encode()),
+			[Parachain(id), PalletInstance(instance), GeneralKey { data, .. }] =>
+				Some((*id, *instance, *data).encode()),
+			[Parachain(id), GeneralIndex(index)] => Some((*id, *index).encode()),
+			[Parachain(id), GeneralKey { data, .. }] => Some((*id, *data).encode()),
+			_ => None,
+		}
+	}
+}

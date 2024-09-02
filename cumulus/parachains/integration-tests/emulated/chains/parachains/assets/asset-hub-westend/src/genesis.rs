@@ -20,6 +20,7 @@ use sp_core::{sr25519, storage::Storage};
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, get_account_id_from_seed,
+	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation,
 	PenpalSiblingSovereignAccount, PenpalTeleportableAssetLocation, RESERVABLE_ASSET_ID,
 	SAFE_XCM_VERSION,
 };
@@ -73,6 +74,13 @@ pub fn genesis() -> Storage {
 				(
 					PenpalTeleportableAssetLocation::get(),
 					PenpalSiblingSovereignAccount::get(),
+					true,
+					ED,
+				),
+				// PenpalB's teleportable asset representation
+				(
+					PenpalBTeleportableAssetLocation::get(),
+					PenpalBSiblingSovereignAccount::get(),
 					true,
 					ED,
 				),

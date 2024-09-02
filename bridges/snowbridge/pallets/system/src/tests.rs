@@ -248,7 +248,7 @@ fn create_channel() {
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal,));
 	});
 }
 
@@ -264,10 +264,10 @@ fn create_channel_fail_already_exists() {
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal,));
 
 		assert_noop!(
-			EthereumSystem::create_channel(origin, OperatingMode::Normal),
+			EthereumSystem::create_channel(origin, OperatingMode::Normal,),
 			Error::<Test>::ChannelAlreadyCreated
 		);
 	});
@@ -334,10 +334,10 @@ fn update_channel() {
 		// First create the channel
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal,));
 
 		// Now try to update it
-		assert_ok!(EthereumSystem::update_channel(origin, OperatingMode::Normal));
+		assert_ok!(EthereumSystem::update_channel(origin, OperatingMode::Normal,));
 
 		System::assert_last_event(RuntimeEvent::EthereumSystem(crate::Event::UpdateChannel {
 			channel_id: ParaId::from(2000).into(),
@@ -383,12 +383,12 @@ fn update_channel_bad_origin() {
 
 		// Signed origin not allowed
 		assert_noop!(
-			EthereumSystem::update_channel(RuntimeOrigin::signed([14; 32].into()), mode),
+			EthereumSystem::update_channel(RuntimeOrigin::signed([14; 32].into()), mode,),
 			BadOrigin
 		);
 
 		// None origin not allowed
-		assert_noop!(EthereumSystem::update_channel(RuntimeOrigin::none(), mode), BadOrigin);
+		assert_noop!(EthereumSystem::update_channel(RuntimeOrigin::none(), mode,), BadOrigin);
 	});
 }
 
@@ -400,7 +400,7 @@ fn update_channel_fails_not_exist() {
 
 		// Now try to update it
 		assert_noop!(
-			EthereumSystem::update_channel(origin, OperatingMode::Normal),
+			EthereumSystem::update_channel(origin, OperatingMode::Normal,),
 			Error::<Test>::NoChannel
 		);
 	});
@@ -419,7 +419,7 @@ fn force_update_channel() {
 		// First create the channel
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal,));
 
 		// Now try to force update it
 		let force_origin = RuntimeOrigin::root();
@@ -463,7 +463,7 @@ fn transfer_native_from_agent() {
 
 		// First create the agent and channel
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal,));
 
 		let origin = make_xcm_origin(origin_location.clone());
 		assert_ok!(EthereumSystem::transfer_native_from_agent(origin, recipient, amount),);
@@ -549,7 +549,7 @@ fn charge_fee_for_create_agent() {
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
 		let fee_charged = initial_sovereign_balance - Balances::balance(&sovereign_account);
 
-		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal,));
 
 		// assert sovereign_balance decreased by (fee.base_fee + fee.delivery_fee)
 		let message = Message {
@@ -584,7 +584,7 @@ fn charge_fee_for_transfer_native_from_agent() {
 
 		// create_agent & create_channel first
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal,));
 
 		// assert sovereign_balance decreased by only the base_fee
 		let sovereign_balance_before = Balances::balance(&sovereign_account);
