@@ -34,7 +34,7 @@ riscv = []
 std = [
 	"anyhow",
 	"frame-system",
-	"sp-runtime",
 	"sp-core",
 	"sp-io",
+	"sp-runtime",
 ]
