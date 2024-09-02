@@ -238,7 +238,7 @@ fn client_initializes_from_genesis_ok() {
 
 #[test]
 fn block_builder_works_with_no_transactions() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let block = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -256,7 +256,7 @@ fn block_builder_works_with_no_transactions() {
 
 #[test]
 fn block_builder_works_with_transactions() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let mut builder = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -316,7 +316,7 @@ fn block_builder_works_with_transactions() {
 
 #[test]
 fn block_builder_does_not_include_invalid() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 	let mut builder = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
 		.with_parent_block_number(0)
@@ -390,7 +390,7 @@ fn best_containing_with_genesis_block() {
 fn uncles_with_only_ancestors() {
 	// block tree:
 	// G -> A1 -> A2
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -424,7 +424,7 @@ fn uncles_with_multiple_forks() {
 	//      A1 -> B2 -> B3 -> B4
 	//	          B2 -> C3
 	//	    A1 -> D2
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -584,7 +584,7 @@ fn finality_target_on_longest_chain_with_single_chain_3_blocks() {
 	// block tree:
 	// G -> A1 -> A2
 
-	let (mut client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -625,7 +625,7 @@ fn finality_target_on_longest_chain_with_multiple_forks() {
 	//      A1 -> B2 -> B3 -> B4
 	// 	          B2 -> C3
 	// 	    A1 -> D2
-	let (mut client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, longest_chain_select) = TestClientBuilder::new().build_with_longest_chain();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)
@@ -877,7 +877,7 @@ fn finality_target_on_longest_chain_with_max_depth_higher_than_best() {
 	// block tree:
 	// G -> A1 -> A2
 
-	let (mut client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
 	let chain = client.chain_info();
 
 	// G -> A1
@@ -914,7 +914,7 @@ fn finality_target_with_best_not_on_longest_chain() {
 	//         -> B2 -> (B3) -> B4
 	//                   ^best
 
-	let (mut client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, chain_select) = TestClientBuilder::new().build_with_longest_chain();
 	let chain = client.chain_info();
 
 	// G -> A1
@@ -1045,7 +1045,7 @@ fn finality_target_with_best_not_on_longest_chain() {
 fn import_with_justification() {
 	// block tree:
 	// G -> A1 -> A2 -> A3
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let mut finality_notifications = client.finality_notification_stream();
 
@@ -1099,7 +1099,7 @@ fn import_with_justification() {
 
 #[test]
 fn importing_diverged_finalized_block_should_trigger_reorg() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1 -> A2
 	//   \
@@ -1160,7 +1160,7 @@ fn importing_diverged_finalized_block_should_trigger_reorg() {
 
 #[test]
 fn finalizing_diverged_block_should_trigger_reorg() {
-	let (mut client, select_chain) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, select_chain) = TestClientBuilder::new().build_with_longest_chain();
 
 	// G -> A1 -> A2
 	//   \
@@ -1257,7 +1257,7 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 #[test]
 fn finality_notifications_content() {
 	sp_tracing::try_init_simple();
-	let (mut client, _select_chain) = TestClientBuilder::new().build_with_longest_chain();
+	let (client, _select_chain) = TestClientBuilder::new().build_with_longest_chain();
 
 	//               -> D3 -> D4
 	// G -> A1 -> A2 -> A3
@@ -1410,7 +1410,7 @@ fn get_hash_by_block_number_doesnt_panic() {
 #[test]
 fn state_reverted_on_reorg() {
 	sp_tracing::try_init_simple();
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	let current_balance = |client: &substrate_test_runtime_client::TestClient| {
 		client
@@ -1492,7 +1492,7 @@ fn doesnt_import_blocks_that_revert_finality() {
 		.unwrap(),
 	);
 
-	let mut client = TestClientBuilder::with_backend(backend).build();
+	let client = TestClientBuilder::with_backend(backend).build();
 
 	let mut finality_notifications = client.finality_notification_stream();
 
@@ -1619,7 +1619,7 @@ fn respects_block_rules() {
 		known_bad: &mut HashSet<H256>,
 		fork_rules: &mut Vec<(u64, H256)>,
 	) {
-		let mut client = if record_only {
+		let client = if record_only {
 			TestClientBuilder::new().build()
 		} else {
 			TestClientBuilder::new()
@@ -1771,7 +1771,7 @@ fn returns_status_for_pruned_blocks() {
 		.unwrap(),
 	);
 
-	let mut client = TestClientBuilder::with_backend(backend).build();
+	let client = TestClientBuilder::with_backend(backend).build();
 
 	let a1 = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -2160,7 +2160,7 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 /// Test that ensures that we always send an import notification for re-orgs.
 #[test]
 fn reorg_triggers_a_notification_even_for_sources_that_should_not_trigger_notifications() {
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	let mut notification_stream =
 		futures::executor::block_on_stream(client.import_notification_stream());
@@ -2232,7 +2232,7 @@ fn use_dalek_ext_works() {
 		sp_core::ed25519::Signature::default()
 	}
 
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	client.execution_extensions().set_extensions_factory(
 		sc_client_api::execution_extensions::ExtensionBeforeBlock::<Block, sp_io::UseDalekExt>::new(
@@ -2263,7 +2263,7 @@ fn use_dalek_ext_works() {
 
 #[test]
 fn finalize_after_best_block_updates_best() {
-	let mut client = substrate_test_runtime_client::new();
+	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
 	let a1 = BlockBuilderBuilder::new(&client)

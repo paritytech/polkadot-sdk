@@ -104,6 +104,10 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 ]
+riscv = [
+	"kitchensink-runtime/riscv",
+	"polkadot-sdk/riscv",
+]
 
 [[bench]]
 name = "transaction_pool"
