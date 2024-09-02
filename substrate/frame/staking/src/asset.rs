@@ -77,7 +77,7 @@ pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>)
 		let _ = T::Currency::set_balance(who, Zero::zero());
 	}
 
-	assert!(total_balance::<T>(who) == value);
+	assert_eq!(total_balance::<T>(who), value);
 }
 
 /// Update `amount` at stake for `who`.
@@ -85,8 +85,14 @@ pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>)
 /// Overwrites the existing stake amount. If passed amount is lower than the existing stake, the
 /// difference is unlocked.
 pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-	// if first stake, inc provider.
+	// if first stake, inc provider. This allows us to stake all free balance.
 	if staked::<T>(who) == Zero::zero() && amount > Zero::zero() {
+		frame_system::Pallet::<T>::inc_providers(who);
+	}
+
+	// FIXME(ank4n) hacky, find a better way.
+	// if all amount is getting staked, inc an extra provider that would get decremented on hold.
+	if stakeable_balance::<T>(who) == amount {
 		frame_system::Pallet::<T>::inc_providers(who);
 	}
 
@@ -95,7 +101,6 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 
 pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
 	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort).map(|_| ())?;
-	let _ = frame_system::Pallet::<T>::dec_providers(who);
 	Ok(())
 }
 
