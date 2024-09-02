@@ -13994,7 +13994,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "4.0.0"
+version = "1.16.0"
 dependencies = [
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
