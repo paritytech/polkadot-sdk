@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725280302829,
+  "lastUpdate": 1725299509490,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -19445,6 +19445,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.971083143033336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ad2ac0db4585cc710e672fcdc330d1ba08ece61c",
+          "message": "Elastic scaling: introduce new candidate receipt primitive (#5322)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/5044\n\nThis PR switches the runtime to the new receipts format (vstaging\nprimitives). I've implemented `From` to convert from new primitives to\n`v7` primitives and used them in the node runtime api client\nimplementation. Until we implement the support in the node, it will\ncontinue e to use the v7 primitives but the runtime apis already use the\nnew primitives.\n\n\nAn expected downside of RFC103 is decoding V2 receipts shows garbage\nvalues if the input is V1:\n\n_![ima_9ce77de](https://github.com/user-attachments/assets/71d80e78-e238-4518-8cd1-548ae0d74b70)_\n\nTODO:\n- [x] fix tests\n- [x] A few more tests for the new primitives\n- [x] PRDoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-09-02T16:25:03Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ad2ac0db4585cc710e672fcdc330d1ba08ece61c"
+        },
+        "date": 1725299480544,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17530784630000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.949908959733339,
             "unit": "seconds"
           }
         ]
