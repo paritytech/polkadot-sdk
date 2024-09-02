@@ -167,7 +167,7 @@ where
 
 	async fn send_message_with_priority<P: overseer::Priority>(&mut self, msg: OutgoingMessage) {
 		self.message_counter.increment(P::priority());
-		self.tx.send(dbg!(msg.into())).await.expect("test overseer no longer live");
+		self.tx.send(msg.into()).await.expect("test overseer no longer live");
 	}
 
 	fn try_send_message(
