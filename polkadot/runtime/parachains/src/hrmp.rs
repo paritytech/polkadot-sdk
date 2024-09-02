@@ -1305,9 +1305,7 @@ impl<T: Config> Pallet<T> {
 		remaining
 	}
 
-	pub(crate) fn prune_hrmp(recipient: ParaId, new_hrmp_watermark: BlockNumberFor<T>) -> Weight {
-		let mut weight = Weight::zero();
-
+	pub(crate) fn prune_hrmp(recipient: ParaId, new_hrmp_watermark: BlockNumberFor<T>) {
 		// sift through the incoming messages digest to collect the paras that sent at least one
 		// message to this parachain between the old and new watermarks.
 		let senders = HrmpChannelDigests::<T>::mutate(&recipient, |digest| {
@@ -1323,7 +1321,6 @@ impl<T: Config> Pallet<T> {
 			*digest = leftover;
 			senders
 		});
-		weight += T::DbWeight::get().reads_writes(1, 1);
 
 		// having all senders we can trivially find out the channels which we need to prune.
 		let channels_to_prune =
@@ -1356,21 +1353,13 @@ impl<T: Config> Pallet<T> {
 					channel.total_size -= pruned_size as u32;
 				}
 			});
-
-			weight += T::DbWeight::get().reads_writes(2, 2);
 		}
 
 		HrmpWatermarks::<T>::insert(&recipient, new_hrmp_watermark);
-		weight += T::DbWeight::get().reads_writes(0, 1);
-
-		weight
 	}
 
 	/// Process the outbound HRMP messages by putting them into the appropriate recipient queues.
-	///
-	/// Returns the amount of weight consumed.
-	pub(crate) fn queue_outbound_hrmp(sender: ParaId, out_hrmp_msgs: HorizontalMessages) -> Weight {
-		let mut weight = Weight::zero();
+	pub(crate) fn queue_outbound_hrmp(sender: ParaId, out_hrmp_msgs: HorizontalMessages) {
 		let now = frame_system::Pallet::<T>::block_number();
 
 		for out_msg in out_hrmp_msgs {
@@ -1426,11 +1415,7 @@ impl<T: Config> Pallet<T> {
 				recipient_digest.push((now, vec![sender]));
 			}
 			HrmpChannelDigests::<T>::insert(&channel_id.recipient, recipient_digest);
-
-			weight += T::DbWeight::get().reads_writes(2, 2);
 		}
-
-		weight
 	}
 
 	/// Initiate opening a channel from a parachain to a given recipient with given channel

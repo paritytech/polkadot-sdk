@@ -28,7 +28,7 @@ use bp_messages::{LaneId, UnrewardedRelayersState};
 use bp_polkadot_core::parachains::ParaHash;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{Chain, Parachain};
-use bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_messages::{BridgedChainOf, ThisChainOf};
@@ -552,7 +552,7 @@ where
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 		>(
-			LaneId::default(),
+			LaneId::new(1, 2),
 			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 			1,
 			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
@@ -622,7 +622,7 @@ where
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 		>(
-			LaneId::default(),
+			LaneId::new(1, 2),
 			1,
 			5,
 			1_000,
@@ -684,7 +684,7 @@ where
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 		>(
-			LaneId::default(),
+			LaneId::new(1, 2),
 			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 			1,
 			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
@@ -739,7 +739,7 @@ where
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			>(
-				LaneId::default(),
+				LaneId::new(1, 2),
 				1,
 				5,
 				1_000,

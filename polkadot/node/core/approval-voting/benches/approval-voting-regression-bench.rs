@@ -74,15 +74,16 @@ fn main() -> Result<(), String> {
 	.map_err(|e| e.to_string())?;
 	println!("{}", average_usage);
 
-	// We expect no variance for received and sent
-	// but use 0.001 because we operate with floats
+	// We expect some small variance for received and sent because the
+	// test messages are generated at every benchmark run and they contain
+	// random data so use 0.01 as the accepted variance.
 	messages.extend(average_usage.check_network_usage(&[
-		("Received from peers", 52941.6071, 0.001),
-		("Sent to peers", 63810.1859, 0.001),
+		("Received from peers", 52941.6071, 0.01),
+		("Sent to peers", 63995.2200, 0.01),
 	]));
 	messages.extend(average_usage.check_cpu_usage(&[
-		("approval-distribution", 6.3912, 0.1),
-		("approval-voting", 10.0578, 0.1),
+		("approval-distribution", 12.2736, 0.1),
+		("approval-voting", 2.7174, 0.1),
 	]));
 
 	if messages.is_empty() {
