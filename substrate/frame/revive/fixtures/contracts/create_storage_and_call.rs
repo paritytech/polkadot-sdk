@@ -32,7 +32,7 @@ pub extern "C" fn call() {
 	input!(
 		buffer,
 		input: [u8; 4],
-		callee: [u8; 32],
+		callee: [u8; 20],
 		deposit_limit: [u8; 8],
 	);
 
