@@ -30,16 +30,16 @@ use bp_messages::{
 };
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
 
-use frame_support::{parameter_types, traits::PalletInfoAccess};
+use frame_support::{
+	parameter_types,
+	traits::{Equals, PalletInfoAccess},
+};
 use frame_system::EnsureRoot;
 use pallet_bridge_relayers::extension::{
 	BridgeRelayersSignedExtension, WithMessagesExtensionConfig,
 };
 use pallet_xcm::EnsureXcm;
 use pallet_xcm_bridge_hub::XcmAsPlainPayload;
-use parachains_common::xcm_config::{
-	AllSiblingSystemParachains, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
-};
 use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::rococo::currency::UNITS as ROC;
 use xcm::{
@@ -70,6 +70,9 @@ parameter_types! {
 	/// It is determined semi-automatically - see `FEE_BOOST_PER_MESSAGE` constant to get the
 	/// meaning of this value.
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+
+	/// PeopleRococo location
+	pub PeopleRococoLocation: Location = Location::new(1, [Parachain(rococo_runtime_constants::system_parachain::PEOPLE_ID)]);
 
 	pub storage BridgeDeposit: Balance = 5 * ROC;
 }
@@ -137,8 +140,8 @@ impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime 
 		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, RococoBulletinGlobalConsensusNetworkLocation>;
 
 	type AdminOrigin = EnsureRoot<AccountId>;
-	// Only allow calls from relay chains and sibling parachains to directly open the bridge.
-	type OpenBridgeOrigin = EnsureXcm<ParentRelayOrSiblingParachains>;
+	// Only allow calls from sibling People parachain to directly open the bridge.
+	type OpenBridgeOrigin = EnsureXcm<Equals<PeopleRococoLocation>>;
 	// Converter aligned with `OpenBridgeOrigin`.
 	type BridgeOriginAccountIdConverter =
 		(ParentIsPreset<AccountId>, SiblingParachainConvertsVia<Sibling, AccountId>);
@@ -146,9 +149,8 @@ impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime 
 	type BridgeDeposit = BridgeDeposit;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	// Do not require deposit from system parachains or relay chain
-	type AllowWithoutBridgeDeposit =
-		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
+	// Do not require deposit from People parachains.
+	type AllowWithoutBridgeDeposit = Equals<PeopleRococoLocation>;
 
 	type LocalXcmChannelManager = ();
 	type BlobDispatcher = FromRococoBulletinMessageBlobDispatcher;
@@ -283,7 +285,6 @@ pub mod migration {
 
 	parameter_types! {
 		pub RococoPeopleToRococoBulletinMessagesLane: LaneId = LaneId::from_inner(Either::Right([0, 0, 0, 0]));
-		pub PeopleRococoLocation: Location = Location::new(1, [Parachain(rococo_runtime_constants::system_parachain::PEOPLE_ID)]);
 		pub BulletinRococoLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
 	}
 
