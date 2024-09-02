@@ -1298,7 +1298,7 @@ sp_api::decl_runtime_apis! {
 			storage_deposit_limit: Option<Balance>,
 			code: Code,
 			data: Vec<u8>,
-			salt: [u8; 32],
+			salt: Option<[u8; 32]>,
 		) -> ContractInstantiateResult<Balance, EventRecord>;
 
 		/// Upload new code without instantiating a contract from it.
