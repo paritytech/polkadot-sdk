@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725298909306,
+  "lastUpdate": 1725313043781,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -17107,6 +17107,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 2.5336045588199854,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dharjeezy",
+            "username": "dharjeezy",
+            "email": "dharjeezy@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f6eeca91b6cf0810ca3d8e7ea23988d9510851ba",
+          "message": "[FRAME] MQ processor should be transactional (#5198)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/2441\n\nPolkadot address: 12GyGD3QhT4i2JJpNzvMf96sxxBLWymz4RdGCxRH5Rj5agKW\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-09-02T20:03:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6eeca91b6cf0810ca3d8e7ea23988d9510851ba"
+        },
+        "date": 1725313014863,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63819.4,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 11.900375570169997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 2.5238423325900046,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.169440223001171,
             "unit": "seconds"
           }
         ]
