@@ -56,14 +56,14 @@ impl Tracing<Test> for TestDebug {
 	) -> TestCallSpan {
 		DEBUG_EXECUTION_TRACE.with(|d| {
 			d.borrow_mut().push(DebugFrame {
-				contract_account: contract_account.clone(),
+				contract_account: *contract_account,
 				call: entry_point,
 				input: input_data.to_vec(),
 				result: None,
 			})
 		});
 		TestCallSpan {
-			contract_account: contract_account.clone(),
+			contract_account: *contract_account,
 			call: entry_point,
 			input: input_data.to_vec(),
 		}
@@ -133,7 +133,7 @@ mod run_tests {
 
 		fn constructor_frame(contract_account: &H160, after: bool) -> DebugFrame {
 			DebugFrame {
-				contract_account: contract_account.clone(),
+				contract_account: *contract_account,
 				call: ExportedFunction::Constructor,
 				input: vec![],
 				result: if after { Some(vec![]) } else { None },
@@ -142,7 +142,7 @@ mod run_tests {
 
 		fn call_frame(contract_account: &H160, args: Vec<u8>, after: bool) -> DebugFrame {
 			DebugFrame {
-				contract_account: contract_account.clone(),
+				contract_account: *contract_account,
 				call: ExportedFunction::Call,
 				input: args,
 				result: if after { Some(vec![]) } else { None },
@@ -218,7 +218,7 @@ mod run_tests {
 			// no interception yet
 			assert_ok!(Contracts::call(
 				RuntimeOrigin::signed(ALICE),
-				account_id.clone(),
+				account_id,
 				0,
 				GAS_LIMIT,
 				deposit_limit::<Test>(),
@@ -226,7 +226,7 @@ mod run_tests {
 			));
 
 			// intercept calls to this contract
-			INTERCEPTED_ADDRESS.with(|i| *i.borrow_mut() = Some(account_id.clone()));
+			INTERCEPTED_ADDRESS.with(|i| *i.borrow_mut() = Some(account_id));
 
 			assert_err_ignore_postinfo!(
 				Contracts::call(

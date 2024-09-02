@@ -742,7 +742,7 @@ mod run_tests {
 					EventRecord {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
-							contract: addr.clone(),
+							contract: addr,
 							data: vec![1, 2, 3, 4]
 						}),
 						topics: vec![],
@@ -751,7 +751,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 							deployer: ALICE_ADDR,
-							contract: addr.clone()
+							contract: addr
 						}),
 						topics: vec![],
 					},
@@ -760,7 +760,7 @@ mod run_tests {
 						event: RuntimeEvent::Contracts(
 							pallet_revive::Event::StorageDepositTransferredAndHeld {
 								from: ALICE_ADDR,
-								to: addr.clone(),
+								to: addr,
 								amount: test_utils::contract_info_storage_deposit(&addr),
 							}
 						),
@@ -783,7 +783,7 @@ mod run_tests {
 				.build_and_unwrap_contract();
 
 			// Call contract with allowed storage value.
-			assert_ok!(builder::call(addr.clone())
+			assert_ok!(builder::call(addr)
 				.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer,
 				.data(limits::PAYLOAD_BYTES.encode())
 				.build());
@@ -834,7 +834,7 @@ mod run_tests {
 			let gas_limit = Weight::from_parts(u32::MAX as u64, GAS_LIMIT.proof_size());
 
 			// Use chain extension to charge more ref_time than it is available.
-			let result = builder::bare_call(addr.clone())
+			let result = builder::bare_call(addr)
 				.gas_limit(gas_limit)
 				.data(
 					ExtensionInput { extension_id: 0, func_id: 2, extra: &u32::MAX.encode() }
@@ -854,11 +854,11 @@ mod run_tests {
 			let contract =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(contract.addr.clone()).data(0u32.encode()).build();
+			let result = builder::bare_call(contract.addr).data(0u32.encode()).build();
 			assert_ok!(result.result);
 			let engine_consumed_noop = result.gas_consumed.ref_time();
 
-			let result = builder::bare_call(contract.addr.clone()).data(1u32.encode()).build();
+			let result = builder::bare_call(contract.addr).data(1u32.encode()).build();
 			assert_ok!(result.result);
 			let gas_consumed_once = result.gas_consumed.ref_time();
 			let host_consumed_once =
@@ -902,7 +902,7 @@ mod run_tests {
 			);
 
 			// Terminate the contract.
-			assert_ok!(builder::call(addr.clone()).build());
+			assert_ok!(builder::call(addr).build());
 
 			// Re-Instantiate after termination.
 			assert_ok!(builder::instantiate(code_hash).build());
@@ -940,7 +940,7 @@ mod run_tests {
 			get_contract(&addr);
 
 			// Call contract with allowed storage value.
-			assert_ok!(builder::call(addr.clone())
+			assert_ok!(builder::call(addr)
 				.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer
 				.data(limits::PAYLOAD_BYTES.encode())
 				.build());
@@ -984,14 +984,14 @@ mod run_tests {
 
 			// Call contracts with storage values within the limit.
 			// Caller and Callee contracts each set a transient storage value of size 100.
-			assert_ok!(builder::call(addr_caller.clone())
+			assert_ok!(builder::call(addr_caller)
 				.data((100u32, 100u32, &addr_callee).encode())
 				.build(),);
 
 			// Call a contract with a storage value that is too large.
 			// Limit exceeded in the caller contract.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller.clone())
+				builder::call(addr_caller)
 					.data((4u32 * 1024u32, 200u32, &addr_callee).encode())
 					.build(),
 				<Error<Test>>::OutOfTransientStorage,
@@ -1043,9 +1043,7 @@ mod run_tests {
 
 			// Call BOB contract, which attempts to instantiate and call the callee contract and
 			// makes various assertions on the results from those calls.
-			assert_ok!(builder::call(caller_addr.clone())
-				.data(callee_code_hash.as_ref().to_vec())
-				.build());
+			assert_ok!(builder::call(caller_addr).data(callee_code_hash.as_ref().to_vec()).build());
 
 			assert_eq!(
 				System::events(),
@@ -1086,8 +1084,8 @@ mod run_tests {
 					EventRecord {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Instantiated {
-							deployer: caller_addr.clone(),
-							contract: callee_addr.clone(),
+							deployer: caller_addr,
+							contract: callee_addr,
 						}),
 						topics: vec![],
 					},
@@ -1104,7 +1102,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Called {
 							caller: Origin::from_account_id(caller_account.clone()),
-							contract: callee_addr.clone(),
+							contract: callee_addr,
 						}),
 						topics: vec![],
 					},
@@ -1112,7 +1110,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Called {
 							caller: Origin::from_account_id(ALICE),
-							contract: caller_addr.clone(),
+							contract: caller_addr,
 						}),
 						topics: vec![],
 					},
@@ -1121,7 +1119,7 @@ mod run_tests {
 						event: RuntimeEvent::Contracts(
 							pallet_revive::Event::StorageDepositTransferredAndHeld {
 								from: ALICE_ADDR,
-								to: callee_addr.clone(),
+								to: callee_addr,
 								amount: test_utils::contract_info_storage_deposit(&callee_addr),
 							}
 						),
@@ -1148,7 +1146,7 @@ mod run_tests {
 			// Only upload 'callee' code
 			assert_ok!(Contracts::upload_code(RuntimeOrigin::signed(ALICE), callee_wasm, 100_000,));
 
-			assert_ok!(builder::call(caller_addr.clone())
+			assert_ok!(builder::call(caller_addr)
 				.value(1337)
 				.data(callee_code_hash.as_ref().to_vec())
 				.build());
@@ -1214,7 +1212,7 @@ mod run_tests {
 
 			// Call BOB which makes it send all funds to the zero address
 			// The contract code asserts that the transfer fails with the correct error code
-			assert_ok!(builder::call(addr.clone()).build());
+			assert_ok!(builder::call(addr).build());
 
 			// Make sure the account wasn't remove by sending all free balance away.
 			assert_eq!(
@@ -1246,18 +1244,14 @@ mod run_tests {
 
 			// Create 100 bytes of storage with a price of per byte and a single storage item of
 			// price 2
-			assert_ok!(builder::call(contract.addr.clone())
-				.data(100u32.to_le_bytes().to_vec())
-				.build());
+			assert_ok!(builder::call(contract.addr).data(100u32.to_le_bytes().to_vec()).build());
 			assert_eq!(get_contract(&contract.addr).total_deposit(), info_deposit + 102);
 
 			// Increase the byte price and trigger a refund. This should not have any influence
 			// because the removal is pro rata and exactly those 100 bytes should have been
 			// removed.
 			DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 500);
-			assert_ok!(builder::call(contract.addr.clone())
-				.data(0u32.to_le_bytes().to_vec())
-				.build());
+			assert_ok!(builder::call(contract.addr).data(0u32.to_le_bytes().to_vec()).build());
 
 			// Make sure the account wasn't removed by the refund
 			assert_eq!(
@@ -1285,7 +1279,7 @@ mod run_tests {
 			// Call BOB with input data, forcing it make a recursive call to itself to
 			// self-destruct, resulting in a trap.
 			assert_err_ignore_postinfo!(
-				builder::call(addr.clone()).data(vec![0]).build(),
+				builder::call(addr).data(vec![0]).build(),
 				Error::<Test>::ContractTrapped,
 			);
 
@@ -1316,7 +1310,7 @@ mod run_tests {
 			initialize_block(2);
 
 			// Call BOB without input data which triggers termination.
-			assert_matches!(builder::call(contract.addr.clone()).build(), Ok(_));
+			assert_matches!(builder::call(contract.addr).build(), Ok(_));
 
 			// Check that code is still there but refcount dropped to zero.
 			assert_refcount!(&code_hash, 0);
@@ -1344,7 +1338,7 @@ mod run_tests {
 					EventRecord {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Terminated {
-							contract: contract.addr.clone(),
+							contract: contract.addr,
 							beneficiary: DJANGO_ADDR,
 						}),
 						topics: vec![],
@@ -1353,7 +1347,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Called {
 							caller: Origin::from_account_id(ALICE),
-							contract: contract.addr.clone(),
+							contract: contract.addr,
 						}),
 						topics: vec![],
 					},
@@ -1361,7 +1355,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(
 							pallet_revive::Event::StorageDepositTransferredAndReleased {
-								from: contract.addr.clone(),
+								from: contract.addr,
 								to: ALICE_ADDR,
 								amount: info_deposit,
 							}
@@ -1473,8 +1467,7 @@ mod run_tests {
 				// We offset data in the contract tables by 1.
 				let mut params = vec![(n + 1) as u8];
 				params.extend_from_slice(input);
-				let result =
-					builder::bare_call(addr.clone()).data(params).build_and_unwrap_result();
+				let result = builder::bare_call(addr).data(params).build_and_unwrap_result();
 				assert!(!result.did_revert());
 				let expected = hash_fn(input.as_ref());
 				assert_eq!(&result.data[..*expected_size], &*expected);
@@ -1495,7 +1488,7 @@ mod run_tests {
 
 			// Contract has only the minimal balance so any transfer will fail.
 			<Test as Config>::Currency::set_balance(&contract.account_id, min_balance);
-			let result = builder::bare_call(contract.addr.clone()).build_and_unwrap_result();
+			let result = builder::bare_call(contract.addr).build_and_unwrap_result();
 			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
 		});
 	}
@@ -1516,7 +1509,7 @@ mod run_tests {
 			<Test as Config>::Currency::set_balance(&bob.account_id, min_balance);
 
 			// Contract calls into Django which is no valid contract
-			let result = builder::bare_call(bob.addr.clone())
+			let result = builder::bare_call(bob.addr)
 				.data(AsRef::<[u8]>::as_ref(&DJANGO).to_vec())
 				.build_and_unwrap_result();
 			assert_return_code!(result, RuntimeReturnCode::NotCallable);
@@ -1529,7 +1522,7 @@ mod run_tests {
 			<Test as Config>::Currency::set_balance(&django.account_id, min_balance);
 
 			// Contract has only the minimal balance so any transfer will fail.
-			let result = builder::bare_call(bob.addr.clone())
+			let result = builder::bare_call(bob.addr)
 				.data(
 					AsRef::<[u8]>::as_ref(&django.addr)
 						.iter()
@@ -1542,7 +1535,7 @@ mod run_tests {
 
 			// Contract has enough balance but callee reverts because "1" is passed.
 			<Test as Config>::Currency::set_balance(&bob.account_id, min_balance + 1000);
-			let result = builder::bare_call(bob.addr.clone())
+			let result = builder::bare_call(bob.addr)
 				.data(
 					AsRef::<[u8]>::as_ref(&django.addr)
 						.iter()
@@ -1587,20 +1580,19 @@ mod run_tests {
 
 			// Contract has only the minimal balance so any transfer will fail.
 			<Test as Config>::Currency::set_balance(&contract.account_id, min_balance);
-			let result = builder::bare_call(contract.addr.clone())
+			let result = builder::bare_call(contract.addr)
 				.data(callee_hash.clone())
 				.build_and_unwrap_result();
 			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
 
 			// Contract has enough balance but the passed code hash is invalid
 			<Test as Config>::Currency::set_balance(&contract.account_id, min_balance + 10_000);
-			let result = builder::bare_call(contract.addr.clone())
-				.data(vec![0; 33])
-				.build_and_unwrap_result();
+			let result =
+				builder::bare_call(contract.addr).data(vec![0; 33]).build_and_unwrap_result();
 			assert_return_code!(result, RuntimeReturnCode::CodeNotFound);
 
 			// Contract has enough balance but callee reverts because "1" is passed.
-			let result = builder::bare_call(contract.addr.clone())
+			let result = builder::bare_call(contract.addr)
 				.data(callee_hash.iter().chain(&1u32.to_le_bytes()).cloned().collect())
 				.build_and_unwrap_result();
 			assert_return_code!(result, RuntimeReturnCode::CalleeReverted);
@@ -1624,7 +1616,7 @@ mod run_tests {
 				.build_and_unwrap_contract();
 			TestExtension::disable();
 			assert_err_ignore_postinfo!(
-				builder::call(contract.addr.clone()).data(vec![7u8; 8]).build(),
+				builder::call(contract.addr).data(vec![7u8; 8]).build(),
 				Error::<Test>::NoChainExtension,
 			);
 		});
@@ -1643,35 +1635,35 @@ mod run_tests {
 			// 0 = read input buffer and pass it through as output
 			let input: Vec<u8> =
 				ExtensionInput { extension_id: 0, func_id: 0, extra: &[99] }.into();
-			let result = builder::bare_call(contract.addr.clone()).data(input.clone()).build();
+			let result = builder::bare_call(contract.addr).data(input.clone()).build();
 			assert_eq!(TestExtension::last_seen_buffer(), input);
 			assert_eq!(result.result.unwrap().data, input);
 
 			// 1 = treat inputs as integer primitives and store the supplied integers
-			builder::bare_call(contract.addr.clone())
+			builder::bare_call(contract.addr)
 				.data(ExtensionInput { extension_id: 0, func_id: 1, extra: &[] }.into())
 				.build_and_unwrap_result();
 			assert_eq!(TestExtension::last_seen_input_len(), 4);
 
 			// 2 = charge some extra weight (amount supplied in the fifth byte)
-			let result = builder::bare_call(contract.addr.clone())
+			let result = builder::bare_call(contract.addr)
 				.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &0u32.encode() }.into())
 				.build();
 			assert_ok!(result.result);
 			let gas_consumed = result.gas_consumed;
-			let result = builder::bare_call(contract.addr.clone())
+			let result = builder::bare_call(contract.addr)
 				.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &42u32.encode() }.into())
 				.build();
 			assert_ok!(result.result);
 			assert_eq!(result.gas_consumed.ref_time(), gas_consumed.ref_time() + 42);
-			let result = builder::bare_call(contract.addr.clone())
+			let result = builder::bare_call(contract.addr)
 				.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &95u32.encode() }.into())
 				.build();
 			assert_ok!(result.result);
 			assert_eq!(result.gas_consumed.ref_time(), gas_consumed.ref_time() + 95);
 
 			// 3 = diverging chain extension call that sets flags to 0x1 and returns a fixed buffer
-			let result = builder::bare_call(contract.addr.clone())
+			let result = builder::bare_call(contract.addr)
 				.data(ExtensionInput { extension_id: 0, func_id: 3, extra: &[] }.into())
 				.build_and_unwrap_result();
 			assert_eq!(result.flags, ReturnFlags::REVERT);
@@ -1680,7 +1672,7 @@ mod run_tests {
 			// diverging to second chain extension that sets flags to 0x1 and returns a fixed buffer
 			// We set the MSB part to 1 (instead of 0) which routes the request into the second
 			// extension
-			let result = builder::bare_call(contract.addr.clone())
+			let result = builder::bare_call(contract.addr)
 				.data(ExtensionInput { extension_id: 1, func_id: 0, extra: &[] }.into())
 				.build_and_unwrap_result();
 			assert_eq!(result.flags, ReturnFlags::REVERT);
@@ -1690,7 +1682,7 @@ mod run_tests {
 			// We set the MSB part to 2 (instead of 0) which routes the request into the third
 			// extension
 			assert_err_ignore_postinfo!(
-				builder::call(contract.addr.clone())
+				builder::call(contract.addr)
 					.data(ExtensionInput { extension_id: 2, func_id: 0, extra: &[] }.into())
 					.build(),
 				Error::<Test>::NoChainExtension,
@@ -1718,9 +1710,7 @@ mod run_tests {
 					.as_ref(),
 			);
 
-			assert_ok!(
-				builder::bare_call(contract.addr.clone()).data(input.clone()).build().result
-			);
+			assert_ok!(builder::bare_call(contract.addr).data(input.clone()).build().result);
 		})
 	}
 
@@ -1742,7 +1732,7 @@ mod run_tests {
 			child::put(trie, &[99], &42);
 
 			// Terminate the contract
-			assert_ok!(builder::call(contract.addr.clone()).build());
+			assert_ok!(builder::call(contract.addr).build());
 
 			// Contract info should be gone
 			assert!(!<ContractInfoOf::<Test>>::contains_key(&contract.addr));
@@ -1780,7 +1770,7 @@ mod run_tests {
 
 				// Terminate the contract. Contract info should be gone, but value should be still
 				// there as the lazy removal did not run, yet.
-				assert_ok!(builder::call(contract.addr.clone()).build());
+				assert_ok!(builder::call(contract.addr).build());
 
 				assert!(!<ContractInfoOf::<Test>>::contains_key(&contract.addr));
 				assert_matches!(child::get(trie, &[99]), Some(42));
@@ -1829,7 +1819,7 @@ mod run_tests {
 			<ContractInfoOf<Test>>::insert(&addr, info.clone());
 
 			// Terminate the contract
-			assert_ok!(builder::call(addr.clone()).build());
+			assert_ok!(builder::call(addr).build());
 
 			// Contract info should be gone
 			assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
@@ -1891,7 +1881,7 @@ mod run_tests {
 			child::put(trie, &[99], &42);
 
 			// Terminate the contract
-			assert_ok!(builder::call(addr.clone()).build());
+			assert_ok!(builder::call(addr).build());
 
 			// Contract info should be gone
 			assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
@@ -1954,7 +1944,7 @@ mod run_tests {
 			<ContractInfoOf<Test>>::insert(&addr, info.clone());
 
 			// Terminate the contract
-			assert_ok!(builder::call(addr.clone()).build());
+			assert_ok!(builder::call(addr).build());
 
 			// Contract info should be gone
 			assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
@@ -2021,7 +2011,7 @@ mod run_tests {
 
 				// Terminate the contract. Contract info should be gone, but value should be still
 				// there as the lazy removal did not run, yet.
-				assert_ok!(builder::call(addr.clone()).build());
+				assert_ok!(builder::call(addr).build());
 
 				assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
 				assert_matches!(child::get(trie, &[99]), Some(42));
@@ -2198,8 +2188,7 @@ mod run_tests {
 						.collect();
 
 					// Call in order to determine the gas that is required for this call
-					let result_orig =
-						builder::bare_call(addr_caller.clone()).data(input.clone()).build();
+					let result_orig = builder::bare_call(addr_caller).data(input.clone()).build();
 					assert_ok!(&result_orig.result);
 
 					// If the out of gas happens in the subcall the caller contract
@@ -2214,7 +2203,7 @@ mod run_tests {
 					};
 
 					// Make the same call using the estimated gas. Should succeed.
-					let result = builder::bare_call(addr_caller.clone())
+					let result = builder::bare_call(addr_caller)
 						.gas_limit(result_orig.gas_required)
 						.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero())
 						.data(input.clone())
@@ -2222,7 +2211,7 @@ mod run_tests {
 					assert_ok!(&result.result);
 
 					// Check that it fails with too little ref_time
-					let result = builder::bare_call(addr_caller.clone())
+					let result = builder::bare_call(addr_caller)
 						.gas_limit(result_orig.gas_required.sub_ref_time(1))
 						.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero())
 						.data(input.clone())
@@ -2230,7 +2219,7 @@ mod run_tests {
 					assert_err!(result.result, error);
 
 					// Check that it fails with too little proof_size
-					let result = builder::bare_call(addr_caller.clone())
+					let result = builder::bare_call(addr_caller)
 						.gas_limit(result_orig.gas_required.sub_proof_size(1))
 						.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero())
 						.data(input.clone())
@@ -2261,7 +2250,7 @@ mod run_tests {
 				pre_charge: Weight::from_parts(10_000_000, 1_000),
 				actual_weight: Weight::from_parts(100, 100),
 			});
-			let result = builder::bare_call(addr_caller.clone()).data(call.encode()).build();
+			let result = builder::bare_call(addr_caller).data(call.encode()).build();
 			// contract encodes the result of the dispatch runtime
 			let outcome = u32::decode(&mut result.result.unwrap().data.as_ref()).unwrap();
 			assert_eq!(outcome, 0);
@@ -2310,9 +2299,8 @@ mod run_tests {
 
 			// Call runtime to re-enter back to contracts engine by
 			// calling dummy contract
-			let result = builder::bare_call(addr_caller.clone())
-				.data(call.encode())
-				.build_and_unwrap_result();
+			let result =
+				builder::bare_call(addr_caller).data(call.encode()).build_and_unwrap_result();
 			// Call to runtime should fail because of the re-entrancy guard
 			assert_return_code!(result, RuntimeReturnCode::CallRuntimeFailed);
 		});
@@ -2353,7 +2341,7 @@ mod run_tests {
 			params.extend_from_slice(&signature);
 			params.extend_from_slice(&message_hash);
 			assert!(params.len() == 65 + 32);
-			let result = builder::bare_call(addr.clone()).data(params).build_and_unwrap_result();
+			let result = builder::bare_call(addr).data(params).build_and_unwrap_result();
 			assert!(!result.did_revert());
 			assert_eq!(result.data, EXPECTED_COMPRESSED_PUBLIC_KEY);
 		})
@@ -2404,9 +2392,8 @@ mod run_tests {
 				.value(min_balance * 100)
 				.build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr.clone())
-				.collect_events(CollectEvents::UnsafeCollect)
-				.build();
+			let result =
+				builder::bare_call(addr).collect_events(CollectEvents::UnsafeCollect).build();
 
 			let events = result.events.unwrap();
 			assert_return_code!(&result.result.unwrap(), RuntimeReturnCode::Success);
@@ -2426,7 +2413,7 @@ mod run_tests {
 				.value(min_balance * 100)
 				.build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr.clone()).build();
+			let result = builder::bare_call(addr).build();
 
 			let events = result.events;
 			assert_return_code!(&result.result.unwrap(), RuntimeReturnCode::Success);
@@ -2469,7 +2456,7 @@ mod run_tests {
 				params.extend_from_slice(&public_key);
 				params.extend_from_slice(message);
 
-				builder::bare_call(addr.clone()).data(params).build_and_unwrap_result()
+				builder::bare_call(addr).data(params).build_and_unwrap_result()
 			};
 
 			// verification should succeed for "hello world"
@@ -2789,7 +2776,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 							deployer: ALICE_ADDR,
-							contract: addr.clone(),
+							contract: addr,
 						}),
 						topics: vec![],
 					},
@@ -2798,7 +2785,7 @@ mod run_tests {
 						event: RuntimeEvent::Contracts(
 							pallet_revive::Event::StorageDepositTransferredAndHeld {
 								from: ALICE_ADDR,
-								to: addr.clone(),
+								to: addr,
 								amount: test_utils::contract_info_storage_deposit(&addr),
 							}
 						),
@@ -2883,7 +2870,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 							deployer: ALICE_ADDR,
-							contract: addr.clone(),
+							contract: addr,
 						}),
 						topics: vec![],
 					},
@@ -2892,7 +2879,7 @@ mod run_tests {
 						event: RuntimeEvent::Contracts(
 							pallet_revive::Event::StorageDepositTransferredAndHeld {
 								from: ALICE_ADDR,
-								to: addr.clone(),
+								to: addr,
 								amount: test_utils::contract_info_storage_deposit(&addr),
 							}
 						),
@@ -2918,20 +2905,20 @@ mod run_tests {
 			initialize_block(2);
 
 			// Create storage
-			assert_ok!(builder::call(addr.clone()).value(42).data((50u32, 20u32).encode()).build());
+			assert_ok!(builder::call(addr).value(42).data((50u32, 20u32).encode()).build());
 			// 4 is for creating 2 storage items
 			let charged0 = 4 + 50 + 20;
 			deposit += charged0;
 			assert_eq!(get_contract(&addr).total_deposit(), deposit);
 
 			// Add more storage (but also remove some)
-			assert_ok!(builder::call(addr.clone()).data((100u32, 10u32).encode()).build());
+			assert_ok!(builder::call(addr).data((100u32, 10u32).encode()).build());
 			let charged1 = 50 - 10;
 			deposit += charged1;
 			assert_eq!(get_contract(&addr).total_deposit(), deposit);
 
 			// Remove more storage (but also add some)
-			assert_ok!(builder::call(addr.clone()).data((10u32, 20u32).encode()).build());
+			assert_ok!(builder::call(addr).data((10u32, 20u32).encode()).build());
 			// -1 for numeric instability
 			let refunded0 = 90 - 10 - 1;
 			deposit -= refunded0;
@@ -2953,7 +2940,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Called {
 							caller: Origin::from_account_id(ALICE),
-							contract: addr.clone(),
+							contract: addr,
 						}),
 						topics: vec![],
 					},
@@ -2962,7 +2949,7 @@ mod run_tests {
 						event: RuntimeEvent::Contracts(
 							pallet_revive::Event::StorageDepositTransferredAndHeld {
 								from: ALICE_ADDR,
-								to: addr.clone(),
+								to: addr,
 								amount: charged0,
 							}
 						),
@@ -2972,7 +2959,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Called {
 							caller: Origin::from_account_id(ALICE),
-							contract: addr.clone(),
+							contract: addr,
 						}),
 						topics: vec![],
 					},
@@ -2981,7 +2968,7 @@ mod run_tests {
 						event: RuntimeEvent::Contracts(
 							pallet_revive::Event::StorageDepositTransferredAndHeld {
 								from: ALICE_ADDR,
-								to: addr.clone(),
+								to: addr,
 								amount: charged1,
 							}
 						),
@@ -2991,7 +2978,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Called {
 							caller: Origin::from_account_id(ALICE),
-							contract: addr.clone(),
+							contract: addr,
 						}),
 						topics: vec![],
 					},
@@ -2999,7 +2986,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(
 							pallet_revive::Event::StorageDepositTransferredAndReleased {
-								from: addr.clone(),
+								from: addr,
 								to: ALICE_ADDR,
 								amount: refunded0,
 							}
@@ -3066,7 +3053,7 @@ mod run_tests {
 
 			// only root can execute this extrinsic
 			assert_noop!(
-				Contracts::set_code(RuntimeOrigin::signed(ALICE), addr.clone(), new_code_hash),
+				Contracts::set_code(RuntimeOrigin::signed(ALICE), addr, new_code_hash),
 				sp_runtime::traits::BadOrigin,
 			);
 			assert_eq!(get_contract(&addr).code_hash, code_hash);
@@ -3086,7 +3073,7 @@ mod run_tests {
 
 			// new code hash must exist
 			assert_noop!(
-				Contracts::set_code(RuntimeOrigin::root(), addr.clone(), Default::default()),
+				Contracts::set_code(RuntimeOrigin::root(), addr, Default::default()),
 				<Error<Test>>::CodeNotFound,
 			);
 			assert_eq!(get_contract(&addr).code_hash, code_hash);
@@ -3095,7 +3082,7 @@ mod run_tests {
 			assert_eq!(System::events(), vec![]);
 
 			// successful call
-			assert_ok!(Contracts::set_code(RuntimeOrigin::root(), addr.clone(), new_code_hash));
+			assert_ok!(Contracts::set_code(RuntimeOrigin::root(), addr, new_code_hash));
 			assert_eq!(get_contract(&addr).code_hash, new_code_hash);
 			assert_refcount!(&code_hash, 0);
 			assert_refcount!(&new_code_hash, 1);
@@ -3104,7 +3091,7 @@ mod run_tests {
 				vec![EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(pallet_revive::Event::ContractCodeUpdated {
-						contract: addr.clone(),
+						contract: addr,
 						new_code_hash,
 						old_code_hash: code_hash,
 					}),
@@ -3206,12 +3193,12 @@ mod run_tests {
 
 			// Calling extrinsic: revert leads to an error
 			assert_err_ignore_postinfo!(
-				builder::call(addr.clone()).data(input.clone()).build(),
+				builder::call(addr).data(input.clone()).build(),
 				<Error<Test>>::ContractReverted,
 			);
 
 			// Calling directly: revert leads to success but the flags indicate the error
-			let result = builder::bare_call(addr.clone()).data(input).build_and_unwrap_result();
+			let result = builder::bare_call(addr).data(input).build_and_unwrap_result();
 			assert_eq!(result.flags, flags);
 			assert_eq!(result.data, buffer);
 		});
@@ -3240,14 +3227,14 @@ mod run_tests {
 			System::reset_events();
 
 			// First call sets new code_hash and returns 1
-			let result = builder::bare_call(contract_addr.clone())
+			let result = builder::bare_call(contract_addr)
 				.data(new_code_hash.as_ref().to_vec())
 				.debug(DebugInfo::UnsafeDebug)
 				.build_and_unwrap_result();
 			assert_return_code!(result, 1);
 
 			// Second calls new contract code that returns 2
-			let result = builder::bare_call(contract_addr.clone())
+			let result = builder::bare_call(contract_addr)
 				.debug(DebugInfo::UnsafeDebug)
 				.build_and_unwrap_result();
 			assert_return_code!(result, 2);
@@ -3259,7 +3246,7 @@ mod run_tests {
 					EventRecord {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::ContractCodeUpdated {
-							contract: contract_addr.clone(),
+							contract: contract_addr,
 							new_code_hash,
 							old_code_hash: code_hash,
 						}),
@@ -3269,7 +3256,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Called {
 							caller: Origin::from_account_id(ALICE),
-							contract: contract_addr.clone(),
+							contract: contract_addr,
 						}),
 						topics: vec![],
 					},
@@ -3277,7 +3264,7 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::Called {
 							caller: Origin::from_account_id(ALICE),
-							contract: contract_addr.clone(),
+							contract: contract_addr,
 						}),
 						topics: vec![],
 					},
@@ -3319,7 +3306,7 @@ mod run_tests {
 			// setting insufficient deposit limit, as it requires 3 Balance:
 			// 2 for the item added + 1 for the new storage item.
 			assert_err_ignore_postinfo!(
-				builder::call(addr.clone())
+				builder::call(addr)
 					.storage_deposit_limit(2)
 					.data(1u32.to_le_bytes().to_vec())
 					.build(),
@@ -3329,7 +3316,7 @@ mod run_tests {
 			// Create 1 byte of storage, should cost 3 Balance:
 			// 2 for the item added + 1 for the new storage item.
 			// Should pass as it fallbacks to DefaultDepositLimit.
-			assert_ok!(builder::call(addr.clone())
+			assert_ok!(builder::call(addr)
 				.storage_deposit_limit(3)
 				.data(1u32.to_le_bytes().to_vec())
 				.build());
@@ -3337,7 +3324,7 @@ mod run_tests {
 			// Use 4 more bytes of the storage for the same item, which requires 4 Balance.
 			// Should fail as DefaultDepositLimit is 3 and hence isn't enough.
 			assert_err_ignore_postinfo!(
-				builder::call(addr.clone())
+				builder::call(addr)
 					.storage_deposit_limit(3)
 					.data(5u32.to_le_bytes().to_vec())
 					.build(),
@@ -3361,7 +3348,7 @@ mod run_tests {
 
 			// Create 100 bytes of storage with a price of per byte
 			// This is 100 Balance + 2 Balance for the item
-			assert_ok!(builder::call(addr_callee.clone())
+			assert_ok!(builder::call(addr_callee)
 				.storage_deposit_limit(102)
 				.data(100u32.to_le_bytes().to_vec())
 				.build());
@@ -3372,7 +3359,7 @@ mod run_tests {
 			// This should fail as the specified parent's limit is less than the cost: 13 <
 			// 14.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller.clone())
+				builder::call(addr_caller)
 					.storage_deposit_limit(13)
 					.data((100u32, &addr_callee, 0u64).encode())
 					.build(),
@@ -3386,7 +3373,7 @@ mod run_tests {
 			// This should fail as the specified parent's limit is less than the cost: 14
 			// < 15.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller.clone())
+				builder::call(addr_caller)
 					.storage_deposit_limit(14)
 					.data((101u32, &addr_callee, 0u64).encode())
 					.build(),
@@ -3399,7 +3386,7 @@ mod run_tests {
 			// that the nested call should have a deposit limit of at least 2 Balance. The
 			// sub-call should be rolled back, which is covered by the next test case.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller.clone())
+				builder::call(addr_caller)
 					.storage_deposit_limit(16)
 					.data((102u32, &addr_callee, 1u64).encode())
 					.build(),
@@ -3410,7 +3397,7 @@ mod run_tests {
 			// caller. Note that if previous sub-call wouldn't roll back, this call would pass
 			// making the test case fail. We don't set a special limit for the nested call here.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller.clone())
+				builder::call(addr_caller)
 					.storage_deposit_limit(0)
 					.data((87u32, &addr_callee, 0u64).encode())
 					.build(),
@@ -3422,16 +3409,14 @@ mod run_tests {
 			// Require more than the sender's balance.
 			// We don't set a special limit for the nested call.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller.clone())
-					.data((512u32, &addr_callee, 1u64).encode())
-					.build(),
+				builder::call(addr_caller).data((512u32, &addr_callee, 1u64).encode()).build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
 
 			// Same as above but allow for the additional deposit of 1 Balance in parent.
 			// We set the special deposit limit of 1 Balance for the nested call, which isn't
 			// enforced as callee frees up storage. This should pass.
-			assert_ok!(builder::call(addr_caller.clone())
+			assert_ok!(builder::call(addr_caller)
 				.storage_deposit_limit(1)
 				.data((87u32, &addr_callee, 1u64).encode())
 				.build());
@@ -3471,7 +3456,7 @@ mod run_tests {
 			// Provided the limit is set to be 1 Balance less,
 			// this call should fail on the return from the caller contract.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller.clone())
+				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 1)
 					.data((0u32, &code_hash_callee, 0u64).encode())
@@ -3485,7 +3470,7 @@ mod run_tests {
 			// byte in the constructor. Hence +1 Balance to the limit is needed. This should fail on
 			// the return from constructor.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller.clone())
+				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 2)
 					.data((1u32, &code_hash_callee, 0u64).encode())
@@ -3499,7 +3484,7 @@ mod run_tests {
 			// instantiate. This should fail during the charging for the instantiation in
 			// `RawMeter::charge_instantiate()`
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller.clone())
+				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 2)
 					.data((0u32, &code_hash_callee, callee_info_len + 2 + ED + 1).encode())
@@ -3514,7 +3499,7 @@ mod run_tests {
 			// Now we set enough limit for the parent call, but insufficient limit for child
 			// instantiate. This should fail right after the constructor execution.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller.clone())
+				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 3) // enough parent limit
 					.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 2).encode())
@@ -3525,7 +3510,7 @@ mod run_tests {
 			assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
 			// Set enough deposit limit for the child instantiate. This should succeed.
-			let result = builder::bare_call(addr_caller.clone())
+			let result = builder::bare_call(addr_caller)
 				.origin(RuntimeOrigin::signed(BOB))
 				.storage_deposit_limit(callee_info_len + 2 + ED + 4)
 				.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 3).encode())
@@ -3583,7 +3568,7 @@ mod run_tests {
 			)
 			.unwrap();
 			assert_err_ignore_postinfo!(
-				builder::call(addr.clone())
+				builder::call(addr)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(10_000)
 					.data(100u32.to_le_bytes().to_vec())
@@ -3617,7 +3602,7 @@ mod run_tests {
 
 			// check that the deposit can't bring the account below the existential deposit
 			assert_err_ignore_postinfo!(
-				builder::call(addr.clone())
+				builder::call(addr)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(10_000)
 					.data(100u32.to_le_bytes().to_vec())
@@ -3655,7 +3640,7 @@ mod run_tests {
 			// 50 for the storage deposit. Which is not enough to store the 50 bytes
 			// as we also need 2 bytes for the item
 			assert_err_ignore_postinfo!(
-				builder::call(addr.clone())
+				builder::call(addr)
 					.origin(RuntimeOrigin::signed(BOB))
 					.value(750)
 					.storage_deposit_limit(10_000)
@@ -3697,7 +3682,7 @@ mod run_tests {
 
 		// Call contract with the given input.
 		let call = |addr_caller: &H160, input: &(u32, H256)| {
-			builder::bare_call(addr_caller.clone())
+			builder::bare_call(*addr_caller)
 				.origin(RuntimeOrigin::signed(ETH_ALICE))
 				.data(input.encode())
 				.build()
@@ -3797,7 +3782,7 @@ mod run_tests {
 
 			// Locking a dependency with a storage limit too low should fail.
 			assert_err!(
-				builder::bare_call(addr_caller.clone())
+				builder::bare_call(addr_caller)
 					.storage_deposit_limit(dependency_deposit - 1)
 					.data(lock_delegate_dependency_input.encode())
 					.build()
@@ -3889,7 +3874,7 @@ mod run_tests {
 				);
 
 				// call set_code_hash
-				builder::bare_call(addr.clone())
+				builder::bare_call(addr)
 					.data(dummy_code_hash.encode())
 					.build_and_unwrap_result();
 
@@ -3966,7 +3951,7 @@ mod run_tests {
 				builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_contract();
 
 			// Call the contract.
-			assert_ok!(builder::call(addr.clone()).origin(RuntimeOrigin::root()).build());
+			assert_ok!(builder::call(addr).origin(RuntimeOrigin::root()).build());
 		});
 	}
 
@@ -4075,12 +4060,12 @@ mod run_tests {
 			let value = 0;
 			// Call BOB which makes it call the balance runtime API.
 			// The contract code asserts that the returned balance is 0.
-			assert_ok!(builder::call(addr.clone()).value(value).build());
+			assert_ok!(builder::call(addr).value(value).build());
 
 			let value = 1;
 			// Calling with value will trap the contract.
 			assert_err_ignore_postinfo!(
-				builder::call(addr.clone()).value(value).build(),
+				builder::call(addr).value(value).build(),
 				<Error<Test>>::ContractTrapped
 			);
 		});
@@ -4099,7 +4084,7 @@ mod run_tests {
 				[0u32, 1u32, 2u32, limits::CALL_STACK_DEPTH]
 					.iter()
 					.map(|i| {
-						let result = builder::bare_call(addr.clone()).data(i.encode()).build();
+						let result = builder::bare_call(addr).data(i.encode()).build();
 						assert_ok!(result.result);
 						result.gas_consumed
 					})
@@ -4203,7 +4188,7 @@ mod run_tests {
 			let Contract { addr: addr_callee, .. } =
 				builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_contract();
 
-			assert_ok!(builder::call(addr_caller.clone()).data(addr_callee.encode()).build());
+			assert_ok!(builder::call(addr_caller).data(addr_callee.encode()).build());
 		});
 	}
 }

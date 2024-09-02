@@ -992,7 +992,7 @@ pub mod pallet {
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
 				Self::deposit_event(Event::ContractCodeUpdated {
-					contract: dest.clone(),
+					contract: dest,
 					new_code_hash: code_hash,
 					old_code_hash: contract.code_hash,
 				});

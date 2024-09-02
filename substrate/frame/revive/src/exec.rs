@@ -1020,12 +1020,12 @@ where
 					// Deposit an instantiation event.
 					Contracts::<T>::deposit_event(Event::Instantiated {
 						deployer: caller,
-						contract: account_id.clone(),
+						contract: account_id,
 					});
 				},
 				(ExportedFunction::Call, Some(code_hash)) => {
 					Contracts::<T>::deposit_event(Event::DelegateCalled {
-						contract: account_id.clone(),
+						contract: account_id,
 						code_hash,
 					});
 				},
@@ -1039,7 +1039,7 @@ where
 					let caller = self.caller();
 					Contracts::<T>::deposit_event(Event::Called {
 						caller: caller.clone(),
-						contract: account_id.clone(),
+						contract: account_id,
 					});
 				},
 			}
@@ -1364,7 +1364,7 @@ where
 
 		Contracts::<T>::deposit_event(Event::Terminated {
 			contract: account_address,
-			beneficiary: beneficiary.clone(),
+			beneficiary: *beneficiary,
 		});
 		Ok(())
 	}
@@ -2656,7 +2656,7 @@ mod tests {
 				);
 
 				let instantiated_contract_address =
-					instantiated_contract_address.borrow().as_ref().unwrap().clone();
+					*instantiated_contract_address.borrow().as_ref().unwrap();
 
 				let instantiated_contract_id =
 					<Test as Config>::AddressMapper::to_account_id_contract(
