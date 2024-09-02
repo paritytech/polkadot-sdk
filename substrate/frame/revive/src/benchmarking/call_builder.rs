@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	address::AddressMapper,
 	benchmarking::{default_deposit_limit, Contract, WasmModule},
 	exec::{ExportedFunction, Ext, Key, Stack},
 	storage::meter::Meter,
@@ -59,7 +60,7 @@ where
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 {
 	/// Setup a new call for the given module.
-	pub fn new(module: WasmModule<T>) -> Self {
+	pub fn new(module: WasmModule) -> Self {
 		let contract = Contract::<T>::new(module.clone(), vec![]).unwrap();
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
@@ -74,7 +75,10 @@ where
 		// Whitelist the contract's contractInfo as it is already accounted for in the call
 		// benchmark
 		benchmarking::add_to_whitelist(
-			crate::ContractInfoOf::<T>::hashed_key_for(&contract.account_id).into(),
+			crate::ContractInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
+				&contract.account_id,
+			))
+			.into(),
 		);
 
 		Self {
@@ -138,7 +142,7 @@ where
 	/// Build the call stack.
 	pub fn ext(&mut self) -> (StackExt<'_, T>, WasmBlob<T>) {
 		let mut ext = StackExt::bench_new_call(
-			self.dest.clone(),
+			T::AddressMapper::to_address(&self.dest),
 			self.origin.clone(),
 			&mut self.gas_meter,
 			&mut self.storage_meter,
