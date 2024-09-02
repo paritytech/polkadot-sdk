@@ -1262,7 +1262,7 @@ pub mod env {
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
-		salt_len: u32,
+		_salt_len: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.instantiate(
 			memory,
