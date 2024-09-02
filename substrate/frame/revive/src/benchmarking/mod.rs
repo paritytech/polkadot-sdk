@@ -411,7 +411,6 @@ mod benchmarks {
 		let code_deposit =
 			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &account_id);
 		// value was removed from the caller
-		let _balance = T::Currency::total_balance(&caller);
 		assert_eq!(
 			T::Currency::total_balance(&caller),
 			caller_funding::<T>() - value - deposit - code_deposit - Pallet::<T>::min_balance(),
