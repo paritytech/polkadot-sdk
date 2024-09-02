@@ -585,10 +585,15 @@ pub mod pallet {
 			})
 		}
 
+		/// Return bridge metadata by bridge_id
+		pub fn bridge(bridge_id: &BridgeId) -> Option<BridgeOf<T, I>> {
+			Bridges::<T, I>::get(bridge_id)
+		}
+
 		/// Return bridge metadata by lane_id
 		pub fn bridge_by_lane_id(lane_id: &LaneId) -> Option<(BridgeId, BridgeOf<T, I>)> {
 			LaneToBridge::<T, I>::get(lane_id)
-				.and_then(|bridge_id| Self::bridge(bridge_id).map(|bridge| (bridge_id, bridge)))
+				.and_then(|bridge_id| Self::bridge(&bridge_id).map(|bridge| (bridge_id, bridge)))
 		}
 	}
 
@@ -707,7 +712,6 @@ pub mod pallet {
 
 	/// All registered bridges.
 	#[pallet::storage]
-	#[pallet::getter(fn bridge)]
 	pub type Bridges<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, BridgeId, BridgeOf<T, I>>;
 	/// All registered `lane_id` and `bridge_id` mappings.
