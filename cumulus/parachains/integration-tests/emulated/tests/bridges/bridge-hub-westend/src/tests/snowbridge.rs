@@ -325,7 +325,7 @@ fn transfer_relay_token() {
 		));
 
 		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
-			RuntimeOrigin::signed(BridgeHubWestendSender::get()),
+			RuntimeOrigin::root(),
 			Box::new(VersionedLocation::V4(asset_id.clone())),
 			AssetMetadata {
 				name: "wnd".as_bytes().to_vec().try_into().unwrap(),
@@ -457,6 +457,7 @@ fn transfer_ah_token() {
 		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&ethereum_destination)
 			.unwrap()
 			.into();
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	let asset_id: Location =
 		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())].into();

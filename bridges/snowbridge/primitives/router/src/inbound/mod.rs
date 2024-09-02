@@ -393,7 +393,7 @@ where
 		asset_hub_fee: u128,
 	) -> Result<(Xcm<()>, Balance), ConvertMessageError> {
 		let network = Ethereum { chain_id };
-		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
+		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee / 2).into();
 
 		let (dest_para_id, beneficiary, dest_para_fee) = match destination {
 			// Final destination is a 32-byte account on AssetHub
@@ -428,7 +428,6 @@ where
 			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
 			UniversalOrigin(GlobalConsensus(network)),
 			WithdrawAsset(asset.clone().into()),
-			SetFeesMode { jit_withdraw: true },
 		];
 
 		match dest_para_id {
@@ -436,9 +435,16 @@ where
 				let dest_para_fee_asset: Asset = (Location::parent(), dest_para_fee).into();
 
 				instructions.extend(vec![
-					// Perform a deposit reserve to send to destination chain.
+					// Perform a reserve withdraw to send to destination chain. Leave half of the
+					// asset_hub_fee for the delivery cost
 					InitiateReserveWithdraw {
-						assets: Wild(AllCounted(2)),
+						assets: Definite(
+							vec![
+								asset.clone(),
+								(Location::parent(), dest_para_fee + asset_hub_fee / 2).into(),
+							]
+							.into(),
+						),
 						reserve: Location::new(1, [Parachain(dest_para_id)]),
 						xcm: vec![
 							// Buy execution on target.
