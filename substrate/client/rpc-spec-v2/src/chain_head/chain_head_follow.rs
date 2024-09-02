@@ -551,13 +551,7 @@ where
 		});
 
 		if let Some(current_best_block) = self.current_best_block {
-			// There are two cases when the best block is on fork:
-			//  - The best block is in the pruned list and is reported immediately
-			//  - The best block is on another fork that will be pruned in the future.
-			//
-			// For both cases, we need to report a new best block.
-
-			// Case 1. The best reported block is in the pruned list.
+			// We need to generate a new best block if the best block is in the pruned list.
 			let is_in_pruned_list =
 				pruned_block_hashes.iter().any(|hash| *hash == current_best_block);
 			if is_in_pruned_list {
@@ -566,16 +560,18 @@ where
 					best_block_hash: last_finalized,
 				}));
 			} else {
-				// Case 2. Check if the best block is a descendant of the last finalized block.
+				// The pruning logic ensures that when the finalized block is announced,
+				// all blocks on forks that have the common ancestor lower or equal
+				// to the finalized block are reported.
+				//
+				// However, we double check if the best block is a descendant of the last finalized
+				// block to ensure we don't miss any events.
 				let ancestor = sp_blockchain::lowest_common_ancestor(
 					&*self.client,
 					last_finalized,
 					current_best_block,
 				)?;
-
 				let is_descendant = ancestor.hash == last_finalized;
-				// If the best block is not a descendant of the last finalized block, it means that
-				// the best block is on a fork, that will be pruned in the future.
 				if !is_descendant {
 					self.current_best_block = Some(last_finalized);
 					events.push(FollowEvent::BestBlockChanged(BestBlockChanged {
