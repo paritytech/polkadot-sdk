@@ -17,6 +17,7 @@
 
 //! Functions that deal contract addresses.
 
+use alloc::vec::Vec;
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
 use sp_runtime::AccountId32;
