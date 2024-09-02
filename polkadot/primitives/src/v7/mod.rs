@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! `V7` Primitives.
-
 use alloc::{
 	vec,
 	vec::{IntoIter, Vec},
@@ -1154,7 +1153,7 @@ pub enum OccupiedCoreAssumption {
 	Free,
 }
 
-/// An even concerning a candidate.
+/// An event concerning a candidate.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum CandidateEvent<H = Hash> {
@@ -2052,7 +2051,7 @@ pub mod node_features {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
 	use super::*;
 	use bitvec::bitvec;
 	use sp_core::sr25519;
