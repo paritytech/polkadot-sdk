@@ -8,20 +8,21 @@ doc:
       - Runtime dev
       - Runtime user
     description: |
-    Adds: `DeprecationStatusIR` enum to sp_metadata_ir.
-      - Is a deprecation info for simple items.
-    Adds: `DeprecationInfoIR` enum to sp_metadata_ir.
-      - It is a deprecation info for an enums/errors/calls. Contains `DeprecationStatusIR`.
-        Also denotes full/partial deprecation of the type or its variants/calls.
-    Adds: `deprecation_info` field to 
-       - `RuntimeApiMetadataIR`
-       - `RuntimeApiMethodMetadataIR`
-       - `StorageEntryMetadataIR`
-       - `PalletConstantMetadataIR`
-       - `PalletCallMetadataIR`
-       - `PalletMetadataIR`
-       - `PalletEventMetadataIR`
-       - `PalletErrorMetadataIR`
+      Changes introduced are listed below.
+      Adds `DeprecationStatusIR` enum to sp_metadata_ir.
+        - Is a deprecation info for simple items.
+      Adds `DeprecationInfoIR` enum to sp_metadata_ir.
+        - It is a deprecation info for an enums/errors/calls. Contains `DeprecationStatusIR`.
+          Also denotes full/partial deprecation of the type or its variants/calls.
+      Adds `deprecation_info` field to 
+        - `RuntimeApiMetadataIR`
+        - `RuntimeApiMethodMetadataIR`
+        - `StorageEntryMetadataIR`
+        - `PalletConstantMetadataIR`
+        - `PalletCallMetadataIR`
+        - `PalletMetadataIR`
+        - `PalletEventMetadataIR`
+        - `PalletErrorMetadataIR`
 
 crates:
   - name: frame-support-procedural

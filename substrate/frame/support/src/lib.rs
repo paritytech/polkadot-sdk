@@ -1054,9 +1054,9 @@ pub mod pallet_prelude {
 ///
 /// ## Note on deprecation.
 ///
-/// - Usage of [`deprecated`] attribute will propagate deprecation information to the pallet
+/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 ///   metadata.
-/// - For general usage examples of [`deprecated`] attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 pub use frame_support_procedural::pallet;
 
 /// Contains macro stubs for all of the `pallet::` macros
@@ -1901,9 +1901,9 @@ pub mod pallet_macros {
 	///
 	/// ## Note on deprecation of Errors
 	///
-	/// - Usage of [`deprecated`] attribute will propagate deprecation information to the
+	/// - Usage of `deprecated` attribute will propagate deprecation information to the
 	///   pallet metadata where the item was declared.
-	/// - For general usage examples of [`deprecated`] attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 	/// - It's possible to deprecated either certain variants inside the [`Error`] or the whole
 	///   [`Error`] itself. If both the [`Error`] and its variants are deprecated a compile
 	///   error will be returned.
@@ -1951,9 +1951,9 @@ pub mod pallet_macros {
 	///
 	/// ## Note on deprecation of Events
 	///
-	/// - Usage of [`deprecated`] attribute will propagate deprecation information to the
+	/// - Usage of `deprecated` attribute will propagate deprecation information to the
 	///   pallet metadata where the item was declared.
-	/// - For general usage examples of [`deprecated`] attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 	/// - It's possible to deprecated either certain variants inside the [`Event`] or the whole
 	///   [`Event`] itself. If both the [`Event`] and its variants are deprecated a compile
 	///   error will be returned.
@@ -2080,9 +2080,9 @@ pub mod pallet_macros {
 	///
 	/// ## Note on deprecation of Calls
 	///
-	/// - Usage of [`deprecated`] attribute will propagate deprecation information to the
+	/// - Usage of `deprecated` attribute will propagate deprecation information to the
 	///   pallet metadata where the item was declared.
-	/// - For general usage examples of [`deprecated`] attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 	pub use frame_support_procedural::call;
 
 	/// Enforce the index of a variant in the generated `enum Call`.
@@ -2218,9 +2218,9 @@ pub mod pallet_macros {
 	///
 	/// ## Note on deprecation of constants
 	///
-	/// - Usage of [`deprecated`] attribute will propagate deprecation information to the
+	/// - Usage of `deprecated` attribute will propagate deprecation information to the
 	///   pallet metadata where the item was declared.
-	/// - For general usage examples of [`deprecated`] attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 	pub use frame_support_procedural::constant;
 
 	/// Declares a type alias as a storage item.
@@ -2442,9 +2442,9 @@ pub mod pallet_macros {
 	///
 	/// ## Note on deprecation of storage items
 	///
-	/// - Usage of [`deprecated`] attribute will propagate deprecation information to the
+	/// - Usage of `deprecated` attribute will propagate deprecation information to the
 	///   pallet metadata where the storage item was declared.
-	/// - For general usage examples of [`deprecated`] attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 	pub use frame_support_procedural::storage;
 
 	pub use frame_support_procedural::{

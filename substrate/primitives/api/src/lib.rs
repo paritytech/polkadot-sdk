@@ -261,8 +261,8 @@ pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
 ///
 /// ## Note on deprecation.
 ///
-/// - Usage of [`deprecated`] attribute will propagate deprecation information to the metadata.
-/// - For general usage examples of [`deprecated`] attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+/// - Usage of `deprecated` attribute will propagate deprecation information to the metadata.
+/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 pub use sp_api_proc_macro::decl_runtime_apis;
 
 /// Tags given trait implementations as runtime apis.
