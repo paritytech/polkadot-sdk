@@ -668,7 +668,7 @@ chrono = { version = "0.4.31" }
 cid = { version = "0.9.0" }
 clap = { version = "4.5.10" }
 clap-num = { version = "1.0.2" }
-clap_complete = { version = "4.0.2" }
+clap_complete = { version = "4.5.13" }
 coarsetime = { version = "0.1.22" }
 codec = { version = "3.6.12", default-features = false, package = "parity-scale-codec" }
 collectives-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend" }
