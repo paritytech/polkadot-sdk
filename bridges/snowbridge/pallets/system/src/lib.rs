@@ -604,12 +604,12 @@ pub mod pallet {
 			location: Box<VersionedLocation>,
 			metadata: AssetMetadata,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			ensure_root(origin)?;
 
 			let asset_loc: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			let pays_fee = PaysFee::<T>::Yes(who);
+			let pays_fee = PaysFee::<T>::No;
 
 			Self::do_register_token(asset_loc, metadata, pays_fee)?;
 

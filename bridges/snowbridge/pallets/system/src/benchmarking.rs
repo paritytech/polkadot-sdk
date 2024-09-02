@@ -177,7 +177,7 @@ mod benchmarks {
 		};
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), asset, asset_metadata);
+		_(RawOrigin::Root, asset, asset_metadata);
 
 		Ok(())
 	}
