@@ -1285,7 +1285,7 @@ sp_api::decl_runtime_apis! {
 		/// See [`crate::Pallet::bare_call`].
 		fn call(
 			origin: AccountId,
-			dest: AccountId,
+			dest: H160,
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
@@ -1302,7 +1302,7 @@ sp_api::decl_runtime_apis! {
 			storage_deposit_limit: Option<Balance>,
 			code: Code,
 			data: Vec<u8>,
-			salt: Vec<u8>,
+			salt: [u8; 32],
 		) -> ContractInstantiateResult<Balance, EventRecord>;
 
 		/// Upload new code without instantiating a contract from it.
@@ -1320,7 +1320,7 @@ sp_api::decl_runtime_apis! {
 		/// specified account and `Ok(None)` if it doesn't. If the account specified by the address
 		/// doesn't exist, or doesn't have a contract then `Err` is returned.
 		fn get_storage(
-			address: AccountId,
+			address: H160,
 			key: Vec<u8>,
 		) -> GetStorageResult;
 	}
