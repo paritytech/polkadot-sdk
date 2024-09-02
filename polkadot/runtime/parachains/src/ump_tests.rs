@@ -644,7 +644,7 @@ fn cannot_offboard_while_ump_dispatch_queued() {
 	});
 }
 
-/// A para-chain cannot send an UMP to the relay chain while it is offboarding.
+/// Test UMP signals are filtered out and don't consume `max_upward_message_num_per_candidate`.
 #[test]
 fn enqueue_ump_signals() {
 	let para = 100.into();
