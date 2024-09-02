@@ -11,7 +11,7 @@ use codec::{Decode, Encode};
 
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{
-	outbound::{Command, Message, SendMessage},
+	outbound::{AgentExecuteCommand, Command, Message, SendMessage},
 	AgentId, ChannelId, ParaId, TokenId, TokenIdOf,
 };
 use sp_core::{H160, H256};
@@ -294,7 +294,10 @@ where
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
 		Ok((
-			Command::TransferNativeToken { agent_id: self.agent_id, token, recipient, amount },
+			Command::AgentExecute {
+				agent_id: self.agent_id,
+				command: AgentExecuteCommand::TransferToken { token, recipient, amount },
+			},
 			*topic_id,
 		))
 	}
