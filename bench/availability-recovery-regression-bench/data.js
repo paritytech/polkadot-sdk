@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725299509490,
+  "lastUpdate": 1725313641108,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -19487,6 +19487,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.949908959733339,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dharjeezy",
+            "username": "dharjeezy",
+            "email": "dharjeezy@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f6eeca91b6cf0810ca3d8e7ea23988d9510851ba",
+          "message": "[FRAME] MQ processor should be transactional (#5198)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/2441\n\nPolkadot address: 12GyGD3QhT4i2JJpNzvMf96sxxBLWymz4RdGCxRH5Rj5agKW\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-09-02T20:03:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6eeca91b6cf0810ca3d8e7ea23988d9510851ba"
+        },
+        "date": 1725313612249,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.478436981666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.24377090236666668,
             "unit": "seconds"
           }
         ]
