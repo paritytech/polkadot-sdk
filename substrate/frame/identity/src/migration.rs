@@ -157,10 +157,9 @@ pub mod v2 {
 	};
 
 	type HashedKey = BoundedVec<u8, ConstU32<256>>;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) type BenchmarkingSetupOf<T> =
-		BenchmarkingSetup<Suffix<T>, <T as frame_system::Config>::AccountId, Username<T>>;
+	// The resulting state of the step and the actual weight consumed.
+	type StepResultOf<T> =
+		(MigrationState<<T as frame_system::Config>::AccountId, Username<T>, Suffix<T>>, Weight);
 
 	mod v1 {
 		use super::*;
@@ -213,26 +212,30 @@ pub mod v2 {
 			mut cursor: Option<Self::Cursor>,
 			meter: &mut WeightMeter,
 		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+			// Check that we have enough weight for at least the next step. If we don't, then the
+			// migration cannot be complete.
 			let required = match &cursor {
 				Some(state) => Self::required_weight(&state),
-				None => <T as Config>::WeightInfo::migration_v2_authority_step(),
+				// Worst case weight for `authority_step`.
+				None => T::DbWeight::get().reads_writes(1, 1),
 			};
-
 			if meter.remaining().any_lt(required) {
 				return Err(SteppedMigrationError::InsufficientWeight { required });
 			}
 
 			loop {
+				// Check that we would have enough weight to perform this step in the worst case
+				// scenario.
 				let required = match &cursor {
 					Some(state) => Self::required_weight(&state),
-					None => <T as Config>::WeightInfo::migration_v2_authority_step(),
+					// Worst case weight for `authority_step`.
+					None => T::DbWeight::get().reads_writes(1, 1),
 				};
-
-				if meter.try_consume(required).is_err() {
+				if !meter.can_consume(required) {
 					break;
 				}
 
-				let next = match &cursor {
+				let (next, actual_weight) = match &cursor {
 					// At first, migrate any authorities.
 					None => Self::authority_step(None),
 					// Migrate any remaining authorities.
@@ -278,6 +281,13 @@ pub mod v2 {
 				};
 
 				cursor = Some(next);
+				// After performing one step, consume the actual weight.
+				if actual_weight.any_gt(required) {
+					defensive!(
+						"actual weight should not be greater than the worst case scenario weight"
+					);
+				}
+				meter.consume(actual_weight);
 			}
 
 			Ok(cursor)
@@ -289,28 +299,23 @@ pub mod v2 {
 			step: &MigrationState<T::AccountId, Username<T>, Suffix<T>>,
 		) -> Weight {
 			match step {
-				MigrationState::Authority(_) =>
-					<T as Config>::WeightInfo::migration_v2_authority_step(),
+				MigrationState::Authority(_) => T::DbWeight::get().reads_writes(1, 1),
 				MigrationState::FinishedAuthorities | MigrationState::Username(_) =>
-					<T as Config>::WeightInfo::migration_v2_username_step(),
+					T::DbWeight::get().reads_writes(1, 1),
 				MigrationState::FinishedUsernames | MigrationState::Identity(_) =>
-					<T as Config>::WeightInfo::migration_v2_identity_step(),
+					T::DbWeight::get().reads_writes(1, 2),
 				MigrationState::FinishedIdentities | MigrationState::PendingUsername(_) =>
-					<T as Config>::WeightInfo::migration_v2_pending_username_step(),
+					T::DbWeight::get().reads_writes(1, 1),
 				MigrationState::FinishedPendingUsernames |
-				MigrationState::CleanupAuthorities(_) =>
-					<T as Config>::WeightInfo::migration_v2_cleanup_authority_step(),
+				MigrationState::CleanupAuthorities(_) => T::DbWeight::get().reads_writes(1, 1),
 				MigrationState::FinishedCleanupAuthorities |
-				MigrationState::CleanupUsernames(_) =>
-					<T as Config>::WeightInfo::migration_v2_cleanup_username_step(),
+				MigrationState::CleanupUsernames(_) => T::DbWeight::get().reads_writes(1, 1),
 				MigrationState::Finished => Weight::zero(),
 			}
 		}
 
 		// Migrate one entry from `UsernameAuthorities` to `AuthorityOf`.
-		pub(crate) fn authority_step(
-			maybe_last_key: Option<&T::AccountId>,
-		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
+		pub(crate) fn authority_step(maybe_last_key: Option<&T::AccountId>) -> StepResultOf<T> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
 				v1::UsernameAuthorities::<T>::iter_from(
 					v1::UsernameAuthorities::<T>::hashed_key_for(last_key),
@@ -324,16 +329,17 @@ pub mod v2 {
 				let new_properties =
 					AuthorityProperties { account_id: authority_account.clone(), allocation };
 				AuthorityOf::<T>::insert(&suffix, new_properties);
-				MigrationState::Authority(authority_account)
+				(
+					MigrationState::Authority(authority_account),
+					T::DbWeight::get().reads_writes(1, 1),
+				)
 			} else {
-				MigrationState::FinishedAuthorities
+				(MigrationState::FinishedAuthorities, T::DbWeight::get().reads(1))
 			}
 		}
 
 		// Migrate one entry from `AccountOfUsername` to `UsernameInfoOf`.
-		pub(crate) fn username_step(
-			maybe_last_key: Option<&Username<T>>,
-		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
+		pub(crate) fn username_step(maybe_last_key: Option<&Username<T>>) -> StepResultOf<T> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
 				v1::AccountOfUsername::<T>::iter_from(v1::AccountOfUsername::<T>::hashed_key_for(
 					last_key,
@@ -347,17 +353,15 @@ pub mod v2 {
 					UsernameInformation { owner: owner_account, provider: Provider::Governance };
 				UsernameInfoOf::<T>::insert(&username, username_info);
 
-				MigrationState::Username(username)
+				(MigrationState::Username(username), T::DbWeight::get().reads_writes(1, 1))
 			} else {
-				MigrationState::FinishedUsernames
+				(MigrationState::FinishedUsernames, T::DbWeight::get().reads(1))
 			}
 		}
 
 		// Migrate one entry from `IdentityOf` to `UsernameOf`, if it has a username associated with
 		// it. Remove the entry if there was no real identity associated with the account.
-		pub(crate) fn identity_step(
-			maybe_last_key: Option<HashedKey>,
-		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
+		pub(crate) fn identity_step(maybe_last_key: Option<HashedKey>) -> StepResultOf<T> {
 			if let Some(last_key) =
 				IdentityOf::<T>::translate_next::<
 					(
@@ -379,31 +383,35 @@ pub mod v2 {
 						None
 					}
 				}) {
-				MigrationState::Identity(last_key.try_into().unwrap())
+				(
+					MigrationState::Identity(last_key.try_into().unwrap()),
+					T::DbWeight::get().reads_writes(1, 2),
+				)
 			} else {
-				MigrationState::FinishedIdentities
+				(MigrationState::FinishedIdentities, T::DbWeight::get().reads(1))
 			}
 		}
 
 		// Migrate one entry from `PendingUsernames` to contain the new `Provider` field.
-		pub(crate) fn pending_username_step(
-			maybe_last_key: Option<HashedKey>,
-		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
+		pub(crate) fn pending_username_step(maybe_last_key: Option<HashedKey>) -> StepResultOf<T> {
 			if let Some(last_key) =
 				PendingUsernames::<T>::translate_next::<(T::AccountId, BlockNumberFor<T>), _>(
 					maybe_last_key.map(|b| b.to_vec()),
 					|_, (owner_account, since)| Some((owner_account, since, Provider::Governance)),
 				) {
-				MigrationState::PendingUsername(last_key.try_into().unwrap())
+				(
+					MigrationState::PendingUsername(last_key.try_into().unwrap()),
+					T::DbWeight::get().reads_writes(1, 1),
+				)
 			} else {
-				MigrationState::FinishedPendingUsernames
+				(MigrationState::FinishedPendingUsernames, T::DbWeight::get().reads(1))
 			}
 		}
 
 		// Remove one entry from `UsernameAuthorities`.
 		pub(crate) fn cleanup_authority_step(
 			maybe_last_key: Option<&Suffix<T>>,
-		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
+		) -> StepResultOf<T> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
 				AuthorityOf::<T>::iter_from(AuthorityOf::<T>::hashed_key_for(last_key))
 			} else {
@@ -412,16 +420,16 @@ pub mod v2 {
 
 			if let Some((suffix, properties)) = iter.next() {
 				let _ = v1::UsernameAuthorities::<T>::take(&properties.account_id);
-				MigrationState::CleanupAuthorities(suffix)
+				(MigrationState::CleanupAuthorities(suffix), T::DbWeight::get().reads_writes(1, 1))
 			} else {
-				MigrationState::FinishedCleanupAuthorities
+				(MigrationState::FinishedCleanupAuthorities, T::DbWeight::get().reads(1))
 			}
 		}
 
 		// Remove one entry from `AccountOfUsername`.
 		pub(crate) fn cleanup_username_step(
 			maybe_last_key: Option<&Username<T>>,
-		) -> MigrationState<T::AccountId, Username<T>, Suffix<T>> {
+		) -> StepResultOf<T> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
 				UsernameInfoOf::<T>::iter_from(UsernameInfoOf::<T>::hashed_key_for(last_key))
 			} else {
@@ -430,98 +438,10 @@ pub mod v2 {
 
 			if let Some((username, _)) = iter.next() {
 				let _ = v1::AccountOfUsername::<T>::take(&username);
-				MigrationState::CleanupUsernames(username)
+				(MigrationState::CleanupUsernames(username), T::DbWeight::get().reads_writes(1, 1))
 			} else {
-				MigrationState::Finished
+				(MigrationState::Finished, T::DbWeight::get().reads(1))
 			}
-		}
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) struct BenchmarkingSetup<S, A, U> {
-		pub(crate) suffix: S,
-		pub(crate) authority: A,
-		pub(crate) account: A,
-		pub(crate) username: U,
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	impl<T: Config> LazyMigrationV2<T> {
-		pub(crate) fn setup_benchmark_env_for_migration() -> BenchmarkingSetupOf<T> {
-			use frame_support::Hashable;
-			let suffix: Suffix<T> = b"bench".to_vec().try_into().unwrap();
-			let authority: T::AccountId = frame_benchmarking::account("authority", 0, 0);
-			let account_id: T::AccountId = frame_benchmarking::account("account", 1, 0);
-
-			let prop: AuthorityProperties<Suffix<T>> =
-				AuthorityProperties { account_id: suffix.clone(), allocation: 10 };
-			v1::UsernameAuthorities::<T>::insert(&authority, &prop);
-
-			let username: Username<T> = b"account.bench".to_vec().try_into().unwrap();
-			let info = T::IdentityInformation::create_identity_info();
-			let registration: Registration<
-				BalanceOf<T>,
-				<T as Config>::MaxRegistrars,
-				<T as Config>::IdentityInformation,
-			> = Registration { judgements: Default::default(), deposit: 10u32.into(), info };
-			frame_support::migration::put_storage_value(
-				b"Identity",
-				b"IdentityOf",
-				&account_id.twox_64_concat(),
-				(&registration, Some(username.clone())),
-			);
-			v1::AccountOfUsername::<T>::insert(&username, &account_id);
-			let since: BlockNumberFor<T> = 0u32.into();
-			frame_support::migration::put_storage_value(
-				b"Identity",
-				b"PendingUsernames",
-				&username.blake2_128_concat(),
-				(&account_id, since),
-			);
-			BenchmarkingSetup { suffix, authority, account: account_id, username }
-		}
-
-		pub(crate) fn setup_benchmark_env_for_cleanup() -> BenchmarkingSetupOf<T> {
-			let suffix: Suffix<T> = b"bench".to_vec().try_into().unwrap();
-			let authority: T::AccountId = frame_benchmarking::account("authority", 0, 0);
-			let account_id: T::AccountId = frame_benchmarking::account("account", 1, 0);
-
-			let prop: AuthorityProperties<Suffix<T>> =
-				AuthorityProperties { account_id: suffix.clone(), allocation: 10 };
-			v1::UsernameAuthorities::<T>::insert(&authority, &prop);
-			let prop: AuthorityProperties<T::AccountId> =
-				AuthorityProperties { account_id: authority.clone(), allocation: 10 };
-			AuthorityOf::<T>::insert(&suffix, &prop);
-
-			let username: Username<T> = b"account.bench".to_vec().try_into().unwrap();
-			let info = T::IdentityInformation::create_identity_info();
-			let registration: Registration<
-				BalanceOf<T>,
-				<T as Config>::MaxRegistrars,
-				<T as Config>::IdentityInformation,
-			> = Registration { judgements: Default::default(), deposit: 10u32.into(), info };
-			IdentityOf::<T>::insert(&account_id, &registration);
-			UsernameOf::<T>::insert(&account_id, &username);
-			let username_info =
-				UsernameInformation { owner: account_id.clone(), provider: Provider::Governance };
-			UsernameInfoOf::<T>::insert(&username, username_info);
-			v1::AccountOfUsername::<T>::insert(&username, &account_id);
-			let since: BlockNumberFor<T> = 0u32.into();
-			PendingUsernames::<T>::insert(&username, (&account_id, since, Provider::Governance));
-			BenchmarkingSetup { suffix, authority, account: account_id, username }
-		}
-
-		pub(crate) fn check_authority_cleanup_validity(suffix: Suffix<T>, authority: T::AccountId) {
-			assert_eq!(v1::UsernameAuthorities::<T>::iter().count(), 0);
-			assert_eq!(AuthorityOf::<T>::get(&suffix).unwrap().account_id, authority);
-		}
-
-		pub(crate) fn check_username_cleanup_validity(
-			username: Username<T>,
-			account_id: T::AccountId,
-		) {
-			assert_eq!(v1::AccountOfUsername::<T>::iter().count(), 0);
-			assert_eq!(UsernameInfoOf::<T>::get(&username).unwrap().owner, account_id);
 		}
 	}
 

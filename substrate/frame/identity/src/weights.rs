@@ -77,12 +77,6 @@ pub trait WeightInfo {
 	fn unbind_username() -> Weight;
 	fn remove_username() -> Weight;
 	fn kill_username(p: u32) -> Weight;
-	fn migration_v2_authority_step() -> Weight;
-	fn migration_v2_identity_step() -> Weight;
-	fn migration_v2_username_step() -> Weight;
-	fn migration_v2_pending_username_step() -> Weight;
-	fn migration_v2_cleanup_authority_step() -> Weight;
-	fn migration_v2_cleanup_username_step() -> Weight;
 }
 
 /// Weights for `pallet_identity` using the Substrate node and recommended hardware.
@@ -459,24 +453,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn kill_username(_p: u32) -> Weight {
 		Weight::zero()
 	}
-	fn migration_v2_authority_step() -> Weight {
-		Weight::zero()	
-	}
-	fn migration_v2_username_step() -> Weight {
-		Weight::zero()	
-	}
-	fn migration_v2_pending_username_step() -> Weight {
-		Weight::zero()	
-	}
-	fn migration_v2_identity_step() -> Weight {
-		Weight::zero()	
-	}
-	fn migration_v2_cleanup_authority_step() -> Weight {
-		Weight::zero()	
-	}
-	fn migration_v2_cleanup_username_step() -> Weight {
-		Weight::zero()	
-	}
 }
 
 // For backwards compatibility and tests.
@@ -851,23 +827,5 @@ impl WeightInfo for () {
 	}
 	fn kill_username(_p: u32) -> Weight {
 		Weight::zero()
-	}
-	fn migration_v2_username_step() -> Weight {
-		Weight::zero()	
-	}
-	fn migration_v2_pending_username_step() -> Weight {
-		Weight::zero()	
-	}
-	fn migration_v2_authority_step() -> Weight {
-		Weight::zero()	
-	}
-	fn migration_v2_identity_step() -> Weight {
-		Weight::zero()	
-	}
-	fn migration_v2_cleanup_authority_step() -> Weight {
-		Weight::zero()	
-	}
-	fn migration_v2_cleanup_username_step() -> Weight {
-		Weight::zero()	
 	}
 }
