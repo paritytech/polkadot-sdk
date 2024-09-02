@@ -68,6 +68,21 @@ fn account<AccountId: Decode>(name: &'static str, index: u32, seed: u32) -> Acco
 		.expect("infinite input; no invalid input; qed")
 }
 
+pub fn generate_validator_pairs<T: frame_system::Config>(
+	validator_count: u32,
+) -> Vec<(T::AccountId, ValidatorId)> {
+	(0..validator_count)
+		.map(|i| {
+			let public = ValidatorId::generate_pair(None);
+
+			// The account Id is not actually used anywhere, just necessary to fulfill the
+			// expected type of the `validators` param of `test_trigger_on_new_session`.
+			let account: T::AccountId = account("validator", i, i);
+			(account, public)
+		})
+		.collect()
+}
+
 /// Create a 32 byte slice based on the given number.
 fn byte32_slice_from(n: u32) -> [u8; 32] {
 	let mut slice = [0u8; 32];
@@ -421,20 +436,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			)
 			.unwrap();
 		}
-	}
-
-	/// Generate validator key pairs and account ids.
-	fn generate_validator_pairs(validator_count: u32) -> Vec<(T::AccountId, ValidatorId)> {
-		(0..validator_count)
-			.map(|i| {
-				let public = ValidatorId::generate_pair(None);
-
-				// The account Id is not actually used anywhere, just necessary to fulfill the
-				// expected type of the `validators` param of `test_trigger_on_new_session`.
-				let account: T::AccountId = account("validator", i, i);
-				(account, public)
-			})
-			.collect()
 	}
 
 	fn signing_context(&self) -> SigningContext<T::Hash> {
@@ -800,7 +801,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			c.scheduler_params.num_cores = used_cores as u32;
 		});
 
-		let validator_ids = Self::generate_validator_pairs(self.max_validators());
+		let validator_ids = generate_validator_pairs::<T>(self.max_validators());
 		let target_session = SessionIndex::from(self.target_session);
 		let builder = self.setup_session(target_session, validator_ids, used_cores, extra_cores);
 
