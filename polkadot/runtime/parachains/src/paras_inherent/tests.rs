@@ -121,10 +121,10 @@ mod enter {
 		}
 	}
 
-	#[test]
 	// Validate that if we create 2 backed candidates which are assigned to 2 cores that will be
 	// freed via becoming fully available, the backed candidates will not be filtered out in
 	// `create_inherent` and will not cause `enter` to early.
+	#[test]
 	fn include_backed_candidates() {
 		let config = MockGenesisConfig::default();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
@@ -582,8 +582,8 @@ mod enter {
 		});
 	}
 
-	#[test]
 	// Ensure that disputes are filtered out if the session is in the future.
+	#[test]
 	fn filter_multi_dispute_data() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// Create the inherent data for this block
@@ -653,9 +653,9 @@ mod enter {
 		});
 	}
 
-	#[test]
 	// Ensure that when dispute data establishes an over weight block that we adequately
 	// filter out disputes according to our prioritization rule
+	#[test]
 	fn limit_dispute_data() {
 		sp_tracing::try_init_simple();
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
@@ -721,10 +721,10 @@ mod enter {
 		});
 	}
 
-	#[test]
 	// Ensure that when a block is over weight due to disputes, but there is still sufficient
 	// block weight to include a number of signed bitfields, the inherent data is filtered
 	// as expected
+	#[test]
 	fn limit_dispute_data_ignore_backed_candidates() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// Create the inherent data for this block
@@ -804,9 +804,9 @@ mod enter {
 		});
 	}
 
-	#[test]
 	// Ensure an overweight block with an excess amount of disputes and bitfields, the bitfields are
 	// filtered to accommodate the block size and no backed candidates are included.
+	#[test]
 	fn limit_bitfields_some() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// Create the inherent data for this block
@@ -892,8 +892,8 @@ mod enter {
 		});
 	}
 
-	#[test]
 	// Ensure that when a block is over weight due to disputes and bitfields, we filter.
+	#[test]
 	fn limit_bitfields_overweight() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// Create the inherent data for this block
@@ -1798,6 +1798,8 @@ mod sanitizers {
 	}
 
 	mod candidates {
+		use std::collections::HashMap;
+
 		use crate::{
 			mock::{set_disabled_validators, RuntimeOrigin},
 			scheduler::{common::Assignment, ParasEntry},
@@ -1805,6 +1807,7 @@ mod sanitizers {
 		};
 		use alloc::collections::vec_deque::VecDeque;
 		use polkadot_primitives::ValidationCode;
+		use sp_runtime::{Digest, ModuleError};
 
 		use super::*;
 
@@ -1823,15 +1826,15 @@ mod sanitizers {
 
 			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
 			// votes) won't behave correctly
-			shared::Pallet::<Test>::add_allowed_relay_parent(
-				default_header().hash(),
-				Default::default(),
-				RELAY_PARENT_NUM,
-				1,
-			);
-
 			let header = default_header();
 			let relay_parent = header.hash();
+			shared::Pallet::<Test>::add_allowed_relay_parent(
+				relay_parent,
+				*header.state_root(),
+				RELAY_PARENT_NUM,
+				10,
+			);
+
 			let session_index = SessionIndex::from(0_u32);
 
 			let keystore = LocalKeystore::in_memory();
@@ -1882,14 +1885,14 @@ mod sanitizers {
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(
 						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
-						RELAY_PARENT_NUM,
+						RELAY_PARENT_NUM + 10,
 					)]),
 				),
 				(
 					CoreIndex::from(1),
 					VecDeque::from([ParasEntry::new(
 						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(1) },
-						RELAY_PARENT_NUM,
+						RELAY_PARENT_NUM + 10,
 					)]),
 				),
 			]));
@@ -3469,6 +3472,10 @@ mod sanitizers {
 			}
 		}
 
+		fn no_disputes(_h: &CandidateHash) -> bool {
+			false
+		}
+
 		#[rstest]
 		#[case(false)]
 		#[case(true)]
@@ -3478,13 +3485,14 @@ mod sanitizers {
 					backed_candidates,
 					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
+					..
 				} = get_test_data_one_core_per_para(core_index_enabled);
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
 						&shared::AllowedRelayParents::<Test>::get(),
-						BTreeSet::new(),
+						no_disputes,
 						scheduled,
 						core_index_enabled
 					),
@@ -3502,13 +3510,14 @@ mod sanitizers {
 					backed_candidates,
 					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
+					..
 				} = get_test_data_multiple_cores_per_para(core_index_enabled);
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
 						&shared::AllowedRelayParents::<Test>::get(),
-						BTreeSet::new(),
+						no_disputes,
 						scheduled,
 						core_index_enabled
 					),
@@ -3526,13 +3535,14 @@ mod sanitizers {
 					backed_candidates,
 					scheduled_paras: scheduled,
 					expected_backed_candidates_with_core,
+					..
 				} = get_test_data_for_order_checks(core_index_enabled);
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
 						&shared::AllowedRelayParents::<Test>::get(),
-						BTreeSet::new(),
+						no_disputes,
 						scheduled,
 						core_index_enabled,
 					),
@@ -3564,7 +3574,7 @@ mod sanitizers {
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
 						&shared::AllowedRelayParents::<Test>::get(),
-						BTreeSet::new(),
+						no_disputes,
 						scheduled,
 						core_index_enabled,
 					),
@@ -3604,7 +3614,7 @@ mod sanitizers {
 				let res = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					BTreeSet::new(),
+					no_disputes,
 					scheduled,
 					core_index_enabled,
 				);
@@ -3674,7 +3684,7 @@ mod sanitizers {
 				let res = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					BTreeSet::new(),
+					no_disputes,
 					scheduled,
 					core_index_enabled,
 				);
@@ -3712,7 +3722,7 @@ mod sanitizers {
 				let sanitized_backed_candidates = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					BTreeSet::new(),
+					no_disputes,
 					scheduled,
 					core_index_enabled,
 				);
@@ -3748,7 +3758,7 @@ mod sanitizers {
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					set,
+					|h| set.contains(&h),
 					scheduled,
 					core_index_enabled,
 				);
@@ -3785,7 +3795,7 @@ mod sanitizers {
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					invalid_set,
+					|h| invalid_set.contains(&h),
 					scheduled,
 					true,
 				);
@@ -3821,7 +3831,7 @@ mod sanitizers {
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					invalid_set,
+					|h| invalid_set.contains(&h),
 					scheduled,
 					true,
 				);
@@ -3834,6 +3844,262 @@ mod sanitizers {
 
 				// We'll be left with candidates from paraid 1, 2, 3 and 4.
 				assert_eq!(sanitized_backed_candidates, expected_backed_candidates_with_core);
+			});
+		}
+
+		#[test]
+		fn concluded_invalid_in_the_past_are_filtered_out() {
+			use crate::{
+				builder::account,
+				disputes::{make_dispute_concluding_against, run_to_block},
+				mock::AccountId,
+			};
+			use assert_matches::assert_matches;
+
+			new_test_ext(default_config()).execute_with(|| {
+				const RELAY_PARENT_NUMBER: u32 = 1;
+
+				let mut hc = configuration::ActiveConfig::<Test>::get();
+				hc.async_backing_params.allowed_ancestry_len = 10;
+				configuration::Pallet::<Test>::force_set_active_config(hc);
+
+				let header = default_header();
+				let relay_parent = header.hash();
+
+				let session = SessionIndex::from(0_u32);
+				let keystore = LocalKeystore::in_memory();
+				let keystore = Arc::new(keystore) as KeystorePtr;
+
+				let validators_keyrings = vec![
+					sp_keyring::Sr25519Keyring::Alice,
+					sp_keyring::Sr25519Keyring::Bob,
+					sp_keyring::Sr25519Keyring::Charlie,
+					sp_keyring::Sr25519Keyring::Dave,
+					sp_keyring::Sr25519Keyring::Eve,
+				];
+				for keyring in validators_keyrings.iter() {
+					Keystore::sr25519_generate_new(
+						&*keystore,
+						PARACHAIN_KEY_TYPE_ID,
+						Some(&keyring.to_seed()),
+					)
+					.unwrap();
+				}
+				let validators_to_keyrings: HashMap<ValidatorId, Sr25519Keyring> =
+					validators_keyrings.iter().map(|v| (v.public().into(), *v)).collect();
+				let validators_keys: Vec<(_, ValidatorId)> = validators_keyrings
+					.iter()
+					.enumerate()
+					.map(|(i, v)| {
+						let acc: AccountId = account("validator", i as u32, i as u32);
+						(acc, v.public().into())
+					})
+					.collect();
+				initializer::Pallet::<Test>::test_trigger_on_new_session(
+					true,
+					session,
+					validators_keys.iter().map(|(a, v)| (a, v.clone())),
+					None,
+				);
+				let validators_keys = shared::ActiveValidatorKeys::<Test>::get();
+				let mut validators: Vec<_> = validators_keys
+					.iter()
+					.enumerate()
+					.map(|(i, v)| (ValidatorIndex::from(i as u32), v))
+					.collect();
+				let groups = scheduler::ValidatorGroups::<Test>::get();
+				let para_id_to_group: BTreeMap<ParaId, Vec<ValidatorIndex>> = groups
+					.into_iter()
+					.enumerate()
+					.map(|(i, g)| (ParaId::from(i as u32 + 1), g))
+					.collect();
+				let shuffled_indices = shared::ActiveValidatorIndices::<Test>::get();
+				// shuffle the keyrings in the same way as the validators
+				let validators_keyrings =
+					crate::util::take_active_subset(&shuffled_indices, &validators_keyrings);
+
+				// Set the on-chain included head data for paras.
+				paras::Pallet::<Test>::set_current_head(ParaId::from(1), HeadData(vec![1]));
+				paras::Pallet::<Test>::set_current_head(ParaId::from(2), HeadData(vec![2]));
+
+				// Set the current_code_hash
+				paras::Pallet::<Test>::force_set_current_code(
+					RuntimeOrigin::root(),
+					ParaId::from(1),
+					ValidationCode(vec![1]),
+				)
+				.unwrap();
+				paras::Pallet::<Test>::force_set_current_code(
+					RuntimeOrigin::root(),
+					ParaId::from(2),
+					ValidationCode(vec![2]),
+				)
+				.unwrap();
+				// Set the most recent relay parent.
+				paras::Pallet::<Test>::force_set_most_recent_context(
+					RuntimeOrigin::root(),
+					ParaId::from(1),
+					BlockNumberFor::<Test>::from(0u32),
+				)
+				.unwrap();
+				paras::Pallet::<Test>::force_set_most_recent_context(
+					RuntimeOrigin::root(),
+					ParaId::from(2),
+					BlockNumberFor::<Test>::from(0u32),
+				)
+				.unwrap();
+
+				let backed_candidates = (0_usize..2)
+					.into_iter()
+					.map(|idx0| {
+						let idx1 = idx0 + 1;
+						let para_id = ParaId::from(idx1);
+						let mut candidate = TestCandidateBuilder {
+							para_id,
+							relay_parent,
+							pov_hash: Hash::repeat_byte(idx1 as u8),
+							persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+								para_id,
+								RELAY_PARENT_NUMBER,
+								Default::default(),
+							)
+							.unwrap()
+							.hash(),
+							hrmp_watermark: RELAY_PARENT_NUMBER,
+							validation_code: ValidationCode(vec![idx1 as u8]),
+							..Default::default()
+						}
+						.build();
+
+						collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+						let signing_context =
+							SigningContext { parent_hash: relay_parent, session_index: session };
+						let group = para_id_to_group[&para_id].as_ref();
+						let backed = back_candidate(
+							candidate,
+							&validators_keyrings,
+							group,
+							&keystore,
+							&signing_context,
+							BackingKind::Threshold,
+							None,
+						);
+						backed
+					})
+					.collect::<Vec<_>>();
+
+				let disputes: MultiDisputeStatementSet = backed_candidates
+					.iter()
+					.map(|c| {
+						// make sure the backer is the first in the list
+						let para_id = c.descriptor().para_id;
+						let group = para_id_to_group.get(&para_id).unwrap();
+						let backer = validators.iter().find(|v| group.contains(&v.0)).unwrap().0;
+						validators.swap(0, backer.0 as _);
+						let keyrings: Vec<_> = validators
+							.iter()
+							.map(|(i, v)| (*i, validators_to_keyrings[v]))
+							.collect();
+
+						make_dispute_concluding_against(c.hash(), session, &keyrings)
+					})
+					.collect();
+
+				let parent_block_number = RELAY_PARENT_NUMBER;
+				let parent_header = HeaderFor::<Test>::new(
+					parent_block_number,     // `block_number`,
+					Default::default(),      // `extrinsics_root`,
+					Default::default(),      // `storage_root`,
+					default_header().hash(), // `parent_hash`,
+					Default::default(),      // digest,
+				);
+
+				run_to_block(parent_block_number + 1, |_| None);
+				frame_system::Pallet::<Test>::reset_events();
+				frame_system::Pallet::<Test>::initialize(
+					&(parent_header.number() + 1),
+					&parent_header.hash(),
+					&Digest { logs: Vec::new() },
+				);
+
+				let n_disputes = disputes.len();
+				let data = ParachainsInherentData {
+					disputes,
+					parent_header: parent_header.clone(),
+					bitfields: Vec::new(),
+					backed_candidates: Vec::new(),
+				};
+				let mut inherent_data = InherentData::new();
+				inherent_data.put_data(PARACHAINS_INHERENT_IDENTIFIER, &data).unwrap();
+
+				let header = default_header();
+				shared::Pallet::<Test>::add_allowed_relay_parent(
+					header.hash(),
+					*header.state_root(),
+					RELAY_PARENT_NUMBER,
+					10,
+				);
+				// Update scheduler's claimqueue with the parachains
+				let ttl = RELAY_PARENT_NUMBER + 10;
+				scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
+					(
+						CoreIndex::from(0),
+						VecDeque::from([ParasEntry::new(
+							Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
+							ttl,
+						)]),
+					),
+					(
+						CoreIndex::from(1),
+						VecDeque::from([ParasEntry::new(
+							Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(1) },
+							ttl,
+						)]),
+					),
+				]));
+				let _ = Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data).unwrap();
+
+				assert_matches!(pallet::OnChainVotes::<Test>::get(), Some(ScrapedOnChainVotes {
+					disputes,
+					..
+				} ) => {
+					assert_eq!(disputes.len(), n_disputes);
+				});
+
+				let parent_block_number = RELAY_PARENT_NUMBER + 2;
+				run_to_block(parent_block_number, |_| None);
+				let parent_header = HeaderFor::<Test>::new(
+					parent_block_number,  // `block_number`,
+					Default::default(),   // `extrinsics_root`,
+					Default::default(),   // `storage_root`,
+					parent_header.hash(), // `parent_hash`,
+					Default::default(),   // digest,
+				);
+
+				frame_system::Pallet::<Test>::reset_events();
+				frame_system::Pallet::<Test>::initialize(
+					&(parent_header.number() + 1),
+					&parent_header.hash(),
+					&Digest { logs: Vec::new() },
+				);
+
+				let data = ParachainsInherentData {
+					disputes: Vec::new(),
+					parent_header,
+					bitfields: Vec::new(),
+					backed_candidates,
+				};
+
+				let err =
+					Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data).unwrap_err();
+				assert_matches!(
+					err.error,
+					DispatchError::Module(ModuleError {
+						message: Some("CandidatesFilteredDuringExecution"),
+						..
+					})
+				);
 			});
 		}
 

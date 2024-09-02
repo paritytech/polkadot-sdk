@@ -510,9 +510,16 @@ impl<T: Config> Pallet<T> {
 
 		// Get the cores freed as a result of concluded invalid candidates.
 		let (freed_disputed, concluded_invalid_hashes): (Vec<CoreIndex>, BTreeSet<CandidateHash>) =
-			inclusion::Pallet::<T>::free_disputed(&current_concluded_invalid_disputes)
-				.into_iter()
-				.unzip();
+			inclusion::Pallet::<T>::free_disputed(|h| {
+				current_concluded_invalid_disputes.contains(&h)
+			})
+			.into_iter()
+			.unzip();
+		// Also include cores freed as a result of concluded invalid candidates.
+		let current_concluded_invalid_disputes = |hash: &CandidateHash| {
+			concluded_invalid_hashes.contains(hash) ||
+				<T>::DisputesHandler::concluded_invalid(current_session, *hash)
+		};
 
 		// Create a bit index from the set of core indices where each index corresponds to
 		// a core index that was freed due to a dispute.
@@ -607,7 +614,7 @@ impl<T: Config> Pallet<T> {
 		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 			backed_candidates,
 			&allowed_relay_parents,
-			concluded_invalid_hashes,
+			current_concluded_invalid_disputes,
 			eligible,
 			core_index_enabled,
 		);
@@ -980,7 +987,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	backed_candidates: Vec<BackedCandidate<T::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-	concluded_invalid_with_descendants: BTreeSet<CandidateHash>,
+	concluded_invalid_with_descendants: impl Fn(&CandidateHash) -> bool,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
@@ -1001,13 +1008,14 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
 	// candidates (along with their descendants).
 	retain_candidates::<T, _, _>(&mut candidates_per_para, |_, candidate| {
-		let keep = !concluded_invalid_with_descendants.contains(&candidate.candidate().hash());
+		let hash = candidate.candidate().hash();
+		let keep = !concluded_invalid_with_descendants(&hash);
 
 		if !keep {
 			log::debug!(
 				target: LOG_TARGET,
 				"Found backed candidate {:?} which was concluded invalid or is a descendant of a concluded invalid candidate, for paraid {:?}.",
-				candidate.candidate().hash(),
+				hash,
 				candidate.descriptor().para_id
 			);
 		}
@@ -1104,8 +1112,11 @@ fn limit_and_sanitize_disputes<
 			if max_consumable_weight.all_gte(updated) {
 				// Always apply the weight. Invalid data cost processing time too:
 				weight_acc = updated;
+				let candidate_hash = dss.candidate_hash;
 				if let Some(checked) = dispute_statement_set_valid(dss) {
 					checked_acc.push(checked);
+				} else {
+					log::debug!(target: LOG_TARGET, "Filtered dispute: {:?}", candidate_hash);
 				}
 			}
 		});

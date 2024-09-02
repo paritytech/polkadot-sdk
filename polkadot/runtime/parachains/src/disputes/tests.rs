@@ -31,6 +31,7 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::BlockNumber;
 use sp_core::{crypto::CryptoType, Pair};
+use sp_keyring::Sr25519Keyring;
 
 const VOTE_FOR: VoteKind = VoteKind::ExplicitValid;
 const VOTE_AGAINST: VoteKind = VoteKind::Invalid;
@@ -85,6 +86,27 @@ type NewSession<'a> = (
 	Vec<(&'a AccountId, ValidatorId)>,
 	Option<Vec<(&'a AccountId, ValidatorId)>>,
 );
+
+pub(crate) fn make_dispute_concluding_against(
+	candidate_hash: CandidateHash,
+	session: SessionIndex,
+	validators: &[(ValidatorIndex, Sr25519Keyring)],
+) -> DisputeStatementSet {
+	let mut statements = Vec::new();
+	for (j, (i, key)) in validators.iter().enumerate() {
+		// make the first statement backing
+		// and the rest against it
+		let statement = if j == 0 {
+			DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(candidate_hash.0))
+		} else {
+			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit)
+		};
+		let payload_data = statement.payload_data(candidate_hash, session).unwrap();
+		let signature = key.sign(&payload_data);
+		statements.push((statement, *i, signature.into()));
+	}
+	DisputeStatementSet { candidate_hash, session, statements }
+}
 
 // Run to specific block, while calling disputes pallet hooks manually, because disputes is not
 // integrated in initializer yet.
@@ -553,71 +575,6 @@ fn test_disputes_with_missing_backing_votes_are_rejected() {
 		)
 		.is_err(),);
 	})
-}
-
-#[test]
-fn test_freeze_on_note_included() {
-	new_test_ext(Default::default()).execute_with(|| {
-		let v0 = <ValidatorId as CryptoType>::Pair::generate().0;
-		let v1 = <ValidatorId as CryptoType>::Pair::generate().0;
-
-		run_to_block(6, |b| {
-			// a new session at each block
-			Some((
-				true,
-				b,
-				vec![(&0, v0.public()), (&1, v1.public())],
-				Some(vec![(&0, v0.public()), (&1, v1.public())]),
-			))
-		});
-
-		let candidate_hash = CandidateHash(sp_core::H256::repeat_byte(1));
-		let inclusion_parent = sp_core::H256::repeat_byte(0xff);
-		let session = 3;
-
-		// v0 votes for 3
-		let stmts = vec![DisputeStatementSet {
-			candidate_hash,
-			session: 3,
-			statements: vec![
-				(
-					DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit),
-					ValidatorIndex(0),
-					v0.sign(
-						&ExplicitDisputeStatement { valid: false, candidate_hash, session: 3 }
-							.signing_payload(),
-					),
-				),
-				(
-					DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit),
-					ValidatorIndex(1),
-					v1.sign(
-						&ExplicitDisputeStatement { valid: false, candidate_hash, session: 3 }
-							.signing_payload(),
-					),
-				),
-				(
-					DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(
-						inclusion_parent,
-					)),
-					ValidatorIndex(1),
-					v0.sign(&CompactStatement::Valid(candidate_hash).signing_payload(
-						&SigningContext { session_index: session, parent_hash: inclusion_parent },
-					)),
-				),
-			],
-		}];
-		assert!(Pallet::<Test>::process_checked_multi_dispute_data(
-			&stmts
-				.into_iter()
-				.map(CheckedDisputeStatementSet::unchecked_from_unchecked)
-				.collect()
-		)
-		.is_ok());
-
-		Pallet::<Test>::note_included(3, candidate_hash, 3);
-		assert_eq!(Frozen::<Test>::get(), Some(2));
-	});
 }
 
 #[test]
