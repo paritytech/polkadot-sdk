@@ -14127,6 +14127,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
+ "polkadot-primitives-test-helpers",
  "scale-info",
  "serde",
  "sp-api",
@@ -14140,6 +14141,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-staking",
+ "sp-std 14.0.0",
 ]
 
 [[package]]
