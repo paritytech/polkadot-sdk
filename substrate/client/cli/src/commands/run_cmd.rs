@@ -28,6 +28,7 @@ use crate::{
 	RPC_DEFAULT_MAX_SUBS_PER_CONN, RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN,
 };
 use clap::Parser;
+use log::warn;
 use regex::Regex;
 use sc_service::{
 	config::{
@@ -345,7 +346,17 @@ impl CliConfiguration for RunCmd {
 	}
 
 	fn network_params(&self) -> Option<&NetworkParams> {
-		Some(&self.network_params)
+		let network_params = &self.network_params;
+		let is_authority = self.role(self.is_dev().ok()?).ok()?.is_authority();
+		if is_authority && network_params.public_addr.is_empty() {
+			warn!(
+				"WARNING: No public address specified, validator node may not be reachable.
+				Consider setting `--public-addr` to the public IP address of this node.
+				This will become a hard requirement in future versions."
+			);
+		}
+
+		Some(network_params)
 	}
 
 	fn keystore_params(&self) -> Option<&KeystoreParams> {

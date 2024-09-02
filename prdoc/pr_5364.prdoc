@@ -8,6 +8,18 @@ doc:
       and executor options together.
       If `sc-service` is used as a library with lower-level APIs, `Configuration` can now be avoided in most cases.
 
+      This mainly impacts you on your node implementation. There you need to change this:
+      ```
+      with_execution_method(config.wasm_method)
+      ```
+
+      to this:
+      ```
+      with_execution_method(config.executor.wasm_method)
+      ```
+
+      There are similar changes required as well, but all are around the initialization of the wasm executor.
+
 crates:
   - name: sc-service
     bump: major

@@ -247,14 +247,6 @@ pub trait SubstrateCli: Sized {
 			logger_hook(logger_builder, &config)
 		})?;
 
-		if config.role.is_authority() && config.network.public_addresses.is_empty() {
-			warn!(
-				"WARNING: No public address specified, validator node may not be reachable.
-				Consider setting `--public-addr` to the public IP address of this node.
-				This will become a hard requirement in future versions."
-			);
-		}
-
 		Runner::new(config, tokio_runtime, signals)
 	}
 }
