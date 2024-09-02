@@ -111,21 +111,15 @@ pub enum ApprovalCheckError {
 }
 
 enum ApprovalVotingMessage {
-    /// Check if the assignment is valid and can be accepted by our view of the protocol.
-    /// Should not be sent unless the block hash is known.
-    CheckAndImportAssignment(
-        IndirectAssignmentCert,
-        CandidateIndex, // The index of the candidate included in the block.
-        ResponseChannel<AssignmentCheckResult>,
-    ),
-    /// Check if the approval vote is valid and can be accepted by our view of the
-    /// protocol.
-    ///
-    /// Should not be sent unless the block hash within the indirect vote is known.
-    CheckAndImportApproval(
-        IndirectSignedApprovalVote,
-        ResponseChannel<ApprovalCheckResult>,
-    ),
+	/// Import an assignment into the approval-voting database.
+	///
+	/// Should not be sent unless the block hash is known and the VRF assignment checks out.
+	ImportAssignment(CheckedIndirectAssignment, Option<oneshot::Sender<AssignmentCheckResult>>),
+	/// Import an approval vote into approval-voting database
+	///
+	/// Should not be sent unless the block hash within the indirect vote is known, vote is
+	/// correctly signed and we had a previous assignment for the candidate.
+	ImportApproval(CheckedIndirectSignedApprovalVote, Option<oneshot::Sender<ApprovalCheckResult>>),
     /// Returns the highest possible ancestor hash of the provided block hash which is
     /// acceptable to vote on finality for. Along with that, return the lists of candidate hashes
     /// which appear in every block from the (non-inclusive) base number up to (inclusive) the specified
