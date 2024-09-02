@@ -1550,7 +1550,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>maybe_batches =
-			split_msgs_to_refine::&lt;TestChain, TestChain&gt;(Default::default(), msgs_to_refine);
+			split_msgs_to_refine::&lt;TestChain, TestChain&gt;(LaneId::new(<span class="number">1</span>, <span class="number">2</span>), msgs_to_refine);
 		<span class="kw">match </span>expected_batches {
 			<span class="prelude-val">Ok</span>(expected_batches) =&gt; {
 				<span class="kw">let </span>batches = maybe_batches.unwrap();

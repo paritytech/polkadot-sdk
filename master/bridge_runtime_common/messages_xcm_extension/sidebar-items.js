@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["XcmBlobMessageDispatchResult"],"struct":["LocalXcmQueueManager","SenderAndLane","XcmBlobHaulerAdapter","XcmBlobMessageDispatch","XcmVersionOfDestAndRemoteBridge"],"trait":["XcmBlobHauler"],"type":["XcmAsPlainPayload"]};

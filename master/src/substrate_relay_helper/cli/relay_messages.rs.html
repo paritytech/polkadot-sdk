@@ -398,8 +398,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Messages relaying params.
 </span><span class="attr">#[derive(StructOpt)]
 </span><span class="kw">pub struct </span>RelayMessagesParams {
-	<span class="doccomment">/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	</span><span class="attr">#[structopt(long, default_value = <span class="string">"00000000"</span>)]
+	<span class="doccomment">/// Hex-encoded lane id that should be served by the relay.
+	</span><span class="attr">#[structopt(long)]
 	</span>lane: HexLaneId,
 	<span class="attr">#[structopt(flatten)]
 	</span>source: SourceConnectionParams,
@@ -420,8 +420,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This header must be previously proved to the target chain.
 	</span><span class="attr">#[structopt(long)]
 	</span>at_source_block: u128,
-	<span class="doccomment">/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	</span><span class="attr">#[structopt(long, default_value = <span class="string">"00000000"</span>)]
+	<span class="doccomment">/// Hex-encoded lane id that should be served by the relay.
+	</span><span class="attr">#[structopt(long)]
 	</span>lane: HexLaneId,
 	<span class="doccomment">/// Nonce (inclusive) of the first message to relay.
 	</span><span class="attr">#[structopt(long)]
@@ -449,8 +449,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// delivery proof. This header must be previously proved to the source chain.
 	</span><span class="attr">#[structopt(long)]
 	</span>at_target_block: u128,
-	<span class="doccomment">/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	</span><span class="attr">#[structopt(long, default_value = <span class="string">"00000000"</span>)]
+	<span class="doccomment">/// Hex-encoded lane id that should be served by the relay.
+	</span><span class="attr">#[structopt(long)]
 	</span>lane: HexLaneId,
 	<span class="attr">#[structopt(flatten)]
 	</span>source: SourceConnectionParams,

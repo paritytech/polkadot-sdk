@@ -450,8 +450,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -471,7 +469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use super</span>::{
 	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TransactionByteFee, WeightToFee, XcmpQueue,
+	TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
 <span class="kw">use </span>frame_support::{
 	parameter_types,
@@ -666,10 +664,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			SendXcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, TreasuryAccount&gt;,
 		),
 	&gt;;
-	<span class="kw">type </span>MessageExporter = (
-		<span class="kw">crate</span>::bridge_to_rococo_config::ToBridgeHubRococoHaulBlobExporter,
-		<span class="kw">crate</span>::bridge_to_ethereum_config::SnowbridgeExporter,
-	);
+	<span class="kw">type </span>MessageExporter =
+		(XcmOverBridgeHubRococo, <span class="kw">crate</span>::bridge_to_ethereum_config::SnowbridgeExporter);
 	<span class="kw">type </span>UniversalAliases = Nothing;
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
 	<span class="kw">type </span>SafeCallFilter = Everything;

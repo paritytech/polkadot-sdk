@@ -278,6 +278,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -352,6 +384,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_support::sp_runtime::Either;
 	<span class="kw">use </span>hex_literal::hex;
 
 	<span class="attr">#[test]
@@ -371,7 +404,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>storage_message_key_computed_properly() {
 		<span class="comment">// If this test fails, then something has been changed in module storage that is breaking
 		// all previously crafted messages proofs.
-		</span><span class="kw">let </span>storage_key = message_key(<span class="string">"BridgeMessages"</span>, <span class="kw-2">&amp;</span>LaneId(<span class="kw-2">*</span><span class="string">b"test"</span>), <span class="number">42</span>).<span class="number">0</span>;
+		</span><span class="kw">let </span>storage_key = message_key(<span class="string">"BridgeMessages"</span>, <span class="kw-2">&amp;</span>LaneId::new(<span class="number">1</span>, <span class="number">2</span>), <span class="number">42</span>).<span class="number">0</span>;
+		<span class="macro">assert_eq!</span>(
+			storage_key,
+			<span class="macro">hex!</span>(<span class="string">"dd16c784ebd3390a9bc0357c7511ed018a395e6242c6813b196ca31ed0547ea70e9bdb8f50c68d12f06eabb57759ee5eb1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dcf87f9793be208e5ea02a00000000000000"</span>).to_vec(),
+			<span class="string">"Unexpected storage key: {}"</span>,
+			hex::encode(<span class="kw-2">&amp;</span>storage_key),
+		);
+
+		<span class="comment">// check backwards compatibility
+		</span><span class="kw">let </span>storage_key =
+			message_key(<span class="string">"BridgeMessages"</span>, <span class="kw-2">&amp;</span>LaneId::from_inner(Either::Right(<span class="kw-2">*</span><span class="string">b"test"</span>)), <span class="number">42</span>).<span class="number">0</span>;
 		<span class="macro">assert_eq!</span>(
 			storage_key,
 			<span class="macro">hex!</span>(<span class="string">"dd16c784ebd3390a9bc0357c7511ed018a395e6242c6813b196ca31ed0547ea79446af0e09063bd4a7874aef8a997cec746573742a00000000000000"</span>).to_vec(),
@@ -384,7 +427,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>outbound_lane_data_key_computed_properly() {
 		<span class="comment">// If this test fails, then something has been changed in module storage that is breaking
 		// all previously crafted outbound lane state proofs.
-		</span><span class="kw">let </span>storage_key = outbound_lane_data_key(<span class="string">"BridgeMessages"</span>, <span class="kw-2">&amp;</span>LaneId(<span class="kw-2">*</span><span class="string">b"test"</span>)).<span class="number">0</span>;
+		</span><span class="kw">let </span>storage_key = outbound_lane_data_key(<span class="string">"BridgeMessages"</span>, <span class="kw-2">&amp;</span>LaneId::new(<span class="number">1</span>, <span class="number">2</span>)).<span class="number">0</span>;
+		<span class="macro">assert_eq!</span>(
+			storage_key,
+			<span class="macro">hex!</span>(<span class="string">"dd16c784ebd3390a9bc0357c7511ed0196c246acb9b55077390e3ca723a0ca1fd3bef8b00df8ca7b01813b5e2741950db1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dcf87f9793be208e5ea0"</span>).to_vec(),
+			<span class="string">"Unexpected storage key: {}"</span>,
+			hex::encode(<span class="kw-2">&amp;</span>storage_key),
+		);
+
+		<span class="comment">// check backwards compatibility
+		</span><span class="kw">let </span>storage_key =
+			outbound_lane_data_key(<span class="string">"BridgeMessages"</span>, <span class="kw-2">&amp;</span>LaneId::from_inner(Either::Right(<span class="kw-2">*</span><span class="string">b"test"</span>)))
+				.<span class="number">0</span>;
 		<span class="macro">assert_eq!</span>(
 			storage_key,
 			<span class="macro">hex!</span>(<span class="string">"dd16c784ebd3390a9bc0357c7511ed0196c246acb9b55077390e3ca723a0ca1f44a8995dd50b6657a037a7839304535b74657374"</span>).to_vec(),
@@ -397,7 +451,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>inbound_lane_data_key_computed_properly() {
 		<span class="comment">// If this test fails, then something has been changed in module storage that is breaking
 		// all previously crafted inbound lane state proofs.
-		</span><span class="kw">let </span>storage_key = inbound_lane_data_key(<span class="string">"BridgeMessages"</span>, <span class="kw-2">&amp;</span>LaneId(<span class="kw-2">*</span><span class="string">b"test"</span>)).<span class="number">0</span>;
+		</span><span class="kw">let </span>storage_key = inbound_lane_data_key(<span class="string">"BridgeMessages"</span>, <span class="kw-2">&amp;</span>LaneId::new(<span class="number">1</span>, <span class="number">2</span>)).<span class="number">0</span>;
+		<span class="macro">assert_eq!</span>(
+			storage_key,
+			<span class="macro">hex!</span>(<span class="string">"dd16c784ebd3390a9bc0357c7511ed01e5f83cf83f2127eb47afdc35d6e43fabd3bef8b00df8ca7b01813b5e2741950db1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dcf87f9793be208e5ea0"</span>).to_vec(),
+			<span class="string">"Unexpected storage key: {}"</span>,
+			hex::encode(<span class="kw-2">&amp;</span>storage_key),
+		);
+
+		<span class="comment">// check backwards compatibility
+		</span><span class="kw">let </span>storage_key =
+			inbound_lane_data_key(<span class="string">"BridgeMessages"</span>, <span class="kw-2">&amp;</span>LaneId::from_inner(Either::Right(<span class="kw-2">*</span><span class="string">b"test"</span>))).<span class="number">0</span>;
 		<span class="macro">assert_eq!</span>(
 			storage_key,
 			<span class="macro">hex!</span>(<span class="string">"dd16c784ebd3390a9bc0357c7511ed01e5f83cf83f2127eb47afdc35d6e43fab44a8995dd50b6657a037a7839304535b74657374"</span>).to_vec(),

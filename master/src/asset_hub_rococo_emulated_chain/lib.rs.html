@@ -213,6 +213,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -239,8 +245,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
 	impl_assets_helpers_for_parachain, impl_assets_helpers_for_system_parachain,
-	impl_foreign_assets_helpers_for_parachain, impl_xcm_helpers_for_parachain, impls::Parachain,
-	xcm_emulator::decl_test_parachains,
+	impl_bridge_helpers_for_chain, impl_foreign_assets_helpers_for_parachain,
+	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 <span class="kw">use </span>rococo_emulated_chain::Rococo;
 
@@ -276,6 +282,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">impl_assets_helpers_for_parachain!</span>(AssetHubRococo);
 <span class="macro">impl_foreign_assets_helpers_for_parachain!</span>(AssetHubRococo, xcm::v4::Location);
 <span class="macro">impl_xcm_helpers_for_parachain!</span>(AssetHubRococo);
+<span class="macro">impl_bridge_helpers_for_chain!</span>(
+	AssetHubRococo,
+	ParaPallet,
+	PolkadotXcm,
+	bp_bridge_hub_rococo::RuntimeCall::XcmOverBridgeHubWestend
+);
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

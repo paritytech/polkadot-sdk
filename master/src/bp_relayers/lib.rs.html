@@ -356,6 +356,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -377,7 +385,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![warn(missing_docs)]
 #![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">pub use </span>registration::{ExplicitOrAccountParams, Registration, StakeAndSlash};
+</span><span class="kw">pub use </span>extension::{
+	BatchCallUnpacker, ExtensionCallData, ExtensionCallInfo, ExtensionConfig,
+	RuntimeWithUtilityPallet,
+};
+<span class="kw">pub use </span>registration::{ExplicitOrAccountParams, Registration, StakeAndSlash};
 
 <span class="kw">use </span>bp_messages::LaneId;
 <span class="kw">use </span>bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
@@ -390,6 +402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData};
 
+<span class="kw">mod </span>extension;
 <span class="kw">mod </span>registration;
 
 <span class="doccomment">/// The owner of the sovereign account that should pay the rewards.
@@ -415,9 +428,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// parameters to identify the account that pays a reward to the relayer.
 </span><span class="attr">#[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub struct </span>RewardsAccountParams {
-	lane_id: LaneId,
+	<span class="comment">// **IMPORTANT NOTE**: the order of fields here matters - we are using
+	// `into_account_truncating` and lane id is already `32` byte, so if other fields are encoded
+	// after it, they're simply dropped. So lane id shall be the last field.
+	</span>owner: RewardsAccountOwner,
 	bridged_chain_id: ChainId,
-	owner: RewardsAccountOwner,
+	lane_id: LaneId,
 }
 
 <span class="kw">impl </span>RewardsAccountParams {
@@ -520,21 +536,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>different_lanes_are_using_different_accounts() {
 		<span class="macro">assert_eq!</span>(
 			PayRewardFromAccount::&lt;(), H256&gt;::rewards_account(RewardsAccountParams::new(
-				LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),
+				LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 				<span class="kw-2">*</span><span class="string">b"test"</span>,
 				RewardsAccountOwner::ThisChain
 			)),
-			<span class="macro">hex_literal::hex!</span>(<span class="string">"62726170000000007465737400726577617264732d6163636f756e7400000000"</span>)
+			<span class="macro">hex_literal::hex!</span>(<span class="string">"627261700074657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc"</span>)
 				.into(),
 		);
 
 		<span class="macro">assert_eq!</span>(
 			PayRewardFromAccount::&lt;(), H256&gt;::rewards_account(RewardsAccountParams::new(
-				LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]),
+				LaneId::new(<span class="number">1</span>, <span class="number">3</span>),
 				<span class="kw-2">*</span><span class="string">b"test"</span>,
 				RewardsAccountOwner::ThisChain
 			)),
-			<span class="macro">hex_literal::hex!</span>(<span class="string">"62726170000000017465737400726577617264732d6163636f756e7400000000"</span>)
+			<span class="macro">hex_literal::hex!</span>(<span class="string">"627261700074657374a43e8951aa302c133beb5f85821a21645f07b487270ef3"</span>)
 				.into(),
 		);
 	}
@@ -543,21 +559,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>different_directions_are_using_different_accounts() {
 		<span class="macro">assert_eq!</span>(
 			PayRewardFromAccount::&lt;(), H256&gt;::rewards_account(RewardsAccountParams::new(
-				LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),
+				LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 				<span class="kw-2">*</span><span class="string">b"test"</span>,
 				RewardsAccountOwner::ThisChain
 			)),
-			<span class="macro">hex_literal::hex!</span>(<span class="string">"62726170000000007465737400726577617264732d6163636f756e7400000000"</span>)
+			<span class="macro">hex_literal::hex!</span>(<span class="string">"627261700074657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc"</span>)
 				.into(),
 		);
 
 		<span class="macro">assert_eq!</span>(
 			PayRewardFromAccount::&lt;(), H256&gt;::rewards_account(RewardsAccountParams::new(
-				LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),
+				LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 				<span class="kw-2">*</span><span class="string">b"test"</span>,
 				RewardsAccountOwner::BridgedChain
 			)),
-			<span class="macro">hex_literal::hex!</span>(<span class="string">"62726170000000007465737401726577617264732d6163636f756e7400000000"</span>)
+			<span class="macro">hex_literal::hex!</span>(<span class="string">"627261700174657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc"</span>)
 				.into(),
 		);
 	}

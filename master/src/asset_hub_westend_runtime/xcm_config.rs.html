@@ -886,17 +886,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1550,17 +1539,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(StartsWith&lt;RococoEcosystem&gt;, StartsWith&lt;EthereumEcosystem&gt;),
 			AssetHubRococo,
 		&gt;;
-
-		<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>ToRococoXcmRouter {
-			<span class="kw">fn </span>contains(call: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
-				<span class="macro">matches!</span>(
-					call,
-					RuntimeCall::ToRococoXcmRouter(
-						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
-					)
-				)
-			}
-		}
 	}
 
 	<span class="kw">pub mod </span>to_ethereum {

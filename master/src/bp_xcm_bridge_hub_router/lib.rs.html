@@ -216,6 +216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -240,6 +241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_core::H256;
 <span class="kw">use </span>sp_runtime::{FixedU128, RuntimeDebug};
+<span class="kw">use </span>xcm::latest::prelude::Location;
 
 <span class="doccomment">/// Minimal delivery fee factor.
 </span><span class="kw">pub const </span>MINIMAL_DELIVERY_FEE_FACTOR: FixedU128 = FixedU128::from_u32(<span class="number">1</span>);
@@ -250,11 +252,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// of the bridge queues.
 </span><span class="kw">pub trait </span>XcmChannelStatusProvider {
 	<span class="doccomment">/// Returns true if the channel is currently congested.
-	</span><span class="kw">fn </span>is_congested() -&gt; bool;
+	</span><span class="kw">fn </span>is_congested(with: <span class="kw-2">&amp;</span>Location) -&gt; bool;
 }
 
 <span class="kw">impl </span>XcmChannelStatusProvider <span class="kw">for </span>() {
-	<span class="kw">fn </span>is_congested() -&gt; bool {
+	<span class="kw">fn </span>is_congested(_with: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="bool-val">false
 	</span>}
 }

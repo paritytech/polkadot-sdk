@@ -708,6 +708,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1252,14 +1257,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="comment">// execute xcm as XcmpQueue would do
 				</span><span class="kw">let </span>outcome = XcmExecutor::&lt;XcmConfig&gt;::prepare_and_execute(
-					local_bridge_hub_location,
+					local_bridge_hub_location.clone(),
 					xcm,
 					<span class="kw-2">&amp;mut </span>hash,
-					RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::xcm_max_weight(XcmReceivedFrom::Sibling),
+					RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::xcm_max_weight(
+						XcmReceivedFrom::Sibling,
+					),
 					Weight::zero(),
 				);
 				<span class="macro">assert_ok!</span>(outcome.ensure_complete());
-				<span class="macro">assert_eq!</span>(is_congested, pallet_xcm_bridge_hub_router::Pallet::&lt;Runtime, XcmBridgeHubRouterInstance&gt;::bridge().is_congested);
+				<span class="macro">assert_eq!</span>(
+					is_congested,
+					&lt;&lt;Runtime <span class="kw">as </span>pallet_xcm_bridge_hub_router::Config&lt;XcmBridgeHubRouterInstance&gt;&gt;::LocalXcmChannelManager <span class="kw">as </span>pallet_xcm_bridge_hub_router::XcmChannelStatusProvider&gt;::is_congested(<span class="kw-2">&amp;</span>local_bridge_hub_location)
+				);
 			};
 
 			report_bridge_status(<span class="bool-val">true</span>);

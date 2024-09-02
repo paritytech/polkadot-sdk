@@ -180,11 +180,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
-<a href="#31" id="31">31</a>
-<a href="#32" id="32">32</a>
-<a href="#33" id="33">33</a>
-<a href="#34" id="34">34</a>
-<a href="#35" id="35">35</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -207,19 +202,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">pub mod </span>extensions;
-
 <span class="kw">pub mod </span>messages_api;
 <span class="kw">pub mod </span>messages_benchmarking;
-<span class="kw">pub mod </span>messages_call_ext;
-<span class="kw">pub mod </span>messages_xcm_extension;
 <span class="kw">pub mod </span>parachains_benchmarking;
 
 <span class="kw">mod </span>mock;
 
 <span class="attr">#[cfg(feature = <span class="string">"integrity-test"</span>)]
 </span><span class="kw">pub mod </span>integrity;
-
-<span class="kw">const </span>LOG_TARGET_BRIDGE_DISPATCH: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::bridge-dispatch"</span>;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

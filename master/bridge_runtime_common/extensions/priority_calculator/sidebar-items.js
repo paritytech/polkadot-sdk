@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["compute_priority_boost"],"mod":["per_message","per_parachain_header","per_relay_header"],"type":["ItemCount"]};

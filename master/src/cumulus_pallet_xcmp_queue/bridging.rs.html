@@ -240,6 +240,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -257,48 +261,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{pallet, OutboundState};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
-<span class="kw">use </span>frame_support::pallet_prelude::Get;
+<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
-/// both `OutboundXcmpStatus` and `InboundXcmpStatus` for defined `ParaId` if any of those is
+/// both `OutboundXcmpStatus` and `InboundXcmpStatus` for defined `Location` if any of those is
 /// suspended.
-</span><span class="kw">pub struct </span>InAndOutXcmpChannelStatusProvider&lt;SiblingBridgeHubParaId, Runtime&gt;(
-	core::marker::PhantomData&lt;(SiblingBridgeHubParaId, Runtime)&gt;,
-);
-<span class="kw">impl</span>&lt;SiblingBridgeHubParaId: Get&lt;ParaId&gt;, Runtime: <span class="kw">crate</span>::Config&gt;
-	bp_xcm_bridge_hub_router::XcmChannelStatusProvider
-	<span class="kw">for </span>InAndOutXcmpChannelStatusProvider&lt;SiblingBridgeHubParaId, Runtime&gt;
+</span><span class="kw">pub struct </span>InAndOutXcmpChannelStatusProvider&lt;Runtime&gt;(core::marker::PhantomData&lt;Runtime&gt;);
+<span class="kw">impl</span>&lt;Runtime: <span class="kw">crate</span>::Config&gt; bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+	<span class="kw">for </span>InAndOutXcmpChannelStatusProvider&lt;Runtime&gt;
 {
-	<span class="kw">fn </span>is_congested() -&gt; bool {
+	<span class="kw">fn </span>is_congested(with: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="comment">// handle congestion only for a sibling parachain locations.
+		</span><span class="kw">let </span>sibling_para_id: ParaId = <span class="kw">match </span>with.unpack() {
+			(<span class="kw">_</span>, [Parachain(para_id)]) =&gt; (<span class="kw-2">*</span>para_id).into(),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+		};
+
 		<span class="comment">// if the inbound channel with recipient is suspended, it means that we are unable to
-		// receive congestion reports from the bridge hub. So we assume the bridge pipeline is
-		// congested too
-		</span><span class="kw">if </span>pallet::Pallet::&lt;Runtime&gt;::is_inbound_channel_suspended(SiblingBridgeHubParaId::get()) {
+		// receive congestion reports from the `with` location. So we assume the pipeline is
+		// congested too.
+		</span><span class="kw">if </span>pallet::Pallet::&lt;Runtime&gt;::is_inbound_channel_suspended(sibling_para_id) {
 			<span class="kw">return </span><span class="bool-val">true
 		</span>}
 
 		<span class="comment">// if the outbound channel with recipient is suspended, it means that one of further
-		// bridge queues (e.g. bridge queue between two bridge hubs) is overloaded, so we shall
+		// queues (e.g. bridge queue between two bridge hubs) is overloaded, so we shall
 		// take larger fee for our outbound messages
-		</span>OutXcmpChannelStatusProvider::&lt;SiblingBridgeHubParaId, Runtime&gt;::is_congested()
+		</span>OutXcmpChannelStatusProvider::&lt;Runtime&gt;::is_congested(with)
 	}
 }
 
 <span class="doccomment">/// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
 /// only `OutboundXcmpStatus` for defined `SiblingParaId` if is suspended.
-</span><span class="kw">pub struct </span>OutXcmpChannelStatusProvider&lt;SiblingBridgeHubParaId, Runtime&gt;(
-	core::marker::PhantomData&lt;(SiblingBridgeHubParaId, Runtime)&gt;,
-);
-<span class="kw">impl</span>&lt;SiblingBridgeHubParaId: Get&lt;ParaId&gt;, Runtime: <span class="kw">crate</span>::Config&gt;
-	bp_xcm_bridge_hub_router::XcmChannelStatusProvider
-	<span class="kw">for </span>OutXcmpChannelStatusProvider&lt;SiblingBridgeHubParaId, Runtime&gt;
+</span><span class="kw">pub struct </span>OutXcmpChannelStatusProvider&lt;Runtime&gt;(core::marker::PhantomData&lt;Runtime&gt;);
+<span class="kw">impl</span>&lt;Runtime: <span class="kw">crate</span>::Config&gt; bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+	<span class="kw">for </span>OutXcmpChannelStatusProvider&lt;Runtime&gt;
 {
-	<span class="kw">fn </span>is_congested() -&gt; bool {
-		<span class="kw">let </span>sibling_bridge_hub_id: ParaId = SiblingBridgeHubParaId::get();
+	<span class="kw">fn </span>is_congested(with: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="comment">// handle congestion only for a sibling parachain locations.
+		</span><span class="kw">let </span>sibling_para_id: ParaId = <span class="kw">match </span>with.unpack() {
+			(<span class="kw">_</span>, [Parachain(para_id)]) =&gt; (<span class="kw-2">*</span>para_id).into(),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+		};
 
 		<span class="comment">// let's find the channel's state with the sibling parachain,
 		</span><span class="kw">let </span><span class="prelude-val">Some</span>((outbound_state, queued_pages)) =
-			pallet::Pallet::&lt;Runtime&gt;::outbound_channel_state(sibling_bridge_hub_id)
+			pallet::Pallet::&lt;Runtime&gt;::outbound_channel_state(sibling_para_id)
 		<span class="kw">else </span>{
 			<span class="kw">return </span><span class="bool-val">false
 		</span>};

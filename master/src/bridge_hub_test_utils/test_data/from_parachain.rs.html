@@ -524,6 +524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -546,17 +547,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
-	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId,
+	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId, LaneState,
 	UnrewardedRelayersState, Weight,
 };
+<span class="kw">use </span>bp_parachains::{RelayBlockHash, RelayBlockNumber};
 <span class="kw">use </span>bp_runtime::{
 	AccountIdOf, BlockNumberOf, Chain, HeaderOf, Parachain, UnverifiedStorageProofParams,
 };
 <span class="kw">use </span>bp_test_utils::prepare_parachain_heads_proof;
-<span class="kw">use </span>bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+<span class="kw">use </span>bp_xcm_bridge_hub::XcmAsPlainPayload;
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>pallet_bridge_grandpa::BridgedHeader;
-<span class="kw">use </span>pallet_bridge_parachains::{RelayBlockHash, RelayBlockNumber};
 <span class="kw">use </span>sp_runtime::traits::Header <span class="kw">as </span>HeaderT;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
@@ -818,6 +819,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prepare_message_delivery_storage_proof::&lt;BridgedParachain, ThisChainWithMessages&gt;(
 			lane_id,
 			InboundLaneData {
+				state: LaneState::Opened,
 				relayers: <span class="macro">vec!</span>[
 					UnrewardedRelayer {
 						relayer: relayer_id_at_this_chain.into(),

@@ -856,17 +856,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#704" id="704">704</a>
 <a href="#705" id="705">705</a>
 <a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1499,17 +1488,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Allow any asset native to the Westend ecosystem if it comes from Westend Asset Hub.
 		</span><span class="kw">pub type </span>WestendAssetFromAssetHubWestend =
 			matching::RemoteAssetFromLocation&lt;StartsWith&lt;WestendEcosystem&gt;, AssetHubWestend&gt;;
-
-		<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>ToWestendXcmRouter {
-			<span class="kw">fn </span>contains(call: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
-				<span class="macro">matches!</span>(
-					call,
-					RuntimeCall::ToWestendXcmRouter(
-						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
-					)
-				)
-			}
-		}
 	}
 
 	<span class="kw">pub mod </span>to_ethereum {

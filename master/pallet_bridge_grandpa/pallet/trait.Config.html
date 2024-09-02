@@ -173,7 +173,7 @@ deed, because it may help to reduce bridge fees - this cost may be deducted from
 bridge fees, paid by message senders.</p>
 <p>However, if the bridged chain gets compromised, its validators may generate as many
 “free” headers as they want. And they may fill the whole block (at this chain) for
-free. This constants limits number of calls that we may refund in a single block.
+free. This constant limits number of calls that we may refund in a single block.
 All calls above this limit are accepted, but are not refunded.</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.FreeHeadersInterval" class="method"><a class="src rightside" href="../../src/pallet_bridge_grandpa/lib.rs.html#131">source</a><h4 class="code-header">type <a href="#associatedtype.FreeHeadersInterval" class="associatedtype">FreeHeadersInterval</a>: Get&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>The distance between bridged chain headers, that may be submitted for free. The
 first free header is header number zero, the next one is header number

@@ -871,36 +871,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#719" id="719">719</a>
 <a href="#720" id="720">720</a>
 <a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -921,7 +891,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::WeightInfo, BestFinalized, BridgedBlockNumber, BridgedHeader, Config,
 	CurrentAuthoritySet, Error, FreeHeadersRemaining, Pallet,
 };
-<span class="kw">use </span>bp_header_chain::{justification::GrandpaJustification, submit_finality_proof_limits_extras};
+<span class="kw">use </span>bp_header_chain::{
+	justification::GrandpaJustification, submit_finality_proof_limits_extras,
+	SubmitFinalityProofInfo,
+};
 <span class="kw">use </span>bp_runtime::{BlockNumberOf, Chain, OwnedBridgeModule};
 <span class="kw">use </span>frame_support::{
 	dispatch::CallableCallFor,
@@ -934,49 +907,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	RuntimeDebug, SaturatedConversion,
 };
-
-<span class="doccomment">/// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
-</span><span class="attr">#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
-</span><span class="kw">pub struct </span>SubmitFinalityProofInfo&lt;N&gt; {
-	<span class="doccomment">/// Number of the finality target.
-	</span><span class="kw">pub </span>block_number: N,
-	<span class="doccomment">/// An identifier of the validators set that has signed the submitted justification.
-	/// It might be `None` if deprecated version of the `submit_finality_proof` is used.
-	</span><span class="kw">pub </span>current_set_id: <span class="prelude-ty">Option</span>&lt;SetId&gt;,
-	<span class="doccomment">/// If `true`, then the call proves new **mandatory** header.
-	</span><span class="kw">pub </span>is_mandatory: bool,
-	<span class="doccomment">/// If `true`, then the call must be free (assuming that everything else is valid) to
-	/// be treated as valid.
-	</span><span class="kw">pub </span>is_free_execution_expected: bool,
-	<span class="doccomment">/// Extra weight that we assume is included in the call.
-	///
-	/// We have some assumptions about headers and justifications of the bridged chain.
-	/// We know that if our assumptions are correct, then the call must not have the
-	/// weight above some limit. The fee paid for weight above that limit, is never refunded.
-	</span><span class="kw">pub </span>extra_weight: Weight,
-	<span class="doccomment">/// Extra size (in bytes) that we assume are included in the call.
-	///
-	/// We have some assumptions about headers and justifications of the bridged chain.
-	/// We know that if our assumptions are correct, then the call must not have the
-	/// weight above some limit. The fee paid for bytes above that limit, is never refunded.
-	</span><span class="kw">pub </span>extra_size: u32,
-}
+<span class="kw">use </span>sp_std::fmt::Debug;
 
 <span class="doccomment">/// Verified `SubmitFinalityProofInfo&lt;N&gt;`.
 </span><span class="attr">#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
-</span><span class="kw">pub struct </span>VerifiedSubmitFinalityProofInfo&lt;N&gt; {
+</span><span class="kw">pub struct </span>VerifiedSubmitFinalityProofInfo&lt;N: Debug&gt; {
 	<span class="doccomment">/// Base call information.
 	</span><span class="kw">pub </span>base: SubmitFinalityProofInfo&lt;N&gt;,
 	<span class="doccomment">/// A difference between bundled bridged header and best bridged header known to us
 	/// before the call.
 	</span><span class="kw">pub </span>improved_by: N,
-}
-
-<span class="kw">impl</span>&lt;N&gt; SubmitFinalityProofInfo&lt;N&gt; {
-	<span class="doccomment">/// Returns `true` if call size/weight is below our estimations for regular calls.
-	</span><span class="kw">pub fn </span>fits_limits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.extra_weight.is_zero() &amp;&amp; <span class="self">self</span>.extra_size.is_zero()
-	}
 }
 
 <span class="doccomment">/// Helper struct that provides methods for working with the `SubmitFinalityProof` call.
@@ -1239,9 +1179,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			TestRuntime,
 		},
 		BestFinalized, Config, CurrentAuthoritySet, FreeHeadersRemaining, PalletOperatingMode,
-		StoredAuthoritySet, SubmitFinalityProofInfo, WeightInfo,
+		StoredAuthoritySet, WeightInfo,
 	};
-	<span class="kw">use </span>bp_header_chain::ChainWithGrandpa;
+	<span class="kw">use </span>bp_header_chain::{ChainWithGrandpa, SubmitFinalityProofInfo};
 	<span class="kw">use </span>bp_runtime::{BasicOperatingMode, HeaderId};
 	<span class="kw">use </span>bp_test_utils::{
 		make_default_justification, make_justification_for_header, JustificationGeneratorParams,

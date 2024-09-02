@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["InboundLanes","OutboundLanes","OutboundLanesCongestedSignals","OutboundMessages","PalletOperatingMode","PalletOwner"]};
+window.SIDEBAR_ITEMS = {"struct":["InboundLanes","OutboundLanes","OutboundMessages","PalletOperatingMode","PalletOwner"]};

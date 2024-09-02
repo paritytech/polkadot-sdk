@@ -492,12 +492,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -568,21 +562,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		bridged_chain: <span class="macro-nonterminal">$bridged</span>:path,
 	) =&gt; {
 		{
-			<span class="kw">use </span><span class="macro-nonterminal">$crate::messages_xcm_extension::XcmAsPlainPayload</span>;
+			<span class="kw">use </span><span class="macro-nonterminal">$crate::integrity::__private::bp_xcm_bridge_hub::XcmAsPlainPayload</span>;
 			<span class="kw">use </span><span class="macro-nonterminal">$crate::integrity::__private::static_assertions::assert_type_eq_all</span>;
 			<span class="kw">use </span>bp_messages::ChainWithMessages;
 			<span class="kw">use </span>bp_runtime::Chain;
-			<span class="kw">use </span>pallet_bridge_messages::Config <span class="kw">as </span>MessagesConfig;
+			<span class="kw">use </span>pallet_bridge_messages::Config <span class="kw">as </span>BridgeMessagesConfig;
 
 			<span class="comment">// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
 
-			</span><span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::ThisChain, <span class="macro-nonterminal">$this</span>);
-			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::BridgedChain, <span class="macro-nonterminal">$bridged</span>);
+			</span><span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>BridgeMessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::ThisChain, <span class="macro-nonterminal">$this</span>);
+			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>BridgeMessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::BridgedChain, <span class="macro-nonterminal">$bridged</span>);
 
-			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::OutboundPayload, XcmAsPlainPayload);
-			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::InboundPayload, XcmAsPlainPayload);
+			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>BridgeMessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::OutboundPayload, XcmAsPlainPayload);
+			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>BridgeMessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::InboundPayload, XcmAsPlainPayload);
 		}
 	}
 );
@@ -674,12 +668,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>R: pallet_bridge_messages::Config&lt;MI&gt;,
 	MI: <span class="lifetime">'static</span>,
 {
-	<span class="macro">assert!</span>(
-		!R::ActiveOutboundLanes::get().is_empty(),
-		<span class="string">"ActiveOutboundLanes ({:?}) must not be empty"</span>,
-		R::ActiveOutboundLanes::get(),
-	);
-
 	<span class="macro">assert!</span>(
 		pallet_bridge_messages::BridgedChainOf::&lt;R, MI&gt;::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX
 			&lt;= pallet_bridge_messages::BridgedChainOf::&lt;R, MI&gt;::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,

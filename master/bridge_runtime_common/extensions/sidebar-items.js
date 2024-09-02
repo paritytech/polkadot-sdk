@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["check_obsolete_extension","priority_calculator","refund_relayer_extension"]};
+window.SIDEBAR_ITEMS = {"struct":["CheckAndBoostBridgeGrandpaTransactions","CheckAndBoostBridgeParachainsTransactions"],"trait":["BridgeRuntimeFilterCall"]};

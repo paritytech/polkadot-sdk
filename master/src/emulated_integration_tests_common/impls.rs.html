@@ -1077,6 +1077,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#925" id="925">925</a>
 <a href="#926" id="926">926</a>
 <a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1096,7 +1145,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>paste;
 
 <span class="kw">pub use crate</span>::{
-	xcm_helpers::xcm_transact_unpaid_execution, PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD,
+	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
+	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD,
 };
 
 <span class="comment">// Substrate
@@ -1109,7 +1159,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet_assets;
 <span class="kw">pub use </span>pallet_message_queue;
 <span class="kw">pub use </span>pallet_xcm;
-<span class="kw">use </span>sp_core::Get;
 
 <span class="comment">// Polkadot
 </span><span class="kw">pub use </span>polkadot_runtime_parachains::{
@@ -1117,7 +1166,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 <span class="kw">pub use </span>xcm::{
-	prelude::{Location, OriginKind, Outcome, VersionedXcm, XcmError, XcmVersion},
+	prelude::{
+		Asset, InteriorLocation, Location, OriginKind, Outcome, VersionedXcm, XcmError, XcmVersion,
+	},
 	DoubleEncoded,
 };
 
@@ -1130,7 +1181,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">pub use </span>parachains_common::{AccountId, Balance};
 <span class="kw">pub use </span>xcm_emulator::{
-	assert_expected_events, bx, helpers::weight_within_threshold, BridgeMessage,
+	assert_expected_events, bx, helpers::weight_within_threshold, BridgeLaneId, BridgeMessage,
 	BridgeMessageDispatchError, BridgeMessageHandler, Chain, Network, Parachain, RelayChain,
 	TestExt,
 };
@@ -1140,60 +1191,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 	LaneId, MessageKey, OutboundLaneData,
 };
-<span class="kw">use </span>bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
-<span class="kw">use </span>pallet_bridge_messages::{Config, OutboundLanes, Pallet};
+<span class="kw">pub use </span>bp_xcm_bridge_hub::XcmBridgeHubCall;
+<span class="kw">use </span>pallet_bridge_messages::{Config <span class="kw">as </span>BridgeMessagesConfig, OutboundLanes, Pallet};
 <span class="kw">pub use </span>pallet_bridge_messages::{
 	Instance1 <span class="kw">as </span>BridgeMessagesInstance1, Instance2 <span class="kw">as </span>BridgeMessagesInstance2,
 	Instance3 <span class="kw">as </span>BridgeMessagesInstance3,
 };
+<span class="kw">use </span>pallet_xcm_bridge_hub::XcmBlobMessageDispatchResult;
 
 <span class="kw">pub struct </span>BridgeHubMessageHandler&lt;S, SI, T, TI&gt; {
 	_marker: std::marker::PhantomData&lt;(S, SI, T, TI)&gt;,
 }
 
 <span class="kw">struct </span>LaneIdWrapper(LaneId);
-
-<span class="kw">impl </span>From&lt;LaneIdWrapper&gt; <span class="kw">for </span>u32 {
-	<span class="kw">fn </span>from(lane_id: LaneIdWrapper) -&gt; u32 {
-		u32::from_be_bytes(lane_id.<span class="number">0 </span>.<span class="number">0</span>)
+<span class="kw">impl </span>From&lt;LaneIdWrapper&gt; <span class="kw">for </span>BridgeLaneId {
+	<span class="kw">fn </span>from(lane_id: LaneIdWrapper) -&gt; BridgeLaneId {
+		lane_id.<span class="number">0</span>.encode()
 	}
 }
-
-<span class="kw">impl </span>From&lt;u32&gt; <span class="kw">for </span>LaneIdWrapper {
-	<span class="kw">fn </span>from(id: u32) -&gt; LaneIdWrapper {
-		LaneIdWrapper(LaneId(id.to_be_bytes()))
+<span class="kw">impl </span>From&lt;BridgeLaneId&gt; <span class="kw">for </span>LaneIdWrapper {
+	<span class="kw">fn </span>from(id: BridgeLaneId) -&gt; LaneIdWrapper {
+		LaneIdWrapper(LaneId::decode(<span class="kw-2">&amp;mut &amp;</span>id[..]).expect(<span class="string">"decodable"</span>))
 	}
 }
 
 <span class="kw">impl</span>&lt;S, SI, T, TI&gt; BridgeMessageHandler <span class="kw">for </span>BridgeHubMessageHandler&lt;S, SI, T, TI&gt;
 <span class="kw">where
-	</span>S: Config&lt;SI&gt;,
+	</span>S: BridgeMessagesConfig&lt;SI&gt;,
 	SI: <span class="lifetime">'static</span>,
-	T: Config&lt;TI&gt;,
+	T: BridgeMessagesConfig&lt;TI&gt;,
 	TI: <span class="lifetime">'static</span>,
-	&lt;T <span class="kw">as </span>Config&lt;TI&gt;&gt;::InboundPayload: From&lt;Vec&lt;u8&gt;&gt;,
-	&lt;T <span class="kw">as </span>Config&lt;TI&gt;&gt;::MessageDispatch:
+	&lt;T <span class="kw">as </span>BridgeMessagesConfig&lt;TI&gt;&gt;::InboundPayload: From&lt;Vec&lt;u8&gt;&gt;,
+	&lt;T <span class="kw">as </span>BridgeMessagesConfig&lt;TI&gt;&gt;::MessageDispatch:
 		MessageDispatch&lt;DispatchLevelResult = XcmBlobMessageDispatchResult&gt;,
 {
 	<span class="kw">fn </span>get_source_outbound_messages() -&gt; Vec&lt;BridgeMessage&gt; {
 		<span class="comment">// get the source active outbound lanes
-		</span><span class="kw">let </span>active_lanes = S::ActiveOutboundLanes::get();
+		</span><span class="kw">let </span>active_outbound_lanes = OutboundLanes::&lt;S, SI&gt;::iter_keys();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>messages: Vec&lt;BridgeMessage&gt; = Default::default();
 
 		<span class="comment">// collect messages from `OutboundMessages` for each active outbound lane in the source
-		</span><span class="kw">for </span>lane <span class="kw">in </span>active_lanes {
-			<span class="kw">let </span>latest_generated_nonce = OutboundLanes::&lt;S, SI&gt;::get(lane).latest_generated_nonce;
-			<span class="kw">let </span>latest_received_nonce = OutboundLanes::&lt;S, SI&gt;::get(lane).latest_received_nonce;
+		</span><span class="kw">for </span>lane <span class="kw">in </span>active_outbound_lanes {
+			<span class="kw">let </span>latest_generated_nonce =
+				OutboundLanes::&lt;S, SI&gt;::get(lane).unwrap().latest_generated_nonce;
+			<span class="kw">let </span>latest_received_nonce =
+				OutboundLanes::&lt;S, SI&gt;::get(lane).unwrap().latest_received_nonce;
 
 			(latest_received_nonce + <span class="number">1</span>..=latest_generated_nonce).for_each(|nonce| {
-				<span class="kw">let </span>encoded_payload: Vec&lt;u8&gt; = Pallet::&lt;S, SI&gt;::outbound_message_data(<span class="kw-2">*</span>lane, nonce)
+				<span class="kw">let </span>encoded_payload: Vec&lt;u8&gt; = Pallet::&lt;S, SI&gt;::outbound_message_data(lane, nonce)
 					.expect(<span class="string">"Bridge message does not exist"</span>)
 					.into();
 				<span class="kw">let </span>payload = Vec::&lt;u8&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded_payload[..])
 					.expect(<span class="string">"Decoding XCM message failed"</span>);
-				<span class="kw">let </span>id: u32 = LaneIdWrapper(<span class="kw-2">*</span>lane).into();
-				<span class="kw">let </span>message = BridgeMessage { id, nonce, payload };
+				<span class="kw">let </span>message = BridgeMessage { lane_id: LaneIdWrapper(lane).into(), nonce, payload };
 
 				messages.push(message);
 			});
@@ -1204,10 +1255,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>dispatch_target_inbound_message(
 		message: BridgeMessage,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BridgeMessageDispatchError&gt; {
-		<span class="kw">type </span>TargetMessageDispatch&lt;T, I&gt; = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::MessageDispatch;
-		<span class="kw">type </span>InboundPayload&lt;T, I&gt; = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::InboundPayload;
+		<span class="kw">type </span>TargetMessageDispatch&lt;T, I&gt; = &lt;T <span class="kw">as </span>BridgeMessagesConfig&lt;I&gt;&gt;::MessageDispatch;
+		<span class="kw">type </span>InboundPayload&lt;T, I&gt; = &lt;T <span class="kw">as </span>BridgeMessagesConfig&lt;I&gt;&gt;::InboundPayload;
 
-		<span class="kw">let </span>lane_id = LaneIdWrapper::from(message.id).<span class="number">0</span>;
+		<span class="kw">let </span>lane_id = LaneIdWrapper::from(message.lane_id).<span class="number">0</span>;
 		<span class="kw">let </span>nonce = message.nonce;
 		<span class="kw">let </span>payload = <span class="prelude-val">Ok</span>(From::from(message.payload));
 
@@ -1230,15 +1281,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		result
 	}
 
-	<span class="kw">fn </span>notify_source_message_delivery(lane_id: u32) {
-		<span class="kw">let </span>data = OutboundLanes::&lt;S, SI&gt;::get(LaneIdWrapper::from(lane_id).<span class="number">0</span>);
+	<span class="kw">fn </span>notify_source_message_delivery(lane_id: BridgeLaneId) {
+		<span class="kw">let </span>lane_id = LaneIdWrapper::from(lane_id).<span class="number">0</span>;
+		<span class="kw">let </span>data = OutboundLanes::&lt;S, SI&gt;::get(lane_id).unwrap();
 		<span class="kw">let </span>new_data = OutboundLaneData {
 			oldest_unpruned_nonce: data.oldest_unpruned_nonce + <span class="number">1</span>,
 			latest_received_nonce: data.latest_received_nonce + <span class="number">1</span>,
 			..data
 		};
 
-		OutboundLanes::&lt;S, SI&gt;::insert(LaneIdWrapper::from(lane_id).<span class="number">0</span>, new_data);
+		OutboundLanes::&lt;S, SI&gt;::insert(lane_id, new_data);
 	}
 }
 
@@ -1998,6 +2050,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeOrigin::root(),
 							version,
 						));
+					});
+				}
+			}
+		}
+	}
+}
+
+<span class="attr">#[macro_export]
+</span><span class="macro">macro_rules! </span>impl_bridge_helpers_for_chain {
+	( <span class="macro-nonterminal">$chain</span>:ident, <span class="macro-nonterminal">$pallet</span>:ident, <span class="macro-nonterminal">$pallet_xcm</span>:ident, <span class="macro-nonterminal">$runtime_call_wrapper</span>:path ) =&gt; {
+		<span class="macro-nonterminal">$</span><span class="macro">crate::impls::paste::paste! </span>{
+			<span class="kw">impl</span>&lt;<span class="macro-nonterminal">N</span>: <span class="macro-nonterminal">$crate::impls::Network</span>&gt; <span class="macro-nonterminal">$chain</span>&lt;N&gt; {
+				<span class="doccomment">/// Open bridge with `dest`.
+				</span><span class="kw">pub fn </span>open_bridge(
+					bridge_location: <span class="macro-nonterminal">$crate::impls::Location</span>,
+					bridge_destination_universal_location: <span class="macro-nonterminal">$crate::impls::InteriorLocation</span>,
+					maybe_paid: <span class="prelude-ty">Option</span>&lt;(<span class="macro-nonterminal">$crate::impls::Asset</span>, <span class="macro-nonterminal">$crate::impls::AccountId</span>)&gt;
+				) {
+					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
+						<span class="kw">use </span><span class="macro-nonterminal">$crate::impls</span>::{bx, Chain};
+						<span class="kw">use </span><span class="macro-nonterminal">$crate::impls::XcmBridgeHubCall</span>;
+						<span class="kw">use </span><span class="macro-nonterminal">$crate::impls::Encode</span>;
+
+						<span class="comment">// important to use `root` and `OriginKind::Xcm`
+						</span><span class="kw">let </span>root_origin = &lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::RuntimeOrigin::root();
+
+						<span class="comment">// construct call
+						</span><span class="kw">let </span>call: <span class="macro-nonterminal">$crate::impls::DoubleEncoded</span>&lt;()&gt; = <span class="macro-nonterminal">$runtime_call_wrapper</span>(XcmBridgeHubCall::open_bridge {
+							bridge_destination_universal_location: <span class="macro">bx!</span>(
+								bridge_destination_universal_location.clone().into()
+							)
+						}).encode().into();
+
+						<span class="kw">let </span>xcm = <span class="kw">if let </span><span class="prelude-val">Some</span>((fee_asset, beneficiary)) = maybe_paid {
+							<span class="macro-nonterminal">$crate::impls::xcm_transact_paid_execution</span>(call, <span class="macro-nonterminal">$crate::impls::OriginKind::Xcm</span>, fee_asset, beneficiary)
+						} <span class="kw">else </span>{
+							<span class="macro-nonterminal">$crate::impls::xcm_transact_unpaid_execution</span>(call, <span class="macro-nonterminal">$crate::impls::OriginKind::Xcm</span>)
+						};
+
+						<span class="comment">// Send XCM `Transact` with `open_bridge` call
+						</span><span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain $pallet</span>&gt;]&gt;::<span class="macro-nonterminal">$pallet_xcm::send</span>(
+							root_origin,
+							<span class="macro">bx!</span>(bridge_location.into()),
+							<span class="macro">bx!</span>(xcm),
+						));
+						<span class="self">Self</span>::assert_xcm_pallet_sent();
 					});
 				}
 			}

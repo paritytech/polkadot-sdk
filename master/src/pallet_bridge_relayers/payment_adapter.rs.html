@@ -414,11 +414,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{mock::<span class="kw-2">*</span>, RelayerRewards};
 
-	<span class="kw">const </span>RELAYER_1: AccountId = <span class="number">1</span>;
-	<span class="kw">const </span>RELAYER_2: AccountId = <span class="number">2</span>;
-	<span class="kw">const </span>RELAYER_3: AccountId = <span class="number">3</span>;
+	<span class="kw">const </span>RELAYER_1: ThisChainAccountId = <span class="number">1</span>;
+	<span class="kw">const </span>RELAYER_2: ThisChainAccountId = <span class="number">2</span>;
+	<span class="kw">const </span>RELAYER_3: ThisChainAccountId = <span class="number">3</span>;
 
-	<span class="kw">fn </span>relayers_rewards() -&gt; RelayersRewards&lt;AccountId&gt; {
+	<span class="kw">fn </span>relayers_rewards() -&gt; RelayersRewards&lt;ThisChainAccountId&gt; {
 		<span class="macro">vec!</span>[(RELAYER_1, <span class="number">2</span>), (RELAYER_2, <span class="number">3</span>)].into_iter().collect()
 	}
 
@@ -428,16 +428,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			register_relayers_rewards::&lt;TestRuntime&gt;(
 				<span class="kw-2">&amp;</span>RELAYER_2,
 				relayers_rewards(),
-				TEST_REWARDS_ACCOUNT_PARAMS,
+				test_reward_account_param(),
 				<span class="number">50</span>,
 			);
 
 			<span class="macro">assert_eq!</span>(
-				RelayerRewards::&lt;TestRuntime&gt;::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::&lt;TestRuntime&gt;::get(RELAYER_1, test_reward_account_param()),
 				<span class="prelude-val">Some</span>(<span class="number">100</span>)
 			);
 			<span class="macro">assert_eq!</span>(
-				RelayerRewards::&lt;TestRuntime&gt;::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::&lt;TestRuntime&gt;::get(RELAYER_2, test_reward_account_param()),
 				<span class="prelude-val">Some</span>(<span class="number">150</span>)
 			);
 		});
@@ -449,20 +449,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			register_relayers_rewards::&lt;TestRuntime&gt;(
 				<span class="kw-2">&amp;</span>RELAYER_3,
 				relayers_rewards(),
-				TEST_REWARDS_ACCOUNT_PARAMS,
+				test_reward_account_param(),
 				<span class="number">50</span>,
 			);
 
 			<span class="macro">assert_eq!</span>(
-				RelayerRewards::&lt;TestRuntime&gt;::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::&lt;TestRuntime&gt;::get(RELAYER_1, test_reward_account_param()),
 				<span class="prelude-val">Some</span>(<span class="number">100</span>)
 			);
 			<span class="macro">assert_eq!</span>(
-				RelayerRewards::&lt;TestRuntime&gt;::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::&lt;TestRuntime&gt;::get(RELAYER_2, test_reward_account_param()),
 				<span class="prelude-val">Some</span>(<span class="number">150</span>)
 			);
 			<span class="macro">assert_eq!</span>(
-				RelayerRewards::&lt;TestRuntime&gt;::get(RELAYER_3, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::&lt;TestRuntime&gt;::get(RELAYER_3, test_reward_account_param()),
 				<span class="prelude-val">None
 			</span>);
 		});

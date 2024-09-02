@@ -681,6 +681,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -702,14 +723,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use crate</span>::{
-	inbound_lane::InboundLaneStorage, outbound_lane, weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH,
-	BridgedChainOf, Call, OutboundLanes, RuntimeInboundLaneStorage,
+	active_outbound_lane, weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH, BridgedChainOf, Call,
+	InboundLanes, OutboundLanes,
 };
 
 <span class="kw">use </span>bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, DeliveredMessages,
-	InboundLaneData, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
+	InboundLaneData, LaneId, LaneState, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 	UnrewardedRelayersState,
 };
 <span class="kw">use </span>bp_runtime::{AccountIdOf, HashOf, UnverifiedStorageProofParams};
@@ -757,10 +778,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Trait that must be implemented by runtime.
 </span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static</span>&gt;: <span class="kw">crate</span>::Config&lt;I&gt; {
 	<span class="doccomment">/// Lane id to use in benchmarks.
-	///
-	/// By default, lane 00000000 is used.
 	</span><span class="kw">fn </span>bench_lane_id() -&gt; LaneId {
-		LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>])
+		LaneId::new(<span class="number">1</span>, <span class="number">2</span>)
 	}
 
 	<span class="doccomment">/// Return id of relayer account at the bridged chain.
@@ -796,22 +815,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>send_regular_message&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() {
-	<span class="kw">let </span><span class="kw-2">mut </span>outbound_lane = outbound_lane::&lt;T, I&gt;(T::bench_lane_id());
+	OutboundLanes::&lt;T, I&gt;::insert(
+		T::bench_lane_id(),
+		OutboundLaneData {
+			state: LaneState::Opened,
+			latest_generated_nonce: <span class="number">1</span>,
+			..Default::default()
+		},
+	);
+
+	<span class="kw">let </span><span class="kw-2">mut </span>outbound_lane = active_outbound_lane::&lt;T, I&gt;(T::bench_lane_id()).unwrap();
 	outbound_lane.send_message(BoundedVec::try_from(<span class="macro">vec!</span>[]).expect(<span class="string">"We craft valid messages"</span>));
 }
 
 <span class="kw">fn </span>receive_messages&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(nonce: MessageNonce) {
-	<span class="kw">let </span><span class="kw-2">mut </span>inbound_lane_storage =
-		RuntimeInboundLaneStorage::&lt;T, I&gt;::from_lane_id(T::bench_lane_id());
-	inbound_lane_storage.set_data(InboundLaneData {
-		relayers: <span class="macro">vec!</span>[UnrewardedRelayer {
-			relayer: T::bridged_relayer_id(),
-			messages: DeliveredMessages::new(nonce),
-		}]
-		.into_iter()
-		.collect(),
-		last_confirmed_nonce: <span class="number">0</span>,
-	});
+	InboundLanes::&lt;T, I&gt;::insert(
+		T::bench_lane_id(),
+		InboundLaneData {
+			state: LaneState::Opened,
+			relayers: <span class="macro">vec!</span>[UnrewardedRelayer {
+				relayer: T::bridged_relayer_id(),
+				messages: DeliveredMessages::new(nonce),
+			}]
+			.into(),
+			last_confirmed_nonce: <span class="number">0</span>,
+		},
+	);
 }
 
 <span class="kw">struct </span>ReceiveMessagesProofSetup&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; {
@@ -856,8 +885,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>check_last_nonce(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="macro">assert_eq!</span>(
-			<span class="kw">crate</span>::InboundLanes::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>T::bench_lane_id()).last_delivered_nonce(),
-			<span class="self">self</span>.last_nonce(),
+			<span class="kw">crate</span>::InboundLanes::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>T::bench_lane_id()).map(|d| d.last_delivered_nonce()),
+			<span class="prelude-val">Some</span>(<span class="self">self</span>.last_nonce()),
 		);
 	}
 }
@@ -960,6 +989,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			lane: T::bench_lane_id(),
 			message_nonces: setup.nonces(),
 			outbound_lane_data: <span class="prelude-val">Some</span>(OutboundLaneData {
+				state: LaneState::Opened,
 				oldest_unpruned_nonce: setup.last_nonce(),
 				latest_received_nonce: ReceiveMessagesProofSetup::&lt;T, I&gt;::LATEST_RECEIVED_NONCE,
 				latest_generated_nonce: setup.last_nonce(),
@@ -1039,6 +1069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: T::bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
+				state: LaneState::Opened,
 				relayers: <span class="macro">vec!</span>[UnrewardedRelayer {
 					relayer: relayer_id.clone(),
 					messages: DeliveredMessages::new(<span class="number">1</span>),
@@ -1057,7 +1088,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			relayers_state,
 		);
 
-		<span class="macro">assert_eq!</span>(OutboundLanes::&lt;T, I&gt;::get(T::bench_lane_id()).latest_received_nonce, <span class="number">1</span>);
+		<span class="macro">assert_eq!</span>(
+			OutboundLanes::&lt;T, I&gt;::get(T::bench_lane_id()).map(|s| s.latest_received_nonce),
+			<span class="prelude-val">Some</span>(<span class="number">1</span>)
+		);
 		<span class="macro">assert!</span>(T::is_relayer_rewarded(<span class="kw-2">&amp;</span>relayer_id));
 	}
 
@@ -1087,6 +1121,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: T::bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
+				state: LaneState::Opened,
 				relayers: <span class="macro">vec!</span>[UnrewardedRelayer {
 					relayer: relayer_id.clone(),
 					messages: delivered_messages,
@@ -1105,7 +1140,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			relayers_state,
 		);
 
-		<span class="macro">assert_eq!</span>(OutboundLanes::&lt;T, I&gt;::get(T::bench_lane_id()).latest_received_nonce, <span class="number">2</span>);
+		<span class="macro">assert_eq!</span>(
+			OutboundLanes::&lt;T, I&gt;::get(T::bench_lane_id()).map(|s| s.latest_received_nonce),
+			<span class="prelude-val">Some</span>(<span class="number">2</span>)
+		);
 		<span class="macro">assert!</span>(T::is_relayer_rewarded(<span class="kw-2">&amp;</span>relayer_id));
 	}
 
@@ -1134,6 +1172,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: T::bench_lane_id(),
 			inbound_lane_data: InboundLaneData {
+				state: LaneState::Opened,
 				relayers: <span class="macro">vec!</span>[
 					UnrewardedRelayer {
 						relayer: relayer1_id.clone(),
@@ -1158,7 +1197,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			relayers_state,
 		);
 
-		<span class="macro">assert_eq!</span>(OutboundLanes::&lt;T, I&gt;::get(T::bench_lane_id()).latest_received_nonce, <span class="number">2</span>);
+		<span class="macro">assert_eq!</span>(
+			OutboundLanes::&lt;T, I&gt;::get(T::bench_lane_id()).map(|s| s.latest_received_nonce),
+			<span class="prelude-val">Some</span>(<span class="number">2</span>)
+		);
 		<span class="macro">assert!</span>(T::is_relayer_rewarded(<span class="kw-2">&amp;</span>relayer1_id));
 		<span class="macro">assert!</span>(T::is_relayer_rewarded(<span class="kw-2">&amp;</span>relayer2_id));
 	}

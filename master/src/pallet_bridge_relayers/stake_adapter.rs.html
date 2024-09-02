@@ -438,7 +438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">use </span>frame_support::traits::fungible::Mutate;
 
-	<span class="kw">fn </span>test_stake() -&gt; Balance {
+	<span class="kw">fn </span>test_stake() -&gt; ThisChainBalance {
 		Stake::get()
 	}
 
@@ -488,7 +488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>repatriate_reserved_works() {
 		run_test(|| {
-			<span class="kw">let </span>beneficiary = TEST_REWARDS_ACCOUNT_PARAMS;
+			<span class="kw">let </span>beneficiary = test_reward_account_param();
 			<span class="kw">let </span>beneficiary_account = TestPaymentProcedure::rewards_account(beneficiary);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>expected_balance = ExistentialDeposit::get();
@@ -544,7 +544,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>repatriate_reserved_doesnt_work_when_beneficiary_account_is_missing() {
 		run_test(|| {
-			<span class="kw">let </span>beneficiary = TEST_REWARDS_ACCOUNT_PARAMS;
+			<span class="kw">let </span>beneficiary = test_reward_account_param();
 			<span class="kw">let </span>beneficiary_account = TestPaymentProcedure::rewards_account(beneficiary);
 
 			Balances::mint_into(<span class="kw-2">&amp;</span><span class="number">3</span>, test_stake() * <span class="number">2</span>).unwrap();

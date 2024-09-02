@@ -539,6 +539,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -560,17 +596,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{Config, LOG_TARGET};
 
 <span class="kw">use </span>bp_messages::{
-	ChainWithMessages, DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
+	ChainWithMessages, DeliveredMessages, LaneId, LaneState, MessageNonce, OutboundLaneData,
+	UnrewardedRelayer,
 };
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{traits::Get, BoundedVec, PalletError};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
-<span class="kw">use </span>sp_std::{collections::vec_deque::VecDeque, marker::PhantomData};
+<span class="kw">use </span>sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
 
 <span class="doccomment">/// Outbound lane storage.
 </span><span class="kw">pub trait </span>OutboundLaneStorage {
-	<span class="kw">type </span>StoredMessagePayload;
+	<span class="doccomment">/// Stored message payload type.
+	</span><span class="kw">type </span>StoredMessagePayload;
 
 	<span class="doccomment">/// Lane id.
 	</span><span class="kw">fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LaneId;
@@ -585,6 +623,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>save_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, nonce: MessageNonce, message_payload: <span class="self">Self</span>::StoredMessagePayload);
 	<span class="doccomment">/// Remove outbound message from the storage.
 	</span><span class="kw">fn </span>remove_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, nonce: <span class="kw-2">&amp;</span>MessageNonce);
+	<span class="doccomment">/// Purge lane data from the storage.
+	</span><span class="kw">fn </span>purge(<span class="self">self</span>);
 }
 
 <span class="doccomment">/// Limit for the `StoredMessagePayload` vector.
@@ -616,6 +656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Outbound messages lane.
+</span><span class="attr">#[derive(Debug, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>OutboundLane&lt;S&gt; {
 	storage: S,
 }
@@ -629,6 +670,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Get this lane data.
 	</span><span class="kw">pub fn </span>data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OutboundLaneData {
 		<span class="self">self</span>.storage.data()
+	}
+
+	<span class="doccomment">/// Get lane state.
+	</span><span class="kw">pub fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LaneState {
+		<span class="self">self</span>.storage.data().state
+	}
+
+	<span class="doccomment">/// Set lane state.
+	</span><span class="kw">pub fn </span>set_state(<span class="kw-2">&amp;mut </span><span class="self">self</span>, state: LaneState) {
+		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="self">self</span>.storage.data();
+		data.state = state;
+		<span class="self">self</span>.storage.set_data(data);
+	}
+
+	<span class="doccomment">/// Return nonces of all currently queued messages.
+	</span><span class="kw">pub fn </span>queued_messages(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RangeInclusive&lt;MessageNonce&gt; {
+		<span class="kw">let </span>data = <span class="self">self</span>.storage.data();
+		data.oldest_unpruned_nonce..=data.latest_generated_nonce
 	}
 
 	<span class="doccomment">/// Send message over lane.
@@ -691,6 +750,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(confirmed_messages))
 	}
+
+	<span class="doccomment">/// Remove message from the storage. Doesn't perform any checks.
+	</span><span class="kw">pub fn </span>remove_oldest_unpruned_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="self">self</span>.storage.data();
+		<span class="self">self</span>.storage.remove_message(<span class="kw-2">&amp;</span>data.oldest_unpruned_nonce);
+		data.oldest_unpruned_nonce += <span class="number">1</span>;
+		<span class="self">self</span>.storage.set_data(data);
+	}
+
+	<span class="doccomment">/// Purge lane state from the storage.
+	</span><span class="kw">pub fn </span>purge(<span class="self">self</span>) {
+		<span class="self">self</span>.storage.purge()
+	}
 }
 
 <span class="doccomment">/// Verifies unrewarded relayers vec.
@@ -728,10 +800,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{
-		outbound_lane,
+		active_outbound_lane,
 		tests::mock::{
-			outbound_message_data, run_test, unrewarded_relayer, TestRelayer, TestRuntime,
-			REGULAR_PAYLOAD, TEST_LANE_ID,
+			outbound_message_data, run_test, test_lane_id, unrewarded_relayer, TestRelayer,
+			TestRuntime, REGULAR_PAYLOAD,
 		},
 	};
 	<span class="kw">use </span>sp_std::ops::RangeInclusive;
@@ -753,7 +825,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		relayers: <span class="kw-2">&amp;</span>VecDeque&lt;UnrewardedRelayer&lt;TestRelayer&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;DeliveredMessages&gt;, ReceptionConfirmationError&gt; {
 		run_test(|| {
-			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
+			<span class="kw">let </span><span class="kw-2">mut </span>lane = active_outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(test_lane_id()).unwrap();
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
@@ -769,7 +841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>send_message_works() {
 		run_test(|| {
-			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
+			<span class="kw">let </span><span class="kw-2">mut </span>lane = active_outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(test_lane_id()).unwrap();
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">1</span>);
 			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">1</span>).is_some());
@@ -780,7 +852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>confirm_delivery_works() {
 		run_test(|| {
-			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
+			<span class="kw">let </span><span class="kw-2">mut </span>lane = active_outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(test_lane_id()).unwrap();
 			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">2</span>);
 			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">3</span>);
@@ -800,7 +872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>confirm_partial_delivery_works() {
 		run_test(|| {
-			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
+			<span class="kw">let </span><span class="kw-2">mut </span>lane = active_outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(test_lane_id()).unwrap();
 			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">2</span>);
 			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">3</span>);
@@ -829,7 +901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>confirm_delivery_rejects_nonce_lesser_than_latest_received() {
 		run_test(|| {
-			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
+			<span class="kw">let </span><span class="kw-2">mut </span>lane = active_outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(test_lane_id()).unwrap();
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
@@ -909,7 +981,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>confirm_delivery_detects_when_more_than_expected_messages_are_confirmed() {
 		run_test(|| {
-			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
+			<span class="kw">let </span><span class="kw-2">mut </span>lane = active_outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(test_lane_id()).unwrap();
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));

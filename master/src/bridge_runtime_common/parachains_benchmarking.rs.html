@@ -235,6 +235,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -257,12 +258,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">crate</span>::messages_benchmarking::insert_header_to_grandpa_pallet;
 
-<span class="kw">use </span>bp_parachains::parachain_head_storage_key_at_source;
+<span class="kw">use </span>bp_parachains::{
+	parachain_head_storage_key_at_source, RelayBlockHash, RelayBlockHasher, RelayBlockNumber,
+};
 <span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 <span class="kw">use </span>bp_runtime::{grow_storage_value, record_all_trie_keys, Chain, UnverifiedStorageProofParams};
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::traits::Get;
-<span class="kw">use </span>pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 

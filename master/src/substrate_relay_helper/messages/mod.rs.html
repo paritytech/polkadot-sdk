@@ -1179,7 +1179,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1027" id="1027">1027</a>
 <a href="#1028" id="1028">1028</a>
 <a href="#1029" id="1029">1029</a>
-<a href="#1030" id="1030">1030</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1826,7 +1825,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
 					storage_proof: Default::default(),
-					lane: Default::default(),
+					lane: LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 					nonces_start: <span class="number">1</span>,
 					nonces_end: messages <span class="kw">as </span>u64,
 				},
@@ -1888,7 +1887,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>receive_messages_proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: Default::default(),
 			storage_proof: Default::default(),
-			lane: LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),
+			lane: LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 			nonces_start: <span class="number">0</span>,
 			nonces_end: <span class="number">0</span>,
 		};
@@ -1943,7 +1942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>receive_messages_delivery_proof = FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: Default::default(),
 			storage_proof: Default::default(),
-			lane: LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),
+			lane: LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 		};
 		<span class="kw">let </span>relayers_state = UnrewardedRelayersState {
 			unrewarded_relayer_entries: <span class="number">0</span>,
@@ -2020,7 +2019,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">type </span>ThisChain = ThisUnderlyingChain;
 			<span class="kw">type </span>BridgedChain = BridgedUnderlyingChain;
 			<span class="kw">type </span>BridgedHeaderChain = BridgedHeaderChain;
-			<span class="kw">type </span>ActiveOutboundLanes = ();
 			<span class="kw">type </span>OutboundPayload = Vec&lt;u8&gt;;
 			<span class="kw">type </span>InboundPayload = Vec&lt;u8&gt;;
 			<span class="kw">type </span>DeliveryPayments = ();

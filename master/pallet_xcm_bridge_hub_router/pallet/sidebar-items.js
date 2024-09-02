@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["dispatchables","storage_types"],"struct":["Instance1","Pallet"],"trait":["Config"],"type":["Bridge","Module"]};
+window.SIDEBAR_ITEMS = {"enum":["Call","Event"],"fn":["__type_value_for_initial_factor"],"mod":["dispatchables","storage_types"],"struct":["InitialFactor","Instance1","Pallet"],"trait":["Config"],"type":["DeliveryFeeFactor","Module"]};

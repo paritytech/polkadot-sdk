@@ -798,7 +798,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_header_chain::ChainWithGrandpa;
 <span class="kw">use </span>bp_messages::{LaneId, UnrewardedRelayersState};
 <span class="kw">use </span>bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
-<span class="kw">use </span>bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+<span class="kw">use </span>bp_xcm_bridge_hub::XcmAsPlainPayload;
 <span class="kw">use </span>frame_support::traits::{OnFinalize, OnInitialize};
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>pallet_bridge_messages::{BridgedChainOf, ThisChainOf};
@@ -1219,7 +1219,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 			&gt;(
-				LaneId::default(),
+				LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 				<span class="macro">vec!</span>[Instruction::&lt;()&gt;::ClearOrigin; <span class="number">1_024</span>].into(),
 				<span class="number">1</span>,
 				[GlobalConsensus(Polkadot), Parachain(<span class="number">1_000</span>)].into(),
@@ -1275,7 +1275,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				(),
 			&gt;(
-				LaneId::default(),
+				LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 				<span class="number">1u32</span>.into(),
 				AccountId32::from(Alice.public()).into(),
 				unrewarded_relayers.clone(),
@@ -1323,7 +1323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 			&gt;(
-				LaneId::default(),
+				LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 				<span class="macro">vec!</span>[Instruction::&lt;()&gt;::ClearOrigin; <span class="number">1_024</span>].into(),
 				<span class="number">1</span>,
 				[GlobalConsensus(Polkadot), Parachain(<span class="number">1_000</span>)].into(),
@@ -1375,7 +1375,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				(),
 			&gt;(
-				LaneId::default(),
+				LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 				<span class="number">1u32</span>.into(),
 				AccountId32::from(Alice.public()).into(),
 				unrewarded_relayers.clone(),

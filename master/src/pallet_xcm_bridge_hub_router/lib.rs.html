@@ -825,8 +825,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -859,12 +857,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>bp_xcm_bridge_hub_router::{
-	BridgeState, XcmChannelStatusProvider, MINIMAL_DELIVERY_FEE_FACTOR,
-};
+</span><span class="kw">pub use </span>bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::traits::Get;
-<span class="kw">use </span>sp_core::H256;
 <span class="kw">use </span>sp_runtime::{FixedPointNumber, FixedU128, Saturating};
 <span class="kw">use </span>sp_std::vec::Vec;
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
@@ -877,6 +872,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>weights;
 
 <span class="kw">mod </span>mock;
+
+<span class="doccomment">/// Minimal delivery fee factor.
+</span><span class="kw">pub const </span>MINIMAL_DELIVERY_FEE_FACTOR: FixedU128 = FixedU128::from_u32(<span class="number">1</span>);
 
 <span class="doccomment">/// The factor that is used to increase current message fee factor when bridge experiencing
 /// some lags.
@@ -906,11 +904,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::config]
 	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
+		<span class="doccomment">/// The overarching event type.
+		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
+			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 		<span class="doccomment">/// Benchmarks results from runtime we're plugged into.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 
 		<span class="doccomment">/// Universal location of this runtime.
 		</span><span class="kw">type </span>UniversalLocation: Get&lt;InteriorLocation&gt;;
+		<span class="doccomment">/// Relative location of the supported sibling bridge hub.
+		</span><span class="kw">type </span>SiblingBridgeHubLocation: Get&lt;Location&gt;;
 		<span class="doccomment">/// The bridged network that this config is for if specified.
 		/// Also used for filtering `Bridges` by `BridgedNetworkId`.
 		/// If not specified, allows all networks pass through.
@@ -922,13 +925,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Checks the XCM version for the destination.
 		</span><span class="kw">type </span>DestinationVersion: GetVersion;
 
-		<span class="doccomment">/// Origin of the sibling bridge hub that is allowed to report bridge status.
-		</span><span class="kw">type </span>BridgeHubOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 		<span class="doccomment">/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
 		</span><span class="kw">type </span>ToBridgeHubSender: SendXcm + InspectMessageQueues;
-		<span class="doccomment">/// Underlying channel with the sibling bridge hub. It must match the channel, used
-		/// by the `Self::ToBridgeHubSender`.
-		</span><span class="kw">type </span>WithBridgeHubChannel: XcmChannelStatusProvider;
+		<span class="doccomment">/// Local XCM channel manager.
+		</span><span class="kw">type </span>LocalXcmChannelManager: XcmChannelStatusProvider;
 
 		<span class="doccomment">/// Additional fee that is paid for every byte of the outbound message.
 		</span><span class="kw">type </span>ByteFee: Get&lt;u128&gt;;
@@ -942,117 +942,117 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="kw">fn </span>on_initialize(_n: BlockNumberFor&lt;T&gt;) -&gt; Weight {
-			<span class="comment">// TODO: make sure that `WithBridgeHubChannel::is_congested` returns true if either
-			// of XCM channels (outbound/inbound) is suspended. Because if outbound is suspended
-			// that is definitely congestion. If inbound is suspended, then we are not able to
-			// receive the "report_bridge_status" signal (that maybe sent by the bridge hub).
-
-			// if the channel with sibling/child bridge hub is suspended, we don't change
-			// anything
-			</span><span class="kw">if </span>T::WithBridgeHubChannel::is_congested() {
+			<span class="comment">// if XCM channel is still congested, we don't change anything
+			</span><span class="kw">if </span>T::LocalXcmChannelManager::is_congested(<span class="kw-2">&amp;</span>T::SiblingBridgeHubLocation::get()) {
 				<span class="kw">return </span>T::WeightInfo::on_initialize_when_congested()
 			}
 
-			<span class="comment">// if bridge has reported congestion, we don't change anything
-			</span><span class="kw">let </span><span class="kw-2">mut </span>bridge = <span class="self">Self</span>::bridge();
-			<span class="kw">if </span>bridge.is_congested {
+			<span class="comment">// if we can't decrease the delivery fee factor anymore, we don't change anything
+			</span><span class="kw">let </span><span class="kw-2">mut </span>delivery_fee_factor = <span class="self">Self</span>::delivery_fee_factor();
+			<span class="kw">if </span>delivery_fee_factor == MINIMAL_DELIVERY_FEE_FACTOR {
 				<span class="kw">return </span>T::WeightInfo::on_initialize_when_congested()
 			}
 
-			<span class="comment">// if fee factor is already minimal, we don't change anything
-			</span><span class="kw">if </span>bridge.delivery_fee_factor == MINIMAL_DELIVERY_FEE_FACTOR {
-				<span class="kw">return </span>T::WeightInfo::on_initialize_when_congested()
-			}
-
-			<span class="kw">let </span>previous_factor = bridge.delivery_fee_factor;
-			bridge.delivery_fee_factor =
-				MINIMAL_DELIVERY_FEE_FACTOR.max(bridge.delivery_fee_factor / EXPONENTIAL_FEE_BASE);
+			<span class="kw">let </span>previous_factor = delivery_fee_factor;
+			delivery_fee_factor =
+				MINIMAL_DELIVERY_FEE_FACTOR.max(delivery_fee_factor / EXPONENTIAL_FEE_BASE);
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">"Bridge queue is uncongested. Decreased fee factor from {} to {}"</span>,
+				<span class="string">"Bridge channel is uncongested. Decreased fee factor from {} to {}"</span>,
 				previous_factor,
-				bridge.delivery_fee_factor,
+				delivery_fee_factor,
 			);
+			<span class="self">Self</span>::deposit_event(Event::DeliveryFeeFactorDecreased {
+				new_value: delivery_fee_factor,
+			});
 
-			Bridge::&lt;T, I&gt;::put(bridge);
+			DeliveryFeeFactor::&lt;T, I&gt;::put(delivery_fee_factor);
+
 			T::WeightInfo::on_initialize_when_non_congested()
 		}
 	}
 
-	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
-		<span class="doccomment">/// Notification about congested bridge queue.
-		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
-		#[pallet::weight(T::WeightInfo::report_bridge_status())]
-		</span><span class="kw">pub fn </span>report_bridge_status(
-			origin: OriginFor&lt;T&gt;,
-			<span class="comment">// this argument is not currently used, but to ease future migration, we'll keep it
-			// here
-			</span>bridge_id: H256,
-			is_congested: bool,
-		) -&gt; DispatchResult {
-			<span class="kw">let _ </span>= T::BridgeHubOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-
-			<span class="macro">log::info!</span>(
-				target: LOG_TARGET,
-				<span class="string">"Received bridge status from {:?}: congested = {}"</span>,
-				bridge_id,
-				is_congested,
-			);
-
-			Bridge::&lt;T, I&gt;::mutate(|bridge| {
-				bridge.is_congested = is_congested;
-			});
-			<span class="prelude-val">Ok</span>(())
-		}
+	<span class="doccomment">/// Initialization value for the delivery fee factor.
+	</span><span class="attr">#[pallet::type_value]
+	</span><span class="kw">pub fn </span>InitialFactor() -&gt; FixedU128 {
+		MINIMAL_DELIVERY_FEE_FACTOR
 	}
 
-	<span class="doccomment">/// Bridge that we are using.
+	<span class="doccomment">/// The number to multiply the base delivery fee by.
 	///
-	/// **bridges-v1** assumptions: all outbound messages through this router are using single lane
-	/// and to single remote consensus. If there is some other remote consensus that uses the same
-	/// bridge hub, the separate pallet instance shall be used, In `v2` we'll have all required
-	/// primitives (lane-id aka bridge-id, derived from XCM locations) to support multiple  bridges
-	/// by the same pallet instance.
+	/// This factor is shared by all bridges, served by this pallet. For example, if this
+	/// chain (`Config::UniversalLocation`) opens two bridges (
+	/// `X2(GlobalConsensus(Config::BridgedNetworkId::get()), Parachain(1000))` and
+	/// `X2(GlobalConsensus(Config::BridgedNetworkId::get()), Parachain(2000))`), then they
+	/// both will be sharing the same fee factor. This is because both bridges are sharing
+	/// the same local XCM channel with the child/sibling bridge hub, which we are using
+	/// to detect congestion:
+	///
+	/// ```nocompile
+	///  ThisChain --- Local XCM channel --&gt; Sibling Bridge Hub ------
+	///                                            |                   |
+	///                                            |                   |
+	///                                            |                   |
+	///                                          Lane1               Lane2
+	///                                            |                   |
+	///                                            |                   |
+	///                                            |                   |
+	///                                           \ /                  |
+	///  Parachain1  &lt;-- Local XCM channel --- Remote Bridge Hub &lt;------
+	///                                            |
+	///                                            |
+	///  Parachain1  &lt;-- Local XCM channel ---------
+	/// ```
+	///
+	/// If at least one of other channels is congested, the local XCM channel with sibling
+	/// bridge hub eventually becomes congested too. And we have no means to detect - which
+	/// bridge exactly causes the congestion. So the best solution here is not to make
+	/// any differences between all bridges, started by this chain.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>bridge)]
-	</span><span class="kw">pub type </span>Bridge&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, BridgeState, ValueQuery&gt;;
+	#[pallet::getter(<span class="kw">fn </span>delivery_fee_factor)]
+	</span><span class="kw">pub type </span>DeliveryFeeFactor&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
+		StorageValue&lt;<span class="kw">_</span>, FixedU128, ValueQuery, InitialFactor&gt;;
 
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Called when new message is sent (queued to local outbound XCM queue) over the bridge.
 		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_message_sent_to_bridge(message_size: u32) {
-			<span class="macro">log::trace!</span>(
-				target: LOG_TARGET,
-				<span class="string">"on_message_sent_to_bridge - message_size: {message_size:?}"</span>,
-			);
-			<span class="kw">let _ </span>= Bridge::&lt;T, I&gt;::try_mutate(|bridge| {
-				<span class="kw">let </span>is_channel_with_bridge_hub_congested = T::WithBridgeHubChannel::is_congested();
-				<span class="kw">let </span>is_bridge_congested = bridge.is_congested;
+			<span class="comment">// if outbound channel is not congested, do nothing
+			</span><span class="kw">if </span>!T::LocalXcmChannelManager::is_congested(<span class="kw-2">&amp;</span>T::SiblingBridgeHubLocation::get()) {
+				<span class="kw">return
+			</span>}
 
-				<span class="comment">// if outbound queue is not congested AND bridge has not reported congestion, do
-				// nothing
-				</span><span class="kw">if </span>!is_channel_with_bridge_hub_congested &amp;&amp; !is_bridge_congested {
-					<span class="kw">return </span><span class="prelude-val">Err</span>(())
-				}
-
-				<span class="comment">// ok - we need to increase the fee factor, let's do that
-				</span><span class="kw">let </span>message_size_factor = FixedU128::from_u32(message_size.saturating_div(<span class="number">1024</span>))
-					.saturating_mul(MESSAGE_SIZE_FEE_BASE);
-				<span class="kw">let </span>total_factor = EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor);
-				<span class="kw">let </span>previous_factor = bridge.delivery_fee_factor;
-				bridge.delivery_fee_factor =
-					bridge.delivery_fee_factor.saturating_mul(total_factor);
-
+			<span class="comment">// ok - we need to increase the fee factor, let's do that
+			</span><span class="kw">let </span>message_size_factor = FixedU128::from_u32(message_size.saturating_div(<span class="number">1024</span>))
+				.saturating_mul(MESSAGE_SIZE_FEE_BASE);
+			<span class="kw">let </span>total_factor = EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor);
+			DeliveryFeeFactor::&lt;T, I&gt;::mutate(|f| {
+				<span class="kw">let </span>previous_factor = <span class="kw-2">*</span>f;
+				<span class="kw-2">*</span>f = f.saturating_mul(total_factor);
 				<span class="macro">log::info!</span>(
 					target: LOG_TARGET,
 					<span class="string">"Bridge channel is congested. Increased fee factor from {} to {}"</span>,
 					previous_factor,
-					bridge.delivery_fee_factor,
+					f,
 				);
-
-				<span class="prelude-val">Ok</span>(())
+				<span class="self">Self</span>::deposit_event(Event::DeliveryFeeFactorIncreased { new_value: <span class="kw-2">*</span>f });
+				<span class="kw-2">*</span>f
 			});
 		}
+	}
+
+	<span class="attr">#[pallet::event]
+	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
+		<span class="doccomment">/// Delivery fee factor has been decreased.
+		</span>DeliveryFeeFactorDecreased {
+			<span class="doccomment">/// New value of the `DeliveryFeeFactor`.
+			</span>new_value: FixedU128,
+		},
+		<span class="doccomment">/// Delivery fee factor has been increased.
+		</span>DeliveryFeeFactorIncreased {
+			<span class="doccomment">/// New value of the `DeliveryFeeFactor`.
+			</span>new_value: FixedU128,
+		},
 	}
 }
 
@@ -1088,18 +1088,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// ensure that the message is sent to the expected bridged network and location.
-		</span><span class="kw">let </span><span class="prelude-val">Some</span>((bridge_hub_location, maybe_payment)) =
-			T::Bridges::exporter_for(network, remote_location, message)
-		<span class="kw">else </span>{
-			<span class="macro">log::trace!</span>(
-				target: LOG_TARGET,
-				<span class="string">"Router with bridged_network_id {:?} does not support bridging to network {:?} and remote_location {:?}!"</span>,
-				T::BridgedNetworkId::get(),
-				network,
-				remote_location,
-			);
-			<span class="kw">return </span><span class="prelude-val">None
-		</span>};
+		</span><span class="kw">let </span>(bridge_hub_location, maybe_payment) = <span class="kw">match </span>T::Bridges::exporter_for(
+			network,
+			remote_location,
+			message,
+		) {
+			<span class="prelude-val">Some</span>((bridge_hub_location, maybe_payment))
+				<span class="kw">if </span>bridge_hub_location.eq(<span class="kw-2">&amp;</span>T::SiblingBridgeHubLocation::get()) =&gt;
+				(bridge_hub_location, maybe_payment),
+			<span class="kw">_ </span>=&gt; {
+				<span class="macro">log::trace!</span>(
+					target: LOG_TARGET,
+					<span class="string">"Router configured with bridged_network_id {:?} and sibling_bridge_hub_location: {:?} does not support bridging to network {:?} and remote_location {:?}!"</span>,
+					T::BridgedNetworkId::get(),
+					T::SiblingBridgeHubLocation::get(),
+					network,
+					remote_location,
+				);
+				<span class="kw">return </span><span class="prelude-val">None
+			</span>},
+		};
 
 		<span class="comment">// take `base_fee` from `T::Brides`, but it has to be the same `T::FeeAsset`
 		</span><span class="kw">let </span>base_fee = <span class="kw">match </span>maybe_payment {
@@ -1108,8 +1116,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				invalid_asset =&gt; {
 					<span class="macro">log::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">"Router with bridged_network_id {:?} is configured for `T::FeeAsset` {:?} which is not \
-						compatible with {:?} for bridge_hub_location: {:?} for bridging to {:?}/{:?}!"</span>,
+						<span class="string">"Router with bridged_network_id {:?} is configured for `T::FeeAsset` {:?} \
+						which is not compatible with {:?} for bridge_hub_location: {:?} for bridging to {:?}/{:?}!"</span>,
 						T::BridgedNetworkId::get(),
 						T::FeeAsset::get(),
 						invalid_asset,
@@ -1129,18 +1137,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>message_size = message.encoded_size();
 		<span class="kw">let </span>message_fee = (message_size <span class="kw">as </span>u128).saturating_mul(T::ByteFee::get());
 		<span class="kw">let </span>fee_sum = base_fee.saturating_add(message_fee);
-		<span class="kw">let </span>fee_factor = <span class="self">Self</span>::bridge().delivery_fee_factor;
-		<span class="kw">let </span>fee = fee_factor.saturating_mul_int(fee_sum);
 
+		<span class="kw">let </span>fee_factor = <span class="self">Self</span>::delivery_fee_factor();
+		<span class="kw">let </span>fee = fee_factor.saturating_mul_int(fee_sum);
 		<span class="kw">let </span>fee = <span class="kw">if </span>fee &gt; <span class="number">0 </span>{ <span class="prelude-val">Some</span>((T::FeeAsset::get(), fee).into()) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
 
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">"Validate send message to {:?} ({} bytes) over bridge. Computed bridge fee {:?} using fee factor {}"</span>,
+			<span class="string">"Going to send message to {:?} ({} bytes) over bridge. Computed bridge fee {:?} using fee factor {}"</span>,
 			(network, remote_location),
 			message_size,
 			fee,
-			fee_factor
+			fee_factor,
 		);
 
 		<span class="prelude-val">Some</span>((bridge_hub_location, fee))
@@ -1239,66 +1247,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>mock::<span class="kw-2">*</span>;
 
 	<span class="kw">use </span>frame_support::traits::Hooks;
+	<span class="kw">use </span>frame_system::{EventRecord, Phase};
 	<span class="kw">use </span>sp_runtime::traits::One;
-
-	<span class="kw">fn </span>congested_bridge(delivery_fee_factor: FixedU128) -&gt; BridgeState {
-		BridgeState { is_congested: <span class="bool-val">true</span>, delivery_fee_factor }
-	}
-
-	<span class="kw">fn </span>uncongested_bridge(delivery_fee_factor: FixedU128) -&gt; BridgeState {
-		BridgeState { is_congested: <span class="bool-val">false</span>, delivery_fee_factor }
-	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>initial_fee_factor_is_one() {
 		run_test(|| {
-			<span class="macro">assert_eq!</span>(
-				Bridge::&lt;TestRuntime, ()&gt;::get(),
-				uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR),
-			);
+			<span class="macro">assert_eq!</span>(DeliveryFeeFactor::&lt;TestRuntime, ()&gt;::get(), MINIMAL_DELIVERY_FEE_FACTOR);
 		})
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>fee_factor_is_not_decreased_from_on_initialize_when_xcm_channel_is_congested() {
 		run_test(|| {
-			Bridge::&lt;TestRuntime, ()&gt;::put(uncongested_bridge(FixedU128::from_rational(<span class="number">125</span>, <span class="number">100</span>)));
-			TestWithBridgeHubChannel::make_congested();
+			DeliveryFeeFactor::&lt;TestRuntime, ()&gt;::put(FixedU128::from_rational(<span class="number">125</span>, <span class="number">100</span>));
+			TestLocalXcmChannelManager::make_congested(<span class="kw-2">&amp;</span>SiblingBridgeHubLocation::get());
 
-			<span class="comment">// it should not decrease, because xcm channel is congested
-			</span><span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
+			<span class="comment">// it should not decrease, because queue is congested
+			</span><span class="kw">let </span>old_delivery_fee_factor = XcmBridgeHubRouter::delivery_fee_factor();
 			XcmBridgeHubRouter::on_initialize(One::one());
-			<span class="macro">assert_eq!</span>(XcmBridgeHubRouter::bridge(), old_bridge);
-		})
-	}
+			<span class="macro">assert_eq!</span>(XcmBridgeHubRouter::delivery_fee_factor(), old_delivery_fee_factor);
 
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>fee_factor_is_not_decreased_from_on_initialize_when_bridge_has_reported_congestion() {
-		run_test(|| {
-			Bridge::&lt;TestRuntime, ()&gt;::put(congested_bridge(FixedU128::from_rational(<span class="number">125</span>, <span class="number">100</span>)));
-
-			<span class="comment">// it should not decrease, because bridge congested
-			</span><span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
-			XcmBridgeHubRouter::on_initialize(One::one());
-			<span class="macro">assert_eq!</span>(XcmBridgeHubRouter::bridge(), old_bridge);
+			<span class="macro">assert_eq!</span>(System::events(), <span class="macro">vec!</span>[]);
 		})
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>fee_factor_is_decreased_from_on_initialize_when_xcm_channel_is_uncongested() {
 		run_test(|| {
-			Bridge::&lt;TestRuntime, ()&gt;::put(uncongested_bridge(FixedU128::from_rational(<span class="number">125</span>, <span class="number">100</span>)));
+			<span class="kw">let </span>initial_fee_factor = FixedU128::from_rational(<span class="number">125</span>, <span class="number">100</span>);
+			DeliveryFeeFactor::&lt;TestRuntime, ()&gt;::put(initial_fee_factor);
 
-			<span class="comment">// it should eventually decreased to one
-			</span><span class="kw">while </span>XcmBridgeHubRouter::bridge().delivery_fee_factor &gt; MINIMAL_DELIVERY_FEE_FACTOR {
+			<span class="comment">// it shold eventually decreased to one
+			</span><span class="kw">while </span>XcmBridgeHubRouter::delivery_fee_factor() &gt; MINIMAL_DELIVERY_FEE_FACTOR {
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
 
 			<span class="comment">// verify that it doesn't decreases anymore
 			</span>XcmBridgeHubRouter::on_initialize(One::one());
+			<span class="macro">assert_eq!</span>(XcmBridgeHubRouter::delivery_fee_factor(), MINIMAL_DELIVERY_FEE_FACTOR);
+
+			<span class="comment">// check emitted event
+			</span><span class="kw">let </span>first_system_event = System::events().first().cloned();
 			<span class="macro">assert_eq!</span>(
-				XcmBridgeHubRouter::bridge(),
-				uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR)
+				first_system_event,
+				<span class="prelude-val">Some</span>(EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorDecreased {
+						new_value: initial_fee_factor / EXPONENTIAL_FEE_BASE,
+					}),
+					topics: <span class="macro">vec!</span>[],
+				})
 			);
 		})
 	}
@@ -1406,7 +1405,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// but when factor is larger than one, it increases the fee, so it becomes:
 			// `(BASE_FEE + BYTE_FEE * msg_size) * F + HRMP_FEE`
 			</span><span class="kw">let </span>factor = FixedU128::from_rational(<span class="number">125</span>, <span class="number">100</span>);
-			Bridge::&lt;TestRuntime, ()&gt;::put(uncongested_bridge(factor));
+			DeliveryFeeFactor::&lt;TestRuntime, ()&gt;::put(factor);
 			<span class="kw">let </span>expected_fee =
 				(FixedU128::saturating_from_integer(BASE_FEE + BYTE_FEE * (msg_size <span class="kw">as </span>u128)) *
 					factor)
@@ -1420,26 +1419,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>sent_message_doesnt_increase_factor_if_xcm_channel_is_uncongested() {
+	</span><span class="kw">fn </span>sent_message_doesnt_increase_factor_if_queue_is_uncongested() {
 		run_test(|| {
-			<span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
-			<span class="macro">assert_ok!</span>(send_xcm::&lt;XcmBridgeHubRouter&gt;(
-				Location::new(<span class="number">2</span>, [GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>)]),
-				<span class="macro">vec!</span>[ClearOrigin].into(),
-			)
-			.map(drop));
+			<span class="kw">let </span>old_delivery_fee_factor = XcmBridgeHubRouter::delivery_fee_factor();
+			<span class="macro">assert_eq!</span>(
+				send_xcm::&lt;XcmBridgeHubRouter&gt;(
+					Location::new(<span class="number">2</span>, [GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>)]),
+					<span class="macro">vec!</span>[ClearOrigin].into(),
+				)
+				.map(drop),
+				<span class="prelude-val">Ok</span>(()),
+			);
 
 			<span class="macro">assert!</span>(TestToBridgeHubSender::is_message_sent());
-			<span class="macro">assert_eq!</span>(old_bridge, XcmBridgeHubRouter::bridge());
+			<span class="macro">assert_eq!</span>(old_delivery_fee_factor, XcmBridgeHubRouter::delivery_fee_factor());
+
+			<span class="macro">assert_eq!</span>(System::events(), <span class="macro">vec!</span>[]);
 		});
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>sent_message_increases_factor_if_xcm_channel_is_congested() {
 		run_test(|| {
-			TestWithBridgeHubChannel::make_congested();
+			TestLocalXcmChannelManager::make_congested(<span class="kw-2">&amp;</span>SiblingBridgeHubLocation::get());
 
-			<span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
+			<span class="kw">let </span>old_delivery_fee_factor = XcmBridgeHubRouter::delivery_fee_factor();
 			<span class="macro">assert_ok!</span>(send_xcm::&lt;XcmBridgeHubRouter&gt;(
 				Location::new(<span class="number">2</span>, [GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>)]),
 				<span class="macro">vec!</span>[ClearOrigin].into(),
@@ -1447,28 +1451,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(drop));
 
 			<span class="macro">assert!</span>(TestToBridgeHubSender::is_message_sent());
-			<span class="macro">assert!</span>(
-				old_bridge.delivery_fee_factor &lt; XcmBridgeHubRouter::bridge().delivery_fee_factor
-			);
-		});
-	}
+			<span class="macro">assert!</span>(old_delivery_fee_factor &lt; XcmBridgeHubRouter::delivery_fee_factor());
 
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>sent_message_increases_factor_if_bridge_has_reported_congestion() {
-		run_test(|| {
-			Bridge::&lt;TestRuntime, ()&gt;::put(congested_bridge(MINIMAL_DELIVERY_FEE_FACTOR));
-
-			<span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
-			<span class="macro">assert_ok!</span>(send_xcm::&lt;XcmBridgeHubRouter&gt;(
-				Location::new(<span class="number">2</span>, [GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>)]),
-				<span class="macro">vec!</span>[ClearOrigin].into(),
-			)
-			.map(drop));
-
-			<span class="macro">assert!</span>(TestToBridgeHubSender::is_message_sent());
-			<span class="macro">assert!</span>(
-				old_bridge.delivery_fee_factor &lt; XcmBridgeHubRouter::bridge().delivery_fee_factor
-			);
+			<span class="comment">// check emitted event
+			</span><span class="kw">let </span>first_system_event = System::events().first().cloned();
+			<span class="macro">assert!</span>(<span class="macro">matches!</span>(
+				first_system_event,
+				<span class="prelude-val">Some</span>(EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::XcmBridgeHubRouter(
+						Event::DeliveryFeeFactorIncreased { .. }
+					),
+					..
+				})
+			));
 		});
 	}
 

@@ -435,6 +435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -457,12 +458,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
-	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId, MessageNonce,
-	UnrewardedRelayersState,
+	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId, LaneState,
+	MessageNonce, UnrewardedRelayersState,
 };
 <span class="kw">use </span>bp_runtime::{AccountIdOf, BlockNumberOf, Chain, HeaderOf, UnverifiedStorageProofParams};
 <span class="kw">use </span>bp_test_utils::make_default_justification;
-<span class="kw">use </span>bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+<span class="kw">use </span>bp_xcm_bridge_hub::XcmAsPlainPayload;
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>pallet_bridge_grandpa::{BridgedChain, BridgedHeader};
 <span class="kw">use </span>sp_runtime::traits::Header <span class="kw">as </span>HeaderT;
@@ -662,6 +663,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prepare_message_delivery_storage_proof::&lt;BridgedChain, ThisChainWithMessages&gt;(
 			lane_id,
 			InboundLaneData {
+				state: LaneState::Opened,
 				relayers: <span class="macro">vec!</span>[
 					UnrewardedRelayer {
 						relayer: relayer_id_at_this_chain,

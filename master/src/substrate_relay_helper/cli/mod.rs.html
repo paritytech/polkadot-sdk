@@ -346,6 +346,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -364,12 +373,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Deal with CLI args of substrate-to-substrate relay.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>bp_messages::LaneId;
 <span class="kw">use </span>rbtag::BuildInfo;
+<span class="kw">use </span>sp_core::H256;
+<span class="kw">use </span>sp_runtime::Either;
+<span class="kw">use </span>std::str::FromStr;
 <span class="kw">use </span>structopt::StructOpt;
 <span class="kw">use </span>strum::{EnumString, VariantNames};
-
-<span class="kw">use </span>bp_messages::LaneId;
 
 <span class="kw">pub mod </span>bridge;
 <span class="kw">pub mod </span>chain_schema;
@@ -390,45 +400,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Lane id.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>HexLaneId(<span class="kw">pub </span>[u8; <span class="number">4</span>]);
+</span><span class="kw">pub struct </span>HexLaneId(Either&lt;H256, [u8; <span class="number">4</span>]&gt;);
 
 <span class="kw">impl </span>From&lt;HexLaneId&gt; <span class="kw">for </span>LaneId {
 	<span class="kw">fn </span>from(lane_id: HexLaneId) -&gt; LaneId {
-		LaneId(lane_id.<span class="number">0</span>)
+		LaneId::from_inner(lane_id.<span class="number">0</span>)
 	}
 }
 
-<span class="kw">impl </span>std::str::FromStr <span class="kw">for </span>HexLaneId {
-	<span class="kw">type </span><span class="prelude-val">Err </span>= hex::FromHexError;
+<span class="kw">impl </span>FromStr <span class="kw">for </span>HexLaneId {
+	<span class="kw">type </span><span class="prelude-val">Err </span>= rustc_hex::FromHexError;
 
 	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>lane_id = [<span class="number">0u8</span>; <span class="number">4</span>];
-		hex::decode_to_slice(s, <span class="kw-2">&amp;mut </span>lane_id)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(HexLaneId(lane_id))
-	}
-}
-
-<span class="doccomment">/// Nicer formatting for raw bytes vectors.
-</span><span class="attr">#[derive(Default, Encode, Decode, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>HexBytes(<span class="kw">pub </span>Vec&lt;u8&gt;);
-
-<span class="kw">impl </span>std::str::FromStr <span class="kw">for </span>HexBytes {
-	<span class="kw">type </span><span class="prelude-val">Err </span>= hex::FromHexError;
-
-	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(hex::decode(s)<span class="question-mark">?</span>))
-	}
-}
-
-<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>HexBytes {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(fmt, <span class="string">"0x{self}"</span>)
-	}
-}
-
-<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>HexBytes {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(fmt, <span class="string">"{}"</span>, hex::encode(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>))
+		<span class="comment">// check `H256` variant at first
+		</span><span class="kw">match </span>H256::from_str(s) {
+			<span class="prelude-val">Ok</span>(hash) =&gt; <span class="prelude-val">Ok</span>(HexLaneId(Either::Left(hash))),
+			<span class="prelude-val">Err</span>(hash_error) =&gt; {
+				<span class="comment">// check backwards compatible
+				</span><span class="kw">let </span><span class="kw-2">mut </span>lane_id = [<span class="number">0u8</span>; <span class="number">4</span>];
+				<span class="kw">match </span>hex::decode_to_slice(s, <span class="kw-2">&amp;mut </span>lane_id) {
+					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(HexLaneId(Either::Right(lane_id))),
+					<span class="prelude-val">Err</span>(array_error) =&gt; {
+						<span class="macro">log::error!</span>(
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Failed to parse `HexLaneId` as hex string: {s:?} - hash_error: {hash_error:?}, array_error: {array_error:?}"</span>,
+						);
+						<span class="prelude-val">Err</span>(hash_error)
+					},
+				}
+			},
+		}
 	}
 }
 
@@ -530,16 +531,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>hex_bytes_display_matches_from_str_for_clap() {
-		<span class="comment">// given
-		</span><span class="kw">let </span>hex = HexBytes(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>]);
-		<span class="kw">let </span>display = <span class="macro">format!</span>(<span class="string">"{hex}"</span>);
+	</span><span class="kw">fn </span>hex_lane_id_from_str_works() {
+		<span class="comment">// hash variant
+		</span><span class="macro">assert!</span>(HexLaneId::from_str(
+			<span class="string">"101010101010101010101010101010101010101010101010101010101010101"
+		</span>)
+		.is_err());
+		<span class="macro">assert!</span>(HexLaneId::from_str(
+			<span class="string">"00101010101010101010101010101010101010101010101010101010101010101"
+		</span>)
+		.is_err());
+		<span class="macro">assert_eq!</span>(
+			LaneId::from(
+				HexLaneId::from_str(
+					<span class="string">"0101010101010101010101010101010101010101010101010101010101010101"
+				</span>)
+				.unwrap()
+			),
+			LaneId::from_inner(Either::Left(H256::from([<span class="number">1u8</span>; <span class="number">32</span>])))
+		);
 
-		<span class="comment">// when
-		</span><span class="kw">let </span>hex2: HexBytes = display.parse().unwrap();
-
-		<span class="comment">// then
-		</span><span class="macro">assert_eq!</span>(hex.<span class="number">0</span>, hex2.<span class="number">0</span>);
+		<span class="comment">// array variant
+		</span><span class="macro">assert!</span>(HexLaneId::from_str(<span class="string">"0000001"</span>).is_err());
+		<span class="macro">assert!</span>(HexLaneId::from_str(<span class="string">"000000001"</span>).is_err());
+		<span class="macro">assert_eq!</span>(
+			LaneId::from(HexLaneId::from_str(<span class="string">"00000001"</span>).unwrap()),
+			LaneId::from_inner(Either::Right([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]))
+		);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -446,6 +446,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -468,30 +493,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
 	weights,
 	xcm_config::UniversalLocation,
-	BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverBridgeHubWestend, XcmRouter,
+	AccountId, Balance, Balances, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent,
+	RuntimeHoldReason, XcmOverBridgeHubWestend, XcmRouter,
 };
 <span class="kw">use </span>bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
-	target_chain::FromBridgedChainMessagesProof, LaneId,
+	target_chain::FromBridgedChainMessagesProof,
 };
-<span class="kw">use </span>bridge_runtime_common::{
-	extensions::refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
-		RefundableMessagesLane,
-	},
-	messages_xcm_extension::{
-		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
-		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
-	},
-};
+<span class="kw">use </span>bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
+<span class="kw">use </span>pallet_xcm_bridge_hub::XcmAsPlainPayload;
 
-<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::{parameter_types, traits::PalletInfoAccess};
+<span class="kw">use </span>frame_system::EnsureRoot;
+<span class="kw">use </span>pallet_bridge_relayers::extension::{
+	BridgeRelayersSignedExtension, WithMessagesExtensionConfig,
+};
+<span class="kw">use </span>pallet_xcm::EnsureXcm;
+<span class="kw">use </span>parachains_common::xcm_config::{
+	AllSiblingSystemParachains, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
+};
+<span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
+<span class="kw">use </span>testnet_parachains_constants::rococo::currency::UNITS <span class="kw">as </span>ROC;
 <span class="kw">use </span>xcm::{
 	latest::prelude::<span class="kw-2">*</span>,
 	prelude::{InteriorLocation, NetworkId},
 };
-<span class="kw">use </span>xcm_builder::BridgeBlobDispatcher;
+<span class="kw">use </span>xcm_builder::{BridgeBlobDispatcher, ParentIsPreset, SiblingParachainConvertsVia};
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub </span>BridgeRococoToWestendMessagesPalletInstance: InteriorLocation = [PalletInstance(&lt;BridgeWestendMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8)].into();
@@ -507,26 +534,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	</span><span class="kw">pub </span>PriorityBoostPerMessage: u64 = <span class="number">182_044_444_444_444</span>;
 
-	<span class="kw">pub </span>AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
-	<span class="kw">pub </span>AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();
-
-	<span class="comment">// Lanes
-	</span><span class="kw">pub </span>ActiveOutboundLanesToBridgeHubWestend: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[bp_messages::LaneId] = <span class="kw-2">&amp;</span>[XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND];
-	<span class="kw">pub const </span>AssetHubRococoToAssetHubWestendMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND;
-	<span class="kw">pub </span>FromAssetHubRococoToAssetHubWestendRoute: SenderAndLane = SenderAndLane::new(
-		ParentThen([Parachain(AssetHubRococoParaId::get().into())].into()).into(),
-		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
-	);
-	<span class="kw">pub </span>ActiveLanes: alloc::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorLocation))&gt; = <span class="macro">alloc::vec!</span>[
-			(
-				FromAssetHubRococoToAssetHubWestendRoute::get(),
-				(WestendGlobalConsensusNetwork::get(), [Parachain(AssetHubWestendParaId::get().into())].into())
-			)
-	];
-
-	<span class="kw">pub </span>CongestedMessage: Xcm&lt;()&gt; = build_congestion_message(<span class="bool-val">true</span>).into();
-	<span class="kw">pub </span>UncongestedMessage: Xcm&lt;()&gt; = build_congestion_message(<span class="bool-val">false</span>).into();
-
 	<span class="kw">pub </span>BridgeHubWestendLocation: Location = Location::new(
 		<span class="number">2</span>,
 		[
@@ -534,26 +541,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Parachain(&lt;bp_bridge_hub_westend::BridgeHubWestend <span class="kw">as </span>bp_runtime::Parachain&gt;::PARACHAIN_ID)
 		]
 	);
-}
-<span class="kw">pub const </span>XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND: LaneId = LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">2</span>]);
 
-<span class="kw">fn </span>build_congestion_message&lt;Call&gt;(is_congested: bool) -&gt; alloc::vec::Vec&lt;Instruction&lt;Call&gt;&gt; {
-	<span class="macro">alloc::vec!</span>[
-		UnpaidExecution { weight_limit: Unlimited, check_origin: <span class="prelude-val">None </span>},
-		Transact {
-			origin_kind: OriginKind::Xcm,
-			require_weight_at_most:
-				bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-			call: bp_asset_hub_rococo::Call::ToWestendXcmRouter(
-				bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
-					bridge_id: Default::default(),
-					is_congested,
-				}
-			)
-			.encode()
-			.into(),
-		}
-	]
+	<span class="kw">pub </span>storage BridgeDeposit: Balance = <span class="number">5 </span>* ROC;
 }
 
 <span class="doccomment">/// Proof of messages, coming from Westend.
@@ -567,33 +556,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">type </span>FromWestendMessageBlobDispatcher =
 	BridgeBlobDispatcher&lt;XcmRouter, UniversalLocation, BridgeRococoToWestendMessagesPalletInstance&gt;;
 
-<span class="doccomment">/// Export XCM messages to be relayed to the other side
-</span><span class="kw">pub type </span>ToBridgeHubWestendHaulBlobExporter = XcmOverBridgeHubWestend;
-
-<span class="kw">pub struct </span>ToBridgeHubWestendXcmBlobHauler;
-<span class="kw">impl </span>XcmBlobHauler <span class="kw">for </span>ToBridgeHubWestendXcmBlobHauler {
-	<span class="kw">type </span>Runtime = Runtime;
-	<span class="kw">type </span>MessagesInstance = WithBridgeHubWestendMessagesInstance;
-	<span class="kw">type </span>ToSourceChainSender = XcmRouter;
-	<span class="kw">type </span>CongestedMessage = CongestedMessage;
-	<span class="kw">type </span>UncongestedMessage = UncongestedMessage;
-}
-
-<span class="doccomment">/// On messages delivered callback.
-</span><span class="kw">type </span>OnMessagesDeliveredFromWestend =
-	XcmBlobHaulerAdapter&lt;ToBridgeHubWestendXcmBlobHauler, ActiveLanes&gt;;
-
 <span class="doccomment">/// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
-</span><span class="kw">pub type </span>OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtensionAdapter&lt;
-	RefundBridgedMessages&lt;
-		Runtime,
-		RefundableMessagesLane&lt;
-			WithBridgeHubWestendMessagesInstance,
-			AssetHubRococoToAssetHubWestendMessagesLane,
-		&gt;,
-		ActualFeeRefund&lt;Runtime&gt;,
-		PriorityBoostPerMessage,
+</span><span class="kw">pub type </span>OnBridgeHubRococoRefundBridgeHubWestendMessages = BridgeRelayersSignedExtension&lt;
+	Runtime,
+	WithMessagesExtensionConfig&lt;
 		StrOnBridgeHubRococoRefundBridgeHubWestendMessages,
+		Runtime,
+		WithBridgeHubWestendMessagesInstance,
+		PriorityBoostPerMessage,
 	&gt;,
 &gt;;
 <span class="macro">bp_runtime::generate_static_str_provider!</span>(OnBridgeHubRococoRefundBridgeHubWestendMessages);
@@ -612,8 +582,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		bp_bridge_hub_westend::BridgeHubWestend,
 	&gt;;
 
-	<span class="kw">type </span>ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWestend;
-
 	<span class="kw">type </span>OutboundPayload = XcmAsPlainPayload;
 
 	<span class="kw">type </span>InboundPayload = XcmAsPlainPayload;
@@ -625,28 +593,86 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		DeliveryRewardInBalance,
 	&gt;;
 
-	<span class="kw">type </span>MessageDispatch = XcmBlobMessageDispatch&lt;
-		FromWestendMessageBlobDispatcher,
-		<span class="self">Self</span>::WeightInfo,
-		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider&lt;
-			AssetHubRococoParaId,
-			Runtime,
-		&gt;,
-	&gt;;
-	<span class="kw">type </span>OnMessagesDelivered = OnMessagesDeliveredFromWestend;
+	<span class="kw">type </span>MessageDispatch = XcmOverBridgeHubWestend;
+	<span class="kw">type </span>OnMessagesDelivered = XcmOverBridgeHubWestend;
 }
 
 <span class="doccomment">/// Add support for the export and dispatch of XCM programs.
 </span><span class="kw">pub type </span>XcmOverBridgeHubWestendInstance = pallet_xcm_bridge_hub::Instance1;
 <span class="kw">impl </span>pallet_xcm_bridge_hub::Config&lt;XcmOverBridgeHubWestendInstance&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>BridgedNetwork = WestendGlobalConsensusNetworkLocation;
 	<span class="kw">type </span>BridgeMessagesPalletInstance = WithBridgeHubWestendMessagesInstance;
+
 	<span class="kw">type </span>MessageExportPrice = ();
 	<span class="kw">type </span>DestinationVersion =
 		XcmVersionOfDestAndRemoteBridge&lt;PolkadotXcm, BridgeHubWestendLocation&gt;;
-	<span class="kw">type </span>Lanes = ActiveLanes;
-	<span class="kw">type </span>LanesSupport = ToBridgeHubWestendXcmBlobHauler;
+
+	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="comment">// Only allow calls from relay chains and sibling parachains to directly open the bridge.
+	</span><span class="kw">type </span>OpenBridgeOrigin = EnsureXcm&lt;ParentRelayOrSiblingParachains&gt;;
+	<span class="comment">// Converter aligned with `OpenBridgeOrigin`.
+	</span><span class="kw">type </span>BridgeOriginAccountIdConverter =
+		(ParentIsPreset&lt;AccountId&gt;, SiblingParachainConvertsVia&lt;Sibling, AccountId&gt;);
+
+	<span class="kw">type </span>BridgeDeposit = BridgeDeposit;
+	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
+	<span class="comment">// Do not require deposit from system parachains or relay chain
+	</span><span class="kw">type </span>AllowWithoutBridgeDeposit =
+		RelayOrOtherSystemParachains&lt;AllSiblingSystemParachains, Runtime&gt;;
+
+	<span class="comment">// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - https://github.com/paritytech/parity-bridges-common/issues/3047
+	</span><span class="kw">type </span>LocalXcmChannelManager = ();
+	<span class="kw">type </span>BlobDispatcher = FromWestendMessageBlobDispatcher;
+}
+
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>open_bridge_for_benchmarks(
+	with: bp_messages::LaneId,
+	sibling_para_id: u32,
+) -&gt; InteriorLocation {
+	<span class="kw">use </span>pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
+	<span class="kw">use </span>sp_runtime::traits::Zero;
+	<span class="kw">use </span>xcm::VersionedInteriorLocation;
+	<span class="kw">use </span>xcm_executor::traits::ConvertLocation;
+
+	<span class="comment">// insert bridge metadata
+	</span><span class="kw">let </span>lane_id = with;
+	<span class="kw">let </span>sibling_parachain = Location::new(<span class="number">1</span>, [Parachain(sibling_para_id)]);
+	<span class="kw">let </span>universal_source = [GlobalConsensus(Rococo), Parachain(sibling_para_id)].into();
+	<span class="kw">let </span>universal_destination = [GlobalConsensus(Westend), Parachain(<span class="number">2075</span>)].into();
+	<span class="kw">let </span>bridge_id = BridgeId::new(<span class="kw-2">&amp;</span>universal_source, <span class="kw-2">&amp;</span>universal_destination);
+
+	<span class="comment">// insert only bridge metadata, because the benchmarks create lanes
+	</span>pallet_xcm_bridge_hub::Bridges::&lt;Runtime, XcmOverBridgeHubWestendInstance&gt;::insert(
+		bridge_id,
+		Bridge {
+			bridge_origin_relative_location: alloc::boxed::Box::new(
+				sibling_parachain.clone().into(),
+			),
+			bridge_origin_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_source.clone()),
+			),
+			bridge_destination_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_destination),
+			),
+			state: BridgeState::Opened,
+			bridge_owner_account: <span class="kw">crate</span>::xcm_config::LocationToAccountId::convert_location(
+				<span class="kw-2">&amp;</span>sibling_parachain,
+			)
+			.expect(<span class="string">"valid AccountId"</span>),
+			deposit: Balance::zero(),
+			lane_id,
+		},
+	);
+	pallet_xcm_bridge_hub::LaneToBridge::&lt;Runtime, XcmOverBridgeHubWestendInstance&gt;::insert(
+		lane_id, bridge_id,
+	);
+
+	universal_source
 }
 
 <span class="attr">#[cfg(test)]
@@ -655,14 +681,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span><span class="kw">crate</span>::bridge_common_config::BridgeGrandpaWestendInstance;
 	<span class="kw">use </span>bridge_runtime_common::{
 		assert_complete_bridge_types,
-		extensions::refund_relayer_extension::RefundableParachain,
 		integrity::{
 			assert_complete_with_parachain_bridge_constants, check_message_lane_weights,
 			AssertChainConstants, AssertCompleteBridgeConstants,
 		},
 	};
-	<span class="kw">use </span>parachains_common::Balance;
-	<span class="kw">use </span>testnet_parachains_constants::rococo;
 
 	<span class="doccomment">/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of
@@ -673,12 +696,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// We want this tip to be large enough (delivery transactions with more messages = less
 	/// operational costs and a faster bridge), so this value should be significant.
-	</span><span class="kw">const </span>FEE_BOOST_PER_MESSAGE: Balance = <span class="number">2 </span>* rococo::currency::UNITS;
+	</span><span class="kw">const </span>FEE_BOOST_PER_MESSAGE: Balance = <span class="number">2 </span>* ROC;
 
 	<span class="comment">// see `FEE_BOOST_PER_MESSAGE` comment
-	</span><span class="kw">const </span>FEE_BOOST_PER_RELAY_HEADER: Balance = <span class="number">2 </span>* rococo::currency::UNITS;
+	</span><span class="kw">const </span>FEE_BOOST_PER_RELAY_HEADER: Balance = <span class="number">2 </span>* ROC;
 	<span class="comment">// see `FEE_BOOST_PER_MESSAGE` comment
-	</span><span class="kw">const </span>FEE_BOOST_PER_PARACHAIN_HEADER: Balance = <span class="number">2 </span>* rococo::currency::UNITS;
+	</span><span class="kw">const </span>FEE_BOOST_PER_PARACHAIN_HEADER: Balance = <span class="number">2 </span>* ROC;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ensure_bridge_hub_rococo_message_lane_weights_are_correct() {
@@ -716,19 +739,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		});
 
-		bridge_runtime_common::extensions::priority_calculator::per_relay_header::ensure_priority_boost_is_sane::&lt;
+		pallet_bridge_relayers::extension::per_relay_header::ensure_priority_boost_is_sane::&lt;
 			Runtime,
 			BridgeGrandpaWestendInstance,
 			PriorityBoostPerRelayHeader,
 		&gt;(FEE_BOOST_PER_RELAY_HEADER);
 
-		bridge_runtime_common::extensions::priority_calculator::per_parachain_header::ensure_priority_boost_is_sane::&lt;
+		pallet_bridge_relayers::extension::per_parachain_header::ensure_priority_boost_is_sane::&lt;
 			Runtime,
-			RefundableParachain&lt;WithBridgeHubWestendMessagesInstance, bp_bridge_hub_westend::BridgeHubWestend&gt;,
+			WithBridgeHubWestendMessagesInstance,
+			bp_bridge_hub_westend::BridgeHubWestend,
 			PriorityBoostPerParachainHeader,
 		&gt;(FEE_BOOST_PER_PARACHAIN_HEADER);
 
-		bridge_runtime_common::extensions::priority_calculator::per_message::ensure_priority_boost_is_sane::&lt;
+		pallet_bridge_relayers::extension::per_message::ensure_priority_boost_is_sane::&lt;
 			Runtime,
 			WithBridgeHubWestendMessagesInstance,
 			PriorityBoostPerMessage,
@@ -741,6 +765,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_eq!</span>(BridgeRococoToWestendMessagesPalletInstance::get(), expected,);
 	}
+}
+
+<span class="doccomment">/// Contains the migration for the AssetHubRococo&lt;&gt;AssetHubWestend bridge.
+</span><span class="kw">pub mod </span>migration {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>bp_messages::LaneId;
+	<span class="kw">use </span>frame_support::traits::ConstBool;
+	<span class="kw">use </span>sp_runtime::Either;
+
+	<span class="macro">parameter_types! </span>{
+		<span class="kw">pub </span>AssetHubRococoToAssetHubWestendMessagesLane: LaneId = LaneId::from_inner(Either::Right([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">2</span>]));
+		<span class="kw">pub </span>AssetHubRococoLocation: Location = Location::new(<span class="number">1</span>, [Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)]);
+		<span class="kw">pub </span>AssetHubWestendUniversalLocation: InteriorLocation = [GlobalConsensus(WestendGlobalConsensusNetwork::get()), Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)].into();
+	}
+
+	<span class="doccomment">/// Ensure that the existing lanes for the AHR&lt;&gt;AHW bridge are correctly configured.
+	</span><span class="kw">pub type </span>StaticToDynamicLanes = pallet_xcm_bridge_hub::migration::OpenBridgeForLane&lt;
+		Runtime,
+		XcmOverBridgeHubWestendInstance,
+		AssetHubRococoToAssetHubWestendMessagesLane,
+		<span class="comment">// the lanes are already created for AHR&lt;&gt;AHW, but we need to link them to the bridge
+		// structs
+		</span>ConstBool&lt;<span class="bool-val">false</span>&gt;,
+		AssetHubRococoLocation,
+		AssetHubWestendUniversalLocation,
+	&gt;;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

@@ -2052,9 +2052,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1900" id="1900">1900</a>
 <a href="#1901" id="1901">1901</a>
 <a href="#1902" id="1902">1902</a>
-<a href="#1903" id="1903">1903</a>
-<a href="#1904" id="1904">1904</a>
-<a href="#1905" id="1905">1905</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -2085,7 +2082,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>weights_ext::WeightInfoExt;
 
 <span class="kw">use </span>bp_header_chain::{HeaderChain, HeaderChainError};
-<span class="kw">use </span>bp_parachains::{ParaInfo, ParaStoredHeaderData};
+<span class="kw">use </span>bp_parachains::{
+	ParaInfo, ParaStoredHeaderData, RelayBlockHash, RelayBlockHasher, RelayBlockNumber,
+	SubmitParachainHeadsInfo,
+};
 <span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 <span class="kw">use </span>bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain};
 <span class="kw">use </span>frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
@@ -2117,13 +2117,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The target that will be used when publishing logs related to this pallet.
 </span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::bridge-parachains"</span>;
-
-<span class="doccomment">/// Block hash of the bridged relay chain.
-</span><span class="kw">pub type </span>RelayBlockHash = bp_polkadot_core::Hash;
-<span class="doccomment">/// Block number of the bridged relay chain.
-</span><span class="kw">pub type </span>RelayBlockNumber = bp_polkadot_core::BlockNumber;
-<span class="doccomment">/// Hasher of the bridged relay chain.
-</span><span class="kw">pub type </span>RelayBlockHasher = bp_polkadot_core::Hasher;
 
 <span class="doccomment">/// Artifacts of the parachains head update.
 </span><span class="kw">struct </span>UpdateParachainHeadArtifacts {
@@ -2796,7 +2789,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Initial pallet owner.
 		</span><span class="kw">pub </span>owner: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 		<span class="doccomment">/// Dummy marker.
-		</span><span class="kw">pub </span>phantom: sp_std::marker::PhantomData&lt;I&gt;,
+		</span><span class="attr">#[serde(skip)]
+		</span><span class="kw">pub </span>_phantom: sp_std::marker::PhantomData&lt;I&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]

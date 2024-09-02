@@ -1788,6 +1788,61 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1636" id="1636">1636</a>
 <a href="#1637" id="1637">1637</a>
 <a href="#1638" id="1638">1638</a>
+<a href="#1639" id="1639">1639</a>
+<a href="#1640" id="1640">1640</a>
+<a href="#1641" id="1641">1641</a>
+<a href="#1642" id="1642">1642</a>
+<a href="#1643" id="1643">1643</a>
+<a href="#1644" id="1644">1644</a>
+<a href="#1645" id="1645">1645</a>
+<a href="#1646" id="1646">1646</a>
+<a href="#1647" id="1647">1647</a>
+<a href="#1648" id="1648">1648</a>
+<a href="#1649" id="1649">1649</a>
+<a href="#1650" id="1650">1650</a>
+<a href="#1651" id="1651">1651</a>
+<a href="#1652" id="1652">1652</a>
+<a href="#1653" id="1653">1653</a>
+<a href="#1654" id="1654">1654</a>
+<a href="#1655" id="1655">1655</a>
+<a href="#1656" id="1656">1656</a>
+<a href="#1657" id="1657">1657</a>
+<a href="#1658" id="1658">1658</a>
+<a href="#1659" id="1659">1659</a>
+<a href="#1660" id="1660">1660</a>
+<a href="#1661" id="1661">1661</a>
+<a href="#1662" id="1662">1662</a>
+<a href="#1663" id="1663">1663</a>
+<a href="#1664" id="1664">1664</a>
+<a href="#1665" id="1665">1665</a>
+<a href="#1666" id="1666">1666</a>
+<a href="#1667" id="1667">1667</a>
+<a href="#1668" id="1668">1668</a>
+<a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
+<a href="#1672" id="1672">1672</a>
+<a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1829,10 +1884,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>bridge_runtime_common::extensions::{
-	check_obsolete_extension::{
-		CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
-	},
-	refund_relayer_extension::RefundableParachain,
+	CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
 };
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 <span class="kw">use </span>snowbridge_beacon_primitives::{Fork, ForkVersions};
@@ -1955,9 +2007,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ConstU32&lt;BRIDGE_HUB_ID&gt;,
 		ConstU32&lt;ASSET_HUB_ID&gt;,
 	&gt;,
+	pallet_bridge_messages::migration::v1::MigrationToV1&lt;
+		Runtime,
+		bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
+	&gt;,
+	pallet_bridge_messages::migration::v1::MigrationToV1&lt;
+		Runtime,
+		bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
+	&gt;,
+	bridge_to_westend_config::migration::StaticToDynamicLanes,
+	bridge_to_bulletin_config::migration::StaticToDynamicLanes,
+	frame_support::migrations::RemoveStorage&lt;
+		BridgeWestendMessagesPalletName,
+		OutboundLanesCongestedSignalsKey,
+		RocksDbWeight,
+	&gt;,
+	frame_support::migrations::RemoveStorage&lt;
+		BridgePolkadotBulletinMessagesPalletName,
+		OutboundLanesCongestedSignalsKey,
+		RocksDbWeight,
+	&gt;,
 	<span class="comment">// permanent
 	</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
 );
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>BridgeWestendMessagesPalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"BridgeWestendMessages"</span>;
+	<span class="kw">pub const </span>BridgePolkadotBulletinMessagesPalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"BridgePolkadotBulletinMessages"</span>;
+	<span class="kw">pub const </span>OutboundLanesCongestedSignalsKey: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"OutboundLanesCongestedSignals"</span>;
+}
 
 <span class="doccomment">/// Migration to initialize storage versions for pallets added after genesis.
 ///
@@ -2570,10 +2648,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Parachains
 	</span>CheckAndBoostBridgeParachainsTransactions&lt;
 		Runtime,
-		RefundableParachain&lt;
 		bridge_common_config::BridgeParachainWestendInstance,
-			bp_bridge_hub_westend::BridgeHubWestend,
-		&gt;,
+		bp_bridge_hub_westend::BridgeHubWestend,
 		bridge_to_westend_config::PriorityBoostPerParachainHeader,
 		xcm_config::TreasuryAccount,
 	&gt;,
@@ -3169,11 +3245,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						);
 						BenchmarkError::Stop(<span class="string">"XcmVersion was not stored!"</span>)
 					})<span class="question-mark">?</span>;
+
+					<span class="kw">let </span>sibling_parachain_location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">5678</span>)]);
+
+					<span class="comment">// fund SA
+					</span><span class="kw">use </span>frame_support::traits::fungible::Mutate;
+					<span class="kw">use </span>xcm_executor::traits::ConvertLocation;
+					<span class="macro">frame_support::assert_ok!</span>(
+						Balances::mint_into(
+							<span class="kw-2">&amp;</span>xcm_config::LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>sibling_parachain_location).expect(<span class="string">"valid AccountId"</span>),
+							bridge_to_westend_config::BridgeDeposit::get()
+								.saturating_add(ExistentialDeposit::get())
+								.saturating_add(UNITS * <span class="number">5</span>)
+						)
+					);
+
+					<span class="comment">// open bridge
+					</span><span class="kw">let </span>origin = RuntimeOrigin::from(pallet_xcm::Origin::Xcm(sibling_parachain_location.clone()));
+					XcmOverBridgeHubWestend::open_bridge(
+						origin.clone(),
+						Box::new(VersionedInteriorLocation::from([GlobalConsensus(NetworkId::Westend), Parachain(<span class="number">8765</span>)])),
+					).map_err(|e| {
+						<span class="macro">log::error!</span>(
+							<span class="string">"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`, error: {:?}"</span>,
+							origin,
+							[GlobalConsensus(NetworkId::Westend), Parachain(<span class="number">8765</span>)],
+							e
+						);
+						BenchmarkError::Stop(<span class="string">"Bridge was not opened!"</span>)
+					})<span class="question-mark">?</span>;
+
 					<span class="prelude-val">Ok</span>(
 						(
-							bridge_to_westend_config::FromAssetHubRococoToAssetHubWestendRoute::get().location,
+							sibling_parachain_location,
 							NetworkId::Westend,
-							[Parachain(bridge_to_westend_config::AssetHubWestendParaId::get().into())].into()
+							[Parachain(<span class="number">8765</span>)].into()
 						)
 					)
 				}
@@ -3225,16 +3331,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">use </span>cumulus_primitives_core::XcmpMessageSource;
 					<span class="macro">assert!</span>(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(<span class="number">42</span>.into());
+					<span class="kw">let </span>universal_source = bridge_to_westend_config::open_bridge_for_benchmarks(params.lane, <span class="number">42</span>);
 					prepare_message_proof_from_parachain::&lt;
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
 						bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
-					&gt;(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Rococo), Parachain(<span class="number">42</span>)].into()))
+					&gt;(params, generate_xcm_builder_bridge_message_sample(universal_source))
 				}
 
 				<span class="kw">fn </span>prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams&lt;AccountId&gt;,
 				) -&gt; bridge_to_westend_config::ToWestendBridgeHubMessagesDeliveryProof {
+					<span class="kw">let _ </span>= bridge_to_westend_config::open_bridge_for_benchmarks(params.lane, <span class="number">42</span>);
 					prepare_message_delivery_proof_from_parachain::&lt;
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
@@ -3260,16 +3368,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">use </span>cumulus_primitives_core::XcmpMessageSource;
 					<span class="macro">assert!</span>(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(<span class="number">42</span>.into());
+					<span class="kw">let </span>universal_source = bridge_to_bulletin_config::open_bridge_for_benchmarks(params.lane, <span class="number">42</span>);
 					prepare_message_proof_from_grandpa_chain::&lt;
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
 						bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
-					&gt;(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Rococo), Parachain(<span class="number">42</span>)].into()))
+					&gt;(params, generate_xcm_builder_bridge_message_sample(universal_source))
 				}
 
 				<span class="kw">fn </span>prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams&lt;AccountId&gt;,
 				) -&gt; bridge_to_bulletin_config::ToRococoBulletinMessagesDeliveryProof {
+					<span class="kw">let _ </span>= bridge_to_bulletin_config::open_bridge_for_benchmarks(params.lane, <span class="number">42</span>);
 					prepare_message_delivery_proof_from_grandpa_chain::&lt;
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
@@ -3301,8 +3411,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					parachain_head_size: u32,
 					proof_params: bp_runtime::UnverifiedStorageProofParams,
 				) -&gt; (
-					pallet_bridge_parachains::RelayBlockNumber,
-					pallet_bridge_parachains::RelayBlockHash,
+					bp_parachains::RelayBlockNumber,
+					bp_parachains::RelayBlockHash,
 					bp_polkadot_core::parachains::ParaHeadsProof,
 					Vec&lt;(bp_polkadot_core::parachains::ParaId, bp_polkadot_core::parachains::ParaHash)&gt;,
 				) {

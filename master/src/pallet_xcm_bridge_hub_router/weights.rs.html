@@ -273,91 +273,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -412,8 +327,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>WeightInfo {
 	<span class="kw">fn </span>on_initialize_when_non_congested() -&gt; Weight;
 	<span class="kw">fn </span>on_initialize_when_congested() -&gt; Weight;
-	<span class="kw">fn </span>report_bridge_status() -&gt; Weight;
-	<span class="kw">fn </span>send_message() -&gt; Weight;
 }
 
 <span class="doccomment">/// Weights for `pallet_xcm_bridge_hub_router` that are generated using one of the Bridge testnets.
@@ -421,149 +334,66 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Those weights are test only and must never be used in production.
 </span><span class="kw">pub struct </span>BridgeWeight&lt;T&gt;(PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: frame_system::Config&gt; WeightInfo <span class="kw">for </span>BridgeWeight&lt;T&gt; {
-	<span class="doccomment">/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
+	<span class="doccomment">///
+	/// Storage: `XcmBridgeHubRouter::DeliveryFeeFactor` (r:1 w:1)
 	///
-	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
-	/// 512, mode: `MaxEncodedLen`)
-	///
-	/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
-	/// (r:1 w:0)
-	///
-	/// Proof: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765` (r:1
-	/// w:0)
+	/// Proof: `XcmBridgeHubRouter::DeliveryFeeFactor` (`max_values`: Some(1), `max_size`: Some(16),
+	/// added: 511, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>on_initialize_when_non_congested() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `53`
-		//  Estimated: `3518`
-		// Minimum execution time: 11_934 nanoseconds.
-		</span>Weight::from_parts(<span class="number">12_201_000</span>, <span class="number">3518</span>)
+		//  Measured:  `52`
+		//  Estimated: `3517`
+		// Minimum execution time: 11_141 nanoseconds.
+		</span>Weight::from_parts(<span class="number">11_339_000</span>, <span class="number">3517</span>)
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2_u64</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1_u64</span>))
 	}
-	<span class="doccomment">/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
-	///
-	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
-	/// 512, mode: `MaxEncodedLen`)
-	///
-	/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
+	<span class="doccomment">/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
 	/// (r:1 w:0)
 	///
 	/// Proof: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765` (r:1
 	/// w:0)
 	</span><span class="kw">fn </span>on_initialize_when_congested() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `94`
-		//  Estimated: `3559`
-		// Minimum execution time: 9_010 nanoseconds.
-		</span>Weight::from_parts(<span class="number">9_594_000</span>, <span class="number">3559</span>)
-			.saturating_add(T::DbWeight::get().reads(<span class="number">2_u64</span>))
-			.saturating_add(T::DbWeight::get().writes(<span class="number">1_u64</span>))
-	}
-	<span class="doccomment">/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
-	///
-	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
-	/// 512, mode: `MaxEncodedLen`)
-	</span><span class="kw">fn </span>report_bridge_status() -&gt; Weight {
-		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `53`
-		//  Estimated: `1502`
-		// Minimum execution time: 10_427 nanoseconds.
-		</span>Weight::from_parts(<span class="number">10_682_000</span>, <span class="number">1502</span>)
-			.saturating_add(T::DbWeight::get().reads(<span class="number">1_u64</span>))
-			.saturating_add(T::DbWeight::get().writes(<span class="number">1_u64</span>))
-	}
-	<span class="doccomment">/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
-	///
-	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
-	/// 512, mode: `MaxEncodedLen`)
-	///
-	/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
-	/// (r:1 w:0)
-	///
-	/// Proof: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765` (r:1
-	/// w:0)
-	</span><span class="kw">fn </span>send_message() -&gt; Weight {
-		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `52`
-		//  Estimated: `3517`
-		// Minimum execution time: 19_709 nanoseconds.
-		</span>Weight::from_parts(<span class="number">20_110_000</span>, <span class="number">3517</span>)
-			.saturating_add(T::DbWeight::get().reads(<span class="number">2_u64</span>))
-			.saturating_add(T::DbWeight::get().writes(<span class="number">1_u64</span>))
+		//  Measured:  `82`
+		//  Estimated: `3547`
+		// Minimum execution time: 4_239 nanoseconds.
+		</span>Weight::from_parts(<span class="number">4_383_000</span>, <span class="number">3547</span>).saturating_add(T::DbWeight::get().reads(<span class="number">1_u64</span>))
 	}
 }
 
 <span class="comment">// For backwards compatibility and tests
 </span><span class="kw">impl </span>WeightInfo <span class="kw">for </span>() {
-	<span class="doccomment">/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
-	///
-	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
-	/// 512, mode: `MaxEncodedLen`)
-	///
-	/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
+	<span class="doccomment">/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
 	/// (r:1 w:0)
 	///
 	/// Proof: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765` (r:1
 	/// w:0)
+	///
+	/// Storage: `XcmBridgeHubRouter::DeliveryFeeFactor` (r:1 w:1)
+	///
+	/// Proof: `XcmBridgeHubRouter::DeliveryFeeFactor` (`max_values`: Some(1), `max_size`: Some(16),
+	/// added: 511, mode: `MaxEncodedLen`)
 	</span><span class="kw">fn </span>on_initialize_when_non_congested() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `53`
-		//  Estimated: `3518`
-		// Minimum execution time: 11_934 nanoseconds.
-		</span>Weight::from_parts(<span class="number">12_201_000</span>, <span class="number">3518</span>)
+		//  Measured:  `52`
+		//  Estimated: `3517`
+		// Minimum execution time: 11_141 nanoseconds.
+		</span>Weight::from_parts(<span class="number">11_339_000</span>, <span class="number">3517</span>)
 			.saturating_add(RocksDbWeight::get().reads(<span class="number">2_u64</span>))
 			.saturating_add(RocksDbWeight::get().writes(<span class="number">1_u64</span>))
 	}
-	<span class="doccomment">/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
-	///
-	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
-	/// 512, mode: `MaxEncodedLen`)
-	///
-	/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
+	<span class="doccomment">/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
 	/// (r:1 w:0)
 	///
 	/// Proof: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765` (r:1
 	/// w:0)
 	</span><span class="kw">fn </span>on_initialize_when_congested() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `94`
-		//  Estimated: `3559`
-		// Minimum execution time: 9_010 nanoseconds.
-		</span>Weight::from_parts(<span class="number">9_594_000</span>, <span class="number">3559</span>)
-			.saturating_add(RocksDbWeight::get().reads(<span class="number">2_u64</span>))
-			.saturating_add(RocksDbWeight::get().writes(<span class="number">1_u64</span>))
-	}
-	<span class="doccomment">/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
-	///
-	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
-	/// 512, mode: `MaxEncodedLen`)
-	</span><span class="kw">fn </span>report_bridge_status() -&gt; Weight {
-		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `53`
-		//  Estimated: `1502`
-		// Minimum execution time: 10_427 nanoseconds.
-		</span>Weight::from_parts(<span class="number">10_682_000</span>, <span class="number">1502</span>)
-			.saturating_add(RocksDbWeight::get().reads(<span class="number">1_u64</span>))
-			.saturating_add(RocksDbWeight::get().writes(<span class="number">1_u64</span>))
-	}
-	<span class="doccomment">/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
-	///
-	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
-	/// 512, mode: `MaxEncodedLen`)
-	///
-	/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
-	/// (r:1 w:0)
-	///
-	/// Proof: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765` (r:1
-	/// w:0)
-	</span><span class="kw">fn </span>send_message() -&gt; Weight {
-		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `52`
-		//  Estimated: `3517`
-		// Minimum execution time: 19_709 nanoseconds.
-		</span>Weight::from_parts(<span class="number">20_110_000</span>, <span class="number">3517</span>)
-			.saturating_add(RocksDbWeight::get().reads(<span class="number">2_u64</span>))
-			.saturating_add(RocksDbWeight::get().writes(<span class="number">1_u64</span>))
+		//  Measured:  `82`
+		//  Estimated: `3547`
+		// Minimum execution time: 4_239 nanoseconds.
+		</span>Weight::from_parts(<span class="number">4_383_000</span>, <span class="number">3547</span>).saturating_add(RocksDbWeight::get().reads(<span class="number">1_u64</span>))
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

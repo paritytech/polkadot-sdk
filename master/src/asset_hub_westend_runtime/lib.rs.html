@@ -2060,18 +2060,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1908" id="1908">1908</a>
 <a href="#1909" id="1909">1909</a>
 <a href="#1910" id="1910">1910</a>
-<a href="#1911" id="1911">1911</a>
-<a href="#1912" id="1912">1912</a>
-<a href="#1913" id="1913">1913</a>
-<a href="#1914" id="1914">1914</a>
-<a href="#1915" id="1915">1915</a>
-<a href="#1916" id="1916">1916</a>
-<a href="#1917" id="1917">1917</a>
-<a href="#1918" id="1918">1918</a>
-<a href="#1919" id="1919">1919</a>
-<a href="#1920" id="1920">1920</a>
-<a href="#1921" id="1921">1921</a>
-<a href="#1922" id="1922">1922</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2119,8 +2107,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{
 		fungible, fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
-		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Equals,
-		InstanceFilter, TransformOrigin,
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, InstanceFilter,
+		TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee <span class="kw">as _</span>},
 	BoundedVec, PalletId,
@@ -2131,7 +2119,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 <span class="kw">use </span>pallet_nfts::{DestroyWitness, PalletFeatures};
-<span class="kw">use </span>pallet_xcm::EnsureXcm;
 <span class="kw">use </span>parachains_common::{
 	impls::DealWithFees, message_queue::<span class="kw-2">*</span>, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -2982,29 +2969,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// consensus with dynamic fees and back-pressure.
 </span><span class="kw">pub type </span>ToRococoXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance1;
 <span class="kw">impl </span>pallet_xcm_bridge_hub_router::Config&lt;ToRococoXcmRouterInstance&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo&lt;Runtime&gt;;
 
 	<span class="kw">type </span>UniversalLocation = xcm_config::UniversalLocation;
+	<span class="kw">type </span>SiblingBridgeHubLocation = xcm_config::bridging::SiblingBridgeHub;
 	<span class="kw">type </span>BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
 	<span class="kw">type </span>Bridges = xcm_config::bridging::NetworkExportTable;
 	<span class="kw">type </span>DestinationVersion = PolkadotXcm;
 
-	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
-	</span><span class="kw">type </span>BridgeHubOrigin = EnsureXcm&lt;Equals&lt;xcm_config::bridging::SiblingBridgeHub&gt;&gt;;
-	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">type </span>BridgeHubOrigin = frame_support::traits::EitherOfDiverse&lt;
-		<span class="comment">// for running benchmarks
-		</span>EnsureRoot&lt;AccountId&gt;,
-		<span class="comment">// for running tests with `--feature runtime-benchmarks`
-		</span>EnsureXcm&lt;Equals&lt;xcm_config::bridging::SiblingBridgeHub&gt;&gt;,
-	&gt;;
-
 	<span class="kw">type </span>ToBridgeHubSender = XcmpQueue;
-	<span class="kw">type </span>WithBridgeHubChannel =
-		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider&lt;
-			xcm_config::bridging::SiblingBridgeHubParaId,
-			Runtime,
-		&gt;;
+	<span class="kw">type </span>LocalXcmChannelManager =
+		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider&lt;Runtime&gt;;
 
 	<span class="kw">type </span>ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
 	<span class="kw">type </span>FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;

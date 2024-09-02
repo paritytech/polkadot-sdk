@@ -2115,7 +2115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// However, if the bridged chain gets compromised, its validators may generate as many
 		/// "free" headers as they want. And they may fill the whole block (at this chain) for
-		/// free. This constants limits number of calls that we may refund in a single block.
+		/// free. This constant limits number of calls that we may refund in a single block.
 		/// All calls above this limit are accepted, but are not refunded.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxFreeHeadersPerBlock: Get&lt;u32&gt;;

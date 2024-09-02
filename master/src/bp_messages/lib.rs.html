@@ -758,32 +758,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
 <a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -817,9 +791,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>source_chain::RelayersRewards;
-<span class="kw">use </span>sp_core::{RuntimeDebug, TypeId};
+<span class="kw">use </span>sp_core::RuntimeDebug;
 <span class="kw">use </span>sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::<span class="kw-2">*</span>};
 
+<span class="kw">pub use </span>call_info::{
+	BaseMessagesProofInfo, BridgeMessagesCall, BridgeMessagesCallOf, MessagesCallInfo,
+	ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
+};
+<span class="kw">pub use </span>lane::{LaneId, LaneState};
+
+<span class="kw">mod </span>call_info;
+<span class="kw">mod </span>lane;
 <span class="kw">pub mod </span>source_chain;
 <span class="kw">pub mod </span>storage_keys;
 <span class="kw">pub mod </span>target_chain;
@@ -951,45 +933,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Lane id which implements `TypeId`.
-</span><span class="attr">#[derive(
-	Clone,
-	Copy,
-	Decode,
-	Default,
-	Encode,
-	Eq,
-	Ord,
-	PartialOrd,
-	PartialEq,
-	TypeInfo,
-	MaxEncodedLen,
-	Serialize,
-	Deserialize,
-)]
-</span><span class="kw">pub struct </span>LaneId(<span class="kw">pub </span>[u8; <span class="number">4</span>]);
-
-<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>LaneId {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
-		<span class="self">self</span>.<span class="number">0</span>.fmt(fmt)
-	}
-}
-
-<span class="kw">impl </span>AsRef&lt;[u8]&gt; <span class="kw">for </span>LaneId {
-	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
-	</span>}
-}
-
-<span class="kw">impl </span>TypeId <span class="kw">for </span>LaneId {
-	<span class="kw">const </span>TYPE_ID: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"blan"</span>;
-}
-
 <span class="doccomment">/// Message nonce. Valid messages will never have 0 nonce.
 </span><span class="kw">pub type </span>MessageNonce = u64;
-
-<span class="doccomment">/// Message id as a tuple.
-</span><span class="kw">pub type </span>BridgeMessageId = (LaneId, MessageNonce);
 
 <span class="doccomment">/// Opaque message payload. We only decode this payload when it is dispatched.
 </span><span class="kw">pub type </span>MessagePayload = Vec&lt;u8&gt;;
@@ -1015,6 +960,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Inbound lane data.
 </span><span class="attr">#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo)]
 </span><span class="kw">pub struct </span>InboundLaneData&lt;RelayerId&gt; {
+	<span class="doccomment">/// Inbound lane state.
+	///
+	/// If state is `Closed`, then all attempts to deliver messages to this end will fail.
+	</span><span class="kw">pub </span>state: LaneState,
+
 	<span class="doccomment">/// Identifiers of relayers and messages that they have delivered to this lane (ordered by
 	/// message nonce).
 	///
@@ -1047,11 +997,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;RelayerId&gt; Default <span class="kw">for </span>InboundLaneData&lt;RelayerId&gt; {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		InboundLaneData { relayers: VecDeque::new(), last_confirmed_nonce: <span class="number">0 </span>}
+		InboundLaneData {
+			state: LaneState::Closed,
+			relayers: VecDeque::new(),
+			last_confirmed_nonce: <span class="number">0</span>,
+		}
 	}
 }
 
 <span class="kw">impl</span>&lt;RelayerId&gt; InboundLaneData&lt;RelayerId&gt; {
+	<span class="doccomment">/// Returns default inbound lane data with opened state.
+	</span><span class="kw">pub fn </span>opened() -&gt; <span class="self">Self </span>{
+		InboundLaneData { state: LaneState::Opened, ..Default::default() }
+	}
+
 	<span class="doccomment">/// Returns approximate size of the struct, given a number of entries in the `relayers` set and
 	/// size of each entry.
 	///
@@ -1137,7 +1096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Received messages with their dispatch result.
-</span><span class="attr">#[derive(Clone, Default, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+</span><span class="attr">#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
 </span><span class="kw">pub struct </span>ReceivedMessages&lt;DispatchLevelResult&gt; {
 	<span class="doccomment">/// Id of the lane which is receiving messages.
 	</span><span class="kw">pub </span>lane: LaneId,
@@ -1250,6 +1209,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Outbound lane data.
 </span><span class="attr">#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub struct </span>OutboundLaneData {
+	<span class="doccomment">/// Lane state.
+	///
+	/// If state is `Closed`, then all attempts to send messages messages at this end will fail.
+	</span><span class="kw">pub </span>state: LaneState,
 	<span class="doccomment">/// Nonce of the oldest message that we haven't yet pruned. May point to not-yet-generated
 	/// message if all sent messages are already pruned.
 	</span><span class="kw">pub </span>oldest_unpruned_nonce: MessageNonce,
@@ -1259,9 +1222,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>latest_generated_nonce: MessageNonce,
 }
 
+<span class="kw">impl </span>OutboundLaneData {
+	<span class="doccomment">/// Returns default outbound lane data with opened state.
+	</span><span class="kw">pub fn </span>opened() -&gt; <span class="self">Self </span>{
+		OutboundLaneData { state: LaneState::Opened, ..Default::default() }
+	}
+}
+
 <span class="kw">impl </span>Default <span class="kw">for </span>OutboundLaneData {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		OutboundLaneData {
+			state: LaneState::Closed,
 			<span class="comment">// it is 1 because we're pruning everything in [oldest_unpruned_nonce;
 			// latest_received_nonce]
 			</span>oldest_unpruned_nonce: <span class="number">1</span>,
@@ -1300,32 +1271,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relayers_rewards
 }
 
-<span class="doccomment">/// A minimized version of `pallet-bridge-messages::Call` that can be used without a runtime.
-</span><span class="attr">#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-#[allow(non_camel_case_types)]
-</span><span class="kw">pub enum </span>BridgeMessagesCall&lt;AccountId, MessagesProof, MessagesDeliveryProof&gt; {
-	<span class="doccomment">/// `pallet-bridge-messages::Call::receive_messages_proof`
-	</span><span class="attr">#[codec(index = <span class="number">2</span>)]
-	</span>receive_messages_proof {
-		<span class="doccomment">/// Account id of relayer at the **bridged** chain.
-		</span>relayer_id_at_bridged_chain: AccountId,
-		<span class="doccomment">/// Messages proof.
-		</span>proof: MessagesProof,
-		<span class="doccomment">/// A number of messages in the proof.
-		</span>messages_count: u32,
-		<span class="doccomment">/// Total dispatch weight of messages in the proof.
-		</span>dispatch_weight: Weight,
-	},
-	<span class="doccomment">/// `pallet-bridge-messages::Call::receive_messages_delivery_proof`
-	</span><span class="attr">#[codec(index = <span class="number">3</span>)]
-	</span>receive_messages_delivery_proof {
-		<span class="doccomment">/// Messages delivery proof.
-		</span>proof: MessagesDeliveryProof,
-		<span class="doccomment">/// "Digest" of unrewarded relayers state at the bridged chain.
-		</span>relayers_state: UnrewardedRelayersState,
-	},
-}
-
 <span class="doccomment">/// Error that happens during message verification.
 </span><span class="attr">#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
 </span><span class="kw">pub enum </span>VerificationError {
@@ -1356,8 +1301,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[test]
+	</span><span class="kw">fn </span>lane_is_closed_by_default() {
+		<span class="macro">assert_eq!</span>(InboundLaneData::&lt;()&gt;::default().state, LaneState::Closed);
+		<span class="macro">assert_eq!</span>(OutboundLaneData::default().state, LaneState::Closed);
+	}
+
+	<span class="attr">#[test]
 	</span><span class="kw">fn </span>total_unrewarded_messages_does_not_overflow() {
 		<span class="kw">let </span>lane_data = InboundLaneData {
+			state: LaneState::Opened,
 			relayers: <span class="macro">vec!</span>[
 				UnrewardedRelayer { relayer: <span class="number">1</span>, messages: DeliveredMessages::new(<span class="number">0</span>) },
 				UnrewardedRelayer {
@@ -1385,6 +1337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(relayer_entries, messages_count) <span class="kw">in </span>test_cases {
 			<span class="kw">let </span>expected_size = InboundLaneData::&lt;u8&gt;::encoded_size_hint(relayer_entries <span class="kw">as _</span>);
 			<span class="kw">let </span>actual_size = InboundLaneData {
+				state: LaneState::Opened,
 				relayers: (<span class="number">1u8</span>..=relayer_entries)
 					.map(|i| UnrewardedRelayer {
 						relayer: i,
@@ -1411,11 +1364,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(delivered_messages.contains_message(<span class="number">100</span>));
 		<span class="macro">assert!</span>(delivered_messages.contains_message(<span class="number">150</span>));
 		<span class="macro">assert!</span>(!delivered_messages.contains_message(<span class="number">151</span>));
-	}
-
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>lane_id_debug_format_matches_inner_array_format() {
-		<span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>])), <span class="macro">format!</span>(<span class="string">"{:?}"</span>, [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

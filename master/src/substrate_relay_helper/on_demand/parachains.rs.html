@@ -1239,11 +1239,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	sync::{Arc, Mutex},
 };
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 <span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaId};
 <span class="kw">use </span>bp_runtime::HeaderIdProvider;
 <span class="kw">use </span>futures::{select, FutureExt};
 <span class="kw">use </span>num_traits::Zero;
-<span class="kw">use </span>pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 <span class="kw">use </span>parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
 <span class="kw">use </span>relay_substrate_client::{
 	is_ancient_block, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client,

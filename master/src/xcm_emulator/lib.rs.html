@@ -1758,6 +1758,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1606" id="1606">1606</a>
 <a href="#1607" id="1607">1607</a>
 <a href="#1608" id="1608">1608</a>
+<a href="#1609" id="1609">1609</a>
+<a href="#1610" id="1610">1610</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2056,9 +2058,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>init() {}
 }
 
+<span class="kw">pub type </span>BridgeLaneId = Vec&lt;u8&gt;;
+
 <span class="attr">#[derive(Clone, Default, Debug)]
 </span><span class="kw">pub struct </span>BridgeMessage {
-	<span class="kw">pub </span>id: u32,
+	<span class="kw">pub </span>lane_id: BridgeLaneId,
 	<span class="kw">pub </span>nonce: u64,
 	<span class="kw">pub </span>payload: Vec&lt;u8&gt;,
 }
@@ -2070,7 +2074,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		message: BridgeMessage,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BridgeMessageDispatchError&gt;;
 
-	<span class="kw">fn </span>notify_source_message_delivery(lane_id: u32);
+	<span class="kw">fn </span>notify_source_message_delivery(lane_id: BridgeLaneId);
 }
 
 <span class="kw">impl </span>BridgeMessageHandler <span class="kw">for </span>() {
@@ -2084,7 +2088,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Err</span>(BridgeMessageDispatchError(Box::new(<span class="string">"Not a bridge"</span>)))
 	}
 
-	<span class="kw">fn </span>notify_source_message_delivery(_lane_id: u32) {}
+	<span class="kw">fn </span>notify_source_message_delivery(_lane_id: BridgeLaneId) {}
 }
 
 <span class="attr">#[derive(Debug)]
@@ -2839,12 +2843,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						});
 
 						<span class="kw">match </span>dispatch_result {
-							<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">panic!</span>(<span class="string">"Error {:?} processing bridged message: {:?}"</span>, e, msg.clone()),
+							<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">panic!</span>(<span class="string">"Error {:?} processing bridged message: {:?}"</span>, e, msg),
 							<span class="prelude-val">Ok</span>(()) =&gt; {
 								&lt;&lt;<span class="self">Self</span>::Bridge <span class="kw">as </span>Bridge&gt;::Source <span class="kw">as </span>TestExt&gt;::ext_wrapper(|| {
-									&lt;&lt;<span class="self">Self</span>::Bridge <span class="kw">as </span>Bridge&gt;::Handler <span class="kw">as </span>BridgeMessageHandler&gt;::notify_source_message_delivery(msg.id);
+									&lt;&lt;<span class="self">Self</span>::Bridge <span class="kw">as </span>Bridge&gt;::Handler <span class="kw">as </span>BridgeMessageHandler&gt;::notify_source_message_delivery(msg.lane_id.clone());
 								});
-								<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">"bridge::"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">"Bridged message processed {:?}"</span>, msg.clone());
+								<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">"bridge::"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">"Bridged message processed {:?}"</span>, msg);
 							}
 						}
 					}

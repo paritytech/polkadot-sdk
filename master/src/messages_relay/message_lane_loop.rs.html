@@ -1427,6 +1427,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1275" id="1275">1275</a>
 <a href="#1276" id="1276">1276</a>
 <a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1705,7 +1713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs
 /// sync loop.
 </span><span class="kw">pub fn </span>metrics_prefix&lt;P: MessageLane&gt;(lane: <span class="kw-2">&amp;</span>LaneId) -&gt; String {
-	<span class="macro">format!</span>(<span class="string">"{}_to_{}_MessageLane_{}"</span>, P::SOURCE_NAME, P::TARGET_NAME, hex::encode(lane))
+	<span class="macro">format!</span>(<span class="string">"{}_to_{}_MessageLane_{:?}"</span>, P::SOURCE_NAME, P::TARGET_NAME, lane)
 }
 
 <span class="doccomment">/// Run message lane service loop.
@@ -2386,7 +2394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			<span class="kw">let _ </span>= run(
 				Params {
-					lane: LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),
+					lane: LaneId::new(<span class="number">1</span>, <span class="number">2</span>),
 					source_tick: Duration::from_millis(<span class="number">100</span>),
 					target_tick: Duration::from_millis(<span class="number">100</span>),
 					reconnect_delay: Duration::from_millis(<span class="number">0</span>),
@@ -2702,6 +2710,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// check that we have at least once required new source-&gt;target or target-&gt;source headers
 		</span><span class="macro">assert!</span>(!result.target_to_source_header_requirements.is_empty());
 		<span class="macro">assert!</span>(!result.source_to_target_header_requirements.is_empty());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>metrics_prefix_is_valid() {
+		<span class="macro">assert!</span>(MessageLaneLoopMetrics::new(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>metrics_prefix::&lt;TestMessageLane&gt;(
+			<span class="kw-2">&amp;</span>LaneId::new(<span class="number">1</span>, <span class="number">2</span>)
+		)))
+		.is_ok());
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

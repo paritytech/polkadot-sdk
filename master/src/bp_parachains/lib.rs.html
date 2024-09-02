@@ -344,15 +344,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -375,11 +366,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">pub use </span>bp_header_chain::StoredHeaderData;
+<span class="kw">pub use </span>call_info::{BridgeParachainCall, SubmitParachainHeadsInfo};
 
-<span class="kw">use </span>bp_polkadot_core::{
-	parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId},
-	BlockNumber <span class="kw">as </span>RelayBlockNumber, Hash <span class="kw">as </span>RelayBlockHash,
-};
+<span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId};
 <span class="kw">use </span>bp_runtime::{
 	BlockNumberOf, Chain, HashOf, HeaderOf, Parachain, StorageDoubleMapKeyProvider,
 	StorageMapKeyProvider,
@@ -390,6 +379,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::storage::StorageKey;
 <span class="kw">use </span>sp_runtime::{traits::Header <span class="kw">as </span>HeaderT, RuntimeDebug};
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
+
+<span class="doccomment">/// Block hash of the bridged relay chain.
+</span><span class="kw">pub type </span>RelayBlockHash = bp_polkadot_core::Hash;
+<span class="doccomment">/// Block number of the bridged relay chain.
+</span><span class="kw">pub type </span>RelayBlockNumber = bp_polkadot_core::BlockNumber;
+<span class="doccomment">/// Hasher of the bridged relay chain.
+</span><span class="kw">pub type </span>RelayBlockHasher = bp_polkadot_core::Hasher;
+
+<span class="kw">mod </span>call_info;
 
 <span class="doccomment">/// Best known parachain head hash.
 </span><span class="attr">#[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
@@ -539,22 +537,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="prelude-val">None
 	</span>}
-}
-
-<span class="doccomment">/// A minimized version of `pallet-bridge-parachains::Call` that can be used without a runtime.
-</span><span class="attr">#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-#[allow(non_camel_case_types)]
-</span><span class="kw">pub enum </span>BridgeParachainCall {
-	<span class="doccomment">/// `pallet-bridge-parachains::Call::submit_parachain_heads`
-	</span><span class="attr">#[codec(index = <span class="number">0</span>)]
-	</span>submit_parachain_heads {
-		<span class="doccomment">/// Relay chain block, for which we have submitted the `parachain_heads_proof`.
-		</span>at_relay_block: (RelayBlockNumber, RelayBlockHash),
-		<span class="doccomment">/// Parachain identifiers and their head hashes.
-		</span>parachains: Vec&lt;(ParaId, ParaHash)&gt;,
-		<span class="doccomment">/// Parachain heads proof.
-		</span>parachain_heads_proof: ParaHeadsProof,
-	},
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

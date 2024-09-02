@@ -266,6 +266,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -293,6 +302,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	dispatch::DispatchClass,
 	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
@@ -372,15 +382,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
 	/// BridgeHub.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	</span><span class="kw">pub const </span>BridgeHubRococoBaseXcmFeeInRocs: u128 = <span class="number">59_034_266</span>;
+	</span><span class="kw">pub const </span>BridgeHubRococoBaseXcmFeeInRocs: u128 = <span class="number">57_145_832</span>;
 
 	<span class="doccomment">/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-	</span><span class="kw">pub const </span>BridgeHubRococoBaseDeliveryFeeInRocs: u128 = <span class="number">314_037_860</span>;
+	</span><span class="kw">pub const </span>BridgeHubRococoBaseDeliveryFeeInRocs: u128 = <span class="number">297_644_174</span>;
 
 	<span class="doccomment">/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	</span><span class="kw">pub const </span>BridgeHubRococoBaseConfirmationFeeInRocs: u128 = <span class="number">57_414_813</span>;
+	</span><span class="kw">pub const </span>BridgeHubRococoBaseConfirmationFeeInRocs: u128 = <span class="number">56_740_432</span>;
+}
+
+<span class="doccomment">/// Wrapper over `BridgeHubRococo`'s `RuntimeCall` that can be used without a runtime.
+</span><span class="attr">#[derive(Decode, Encode)]
+</span><span class="kw">pub enum </span>RuntimeCall {
+	<span class="doccomment">/// Points to the `pallet_xcm_bridge_hub` pallet instance for `BridgeHubWestend`.
+	</span><span class="attr">#[codec(index = <span class="number">52</span>)]
+	</span>XcmOverBridgeHubWestend(bp_xcm_bridge_hub::XcmBridgeHubCall),
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

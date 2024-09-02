@@ -710,8 +710,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
 <a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -812,11 +810,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Check that the storage proof doesn't have any untouched keys.
 	</span>parser.ensure_no_unused_keys().map_err(VerificationError::StorageProof)<span class="question-mark">?</span>;
 
-	<span class="comment">// We only support single lane messages in this generated_schema
-	</span><span class="kw">let </span><span class="kw-2">mut </span>proved_messages = ProvedMessages::new();
-	proved_messages.insert(lane, proved_lane_messages);
-
-	<span class="prelude-val">Ok</span>(proved_messages)
+	<span class="prelude-val">Ok</span>((lane, proved_lane_messages))
 }
 
 <span class="doccomment">/// Verify proof of This -&gt; Bridged chain messages delivery.
@@ -934,7 +928,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		mock::<span class="kw-2">*</span>,
 	};
 
-	<span class="kw">use </span>bp_header_chain::StoredHeaderDataBuilder;
+	<span class="kw">use </span>bp_header_chain::{HeaderChainError, StoredHeaderDataBuilder};
+	<span class="kw">use </span>bp_messages::LaneState;
 	<span class="kw">use </span>bp_runtime::{HeaderId, StorageProofError};
 	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>sp_runtime::traits::Header;
@@ -949,7 +944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		test: <span class="kw">impl </span>Fn(FromBridgedChainMessagesProof&lt;BridgedHeaderHash&gt;) -&gt; R,
 	) -&gt; R {
 		<span class="kw">let </span>(state_root, storage_proof) = prepare_messages_storage_proof::&lt;BridgedChain, ThisChain&gt;(
-			TEST_LANE_ID,
+			test_lane_id(),
 			<span class="number">1</span>..=nonces_end,
 			outbound_lane_data,
 			bp_runtime::UnverifiedStorageProofParams::default(),
@@ -981,7 +976,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			test(FromBridgedChainMessagesProof {
 				bridged_header_hash,
 				storage_proof,
-				lane: TEST_LANE_ID,
+				lane: test_lane_id(),
 				nonces_start: <span class="number">1</span>,
 				nonces_end,
 			})
@@ -1154,6 +1149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			using_messages_proof(
 				<span class="number">10</span>,
 				<span class="prelude-val">Some</span>(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: <span class="number">1</span>,
 					latest_received_nonce: <span class="number">1</span>,
 					latest_generated_nonce: <span class="number">1</span>,
@@ -1194,6 +1190,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			using_messages_proof(
 				<span class="number">0</span>,
 				<span class="prelude-val">Some</span>(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: <span class="number">1</span>,
 					latest_received_nonce: <span class="number">1</span>,
 					latest_generated_nonce: <span class="number">1</span>,
@@ -1204,19 +1201,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="bool-val">false</span>,
 				|proof| verify_messages_proof::&lt;TestRuntime, ()&gt;(proof, <span class="number">0</span>),
 			),
-			<span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[(
-				TEST_LANE_ID,
+			<span class="prelude-val">Ok</span>((
+				test_lane_id(),
 				ProvedLaneMessages {
 					lane_state: <span class="prelude-val">Some</span>(OutboundLaneData {
+						state: LaneState::Opened,
 						oldest_unpruned_nonce: <span class="number">1</span>,
 						latest_received_nonce: <span class="number">1</span>,
 						latest_generated_nonce: <span class="number">1</span>,
 					}),
 					messages: Vec::new(),
 				},
-			)]
-			.into_iter()
-			.collect()),
+			)),
 		);
 	}
 
@@ -1226,6 +1222,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			using_messages_proof(
 				<span class="number">1</span>,
 				<span class="prelude-val">Some</span>(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: <span class="number">1</span>,
 					latest_received_nonce: <span class="number">1</span>,
 					latest_generated_nonce: <span class="number">1</span>,
@@ -1236,22 +1233,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="bool-val">false</span>,
 				|proof| verify_messages_proof::&lt;TestRuntime, ()&gt;(proof, <span class="number">1</span>),
 			),
-			<span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[(
-				TEST_LANE_ID,
+			<span class="prelude-val">Ok</span>((
+				test_lane_id(),
 				ProvedLaneMessages {
 					lane_state: <span class="prelude-val">Some</span>(OutboundLaneData {
+						state: LaneState::Opened,
 						oldest_unpruned_nonce: <span class="number">1</span>,
 						latest_received_nonce: <span class="number">1</span>,
 						latest_generated_nonce: <span class="number">1</span>,
 					}),
 					messages: <span class="macro">vec!</span>[Message {
-						key: MessageKey { lane_id: TEST_LANE_ID, nonce: <span class="number">1 </span>},
+						key: MessageKey { lane_id: test_lane_id(), nonce: <span class="number">1 </span>},
 						payload: <span class="macro">vec!</span>[<span class="number">42</span>],
 					}],
 				},
-			)]
-			.into_iter()
-			.collect()),
+			))
 		);
 	}
 
