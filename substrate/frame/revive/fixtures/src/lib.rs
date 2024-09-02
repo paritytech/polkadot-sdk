@@ -21,9 +21,7 @@ extern crate alloc;
 
 /// Load a given wasm module and returns a wasm binary contents along with it's hash.
 #[cfg(feature = "std")]
-pub fn compile_module(
-	fixture_name: &str,
-) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
+pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
 	let out_dir: std::path::PathBuf = env!("OUT_DIR").into();
 	let fixture_path = out_dir.join(format!("{fixture_name}.polkavm"));
 	let binary = std::fs::read(fixture_path)?;
