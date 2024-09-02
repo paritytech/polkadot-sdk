@@ -673,7 +673,7 @@ coarsetime = { version = "0.1.22" }
 codec = { version = "3.6.12", default-features = false, package = "parity-scale-codec" }
 collectives-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend" }
 collectives-westend-runtime = { path = "cumulus/parachains/runtimes/collectives/collectives-westend" }
-color-eyre = { version = "0.6.1", default-features = false }
+color-eyre = { version = "0.6.3", default-features = false }
 color-print = { version = "0.3.4" }
 colored = { version = "2.0.4" }
 comfy-table = { version = "7.1.0", default-features = false }
@@ -1090,7 +1090,7 @@ pyroscope = { version = "0.5.7" }
 pyroscope_pprofrs = { version = "0.2.7" }
 quick_cache = { version = "0.3" }
 quickcheck = { version = "1.0.3", default-features = false }
-quote = { version = "1.0.36" }
+quote = { version = "1.0.37" }
 rand = { version = "0.8.5", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 rand_core = { version = "0.6.2" }
@@ -1185,10 +1185,10 @@ secp256k1 = { version = "0.28.0", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
 seedling-runtime = { path = "cumulus/parachains/runtimes/starters/seedling" }
 separator = { version = "0.4.1" }
-serde = { version = "1.0.206", default-features = false }
+serde = { version = "1.0.209", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
-serde_json = { version = "1.0.124", default-features = false }
+serde_json = { version = "1.0.127", default-features = false }
 serde_yaml = { version = "0.9" }
 serial_test = { version = "2.0.0" }
 sha1 = { version = "0.10.6" }
@@ -1297,7 +1297,7 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-syn = { version = "2.0.53" }
+syn = { version = "2.0.65" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }

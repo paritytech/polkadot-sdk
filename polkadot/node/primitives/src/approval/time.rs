@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Time utilities for approval voting.
+//! Time utilities for approval voting subsystems.
 
 use futures::{
 	future::BoxFuture,
@@ -23,7 +23,7 @@ use futures::{
 	Stream, StreamExt,
 };
 
-use polkadot_node_primitives::approval::v1::DelayTranche;
+use crate::approval::v1::DelayTranche;
 use sp_consensus_slots::Slot;
 use std::{
 	collections::HashSet,
@@ -33,10 +33,14 @@ use std::{
 };
 
 use polkadot_primitives::{Hash, ValidatorIndex};
+/// The duration of a single tick in milliseconds.
 pub const TICK_DURATION_MILLIS: u64 = 500;
 
 /// A base unit of time, starting from the Unix epoch, split into half-second intervals.
 pub type Tick = u64;
+
+/// How far in the future a tick can be accepted.
+pub const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
 
 /// A clock which allows querying of the current tick as well as
 /// waiting for a tick to be reached.
@@ -50,6 +54,7 @@ pub trait Clock {
 
 /// Extension methods for clocks.
 pub trait ClockExt {
+	/// Returns the current tranche.
 	fn tranche_now(&self, slot_duration_millis: u64, base_slot: Slot) -> DelayTranche;
 }
 
@@ -124,7 +129,7 @@ impl DelayedApprovalTimer {
 	///
 	/// Guarantees that if a timer already exits for the give block hash,
 	/// no additional timer is started.
-	pub(crate) fn maybe_arm_timer(
+	pub fn maybe_arm_timer(
 		&mut self,
 		wait_until: Tick,
 		clock: &dyn Clock,
@@ -173,7 +178,7 @@ mod tests {
 	use futures_timer::Delay;
 	use polkadot_primitives::{Hash, ValidatorIndex};
 
-	use crate::time::{Clock, SystemClock};
+	use crate::approval::time::{Clock, SystemClock};
 
 	use super::DelayedApprovalTimer;
 
