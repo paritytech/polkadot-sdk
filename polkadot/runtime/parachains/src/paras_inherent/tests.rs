@@ -20,7 +20,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	mock::MockGenesisConfig,
 };
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 
 fn default_config() -> MockGenesisConfig {
 	MockGenesisConfig {
@@ -58,7 +58,7 @@ mod enter {
 	use core::panic;
 	use frame_support::assert_ok;
 	use frame_system::limits;
-	use polkadot_primitives::{vstaging::SchedulerParams, AvailabilityBitfield, UncheckedSigned};
+	use polkadot_primitives::{AvailabilityBitfield, SchedulerParams, UncheckedSigned};
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
@@ -940,6 +940,65 @@ mod enter {
 			assert_eq!(limit_inherent_data.bitfields.len(), 20);
 			assert_eq!(limit_inherent_data.disputes.len(), 2);
 			assert_eq!(limit_inherent_data.backed_candidates.len(), 0);
+		});
+	}
+
+	// Ensure that even if the block is over weight due to candidates enactment,
+	// we still can import it.
+	#[test]
+	fn overweight_candidates_enactment_is_fine() {
+		sp_tracing::try_init_simple();
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			use crate::inclusion::WeightInfo as _;
+
+			let mut backed_and_concluding = BTreeMap::new();
+			// The number of candidates is chosen to go over the weight limit
+			// of the mock runtime together with the `enact_candidate`s weight.
+			let num_candidates = 5u32;
+			let max_weight = <Test as frame_system::Config>::BlockWeights::get().max_block;
+			assert!(<Test as inclusion::Config>::WeightInfo::enact_candidate(0, 0, 0)
+				.saturating_mul(u64::from(num_candidates))
+				.any_gt(max_weight));
+
+			for i in 0..num_candidates {
+				backed_and_concluding.insert(i, 2);
+			}
+
+			let num_validators_per_core: u32 = 5;
+			let num_backed = backed_and_concluding.len();
+			let bitfields_len = num_validators_per_core as usize * num_backed;
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core,
+				code_upgrade: None,
+				fill_claimqueue: true,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+			});
+
+			let expected_para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			assert_eq!(expected_para_inherent_data.bitfields.len(), bitfields_len);
+			assert_eq!(expected_para_inherent_data.backed_candidates.len(), num_backed);
+			assert_eq!(expected_para_inherent_data.disputes.len(), 0);
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
+				.unwrap();
+
+			let limit_inherent_data =
+				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
+			assert!(limit_inherent_data == expected_para_inherent_data);
+
+			assert_ok!(Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				limit_inherent_data,
+			));
 		});
 	}
 

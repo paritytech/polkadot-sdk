@@ -16,7 +16,7 @@
 //!
 //! ## Writing Your First Pallet
 //!
-//! To get started, use one of the templates mentioned in [`crate::polkadot_sdk::templates`]. We
+//! To get started, clone one of the templates mentioned in [`crate::polkadot_sdk::templates`]. We
 //! recommend using the `polkadot-sdk-minimal-template`. You might need to change small parts of
 //! this guide, namely the crate/package names, based on which template you use.
 //!
@@ -395,11 +395,11 @@ pub mod pallet {
 			if sender_balance < amount {
 				return Err("InsufficientBalance".into())
 			}
-			let reminder = sender_balance - amount;
+			let remainder = sender_balance - amount;
 
 			// update sender and dest balances.
 			Balances::<T>::mutate(dest, |b| *b = Some(b.unwrap_or(0) + amount));
-			Balances::<T>::insert(&sender, reminder);
+			Balances::<T>::insert(&sender, remainder);
 
 			Ok(())
 		}
@@ -417,7 +417,7 @@ pub mod pallet {
 
 			let sender_balance = Balances::<T>::get(&sender).ok_or("NonExistentAccount")?;
 			ensure!(sender_balance >= amount, "InsufficientBalance");
-			let reminder = sender_balance - amount;
+			let remainder = sender_balance - amount;
 
 			// .. snip
 			Ok(())
@@ -433,7 +433,7 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 
 			let sender_balance = Balances::<T>::get(&sender).ok_or("NonExistentAccount")?;
-			let reminder = sender_balance.checked_sub(amount).ok_or("InsufficientBalance")?;
+			let remainder = sender_balance.checked_sub(amount).ok_or("InsufficientBalance")?;
 
 			// .. snip
 			Ok(())
@@ -717,11 +717,11 @@ pub mod pallet_v2 {
 			// ensure sender has enough balance, and if so, calculate what is left after `amount`.
 			let sender_balance =
 				Balances::<T>::get(&sender).ok_or(Error::<T>::NonExistentAccount)?;
-			let reminder =
+			let remainder =
 				sender_balance.checked_sub(amount).ok_or(Error::<T>::InsufficientBalance)?;
 
 			Balances::<T>::mutate(&dest, |b| *b = Some(b.unwrap_or(0) + amount));
-			Balances::<T>::insert(&sender, reminder);
+			Balances::<T>::insert(&sender, remainder);
 
 			Self::deposit_event(Event::<T>::Transferred { from: sender, to: dest, amount });
 
