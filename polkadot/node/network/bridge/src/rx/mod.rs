@@ -826,7 +826,8 @@ where
 							finalized_number,
 							&metrics,
 							&notification_sinks,
-						);
+						)
+						.await;
 						note_peers_count(&metrics, &shared);
 					}
 				}
@@ -919,7 +920,7 @@ fn construct_view(
 }
 
 #[overseer::contextbounds(NetworkBridgeRx, prefix = self::overseer)]
-fn update_our_view<Context>(
+async fn update_our_view<Context>(
 	ctx: &mut Context,
 	live_heads: &[ActivatedLeaf],
 	shared: &Shared,
@@ -967,10 +968,12 @@ fn update_our_view<Context>(
 		finalized_number,
 	);
 
-	dispatch_validation_event_to_all_unbounded(
+	dispatch_validation_event_to_all(
 		NetworkBridgeEvent::OurViewChange(our_view.clone()),
 		ctx.sender(),
-	);
+		&metrics,
+	)
+	.await;
 
 	dispatch_collation_event_to_all_unbounded(
 		NetworkBridgeEvent::OurViewChange(our_view),
@@ -1140,12 +1143,10 @@ async fn dispatch_validation_events_to_all<I>(
 			if let Ok(event) = $event.focus() {
 				let has_high_priority = matches!(
 					event,
-					// NetworkBridgeEvent::OurViewChange(..) must also be here,
-					// but it is sent via an unbounded channel.
-					// See https://github.com/paritytech/polkadot-sdk/issues/824
 					NetworkBridgeEvent::PeerConnected(..) |
 						NetworkBridgeEvent::PeerDisconnected(..) |
-						NetworkBridgeEvent::PeerViewChange(..)
+						NetworkBridgeEvent::PeerViewChange(..) |
+						NetworkBridgeEvent::OurViewChange(..)
 				);
 				let message = $message::from(event);
 				if has_high_priority {
