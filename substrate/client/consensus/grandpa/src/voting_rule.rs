@@ -367,7 +367,7 @@ mod tests {
 		// where each subtracts 50 blocks from the current target
 		let rule = VotingRulesBuilder::new().add(Subtract(50)).add(Subtract(50)).build();
 
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = Arc::new(TestClientBuilder::new().build());
 		let mut hashes = Vec::with_capacity(200);
 
 		for _ in 0..200 {
@@ -416,7 +416,7 @@ mod tests {
 	fn before_best_by_has_cutoff_at_base() {
 		let rule = BeforeBestBlockBy(2);
 
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = Arc::new(TestClientBuilder::new().build());
 
 		let n = 5;
 		let mut hashes = Vec::with_capacity(n);

@@ -43,7 +43,6 @@ sp-statement-store = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-tracing = { workspace = true }
 assert_matches = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
@@ -55,7 +54,6 @@ tokio = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 pretty_assertions = { workspace = true }
-tracing-subscriber = { features = ["env-filter"], workspace = true }
 
 [features]
 test-helpers = []

@@ -20,16 +20,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod extensions;
-
 pub mod messages_api;
 pub mod messages_benchmarking;
-pub mod messages_call_ext;
-pub mod messages_xcm_extension;
 pub mod parachains_benchmarking;
 
 mod mock;
 
 #[cfg(feature = "integrity-test")]
 pub mod integrity;
-
-const LOG_TARGET_BRIDGE_DISPATCH: &str = "runtime::bridge-dispatch";
