@@ -290,7 +290,7 @@ pub mod pallet {
 		/// The states after this call: bridge is `Opened`, outbound lane is `Opened`, inbound lane
 		/// is `Opened`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/polkadot-sdk/pull/4949 - add benchmarks impl - FAIL-CI
+		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/parity-bridges-common/issues/3046 - add benchmarks impl
 		pub fn open_bridge(
 			origin: OriginFor<T>,
 			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
@@ -328,7 +328,7 @@ pub mod pallet {
 		/// The states after this call: everything is either `Closed`, or purged from the
 		/// runtime storage.
 		#[pallet::call_index(1)]
-		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/polkadot-sdk/pull/4949 - add benchmarks impl - FAIL-CI
+		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/parity-bridges-common/issues/3046 - add benchmarks impl
 		pub fn close_bridge(
 			origin: OriginFor<T>,
 			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
