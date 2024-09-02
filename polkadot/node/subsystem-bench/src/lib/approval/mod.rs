@@ -49,9 +49,13 @@ use itertools::Itertools;
 use orchestra::TimeoutExt;
 use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
 use polkadot_approval_distribution::ApprovalDistribution;
+use polkadot_node_primitives::approval::time::{
+	slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock,
+};
+
 use polkadot_node_core_approval_voting::{
-	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
 	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, Metrics as ApprovalVotingMetrics,
+	RealAssignmentCriteria,
 };
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
@@ -813,8 +817,12 @@ fn build_overseer(
 		Box::new(system_clock.clone()),
 	);
 
-	let approval_distribution =
-		ApprovalDistribution::new(Metrics::register(Some(&dependencies.registry)).unwrap());
+	let approval_distribution = ApprovalDistribution::new_with_clock(
+		Metrics::register(Some(&dependencies.registry)).unwrap(),
+		SLOT_DURATION_MILLIS,
+		Box::new(system_clock.clone()),
+		Arc::new(RealAssignmentCriteria {}),
+	);
 	let mock_chain_api = MockChainApi::new(state.build_chain_api_state());
 	let mock_chain_selection = MockChainSelection { state: state.clone(), clock: system_clock };
 	let mock_runtime_api = MockRuntimeApi::new(
