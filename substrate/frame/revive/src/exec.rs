@@ -54,7 +54,7 @@ use sp_core::{
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
 	traits::{BadOrigin, Convert, Dispatchable, Zero},
-	DispatchError,
+	DispatchError, SaturatedConversion,
 };
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -213,7 +213,7 @@ pub trait Ext: sealing::Sealed {
 		code: H256,
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 	) -> Result<(H160, ExecReturnValue), ExecError>;
 
 	/// Transfer all funds to `beneficiary` and delete the contract.
@@ -573,7 +573,7 @@ enum FrameArgs<'a, T: Config, E> {
 		/// The executable whose `deploy` function is run.
 		executable: E,
 		/// A salt used in the contract address derivation of the new contract.
-		salt: &'a [u8; 32],
+		salt: Option<&'a [u8; 32]>,
 		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
 	},
@@ -750,7 +750,7 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
@@ -863,7 +863,12 @@ where
 			},
 			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
 				let deployer = T::AddressMapper::to_address(&sender);
-				let address = address::create2(&deployer, executable.code(), input_data, salt);
+				let account_nonce = <System<T>>::account_nonce(&sender);
+				let address = if let Some(salt) = salt {
+					address::create2(&deployer, executable.code(), input_data, salt)
+				} else {
+					address::create1(&deployer, account_nonce.saturated_into())
+				};
 				let contract = ContractInfo::new(
 					&address,
 					<System<T>>::account_nonce(&sender),
@@ -1321,7 +1326,7 @@ where
 		code_hash: H256,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = &self.top_frame().account_id;

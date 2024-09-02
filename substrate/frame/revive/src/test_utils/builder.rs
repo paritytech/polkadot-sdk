@@ -88,7 +88,7 @@ builder!(
 		storage_deposit_limit: BalanceOf<T>,
 		code: Vec<u8>,
 		data: Vec<u8>,
-		salt: [u8; 32],
+		salt: Option<[u8; 32]>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create an [`InstantiateWithCodeBuilder`] with default values.
@@ -100,7 +100,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
-			salt: [0; 32],
+			salt: Some([0; 32]),
 		}
 	}
 );
@@ -113,7 +113,7 @@ builder!(
 		storage_deposit_limit: BalanceOf<T>,
 		code_hash: sp_core::H256,
 		data: Vec<u8>,
-		salt: [u8; 32],
+		salt: Option<[u8; 32]>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create an [`InstantiateBuilder`] with default values.
@@ -125,7 +125,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code_hash,
 			data: vec![],
-			salt: [0; 32],
+			salt: Some([0; 32]),
 		}
 	}
 );
@@ -138,7 +138,7 @@ builder!(
 		storage_deposit_limit: BalanceOf<T>,
 		code: Code,
 		data: Vec<u8>,
-		salt: [u8; 32],
+		salt: Option<[u8; 32]>,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
 	) -> ContractInstantiateResult<BalanceOf<T>, EventRecordOf<T>>;
@@ -164,7 +164,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
-			salt: [0; 32],
+			salt: Some([0; 32]),
 			debug: DebugInfo::UnsafeDebug,
 			collect_events: CollectEvents::Skip,
 		}
