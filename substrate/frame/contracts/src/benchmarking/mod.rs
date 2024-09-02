@@ -530,9 +530,8 @@ mod benchmarks {
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &addr);
 		// value was removed from the caller
-		let balance_caller = T::Currency::balance(&caller);
 		assert_eq!(
-			balance_caller,
+			T::Currency::balance(&caller),
 			caller_funding::<T>() - value - deposit - Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
