@@ -25,12 +25,12 @@ doc:
 
 crates:
   - name: frame-support-procedural
-    bump: major
+    bump: patch
   - name: frame-support
-    bump: major
+    bump: patch
   - name: sp-api-proc-macro
-    bump: major
+    bump: patch
   - name: sp-api
-    bump: major
+    bump: patch
   - name: sp-metadata-ir
     bump: major
