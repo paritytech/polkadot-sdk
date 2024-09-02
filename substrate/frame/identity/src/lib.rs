@@ -1172,7 +1172,7 @@ pub mod pallet {
 				let now = frame_system::Pallet::<T>::block_number();
 				ensure!(now > expiration, Error::<T>::NotExpired);
 				let actual_weight = match provider {
-					Provider::Authority(deposit) => {
+					Provider::AuthorityDeposit(deposit) => {
 						let suffix = Self::suffix_of_username(&username)
 							.ok_or(Error::<T>::InvalidUsername)?;
 						let authority_account = AuthorityOf::<T>::get(&suffix)
@@ -1182,7 +1182,7 @@ pub mod pallet {
 						debug_assert!(err_amount.is_zero());
 						T::WeightInfo::remove_expired_approval(0)
 					},
-					Provider::Governance => {
+					Provider::Allocation => {
 						// We don't refund the allocation, it is lost, but we refund some weight.
 						T::WeightInfo::remove_expired_approval(1)
 					},
@@ -1228,7 +1228,7 @@ pub mod pallet {
 				Error::<T>::InvalidUsername
 			);
 			match username_info.provider {
-				Provider::Authority(username_deposit) => {
+				Provider::AuthorityDeposit(username_deposit) => {
 					let suffix =
 						Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
 					if let Some(authority_account) =
@@ -1239,7 +1239,7 @@ pub mod pallet {
 						debug_assert!(err_amount.is_zero());
 					}
 				},
-				Provider::Governance => {
+				Provider::Allocation => {
 					// We don't refund the allocation, it is lost.
 				},
 				Provider::System => return Err(Error::<T>::InvalidTarget.into()),
@@ -1269,7 +1269,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::NotUsernameAuthority)?;
 			ensure!(who == authority_account, Error::<T>::NotUsernameAuthority);
 			match username_info.provider {
-				Provider::Authority(_) | Provider::Governance => {
+				Provider::AuthorityDeposit(_) | Provider::Allocation => {
 					let now = frame_system::Pallet::<T>::block_number();
 					UnbindingUsernames::<T>::try_mutate(&username, |maybe_init| {
 						if maybe_init.is_some() {
@@ -1313,7 +1313,7 @@ pub mod pallet {
 				}
 			});
 			match username_info.provider {
-				Provider::Authority(username_deposit) => {
+				Provider::AuthorityDeposit(username_deposit) => {
 					let suffix =
 						Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
 					if let Some(authority_account) =
@@ -1324,7 +1324,7 @@ pub mod pallet {
 						debug_assert!(err_amount.is_zero());
 					}
 				},
-				Provider::Governance => {
+				Provider::Allocation => {
 					// We don't refund the allocation, it is lost.
 				},
 				Provider::System => return Err(Error::<T>::InvalidTarget.into()),
@@ -1355,7 +1355,7 @@ pub mod pallet {
 			});
 			let _ = UnbindingUsernames::<T>::take(&username);
 			let actual_weight = match username_info.provider {
-				Provider::Authority(username_deposit) => {
+				Provider::AuthorityDeposit(username_deposit) => {
 					let suffix =
 						Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
 					if let Some(authority_account) =
@@ -1367,7 +1367,7 @@ pub mod pallet {
 					}
 					T::WeightInfo::kill_username(0)
 				},
-				Provider::Governance => {
+				Provider::Allocation => {
 					// We don't refund the allocation, it is lost, but we do refund some weight.
 					T::WeightInfo::kill_username(1)
 				},

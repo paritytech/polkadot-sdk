@@ -349,8 +349,10 @@ pub mod v2 {
 			};
 
 			if let Some((username, owner_account)) = iter.next() {
-				let username_info =
-					UsernameInformation { owner: owner_account, provider: Provider::Governance };
+				let username_info = UsernameInformation {
+					owner: owner_account,
+					provider: Provider::new_with_allocation(),
+				};
 				UsernameInfoOf::<T>::insert(&username, username_info);
 
 				(MigrationState::Username(username), T::DbWeight::get().reads_writes(1, 1))
@@ -397,7 +399,9 @@ pub mod v2 {
 			if let Some(last_key) =
 				PendingUsernames::<T>::translate_next::<(T::AccountId, BlockNumberFor<T>), _>(
 					maybe_last_key.map(|b| b.to_vec()),
-					|_, (owner_account, since)| Some((owner_account, since, Provider::Governance)),
+					|_, (owner_account, since)| {
+						Some((owner_account, since, Provider::new_with_allocation()))
+					},
 				) {
 				(
 					MigrationState::PendingUsername(last_key.try_into().unwrap()),
@@ -589,7 +593,7 @@ pub mod v2 {
 					if let Some(secondary) = maybe_secondary {
 						let expected_info = UsernameInformation {
 							owner: owner.clone(),
-							provider: Provider::Governance,
+							provider: Provider::new_with_allocation(),
 						};
 						assert_eq!(UsernameInfoOf::<Test>::get(secondary), Some(expected_info));
 					}
@@ -611,7 +615,7 @@ pub mod v2 {
 				let pending_count = PendingUsernames::<Test>::iter().count();
 				assert_eq!(pending_count, pending.len());
 				for (username, owner, since) in pending.iter() {
-					let expected_pending = (owner.clone(), *since, Provider::Governance);
+					let expected_pending = (owner.clone(), *since, Provider::Allocation);
 					assert_eq!(PendingUsernames::<Test>::get(username), Some(expected_pending));
 				}
 

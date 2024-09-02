@@ -1043,7 +1043,7 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 		// Lookup from username to account works.
 		let expected_user_info =
-			UsernameInformation { owner: who_account, provider: Provider::Governance };
+			UsernameInformation { owner: who_account, provider: Provider::Allocation };
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
 			Some(expected_user_info)
@@ -1083,7 +1083,7 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 		// Lookup from username to account works.
 		let expected_user_info = UsernameInformation {
 			owner: second_who,
-			provider: Provider::Authority(username_deposit),
+			provider: Provider::AuthorityDeposit(username_deposit),
 		};
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&second_username),
@@ -1144,7 +1144,7 @@ fn set_username_with_signature_with_existing_identity_should_work() {
 
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 		let expected_user_info =
-			UsernameInformation { owner: who_account, provider: Provider::Governance };
+			UsernameInformation { owner: who_account, provider: Provider::Allocation };
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
 			Some(expected_user_info)
@@ -1210,7 +1210,7 @@ fn set_username_through_deposit_with_existing_identity_should_work() {
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 		let expected_user_info = UsernameInformation {
 			owner: who_account,
-			provider: Provider::Authority(username_deposit),
+			provider: Provider::AuthorityDeposit(username_deposit),
 		};
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
@@ -1288,7 +1288,7 @@ fn set_username_with_bytes_signature_should_work() {
 		assert_eq!(UsernameOf::<Test>::get(&who_account), Some(username.clone()));
 		// Likewise for the lookup.
 		let expected_user_info =
-			UsernameInformation { owner: who_account, provider: Provider::Governance };
+			UsernameInformation { owner: who_account, provider: Provider::Allocation };
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
 			Some(expected_user_info)
@@ -1328,7 +1328,7 @@ fn set_username_with_acceptance_should_work() {
 		// Should be pending
 		assert_eq!(
 			PendingUsernames::<Test>::get::<&Username<Test>>(&username),
-			Some((who.clone(), expiration, Provider::Governance))
+			Some((who.clone(), expiration, Provider::Allocation))
 		);
 
 		// Now the user can accept
@@ -1339,7 +1339,7 @@ fn set_username_with_acceptance_should_work() {
 		// Check Identity storage
 		assert_eq!(UsernameOf::<Test>::get(&who), Some(username.clone()));
 		// Check reverse lookup
-		let expected_user_info = UsernameInformation { owner: who, provider: Provider::Governance };
+		let expected_user_info = UsernameInformation { owner: who, provider: Provider::Allocation };
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
 			Some(expected_user_info)
@@ -1360,7 +1360,7 @@ fn set_username_with_acceptance_should_work() {
 		let username_deposit = <Test as Config>::UsernameDeposit::get();
 		assert_eq!(
 			PendingUsernames::<Test>::get::<&Username<Test>>(&second_username),
-			Some((second_caller.clone(), expiration, Provider::Authority(username_deposit)))
+			Some((second_caller.clone(), expiration, Provider::AuthorityDeposit(username_deposit)))
 		);
 		assert_eq!(
 			Balances::free_balance(&authority),
@@ -1379,7 +1379,7 @@ fn set_username_with_acceptance_should_work() {
 		// Check reverse lookup
 		let expected_user_info = UsernameInformation {
 			owner: second_caller,
-			provider: Provider::Authority(username_deposit),
+			provider: Provider::AuthorityDeposit(username_deposit),
 		};
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&second_username),
@@ -1562,7 +1562,7 @@ fn setting_primary_should_work() {
 
 		// Lookup from both works.
 		let expected_user_info =
-			UsernameInformation { owner: who_account.clone(), provider: Provider::Governance };
+			UsernameInformation { owner: who_account.clone(), provider: Provider::Allocation };
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&first_username),
 			Some(expected_user_info.clone())
@@ -1636,13 +1636,13 @@ fn must_own_primary() {
 
 		// Ensure that both users have their usernames.
 		let expected_pi_info =
-			UsernameInformation { owner: pi_account.clone(), provider: Provider::Governance };
+			UsernameInformation { owner: pi_account.clone(), provider: Provider::Allocation };
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&pi_username),
 			Some(expected_pi_info)
 		);
 		let expected_e_info =
-			UsernameInformation { owner: e_account.clone(), provider: Provider::Governance };
+			UsernameInformation { owner: e_account.clone(), provider: Provider::Allocation };
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&e_username),
 			Some(expected_e_info)
@@ -1700,7 +1700,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 		// Should be pending
 		assert_eq!(
 			PendingUsernames::<Test>::get::<&Username<Test>>(&username),
-			Some((who.clone(), expiration, Provider::Governance))
+			Some((who.clone(), expiration, Provider::Allocation))
 		);
 
 		run_to_block(now + expiration - 1);
@@ -1768,7 +1768,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 		// Should be pending
 		assert_eq!(
 			PendingUsernames::<Test>::get::<&Username<Test>>(&username),
-			Some((who.clone(), expiration, Provider::Authority(username_deposit)))
+			Some((who.clone(), expiration, Provider::AuthorityDeposit(username_deposit)))
 		);
 
 		run_to_block(now + expiration - 1);
@@ -1859,7 +1859,7 @@ fn removing_dangling_usernames_should_work() {
 
 		// But both usernames should look up the account.
 		let expected_user_info =
-			UsernameInformation { owner: who_account.clone(), provider: Provider::Governance };
+			UsernameInformation { owner: who_account.clone(), provider: Provider::Allocation };
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
 			Some(expected_user_info.clone())
@@ -2003,7 +2003,7 @@ fn kill_username_should_work() {
 		// But both usernames should look up the account.
 		let expected_user_info = UsernameInformation {
 			owner: who_account.clone(),
-			provider: Provider::Authority(username_deposit),
+			provider: Provider::AuthorityDeposit(username_deposit),
 		};
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
@@ -2064,7 +2064,7 @@ fn kill_username_should_work() {
 
 		// But the reverse lookup of the third and final username is still there
 		let expected_user_info =
-			UsernameInformation { owner: who_account.clone(), provider: Provider::Governance };
+			UsernameInformation { owner: who_account.clone(), provider: Provider::Allocation };
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username_three),
 			Some(expected_user_info)
@@ -2144,14 +2144,14 @@ fn unbind_and_remove_username_should_work() {
 		// But both usernames should look up the account.
 		let expected_user_info = UsernameInformation {
 			owner: who_account.clone(),
-			provider: Provider::Authority(username_deposit),
+			provider: Provider::AuthorityDeposit(username_deposit),
 		};
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username),
 			Some(expected_user_info.clone())
 		);
 		let expected_user_info =
-			UsernameInformation { owner: who_account.clone(), provider: Provider::Governance };
+			UsernameInformation { owner: who_account.clone(), provider: Provider::Allocation };
 		assert_eq!(
 			UsernameInfoOf::<Test>::get::<&Username<Test>>(&username_two),
 			Some(expected_user_info.clone())
@@ -2179,7 +2179,7 @@ fn unbind_and_remove_username_should_work() {
 		// Only the authority that granted the username can unbind it.
 		UsernameInfoOf::<Test>::insert(
 			dummy_username.clone(),
-			UsernameInformation { owner: who_account.clone(), provider: Provider::Governance },
+			UsernameInformation { owner: who_account.clone(), provider: Provider::Allocation },
 		);
 		assert_noop!(
 			Identity::unbind_username(

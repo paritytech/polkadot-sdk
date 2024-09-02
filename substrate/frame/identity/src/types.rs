@@ -339,18 +339,18 @@ pub(crate) type Username<T> = BoundedVec<u8, <T as Config>::MaxUsernameLength>;
 
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
 pub enum Provider<Balance> {
-	Governance,
-	Authority(Balance),
+	Allocation,
+	AuthorityDeposit(Balance),
 	System,
 }
 
 impl<Balance> Provider<Balance> {
 	pub fn new_with_allocation() -> Self {
-		Self::Governance
+		Self::Allocation
 	}
 
 	pub fn new_with_deposit(deposit: Balance) -> Self {
-		Self::Authority(deposit)
+		Self::AuthorityDeposit(deposit)
 	}
 
 	#[allow(unused)]
