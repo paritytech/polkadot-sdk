@@ -21,10 +21,10 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	mock::MockGenesisConfig,
 };
-use polkadot_primitives::vstaging::{
-	ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
+use polkadot_primitives::{
+	vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR},
+	SchedulerParams,
 };
-use polkadot_primitives::SchedulerParams;
 
 fn default_config() -> MockGenesisConfig {
 	MockGenesisConfig {
@@ -63,9 +63,7 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-		vstaging::{
-			CandidateDescriptorV2, CommittedCandidateReceiptV2, InternalVersion,
-		},
+		vstaging::{CandidateDescriptorV2, CommittedCandidateReceiptV2, InternalVersion},
 		AvailabilityBitfield, CandidateDescriptor, UncheckedSigned,
 	};
 	use sp_runtime::Perbill;

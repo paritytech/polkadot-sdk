@@ -459,7 +459,8 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			// Don't check v1 descriptors.
 			CandidateDescriptorVersion::V1 => return Ok(()),
 			CandidateDescriptorVersion::V2 => {},
-			CandidateDescriptorVersion::Unknown => return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version)),
+			CandidateDescriptorVersion::Unknown =>
+				return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
 		if self.commitments.selected_core().is_none() {
