@@ -29,7 +29,6 @@ use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
 use pallet_xcm_bridge_hub::XcmAsPlainPayload;
 
-use codec::Encode;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, PalletInfoAccess},
@@ -70,11 +69,6 @@ parameter_types! {
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
-	// TODO:(bridges-v2) - check with `LocalXcmChannelManager` if we need - FAIL-CI
-	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
-	// TODO:(bridges-v2) - check with `LocalXcmChannelManager` if we need - FAIL-CI
-	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
-
 	pub BridgeHubRococoLocation: Location = Location::new(
 		2,
 		[
@@ -84,26 +78,6 @@ parameter_types! {
 	);
 
 	pub storage BridgeDeposit: Balance = 10 * WND;
-}
-
-// TODO:(bridges-v2) - check with `LocalXcmChannelManager` if we need - FAIL-CI
-fn build_congestion_message<Call>(is_congested: bool) -> alloc::vec::Vec<Instruction<Call>> {
-	alloc::vec![
-		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-		Transact {
-			origin_kind: OriginKind::Xcm,
-			require_weight_at_most:
-				bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-			call: bp_asset_hub_westend::Call::ToRococoXcmRouter(
-				bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
-					bridge_id: Default::default(),
-					is_congested,
-				}
-			)
-			.encode()
-			.into(),
-		}
-	]
 }
 
 /// Proof of messages, coming from Rococo.
@@ -208,11 +182,7 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type AllowWithoutBridgeDeposit =
 		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
 
-	// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - FAIL-CI - something like this:
-	// cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
-	//	AssetHubWestendParaId,
-	//	Runtime,
-	// >
+	// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - https://github.com/paritytech/parity-bridges-common/issues/3047
 	type LocalXcmChannelManager = ();
 	type BlobDispatcher = FromRococoMessageBlobDispatcher;
 }
