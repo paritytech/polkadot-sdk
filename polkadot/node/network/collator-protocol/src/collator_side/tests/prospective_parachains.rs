@@ -330,11 +330,9 @@ fn distribute_collation_from_implicit_view() {
 
 				if validator_sends_view_first {
 					// Activated leaf is `b`, but the collation will be based on `c`.
-					dbg!("UPDATE VIEW");
 					update_view(virtual_overseer, vec![(head_b, head_b_num)], 1).await;
 
 					for peer_id in &validator_peer_ids {
-						dbg!(peer_id);
 						expect_advertise_collation_msg(
 							virtual_overseer,
 							&validator_peer_ids,
