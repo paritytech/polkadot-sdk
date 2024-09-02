@@ -58,7 +58,9 @@ mod enter {
 	use core::panic;
 	use frame_support::assert_ok;
 	use frame_system::limits;
-	use polkadot_primitives::{AvailabilityBitfield, SchedulerParams, UncheckedSigned, vstaging::InternalVersion};
+	use polkadot_primitives::{
+		vstaging::InternalVersion, AvailabilityBitfield, SchedulerParams, UncheckedSigned,
+	};
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
@@ -1634,7 +1636,7 @@ mod sanitizers {
 	use bitvec::order::Lsb0;
 	use polkadot_primitives::{
 		AvailabilityBitfield, GroupIndex, Hash, Id as ParaId, SignedAvailabilityBitfield,
-		ValidatorIndex
+		ValidatorIndex,
 	};
 	use rstest::rstest;
 	use sp_core::crypto::UncheckedFrom;
