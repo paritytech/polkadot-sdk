@@ -543,7 +543,6 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(
-			//H160::from_slice(&mut &memory[4..]),
 			<H160 as Decode>::decode(&mut &memory[4..]).unwrap(),
 			T::AddressMapper::to_address(&runtime.ext().caller().account_id().unwrap())
 		);
