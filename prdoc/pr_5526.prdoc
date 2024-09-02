@@ -6,8 +6,8 @@ doc:
 
 crates:
   - name: polkadot-runtime-parachains
-    bump: none
+    bump: patch
   - name: rococo-runtime
-    bump: none
+    bump: patch
   - name: westend-runtime
-    bump: none
+    bump: patch
