@@ -24,13 +24,11 @@ use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{Contains, Equals},
 };
-use frame_system::EnsureRoot;
 use sp_runtime::{traits::ConstU128, BuildStorage};
 use sp_std::cell::RefCell;
 use xcm::prelude::*;
 use xcm_builder::{InspectMessageQueues, NetworkExportTable, NetworkExportTableItem};
 
-pub type AccountId = u64;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 /// HRMP fee.
@@ -82,7 +80,6 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type DestinationVersion =
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
-	type BridgeHubOrigin = EnsureRoot<AccountId>;
 	type ToBridgeHubSender = TestToBridgeHubSender;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 

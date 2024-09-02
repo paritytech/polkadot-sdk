@@ -27,7 +27,7 @@ use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
 use codec::Encode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{EnsureOrigin, Equals, Everything, NeverEnsureOrigin, OriginTrait},
+	traits::{EnsureOrigin, Equals, Everything, OriginTrait},
 	weights::RuntimeDbWeight,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -214,7 +214,6 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion = AlwaysLatest;
 
-	type BridgeHubOrigin = NeverEnsureOrigin<AccountId>;
 	type ToBridgeHubSender = TestExportXcmWithXcmOverBridge;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 

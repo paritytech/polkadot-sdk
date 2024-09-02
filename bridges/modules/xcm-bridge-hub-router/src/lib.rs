@@ -98,9 +98,6 @@ pub mod pallet {
 		/// Checks the XCM version for the destination.
 		type DestinationVersion: GetVersion;
 
-		/// TODO:(bridges-v2) - FAIL-CI - we dont use it, remove?
-		/// Origin of the sibling bridge hub that is allowed to report bridge status.
-		type BridgeHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
 		type ToBridgeHubSender: SendXcm + InspectMessageQueues;
 		/// Local XCM channel manager.
