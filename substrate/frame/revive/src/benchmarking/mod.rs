@@ -344,7 +344,6 @@ mod benchmarks {
 
 	// `c`: Size of the code in bytes.
 	// `i`: Size of the input in bytes.
-	// `s`: Size of the salt in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
 		c: Linear<0, { T::MaxCodeLen::get() }>,
@@ -1529,7 +1528,6 @@ mod benchmarks {
 
 	// t: value to transfer
 	// i: size of input in bytes
-	// s: size of salt in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn seal_instantiate(i: Linear<0, { limits::MEMORY_BYTES }>) -> Result<(), BenchmarkError> {
 		let code = WasmModule::dummy();
@@ -1583,11 +1581,9 @@ mod benchmarks {
 				offset(value_len),   // input_data_ptr
 				i,                   // input_data_len
 				SENTINEL,            // address_ptr
-				0,                   // address_len_ptr
 				SENTINEL,            // output_ptr
 				0,                   // output_len_ptr
 				offset(i),           // salt_ptr
-				32,                  // salt_len
 			);
 		}
 

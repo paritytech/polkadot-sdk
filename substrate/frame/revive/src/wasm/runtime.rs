@@ -162,9 +162,10 @@ impl<T: Config> Memory<T> for [u8] {
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
 	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
-		self.read_memory_into(ptr, buf)
-			.map(|_| ())
-			.map_err(|_| Error::<T>::OutOfBounds.into())
+		self.read_memory_into(ptr, buf).map(|_| ()).map_err(|err| {
+			log::debug!( target: LOG_TARGET, "Out of bounds read ptr: {ptr:?}: {err:?}",);
+			Error::<T>::OutOfBounds.into()
+		})
 	}
 
 	fn write(&mut self, ptr: u32, buf: &[u8]) -> Result<(), DispatchError> {
@@ -328,7 +329,7 @@ pub enum RuntimeCosts {
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
 	/// Weight of calling `seal_instantiate` for the given input length and salt.
-	Instantiate { input_data_len: u32, salt_len: u32 },
+	Instantiate { input_data_len: u32 },
 	/// Weight of calling `seal_hash_sha_256` for the given input size.
 	HashSha256(u32),
 	/// Weight of calling `seal_hash_keccak_256` for the given input size.
@@ -453,8 +454,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
 			CallInputCloned(len) => cost_args!(seal_call, 0, len),
-			Instantiate { input_data_len, salt_len } =>
-				T::WeightInfo::seal_instantiate(input_data_len, salt_len),
+			Instantiate { input_data_len } => T::WeightInfo::seal_instantiate(input_data_len),
 			HashSha256(len) => T::WeightInfo::seal_hash_sha2_256(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
 			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
@@ -660,6 +660,27 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		memory.write(out_ptr, buf)?;
 		memory.write(out_len_ptr, &buf_len.encode())
+	}
+
+	/// Same as `write_sandbox_output` but for static size output.
+	pub fn write_fixed_sandbox_output(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		buf: &[u8],
+		allow_skip: bool,
+		create_token: impl FnOnce(u32) -> Option<RuntimeCosts>,
+	) -> Result<(), DispatchError> {
+		if allow_skip && out_ptr == SENTINEL {
+			return Ok(())
+		}
+
+		let buf_len = buf.len() as u32;
+		if let Some(costs) = create_token(buf_len) {
+			self.charge_gas(costs)?;
+		}
+
+		memory.write(out_ptr, buf)
 	}
 
 	/// Computes the given hash function on the supplied input.
@@ -1011,13 +1032,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		input_data_ptr: u32,
 		input_data_len: u32,
 		address_ptr: u32,
-		address_len_ptr: u32,
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
-		salt_len: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::Instantiate { input_data_len, salt_len })?;
+		self.charge_gas(RuntimeCosts::Instantiate { input_data_len })?;
 		let deposit_limit: BalanceOf<<E as Ext>::T> = if deposit_ptr == SENTINEL {
 			BalanceOf::<<E as Ext>::T>::zero()
 		} else {
@@ -1032,10 +1051,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.ext.instantiate(weight, deposit_limit, code_hash, value, input_data, &salt);
 		if let Ok((address, output)) = &instantiate_outcome {
 			if !output.flags.contains(ReturnFlags::REVERT) {
-				self.write_sandbox_output(
+				self.write_fixed_sandbox_output(
 					memory,
 					address_ptr,
-					address_len_ptr,
 					&address.encode(),
 					true,
 					already_charged,
@@ -1194,6 +1212,10 @@ pub mod env {
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		log::debug!(
+			target: LOG_TARGET,
+			"\n===\n<Call flags: {flags:?}, callee_ptr: {callee_ptr}, value_ptr: {value_ptr}, deposit_ptr: {deposit_ptr}, ref_time_limit: {ref_time_limit}, proof_size_limit: {proof_size_limit}, input_data_ptr: {input_data_ptr}, input_data_len: {input_data_len}, output_ptr: {output_ptr}, output_len_ptr: {output_len_ptr}>",
+		);
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
@@ -1249,11 +1271,9 @@ pub mod env {
 		input_data_ptr: u32,
 		input_data_len: u32,
 		address_ptr: u32,
-		address_len_ptr: u32,
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
-		salt_len: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.instantiate(
 			memory,
@@ -1264,11 +1284,9 @@ pub mod env {
 			input_data_ptr,
 			input_data_len,
 			address_ptr,
-			address_len_ptr,
 			output_ptr,
 			output_len_ptr,
 			salt_ptr,
-			salt_len,
 		)
 	}
 

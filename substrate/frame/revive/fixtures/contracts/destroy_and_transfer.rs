@@ -31,7 +31,6 @@ pub extern "C" fn deploy() {
 
 	let input = [0u8; 0];
 	let mut address = [0u8; 20];
-	let address = &mut &mut address[..];
 	let salt = [47u8; 32];
 
 	api::instantiate(
@@ -41,14 +40,14 @@ pub extern "C" fn deploy() {
 		None, // No deposit limit.
 		&VALUE,
 		&input,
-		Some(address),
+		Some(&mut address),
 		None,
 		&salt,
 	)
 	.unwrap();
 
 	// Return the deployed contract address.
-	api::set_storage(StorageFlags::empty(), &ADDRESS_KEY, address);
+	api::set_storage(StorageFlags::empty(), &ADDRESS_KEY, &address);
 }
 
 #[no_mangle]

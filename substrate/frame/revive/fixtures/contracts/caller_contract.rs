@@ -73,7 +73,6 @@ pub extern "C" fn call() {
 
 	// Deploy the contract successfully.
 	let mut callee = [0u8; 20];
-	let callee = &mut &mut callee[..];
 
 	api::instantiate(
 		code_hash,
@@ -82,17 +81,16 @@ pub extern "C" fn call() {
 		None, // No deposit limit.
 		&value,
 		&input,
-		Some(callee),
+		Some(&mut callee),
 		None,
 		&salt,
 	)
 	.unwrap();
-	assert_eq!(callee.len(), 20);
 
 	// Call the new contract and expect it to return failing exit code.
 	let res = api::call(
 		uapi::CallFlags::empty(),
-		callee,
+		&callee,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
@@ -105,7 +103,7 @@ pub extern "C" fn call() {
 	// Fail to call the contract due to insufficient ref_time weight.
 	let res = api::call(
 		uapi::CallFlags::empty(),
-		callee,
+		&callee,
 		1u64, // Too little ref_time weight.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
@@ -118,7 +116,7 @@ pub extern "C" fn call() {
 	// Fail to call the contract due to insufficient proof_size weight.
 	let res = api::call(
 		uapi::CallFlags::empty(),
-		callee,
+		&callee,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		1u64, // too little proof_size weight
 		None, // No deposit limit.
@@ -130,9 +128,10 @@ pub extern "C" fn call() {
 
 	// Call the contract successfully.
 	let mut output = [0u8; 4];
+
 	api::call(
 		uapi::CallFlags::empty(),
-		callee,
+		&callee,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.

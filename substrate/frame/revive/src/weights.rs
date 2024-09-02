@@ -65,8 +65,8 @@ pub trait WeightInfo {
 	fn on_runtime_upgrade_in_progress() -> Weight;
 	fn on_runtime_upgrade() -> Weight;
 	fn call_with_code_per_byte(c: u32, ) -> Weight;
-	fn instantiate_with_code(c: u32, i: u32, s: u32, ) -> Weight;
-	fn instantiate(i: u32, s: u32, ) -> Weight;
+	fn instantiate_with_code(c: u32, i: u32) -> Weight;
+	fn instantiate(i: u32) -> Weight;
 	fn call() -> Weight;
 	fn upload_code_determinism_enforced(c: u32, ) -> Weight;
 	fn upload_code_determinism_relaxed(c: u32, ) -> Weight;
@@ -115,7 +115,7 @@ pub trait WeightInfo {
 	fn seal_transfer() -> Weight;
 	fn seal_call(t: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
-	fn seal_instantiate(i: u32, s: u32, ) -> Weight;
+	fn seal_instantiate(i: u32) -> Weight;
 	fn seal_hash_sha2_256(n: u32, ) -> Weight;
 	fn seal_hash_keccak_256(n: u32, ) -> Weight;
 	fn seal_hash_blake2_256(n: u32, ) -> Weight;
@@ -382,7 +382,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `c` is `[0, 125952]`.
 	/// The range of component `i` is `[0, 1048576]`.
 	/// The range of component `s` is `[0, 1048576]`.
-	fn instantiate_with_code(c: u32, i: u32, s: u32, ) -> Weight {
+	fn instantiate_with_code(c: u32, i: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `323`
 		//  Estimated: `6262`
@@ -393,7 +393,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 22
 			.saturating_add(Weight::from_parts(2_143, 0).saturating_mul(i.into()))
 			// Standard Error: 22
-			.saturating_add(Weight::from_parts(2_210, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
@@ -415,7 +414,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
 	/// The range of component `i` is `[0, 1048576]`.
 	/// The range of component `s` is `[0, 1048576]`.
-	fn instantiate(i: u32, s: u32, ) -> Weight {
+	fn instantiate(i: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `560`
 		//  Estimated: `4017`
@@ -424,7 +423,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 32
 			.saturating_add(Weight::from_parts(934, 0).saturating_mul(i.into()))
 			// Standard Error: 32
-			.saturating_add(Weight::from_parts(920, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
@@ -978,7 +976,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `i` is `[0, 983040]`.
 	/// The range of component `s` is `[0, 983040]`.
-	fn seal_instantiate(i: u32, s: u32, ) -> Weight {
+	fn seal_instantiate(i: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `676`
 		//  Estimated: `4132`
@@ -987,7 +985,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 24
 			.saturating_add(Weight::from_parts(581, 0).saturating_mul(i.into()))
 			// Standard Error: 24
-			.saturating_add(Weight::from_parts(915, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -1375,7 +1372,7 @@ impl WeightInfo for () {
 	/// The range of component `c` is `[0, 125952]`.
 	/// The range of component `i` is `[0, 1048576]`.
 	/// The range of component `s` is `[0, 1048576]`.
-	fn instantiate_with_code(c: u32, i: u32, s: u32, ) -> Weight {
+	fn instantiate_with_code(c: u32, i: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `323`
 		//  Estimated: `6262`
@@ -1386,7 +1383,6 @@ impl WeightInfo for () {
 			// Standard Error: 22
 			.saturating_add(Weight::from_parts(2_143, 0).saturating_mul(i.into()))
 			// Standard Error: 22
-			.saturating_add(Weight::from_parts(2_210, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
 	}
@@ -1408,7 +1404,7 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
 	/// The range of component `i` is `[0, 1048576]`.
 	/// The range of component `s` is `[0, 1048576]`.
-	fn instantiate(i: u32, s: u32, ) -> Weight {
+	fn instantiate(i: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `560`
 		//  Estimated: `4017`
@@ -1417,7 +1413,6 @@ impl WeightInfo for () {
 			// Standard Error: 32
 			.saturating_add(Weight::from_parts(934, 0).saturating_mul(i.into()))
 			// Standard Error: 32
-			.saturating_add(Weight::from_parts(920, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
@@ -1971,7 +1966,7 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `i` is `[0, 983040]`.
 	/// The range of component `s` is `[0, 983040]`.
-	fn seal_instantiate(i: u32, s: u32, ) -> Weight {
+	fn seal_instantiate(i: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `676`
 		//  Estimated: `4132`
@@ -1980,7 +1975,6 @@ impl WeightInfo for () {
 			// Standard Error: 24
 			.saturating_add(Weight::from_parts(581, 0).saturating_mul(i.into()))
 			// Standard Error: 24
-			.saturating_add(Weight::from_parts(915, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}

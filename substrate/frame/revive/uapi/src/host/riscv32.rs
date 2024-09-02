@@ -196,6 +196,14 @@ fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
 	}
 }
 
+#[inline(always)]
+fn mut_ptr_or_sentinel<const N: usize>(data: &mut Option<&mut [u8; N]>) -> *mut u8 {
+	match data {
+		Some(ref mut data) => data.as_mut_ptr(),
+		None => crate::SENTINEL as _,
+	}
+}
+
 impl HostFn for HostFnImpl {
 	fn instantiate(
 		code_hash: &[u8],
@@ -204,11 +212,11 @@ impl HostFn for HostFnImpl {
 		deposit_limit: Option<&[u8]>,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut &mut [u8]>,
+		mut address: Option<&mut [u8; 20]>,
 		mut output: Option<&mut &mut [u8]>,
-		salt: &[u8],
+		salt: &[u8; 32],
 	) -> Result {
-		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
+		let address_ptr = mut_ptr_or_sentinel(&mut address);
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
 		#[repr(packed)]
@@ -222,11 +230,9 @@ impl HostFn for HostFnImpl {
 			input: *const u8,
 			input_len: usize,
 			address: *const u8,
-			address_len: *mut u32,
 			output: *mut u8,
 			output_len: *mut u32,
 			salt: *const u8,
-			salt_len: usize,
 		}
 		let args = Args {
 			code_hash: code_hash.as_ptr(),
@@ -237,18 +243,12 @@ impl HostFn for HostFnImpl {
 			input: input.as_ptr(),
 			input_len: input.len(),
 			address: address_ptr,
-			address_len: &mut address_len as *mut _,
 			output: output_ptr,
 			output_len: &mut output_len as *mut _,
 			salt: salt.as_ptr(),
-			salt_len: salt.len(),
 		};
 
 		let ret_code = { unsafe { sys::instantiate(&args as *const Args as *const _) } };
-
-		if let Some(ref mut address) = address {
-			extract_from_slice(address, address_len as usize);
-		}
 
 		if let Some(ref mut output) = output {
 			extract_from_slice(output, output_len as usize);
