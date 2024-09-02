@@ -2743,7 +2743,7 @@ async fn follow_finalized_before_new_block() {
 	// expect for the `chainHead` to generate `NewBlock`, `BestBlock` and `Finalized` events.
 
 	// Trigger the Finalized notification before the NewBlock one.
-	run_with_timeout(client_mock.trigger_finality_stream(block_1.header.clone())).await;
+	run_with_timeout(client_mock.trigger_finality_stream(block_1.header.clone(), vec![])).await;
 
 	// Initialized must always be reported first.
 	let finalized_hash = client.info().finalized_hash;
@@ -3840,8 +3840,10 @@ async fn follow_report_best_block_of_a_known_block() {
 	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
+	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
+
 	let api = ChainHead::new(
-		client.clone(),
+		client_mock.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
 		ChainHeadConfig {
@@ -3849,7 +3851,6 @@ async fn follow_report_best_block_of_a_known_block() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -3858,7 +3859,6 @@ async fn follow_report_best_block_of_a_known_block() {
 
 	let finalized_hash = client.info().finalized_hash;
 	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
-
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Initialized(Initialized {
@@ -3886,7 +3886,6 @@ async fn follow_report_best_block_of_a_known_block() {
 		.block;
 	let block_1_hash = block_1.hash();
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
-
 	let block_2_f = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(block_1_hash)
 		.with_parent_block_number(1)
@@ -3917,6 +3916,10 @@ async fn follow_report_best_block_of_a_known_block() {
 	let block_2 = block_builder.build().unwrap().block;
 	let block_2_hash = block_2.header.hash();
 	client.import_as_best(BlockOrigin::Own, block_2.clone()).await.unwrap();
+
+	run_with_timeout(client_mock.trigger_import_stream(block_1.header.clone())).await;
+	run_with_timeout(client_mock.trigger_import_stream(block_2_f.header.clone())).await;
+	run_with_timeout(client_mock.trigger_import_stream(block_2.header.clone())).await;
 
 	// Check block 1.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -3963,7 +3966,7 @@ async fn follow_report_best_block_of_a_known_block() {
 	});
 	assert_eq!(event, expected);
 
-	// Import block 3 as best.
+	// Craft block 3 and import it later to simulate a race condition.
 	let block_3 = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(block_2_f_hash)
 		.with_parent_block_number(2)
@@ -3973,7 +3976,49 @@ async fn follow_report_best_block_of_a_known_block() {
 		.unwrap()
 		.block;
 	let block_3_hash = block_3.hash();
+
+	// Set best block info to block 3, that is not announced yet.
+	//
+	// This simulates the following edge-case:
+	// - The client imports a new block as best block.
+	// - The finality stream is triggered before the block is announced.
+	//
+	// This generated in the past a `BestBlock` event for the block that was not announced
+	// by `NewBlock` events.
+	//
+	// This happened because the chainHead was using the `client.info()` without verifying
+	// if the block was announced or not. This was fixed by using the latest finalized
+	// block instead as fallback. For more info see: https://github.com/paritytech/polkadot-sdk/issues/5512.
+	client_mock.set_best_block(block_3_hash, 3);
+
+	// Finalize the block 2 from the fork.
+	client.finalize_block(block_2_f_hash, None).unwrap();
+	run_with_timeout(
+		client_mock.trigger_finality_stream(block_2_f.header.clone(), vec![block_2_hash]),
+	)
+	.await;
+
+	// Block 2f is now the best block, not the block 3 that is not announced yet.
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
+		best_block_hash: format!("{:?}", block_2_f_hash),
+	});
+	assert_eq!(event, expected);
+	// Block 2 must be reported as pruned, even if it was the previous best.
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::Finalized(Finalized {
+		finalized_block_hashes: vec![
+			// Note: the client mock is only reporting one block at a time.
+			// format!("{:?}", block_1_hash),
+			format!("{:?}", block_2_f_hash),
+		],
+		pruned_block_hashes: vec![format!("{:?}", block_2_hash)],
+	});
+	assert_eq!(event, expected);
+
+	// Block 3 is now imported as best.
 	client.import_as_best(BlockOrigin::Own, block_3.clone()).await.unwrap();
+	run_with_timeout(client_mock.trigger_import_stream(block_3.header.clone())).await;
 
 	// Check block 3.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -3990,21 +4035,6 @@ async fn follow_report_best_block_of_a_known_block() {
 	});
 	assert_eq!(event, expected);
 
-	// Finalize the block 2 from the fork.
-	client.finalize_block(block_2_f_hash, None).unwrap();
-
-	// Block 3 is already reported as best block.
-	// Block 2 must be reported as pruned, even if it was the previous best.
-	let event: FollowEvent<String> = get_next_event(&mut sub).await;
-	let expected = FollowEvent::Finalized(Finalized {
-		finalized_block_hashes: vec![
-			format!("{:?}", block_1_hash),
-			format!("{:?}", block_2_f_hash),
-		],
-		pruned_block_hashes: vec![format!("{:?}", block_2_hash)],
-	});
-	assert_eq!(event, expected);
-
 	// Pruned hash can be unpinned.
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
@@ -4013,6 +4043,7 @@ async fn follow_report_best_block_of_a_known_block() {
 
 	// Finalize the block 3.
 	client.finalize_block(block_3_hash, None).unwrap();
+	run_with_timeout(client_mock.trigger_finality_stream(block_3.header.clone(), vec![])).await;
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
