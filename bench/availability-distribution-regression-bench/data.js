@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725109451732,
+  "lastUpdate": 1725273810626,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -24335,6 +24335,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.013709825626666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6b854acc69cd64f7c0e6cdb606e741e630e45032",
+          "message": "[3 / 5] Move crypto checks in the approval-distribution (#4928)\n\n# Prerequisite \nThis is part of the work to further optimize the approval subsystems, if\nyou want to understand the full context start with reading\nhttps://github.com/paritytech/polkadot-sdk/pull/4849#issue-2364261568,\n\n# Description\nThis PR contain changes, so that the crypto checks are performed by the\napproval-distribution subsystem instead of the approval-voting one. The\nbenefit for these, is twofold:\n1. Approval-distribution won't have to wait every single time for the\napproval-voting to finish its job, so the work gets to be pipelined\nbetween approval-distribution and approval-voting.\n\n2. By running in parallel multiple instances of approval-distribution as\ndescribed here\nhttps://github.com/paritytech/polkadot-sdk/pull/4849#issue-2364261568,\nthis significant body of work gets to run in parallel.\n\n## Changes:\n1. When approval-voting send `ApprovalDistributionMessage::NewBlocks` it\nneeds to pass the core_index and candidate_hash of the candidates.\n2. ApprovalDistribution needs to use `RuntimeInfo` to be able to fetch\nthe SessionInfo from the runtime.\n3. Move `approval-voting` logic that checks VRF assignment into\n`approval-distribution`\n4. Move `approval-voting` logic that checks vote is correctly signed\ninto `approval-distribution`\n5. Plumb `approval-distribution` and `approval-voting` tests to support\nthe new logic.\n\n## Benefits\nEven without parallelisation the gains are significant, for example on\nmy machine if we run approval subsystem bench for 500 validators and 100\ncores and trigger all 89 tranches of assignments and approvals, the\nsystem won't fall behind anymore because of late processing of messages.\n```\nBefore change\nChain selection approved  after 11500 ms hash=0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a\n\nAfter change\n\nChain selection approved  after 5500 ms hash=0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a\n```\n\n## TODO:\n- [x] Run on versi.\n- [x] Update parachain host documentation.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-09-02T09:05:03Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6b854acc69cd64f7c0e6cdb606e741e630e45032"
+        },
+        "date": 1725273782136,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02247370056666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01041324466666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17340844708000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012730110753333333,
             "unit": "seconds"
           }
         ]
