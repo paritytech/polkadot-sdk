@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725280001335,
+  "lastUpdate": 1725299210608,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -24439,6 +24439,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022273923799999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "22100999a6edbc67ae54b4cd0e0242505226b083",
+          "message": "[bridges-v2] Permissionless lanes  (#4949)\n\nRelates to:\nhttps://github.com/paritytech/parity-bridges-common/issues/2451\nCloses: https://github.com/paritytech/parity-bridges-common/issues/2500\n\n## Summary\n\nNow, the bridging pallet supports only static lanes, which means lanes\nthat are hard-coded in the runtime files. This PR fixes that and adds\nsupport for dynamic, also known as permissionless, lanes. This means\nthat allowed origins (relay chain, sibling parachains) can open and\nclose bridges (through BridgeHubs) with another bridged (substrate-like)\nconsensus using just `xcm::Transact` and `OriginKind::Xcm`.\n\n_This PR is based on the migrated code from the Bridges V2\n[branch](https://github.com/paritytech/polkadot-sdk/pull/4427) from the\nold `parity-bridges-common`\n[repo](https://github.com/paritytech/parity-bridges-common/tree/bridges-v2)._\n\n## Explanation\n\nPlease read\n[bridges/modules/xcm-bridge-hub/src/lib.rs](https://github.com/paritytech/polkadot-sdk/blob/149b0ac2ce43fba197988f2642032fa24dd8289a/bridges/modules/xcm-bridge-hub/src/lib.rs#L17-L136)\nto understand how managing bridges works. The basic concepts around\n`BridgeId` and `LaneId` are also explained there.\n\n\n## TODO\n\n- [x] search and fix for comment: `// TODO:(bridges-v2) - most of that\nstuff was introduced with free header execution:\nhttps://github.com/paritytech/polkadot-sdk/pull/4102` - more info in the\ncomment\n[bellow](https://github.com/paritytech/polkadot-sdk/pull/4427#issuecomment-2126625043)\n- [x] TODO: there's only one impl of `EnsureOrigin<Success = Location>`\n\n## TODO - not blocking review\n\n**benchmarking:**\n- [x] regenerate all relevant weights for BH/AH runtimes\n- [ ] regenerate default weights for bridging pallets e.g.\n`modules/messages/src/weights.rs`\n- [ ] add benchmarks for `xcm-bridge-hub` pallet\nhttps://github.com/paritytech/polkadot-sdk/issues/5550\n\n**testing:**\n- [ ] add xcm-emulator tests for Rococo/Penpal to Westend/Penpal with\nfull opening channel and sending/receiving `xcm::Transact`\n\n**migrations:**\n- [x] add migrations for BridgeHubRococo/Westend\nhttps://github.com/paritytech/parity-bridges-common/issues/2794 (to be\nreusable for P/K bridge)\n  - [x] check also storage migration, if needed for pallets\n  - [ ] migration for XCM type (optional)\n  - [x] migration for static lanes to the dynamic (reuse for fellows)\n\n**investigation:**\n- [ ] revisit\nhttps://github.com/paritytech/parity-bridges-common/issues/2380\n- [ ] check congestion around `LocalXcmChannelManager` and\n`OutboundLanesCongestedSignals` impls -\nhttps://github.com/paritytech/polkadot-sdk/issues/5551\n  - to be reusable for polkadot-fellows\n- return `report_bridge_status` was remove, so we need to `XcmpQueue`\nalternative?\n\n---------\n\nSigned-off-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Svyatoslav Nikolsky <svyatonik@gmail.com>\nCo-authored-by: command-bot <>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
+          "timestamp": "2024-09-02T15:53:49Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22100999a6edbc67ae54b4cd0e0242505226b083"
+        },
+        "date": 1725299181982,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022449293399999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1772439814133334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011214281520000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013553280586666662,
             "unit": "seconds"
           }
         ]
