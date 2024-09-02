@@ -46,8 +46,7 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::{BlockInfoProspectiveParachains as BlockInfo, View as ImplicitView},
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
 	request_session_index_for_child,
-	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
-	vstaging::fetch_claim_queue,
+	runtime::{fetch_claim_queue, prospective_parachains_mode, ProspectiveParachainsMode},
 };
 use polkadot_primitives::{
 	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash,

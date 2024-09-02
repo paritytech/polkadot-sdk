@@ -62,6 +62,10 @@ pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
 /// The type representing preset ID.
 pub type PresetId = sp_runtime::RuntimeString;
 
+/// The default `development` preset used to communicate with the runtime via
+/// [`GenesisBuilder`] interface.
+pub const DEV_RUNTIME_PRESET: &'static str = "development";
+
 sp_api::decl_runtime_apis! {
 	/// API to interact with RuntimeGenesisConfig for the runtime
 	pub trait GenesisBuilder {
