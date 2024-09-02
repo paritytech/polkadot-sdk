@@ -33,6 +33,7 @@ use testnet_parachains_constants::westend::{
 	snowbridge::{EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX},
 };
 
+use crate::xcm_config::RelayNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
@@ -41,6 +42,7 @@ use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
 	FixedU128,
 };
+use xcm::prelude::{GlobalConsensus, Location, Parachain};
 
 /// Exports message to the Ethereum Gateway contract.
 pub type SnowbridgeExporter = EthereumBlobExporter<
@@ -48,6 +50,7 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	EthereumNetwork,
 	snowbridge_pallet_outbound_queue::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
+	EthereumSystem,
 >;
 
 // Ethereum Bridge
@@ -64,6 +67,7 @@ parameter_types! {
 		rewards: Rewards { local: 1 * UNITS, remote: meth(1) },
 		multiplier: FixedU128::from_rational(1, 1),
 	};
+	pub GlobalAssetHub: Location = Location::new(1,[GlobalConsensus(RelayNetwork::get()),Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
 }
 
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
@@ -84,6 +88,9 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
 		AccountId,
 		Balance,
+		EthereumSystem,
+		UniversalLocation,
+		GlobalAssetHub,
 	>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;

@@ -1,6 +1,6 @@
 use super::GlobalConsensusEthereumConvertsFor;
 use crate::inbound::CallIndex;
-use frame_support::parameter_types;
+use frame_support::{assert_ok, parameter_types};
 use hex_literal::hex;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -37,4 +37,68 @@ fn test_contract_location_with_incorrect_location_fails_convert() {
 		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location),
 		None,
 	);
+}
+
+#[test]
+fn test_reanchor_relay_token() {
+	let asset_id: Location = Location::parent();
+	let ah_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1000)].into();
+	let ethereum = Location::new(2, [GlobalConsensus(Ethereum { chain_id: 1 })]);
+	let mut reanchored_asset = asset_id.clone();
+	assert_ok!(reanchored_asset.reanchor(&ethereum, &ah_context));
+	assert_eq!(
+		reanchored_asset,
+		Location { parents: 1, interior: [GlobalConsensus(Westend)].into() }
+	);
+	let bh_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1013)].into();
+	let ah = Location::new(1, [GlobalConsensus(Westend), Parachain(1000)]);
+	let mut reanchored_asset = reanchored_asset.clone();
+	assert_ok!(reanchored_asset.reanchor(&ah, &bh_context));
+	assert_eq!(reanchored_asset, asset_id);
+}
+
+#[test]
+fn test_reanchor_pna_from_ah() {
+	let asset_id: Location =
+		Location { parents: 0, interior: [PalletInstance(50), GeneralIndex(2)].into() };
+	let ah_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1000)].into();
+	let ethereum = Location::new(2, [GlobalConsensus(Ethereum { chain_id: 1 })]);
+	let mut reanchored_asset = asset_id.clone();
+	assert_ok!(reanchored_asset.reanchor(&ethereum, &ah_context));
+	assert_eq!(
+		reanchored_asset,
+		Location {
+			parents: 1,
+			interior: [
+				GlobalConsensus(Westend),
+				Parachain(1000),
+				PalletInstance(50),
+				GeneralIndex(2)
+			]
+			.into()
+		}
+	);
+	let bh_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1013)].into();
+	let ah = Location::new(1, [GlobalConsensus(Westend), Parachain(1000)]);
+	let mut reanchored_asset = reanchored_asset.clone();
+	assert_ok!(reanchored_asset.reanchor(&ah, &bh_context));
+	assert_eq!(reanchored_asset, asset_id);
+}
+
+#[test]
+fn test_reanchor_pna_from_para() {
+	let asset_id: Location = Location { parents: 1, interior: [Parachain(2000)].into() };
+	let ah_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1000)].into();
+	let ethereum = Location::new(2, [GlobalConsensus(Ethereum { chain_id: 1 })]);
+	let mut reanchored_asset = asset_id.clone();
+	assert_ok!(reanchored_asset.reanchor(&ethereum, &ah_context));
+	assert_eq!(
+		reanchored_asset,
+		Location { parents: 1, interior: [GlobalConsensus(Westend), Parachain(2000)].into() }
+	);
+	let bh_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1013)].into();
+	let ah = Location::new(1, [GlobalConsensus(Westend), Parachain(1000)]);
+	let mut reanchored_asset = reanchored_asset.clone();
+	assert_ok!(reanchored_asset.reanchor(&ah, &bh_context));
+	assert_eq!(reanchored_asset, asset_id);
 }
