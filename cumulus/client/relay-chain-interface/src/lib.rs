@@ -394,8 +394,6 @@ pub async fn call_runtime_api<R>(
 where
 	R: Decode,
 {
-	let res = client
-		.call_runtime_api(method_name, hash, &payload.encode())
-		.await?;
+	let res = client.call_runtime_api(method_name, hash, &payload.encode()).await?;
 	Decode::decode(&mut &*res).map_err(Into::into)
 }
