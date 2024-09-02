@@ -256,7 +256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>B: Block,
 		RA: Send + Sync + <span class="lifetime">'static</span>,
 	{
-		<span class="kw">let </span>executor = sc_service::new_wasm_executor::&lt;HostFunctions&gt;(<span class="kw-2">&amp;</span>config);
+		<span class="kw">let </span>executor = sc_service::new_wasm_executor::&lt;HostFunctions&gt;(<span class="kw-2">&amp;</span>config.executor);
 		<span class="kw">let </span>client = sc_service::new_full_client::&lt;B, RA, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>, executor)<span class="question-mark">?</span>;
 		<span class="kw">let </span>inspect = Inspector::&lt;B&gt;::new(client);
 

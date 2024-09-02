@@ -4,5 +4,5 @@
 "sp_io":[["impl Extension for <a class=\"struct\" href=\"sp_io/struct.UseDalekExt.html\" title=\"struct sp_io::UseDalekExt\">UseDalekExt</a>"]],
 "sp_keystore":[["impl Extension for <a class=\"struct\" href=\"sp_keystore/struct.KeystoreExt.html\" title=\"struct sp_keystore::KeystoreExt\">KeystoreExt</a>"]],
 "sp_statement_store":[["impl Extension for <a class=\"struct\" href=\"sp_statement_store/runtime_api/struct.StatementStoreExt.html\" title=\"struct sp_statement_store::runtime_api::StatementStoreExt\">StatementStoreExt</a>"]],
-"sp_trie":[["impl <a class=\"trait\" href=\"sp_externalities/extensions/trait.Extension.html\" title=\"trait sp_externalities::extensions::Extension\">Extension</a> for <a class=\"struct\" href=\"sp_trie/proof_size_extension/struct.ProofSizeExt.html\" title=\"struct sp_trie::proof_size_extension::ProofSizeExt\">ProofSizeExt</a>"]]
+"sp_trie":[["impl Extension for <a class=\"struct\" href=\"sp_trie/proof_size_extension/struct.ProofSizeExt.html\" title=\"struct sp_trie::proof_size_extension::ProofSizeExt\">ProofSizeExt</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

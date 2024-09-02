@@ -1229,6 +1229,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1077" id="1077">1077</a>
 <a href="#1078" id="1078">1078</a>
 <a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1250,7 +1281,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{
 	build_network_future, build_system_rpc_future,
 	client::{Client, ClientConfig},
-	config::{Configuration, KeystoreConfig, PrometheusConfig},
+	config::{Configuration, ExecutorConfiguration, KeystoreConfig, PrometheusConfig},
 	error::Error,
 	metrics::MetricsService,
 	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers, SpawnTaskHandle,
@@ -1260,12 +1291,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>jsonrpsee::RpcModule;
 <span class="kw">use </span>log::info;
 <span class="kw">use </span>prometheus_endpoint::Registry;
-<span class="kw">use </span>sc_chain_spec::get_extension;
+<span class="kw">use </span>sc_chain_spec::{get_extension, ChainSpec};
 <span class="kw">use </span>sc_client_api::{
 	execution_extensions::ExecutionExtensions, proof_provider::ProofProvider, BadBlocks,
 	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, StorageProvider, UsageProvider,
 };
-<span class="kw">use </span>sc_client_db::{Backend, DatabaseSettings};
+<span class="kw">use </span>sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode};
 <span class="kw">use </span>sc_consensus::import_queue::ImportQueue;
 <span class="kw">use </span>sc_executor::{
 	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeExecutionDispatch, RuntimeVersionOf,
@@ -1443,10 +1474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.unwrap_or_default();
 
 	<span class="kw">let </span>client = {
-		<span class="kw">let </span>extensions = sc_client_api::execution_extensions::ExecutionExtensions::new(
-			<span class="prelude-val">None</span>,
-			Arc::new(executor.clone()),
-		);
+		<span class="kw">let </span>extensions = ExecutionExtensions::new(<span class="prelude-val">None</span>, Arc::new(executor.clone()));
 
 		<span class="kw">let </span>wasm_runtime_substitutes = config
 			.chain_spec
@@ -1499,11 +1527,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	config: <span class="kw-2">&amp;</span>Configuration,
 ) -&gt; sc_executor::NativeElseWasmExecutor&lt;D&gt; {
 	<span class="attr">#[allow(deprecated)]
-	</span>sc_executor::NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(config))
+	</span>sc_executor::NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(<span class="kw-2">&amp;</span>config.executor))
 }
 
-<span class="doccomment">/// Creates a [`WasmExecutor`] according to [`Configuration`].
-</span><span class="kw">pub fn </span>new_wasm_executor&lt;H: HostFunctions&gt;(config: <span class="kw-2">&amp;</span>Configuration) -&gt; WasmExecutor&lt;H&gt; {
+<span class="doccomment">/// Creates a [`WasmExecutor`] according to [`ExecutorConfiguration`].
+</span><span class="kw">pub fn </span>new_wasm_executor&lt;H: HostFunctions&gt;(config: <span class="kw-2">&amp;</span>ExecutorConfiguration) -&gt; WasmExecutor&lt;H&gt; {
 	<span class="kw">let </span>strategy = config
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static { extra_pages: p <span class="kw">as _ </span>});
@@ -1665,7 +1693,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>telemetry = telemetry
 		.map(|telemetry| {
-			init_telemetry(<span class="kw-2">&amp;mut </span>config, network.clone(), client.clone(), telemetry, <span class="prelude-val">Some</span>(sysinfo))
+			init_telemetry(
+				config.network.node_name.clone(),
+				config.impl_name.clone(),
+				config.impl_version.clone(),
+				config.chain_spec.name().to_string(),
+				config.role.is_authority(),
+				network.clone(),
+				client.clone(),
+				telemetry,
+				<span class="prelude-val">Some</span>(sysinfo),
+			)
 		})
 		.transpose()<span class="question-mark">?</span>;
 
@@ -1694,7 +1732,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>metrics_service =
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(PrometheusConfig { port, registry }) = config.prometheus_config.clone() {
 			<span class="comment">// Set static metrics.
-			</span><span class="kw">let </span>metrics = MetricsService::with_prometheus(telemetry, <span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+			</span><span class="kw">let </span>metrics = MetricsService::with_prometheus(
+				telemetry,
+				<span class="kw-2">&amp;</span>registry,
+				config.role,
+				<span class="kw-2">&amp;</span>config.network.node_name,
+				<span class="kw-2">&amp;</span>config.impl_version,
+			)<span class="question-mark">?</span>;
 			spawn_handle.spawn(
 				<span class="string">"prometheus-endpoint"</span>,
 				<span class="prelude-val">None</span>,
@@ -1718,7 +1762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		),
 	);
 
-	<span class="kw">let </span>rpc_id_provider = config.rpc_id_provider.take();
+	<span class="kw">let </span>rpc_id_provider = config.rpc.id_provider.take();
 
 	<span class="comment">// jsonrpsee RPC
 	</span><span class="kw">let </span>gen_rpc_module = || {
@@ -1728,13 +1772,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			transaction_pool.clone(),
 			keystore.clone(),
 			system_rpc_tx.clone(),
-			<span class="kw-2">&amp;</span>config,
+			config.impl_name.clone(),
+			config.impl_version.clone(),
+			config.chain_spec.as_ref(),
+			<span class="kw-2">&amp;</span>config.state_pruning,
+			config.blocks_pruning,
 			backend.clone(),
 			<span class="kw-2">&amp;*</span>rpc_builder,
 		)
 	};
 
-	<span class="kw">let </span>rpc_server_handle = start_rpc_servers(<span class="kw-2">&amp;</span>config, gen_rpc_module, rpc_id_provider)<span class="question-mark">?</span>;
+	<span class="kw">let </span>rpc_server_handle = start_rpc_servers(
+		<span class="kw-2">&amp;</span>config.rpc,
+		config.prometheus_registry(),
+		<span class="kw-2">&amp;</span>config.tokio_handle,
+		gen_rpc_module,
+		rpc_id_provider,
+	)<span class="question-mark">?</span>;
 	<span class="kw">let </span>in_memory_rpc = {
 		<span class="kw">let </span><span class="kw-2">mut </span>module = gen_rpc_module()<span class="question-mark">?</span>;
 		module.extensions_mut().insert(DenyUnsafe::No);
@@ -1786,7 +1840,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Initialize telemetry with provided configuration and return telemetry handle
 </span><span class="kw">pub fn </span>init_telemetry&lt;Block, Client, Network&gt;(
-	config: <span class="kw-2">&amp;mut </span>Configuration,
+	name: String,
+	implementation: String,
+	version: String,
+	chain: String,
+	authority: bool,
 	network: Network,
 	client: Arc&lt;Client&gt;,
 	telemetry: <span class="kw-2">&amp;mut </span>Telemetry,
@@ -1799,16 +1857,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">let </span>genesis_hash = client.block_hash(Zero::zero()).ok().flatten().unwrap_or_default();
 	<span class="kw">let </span>connection_message = ConnectionMessage {
-		name: config.network.node_name.to_owned(),
-		implementation: config.impl_name.to_owned(),
-		version: config.impl_version.to_owned(),
+		name,
+		implementation,
+		version,
 		target_os: sc_sysinfo::TARGET_OS.into(),
 		target_arch: sc_sysinfo::TARGET_ARCH.into(),
 		target_env: sc_sysinfo::TARGET_ENV.into(),
 		config: String::new(),
-		chain: config.chain_spec.name().to_owned(),
+		chain,
 		genesis_hash: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, genesis_hash),
-		authority: config.role.is_authority(),
+		authority,
 		startup_time: SystemTime::UNIX_EPOCH
 			.elapsed()
 			.map(|dur| dur.as_millis())
@@ -1830,7 +1888,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	transaction_pool: Arc&lt;TExPool&gt;,
 	keystore: KeystorePtr,
 	system_rpc_tx: TracingUnboundedSender&lt;sc_rpc::system::Request&lt;TBl&gt;&gt;,
-	config: <span class="kw-2">&amp;</span>Configuration,
+	impl_name: String,
+	impl_version: String,
+	chain_spec: <span class="kw-2">&amp;</span><span class="kw">dyn </span>ChainSpec,
+	state_pruning: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;PruningMode&gt;,
+	blocks_pruning: BlocksPruning,
 	backend: Arc&lt;TBackend&gt;,
 	rpc_builder: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Fn(SubscriptionTaskExecutor) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;TRpc&gt;, Error&gt;),
 ) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;()&gt;, Error&gt;
@@ -1855,11 +1917,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	TBl::Header: Unpin,
 {
 	<span class="kw">let </span>system_info = sc_rpc::system::SystemInfo {
-		chain_name: config.chain_spec.name().into(),
-		impl_name: config.impl_name.clone(),
-		impl_version: config.impl_version.clone(),
-		properties: config.chain_spec.properties(),
-		chain_type: config.chain_spec.chain_type(),
+		chain_name: chain_spec.name().into(),
+		impl_name,
+		impl_version,
+		properties: chain_spec.properties(),
+		chain_type: chain_spec.chain_type(),
 	};
 
 	<span class="kw">let </span><span class="kw-2">mut </span>rpc_api = RpcModule::new(());
@@ -1904,8 +1966,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// An archive node that can respond to the `archive` RPC-v2 queries is a node with:
 	// - state pruning in archive mode: The storage of blocks is kept around
 	// - block pruning in archive mode: The block's body is kept around
-	</span><span class="kw">let </span>is_archive_node = config.state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(<span class="bool-val">false</span>) &amp;&amp;
-		config.blocks_pruning.is_archive();
+	</span><span class="kw">let </span>is_archive_node = state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(<span class="bool-val">false</span>) &amp;&amp;
+		blocks_pruning.is_archive();
 	<span class="kw">let </span>genesis_hash = client.hash(Zero::zero()).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 	<span class="kw">if </span>is_archive_node {
 		<span class="kw">let </span>archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
@@ -1921,9 +1983,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// ChainSpec RPC-v2.
 	</span><span class="kw">let </span>chain_spec_v2 = sc_rpc_spec_v2::chain_spec::ChainSpec::new(
-		config.chain_spec.name().into(),
+		chain_spec.name().into(),
 		genesis_hash,
-		config.chain_spec.properties(),
+		chain_spec.properties(),
 	)
 	.into_rpc();
 
@@ -2184,7 +2246,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>genesis_hash = client.hash(Zero::zero()).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 	<span class="kw">let </span>network_params = sc_network::config::Params::&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash, TNet&gt; {
-		role: config.role.clone(),
+		role: config.role,
 		executor: {
 			<span class="kw">let </span>spawn_handle = Clone::clone(<span class="kw-2">&amp;</span>spawn_handle);
 			Box::new(<span class="kw">move </span>|fut| {
@@ -2230,7 +2292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="string">"system-rpc-handler"</span>,
 		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
 		build_system_rpc_future::&lt;<span class="kw">_</span>, <span class="kw">_</span>, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;(
-			config.role.clone(),
+			config.role,
 			network_mut.network_service(),
 			sync_service.clone(),
 			client.clone(),

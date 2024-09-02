@@ -1184,6 +1184,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1032" id="1032">1032</a>
 <a href="#1033" id="1033">1033</a>
 <a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1264,8 +1269,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sc_service::{
 	config::{
-		BlocksPruning, DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, RpcEndpoint, WasmExecutionMethod,
+		BlocksPruning, DatabaseSource, ExecutorConfiguration, KeystoreConfig, MultiaddrWithPeerId,
+		NetworkConfiguration, OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig,
+		RpcConfiguration, RpcEndpoint, WasmExecutionMethod,
 	},
 	BasePath, ChainSpec <span class="kw">as </span>ChainSpecService, Configuration, Error <span class="kw">as </span>ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
@@ -1380,15 +1386,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	enable_import_proof_record: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Service, sc_service::Error&gt; {
 	<span class="kw">let </span>heap_pages = config
+		.executor
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h <span class="kw">as _ </span>});
 
 	<span class="kw">let </span>executor = WasmExecutor::builder()
-		.with_execution_method(config.wasm_method)
+		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
-		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
 	<span class="kw">let </span>(client, backend, keystore_container, task_manager) =
@@ -2049,38 +2056,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state_pruning: <span class="prelude-val">Some</span>(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
-		wasm_method: WasmExecutionMethod::Compiled {
-			instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
+		executor: ExecutorConfiguration {
+			wasm_method: WasmExecutionMethod::Compiled {
+				instantiation_strategy:
+					sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
+			},
+			..ExecutorConfiguration::default()
 		},
-		rpc_addr: <span class="prelude-val">None</span>,
-		rpc_max_connections: Default::default(),
-		rpc_cors: <span class="prelude-val">None</span>,
-		rpc_methods: Default::default(),
-		rpc_max_request_size: Default::default(),
-		rpc_max_response_size: Default::default(),
-		rpc_id_provider: <span class="prelude-val">None</span>,
-		rpc_max_subs_per_conn: Default::default(),
-		rpc_port: <span class="number">9945</span>,
-		rpc_message_buffer_capacity: Default::default(),
-		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
-		rpc_rate_limit: <span class="prelude-val">None</span>,
-		rpc_rate_limit_whitelisted_ips: Default::default(),
-		rpc_rate_limit_trust_proxy_headers: Default::default(),
+		rpc: RpcConfiguration {
+			addr: <span class="prelude-val">None</span>,
+			max_connections: Default::default(),
+			cors: <span class="prelude-val">None</span>,
+			methods: Default::default(),
+			max_request_size: Default::default(),
+			max_response_size: Default::default(),
+			id_provider: <span class="prelude-val">None</span>,
+			max_subs_per_conn: Default::default(),
+			port: <span class="number">9945</span>,
+			message_buffer_capacity: Default::default(),
+			batch_config: RpcBatchRequestConfig::Unlimited,
+			rate_limit: <span class="prelude-val">None</span>,
+			rate_limit_whitelisted_ips: Default::default(),
+			rate_limit_trust_proxy_headers: Default::default(),
+		},
 		prometheus_config: <span class="prelude-val">None</span>,
 		telemetry_endpoints: <span class="prelude-val">None</span>,
-		default_heap_pages: <span class="prelude-val">None</span>,
 		offchain_worker: OffchainWorkerConfig { enabled: <span class="bool-val">true</span>, indexing_enabled: <span class="bool-val">false </span>},
 		force_authoring: <span class="bool-val">false</span>,
 		disable_grandpa: <span class="bool-val">false</span>,
 		dev_key_seed: <span class="prelude-val">Some</span>(key_seed),
 		tracing_targets: <span class="prelude-val">None</span>,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: <span class="number">8</span>,
 		announce_block: <span class="bool-val">true</span>,
 		data_path: root,
 		base_path,
 		wasm_runtime_overrides: <span class="prelude-val">None</span>,
-		runtime_cache_size: <span class="number">2</span>,
 	})
 }
 
@@ -2192,19 +2202,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(port) = port {
-		config.rpc_addr = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[RpcEndpoint {
-			batch_config: config.rpc_batch_config,
-			cors: config.rpc_cors.clone(),
+		config.rpc.addr = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[RpcEndpoint {
+			batch_config: config.rpc.batch_config,
+			cors: config.rpc.cors.clone(),
 			listen_addr: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)),
-			max_connections: config.rpc_max_connections,
-			max_payload_in_mb: config.rpc_max_request_size,
-			max_payload_out_mb: config.rpc_max_response_size,
-			max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
-			max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
-			rpc_methods: config.rpc_methods,
-			rate_limit: config.rpc_rate_limit,
-			rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
-			rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+			max_connections: config.rpc.max_connections,
+			max_payload_in_mb: config.rpc.max_request_size,
+			max_payload_out_mb: config.rpc.max_response_size,
+			max_subscriptions_per_connection: config.rpc.max_subs_per_conn,
+			max_buffer_capacity_per_connection: config.rpc.message_buffer_capacity,
+			rpc_methods: config.rpc.methods,
+			rate_limit: config.rpc.rate_limit,
+			rate_limit_trust_proxy_headers: config.rpc.rate_limit_trust_proxy_headers,
+			rate_limit_whitelisted_ips: config.rpc.rate_limit_whitelisted_ips.clone(),
 			retry_random_port: <span class="bool-val">true</span>,
 			is_optional: <span class="bool-val">false</span>,
 		}]);

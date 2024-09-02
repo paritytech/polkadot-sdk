@@ -1693,6 +1693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1541" id="1541">1541</a>
 <a href="#1542" id="1542">1542</a>
 <a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2132,15 +2133,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.transpose()<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>heap_pages = config
+		.executor
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h <span class="kw">as _ </span>});
 
 	<span class="kw">let </span>executor = WasmExecutor::builder()
-		.with_execution_method(config.wasm_method)
+		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
-		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
 	<span class="kw">let </span>(client, backend, keystore_container, task_manager) =
@@ -2459,7 +2461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_network_sync::WarpSyncConfig;
 
 	<span class="kw">let </span>is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
-	<span class="kw">let </span>role = config.role.clone();
+	<span class="kw">let </span>role = config.role;
 	<span class="kw">let </span>force_authoring = config.force_authoring;
 	<span class="kw">let </span>backoff_authoring_blocks = <span class="kw">if </span>!force_authoring_backoff &amp;&amp;
 		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())

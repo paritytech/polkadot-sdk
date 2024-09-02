@@ -829,6 +829,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#677" id="677">677</a>
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1176,7 +1186,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>network_params(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>NetworkParams&gt; {
-		<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.network_params)
+		<span class="kw">let </span>network_params = <span class="kw-2">&amp;</span><span class="self">self</span>.network_params;
+		<span class="kw">let </span>is_authority = <span class="self">self</span>.role(<span class="self">self</span>.is_dev().ok()<span class="question-mark">?</span>).ok()<span class="question-mark">?</span>.is_authority();
+		<span class="kw">if </span>is_authority &amp;&amp; network_params.public_addr.is_empty() {
+			<span class="macro">eprintln!</span>(
+				<span class="string">"WARNING: No public address specified, validator node may not be reachable.
+				Consider setting `--public-addr` to the public IP address of this node.
+				This will become a hard requirement in future versions."
+			</span>);
+		}
+
+		<span class="prelude-val">Some</span>(network_params)
 	}
 
 	<span class="kw">fn </span>keystore_params(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>KeystoreParams&gt; {

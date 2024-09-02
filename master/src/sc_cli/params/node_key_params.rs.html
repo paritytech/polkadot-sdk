@@ -418,7 +418,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -658,7 +657,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				|params| {
 					<span class="kw">let </span>dir = PathBuf::from(net_config_dir.clone());
 					<span class="kw">let </span>typ = params.node_key_type;
-					<span class="kw">let </span>role = role.clone();
 					params.node_key(net_config_dir, role, is_dev).and_then(<span class="kw">move </span>|c| <span class="kw">match </span>c {
 						NodeKeyConfig::Ed25519(sc_network::config::Secret::File(<span class="kw-2">ref </span>f))
 							<span class="kw">if </span>typ == NodeKeyType::Ed25519 &amp;&amp;

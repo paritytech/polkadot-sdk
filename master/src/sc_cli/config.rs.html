@@ -867,16 +867,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#715" id="715">715</a>
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -906,10 +896,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>names::{Generator, Name};
 <span class="kw">use </span>sc_service::{
 	config::{
-		BasePath, Configuration, DatabaseSource, IpNetwork, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role,
-		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
-		WasmExecutionMethod,
+		BasePath, Configuration, DatabaseSource, ExecutorConfiguration, IpNetwork, KeystoreConfig,
+		NetworkConfiguration, NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode,
+		Role, RpcBatchRequestConfig, RpcConfiguration, RpcMethods, TelemetryEndpoints,
+		TransactionPoolOptions, WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
@@ -1409,26 +1399,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			trie_cache_maximum_size: <span class="self">self</span>.trie_cache_maximum_size()<span class="question-mark">?</span>,
 			state_pruning: <span class="self">self</span>.state_pruning()<span class="question-mark">?</span>,
 			blocks_pruning: <span class="self">self</span>.blocks_pruning()<span class="question-mark">?</span>,
-			wasm_method: <span class="self">self</span>.wasm_method()<span class="question-mark">?</span>,
+			executor: ExecutorConfiguration {
+				wasm_method: <span class="self">self</span>.wasm_method()<span class="question-mark">?</span>,
+				default_heap_pages: <span class="self">self</span>.default_heap_pages()<span class="question-mark">?</span>,
+				max_runtime_instances,
+				runtime_cache_size,
+			},
 			wasm_runtime_overrides: <span class="self">self</span>.wasm_runtime_overrides(),
-			rpc_addr: rpc_addrs,
-			rpc_methods: <span class="self">self</span>.rpc_methods()<span class="question-mark">?</span>,
-			rpc_max_connections: <span class="self">self</span>.rpc_max_connections()<span class="question-mark">?</span>,
-			rpc_cors: <span class="self">self</span>.rpc_cors(is_dev)<span class="question-mark">?</span>,
-			rpc_max_request_size: <span class="self">self</span>.rpc_max_request_size()<span class="question-mark">?</span>,
-			rpc_max_response_size: <span class="self">self</span>.rpc_max_response_size()<span class="question-mark">?</span>,
-			rpc_id_provider: <span class="prelude-val">None</span>,
-			rpc_max_subs_per_conn: <span class="self">self</span>.rpc_max_subscriptions_per_connection()<span class="question-mark">?</span>,
-			rpc_port: DCV::rpc_listen_port(),
-			rpc_message_buffer_capacity: <span class="self">self</span>.rpc_buffer_capacity_per_connection()<span class="question-mark">?</span>,
-			rpc_batch_config: <span class="self">self</span>.rpc_batch_config()<span class="question-mark">?</span>,
-			rpc_rate_limit: <span class="self">self</span>.rpc_rate_limit()<span class="question-mark">?</span>,
-			rpc_rate_limit_whitelisted_ips: <span class="self">self</span>.rpc_rate_limit_whitelisted_ips()<span class="question-mark">?</span>,
-			rpc_rate_limit_trust_proxy_headers: <span class="self">self</span>.rpc_rate_limit_trust_proxy_headers()<span class="question-mark">?</span>,
+			rpc: RpcConfiguration {
+				addr: rpc_addrs,
+				methods: <span class="self">self</span>.rpc_methods()<span class="question-mark">?</span>,
+				max_connections: <span class="self">self</span>.rpc_max_connections()<span class="question-mark">?</span>,
+				cors: <span class="self">self</span>.rpc_cors(is_dev)<span class="question-mark">?</span>,
+				max_request_size: <span class="self">self</span>.rpc_max_request_size()<span class="question-mark">?</span>,
+				max_response_size: <span class="self">self</span>.rpc_max_response_size()<span class="question-mark">?</span>,
+				id_provider: <span class="prelude-val">None</span>,
+				max_subs_per_conn: <span class="self">self</span>.rpc_max_subscriptions_per_connection()<span class="question-mark">?</span>,
+				port: DCV::rpc_listen_port(),
+				message_buffer_capacity: <span class="self">self</span>.rpc_buffer_capacity_per_connection()<span class="question-mark">?</span>,
+				batch_config: <span class="self">self</span>.rpc_batch_config()<span class="question-mark">?</span>,
+				rate_limit: <span class="self">self</span>.rpc_rate_limit()<span class="question-mark">?</span>,
+				rate_limit_whitelisted_ips: <span class="self">self</span>.rpc_rate_limit_whitelisted_ips()<span class="question-mark">?</span>,
+				rate_limit_trust_proxy_headers: <span class="self">self</span>.rpc_rate_limit_trust_proxy_headers()<span class="question-mark">?</span>,
+			},
 			prometheus_config: <span class="self">self
 				</span>.prometheus_config(DCV::prometheus_listen_port(), <span class="kw-2">&amp;</span>chain_spec)<span class="question-mark">?</span>,
 			telemetry_endpoints,
-			default_heap_pages: <span class="self">self</span>.default_heap_pages()<span class="question-mark">?</span>,
 			offchain_worker: <span class="self">self</span>.offchain_worker(<span class="kw-2">&amp;</span>role)<span class="question-mark">?</span>,
 			force_authoring: <span class="self">self</span>.force_authoring()<span class="question-mark">?</span>,
 			disable_grandpa: <span class="self">self</span>.disable_grandpa()<span class="question-mark">?</span>,
@@ -1436,11 +1432,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			tracing_targets: <span class="self">self</span>.tracing_targets()<span class="question-mark">?</span>,
 			tracing_receiver: <span class="self">self</span>.tracing_receiver()<span class="question-mark">?</span>,
 			chain_spec,
-			max_runtime_instances,
 			announce_block: <span class="self">self</span>.announce_block()<span class="question-mark">?</span>,
 			role,
 			base_path,
-			runtime_cache_size,
 		})
 	}
 
@@ -1497,15 +1491,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 	}
 	/// }
 	/// ```
-	</span><span class="kw">fn </span>init&lt;F&gt;(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		support_url: <span class="kw-2">&amp;</span>String,
-		impl_version: <span class="kw-2">&amp;</span>String,
-		logger_hook: F,
-		config: <span class="kw-2">&amp;</span>Configuration,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
+	</span><span class="kw">fn </span>init&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, support_url: <span class="kw-2">&amp;</span>String, impl_version: <span class="kw-2">&amp;</span>String, logger_hook: F) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
 	<span class="kw">where
-		</span>F: FnOnce(<span class="kw-2">&amp;mut </span>LoggerBuilder, <span class="kw-2">&amp;</span>Configuration),
+		</span>F: FnOnce(<span class="kw-2">&amp;mut </span>LoggerBuilder),
 	{
 		sp_panic_handler::set(support_url, impl_version);
 
@@ -1524,17 +1512,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// Call hook for custom profiling setup.
-		</span>logger_hook(<span class="kw-2">&amp;mut </span>logger, config);
+		</span>logger_hook(<span class="kw-2">&amp;mut </span>logger);
 
 		logger.init()<span class="question-mark">?</span>;
-
-		<span class="kw">if </span>config.role.is_authority() &amp;&amp; config.network.public_addresses.is_empty() {
-			<span class="macro">warn!</span>(
-				<span class="string">"WARNING: No public address specified, validator node may not be reachable.
-				Consider setting `--public-addr` to the public IP address of this node.
-				This will become a hard requirement in future versions."
-			</span>);
-		}
 
 		<span class="kw">match </span>fdlimit::raise_fd_limit() {
 			<span class="prelude-val">Ok</span>(fdlimit::Outcome::LimitRaised { to, .. }) =&gt;

@@ -621,7 +621,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	collator_pair: CollatorPair,
 	relay_chain_rpc_client: Arc&lt;BlockChainRpcClient&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NewMinimalNode, RelayChainError&gt; {
-	<span class="kw">let </span>role = config.role.clone();
+	<span class="kw">let </span>role = config.role;
 	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Network&gt;::new(
 		<span class="kw-2">&amp;</span>config.network,
 		config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),

@@ -396,7 +396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	spawn_handle.spawn(<span class="string">"peer-store"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), peer_store.run());
 
 	<span class="kw">let </span>network_params = sc_network::config::Params::&lt;Block, Hash, Network&gt; {
-		role: config.role.clone(),
+		role: config.role,
 		executor: {
 			<span class="kw">let </span>spawn_handle = Clone::clone(<span class="kw-2">&amp;</span>spawn_handle);
 			Box::new(<span class="kw">move </span>|fut| {

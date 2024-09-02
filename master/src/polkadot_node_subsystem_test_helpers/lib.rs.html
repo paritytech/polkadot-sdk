@@ -720,6 +720,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1016,6 +1038,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Message counter over subsystems.
 	</span><span class="kw">pub </span>message_counter: MessageCounter,
+
+	<span class="doccomment">/// Intermediate buffer for a message when using `peek`.
+	</span>message_buffer: <span class="prelude-ty">Option</span>&lt;AllMessages&gt;,
 }
 
 <span class="kw">impl</span>&lt;M&gt; TestSubsystemContextHandle&lt;M&gt; {
@@ -1045,11 +1070,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Receive the next message from the subsystem, or `None` if the channel has been closed.
 	</span><span class="kw">pub async fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;AllMessages&gt; {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = <span class="self">self</span>.message_buffer.take() {
+			<span class="kw">return </span><span class="prelude-val">Some</span>(msg)
+		}
+
 		<span class="self">self</span>.rx
 			.next()
 			.timeout(<span class="self">Self</span>::TIMEOUT)
 			.<span class="kw">await
 			</span>.expect(<span class="string">"`try_recv` does not timeout"</span>)
+	}
+
+	<span class="doccomment">/// Peek into the next message from the subsystem or `None` if the channel has been closed.
+	</span><span class="kw">pub async fn </span>peek(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>AllMessages&gt; {
+		<span class="kw">if </span><span class="self">self</span>.message_buffer.is_none() {
+			<span class="self">self</span>.message_buffer = <span class="self">self
+				</span>.rx
+				.next()
+				.timeout(<span class="self">Self</span>::TIMEOUT)
+				.<span class="kw">await
+				</span>.expect(<span class="string">"`try_recv` does not timeout"</span>);
+		}
+
+		<span class="self">self</span>.message_buffer.as_ref()
 	}
 }
 
@@ -1114,6 +1157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			tx: overseer_tx,
 			rx: all_messages_rx,
 			message_counter: message_counter.clone(),
+			message_buffer: <span class="prelude-val">None</span>,
 		},
 	)
 }

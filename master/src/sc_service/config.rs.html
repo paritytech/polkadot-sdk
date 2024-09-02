@@ -475,6 +475,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -555,48 +580,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>blocks_pruning: BlocksPruning,
 	<span class="doccomment">/// Chain configuration.
 	</span><span class="kw">pub </span>chain_spec: Box&lt;<span class="kw">dyn </span>ChainSpec&gt;,
-	<span class="doccomment">/// Wasm execution method.
-	</span><span class="kw">pub </span>wasm_method: WasmExecutionMethod,
+	<span class="doccomment">/// Runtime executor configuration.
+	</span><span class="kw">pub </span>executor: ExecutorConfiguration,
 	<span class="doccomment">/// Directory where local WASM runtimes live. These runtimes take precedence
 	/// over on-chain runtimes when the spec version matches. Set to `None` to
 	/// disable overrides (default).
 	</span><span class="kw">pub </span>wasm_runtime_overrides: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-	<span class="doccomment">/// JSON-RPC server endpoints.
-	</span><span class="kw">pub </span>rpc_addr: <span class="prelude-ty">Option</span>&lt;Vec&lt;RpcEndpoint&gt;&gt;,
-	<span class="doccomment">/// Maximum number of connections for JSON-RPC server.
-	</span><span class="kw">pub </span>rpc_max_connections: u32,
-	<span class="doccomment">/// CORS settings for HTTP &amp; WS servers. `None` if all origins are allowed.
-	</span><span class="kw">pub </span>rpc_cors: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
-	<span class="doccomment">/// RPC methods to expose (by default only a safe subset or all of them).
-	</span><span class="kw">pub </span>rpc_methods: RpcMethods,
-	<span class="doccomment">/// Maximum payload of a rpc request
-	</span><span class="kw">pub </span>rpc_max_request_size: u32,
-	<span class="doccomment">/// Maximum payload of a rpc response.
-	</span><span class="kw">pub </span>rpc_max_response_size: u32,
-	<span class="doccomment">/// Custom JSON-RPC subscription ID provider.
-	///
-	/// Default: [`crate::RandomStringSubscriptionId`].
-	</span><span class="kw">pub </span>rpc_id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>RpcSubscriptionIdProvider&gt;&gt;,
-	<span class="doccomment">/// Maximum allowed subscriptions per rpc connection
-	</span><span class="kw">pub </span>rpc_max_subs_per_conn: u32,
-	<span class="doccomment">/// JSON-RPC server default port.
-	</span><span class="kw">pub </span>rpc_port: u16,
-	<span class="doccomment">/// The number of messages the JSON-RPC server is allowed to keep in memory.
-	</span><span class="kw">pub </span>rpc_message_buffer_capacity: u32,
-	<span class="doccomment">/// JSON-RPC server batch config.
-	</span><span class="kw">pub </span>rpc_batch_config: RpcBatchRequestConfig,
-	<span class="doccomment">/// RPC rate limit per minute.
-	</span><span class="kw">pub </span>rpc_rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
-	<span class="doccomment">/// RPC rate limit whitelisted ip addresses.
-	</span><span class="kw">pub </span>rpc_rate_limit_whitelisted_ips: Vec&lt;IpNetwork&gt;,
-	<span class="doccomment">/// RPC rate limit trust proxy headers.
-	</span><span class="kw">pub </span>rpc_rate_limit_trust_proxy_headers: bool,
+	<span class="doccomment">/// RPC configuration.
+	</span><span class="kw">pub </span>rpc: RpcConfiguration,
 	<span class="doccomment">/// Prometheus endpoint configuration. `None` if disabled.
 	</span><span class="kw">pub </span>prometheus_config: <span class="prelude-ty">Option</span>&lt;PrometheusConfig&gt;,
 	<span class="doccomment">/// Telemetry service URL. `None` if disabled.
 	</span><span class="kw">pub </span>telemetry_endpoints: <span class="prelude-ty">Option</span>&lt;TelemetryEndpoints&gt;,
-	<span class="doccomment">/// The default number of 64KB pages to allocate for Wasm execution
-	</span><span class="kw">pub </span>default_heap_pages: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 	<span class="doccomment">/// Should offchain workers be executed.
 	</span><span class="kw">pub </span>offchain_worker: OffchainWorkerConfig,
 	<span class="doccomment">/// Enable authoring even when offline.
@@ -614,18 +609,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>tracing_targets: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	<span class="doccomment">/// Tracing receiver
 	</span><span class="kw">pub </span>tracing_receiver: sc_tracing::TracingReceiver,
-	<span class="doccomment">/// The size of the instances cache.
-	///
-	/// The default value is 8.
-	</span><span class="kw">pub </span>max_runtime_instances: usize,
 	<span class="doccomment">/// Announce block automatically after they have been imported
 	</span><span class="kw">pub </span>announce_block: bool,
 	<span class="doccomment">/// Data path root for the configured chain.
 	</span><span class="kw">pub </span>data_path: PathBuf,
 	<span class="doccomment">/// Base path of the configuration. This is shared between chains.
 	</span><span class="kw">pub </span>base_path: BasePath,
-	<span class="doccomment">/// Maximum number of different runtime versions that can be cached.
-	</span><span class="kw">pub </span>runtime_cache_size: u8,
 }
 
 <span class="doccomment">/// Type for tasks spawned by the executor.
@@ -798,6 +787,67 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>From&lt;PathBuf&gt; <span class="kw">for </span>BasePath {
 	<span class="kw">fn </span>from(path: PathBuf) -&gt; <span class="self">Self </span>{
 		BasePath::new(path)
+	}
+}
+
+<span class="doccomment">/// RPC configuration.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>RpcConfiguration {
+	<span class="doccomment">/// JSON-RPC server endpoints.
+	</span><span class="kw">pub </span>addr: <span class="prelude-ty">Option</span>&lt;Vec&lt;RpcEndpoint&gt;&gt;,
+	<span class="doccomment">/// Maximum number of connections for JSON-RPC server.
+	</span><span class="kw">pub </span>max_connections: u32,
+	<span class="doccomment">/// CORS settings for HTTP &amp; WS servers. `None` if all origins are allowed.
+	</span><span class="kw">pub </span>cors: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
+	<span class="doccomment">/// RPC methods to expose (by default only a safe subset or all of them).
+	</span><span class="kw">pub </span>methods: RpcMethods,
+	<span class="doccomment">/// Maximum payload of a rpc request
+	</span><span class="kw">pub </span>max_request_size: u32,
+	<span class="doccomment">/// Maximum payload of a rpc response.
+	</span><span class="kw">pub </span>max_response_size: u32,
+	<span class="doccomment">/// Custom JSON-RPC subscription ID provider.
+	///
+	/// Default: [`crate::RandomStringSubscriptionId`].
+	</span><span class="kw">pub </span>id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>RpcSubscriptionIdProvider&gt;&gt;,
+	<span class="doccomment">/// Maximum allowed subscriptions per rpc connection
+	</span><span class="kw">pub </span>max_subs_per_conn: u32,
+	<span class="doccomment">/// JSON-RPC server default port.
+	</span><span class="kw">pub </span>port: u16,
+	<span class="doccomment">/// The number of messages the JSON-RPC server is allowed to keep in memory.
+	</span><span class="kw">pub </span>message_buffer_capacity: u32,
+	<span class="doccomment">/// JSON-RPC server batch config.
+	</span><span class="kw">pub </span>batch_config: RpcBatchRequestConfig,
+	<span class="doccomment">/// RPC rate limit per minute.
+	</span><span class="kw">pub </span>rate_limit: <span class="prelude-ty">Option</span>&lt;NonZeroU32&gt;,
+	<span class="doccomment">/// RPC rate limit whitelisted ip addresses.
+	</span><span class="kw">pub </span>rate_limit_whitelisted_ips: Vec&lt;IpNetwork&gt;,
+	<span class="doccomment">/// RPC rate limit trust proxy headers.
+	</span><span class="kw">pub </span>rate_limit_trust_proxy_headers: bool,
+}
+
+<span class="doccomment">/// Runtime executor configuration.
+</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>ExecutorConfiguration {
+	<span class="doccomment">/// Wasm execution method.
+	</span><span class="kw">pub </span>wasm_method: WasmExecutionMethod,
+	<span class="doccomment">/// The size of the instances cache.
+	///
+	/// The default value is 8.
+	</span><span class="kw">pub </span>max_runtime_instances: usize,
+	<span class="doccomment">/// The default number of 64KB pages to allocate for Wasm execution
+	</span><span class="kw">pub </span>default_heap_pages: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+	<span class="doccomment">/// Maximum number of different runtime versions that can be cached.
+	</span><span class="kw">pub </span>runtime_cache_size: u8,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>ExecutorConfiguration {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
+			wasm_method: WasmExecutionMethod::default(),
+			max_runtime_instances: <span class="number">8</span>,
+			default_heap_pages: <span class="prelude-val">None</span>,
+			runtime_cache_size: <span class="number">2</span>,
+		}
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

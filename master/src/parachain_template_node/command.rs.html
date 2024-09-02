@@ -527,12 +527,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
@@ -842,15 +836,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.base.base.prometheus_config(default_listen_port, chain_spec)
 	}
 
-	<span class="kw">fn </span>init&lt;F&gt;(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_support_url: <span class="kw-2">&amp;</span>String,
-		_impl_version: <span class="kw-2">&amp;</span>String,
-		_logger_hook: F,
-		_config: <span class="kw-2">&amp;</span>sc_service::Configuration,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
+	<span class="kw">fn </span>init&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, _support_url: <span class="kw-2">&amp;</span>String, _impl_version: <span class="kw-2">&amp;</span>String, _logger_hook: F) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
 	<span class="kw">where
-		</span>F: FnOnce(<span class="kw-2">&amp;mut </span>sc_cli::LoggerBuilder, <span class="kw-2">&amp;</span>sc_service::Configuration),
+		</span>F: FnOnce(<span class="kw-2">&amp;mut </span>sc_cli::LoggerBuilder),
 	{
 		<span class="macro">unreachable!</span>(<span class="string">"PolkadotCli is never initialized; qed"</span>);
 	}

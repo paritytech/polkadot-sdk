@@ -1479,7 +1479,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 		.transpose()<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>executor = sc_service::new_wasm_executor(<span class="kw-2">&amp;</span>config);
+	<span class="kw">let </span>executor = sc_service::new_wasm_executor(<span class="kw-2">&amp;</span>config.executor);
 
 	<span class="kw">let </span>(client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(
@@ -1675,7 +1675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	),
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NewFullBase, ServiceError&gt; {
 	<span class="kw">let </span>is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
-	<span class="kw">let </span>role = config.role.clone();
+	<span class="kw">let </span>role = config.role;
 	<span class="kw">let </span>force_authoring = config.force_authoring;
 	<span class="kw">let </span>backoff_authoring_blocks =
 		<span class="prelude-val">Some</span>(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
@@ -1988,7 +1988,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		name: <span class="prelude-val">Some</span>(name),
 		observer_enabled: <span class="bool-val">false</span>,
 		keystore,
-		local_role: role.clone(),
+		local_role: role,
 		telemetry: telemetry.as_ref().map(|x| x.handle()),
 		protocol_name: grandpa_protocol_name,
 	};

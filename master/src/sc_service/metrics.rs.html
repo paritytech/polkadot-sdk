@@ -443,11 +443,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -466,10 +461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>std::time::SystemTime;
-
-<span class="kw">use </span><span class="kw">crate</span>::config::Configuration;
-<span class="kw">use </span>futures_timer::Delay;
+</span><span class="kw">use </span>futures_timer::Delay;
 <span class="kw">use </span>prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
 <span class="kw">use </span>sc_client_api::{ClientInfo, UsageProvider};
 <span class="kw">use </span>sc_network::{config::Role, NetworkStatus, NetworkStatusProvider};
@@ -481,7 +473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::traits::{Block, NumberFor, SaturatedConversion, UniqueSaturatedInto};
 <span class="kw">use </span>std::{
 	sync::Arc,
-	time::{Duration, Instant},
+	time::{Duration, Instant, SystemTime},
 };
 
 <span class="kw">struct </span>PrometheusMetrics {
@@ -599,26 +591,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>with_prometheus(
 		telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 		registry: <span class="kw-2">&amp;</span>Registry,
-		config: <span class="kw-2">&amp;</span>Configuration,
+		role: Role,
+		node_name: <span class="kw-2">&amp;</span>str,
+		impl_version: <span class="kw-2">&amp;</span>str,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PrometheusError&gt; {
-		<span class="kw">let </span>role_bits = <span class="kw">match </span>config.role {
+		<span class="kw">let </span>role_bits = <span class="kw">match </span>role {
 			Role::Full =&gt; <span class="number">1u64</span>,
 			<span class="comment">// 2u64 used to represent light client role
 			</span>Role::Authority { .. } =&gt; <span class="number">4u64</span>,
 		};
 
-		PrometheusMetrics::setup(
-			registry,
-			<span class="kw-2">&amp;</span>config.network.node_name,
-			<span class="kw-2">&amp;</span>config.impl_version,
-			role_bits,
-		)
-		.map(|p| MetricsService {
-			metrics: <span class="prelude-val">Some</span>(p),
-			last_total_bytes_inbound: <span class="number">0</span>,
-			last_total_bytes_outbound: <span class="number">0</span>,
-			last_update: Instant::now(),
-			telemetry,
+		PrometheusMetrics::setup(registry, node_name, impl_version, role_bits).map(|p| {
+			MetricsService {
+				metrics: <span class="prelude-val">Some</span>(p),
+				last_total_bytes_inbound: <span class="number">0</span>,
+				last_total_bytes_outbound: <span class="number">0</span>,
+				last_update: Instant::now(),
+				telemetry,
+			}
 		})
 	}
 

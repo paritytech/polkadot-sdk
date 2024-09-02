@@ -479,7 +479,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 		.transpose()<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>executor = sc_service::new_wasm_executor(config);
+	<span class="kw">let </span>executor = sc_service::new_wasm_executor(<span class="kw-2">&amp;</span>config.executor);
 
 	<span class="kw">let </span>(client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(

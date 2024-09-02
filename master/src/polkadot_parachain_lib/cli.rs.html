@@ -545,7 +545,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
 <a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -870,10 +869,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_support_url: <span class="kw-2">&amp;</span>String,
 		_impl_version: <span class="kw-2">&amp;</span>String,
 		_logger_hook: F,
-		_config: <span class="kw-2">&amp;</span>sc_service::Configuration,
 	) -&gt; sc_cli::Result&lt;()&gt;
 	<span class="kw">where
-		</span>F: FnOnce(<span class="kw-2">&amp;mut </span>sc_cli::LoggerBuilder, <span class="kw-2">&amp;</span>sc_service::Configuration),
+		</span>F: FnOnce(<span class="kw-2">&amp;mut </span>sc_cli::LoggerBuilder),
 	{
 		<span class="macro">unreachable!</span>(<span class="string">"PolkadotCli is never initialized; qed"</span>);
 	}

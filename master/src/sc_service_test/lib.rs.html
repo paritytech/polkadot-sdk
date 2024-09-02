@@ -717,6 +717,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -748,7 +750,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_network_sync::SyncingService;
 <span class="kw">use </span>sc_service::{
 	client::Client,
-	config::{BasePath, DatabaseSource, KeystoreConfig, RpcBatchRequestConfig},
+	config::{
+		BasePath, DatabaseSource, ExecutorConfiguration, KeystoreConfig, RpcBatchRequestConfig,
+		RpcConfiguration,
+	},
 	BlocksPruning, ChainSpecExtension, Configuration, Error, GenericChainSpec, Role,
 	SpawnTaskHandle, TaskManager,
 };
@@ -954,36 +959,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
 		chain_spec: Box::new((<span class="kw-2">*</span>spec).clone()),
-		wasm_method: Default::default(),
+		executor: ExecutorConfiguration::default(),
 		wasm_runtime_overrides: Default::default(),
-		rpc_addr: Default::default(),
-		rpc_max_connections: Default::default(),
-		rpc_cors: <span class="prelude-val">None</span>,
-		rpc_methods: Default::default(),
-		rpc_max_request_size: Default::default(),
-		rpc_max_response_size: Default::default(),
-		rpc_id_provider: Default::default(),
-		rpc_max_subs_per_conn: Default::default(),
-		rpc_port: <span class="number">9944</span>,
-		rpc_message_buffer_capacity: Default::default(),
-		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
-		rpc_rate_limit: <span class="prelude-val">None</span>,
-		rpc_rate_limit_whitelisted_ips: Default::default(),
-		rpc_rate_limit_trust_proxy_headers: Default::default(),
+		rpc: RpcConfiguration {
+			addr: Default::default(),
+			max_connections: Default::default(),
+			cors: <span class="prelude-val">None</span>,
+			methods: Default::default(),
+			max_request_size: Default::default(),
+			max_response_size: Default::default(),
+			id_provider: Default::default(),
+			max_subs_per_conn: Default::default(),
+			port: <span class="number">9944</span>,
+			message_buffer_capacity: Default::default(),
+			batch_config: RpcBatchRequestConfig::Unlimited,
+			rate_limit: <span class="prelude-val">None</span>,
+			rate_limit_whitelisted_ips: Default::default(),
+			rate_limit_trust_proxy_headers: Default::default(),
+		},
 		prometheus_config: <span class="prelude-val">None</span>,
 		telemetry_endpoints: <span class="prelude-val">None</span>,
-		default_heap_pages: <span class="prelude-val">None</span>,
 		offchain_worker: Default::default(),
 		force_authoring: <span class="bool-val">false</span>,
 		disable_grandpa: <span class="bool-val">false</span>,
 		dev_key_seed: key_seed,
 		tracing_targets: <span class="prelude-val">None</span>,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: <span class="number">8</span>,
 		announce_block: <span class="bool-val">true</span>,
 		base_path: BasePath::new(root.clone()),
 		data_path: root,
-		runtime_cache_size: <span class="number">2</span>,
 	}
 }
 

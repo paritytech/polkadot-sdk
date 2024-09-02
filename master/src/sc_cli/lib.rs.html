@@ -398,6 +398,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -425,6 +429,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![warn(unused_imports)]
 
 </span><span class="kw">use </span>clap::{CommandFactory, FromArgMatches, Parser};
+<span class="kw">use </span>log::warn;
 <span class="kw">use </span>sc_service::Configuration;
 
 <span class="kw">pub mod </span>arg_enums;
@@ -642,7 +647,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>config = command.create_configuration(<span class="self">self</span>, tokio_runtime.handle().clone())<span class="question-mark">?</span>;
 
-		command.init(<span class="kw-2">&amp;</span><span class="self">Self</span>::support_url(), <span class="kw-2">&amp;</span><span class="self">Self</span>::impl_version(), logger_hook, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+		command.init(<span class="kw-2">&amp;</span><span class="self">Self</span>::support_url(), <span class="kw-2">&amp;</span><span class="self">Self</span>::impl_version(), |logger_builder| {
+			logger_hook(logger_builder, <span class="kw-2">&amp;</span>config)
+		})<span class="question-mark">?</span>;
+
 		Runner::new(config, tokio_runtime, signals)
 	}
 }
