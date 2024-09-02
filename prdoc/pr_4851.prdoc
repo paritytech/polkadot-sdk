@@ -27,7 +27,7 @@ crates:
   - name: frame-support-procedural
     bump: patch
   - name: frame-support
-    bump: patch
+    bump: major
   - name: sp-api-proc-macro
     bump: patch
   - name: sp-api
