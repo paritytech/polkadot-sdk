@@ -16,9 +16,12 @@
 // limitations under the License.
 
 use minimal_template_runtime::{BalancesConfig, SudoConfig, WASM_BINARY};
-use sc_service::{ChainType, Properties};
+use polkadot_sdk::{
+	sc_service::{ChainType, Properties},
+	sp_keyring::AccountKeyring,
+	*,
+};
 use serde_json::{json, Value};
-use sp_keyring::AccountKeyring;
 
 /// This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec;
@@ -42,8 +45,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 
 /// Configure initial storage state for FRAME pallets.
 fn testnet_genesis() -> Value {
-	use frame::traits::Get;
 	use minimal_template_runtime::interface::{Balance, MinimumBalance};
+	use polkadot_sdk::polkadot_sdk_frame::traits::Get;
 	let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
 	let balances = AccountKeyring::iter()
 		.map(|a| (a.to_account_id(), endowment))

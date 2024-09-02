@@ -34,12 +34,21 @@ pub enum Consensus {
 	Aura(AuraConsensusId),
 }
 
+/// The choice of block number for the parachain omni-node.
+#[derive(PartialEq)]
+pub enum BlockNumber {
+	/// u32
+	U32,
+	/// u64
+	U64,
+}
+
 /// Helper enum listing the supported Runtime types
 #[derive(PartialEq)]
 pub enum Runtime {
 	/// None of the system-chain runtimes, rather the node will act agnostic to the runtime ie. be
 	/// an omni-node, and simply run a node with the given consensus algorithm.
-	Omni(Consensus),
+	Omni(BlockNumber, Consensus),
 	/// Shell
 	Shell,
 }
@@ -51,11 +60,11 @@ pub trait RuntimeResolver {
 }
 
 /// Default implementation for `RuntimeResolver` that just returns
-/// `Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519))`.
+/// `Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519))`.
 pub struct DefaultRuntimeResolver;
 
 impl RuntimeResolver for DefaultRuntimeResolver {
 	fn runtime(&self, _chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
-		Ok(Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519)))
+		Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)))
 	}
 }
