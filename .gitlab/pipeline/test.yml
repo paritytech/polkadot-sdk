@@ -110,7 +110,7 @@ test-linux-stable-codecov:
         codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;
       fi
 
-test-linux-stable:
+.test-linux-stable:
   stage: test
   extends:
     - .docker-env
@@ -154,74 +154,9 @@ test-linux-stable:
   timeout: 90m
 
 test-linux-oldkernel-stable:
-  extends: test-linux-stable
+  extends: .test-linux-stable
   tags:
     - oldkernel-vm
-
-# https://github.com/paritytech/ci_cd/issues/864
-test-linux-stable-runtime-benchmarks:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    - time cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
-
-# can be used to run all tests
-# test-linux-stable-all:
-#   stage: test
-#   extends:
-#     - .docker-env
-#     - .common-refs
-#     - .run-immediately
-#   variables:
-#     RUST_TOOLCHAIN: stable
-#     # Enable debug assertions since we are running optimized builds for testing
-#     # but still want to have debug assertions.
-#     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-#   parallel: 3
-#   script:
-#     # Build all but only execute 'runtime' tests.
-#     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
-#     - >
-#       time cargo nextest run \
-#         --workspace \
-#         --locked \
-#         --release \
-#         --no-fail-fast \
-#         --features runtime-benchmarks,try-runtime \
-#         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
-#     # todo: add flacky-test collector
-
-# takes about 1,5h without cache
-# can be used to check that nextest works correctly
-# test-linux-stable-polkadot:
-#   stage: test
-#   timeout: 2h
-#   extends:
-#     - .docker-env
-#     - .common-refs
-#     - .run-immediately
-#     - .collect-artifacts-short
-#   variables:
-#     RUST_TOOLCHAIN: stable
-#     # Enable debug assertions since we are running optimized builds for testing
-#     # but still want to have debug assertions.
-#     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-#   script:
-#     - mkdir -p artifacts
-#     - time cargo test --workspace
-#       --locked
-#       --profile testnet
-#       --features=runtime-benchmarks,runtime-metrics,try-runtime --
-#       --skip upgrade_version_checks_should_work
 
 test-doc:
   stage: test
@@ -442,26 +377,6 @@ test-frame-examples-compile-to-wasm:
     - cargo build --locked --target=wasm32-unknown-unknown --no-default-features
   # FIXME
   allow_failure: true
-
-test-linux-stable-int:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-C debug-assertions -D warnings"
-    RUST_BACKTRACE: 1
-    WASM_BUILD_NO_COLOR: 1
-    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
-    # Ensure we run the UI tests.
-    RUN_UI_TESTS: 1
-  script:
-    - WASM_BUILD_NO_COLOR=1
-      time cargo test -p staging-node-cli --release --locked -- --ignored
 
 # more information about this job can be found here:
 # https://github.com/paritytech/substrate/pull/6916
