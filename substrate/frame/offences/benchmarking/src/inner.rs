@@ -203,6 +203,8 @@ benchmarks! {
 		let _ = Offences::<T>::report_offence(reporters, offence);
 	}
 	verify {
+		#[cfg(test)]
+		{
 		// make sure that all slashes have been applied
 		// deposit to reporter + reporter account endowed.
 		assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2);
@@ -212,6 +214,7 @@ benchmarks! {
 		assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
 		// reporter new account
 		assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
+		}
 	}
 
 	report_offence_babe {
@@ -238,6 +241,8 @@ benchmarks! {
 		let _ = Offences::<T>::report_offence(reporters, offence);
 	}
 	verify {
+		#[cfg(test)]
+		{
 		// make sure that all slashes have been applied
 		// deposit to reporter + reporter account endowed.
 		assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2);
@@ -247,6 +252,7 @@ benchmarks! {
 		assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
 		// reporter new account
 		assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
+		}
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
