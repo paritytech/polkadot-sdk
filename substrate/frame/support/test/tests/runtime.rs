@@ -811,7 +811,7 @@ fn test_metadata() {
 					docs: maybe_docs(vec![
 						" The computational time component (`ref_time`) of runtime database operations the runtime",
 						" can invoke.",
-					]
+					])
 				},
 				PalletConstantMetadata {
 					name: "Version",
