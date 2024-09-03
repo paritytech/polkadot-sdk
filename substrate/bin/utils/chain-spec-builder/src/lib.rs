@@ -354,7 +354,7 @@ impl ChainSpecBuilder {
 						.map_err(|e| format!("Conversion to json failed: {e}"))?;
 
 				// We want to extract only raw genesis ("genesis::raw" key), and apply it as a patch
-				// for the original json file. However, the file also contains origianl plain
+				// for the original json file. However, the file also contains original plain
 				// genesis ("genesis::runtimeGenesis") so set it to null so the patch will erase it.
 				genesis_json.as_object_mut().map(|map| {
 					map.retain(|key, _| key == "genesis");
