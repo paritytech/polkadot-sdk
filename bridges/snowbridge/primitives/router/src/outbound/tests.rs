@@ -424,11 +424,13 @@ fn xcm_converter_convert_success() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::TransferNativeToken {
+	let expected_payload = Command::AgentExecute {
 		agent_id: Default::default(),
-		token: token_address.into(),
-		recipient: beneficiary_address.into(),
-		amount: 1000,
+		command: AgentExecuteCommand::TransferToken {
+			token: token_address.into(),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -459,11 +461,13 @@ fn xcm_converter_convert_without_buy_execution_yields_success() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::TransferNativeToken {
+	let expected_payload = Command::AgentExecute {
 		agent_id: Default::default(),
-		token: token_address.into(),
-		recipient: beneficiary_address.into(),
-		amount: 1000,
+		command: AgentExecuteCommand::TransferToken {
+			token: token_address.into(),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -496,11 +500,13 @@ fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::TransferNativeToken {
+	let expected_payload = Command::AgentExecute {
 		agent_id: Default::default(),
-		token: token_address.into(),
-		recipient: beneficiary_address.into(),
-		amount: 1000,
+		command: AgentExecuteCommand::TransferToken {
+			token: token_address.into(),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -533,11 +539,13 @@ fn xcm_converter_convert_with_fees_less_than_reserve_yields_success() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::TransferNativeToken {
+	let expected_payload = Command::AgentExecute {
 		agent_id: Default::default(),
-		token: token_address.into(),
-		recipient: beneficiary_address.into(),
-		amount: 1000,
+		command: AgentExecuteCommand::TransferToken {
+			token: token_address.into(),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
