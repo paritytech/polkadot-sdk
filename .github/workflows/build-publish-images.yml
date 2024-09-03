@@ -14,6 +14,7 @@ concurrency:
 env:
   BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
   BUILDAH_IMAGE: docker.io/paritytech/buildah:1.31
+  COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
 
@@ -65,7 +66,7 @@ jobs:
       - name: pack artifacts
         run: |
           mkdir -p ./artifacts
-          VERSION="${GITHUB_SHA::8}" # will be tag or branch name
+          VERSION="${BRANCH_NAME//\//-}" # will be tag or branch name
           mv ./target/testnet/polkadot ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
@@ -74,7 +75,7 @@ jobs:
           sha256sum polkadot | tee polkadot.sha256
           shasum -c polkadot.sha256
           popd
-          EXTRATAG="${BRANCH_NAME//\//-}-${GITHUB_SHA::8}"
+          EXTRATAG="${BRANCH_NAME//\//-}-${COMMIT_SHA::8}"
           echo "Polkadot version = ${VERSION} (EXTRATAG = ${EXTRATAG})"
           echo -n ${VERSION} > ./artifacts/VERSION
           echo -n ${EXTRATAG} > ./artifacts/EXTRATAG
@@ -106,7 +107,7 @@ jobs:
         uses: actions/checkout@v4
       - name: build
         run: |
-          echo ${GITHUB_JOB}-${BRANCH_NAME//\//-}
+          echo ${GITHUB_JOB}-${BRANCH_NAME}
           echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
           time cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
           echo "___Packing the artifacts___"
@@ -177,7 +178,7 @@ jobs:
           mv ./target/testnet/adder-collator ./artifacts/.
           mv ./target/testnet/undying-collator ./artifacts/.
           echo -n "${BRANCH_NAME//\//-}" > ./artifacts/VERSION
-          echo -n "${BRANCH_NAME//\//-}-${GITHUB_SHA::8}" > ./artifacts/EXTRATAG
+          echo -n "${BRANCH_NAME//\//-}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
           echo "adder-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
@@ -211,7 +212,7 @@ jobs:
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
           echo -n "${BRANCH_NAME//\//-}" > ./artifacts/VERSION
-          echo -n "${BRANCH_NAME//\//-}-${GITHUB_SHA::8}" > ./artifacts/EXTRATAG
+          echo -n "${BRANCH_NAME//\//-}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
           echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
 
@@ -219,7 +220,7 @@ jobs:
           mv ./target/testnet/adder-collator ./artifacts/.
           mv ./target/testnet/undying-collator ./artifacts/.
           echo -n "${BRANCH_NAME//\//-}" > ./artifacts/VERSION
-          echo -n "${BRANCH_NAME//\//-}-${GITHUB_SHA::8}" > ./artifacts/EXTRATAG
+          echo -n "${BRANCH_NAME//\//-}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
           echo "adder-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
