@@ -22,6 +22,7 @@ use xcm::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::BenchmarkHelper;
+use crate::EnsureRootOrSigned;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type Balance = u128;
@@ -210,6 +211,7 @@ impl crate::Config for Test {
 	type InboundDeliveryCost = InboundDeliveryCost;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
+	type RegisterTokenOrigin = EnsureRootOrSigned<Test>;
 }
 
 // Build genesis storage according to the mock runtime.
