@@ -46,12 +46,6 @@ pub enum ControlCall {
 	CreateAgent,
 	#[codec(index = 4)]
 	CreateChannel { mode: OperatingMode },
-	#[codec(index = 11)]
-	ForceRegisterToken {
-		location: Box<VersionedLocation>,
-		asset: Box<VersionedLocation>,
-		metadata: AssetMetadata,
-	},
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -473,7 +467,7 @@ fn transfer_ah_token() {
 	BridgeHubWestend::execute_with(|| {
 		type Runtime = <BridgeHubWestend as Chain>::Runtime;
 
-		snowbridge_pallet_system::Tokens::<Runtime>::insert(
+		snowbridge_pallet_system::ForeignToNativeId::<Runtime>::insert(
 			token_id,
 			asset_id_after_reanchored.clone(),
 		);
@@ -643,7 +637,7 @@ fn transfer_penpal_native_token() {
 	BridgeHubWestend::execute_with(|| {
 		type Runtime = <BridgeHubWestend as Chain>::Runtime;
 
-		snowbridge_pallet_system::Tokens::<Runtime>::insert(
+		snowbridge_pallet_system::ForeignToNativeId::<Runtime>::insert(
 			token_id,
 			penpal_asset_location_after_reanchored.clone(),
 		);
@@ -813,7 +807,7 @@ fn transfer_penpal_asset() {
 	BridgeHubWestend::execute_with(|| {
 		type Runtime = <BridgeHubWestend as Chain>::Runtime;
 
-		snowbridge_pallet_system::Tokens::<Runtime>::insert(
+		snowbridge_pallet_system::ForeignToNativeId::<Runtime>::insert(
 			token_id,
 			penpal_asset_location_after_reanchored.clone(),
 		);
