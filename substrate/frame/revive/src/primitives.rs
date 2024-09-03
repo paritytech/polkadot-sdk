@@ -17,6 +17,7 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
+use crate::H160;
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
@@ -86,12 +87,11 @@ pub type ContractExecResult<Balance, EventRecord> =
 	ContractResult<Result<ExecReturnValue, DispatchError>, Balance, EventRecord>;
 
 /// Result type of a `bare_instantiate` call as well as `ContractsApi::instantiate`.
-pub type ContractInstantiateResult<AccountId, Balance, EventRecord> =
-	ContractResult<Result<InstantiateReturnValue<AccountId>, DispatchError>, Balance, EventRecord>;
+pub type ContractInstantiateResult<Balance, EventRecord> =
+	ContractResult<Result<InstantiateReturnValue, DispatchError>, Balance, EventRecord>;
 
 /// Result type of a `bare_code_upload` call.
-pub type CodeUploadResult<CodeHash, Balance> =
-	Result<CodeUploadReturnValue<CodeHash, Balance>, DispatchError>;
+pub type CodeUploadResult<Balance> = Result<CodeUploadReturnValue<Balance>, DispatchError>;
 
 /// Result type of a `get_storage` call.
 pub type GetStorageResult = Result<Option<Vec<u8>>, ContractAccessError>;
@@ -125,29 +125,29 @@ impl ExecReturnValue {
 
 /// The result of a successful contract instantiation.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct InstantiateReturnValue<AccountId> {
+pub struct InstantiateReturnValue {
 	/// The output of the called constructor.
 	pub result: ExecReturnValue,
-	/// The account id of the new contract.
-	pub account_id: AccountId,
+	/// The address of the new contract.
+	pub addr: H160,
 }
 
 /// The result of successfully uploading a contract.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
-pub struct CodeUploadReturnValue<CodeHash, Balance> {
+pub struct CodeUploadReturnValue<Balance> {
 	/// The key under which the new code is stored.
-	pub code_hash: CodeHash,
+	pub code_hash: sp_core::H256,
 	/// The deposit that was reserved at the caller. Is zero when the code already existed.
 	pub deposit: Balance,
 }
 
 /// Reference to an existing code hash or a new wasm module.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum Code<Hash> {
+pub enum Code {
 	/// A wasm module as raw bytes.
 	Upload(Vec<u8>),
 	/// The code hash of an on-chain wasm blob.
-	Existing(Hash),
+	Existing(sp_core::H256),
 }
 
 /// The amount of balance that was either charged or refunded in order to pay for storage.

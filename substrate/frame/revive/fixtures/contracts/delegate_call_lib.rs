@@ -44,6 +44,6 @@ pub extern "C" fn call() {
 	assert_eq!(value_transferred, 1337);
 
 	// Assert that ALICE is the caller of the contract.
-	output!(caller, [0u8; 32], api::caller,);
-	assert_eq!(&caller[..], &[1u8; 32]);
+	output!(caller, [0u8; 20], api::caller,);
+	assert_eq!(&caller[..], &[1u8; 20]);
 }
