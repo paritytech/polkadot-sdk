@@ -24,19 +24,19 @@
 //! we define this simple definition of a contract that can be passed to `create_code` that
 //! compiles it down into a `WasmModule` that can be used as a contract's code.
 
-use crate::Config;
 use alloc::vec::Vec;
 use pallet_revive_fixtures::bench as bench_fixtures;
-use sp_runtime::traits::Hash;
+use sp_core::H256;
+use sp_io::hashing::keccak_256;
 
 /// A wasm module ready to be put on chain.
 #[derive(Clone)]
-pub struct WasmModule<T: Config> {
+pub struct WasmModule {
 	pub code: Vec<u8>,
-	pub hash: <T::Hashing as Hash>::Output,
+	pub hash: H256,
 }
 
-impl<T: Config> WasmModule<T> {
+impl WasmModule {
 	/// Return a contract code that does nothing.
 	pub fn dummy() -> Self {
 		Self::new(bench_fixtures::DUMMY.to_vec())
@@ -63,7 +63,7 @@ impl<T: Config> WasmModule<T> {
 	}
 
 	fn new(code: Vec<u8>) -> Self {
-		let hash = T::Hashing::hash(&code);
-		Self { code, hash }
+		let hash = keccak_256(&code);
+		Self { code, hash: H256(hash) }
 	}
 }

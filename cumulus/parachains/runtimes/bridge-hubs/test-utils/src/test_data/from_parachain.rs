@@ -20,17 +20,17 @@ use super::{from_grandpa_chain::make_complex_bridged_grandpa_header_proof, prepa
 
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
-	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId,
+	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId, LaneState,
 	UnrewardedRelayersState, Weight,
 };
+use bp_parachains::{RelayBlockHash, RelayBlockNumber};
 use bp_runtime::{
 	AccountIdOf, BlockNumberOf, Chain, HeaderOf, Parachain, UnverifiedStorageProofParams,
 };
 use bp_test_utils::prepare_parachain_heads_proof;
-use bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use codec::Encode;
 use pallet_bridge_grandpa::BridgedHeader;
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockNumber};
 use sp_runtime::traits::Header as HeaderT;
 use xcm::latest::prelude::*;
 
@@ -292,6 +292,7 @@ where
 		prepare_message_delivery_storage_proof::<BridgedParachain, ThisChainWithMessages>(
 			lane_id,
 			InboundLaneData {
+				state: LaneState::Opened,
 				relayers: vec![
 					UnrewardedRelayer {
 						relayer: relayer_id_at_this_chain.into(),
