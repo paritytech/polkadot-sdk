@@ -190,7 +190,7 @@ jobs:
 
   node-bench-regression-guard:
     timeout-minutes: 20
-    runs-on: arc-runners-polkadot-sdk-default
+    runs-on: arc-runners-polkadot-sdk
     needs: [ set-image, cargo-check-benches ]
     steps:
       - name: Checkout
