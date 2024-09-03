@@ -37,14 +37,11 @@ extern crate alloc;
 
 use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "runtime-benchmarks")]
-use frame_support::traits::Currency;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
 	traits::{
 		Consideration, Footprint, Get, InstanceFilter, IsSubType, IsType, OriginTrait,
-		ReservableCurrency,
 	},
 	BoundedVec,
 };
@@ -60,10 +57,6 @@ use sp_runtime::{
 pub use weights::WeightInfo;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
-
-#[cfg(feature = "runtime-benchmarks")]
-type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 type AnnouncementTicketOf<T> = <T as Config>::AnnouncementConsideration;
 
@@ -132,9 +125,6 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
-
-		/// The currency mechanism.
-		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` filter.
 		/// The instance filter determines whether a given call may be proxied under this type.

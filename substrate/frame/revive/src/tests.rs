@@ -390,7 +390,6 @@ impl pallet_utility::Config for Test {
 impl pallet_proxy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
 	type ProxyType = ();
 	type MaxProxies = ConstU32<32>;
 	type WeightInfo = ();

@@ -19,6 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["max-encoded-len"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
+pallet-balances = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-io = { workspace = true }
@@ -26,7 +27,6 @@ sp-runtime = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 

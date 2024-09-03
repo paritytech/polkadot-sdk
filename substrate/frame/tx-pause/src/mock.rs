@@ -98,7 +98,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 impl pallet_proxy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
 	type ProxyType = ProxyType;
 	type MaxProxies = ConstU32<4>;
 	type WeightInfo = ();

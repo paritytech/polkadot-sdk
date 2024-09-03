@@ -1164,7 +1164,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 impl pallet_proxy::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
 	type ProxyType = ProxyType;
 	type ProxyConsideration = HoldConsideration<
 		AccountId,
