@@ -20934,6 +20934,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-tracing 16.0.0",
+ "substrate-test-runtime",
 ]
 
 [[package]]

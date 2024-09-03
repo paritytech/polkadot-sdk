@@ -35,7 +35,7 @@
 //!	```bash
 //! chain-spec-builder create -r runtime.wasm default
 //! ```
-//! 
+//!
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is
 //! called.
 //!
@@ -46,7 +46,7 @@
 //! ```bash
 //! chain-spec-builder display-preset -r runtime.wasm
 //! ```
-//! 
+//!
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
 //!
 //! ##### Display the `GenesisConfig` preset with given name
@@ -55,7 +55,7 @@
 //! ```bash
 //! chain-spec-builder display-preset -r runtime.wasm -p "staging"
 //! ```
-//! 
+//!
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
 //!
 //! ##### List the names of `GenesisConfig` presets provided by runtime.
@@ -64,7 +64,7 @@
 //! ```bash
 //! chain-spec-builder list-presets -r runtime.wasm
 //! ```
-//! 
+//!
 //! _Note:_ [`GenesisBuilder::preset_names`][sp-genesis-builder-list] runtime function is called.
 //!
 //! ##### Generate chain spec using runtime provided genesis config preset.
@@ -74,7 +74,7 @@
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm named-preset "staging"
 //! ```
-//! 
+//!
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] and [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime functions are called.
 //!
 //! ##### Generate raw storage chain spec using genesis config patch.
@@ -84,7 +84,7 @@
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
-//! 
+//!
 //! _Note:_ [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate raw storage chain spec using full genesis config.
@@ -93,19 +93,19 @@
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
-//! 
+//!
 //! _Note_: [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate human readable chain spec using provided genesis config patch.
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
-//! 
+//!
 //! ##### Generate human readable chain spec using provided full genesis config.
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
-//! 
+//!
 //! ##### Extra tools.
 //! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`],
 //! [`UpdateCodeCmd`].
@@ -124,7 +124,7 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use sc_chain_spec::{
-	set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, ChainType,
+	json_patch, set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, ChainType,
 	GenericChainSpec, GenesisConfigBuilderRuntimeCaller,
 };
 use serde::{Deserialize, Serialize};
@@ -310,11 +310,7 @@ impl ChainSpecBuilder {
 
 		match self.command {
 			ChainSpecBuilderCmd::Create(cmd) => {
-				let is_para = cmd.relay_chain.clone().zip(cmd.para_id.clone());
-				let chain_spec_json = match is_para {
-					Some(_) => generate_chain_spec_for_para_runtime(&cmd)?,
-					None => generate_chain_spec_for_runtime(&cmd)?,
-				};
+				let chain_spec_json = generate_chain_spec_for_runtime(&cmd)?;
 				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
 			},
 			ChainSpecBuilderCmd::UpdateCode(UpdateCodeCmd {
@@ -353,11 +349,27 @@ impl ChainSpecBuilder {
 			ChainSpecBuilderCmd::ConvertToRaw(ConvertToRawCmd { ref input_chain_spec }) => {
 				let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
 
-				let chain_spec_json =
+				let mut genesis_json =
 					serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
 						.map_err(|e| format!("Conversion to json failed: {e}"))?;
 
-				let chain_spec_json = serde_json::to_string_pretty(&chain_spec_json)
+				// We want to extract only raw genesis ("genesis::raw" key), and apply it as a patch
+				// for the original json file. However, the file also contains origianl plain
+				// genesis ("genesis::runtimeGenesis") so set it to null so the patch will erase it.
+				genesis_json.as_object_mut().map(|map| {
+					map.retain(|key, _| key == "genesis");
+					map.get_mut("genesis").map(|genesis| {
+						genesis.as_object_mut().map(|genesis_map| {
+							genesis_map
+								.insert("runtimeGenesis".to_string(), serde_json::Value::Null);
+						});
+					});
+				});
+
+				let mut org_chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
+				json_patch::merge(&mut org_chain_spec_json, genesis_json);
+
+				let chain_spec_json = serde_json::to_string_pretty(&org_chain_spec_json)
 					.map_err(|e| format!("Conversion to pretty failed: {e}"))?;
 				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
 			},
@@ -401,42 +413,6 @@ impl ChainSpecBuilder {
 	}
 }
 
-/// Creates a new spec for a parachain.
-fn create_para_chain_spec(
-	cmd: &CreateCmd,
-	code: &[u8],
-	chain_type: ChainType,
-) -> sc_chain_spec::ChainSpecBuilder<ParachainExtension> {
-	let relay_chain = &cmd.relay_chain.clone().expect("No relay chain provided");
-	let para_id = *&cmd.para_id.expect("No Para ID provided");
-
-	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("tokenSymbol".into(), "UNIT".into());
-	properties.insert("tokenDecimals".into(), 12.into());
-	properties.insert("ss58Format".into(), 42.into());
-
-	GenericChainSpec::<ParachainExtension>::builder(
-		&code[..],
-		ParachainExtension { relay_chain: relay_chain.to_string(), para_id },
-	)
-	.with_name(&cmd.chain_name[..])
-	.with_id(&cmd.chain_id[..])
-	.with_properties(properties)
-	.with_chain_type(chain_type)
-}
-
-/// Creates a new spec for a solo chain.
-fn create_solo_chain_spec(
-	cmd: &CreateCmd,
-	code: &[u8],
-	chain_type: ChainType,
-) -> sc_chain_spec::ChainSpecBuilder<()> {
-	GenericChainSpec::<()>::builder(&code[..], Default::default())
-		.with_name(&cmd.chain_name[..])
-		.with_id(&cmd.chain_id[..])
-		.with_chain_type(chain_type)
-}
-
 fn process_action<T: Serialize + Clone + Sync + 'static>(
 	cmd: &CreateCmd,
 	code: &[u8],
@@ -461,7 +437,7 @@ fn process_action<T: Serialize + Clone + Sync + 'static>(
 		},
 		GenesisBuildAction::Default(DefaultCmd {}) => {
 			let caller: GenesisConfigBuilderRuntimeCaller =
-				GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+				GenesisConfigBuilderRuntimeCaller::new(&code);
 			let default_config = caller
 				.get_default_config()
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
@@ -482,24 +458,38 @@ fn process_action<T: Serialize + Clone + Sync + 'static>(
 	}
 }
 
-/// Processes `CreateCmd` for a parachain and returns JSON version of `ChainSpec`.
-pub fn generate_chain_spec_for_para_runtime(cmd: &CreateCmd) -> Result<String, String> {
-	let code =
-		fs::read(cmd.runtime.as_path()).map_err(|e| format!("wasm blob shall be readable {e}"))?;
-
-	let chain_type = &cmd.chain_type;
-	let builder = create_para_chain_spec(&cmd, &code[..], chain_type.clone());
-	Ok(process_action(&cmd, &code[..], builder)?)
-}
-
-/// Processes `CreateCmd` for a solo chain and returns JSON version of `ChainSpec`.
+/// Processes `CreateCmd` and returns string represenataion of JSON version of `ChainSpec`.
 pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
 	let code =
 		fs::read(cmd.runtime.as_path()).map_err(|e| format!("wasm blob shall be readable {e}"))?;
 
 	let chain_type = &cmd.chain_type;
-	let builder = create_solo_chain_spec(&cmd, &code[..], chain_type.clone());
-	Ok(process_action(&cmd, &code[..], builder)?)
+
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("tokenSymbol".into(), "UNIT".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+
+	let builder = ChainSpec::builder(&code[..], Default::default())
+		.with_name(&cmd.chain_name[..])
+		.with_id(&cmd.chain_id[..])
+		.with_properties(properties)
+		.with_chain_type(chain_type.clone());
+
+	let chain_spec_json_string = process_action(&cmd, &code[..], builder)?;
+
+	if let (Some(para_id), Some(ref relay_chain)) = (cmd.para_id, &cmd.relay_chain) {
+		let parachain_properties = serde_json::json!({
+			"relay_chain": relay_chain,
+			"para_id": para_id,
+		});
+		let mut chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
+			.map_err(|e| format!("deserialization a json failed {e}"))?;
+		json_patch::merge(&mut chain_spec_json_blob, parachain_properties);
+		Ok(serde_json::to_string_pretty(&chain_spec_json_blob)
+			.map_err(|e| format!("to pretty failed: {e}"))?)
+	} else {
+		Ok(chain_spec_json_string)
+	}
 }
 
 /// Extract any chain spec and convert it to JSON
