@@ -9849,7 +9849,6 @@ dependencies = [
 name = "pallet-assets"
 version = "29.1.0"
 dependencies = [
- "binary-merkle-tree",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
