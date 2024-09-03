@@ -104,7 +104,7 @@ fn generate_chain_spec() {
 	  "bootNodes": [],
 	  "telemetryEndpoints": null,
 	  "protocolId": null,
-	  "properties": null,
+	  "properties": { "tokenDecimals": 12, "tokenSymbol": "UNIT" },
 	  "codeSubstitutes": {},
 	  "genesis": {
 		"runtimeGenesis": {
