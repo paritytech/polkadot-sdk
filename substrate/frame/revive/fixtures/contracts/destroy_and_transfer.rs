@@ -54,13 +54,14 @@ pub extern "C" fn deploy() {
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	let mut callee_addr = [0u8; 20];
-	let callee_addr = &mut &mut callee_addr[..];
-	api::get_storage(StorageFlags::empty(), &ADDRESS_KEY, callee_addr).unwrap();
+	let callee = &mut &mut callee_addr[..];
+	api::get_storage(StorageFlags::empty(), &ADDRESS_KEY, callee).unwrap();
+	assert!(callee.len() == 20);
 
 	// Calling the destination contract with non-empty input data should fail.
 	let res = api::call(
 		uapi::CallFlags::empty(),
-		callee_addr,
+		&callee_addr,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
@@ -73,7 +74,7 @@ pub extern "C" fn call() {
 	// Call the destination contract regularly, forcing it to self-destruct.
 	api::call(
 		uapi::CallFlags::empty(),
-		callee_addr,
+		&callee_addr,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.

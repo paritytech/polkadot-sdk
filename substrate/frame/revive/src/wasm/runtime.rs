@@ -116,6 +116,7 @@ pub trait Memory<T: Config> {
 	/// The weight of reading a fixed value is included in the overall weight of any
 	/// contract callable function.
 	fn read_as<D: Decode + MaxEncodedLen>(&self, ptr: u32) -> Result<D, DispatchError> {
+		log::debug!( target: LOG_TARGET, "Reading at ptr: {ptr:?}");
 		let buf = self.read(ptr, D::max_encoded_len() as u32)?;
 		let decoded = D::decode_with_depth_limit(MAX_DECODE_NESTING, &mut buf.as_ref())
 			.map_err(|_| DispatchError::from(Error::<T>::DecodingFailed))?;
@@ -1065,7 +1066,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				self.write_fixed_sandbox_output(
 					memory,
 					address_ptr,
-					&address.encode(),
+					&address.as_bytes(),
 					true,
 					already_charged,
 				)?;
@@ -1341,13 +1342,12 @@ pub mod env {
 	/// Stores the address of the caller into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::caller`].
 	#[api_version(0)]
-	fn caller(&mut self, memory: &mut M, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
+	fn caller(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Caller)?;
 		let caller = <E::T as Config>::AddressMapper::to_address(self.ext.caller().account_id()?);
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			caller.as_bytes(),
 			false,
 			already_charged,
@@ -1432,18 +1432,12 @@ pub mod env {
 	/// Stores the address of the current contract into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::address`].
 	#[api_version(0)]
-	fn address(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn address(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Address)?;
 		let address = self.ext.address();
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			address.as_bytes(),
 			false,
 			already_charged,

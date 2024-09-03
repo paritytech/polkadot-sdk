@@ -72,7 +72,7 @@ mod sys {
 		pub fn terminate(beneficiary_ptr: *const u8);
 		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
-		pub fn caller(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn caller(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
 		pub fn code_hash(
 			account_ptr: *const u8,
@@ -82,7 +82,7 @@ mod sys {
 		pub fn own_code_hash(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn caller_is_origin() -> ReturnCode;
 		pub fn caller_is_root() -> ReturnCode;
-		pub fn address(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn address(out_ptr: *mut u8);
 		pub fn weight_to_fee(
 			ref_time: u64,
 			proof_size: u64,
@@ -223,7 +223,7 @@ impl HostFn for HostFnImpl {
 			deposit_limit: *const u8,
 			value: *const u8,
 			input: *const u8,
-			input_len: usize,
+			input_len: u32,
 			address: *const u8,
 			output: *mut u8,
 			output_len: *mut u32,
@@ -236,7 +236,7 @@ impl HostFn for HostFnImpl {
 			deposit_limit: deposit_limit_ptr,
 			value: value.as_ptr(),
 			input: input.as_ptr(),
-			input_len: input.len(),
+			input_len: input.len() as _,
 			address,
 			output: output_ptr,
 			output_len: &mut output_len as *mut _,
@@ -254,7 +254,7 @@ impl HostFn for HostFnImpl {
 
 	fn call(
 		flags: CallFlags,
-		callee: &[u8],
+		callee: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit_limit: Option<&[u8]>,
@@ -274,7 +274,7 @@ impl HostFn for HostFnImpl {
 			deposit_limit: *const u8,
 			value: *const u8,
 			input: *const u8,
-			input_len: usize,
+			input_len: u32,
 			output: *mut u8,
 			output_len: *mut u32,
 		}
@@ -286,7 +286,7 @@ impl HostFn for HostFnImpl {
 			deposit_limit: deposit_limit_ptr,
 			value: value.as_ptr(),
 			input: input.as_ptr(),
-			input_len: input.len(),
+			input_len: input.len() as _,
 			output: output_ptr,
 			output_len: &mut output_len as *mut _,
 		};
@@ -453,8 +453,16 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	fn address(output: &mut [u8; 20]) {
+		unsafe { sys::address(output.as_mut_ptr()) }
+	}
+
+	fn caller(output: &mut [u8; 20]) {
+		unsafe { sys::caller(output.as_mut_ptr()) }
+	}
+
 	impl_wrapper_for! {
-		caller, block_number, address, balance,
+		block_number, balance,
 		value_transferred,now, minimum_balance,
 		weight_left,
 	}

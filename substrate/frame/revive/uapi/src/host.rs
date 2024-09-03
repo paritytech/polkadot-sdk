@@ -40,12 +40,10 @@ pub enum HostFnImpl {}
 pub trait HostFn: private::Sealed {
 	/// Stores the address of the current contract into the supplied buffer.
 	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the address.
-	fn address(output: &mut &mut [u8]);
+	fn address(output: &mut [u8; 20]);
 
 	/// Lock a new delegate dependency to the contract.
 	///
@@ -105,7 +103,7 @@ pub trait HostFn: private::Sealed {
 	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
 	fn call(
 		flags: CallFlags,
-		callee: &[u8],
+		callee: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit: Option<&[u8]>,
@@ -166,8 +164,6 @@ pub trait HostFn: private::Sealed {
 
 	/// Stores the address of the caller into the supplied buffer.
 	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
 	/// If this is a top-level call (i.e. initiated by an extrinsic) the origin address of the
 	/// extrinsic will be returned. Otherwise, if this call is initiated by another contract then
 	/// the address of the contract will be returned.
@@ -178,7 +174,7 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the caller address.
-	fn caller(output: &mut &mut [u8]);
+	fn caller(output: &mut [u8; 20]);
 
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///

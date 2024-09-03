@@ -100,8 +100,20 @@ macro_rules! input {
 		input!(@inner $input, $cursor + $n, $($rest)*);
 	};
 
+	// Match an array reference of the given size.
+	// e.g input!(var1: &[u8; 32], );
+	(@inner $input:expr, $cursor:expr, $var:ident: &[u8; $n:expr], $($rest:tt)*) => {
+		let $var: &[u8; $n] = &$input[$cursor..$cursor+$n].try_into().unwrap();
+		input!(@inner $input, $cursor + $n, $($rest)*);
+	};
+
 	// Size of a u8 slice.
 	(@size $size:expr, $var:ident: [u8; $n:expr], $($rest:tt)*) => {
+		input!(@size $size + $n, $($rest)*)
+	};
+
+	// Size of an array reference.
+	(@size $size:expr, $var:ident: &[u8; $n:expr], $($rest:tt)*) => {
 		input!(@size $size + $n, $($rest)*)
 	};
 

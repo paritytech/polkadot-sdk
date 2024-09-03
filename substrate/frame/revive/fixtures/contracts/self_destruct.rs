@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::{input, output};
+use common::input;
 use uapi::{HostFn, HostFnImpl as api};
 
 const ETH_DJANGO: [u8; 20] = [4u8; 20];
@@ -36,10 +36,12 @@ pub extern "C" fn call() {
 	input!(input, 4,);
 
 	if !input.is_empty() {
-		output!(addr, [0u8; 20], api::address,);
+		let mut addr = [0u8; 20];
+		api::address(&mut addr);
+
 		api::call(
 			uapi::CallFlags::ALLOW_REENTRY,
-			addr,
+			&addr,
 			0u64,                // How much ref_time to devote for the execution. 0 = all.
 			0u64,                // How much proof_size to devote for the execution. 0 = all.
 			None,                // No deposit limit.
