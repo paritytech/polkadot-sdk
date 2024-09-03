@@ -309,13 +309,3 @@ cancel-pipeline-build-short-benchmark:
   extends: .cancel-pipeline-template
   needs:
     - job: build-short-benchmark
-
-cancel-pipeline-check-runtime-migration-rococo:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-runtime-migration-rococo
-
-cancel-pipeline-check-runtime-migration-westend:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-runtime-migration-westend
