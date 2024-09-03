@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725313641108,
+  "lastUpdate": 1725358962450,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -19529,6 +19529,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.24377090236666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kian Paimani",
+            "username": "kianenigma",
+            "email": "5588131+kianenigma@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3c71db3efb7ed62dc0db950d3f090686803b10c5",
+          "message": "Remove noise from the template list (#5437)\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-09-03T08:27:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3c71db3efb7ed62dc0db950d3f090686803b10c5"
+        },
+        "date": 1725358933231,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18396927183333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.203043859733336,
             "unit": "seconds"
           }
         ]
