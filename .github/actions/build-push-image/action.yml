@@ -15,6 +15,17 @@ outputs:
 runs:
   using: "composite"
   steps:
+  
+    # gcloud
+    # https://github.com/paritytech/ci_cd/wiki/GitHub:-Push-Docker-image-to-GCP-Registry
+    - name: "Set up Cloud SDK"
+      uses: "google-github-actions/setup-gcloud@v2"
+    - name: "gcloud info"
+      run: "gcloud info"
+    - name: "Auth in gcloud registry"
+      run: "gcloud auth configure-docker europe-docker.pkg.dev --quiet"  
+
+    # buildah
     - name: build
       env:
         BUILDAH_COMMAND: "buildah --storage-driver overlay2"
@@ -29,7 +40,8 @@ runs:
         --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
         --build-arg IMAGE_NAME="${{ inputs.image-name }}"
         --build-arg ZOMBIENET_IMAGE="${ZOMBIENET_IMAGE}"
-        --tag "$IMAGE_NAME:${DOCKER_IMAGES_VERSION}"
-        --file ${{ inputs.dockerfile }} .
-    - name: push
-      run: echo "push"
+        --tag "$IMAGE_NAME:$DOCKER_IMAGES_VERSION"
+        --file ${{ inputs.dockerfile }} .      
+        $BUILDAH_COMMAND info
+        $BUILDAH_COMMAND push --format=v2s2 "${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION"
+

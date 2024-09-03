@@ -1,5 +1,5 @@
-# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel
-name: tests linux stable
+# GHA for build-*
+name: Build and push images
 
 on:
   push:
@@ -303,7 +303,7 @@ jobs:
   #
   build-push-image-test-parachain:
     needs: [build-test-parachain]
-    runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
       image: ${BUILDAH_IMAGE}
@@ -316,7 +316,7 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "docker.io/paritypr/test-parachain"         
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/test-parachain"         
           dockerfile: "docker/dockerfiles/test-parachain_injected.Dockerfile"
 
   #
@@ -324,7 +324,7 @@ jobs:
   #
   build-push-image-polkadot-debug:
     needs: [build-linux-stable]
-    runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
       image: ${BUILDAH_IMAGE}
@@ -337,7 +337,7 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "docker.io/paritypr/polkadot-debug"         
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/polkadot-debug"         
           dockerfile: "docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile"         
 
 
@@ -346,7 +346,7 @@ jobs:
   #
   build-push-image-colander:
     needs: [build-test-collators]
-    runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
       image: ${BUILDAH_IMAGE}
@@ -359,7 +359,7 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "docker.io/paritypr/colander"         
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/colander"         
           dockerfile: "docker/dockerfiles/collator_injected.Dockerfile"          
 
 
@@ -368,7 +368,7 @@ jobs:
   #
   build-push-image-malus:
     needs: [build-malus]
-    runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
       image: ${BUILDAH_IMAGE}
@@ -381,7 +381,7 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "docker.io/paritypr/malus"         
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/malus"         
           dockerfile: "docker/dockerfiles/malus_injected.Dockerfile"     
 
 
@@ -390,7 +390,7 @@ jobs:
   #
   build-push-image-substrate-pr:
     needs: [build-linux-substrate]
-    runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
       image: ${BUILDAH_IMAGE}
@@ -403,7 +403,7 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "docker.io/paritypr/substrate"         
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/substrate"         
           dockerfile: "docker/dockerfiles/substrate_injected.Dockerfile"
 
 
@@ -414,7 +414,7 @@ jobs:
   # from other fresh images (polkadot and cumulus)
   build-push-image-bridges-zombienet-tests:
     needs: [build-linux-stable, build-linux-stable-cumulus, prepare-bridges-zombienet-artifacts]
-    runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
       image: ${BUILDAH_IMAGE}
@@ -435,7 +435,7 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "docker.io/paritypr/bridges-zombienet-tests"         
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/bridges-zombienet-tests"         
           dockerfile: "docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile"
 
 
@@ -444,7 +444,7 @@ jobs:
   #
   build-push-image-polkadot-parachain-debug:
     needs: [build-linux-stable-cumulus]
-    runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
       image: ${BUILDAH_IMAGE}
@@ -457,5 +457,5 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "docker.io/paritypr/polkadot-parachain-debug"         
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/polkadot-parachain-debug"         
           dockerfile: "docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"
