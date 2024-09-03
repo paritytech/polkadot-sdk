@@ -23,7 +23,7 @@ use codec::{Decode, Encode, Error as CodecError};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
-use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, marker::PhantomData, prelude::*};
+use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 
 /// Messages proof from bridged chain.
 ///
@@ -59,7 +59,7 @@ impl<BridgedHeaderHash> Size for FromBridgedChainMessagesProof<BridgedHeaderHash
 }
 
 /// Proved messages from the source chain.
-pub type ProvedMessages<Message> = BTreeMap<LaneId, ProvedLaneMessages<Message>>;
+pub type ProvedMessages<Message> = (LaneId, ProvedLaneMessages<Message>);
 
 /// Proved messages from single lane of the source chain.
 #[derive(RuntimeDebug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
@@ -103,7 +103,7 @@ pub trait MessageDispatch {
 	///
 	/// We check it in the messages delivery transaction prologue. So if it becomes `false`
 	/// after some portion of messages is already dispatched, it doesn't fail the whole transaction.
-	fn is_active() -> bool;
+	fn is_active(lane: LaneId) -> bool;
 
 	/// Estimate dispatch weight.
 	///
@@ -179,7 +179,7 @@ impl<DispatchPayload: Decode> MessageDispatch for ForbidInboundMessages<Dispatch
 	type DispatchPayload = DispatchPayload;
 	type DispatchLevelResult = ();
 
-	fn is_active() -> bool {
+	fn is_active(_: LaneId) -> bool {
 		false
 	}
 

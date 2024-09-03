@@ -136,7 +136,7 @@ where
 					give.clone()
 				})?;
 
-			(credit_out, Some(credit_change))
+			(credit_out, if credit_change.peek() > 0 { Some(credit_change) } else { None })
 		};
 
 		// We create an `AssetsInHolding` instance by putting in the resulting asset

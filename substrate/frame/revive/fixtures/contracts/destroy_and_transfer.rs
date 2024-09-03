@@ -30,9 +30,9 @@ pub extern "C" fn deploy() {
 	input!(code_hash: [u8; 32],);
 
 	let input = [0u8; 0];
-	let mut address = [0u8; 32];
+	let mut address = [0u8; 20];
 	let address = &mut &mut address[..];
-	let salt = [71u8, 17u8];
+	let salt = [47u8; 32];
 
 	api::instantiate(
 		code_hash,
@@ -54,7 +54,7 @@ pub extern "C" fn deploy() {
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let mut callee_addr = [0u8; 32];
+	let mut callee_addr = [0u8; 20];
 	let callee_addr = &mut &mut callee_addr[..];
 	api::get_storage(StorageFlags::empty(), &ADDRESS_KEY, callee_addr).unwrap();
 
