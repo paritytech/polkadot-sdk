@@ -177,6 +177,7 @@ pub struct AssetMetadata {
 
 pub type TokenId = H256;
 
+/// Convert a token location to a stable ID that can be used on the Ethereum side
 pub type TokenIdOf = HashedDescription<TokenId, DescribeGlobalPrefix<DescribeInner>>;
 
 pub struct DescribeGlobalPrefix<DescribeInterior>(sp_std::marker::PhantomData<DescribeInterior>);
