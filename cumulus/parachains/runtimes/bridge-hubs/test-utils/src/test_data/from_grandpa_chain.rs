@@ -20,12 +20,12 @@ use crate::test_data::prepare_inbound_xcm;
 
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
-	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId, MessageNonce,
-	UnrewardedRelayersState,
+	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId, LaneState,
+	MessageNonce, UnrewardedRelayersState,
 };
 use bp_runtime::{AccountIdOf, BlockNumberOf, Chain, HeaderOf, UnverifiedStorageProofParams};
 use bp_test_utils::make_default_justification;
-use bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use codec::Encode;
 use pallet_bridge_grandpa::{BridgedChain, BridgedHeader};
 use sp_runtime::traits::Header as HeaderT;
@@ -152,13 +152,9 @@ where
 }
 
 /// Prepare storage proofs of messages, stored at the (bridged) source GRANDPA chain.
-pub fn make_complex_relayer_delivery_proofs<
-	BridgedChain,
-	ThisChainWithMessages,
-	InnerXcmRuntimeCall,
->(
+pub fn make_complex_relayer_delivery_proofs<BridgedChain, ThisChainWithMessages>(
 	lane_id: LaneId,
-	xcm_message: Xcm<InnerXcmRuntimeCall>,
+	xcm_message: Xcm<()>,
 	message_nonce: MessageNonce,
 	message_destination: Junctions,
 	header_number: BlockNumberOf<BridgedChain>,
@@ -229,6 +225,7 @@ where
 		prepare_message_delivery_storage_proof::<BridgedChain, ThisChainWithMessages>(
 			lane_id,
 			InboundLaneData {
+				state: LaneState::Opened,
 				relayers: vec![
 					UnrewardedRelayer {
 						relayer: relayer_id_at_this_chain,

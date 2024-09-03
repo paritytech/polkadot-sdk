@@ -28,7 +28,7 @@ use bp_messages::{LaneId, UnrewardedRelayersState};
 use bp_polkadot_core::parachains::ParaHash;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{Chain, Parachain};
-use bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_messages::{BridgedChainOf, ThisChainOf};
@@ -104,11 +104,9 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_para_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
@@ -138,11 +136,12 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
+		 xcm,
+		 bridged_chain_id| {
 			let para_header_number = 5;
 			let relay_header_number = 1;
 
-			prepare_configuration();
+			let lane_id = prepare_configuration();
 
 			// start with bridged relay chain block#0
 			helpers::initialize_bridge_grandpa_pallet::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(
@@ -162,7 +161,6 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				lane_id,
 				xcm.into(),
@@ -234,11 +232,9 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_para_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
@@ -275,8 +271,9 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
-			prepare_configuration();
+		 xcm,
+		 bridged_chain_id| {
+			let lane_id = prepare_configuration();
 
 			// start with bridged relay chain block#0
 			let initial_block_number = 0;
@@ -315,7 +312,6 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				lane_id,
 				xcm.into(),
@@ -399,10 +395,8 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 	runtime_para_id: u32,
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
@@ -435,11 +429,12 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
+		 xcm,
+		 bridged_chain_id| {
 			let para_header_number = 5;
 			let relay_header_number = 1;
 
-			prepare_configuration();
+			let lane_id = prepare_configuration();
 
 			// start with bridged relay chain block#0
 			helpers::initialize_bridge_grandpa_pallet::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(
@@ -459,7 +454,6 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				lane_id,
 				xcm.into(),
@@ -557,9 +551,8 @@ where
 			<RuntimeHelper::Runtime as pallet_bridge_grandpa::Config<RuntimeHelper::GPI>>::BridgedChain,
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-			(),
 		>(
-			LaneId::default(),
+			LaneId::new(1, 2),
 			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 			1,
 			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
@@ -628,9 +621,8 @@ where
 			<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-			(),
 		>(
-			LaneId::default(),
+			LaneId::new(1, 2),
 			1,
 			5,
 			1_000,
@@ -691,9 +683,8 @@ where
 			<RuntimeHelper::Runtime as pallet_bridge_grandpa::Config<RuntimeHelper::GPI>>::BridgedChain,
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-			(),
 		>(
-			LaneId::default(),
+			LaneId::new(1, 2),
 			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 			1,
 			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
@@ -747,9 +738,8 @@ where
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
-				LaneId::default(),
+				LaneId::new(1, 2),
 				1,
 				5,
 				1_000,

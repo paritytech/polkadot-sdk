@@ -12,24 +12,18 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
-codec = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 fatality = { workspace = true }
-bitvec = { workspace = true, default-features = true }
 
 polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-node-subsystem-types = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
+sp-tracing = { workspace = true }
 sp-core = { workspace = true, default-features = true }
-sc-keystore = { workspace = true, default-features = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
+rand = { workspace = true }
 rstest = { workspace = true }

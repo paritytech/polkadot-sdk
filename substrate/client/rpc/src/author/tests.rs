@@ -22,6 +22,7 @@ use crate::testing::{test_executor, timeout_secs};
 use assert_matches::assert_matches;
 use codec::Encode;
 use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError, RpcModule};
+use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool::{BasicPool, FullChainApi};
 use sc_transaction_pool_api::TransactionStatus;
 use sp_core::{
@@ -72,26 +73,27 @@ impl Default for TestSetup {
 }
 
 impl TestSetup {
-	fn author(&self) -> Author<FullTransactionPool, Client<Backend>> {
-		Author {
+	fn to_rpc(&self) -> RpcModule<Author<FullTransactionPool, Client<Backend>>> {
+		let mut module = Author {
 			client: self.client.clone(),
 			pool: self.pool.clone(),
 			keystore: self.keystore.clone(),
-			deny_unsafe: DenyUnsafe::No,
 			executor: test_executor(),
 		}
+		.into_rpc();
+		module.extensions_mut().insert(DenyUnsafe::No);
+		module
 	}
 
 	fn into_rpc() -> RpcModule<Author<FullTransactionPool, Client<Backend>>> {
-		Self::default().author().into_rpc()
+		Self::default().to_rpc()
 	}
 }
 
 #[tokio::test]
 async fn author_submit_transaction_should_not_cause_error() {
-	let _ = env_logger::try_init();
-	let author = TestSetup::default().author();
-	let api = author.into_rpc();
+	let api = TestSetup::into_rpc();
+
 	let xt: Bytes = uxt(AccountKeyring::Alice, 1).encode().into();
 	let extrinsic_hash: H256 = blake2_256(&xt).into();
 	let response: H256 = api.call("author_submitExtrinsic", [xt.clone()]).await.unwrap();
@@ -179,7 +181,7 @@ async fn author_should_return_pending_extrinsics() {
 async fn author_should_remove_extrinsics() {
 	const METHOD: &'static str = "author_removeExtrinsic";
 	let setup = TestSetup::default();
-	let api = setup.author().into_rpc();
+	let api = setup.to_rpc();
 
 	// Submit three extrinsics, then remove two of them (will cause the third to be removed as well,
 	// having a higher nonce)
@@ -214,7 +216,7 @@ async fn author_should_remove_extrinsics() {
 #[tokio::test]
 async fn author_should_insert_key() {
 	let setup = TestSetup::default();
-	let api = setup.author().into_rpc();
+	let api = setup.to_rpc();
 	let suri = "//Alice";
 	let keypair = ed25519::Pair::from_string(suri, None).expect("generates keypair");
 	let params: (String, String, Bytes) = (
@@ -231,7 +233,7 @@ async fn author_should_insert_key() {
 #[tokio::test]
 async fn author_should_rotate_keys() {
 	let setup = TestSetup::default();
-	let api = setup.author().into_rpc();
+	let api = setup.to_rpc();
 
 	let new_pubkeys: Bytes = api.call("author_rotateKeys", EmptyParams::new()).await.unwrap();
 	let session_keys =
@@ -244,7 +246,6 @@ async fn author_should_rotate_keys() {
 
 #[tokio::test]
 async fn author_has_session_keys() {
-	// Setup
 	let api = TestSetup::into_rpc();
 
 	// Add a valid session key
@@ -255,7 +256,7 @@ async fn author_has_session_keys() {
 
 	// Add a session key in a different keystore
 	let non_existent_pubkeys: Bytes = {
-		let api2 = TestSetup::default().author().into_rpc();
+		let api2 = TestSetup::into_rpc();
 		api2.call("author_rotateKeys", EmptyParams::new())
 			.await
 			.expect("Rotates the keys")
@@ -279,8 +280,6 @@ async fn author_has_session_keys() {
 
 #[tokio::test]
 async fn author_has_key() {
-	let _ = env_logger::try_init();
-
 	let api = TestSetup::into_rpc();
 	let suri = "//Alice";
 	let alice_keypair = ed25519::Pair::from_string(suri, None).expect("Generates keypair");

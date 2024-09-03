@@ -311,3 +311,16 @@ where
 		Ok(())
 	}
 }
+
+/// A record containing information regarding auto-renewal for a specific core.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct AutoRenewalRecord {
+	/// The core for which auto renewal is enabled.
+	pub core: CoreIndex,
+	/// The task assigned to the core. We keep track of it so we don't have to look it up when
+	/// performing auto-renewal.
+	pub task: TaskId,
+	/// Specifies when the upcoming renewal should be performed. This is used for lease holding
+	/// tasks to ensure that the renewal process does not begin until the lease expires.
+	pub next_renewal: Timeslice,
+}

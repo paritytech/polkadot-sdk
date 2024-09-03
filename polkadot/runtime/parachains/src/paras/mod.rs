@@ -1956,14 +1956,12 @@ impl<T: Config> Pallet<T> {
 		inclusion_block_number: BlockNumberFor<T>,
 		cfg: &configuration::HostConfiguration<BlockNumberFor<T>>,
 		upgrade_strategy: UpgradeStrategy,
-	) -> Weight {
-		let mut weight = T::DbWeight::get().reads(1);
-
+	) {
 		// Should be prevented by checks in `schedule_code_upgrade_external`
 		let new_code_len = new_code.0.len();
 		if new_code_len < MIN_CODE_SIZE as usize || new_code_len > cfg.max_code_size as usize {
 			log::warn!(target: LOG_TARGET, "attempted to schedule an upgrade with invalid new validation code",);
-			return weight
+			return
 		}
 
 		// Enacting this should be prevented by the `can_upgrade_validation_code`
@@ -1977,7 +1975,7 @@ impl<T: Config> Pallet<T> {
 			// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
 			log::warn!(target: LOG_TARGET, "ended up scheduling an upgrade while one is pending",);
-			return weight
+			return
 		}
 
 		let code_hash = new_code.hash();
@@ -1986,7 +1984,6 @@ impl<T: Config> Pallet<T> {
 		// process right away.
 		//
 		// We do not want to allow this since it will mess with the code reference counting.
-		weight += T::DbWeight::get().reads(1);
 		if CurrentCodeHash::<T>::get(&id) == Some(code_hash) {
 			// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
@@ -1994,15 +1991,13 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"para tried to upgrade to the same code. Abort the upgrade",
 			);
-			return weight
+			return
 		}
 
 		// This is the start of the upgrade process. Prevent any further attempts at upgrading.
-		weight += T::DbWeight::get().writes(2);
 		FutureCodeHash::<T>::insert(&id, &code_hash);
 		UpgradeRestrictionSignal::<T>::insert(&id, UpgradeRestriction::Present);
 
-		weight += T::DbWeight::get().reads_writes(1, 1);
 		let next_possible_upgrade_at = inclusion_block_number + cfg.validation_upgrade_cooldown;
 		UpgradeCooldowns::<T>::mutate(|upgrade_cooldowns| {
 			let insert_idx = upgrade_cooldowns
@@ -2011,14 +2006,12 @@ impl<T: Config> Pallet<T> {
 			upgrade_cooldowns.insert(insert_idx, (id, next_possible_upgrade_at));
 		});
 
-		weight += Self::kick_off_pvf_check(
+		Self::kick_off_pvf_check(
 			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number, upgrade_strategy },
 			code_hash,
 			new_code,
 			cfg,
 		);
-
-		weight
 	}
 
 	/// Makes sure that the given code hash has passed pre-checking.
@@ -2108,11 +2101,11 @@ impl<T: Config> Pallet<T> {
 		id: ParaId,
 		new_head: HeadData,
 		execution_context: BlockNumberFor<T>,
-	) -> Weight {
+	) {
 		Heads::<T>::insert(&id, &new_head);
 		MostRecentContext::<T>::insert(&id, execution_context);
 
-		let weight = if let Some(expected_at) = FutureCodeUpgrades::<T>::get(&id) {
+		if let Some(expected_at) = FutureCodeUpgrades::<T>::get(&id) {
 			if expected_at <= execution_context {
 				FutureCodeUpgrades::<T>::remove(&id);
 				UpgradeGoAheadSignal::<T>::remove(&id);
@@ -2122,14 +2115,10 @@ impl<T: Config> Pallet<T> {
 					new_code_hash
 				} else {
 					log::error!(target: LOG_TARGET, "Missing future code hash for {:?}", &id);
-					return T::DbWeight::get().reads_writes(3, 1 + 3)
+					return
 				};
 
-				let weight = Self::set_current_code(id, new_code_hash, expected_at);
-
-				weight + T::DbWeight::get().reads_writes(3, 3)
-			} else {
-				T::DbWeight::get().reads_writes(1, 1 + 0)
+				Self::set_current_code(id, new_code_hash, expected_at);
 			}
 		} else {
 			// This means there is no upgrade scheduled.
@@ -2137,10 +2126,9 @@ impl<T: Config> Pallet<T> {
 			// In case the upgrade was aborted by the relay-chain we should reset
 			// the `Abort` signal.
 			UpgradeGoAheadSignal::<T>::remove(&id);
-			T::DbWeight::get().reads_writes(1, 2)
 		};
 
-		weight.saturating_add(T::OnNewHead::on_new_head(id, &new_head))
+		T::OnNewHead::on_new_head(id, &new_head);
 	}
 
 	/// Set the current code for the given parachain.
