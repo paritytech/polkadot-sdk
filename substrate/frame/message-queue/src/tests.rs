@@ -1675,6 +1675,7 @@ fn regression_issue_2319() {
 	build_and_execute::<Test>(|| {
 		Callback::set(Box::new(|_, _| {
 			MessageQueue::enqueue_message(mock_helpers::msg("anothermessage"), There);
+			Ok(())
 		}));
 
 		use MessageOrigin::*;
@@ -1695,23 +1696,26 @@ fn regression_issue_2319() {
 #[test]
 fn recursive_enqueue_works() {
 	build_and_execute::<Test>(|| {
-		Callback::set(Box::new(|o, i| match i {
-			0 => {
-				MessageQueue::enqueue_message(msg(&format!("callback={}", 1)), *o);
-			},
-			1 => {
-				for _ in 0..100 {
-					MessageQueue::enqueue_message(msg(&format!("callback={}", 2)), *o);
-				}
-				for i in 0..100 {
-					MessageQueue::enqueue_message(msg(&format!("callback={}", 3)), i.into());
-				}
-			},
-			2 | 3 => {
-				MessageQueue::enqueue_message(msg(&format!("callback={}", 4)), *o);
-			},
-			4 => (),
-			_ => unreachable!(),
+		Callback::set(Box::new(|o, i| {
+			match i {
+				0 => {
+					MessageQueue::enqueue_message(msg(&format!("callback={}", 1)), *o);
+				},
+				1 => {
+					for _ in 0..100 {
+						MessageQueue::enqueue_message(msg(&format!("callback={}", 2)), *o);
+					}
+					for i in 0..100 {
+						MessageQueue::enqueue_message(msg(&format!("callback={}", 3)), i.into());
+					}
+				},
+				2 | 3 => {
+					MessageQueue::enqueue_message(msg(&format!("callback={}", 4)), *o);
+				},
+				4 => (),
+				_ => unreachable!(),
+			};
+			Ok(())
 		}));
 
 		MessageQueue::enqueue_message(msg("callback=0"), MessageOrigin::Here);
@@ -1735,6 +1739,7 @@ fn recursive_service_is_forbidden() {
 			// This call will fail since it is recursive. But it will not mess up the state.
 			assert_storage_noop!(MessageQueue::service_queues(10.into_weight()));
 			MessageQueue::enqueue_message(msg("m2"), There);
+			Ok(())
 		}));
 
 		for _ in 0..5 {
@@ -1778,6 +1783,7 @@ fn recursive_overweight_while_service_is_forbidden() {
 				),
 				ExecuteOverweightError::RecursiveDisallowed
 			);
+			Ok(())
 		}));
 
 		MessageQueue::enqueue_message(msg("weight=10"), There);
@@ -1800,6 +1806,7 @@ fn recursive_reap_page_is_forbidden() {
 		Callback::set(Box::new(|_, _| {
 			// This call will fail since it is recursive. But it will not mess up the state.
 			assert_noop!(MessageQueue::do_reap_page(&Here, 0), Error::<Test>::RecursiveDisallowed);
+			Ok(())
 		}));
 
 		// Create 10 pages more than the stale limit.
@@ -1973,5 +1980,57 @@ fn execute_overweight_keeps_stack_ov_message() {
 		);
 		assert_pages(&[]);
 		System::reset_events();
+	});
+}
+
+#[test]
+fn process_message_error_reverts_storage_changes() {
+	build_and_execute::<Test>(|| {
+		assert!(!sp_io::storage::exists(b"key"), "Key should not exist");
+
+		Callback::set(Box::new(|_, _| {
+			sp_io::storage::set(b"key", b"value");
+			Err(())
+		}));
+
+		MessageQueue::enqueue_message(msg("callback=0"), MessageOrigin::Here);
+		MessageQueue::service_queues(10.into_weight());
+
+		assert!(!sp_io::storage::exists(b"key"), "Key should have been rolled back");
+	});
+}
+
+#[test]
+fn process_message_ok_false_keeps_storage_changes() {
+	build_and_execute::<Test>(|| {
+		assert!(!sp_io::storage::exists(b"key"), "Key should not exist");
+
+		Callback::set(Box::new(|_, _| {
+			sp_io::storage::set(b"key", b"value");
+			Ok(())
+		}));
+
+		// 000 will make it return `Ok(false)`
+		MessageQueue::enqueue_message(msg("callback=000"), MessageOrigin::Here);
+		MessageQueue::service_queues(10.into_weight());
+
+		assert_eq!(sp_io::storage::exists(b"key"), true);
+	});
+}
+
+#[test]
+fn process_message_ok_true_keeps_storage_changes() {
+	build_and_execute::<Test>(|| {
+		assert!(!sp_io::storage::exists(b"key"), "Key should not exist");
+
+		Callback::set(Box::new(|_, _| {
+			sp_io::storage::set(b"key", b"value");
+			Ok(())
+		}));
+
+		MessageQueue::enqueue_message(msg("callback=0"), MessageOrigin::Here);
+		MessageQueue::service_queues(10.into_weight());
+
+		assert_eq!(sp_io::storage::exists(b"key"), true);
 	});
 }

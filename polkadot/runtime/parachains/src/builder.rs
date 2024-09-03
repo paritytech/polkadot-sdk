@@ -30,32 +30,38 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
-	node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
-	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt,
-	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
-	Id as ParaId, IndexedVec, InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
+	node_features::FeatureIndex,
+	vstaging::{
+		BackedCandidate, CandidateDescriptorV2,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		InherentData as ParachainsInherentData,
+	},
+	AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
+	CollatorSignature, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,
+	GroupIndex, HeadData, Id as ParaId, IndexedVec, InvalidDisputeStatementKind,
 	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
 	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
 };
-use sp_core::{sr25519, ByteArray, H256};
+use sp_core::{ByteArray, H256};
 use sp_runtime::{
 	generic::Digest,
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
 };
-
-/// Create a null collator id.
-pub fn dummy_collator() -> CollatorId {
-	CollatorId::from_slice(&vec![0u8; 32]).expect("32 bytes; qed")
-}
-
-/// Create a null collator signature.
-pub fn dummy_collator_signature() -> CollatorSignature {
-	CollatorSignature::from_slice(&vec![0u8; 64]).expect("64 bytes; qed")
-}
-
 fn mock_validation_code() -> ValidationCode {
 	ValidationCode(vec![1, 2, 3])
+}
+
+// Create a dummy collator id suitable to be used in a V1 candidate descriptor.
+fn junk_collator() -> CollatorId {
+	CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
+		.expect("32 bytes; qed")
+}
+
+// Creates a dummy collator signature suitable to be used in a V1 candidate descriptor.
+fn junk_collator_signature() -> CollatorSignature {
+	CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
+		.expect("64 bytes; qed")
 }
 
 /// Grab an account, seeded by a name and index.
@@ -136,6 +142,8 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	fill_claimqueue: bool,
 	/// Cores which should not be available when being populated with pending candidates.
 	unavailable_cores: Vec<u32>,
+	/// Use v2 candidate descriptor.
+	candidate_descriptor_v2: bool,
 	_phantom: core::marker::PhantomData<T>,
 }
 
@@ -167,6 +175,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			code_upgrade: None,
 			fill_claimqueue: true,
 			unavailable_cores: vec![],
+			candidate_descriptor_v2: false,
 			_phantom: core::marker::PhantomData::<T>,
 		}
 	}
@@ -275,6 +284,12 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		self
 	}
 
+	/// Toggle usage of v2 candidate descriptors.
+	pub(crate) fn set_candidate_descriptor_v2(mut self, enable: bool) -> Self {
+		self.candidate_descriptor_v2 = enable;
+		self
+	}
+
 	/// Get the maximum number of validators per core.
 	fn max_validators_per_core(&self) -> u32 {
 		self.max_validators_per_core.unwrap_or(Self::fallback_max_validators_per_core())
@@ -310,18 +325,20 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		HeadData(vec![0xFF; max_head_size as usize])
 	}
 
-	fn candidate_descriptor_mock() -> CandidateDescriptor<T::Hash> {
+	fn candidate_descriptor_mock() -> CandidateDescriptorV2<T::Hash> {
+		// Use a v1 descriptor.
 		CandidateDescriptor::<T::Hash> {
 			para_id: 0.into(),
 			relay_parent: Default::default(),
-			collator: CollatorId::from(sr25519::Public::from_raw([42u8; 32])),
+			collator: junk_collator(),
 			persisted_validation_data_hash: Default::default(),
 			pov_hash: Default::default(),
 			erasure_root: Default::default(),
-			signature: CollatorSignature::from(sr25519::Signature::from_raw([42u8; 64])),
+			signature: junk_collator_signature(),
 			para_head: Default::default(),
 			validation_code_hash: mock_validation_code().hash(),
 		}
+		.into()
 	}
 
 	/// Create a mock of `CandidatePendingAvailability`.
@@ -632,18 +649,35 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 						let group_validators =
 							scheduler::Pallet::<T>::group_validators(group_idx).unwrap();
 
-						let candidate = CommittedCandidateReceipt::<T::Hash> {
-							descriptor: CandidateDescriptor::<T::Hash> {
+						let descriptor = if self.candidate_descriptor_v2 {
+							CandidateDescriptorV2::new(
 								para_id,
 								relay_parent,
-								collator: dummy_collator(),
+								core_idx,
+								1,
+								persisted_validation_data_hash,
+								pov_hash,
+								Default::default(),
+								head_data.hash(),
+								validation_code_hash,
+							)
+						} else {
+							CandidateDescriptor::<T::Hash> {
+								para_id,
+								relay_parent,
+								collator: junk_collator(),
 								persisted_validation_data_hash,
 								pov_hash,
 								erasure_root: Default::default(),
-								signature: dummy_collator_signature(),
+								signature: junk_collator_signature(),
 								para_head: head_data.hash(),
 								validation_code_hash,
-							},
+							}
+							.into()
+						};
+
+						let candidate = CommittedCandidateReceipt::<T::Hash> {
+							descriptor,
 							commitments: CandidateCommitments::<u32> {
 								upward_messages: Default::default(),
 								horizontal_messages: Default::default(),
