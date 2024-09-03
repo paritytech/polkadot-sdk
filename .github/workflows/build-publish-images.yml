@@ -38,7 +38,7 @@ jobs:
         - id: set_image
           run: cat .github/env >> $GITHUB_OUTPUT
         - id: set_vars
-          run: cat "REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
+          run: echo "REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
 
 ### Build ########################
 
