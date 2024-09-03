@@ -92,13 +92,6 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 		frame_system::Pallet::<T>::inc_providers(who);
 	}
 
-	// Hacky but this allows us to replicate the old currency behaviour of allowing free balance to
-	// go below ED if an account transfers funds.
-	// FIXME(ank4n): probably not needed to replicate old behaviour and can be refactored.
-	if stakeable_balance::<T>(who) == amount {
-		frame_system::Pallet::<T>::inc_providers(who);
-	}
-
 	T::Currency::set_on_hold(&HoldReason::Staking.into(), who, amount)
 }
 
