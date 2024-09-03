@@ -46,7 +46,7 @@ jobs:
 
   test-linux-stable-int:
     needs: [set-image]
-    if: ${{ needs.changes.outputs.rust }}
+    # if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 60
     container:
@@ -67,7 +67,7 @@ jobs:
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
     needs: [set-image]
-    if: ${{ needs.changes.outputs.rust }}
+    # if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 60
     container:
@@ -85,7 +85,7 @@ jobs:
 
   test-linux-stable:
     needs: [set-image]
-    if: ${{ needs.changes.outputs.rust }}
+    # if: ${{ needs.changes.outputs.rust }}
     runs-on: ${{ matrix.runners }}
     timeout-minutes: 60
     strategy:
