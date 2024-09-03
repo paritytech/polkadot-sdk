@@ -68,21 +68,21 @@ macro_rules! assert_bridge_messages_pallet_types(
 		bridged_chain: $bridged:path,
 	) => {
 		{
-			use $crate::messages_xcm_extension::XcmAsPlainPayload;
+			use $crate::integrity::__private::bp_xcm_bridge_hub::XcmAsPlainPayload;
 			use $crate::integrity::__private::static_assertions::assert_type_eq_all;
 			use bp_messages::ChainWithMessages;
 			use bp_runtime::Chain;
-			use pallet_bridge_messages::Config as MessagesConfig;
+			use pallet_bridge_messages::Config as BridgeMessagesConfig;
 
 			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
 
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::ThisChain, $this);
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::BridgedChain, $bridged);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::ThisChain, $this);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::BridgedChain, $bridged);
 
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::OutboundPayload, XcmAsPlainPayload);
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::InboundPayload, XcmAsPlainPayload);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::OutboundPayload, XcmAsPlainPayload);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::InboundPayload, XcmAsPlainPayload);
 		}
 	}
 );
@@ -174,12 +174,6 @@ where
 	R: pallet_bridge_messages::Config<MI>,
 	MI: 'static,
 {
-	assert!(
-		!R::ActiveOutboundLanes::get().is_empty(),
-		"ActiveOutboundLanes ({:?}) must not be empty",
-		R::ActiveOutboundLanes::get(),
-	);
-
 	assert!(
 		pallet_bridge_messages::BridgedChainOf::<R, MI>::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX
 			<= pallet_bridge_messages::BridgedChainOf::<R, MI>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,

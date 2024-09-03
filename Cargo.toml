@@ -1321,7 +1321,7 @@ tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.2" }
 tokio-tungstenite = { version = "0.20.1" }
 tokio-util = { version = "0.7.8" }
-toml = { version = "0.8.8" }
+toml = { version = "0.8.12" }
 toml_edit = { version = "0.19" }
 tower = { version = "0.4.13" }
 tower-http = { version = "0.5.2" }

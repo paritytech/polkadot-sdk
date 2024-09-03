@@ -23,9 +23,10 @@
 //! Note that `dummy_` prefixed values are meant to be fillers, that should not matter, and will
 //! contain randomness based data.
 use polkadot_primitives::{
+	vstaging::{CandidateDescriptorV2, CandidateReceiptV2, CommittedCandidateReceiptV2},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, CollatorId, CollatorSignature,
-	CommittedCandidateReceipt, Hash, HeadData, Id as ParaId, PersistedValidationData,
-	ValidationCode, ValidationCodeHash, ValidatorId,
+	CommittedCandidateReceipt, CoreIndex, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
 };
 pub use rand;
 use sp_application_crypto::sr25519;
@@ -42,12 +43,30 @@ pub fn dummy_candidate_receipt<H: AsRef<[u8]>>(relay_parent: H) -> CandidateRece
 	}
 }
 
+/// Creates a v2 candidate receipt with filler data.
+pub fn dummy_candidate_receipt_v2<H: AsRef<[u8]>>(relay_parent: H) -> CandidateReceiptV2<H> {
+	CandidateReceiptV2::<H> {
+		commitments_hash: dummy_candidate_commitments(dummy_head_data()).hash(),
+		descriptor: dummy_candidate_descriptor_v2(relay_parent),
+	}
+}
+
 /// Creates a committed candidate receipt with filler data.
 pub fn dummy_committed_candidate_receipt<H: AsRef<[u8]>>(
 	relay_parent: H,
 ) -> CommittedCandidateReceipt<H> {
 	CommittedCandidateReceipt::<H> {
 		descriptor: dummy_candidate_descriptor::<H>(relay_parent),
+		commitments: dummy_candidate_commitments(dummy_head_data()),
+	}
+}
+
+/// Creates a v2 committed candidate receipt with filler data.
+pub fn dummy_committed_candidate_receipt_v2<H: AsRef<[u8]>>(
+	relay_parent: H,
+) -> CommittedCandidateReceiptV2<H> {
+	CommittedCandidateReceiptV2 {
+		descriptor: dummy_candidate_descriptor_v2::<H>(relay_parent),
 		commitments: dummy_candidate_commitments(dummy_head_data()),
 	}
 }
@@ -124,6 +143,23 @@ pub fn dummy_candidate_descriptor<H: AsRef<[u8]>>(relay_parent: H) -> CandidateD
 	descriptor
 }
 
+/// Create a v2 candidate descriptor with filler data.
+pub fn dummy_candidate_descriptor_v2<H: AsRef<[u8]>>(relay_parent: H) -> CandidateDescriptorV2<H> {
+	let invalid = Hash::zero();
+	let descriptor = make_valid_candidate_descriptor_v2(
+		1.into(),
+		relay_parent,
+		CoreIndex(1),
+		1,
+		invalid,
+		invalid,
+		invalid,
+		invalid,
+		invalid,
+	);
+	descriptor
+}
+
 /// Create meaningless validation code.
 pub fn dummy_validation_code() -> ValidationCode {
 	ValidationCode(vec![1, 2, 3, 4, 5, 6, 7, 8, 9])
@@ -134,14 +170,14 @@ pub fn dummy_head_data() -> HeadData {
 	HeadData(vec![])
 }
 
-/// Create a meaningless collator id.
-pub fn dummy_collator() -> CollatorId {
-	CollatorId::from(sr25519::Public::default())
-}
-
 /// Create a meaningless validator id.
 pub fn dummy_validator() -> ValidatorId {
 	ValidatorId::from(sr25519::Public::default())
+}
+
+/// Create a meaningless collator id.
+pub fn dummy_collator() -> CollatorId {
+	CollatorId::from(sr25519::Public::default())
 }
 
 /// Create a meaningless collator signature.
@@ -232,6 +268,34 @@ pub fn make_valid_candidate_descriptor<H: AsRef<[u8]>>(
 	descriptor
 }
 
+/// Create a v2 candidate descriptor.
+pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]>>(
+	para_id: ParaId,
+	relay_parent: H,
+	core_index: CoreIndex,
+	session_index: SessionIndex,
+	persisted_validation_data_hash: Hash,
+	pov_hash: Hash,
+	validation_code_hash: impl Into<ValidationCodeHash>,
+	para_head: Hash,
+	erasure_root: Hash,
+) -> CandidateDescriptorV2<H> {
+	let validation_code_hash = validation_code_hash.into();
+
+	let descriptor = CandidateDescriptorV2::new(
+		para_id,
+		relay_parent,
+		core_index,
+		session_index,
+		persisted_validation_data_hash,
+		pov_hash,
+		erasure_root,
+		para_head,
+		validation_code_hash,
+	);
+
+	descriptor
+}
 /// After manually modifying the candidate descriptor, resign with a defined collator key.
 pub fn resign_candidate_descriptor_with_collator<H: AsRef<[u8]>>(
 	descriptor: &mut CandidateDescriptor<H>,
