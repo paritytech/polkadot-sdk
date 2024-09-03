@@ -9,3 +9,79 @@ doc:
 crates: 
   - name: sp-weights 
     bump: patch
+
+  - name: bridge-runtime-common
+    bump: patch
+
+  - name: frame-support 
+    bump: patch
+
+  - name: frame-support-procedural 
+    bump: patch
+
+  - name: frame-system 
+    bump: patch
+
+  - name: frame-executive 
+    bump: patch
+
+  - name: frame-benchmarking-cli 
+    bump: patch
+
+  - name: pallet-democracy 
+    bump: patch
+
+  - name: pallet-elections-phragmen 
+    bump: patch
+
+  - name: pallet-tips 
+    bump: patch
+
+  - name: rococo-runtime-constants 
+    bump: patch
+
+  - name: westend-runtime-constants 
+    bump: patch
+
+  - name: pallet-bridge-parachains 
+    bump: patch
+
+  - name: pallet-bridge-relayers 
+    bump: patch
+
+  - name: pallet-xcm-bridge-hub 
+    bump: patch
+
+  - name: asset-hub-rococo-runtime 
+    bump: patch
+
+  - name: asset-hub-westend-runtime 
+    bump: patch
+
+  - name: bridge-hub-rococo-runtime 
+    bump: patch
+
+  - name: bridge-hub-westend-runtime 
+    bump: patch
+
+  - name: collectives-westend-runtime 
+    bump: patch
+
+  - name: coretime-rococo-runtime 
+    bump: patch
+
+  - name: coretime-westend-runtime 
+    bump: patch
+
+  - name: people-rococo-runtime 
+    bump: patch
+
+  - name: people-westend-runtime 
+    bump: patch
+
+  - name: penpal-runtime 
+    bump: patch
+
+  - name: contracts-rococo-runtime
+    bump: patch 
+
