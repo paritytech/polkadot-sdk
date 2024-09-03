@@ -96,6 +96,7 @@ pub trait WeightInfo {
 	fn new_query() -> Weight;
 	fn take_response() -> Weight;
 	fn claim_assets() -> Weight;
+	fn set_asset_claimer() -> Weight;
 }
 
 /// fallback implementation
@@ -180,6 +181,8 @@ impl WeightInfo for TestWeightInfo {
 	fn claim_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
+
+	fn set_asset_claimer() -> Weight { Weight::from_parts(100_000_000, 0) }
 }
 
 #[frame_support::pallet]
