@@ -31,7 +31,6 @@ jobs:
       outputs:
         IMAGE: ${{ steps.set_image.outputs.IMAGE }}
         REF_NAME: ${{ steps.set_vars.outputs.REF_NAME }}
-        BUILDAH_IMAGE: ${{ steps.set_vars.outputs.BUILDAH_IMAGE }}
       steps:
         - name: Checkout
           uses: actions/checkout@v4
@@ -44,7 +43,6 @@ jobs:
         - id: set_vars
           run: |
             echo "REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
-            echo "BUILDAH_IMAGE=docker.io/paritytech/buildah:1.31" >> $GITHUB_OUTPUT
 
 ### Build ########################
 
