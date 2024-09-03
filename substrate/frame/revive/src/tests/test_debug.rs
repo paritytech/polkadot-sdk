@@ -122,7 +122,7 @@ mod run_tests {
 				deposit_limit::<Test>(),
 				Code::Upload(wasm),
 				vec![],
-				[0u8; 32],
+				Some([0u8; 32]),
 				DebugInfo::Skip,
 				CollectEvents::Skip,
 			)
@@ -207,7 +207,7 @@ mod run_tests {
 				Code::Upload(wasm),
 				vec![],
 				// some salt to ensure that the address of this contract is unique among all tests
-				[0x41; 32],
+				Some([0x41; 32]),
 				DebugInfo::Skip,
 				CollectEvents::Skip,
 			)
