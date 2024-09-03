@@ -35,7 +35,7 @@
 //!	```bash
 //! chain-spec-builder create -r runtime.wasm default
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is
 //! called.
 //!
@@ -46,7 +46,7 @@
 //! ```bash
 //! chain-spec-builder display-preset -r runtime.wasm
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
 //!
 //! ##### Display the `GenesisConfig` preset with given name
@@ -55,7 +55,7 @@
 //! ```bash
 //! chain-spec-builder display-preset -r runtime.wasm -p "staging"
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
 //!
 //! ##### List the names of `GenesisConfig` presets provided by runtime.
@@ -64,7 +64,7 @@
 //! ```bash
 //! chain-spec-builder list-presets -r runtime.wasm
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::preset_names`][sp-genesis-builder-list] runtime function is called.
 //!
 //! ##### Generate chain spec using runtime provided genesis config preset.
@@ -74,7 +74,7 @@
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm named-preset "staging"
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] and [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime functions are called.
 //!
 //! ##### Generate raw storage chain spec using genesis config patch.
@@ -84,7 +84,7 @@
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate raw storage chain spec using full genesis config.
@@ -93,19 +93,19 @@
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
+//! 
 //! _Note_: [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate human readable chain spec using provided genesis config patch.
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
-//!
+//! 
 //! ##### Generate human readable chain spec using provided full genesis config.
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
+//! 
 //! ##### Extra tools.
 //! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`],
 //! [`UpdateCodeCmd`].
