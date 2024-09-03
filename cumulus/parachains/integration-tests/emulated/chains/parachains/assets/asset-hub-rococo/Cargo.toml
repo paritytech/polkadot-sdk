@@ -26,3 +26,6 @@ testnet-parachains-constants = { features = ["rococo"], workspace = true, defaul
 
 # Polkadot
 xcm = { workspace = true }
+
+# Bridges
+bp-bridge-hub-rococo = { workspace = true }

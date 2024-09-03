@@ -237,7 +237,6 @@ mod tests {
 				|params| {
 					let dir = PathBuf::from(net_config_dir.clone());
 					let typ = params.node_key_type;
-					let role = role.clone();
 					params.node_key(net_config_dir, role, is_dev).and_then(move |c| match c {
 						NodeKeyConfig::Ed25519(sc_network::config::Secret::File(ref f))
 							if typ == NodeKeyType::Ed25519 &&
