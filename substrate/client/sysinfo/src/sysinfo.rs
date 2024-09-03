@@ -664,22 +664,23 @@ pub fn benchmark_sr25519_verify(limit: ExecutionLimit) -> Throughput {
 /// boolean to specify if the node is an authority.
 pub fn gather_hwbench(scratch_directory: Option<&Path>, requirements: &Requirements) -> HwBench {
 	let cpu_hashrate_score = benchmark_cpu(DEFAULT_CPU_EXECUTION_LIMIT);
-	let parallel_cpu_hashrate_score = requirements
+	let (parallel_cpu_hashrate_score, parallel_cpu_cores) = requirements
 		.0
 		.iter()
 		.filter_map(|req| {
 			if let Metric::Blake2256Parallel { num_cores } = req.metric {
-				Some(benchmark_cpu_parallelism(DEFAULT_CPU_EXECUTION_LIMIT, num_cores))
+				Some((benchmark_cpu_parallelism(DEFAULT_CPU_EXECUTION_LIMIT, num_cores), num_cores))
 			} else {
 				None
 			}
 		})
 		.next()
-		.unwrap_or(cpu_hashrate_score);
+		.unwrap_or((cpu_hashrate_score, 1));
 	#[allow(unused_mut)]
 	let mut hwbench = HwBench {
 		cpu_hashrate_score,
 		parallel_cpu_hashrate_score,
+		parallel_cpu_cores,
 		memory_memcpy_score: benchmark_memory(DEFAULT_MEMORY_EXECUTION_LIMIT),
 		disk_sequential_write_score: None,
 		disk_random_write_score: None,
@@ -857,6 +858,7 @@ mod tests {
 		let hwbench = HwBench {
 			cpu_hashrate_score: Throughput::from_gibs(1.32),
 			parallel_cpu_hashrate_score: Throughput::from_gibs(1.32),
+			parallel_cpu_cores: 4,
 			memory_memcpy_score: Throughput::from_kibs(9342.432),
 			disk_sequential_write_score: Some(Throughput::from_kibs(4332.12)),
 			disk_random_write_score: None,
@@ -864,6 +866,6 @@ mod tests {
 
 		let serialized = serde_json::to_string(&hwbench).unwrap();
 		// Throughput from all of the benchmarks should be converted to MiBs.
-		assert_eq!(serialized, "{\"cpu_hashrate_score\":1351,\"parallel_cpu_hashrate_score\":1351,\"memory_memcpy_score\":9,\"disk_sequential_write_score\":4}");
+		assert_eq!(serialized, "{\"cpu_hashrate_score\":1351,\"parallel_cpu_hashrate_score\":1351,\"parallel_cpu_cores\":4,\"memory_memcpy_score\":9,\"disk_sequential_write_score\":4}");
 	}
 }

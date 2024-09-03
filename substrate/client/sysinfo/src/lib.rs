@@ -52,6 +52,8 @@ pub struct HwBench {
 	/// BLAKE2b-256 hash.
 	#[serde(serialize_with = "serialize_throughput")]
 	pub parallel_cpu_hashrate_score: Throughput,
+	/// The number of expected cores used for computing the parallel CPU speed.
+	pub parallel_cpu_cores: usize,
 	/// Memory bandwidth in MB/s, calculated by measuring the throughput of `memcpy`.
 	#[serde(serialize_with = "serialize_throughput")]
 	pub memory_memcpy_score: Throughput,
@@ -138,9 +140,10 @@ pub fn print_sysinfo(sysinfo: &sc_telemetry::SysInfo) {
 /// Prints out the results of the hardware benchmarks in the logs.
 pub fn print_hwbench(hwbench: &HwBench) {
 	log::info!(
-		"🏁 CPU single core score: {}, parallelism score: {}",
+		"🏁 CPU single core score: {}, parallelism score: {} with expected cores: {}",
 		hwbench.cpu_hashrate_score,
 		hwbench.parallel_cpu_hashrate_score,
+		hwbench.parallel_cpu_cores,
 	);
 	log::info!("🏁 Memory score: {}", hwbench.memory_memcpy_score);
 
