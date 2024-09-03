@@ -747,7 +747,6 @@ pub enum Instruction<Call> {
 	///
 	/// Errors: None.
 	SetAssetClaimer { location: Location },
-
 	/// Create some assets which are being held on behalf of the origin.
 	///
 	/// - `assets`: The assets which are to be claimed. This must match exactly with the assets
