@@ -30,3 +30,6 @@ sc-chain-spec = { features = ["clap"], workspace = true, default-features = true
 serde_json = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+
+[dev-dependencies]
+substrate-test-runtime = { workspace = true }
