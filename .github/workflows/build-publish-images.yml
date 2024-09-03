@@ -11,8 +11,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-env:  
-  BUILDAH_IMAGE: docker.io/paritytech/buildah:1.31
+env:
   COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
@@ -32,6 +31,7 @@ jobs:
       outputs:
         IMAGE: ${{ steps.set_image.outputs.IMAGE }}
         REF_NAME: ${{ steps.set_vars.outputs.REF_NAME }}
+        BUILDAH_IMAGE: ${{ steps.set_vars.outputs.BUILDAH_IMAGE }}
       steps:
         - name: Checkout
           uses: actions/checkout@v4
@@ -44,6 +44,7 @@ jobs:
         - id: set_vars
           run: |            
             echo "REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
+            echo "BUILDAH_IMAGE=docker.io/paritytech/buildah:1.31" >> $GITHUB_OUTPUT
 
 ### Build ########################
 
@@ -317,7 +318,7 @@ jobs:
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
-      image: ${{ env.BUILDAH_IMAGE }}
+      image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
       - uses: actions/download-artifact@v4
         with: 
@@ -338,7 +339,7 @@ jobs:
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
-      image: ${{ env.BUILDAH_IMAGE }}
+      image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
       - uses: actions/download-artifact@v4
         with: 
@@ -359,8 +360,8 @@ jobs:
     needs: [set-image, build-test-collators]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
-    container:
-      image: ${{ env.BUILDAH_IMAGE }}
+    container:      
+      image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
       - uses: actions/download-artifact@v4
         with: 
@@ -382,7 +383,7 @@ jobs:
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
-      image: ${{ env.BUILDAH_IMAGE }}
+      image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
       - uses: actions/download-artifact@v4
         with: 
@@ -404,7 +405,7 @@ jobs:
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
-      image: ${{ env.BUILDAH_IMAGE }}
+      image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
       - uses: actions/download-artifact@v4
         with: 
@@ -428,7 +429,7 @@ jobs:
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
-      image: ${{ env.BUILDAH_IMAGE }}
+      image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
       - uses: actions/download-artifact@v4
         with: 
@@ -458,7 +459,7 @@ jobs:
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
-      image: ${{ env.BUILDAH_IMAGE }}
+      image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
       - uses: actions/download-artifact@v4
         with: 
