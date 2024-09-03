@@ -59,7 +59,6 @@ pub mod weights;
 pub use weights::*;
 
 use frame_support::{
-	dispatch::RawOrigin,
 	pallet_prelude::*,
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -136,39 +135,6 @@ where
 	No,
 }
 
-pub struct EnsureRootOrSigned<T>(core::marker::PhantomData<T>);
-impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureRootOrSigned<T> {
-	type Success = (bool, Option<AccountIdOf<T>>);
-	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Root => Ok((true, None)),
-			RawOrigin::Signed(t) => Ok((false, Some(t))),
-			r => Err(T::RuntimeOrigin::from(r)),
-		})
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
-		Ok(RawOrigin::Root.into())
-	}
-}
-
-pub struct EnsureRootOnly<T>(core::marker::PhantomData<T>);
-impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureRootOnly<T> {
-	type Success = (bool, Option<AccountIdOf<T>>);
-	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Root => Ok((true, None)),
-			r => Err(T::RuntimeOrigin::from(r)),
-		})
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
-		Ok(RawOrigin::Root.into())
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use snowbridge_core::StaticLookup;
@@ -210,11 +176,6 @@ pub mod pallet {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
-
-		type RegisterTokenOrigin: EnsureOrigin<
-			Self::RuntimeOrigin,
-			Success = (bool, Option<AccountIdOf<Self>>),
-		>;
 	}
 
 	#[pallet::event]
@@ -657,15 +618,12 @@ pub mod pallet {
 			location: Box<VersionedLocation>,
 			metadata: AssetMetadata,
 		) -> DispatchResult {
-			let (is_sudo, who) = T::RegisterTokenOrigin::ensure_origin(origin)?;
+			ensure_root(origin)?;
 
 			let location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			let mut pays_fee = PaysFee::<T>::No;
-			if !is_sudo && who.is_some() {
-				pays_fee = PaysFee::<T>::Yes(who.unwrap());
-			}
+			let pays_fee = PaysFee::<T>::No;
 
 			Self::do_register_token(location, metadata, pays_fee)?;
 
