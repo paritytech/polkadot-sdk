@@ -610,7 +610,7 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be root
 		/// - `location`: Location of the asset
-		/// - `metadata`: Metadata(name,symbol,decimals) of the asset
+		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::register_token())]
 		pub fn register_token(
