@@ -58,7 +58,7 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn transfer(account_ptr: *const u8, value_ptr: *const u8) -> ReturnCode;
+		pub fn transfer(address_ptr: *const u8, value_ptr: *const u8) -> ReturnCode;
 		pub fn call(ptr: *const u8) -> ReturnCode;
 		pub fn delegate_call(
 			flags: u32,
@@ -74,7 +74,7 @@ mod sys {
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
-		pub fn code_hash(account_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
+		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn own_code_hash(out_ptr: *mut u8);
 		pub fn caller_is_origin() -> ReturnCode;
 		pub fn caller_is_root() -> ReturnCode;
@@ -194,7 +194,7 @@ fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
 
 impl HostFn for HostFnImpl {
 	fn instantiate(
-		code_hash: &[u8],
+		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit_limit: Option<&[u8]>,
@@ -302,7 +302,7 @@ impl HostFn for HostFnImpl {
 
 	fn delegate_call(
 		flags: CallFlags,
-		code_hash: &[u8],
+		code_hash: &[u8; 32],
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
@@ -406,7 +406,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn terminate(beneficiary: &[u8]) -> ! {
+	fn terminate(beneficiary: &[u8; 20]) -> ! {
 		unsafe { sys::terminate(beneficiary.as_ptr()) }
 		panic!("terminate does not return");
 	}
@@ -511,8 +511,8 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn is_contract(account_id: &[u8]) -> bool {
-		let ret_val = unsafe { sys::is_contract(account_id.as_ptr()) };
+	fn is_contract(address: &[u8; 20]) -> bool {
+		let ret_val = unsafe { sys::is_contract(address.as_ptr()) };
 		ret_val.into_bool()
 	}
 
@@ -521,7 +521,7 @@ impl HostFn for HostFnImpl {
 		ret_val.into_bool()
 	}
 
-	fn set_code_hash(code_hash: &[u8]) -> Result {
+	fn set_code_hash(code_hash: &[u8; 32]) -> Result {
 		let ret_val = unsafe { sys::set_code_hash(code_hash.as_ptr()) };
 		ret_val.into()
 	}
@@ -536,11 +536,11 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::own_code_hash(output.as_mut_ptr()) }
 	}
 
-	fn lock_delegate_dependency(code_hash: &[u8]) {
+	fn lock_delegate_dependency(code_hash: &[u8; 32]) {
 		unsafe { sys::lock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
-	fn unlock_delegate_dependency(code_hash: &[u8]) {
+	fn unlock_delegate_dependency(code_hash: &[u8; 32]) {
 		unsafe { sys::unlock_delegate_dependency(code_hash.as_ptr()) }
 	}
 

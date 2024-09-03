@@ -30,7 +30,7 @@ const ETH_ALICE: [u8; 20] = [1u8; 20];
 fn load_input(delegate_call: bool) {
 	input!(
 		action: u32,
-		code_hash: [u8; 32],
+		code_hash: &[u8; 32],
 	);
 
 	match action {

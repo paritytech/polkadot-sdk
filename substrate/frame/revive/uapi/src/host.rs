@@ -54,7 +54,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	fn lock_delegate_dependency(code_hash: &[u8]);
+	fn lock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Stores the *free* balance of the current account into the supplied buffer.
 	///
@@ -275,7 +275,7 @@ pub trait HostFn: private::Sealed {
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	fn delegate_call(
 		flags: CallFlags,
-		code_hash: &[u8],
+		code_hash: &[u8; 32],
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
@@ -399,7 +399,7 @@ pub trait HostFn: private::Sealed {
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	fn instantiate(
-		code_hash: &[u8],
+		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit: Option<&[u8]>,
@@ -414,13 +414,12 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address to check. Should be decodable as an `T::AccountId`. Traps
-	///   otherwise.
+	/// - `address`: The address to check
 	///
 	/// # Return
 	///
 	/// Returns `true` if the address belongs to a contract.
-	fn is_contract(account_id: &[u8]) -> bool;
+	fn is_contract(address: &[u8; 20]) -> bool;
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	/// The data is encoded as `T::Balance`.
@@ -456,7 +455,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	fn unlock_delegate_dependency(code_hash: &[u8]);
+	fn unlock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
 	///
@@ -504,7 +503,7 @@ pub trait HostFn: private::Sealed {
 	/// # Errors
 	///
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	fn set_code_hash(code_hash: &[u8]) -> Result;
+	fn set_code_hash(code_hash: &[u8; 32]) -> Result;
 
 	/// Set the value at the given key in the contract storage.
 	///
@@ -548,14 +547,13 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address of the account to transfer funds to. Should be decodable as an
-	///   `T::AccountId`. Traps otherwise.
+	/// - `address`: The address of the account to transfer funds to.
 	/// - `value`: The value to transfer. Should be decodable as a `T::Balance`. Traps otherwise.
 	///
 	/// # Errors
 	///
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	fn transfer(account_id: &[u8], value: &[u8]) -> Result;
+	fn transfer(address: &[u8], value: &[u8]) -> Result;
 
 	/// Remove the calling account and transfer remaining **free** balance.
 	///
@@ -565,15 +563,14 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `beneficiary`: The address of the beneficiary account, Should be decodable as an
-	/// `T::AccountId`.
+	/// - `beneficiary`: The address of the beneficiary account
 	///
 	/// # Traps
 	///
 	/// - The contract is live i.e is already on the call stack.
 	/// - Failed to send the balance to the beneficiary.
 	/// - The deletion queue is full.
-	fn terminate(beneficiary: &[u8]) -> !;
+	fn terminate(beneficiary: &[u8; 20]) -> !;
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	/// The data is encoded as `T::Balance`.

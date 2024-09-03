@@ -27,7 +27,7 @@ const VALUE: [u8; 8] = [0, 0, 1u8, 0, 0, 0, 0, 0];
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn deploy() {
-	input!(code_hash: [u8; 32],);
+	input!(code_hash: &[u8; 32],);
 
 	let input = [0u8; 0];
 	let mut address = [0u8; 20];

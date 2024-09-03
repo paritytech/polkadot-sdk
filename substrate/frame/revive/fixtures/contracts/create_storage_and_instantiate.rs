@@ -31,7 +31,7 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		input: [u8; 4],
-		code_hash: [u8; 32],
+		code_hash: &[u8; 32],
 		deposit_limit: [u8; 8],
 	);
 

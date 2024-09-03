@@ -28,7 +28,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(code_hash: [u8; 32],);
+	input!(code_hash: &[u8; 32],);
 
 	// The value to transfer on instantiation and calls. Chosen to be greater than existential
 	// deposit.
