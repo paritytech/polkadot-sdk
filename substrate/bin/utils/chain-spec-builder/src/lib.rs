@@ -153,7 +153,7 @@ pub enum ChainSpecBuilderCmd {
 	AddCodeSubstitute(AddCodeSubstituteCmd),
 }
 
-/// Create a new solo chain spec by interacting with the provided runtime wasm blob.
+/// Create a new chain spec by interacting with the provided runtime wasm blob.
 #[derive(Parser, Debug)]
 pub struct CreateCmd {
 	/// The name of chain.
