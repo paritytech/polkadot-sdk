@@ -40,7 +40,7 @@ jobs:
         - id: log
           run: |
             echo ${BRANCH_NAME}
-            exho ${COMMIT_SHA}
+            echo ${COMMIT_SHA}
         - id: set_vars
           run: |            
             echo "REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
