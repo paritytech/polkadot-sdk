@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Types for a simple merkle trie used for checking and generating proofs.
+//! Types for a compact base-16 merkle trie used for checking and generating proofs within the
+//! runtime.
 
 use crate::{Decode, DispatchError, Encode, MaxEncodedLen, TypeInfo};
 
@@ -165,28 +166,6 @@ where
 			.ok()?
 			.and_then(|raw| Value::decode(&mut &*raw).ok())
 	}
-
-	// /// Create the full verification data needed to prove all `keys` and their values in the
-	// trie. /// Returns `None` if the nodes within the current `MemoryDB` are insufficient to
-	// create a /// proof.
-	// pub fn create_proof(&self, keys: Vec<Key>) -> Option<RawStorageProof> {
-	// 	let mut recorder = Recorder::<LayoutV1<Hashing>>::new();
-
-	// 	{
-	// 		let trie =
-	// 			TrieDBBuilder::new(&self.db, &self.root).with_recorder(&mut recorder).build();
-
-	// 		keys.iter()
-	// 			.map(|key| {
-	// 				key.using_encoded(|k| {
-	// 					trie.get(k).ok()?.and_then(|raw| Value::decode(&mut &*raw).ok())
-	// 				})
-	// 			})
-	// 			.collect::<Option<Vec<_>>>()?;
-	// 	}
-
-	// 	Some(recorder.into_raw_storage_proof())
-	// }
 
 	/// Create the full verification data needed to prove all `keys` and their values in the trie.
 	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
