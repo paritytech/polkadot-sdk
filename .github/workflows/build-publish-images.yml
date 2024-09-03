@@ -110,7 +110,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
-          path: artifacts
+          path: artifacts.tar
           retention-days: 1
 
   #
