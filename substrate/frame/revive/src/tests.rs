@@ -26,7 +26,7 @@ use self::{
 };
 use crate::{
 	self as pallet_revive,
-	address::AddressMapper,
+	address::{create1, create2, AddressMapper},
 	chain_extension::{
 		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
 		RetVal, ReturnFlags,
@@ -772,6 +772,47 @@ mod run_tests {
 	}
 
 	#[test]
+	fn create1_address_from_extrinsic() {
+		let (wasm, code_hash) = compile_module("dummy").unwrap();
+
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			assert_ok!(Contracts::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				wasm.clone(),
+				deposit_limit::<Test>(),
+			));
+
+			assert_eq!(System::account_nonce(&ALICE), 0);
+
+			for nonce in 0..3 {
+				let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
+					.salt(None)
+					.build_and_unwrap_contract();
+				assert!(ContractInfoOf::<Test>::contains_key(&addr));
+				assert_eq!(
+					addr,
+					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce)
+				);
+			}
+			assert_eq!(System::account_nonce(&ALICE), 3);
+
+			for nonce in 3..6 {
+				let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm.clone()))
+					.salt(None)
+					.build_and_unwrap_contract();
+				assert!(ContractInfoOf::<Test>::contains_key(&addr));
+				assert_eq!(
+					addr,
+					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce)
+				);
+			}
+			assert_eq!(System::account_nonce(&ALICE), 6);
+		});
+	}
+
+	#[test]
 	fn deposit_event_max_value_limit() {
 		let (wasm, _code_hash) = compile_module("event_size").unwrap();
 
@@ -1023,7 +1064,7 @@ mod run_tests {
 					.value(100_000)
 					.build_and_unwrap_contract();
 
-			let callee_addr = crate::address::create2(
+			let callee_addr = create2(
 				&caller_addr,
 				&callee_wasm,
 				&[0, 1, 34, 51, 68, 85, 102, 119], // hard coded in wasm
@@ -1410,7 +1451,7 @@ mod run_tests {
 
 			// Check that the CHARLIE contract has been instantiated.
 			let salt = [47; 32]; // hard coded in fixture.
-			let addr_charlie = crate::address::create2(&addr_bob, &callee_wasm, &[], &salt);
+			let addr_charlie = create2(&addr_bob, &callee_wasm, &[], &salt);
 			get_contract(&addr_charlie);
 
 			// Call BOB, which calls CHARLIE, forcing CHARLIE to self-destruct.
@@ -1759,7 +1800,7 @@ mod run_tests {
 			for i in 0..3u8 {
 				let contract = builder::bare_instantiate(Code::Upload(code.clone()))
 					.value(min_balance * 100)
-					.salt([i; 32])
+					.salt(Some([i; 32]))
 					.build_and_unwrap_contract();
 
 				let info = get_contract(&contract.addr);
@@ -2000,7 +2041,7 @@ mod run_tests {
 			for i in 0..3u8 {
 				let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
 					.value(min_balance * 100)
-					.salt([i; 32])
+					.salt(Some([i; 32]))
 					.build_and_unwrap_contract();
 
 				let info = get_contract(&addr);
@@ -2042,19 +2083,19 @@ mod run_tests {
 			let Contract { addr: addr0, .. } =
 				builder::bare_instantiate(Code::Upload(wasm.clone()))
 					.value(min_balance * 100)
-					.salt([0; 32])
+					.salt(Some([0; 32]))
 					.build_and_unwrap_contract();
 			let Contract { addr: addr1, .. } =
 				builder::bare_instantiate(Code::Upload(wasm.clone()))
 					.value(min_balance * 100)
-					.salt([1; 32])
+					.salt(Some([1; 32]))
 					.build_and_unwrap_contract();
 			assert_refcount!(code_hash, 2);
 
 			// Sharing should also work with the usual instantiate call
 			let Contract { addr: addr2, .. } = builder::bare_instantiate(Code::Existing(code_hash))
 				.value(min_balance * 100)
-				.salt([2; 32])
+				.salt(Some([2; 32]))
 				.build_and_unwrap_contract();
 			assert_refcount!(code_hash, 3);
 
@@ -2241,7 +2282,7 @@ mod run_tests {
 			let Contract { addr: addr_caller, .. } =
 				builder::bare_instantiate(Code::Upload(caller_code))
 					.value(min_balance * 100)
-					.salt([0; 32])
+					.salt(Some([0; 32]))
 					.build_and_unwrap_contract();
 
 			// Call something trivial with a huge gas limit so that we can observe the effects
@@ -2279,13 +2320,13 @@ mod run_tests {
 			let Contract { addr: addr_caller, .. } =
 				builder::bare_instantiate(Code::Upload(caller_code))
 					.value(min_balance * 100)
-					.salt([0; 32])
+					.salt(Some([0; 32]))
 					.build_and_unwrap_contract();
 
 			let Contract { addr: addr_callee, .. } =
 				builder::bare_instantiate(Code::Upload(callee_code))
 					.value(min_balance * 100)
-					.salt([1; 32])
+					.salt(Some([1; 32]))
 					.build_and_unwrap_contract();
 
 			// Call pallet_revive call() dispatchable
