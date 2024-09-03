@@ -19,14 +19,18 @@ runs:
     # gcloud
     # https://github.com/paritytech/ci_cd/wiki/GitHub:-Push-Docker-image-to-GCP-Registry
     - name: "Set up Cloud SDK"
+      shell: bash
       uses: "google-github-actions/setup-gcloud@v2"
     - name: "gcloud info"
+      shell: bash
       run: "gcloud info"
     - name: "Auth in gcloud registry"
+      shell: bash
       run: "gcloud auth configure-docker europe-docker.pkg.dev --quiet"  
 
     # buildah
     - name: build
+      shell: bash
       env:
         BUILDAH_COMMAND: "buildah --storage-driver overlay2"
         ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.105"

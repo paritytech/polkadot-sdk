@@ -85,7 +85,7 @@ jobs:
           sha256sum polkadot | tee polkadot.sha256
           shasum -c polkadot.sha256
           cd ../
-          EXTRATAG="${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA::8}"
+          EXTRATAG="${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA}"
           echo "Polkadot version = ${VERSION} (EXTRATAG = ${EXTRATAG})"
           echo -n ${VERSION} > ./artifacts/VERSION
           echo -n ${EXTRATAG} > ./artifacts/EXTRATAG
@@ -187,7 +187,7 @@ jobs:
           mv ./target/testnet/adder-collator ./artifacts/.
           mv ./target/testnet/undying-collator ./artifacts/.
           echo -n "${{ needs.set-image.outputs.REF_NAME }}" > ./artifacts/VERSION
-          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
           echo "adder-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
@@ -221,7 +221,7 @@ jobs:
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
           echo -n "${{ needs.set-image.outputs.REF_NAME }}" > ./artifacts/VERSION
-          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA:0:8}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
           echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
 
@@ -229,7 +229,7 @@ jobs:
           mv ./target/testnet/adder-collator ./artifacts/.
           mv ./target/testnet/undying-collator ./artifacts/.
           echo -n "${{ needs.set-image.outputs.REF_NAME }}" > ./artifacts/VERSION
-          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
           echo "adder-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
