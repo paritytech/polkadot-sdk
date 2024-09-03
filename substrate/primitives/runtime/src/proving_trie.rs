@@ -46,8 +46,7 @@ pub enum TrieError {
 	/// Hash is not value.
 	InvalidHash,
 	/* From VerifyError */
-	/// The statement being verified contains multiple key-value pairs with the same key. The
-	/// parameter is the duplicated key.
+	/// The statement being verified contains multiple key-value pairs with the same key.
 	DuplicateKey,
 	/// The proof contains at least one extraneous node.
 	ExtraneousNode,
@@ -316,28 +315,39 @@ mod tests {
 		for i in 0..200u32 {
 			if i == 6 {
 				assert_eq!(
-					verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, Some(6u128)),
-					Ok(())
-				);
-				// Wrong value is invalid.
-				assert_eq!(
-					verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, Some(7u128)),
-					Err(DispatchError::Trie)
-				);
-			} else {
-				assert_eq!(
 					verify_single_value_proof::<BlakeTwo256, _, _>(
 						root,
 						&proof,
 						i,
 						Some(u128::from(i))
 					),
-					Err(DispatchError::Trie)
+					Ok(())
 				);
+				// Wrong value is invalid.
 				assert_eq!(
-					verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, i, None::<u128>),
-					Err(DispatchError::Trie)
+					verify_single_value_proof::<BlakeTwo256, _, _>(
+						root,
+						&proof,
+						i,
+						Some(u128::from(i + 1))
+					),
+					Err(TrieError::RootMismatch.into())
 				);
+			} else {
+				assert!(verify_single_value_proof::<BlakeTwo256, _, _>(
+					root,
+					&proof,
+					i,
+					Some(u128::from(i))
+				)
+				.is_err());
+				assert!(verify_single_value_proof::<BlakeTwo256, _, _>(
+					root,
+					&proof,
+					i,
+					None::<u128>
+				)
+				.is_err());
 			}
 		}
 	}
