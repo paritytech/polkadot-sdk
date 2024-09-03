@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725313043781,
+  "lastUpdate": 1725358366892,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -17154,6 +17154,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.169440223001171,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kian Paimani",
+            "username": "kianenigma",
+            "email": "5588131+kianenigma@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3c71db3efb7ed62dc0db950d3f090686803b10c5",
+          "message": "Remove noise from the template list (#5437)\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-09-03T08:27:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3c71db3efb7ed62dc0db950d3f090686803b10c5"
+        },
+        "date": 1725358337139,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63832.020000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 3.126909862410016,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.114481846062184,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 12.527678187579998,
             "unit": "seconds"
           }
         ]
