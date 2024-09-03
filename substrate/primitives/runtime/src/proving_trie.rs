@@ -229,7 +229,7 @@ where
 /// Verify the existence or non-existence of multiple `items` in a given trie root and proof.
 ///
 /// Proofs must be created with latest substrate trie format (`LayoutV1`).
-pub fn verify_proof<'a, Hashing, Key, Value>(
+pub fn verify_proof<Hashing, Key, Value>(
 	root: HashOf<Hashing>,
 	proof: &[Vec<u8>],
 	items: &[(Key, Option<Value>)],
