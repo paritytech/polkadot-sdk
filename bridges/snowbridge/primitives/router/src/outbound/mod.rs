@@ -318,6 +318,13 @@ where
 		}
 	}
 
+	/// Convert the xcm for Polkadot-native token from AH into the Command
+	/// To match transfers of Polkadot-native tokens, we expect an input of the form:
+	/// # ReserveAssetDeposited
+	/// # ClearOrigin
+	/// # BuyExecution
+	/// # DepositAsset
+	/// # SetTopic
 	fn send_native_tokens_message(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
 		use XcmConverterError::*;
 
