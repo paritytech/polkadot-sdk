@@ -17,7 +17,7 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TransactionByteFee, WeightToFee, XcmpQueue,
+	TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
 use frame_support::{
 	parameter_types,
@@ -212,10 +212,8 @@ impl xcm_executor::Config for XcmConfig {
 			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 		),
 	>;
-	type MessageExporter = (
-		crate::bridge_to_rococo_config::ToBridgeHubRococoHaulBlobExporter,
-		crate::bridge_to_ethereum_config::SnowbridgeExporter,
-	);
+	type MessageExporter =
+		(XcmOverBridgeHubRococo, crate::bridge_to_ethereum_config::SnowbridgeExporter);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
