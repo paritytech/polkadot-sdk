@@ -15,16 +15,21 @@
 
 //! Tests related to claiming assets trapped during XCM execution.
 
+<<<<<<< HEAD
 use emulated_integration_tests_common::accounts::{ALICE, BOB, CHARLIE};
 use emulated_integration_tests_common::impls::AccountId32;
 use crate::{
     imports::*,
 };
+=======
+use crate::imports::*;
+>>>>>>> 0290e0057fa ([WIP] set_asset_claimer e2e test)
 
 use frame_support::{
     dispatch::RawOrigin,
     sp_runtime::{traits::Dispatchable, DispatchResult},
 };
+<<<<<<< HEAD
 
 #[test]
 fn test_set_asset_claimer_within_a_chain() {
@@ -111,6 +116,52 @@ fn execute_test(
     PenpalA::execute_with(|| {
         assert!(call.dispatch(test.signed_origin).is_ok());
     });
+=======
+use emulated_integration_tests_common::test_chain_can_claim_assets;
+use xcm_executor::traits::DropAssets;
+use xcm_runtime_apis::{
+    dry_run::runtime_decl_for_dry_run_api::DryRunApiV1,
+    fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+};
+
+#[test]
+fn azs() {
+    let bob = Location::new(0, [AccountId32 { id: [2; 32], network: None }]);
+    let destination = PenpalA::sibling_location_of(PenpalB::para_id());
+    let sender = PenpalASender::get();
+    let beneficiary_id = PenpalBReceiver::get();
+    let amount_to_send = 1_000_000_000_000;
+    let assets: Assets = (Parent, amount_to_send).into();
+
+    // Fund accounts again.
+    PenpalA::mint_foreign_asset(
+        <PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+        Location::parent().clone(),
+        sender.clone(),
+        amount_to_send * 2,
+    );
+
+    let test_args = TestContext {
+        sender: PenpalASender::get(),     // Bob in PenpalB.
+        receiver: PenpalBReceiver::get(), // Alice.
+        args: TestArgs::new_para(
+            destination,
+            beneficiary_id.clone(),
+            amount_to_send,
+            assets,
+            None,
+            0,
+        ),
+    };
+    let mut test = ParaToParaThroughAHTest::new(test_args);
+    transfer_assets(test.clone(), bob.clone());
+    // let call = transfer_assets(test.clone(), bob.clone());
+
+
+    // test.set_assertion::<PenpalA>(sender_assertions);
+    // test.set_call(call);
+    // test.assert();
+>>>>>>> 0290e0057fa ([WIP] set_asset_claimer e2e test)
 }
 
 fn transfer_assets(
@@ -119,14 +170,25 @@ fn transfer_assets(
 ) -> <PenpalA as Chain>::RuntimeCall {
     type RuntimeCall = <PenpalA as Chain>::RuntimeCall;
 
+<<<<<<< HEAD
     let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
         .set_asset_claimer(claimer.clone())
         .withdraw_asset(test.args.assets.clone())
         .clear_origin()
+=======
+
+
+    let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
+        .clear_origin()
+        .set_asset_claimer(claimer.clone())
+        .withdraw_asset(test.args.assets.clone())
+        .pay_fees((Parent, 0))
+>>>>>>> 0290e0057fa ([WIP] set_asset_claimer e2e test)
         .build();
 
     RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
         message: bx!(VersionedXcm::from(local_xcm)),
+<<<<<<< HEAD
         max_weight: Weight::from_parts(4_000_000_000_000, 300_000),
     })
 }
@@ -147,3 +209,25 @@ fn claim_assets(
         max_weight: Weight::from_parts(4_000_000_000_000, 300_000),
     })
 }
+=======
+        max_weight: Weight::from_parts(3_000_000_000, 200_000),
+    })
+}
+
+fn sender_assertions(test: ParaToParaThroughAHTest) {
+    type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
+    // PenpalA::assert_xcm_pallet_attempted_complete(None);
+    assert_expected_events!(
+		PenpalA,
+		vec![
+			RuntimeEvent::ForeignAssets(
+				pallet_assets::Event::Burned { asset_id, owner, balance }
+			) => {
+				asset_id: *asset_id == Location::new(1, []),
+				owner: *owner == test.sender.account_id,
+				balance: *balance == test.args.amount,
+			},
+		]
+	);
+}
+>>>>>>> 0290e0057fa ([WIP] set_asset_claimer e2e test)
