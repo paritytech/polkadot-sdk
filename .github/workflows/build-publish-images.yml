@@ -76,10 +76,10 @@ jobs:
         uses: actions/checkout@v4
       - name: build
         run: |
-          time forklift cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
-          ROCOCO_EPOCH_DURATION=10 time ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
-          ROCOCO_EPOCH_DURATION=100 time ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-100/
-          ROCOCO_EPOCH_DURATION=600 time ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-600/
+          forklift cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+          ROCOCO_EPOCH_DURATION=10 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
+          ROCOCO_EPOCH_DURATION=100 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-100/
+          ROCOCO_EPOCH_DURATION=600 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-600/
           pwd
           ls -alR runtimes
       - name: pack artifacts
@@ -130,7 +130,7 @@ jobs:
       - name: build
         run: |
           echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
-          time forklift cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
+          forklift cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
           echo "___Packing the artifacts___"
           mkdir -p ./artifacts
           mv ./target/release/polkadot-parachain ./artifacts/.
@@ -164,7 +164,7 @@ jobs:
       - name: build
         run: |
           echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
-          time forklift cargo build --release --locked -p cumulus-test-service --bin test-parachain
+          forklift cargo build --release --locked -p cumulus-test-service --bin test-parachain
       - name: pack artifacts
         run: |
           echo "___Packing the artifacts___"
@@ -197,8 +197,8 @@ jobs:
         uses: actions/checkout@v4
       - name: build
         run: |
-          time forklift cargo build --locked --profile testnet -p test-parachain-adder-collator
-          time forklift cargo build --locked --profile testnet -p test-parachain-undying-collator
+          forklift cargo build --locked --profile testnet -p test-parachain-adder-collator
+          forklift cargo build --locked --profile testnet -p test-parachain-undying-collator
       - name: pack artifacts
         run: |
           mkdir -p ./artifacts
@@ -234,7 +234,7 @@ jobs:
         uses: actions/checkout@v4
       - name: build
         run: |
-          time forklift cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
+          forklift cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
       - name: pack artifacts
         run: |
           mkdir -p ./artifacts
@@ -275,7 +275,7 @@ jobs:
       - name: build
         run: |
           mkdir -p ./artifacts/substrate/
-          WASM_BUILD_NO_COLOR=1 time forklift cargo build --locked --release -p staging-node-cli
+          WASM_BUILD_NO_COLOR=1 forklift cargo build --locked --release -p staging-node-cli
           ls -la target/release/
       - name: pack artifacts
         run: |
@@ -314,7 +314,7 @@ jobs:
         uses: actions/checkout@v4
       - name: build
         run: |
-          time forklift cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
+          forklift cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
       - name: pack artifacts
         run: |
           mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
