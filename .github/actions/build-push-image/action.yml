@@ -19,7 +19,6 @@ runs:
     # gcloud
     # https://github.com/paritytech/ci_cd/wiki/GitHub:-Push-Docker-image-to-GCP-Registry
     - name: "Set up Cloud SDK"
-      shell: bash
       uses: "google-github-actions/setup-gcloud@v2"
     - name: "gcloud info"
       shell: bash

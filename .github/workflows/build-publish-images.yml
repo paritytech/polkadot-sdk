@@ -224,16 +224,6 @@ jobs:
           echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
           echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
-
-          mkdir -p ./artifacts
-          mv ./target/testnet/adder-collator ./artifacts/.
-          mv ./target/testnet/undying-collator ./artifacts/.
-          echo -n "${{ needs.set-image.outputs.REF_NAME }}" > ./artifacts/VERSION
-          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
-          echo "adder-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
-          echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
-          cp -r ./docker/* ./artifacts
-
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
