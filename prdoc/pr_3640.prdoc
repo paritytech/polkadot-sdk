@@ -6,4 +6,6 @@ doc:
       to better reflect the fact that it can only be used to generate the `ref_time` component of the weight.
       `RuntimeDbRefTime` is now a (deprecated) type alias for `RuntimeDbRefTime`.
 
-crates: [ name: sp-weights ]
+crates: 
+  - name: sp-weights 
+    bump: patch
