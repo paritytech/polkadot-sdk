@@ -33,7 +33,10 @@ mod tests;
 mod benchmarking;
 
 use frame_support::{
-	dispatch::DispatchResult, pallet_prelude::OptionQuery, traits::Get, transactional,
+	dispatch::{DispatchResult, PostDispatchInfo},
+	pallet_prelude::OptionQuery,
+	traits::Get,
+	transactional,
 };
 use frame_system::ensure_signed;
 use snowbridge_beacon_primitives::{
@@ -82,6 +85,9 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		#[pallet::constant]
 		type ForkVersions: Get<ForkVersions>;
+		/// Minimum gap between finalized headers for an update to be free.
+		#[pallet::constant]
+		type FreeHeadersInterval: Get<u32>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -204,11 +210,10 @@ pub mod pallet {
 		#[transactional]
 		/// Submits a new finalized beacon header update. The update may contain the next
 		/// sync committee.
-		pub fn submit(origin: OriginFor<T>, update: Box<Update>) -> DispatchResult {
+		pub fn submit(origin: OriginFor<T>, update: Box<Update>) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
-			Self::process_update(&update)?;
-			Ok(())
+			Self::process_update(&update)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.
@@ -280,10 +285,9 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub(crate) fn process_update(update: &Update) -> DispatchResult {
+		pub(crate) fn process_update(update: &Update) -> DispatchResultWithPostInfo {
 			Self::verify_update(update)?;
-			Self::apply_update(update)?;
-			Ok(())
+			Self::apply_update(update)
 		}
 
 		/// References and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update>
@@ -432,8 +436,9 @@ pub mod pallet {
 		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 		/// Applies a finalized beacon header update to the beacon client. If a next sync committee
 		/// is present in the update, verify the sync committee by converting it to a
-		/// SyncCommitteePrepared type. Stores the provided finalized header.
-		fn apply_update(update: &Update) -> DispatchResult {
+		/// SyncCommitteePrepared type. Stores the provided finalized header. Updates are free
+		/// if the certain conditions specified in `check_refundable` are met.
+		fn apply_update(update: &Update) -> DispatchResultWithPostInfo {
 			let latest_finalized_state =
 				FinalizedBeaconState::<T>::get(LatestFinalizedBlockRoot::<T>::get())
 					.ok_or(Error::<T>::NotBootstrapped)?;
@@ -465,11 +470,17 @@ pub mod pallet {
 				});
 			};
 
+			let pays_fee = Self::check_refundable(update, latest_finalized_state.slot);
+			let actual_weight = match update.next_sync_committee_update {
+				None => T::WeightInfo::submit(),
+				Some(_) => T::WeightInfo::submit_with_sync_committee(),
+			};
+
 			if update.finalized_header.slot > latest_finalized_state.slot {
 				Self::store_finalized_header(update.finalized_header, update.block_roots_root)?;
 			}
 
-			Ok(())
+			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
 
 		/// Computes the signing root for a given beacon header and domain. The hash tree root
@@ -634,11 +645,31 @@ pub mod pallet {
 				config::SLOTS_PER_EPOCH as u64,
 			));
 			let domain_type = config::DOMAIN_SYNC_COMMITTEE.to_vec();
-			// Domains are used for for seeds, for signatures, and for selecting aggregators.
+			// Domains are used for seeds, for signatures, and for selecting aggregators.
 			let domain = Self::compute_domain(domain_type, fork_version, validators_root)?;
 			// Hash tree root of SigningData - object root + domain
 			let signing_root = Self::compute_signing_root(header, domain)?;
 			Ok(signing_root)
+		}
+
+		/// Updates are free if the update is successful and the interval between the latest
+		/// finalized header in storage and the newly imported header is large enough. All
+		/// successful sync committee updates are free.
+		pub(super) fn check_refundable(update: &Update, latest_slot: u64) -> Pays {
+			// If the sync committee was successfully updated, the update may be free.
+			if update.next_sync_committee_update.is_some() {
+				return Pays::No;
+			}
+
+			// If the latest finalized header is larger than the minimum slot interval, the header
+			// import transaction is free.
+			if update.finalized_header.slot >=
+				latest_slot.saturating_add(T::FreeHeadersInterval::get() as u64)
+			{
+				return Pays::No;
+			}
+
+			Pays::Yes
 		}
 	}
 }
