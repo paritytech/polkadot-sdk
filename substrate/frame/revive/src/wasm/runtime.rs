@@ -328,7 +328,7 @@ pub enum RuntimeCosts {
 	CallTransferSurcharge,
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
-	/// Weight of calling `seal_instantiate` for the given input length and salt.
+	/// Weight of calling `seal_instantiate` for the given input lenth.
 	Instantiate { input_data_len: u32 },
 	/// Weight of calling `seal_hash_sha_256` for the given input size.
 	HashSha256(u32),
@@ -1045,10 +1045,21 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let value: BalanceOf<<E as Ext>::T> = memory.read_as(value_ptr)?;
 		let code_hash: H256 = memory.read_as(code_hash_ptr)?;
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
-		let mut salt = [0u8; 32];
-		memory.read_into_buf(salt_ptr, salt.as_mut_slice())?;
-		let instantiate_outcome =
-			self.ext.instantiate(weight, deposit_limit, code_hash, value, input_data, &salt);
+		let salt = if salt_ptr == SENTINEL {
+			None
+		} else {
+			let mut salt = [0u8; 32];
+			memory.read_into_buf(salt_ptr, salt.as_mut_slice())?;
+			Some(salt)
+		};
+		let instantiate_outcome = self.ext.instantiate(
+			weight,
+			deposit_limit,
+			code_hash,
+			value,
+			input_data,
+			salt.as_ref(),
+		);
 		if let Ok((address, output)) = &instantiate_outcome {
 			if !output.flags.contains(ReturnFlags::REVERT) {
 				self.write_fixed_sandbox_output(

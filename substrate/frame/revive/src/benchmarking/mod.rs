@@ -94,7 +94,7 @@ where
 		data: Vec<u8>,
 	) -> Result<Contract<T>, &'static str> {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let salt = [0xffu8; 32];
+		let salt = Some([0xffu8; 32]);
 
 		let outcome = Contracts::<T>::bare_instantiate(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -361,7 +361,7 @@ mod benchmarks {
 		let account_id = T::AddressMapper::to_account_id_contract(&addr);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
-		_(origin, value, Weight::MAX, storage_deposit, code, input, salt);
+		_(origin, value, Weight::MAX, storage_deposit, code, input, Some(salt));
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
@@ -377,7 +377,7 @@ mod benchmarks {
 	}
 
 	// `i`: Size of the input in bytes.
-	// `s`: Size of the salt in bytes.
+	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate(i: Linear<0, { limits::MEMORY_BYTES }>) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
@@ -402,7 +402,7 @@ mod benchmarks {
 			storage_deposit,
 			hash,
 			input,
-			salt,
+			Some(salt),
 		);
 
 		let deposit =

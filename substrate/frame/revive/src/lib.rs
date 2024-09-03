@@ -833,7 +833,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			code_hash: sp_core::H256,
 			data: Vec<u8>,
-			salt: [u8; 32],
+			salt: Option<[u8; 32]>,
 		) -> DispatchResultWithPostInfo {
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
@@ -874,7 +874,9 @@ pub mod pallet {
 		///   from the caller to pay for the storage consumed.
 		/// * `code`: The contract code to deploy in raw bytes.
 		/// * `data`: The input data to pass to the contract constructor.
-		/// * `salt`: Used for the address derivation. See [`crate::address::create2`].
+		/// * `salt`: Used for the address derivation. If `Some` is supplied then `CREATE2`
+		/// 	semantics are used. If `None` then `CRATE1` is used.
+		///
 		///
 		/// Instantiation is executed as follows:
 		///
@@ -896,7 +898,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
 			data: Vec<u8>,
-			salt: [u8; 32],
+			salt: Option<[u8; 32]>,
 		) -> DispatchResultWithPostInfo {
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
@@ -1120,7 +1122,7 @@ impl<T: Config> Pallet<T> {
 		mut storage_deposit_limit: BalanceOf<T>,
 		code: Code,
 		data: Vec<u8>,
-		salt: [u8; 32],
+		salt: Option<[u8; 32]>,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
 	) -> ContractInstantiateResult<BalanceOf<T>, EventRecordOf<T>> {
@@ -1156,7 +1158,7 @@ impl<T: Config> Pallet<T> {
 				&mut storage_meter,
 				value,
 				data,
-				&salt,
+				salt.as_ref(),
 				debug_message.as_mut(),
 			);
 			storage_deposit = storage_meter
@@ -1296,7 +1298,7 @@ sp_api::decl_runtime_apis! {
 			storage_deposit_limit: Option<Balance>,
 			code: Code,
 			data: Vec<u8>,
-			salt: [u8; 32],
+			salt: Option<[u8; 32]>,
 		) -> ContractInstantiateResult<Balance, EventRecord>;
 
 		/// Upload new code without instantiating a contract from it.

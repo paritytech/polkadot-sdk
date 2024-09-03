@@ -3017,7 +3017,7 @@ impl_runtime_apis! {
 			storage_deposit_limit: Option<Balance>,
 			code: pallet_revive::Code,
 			data: Vec<u8>,
-			salt: [u8; 32],
+			salt: Option<[u8; 32]>,
 		) -> pallet_revive::ContractInstantiateResult<Balance, EventRecord>
 		{
 			Revive::bare_instantiate(
