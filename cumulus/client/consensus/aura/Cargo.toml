@@ -54,3 +54,7 @@ polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
+
+[features]
+# Allows collator to use full PoV size for block building
+full-pov-size = []
