@@ -1,0 +1,136 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [ opened, synchronize, reopened, ready_for_review ]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  set-image:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+  build:
+    timeout-minutes: 80
+    needs: [ set-image ]
+    runs-on: arc-runners-polkadot-sdk-benchmark
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    strategy:
+      fail-fast: false
+      matrix:
+        features: [
+          { name: "polkadot-availability-recovery", bench: "availability-recovery-regression-bench" },
+          { name: "polkadot-availability-distribution", bench: "availability-distribution-regression-bench" },
+          { name: "polkadot-node-core-approval-voting", bench: "approval-voting-regression-bench" },
+          { name: "polkadot-statement-distribution", bench: "statement-distribution-regression-bench" }
+        ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Rust
+        run: |
+          rustup show
+          rustup +nightly show
+
+      - name: Run Benchmarks
+        id: run-benchmarks
+        run: |
+          forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
+          ls -lsa ./charts
+          mkdir ./artifacts
+          cp ./charts/${{ matrix.features.bench }}.json ./artifacts/${{ matrix.features.bench }}.json
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4.3.6
+        with:
+          name: ${{matrix.features.bench}}
+          path: ./artifacts
+
+  publish-benchmarks:
+    timeout-minutes: 60
+    needs: [ build ]
+    if: github.ref == 'refs/heads/master'
+    environment: subsystem-benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          path: ./artifacts
+
+      - name: Setup git
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          ls -lsR ./artifacts 
+
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
+          private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
+
+      - name: Publish ${{ env.BENCH_NAME }}
+        uses: benchmark-action/github-action-benchmark@v1
+        env:
+          BENCH_NAME: availability-recovery-regression-bench
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH_NAME }}
+          output-file-path: ./artifacts/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+          benchmark-data-dir-path: ./artifacts/${{ env.BENCH_NAME }}
+          github-token: ${{ steps.app-token.outputs.token }}
+
+      - name: Publish ${{ env.BENCH_NAME }}
+        uses: benchmark-action/github-action-benchmark@v1
+        env:
+          BENCH_NAME: availability-distribution-regression-bench
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH_NAME }}
+          output-file-path: ./artifacts/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+          benchmark-data-dir-path: ./artifacts/${{ env.BENCH_NAME }}
+          github-token: ${{ steps.app-token.outputs.token }}
+
+      - name: Publish ${{ env.BENCH_NAME }}
+        uses: benchmark-action/github-action-benchmark@v1
+        env:
+          BENCH_NAME: approval-voting-regression-bench
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH_NAME }}
+          output-file-path: ./artifacts/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+          benchmark-data-dir-path: ./artifacts/${{ env.BENCH_NAME }}
+          github-token: ${{ steps.app-token.outputs.token }}
+
+      - name: Publish ${{ env.BENCH_NAME }}
+        uses: benchmark-action/github-action-benchmark@v1
+        env:
+          BENCH_NAME: statement-distribution-regression-bench
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH_NAME }}
+          output-file-path: ./artifacts/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+          benchmark-data-dir-path: ./artifacts/${{ env.BENCH_NAME }}
+          github-token: ${{ steps.app-token.outputs.token }}

@@ -37,6 +37,7 @@ mod imports {
 	pub use emulated_integration_tests_common::{
 		accounts::DUMMY_EMPTY,
 		get_account_id_from_seed, test_parachain_is_trusted_teleporter,
+		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
 			TestArgs, TestContext, TestExt,
@@ -65,6 +66,7 @@ mod imports {
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
 				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
 				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 			PenpalBParaPallet as PenpalBPallet, ED as PENPAL_ED,
@@ -91,7 +93,6 @@ mod imports {
 	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
 
-	pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
 	pub type RelayToParaTest = Test<Rococo, PenpalA>;
 	pub type ParaToRelayTest = Test<PenpalA, Rococo>;
 	pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
