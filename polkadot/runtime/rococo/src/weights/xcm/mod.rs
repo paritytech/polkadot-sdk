@@ -271,7 +271,7 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 	}
 
 	fn set_asset_claimer(location: &Location) -> Weight {
-		todo!()
+		XcmGeneric::<Runtime>::set_asset_claimer()
 	}
 }
 
