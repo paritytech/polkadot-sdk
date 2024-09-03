@@ -137,7 +137,7 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime 
 	type DestinationVersion =
 		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubWestendLocation>;
 
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
 	// Only allow calls from relay chains and sibling parachains to directly open the bridge.
 	type OpenBridgeOrigin = EnsureXcm<ParentRelayOrSiblingParachains>;
 	// Converter aligned with `OpenBridgeOrigin`.

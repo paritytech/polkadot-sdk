@@ -139,7 +139,7 @@ impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime 
 	type DestinationVersion =
 		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, RococoBulletinGlobalConsensusNetworkLocation>;
 
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
 	// Only allow calls from sibling People parachain to directly open the bridge.
 	type OpenBridgeOrigin = EnsureXcm<Equals<PeopleRococoLocation>>;
 	// Converter aligned with `OpenBridgeOrigin`.
