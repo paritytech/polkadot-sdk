@@ -128,7 +128,6 @@ pub extern "C" fn call() {
 
 	// Call the contract successfully.
 	let mut output = [0u8; 4];
-
 	api::call(
 		uapi::CallFlags::empty(),
 		&callee,
