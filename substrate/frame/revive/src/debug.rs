@@ -64,7 +64,7 @@ impl<T: Config> Tracing<T> for () {
 	type CallSpan = ();
 
 	fn new_call_span(contract_address: &H160, entry_point: ExportedFunction, input_data: &[u8]) {
-		log::trace!(target: LOG_TARGET, "call {entry_point:?} account: {contract_address:?}, input_data: {input_data:?}")
+		log::trace!(target: LOG_TARGET, "call {entry_point:?} address: {contract_address:?}, input_data: {input_data:?}")
 	}
 }
 
