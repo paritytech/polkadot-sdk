@@ -260,9 +260,20 @@ where
 			if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 				tracing::info!(
 					target: crate::LOG_TARGET,
-					"Compressed PoV size: {}kb",
+					"Compressed PoV size: {}kb (max: {:?})",
 					pov.block_data.0.len() as f64 / 1024f64,
+					max_pov_size as f64 / 1024f64
 				);
+
+				if pov.block_data.0.len() > max_pov_size {
+					tracing::error!(
+						target: crate::LOG_TARGET,
+						"\n\n ⚠️ ⚠️  PoV COMPRESSED OVER LIMIT ({:?}kb > {:?}kb)\n",
+						pov.block_data.0.len() as f64 / 1024f64,
+						max_pov_size as f64 / 1024f64
+					);
+					panic!("chain bricked due to PoV limits");
+				}
 			}
 
 			Ok(Some((collation, block_data, hash)))

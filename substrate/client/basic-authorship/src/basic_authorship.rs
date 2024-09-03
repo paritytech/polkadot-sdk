@@ -206,7 +206,7 @@ where
 		let parent_hash = parent_header.hash();
 
 		info!(
-			"🙌 Starting consensus session on top of parent {:?} (#{})",
+			"\n\n🙌 Starting consensus session on top of parent {:?} (#{})",
 			parent_hash,
 			parent_header.number()
 		);
@@ -577,6 +577,7 @@ where
 			)
 		};
 
+		info!("\nruntime logs ^^ ------------------------------------\n");
 		info!(
 			"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; {extrinsics_summary}",
 			block.header().number(),
