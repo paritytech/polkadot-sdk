@@ -65,7 +65,7 @@ const UNBALANCED_TRIE_LAYERS: u32 = 20;
 struct Contract<T: Config> {
 	caller: T::AccountId,
 	account_id: T::AccountId,
-	addr: AccountIdLookupOf<T>,
+	addr: T::AccountId,
 }
 
 impl<T> Contract<T>
@@ -74,14 +74,14 @@ where
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 {
 	/// Create new contract and use a default account id as instantiator.
-	fn new(module: WasmModule<T>, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
+	fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
 		Self::with_index(0, module, data)
 	}
 
 	/// Create new contract and use an account id derived from the supplied index as instantiator.
 	fn with_index(
 		index: u32,
-		module: WasmModule<T>,
+		module: WasmModule,
 		data: Vec<u8>,
 	) -> Result<Contract<T>, &'static str> {
 		Self::with_caller(account("instantiator", index, 0), module, data)
@@ -90,11 +90,11 @@ where
 	/// Create new contract and use the supplied `caller` as instantiator.
 	fn with_caller(
 		caller: T::AccountId,
-		module: WasmModule<T>,
+		module: WasmModule,
 		data: Vec<u8>,
 	) -> Result<Contract<T>, &'static str> {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let salt = vec![0xff];
+		let salt = Some([0xffu8; 32]);
 
 		let outcome = Contracts::<T>::bare_instantiate(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -108,20 +108,17 @@ where
 			CollectEvents::Skip,
 		);
 
-		let addr = outcome.result?.account_id;
-		let result = Contract { caller, account_id: addr.clone(), addr: T::Lookup::unlookup(addr) };
+		let address = outcome.result?.addr;
+		let account_id = T::AddressMapper::to_account_id_contract(&address);
+		let result = Contract { caller, account_id: account_id.clone(), addr: account_id };
 
-		ContractInfoOf::<T>::insert(&result.account_id, result.info()?);
+		ContractInfoOf::<T>::insert(&address, result.info()?);
 
 		Ok(result)
 	}
 
 	/// Create a new contract with the supplied storage item count and size each.
-	fn with_storage(
-		code: WasmModule<T>,
-		stor_num: u32,
-		stor_size: u32,
-	) -> Result<Self, &'static str> {
+	fn with_storage(code: WasmModule, stor_num: u32, stor_size: u32) -> Result<Self, &'static str> {
 		let contract = Contract::<T>::new(code, vec![])?;
 		let storage_items = (0..stor_num)
 			.map(|i| {
@@ -143,12 +140,12 @@ where
 			info.write(&Key::Fix(item.0), Some(item.1.clone()), None, false)
 				.map_err(|_| "Failed to write storage to restoration dest")?;
 		}
-		<ContractInfoOf<T>>::insert(&self.account_id, info);
+		<ContractInfoOf<T>>::insert(T::AddressMapper::to_address(&self.account_id), info);
 		Ok(())
 	}
 
 	/// Create a new contract with the specified unbalanced storage trie.
-	fn with_unbalanced_storage_trie(code: WasmModule<T>, key: &[u8]) -> Result<Self, &'static str> {
+	fn with_unbalanced_storage_trie(code: WasmModule, key: &[u8]) -> Result<Self, &'static str> {
 		if (key.len() as u32) < (UNBALANCED_TRIE_LAYERS + 1) / 2 {
 			return Err("Key size too small to create the specified trie");
 		}
@@ -179,7 +176,8 @@ where
 
 	/// Get the `ContractInfo` of the `addr` or an error if it no longer exists.
 	fn address_info(addr: &T::AccountId) -> Result<ContractInfo<T>, &'static str> {
-		ContractInfoOf::<T>::get(addr).ok_or("Expected contract to exist at this point.")
+		ContractInfoOf::<T>::get(T::AddressMapper::to_address(addr))
+			.ok_or("Expected contract to exist at this point.")
 	}
 
 	/// Get the `ContractInfo` of this contract or an error if it no longer exists.
@@ -193,12 +191,12 @@ where
 	}
 
 	/// Returns `true` iff all storage entries related to code storage exist.
-	fn code_exists(hash: &CodeHash<T>) -> bool {
+	fn code_exists(hash: &sp_core::H256) -> bool {
 		<PristineCode<T>>::contains_key(hash) && <CodeInfoOf<T>>::contains_key(&hash)
 	}
 
 	/// Returns `true` iff no storage entry related to code storage exist.
-	fn code_removed(hash: &CodeHash<T>) -> bool {
+	fn code_removed(hash: &sp_core::H256) -> bool {
 		!<PristineCode<T>>::contains_key(hash) && !<CodeInfoOf<T>>::contains_key(&hash)
 	}
 }
@@ -328,7 +326,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
-		let callee = instance.addr;
+		let callee = T::AddressMapper::to_address(&instance.addr);
 		let storage_deposit = default_deposit_limit::<T>();
 
 		#[extrinsic_call]
@@ -346,27 +344,27 @@ mod benchmarks {
 
 	// `c`: Size of the code in bytes.
 	// `i`: Size of the input in bytes.
-	// `s`: Size of the salt in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
 		c: Linear<0, { T::MaxCodeLen::get() }>,
 		i: Linear<0, { limits::MEMORY_BYTES }>,
-		s: Linear<0, { limits::MEMORY_BYTES }>,
 	) {
 		let input = vec![42u8; i as usize];
-		let salt = vec![42u8; s as usize];
+		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c);
+		let WasmModule { code, .. } = WasmModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
-		let addr = Contracts::<T>::contract_address(&caller, &hash, &input, &salt);
+		let deployer = T::AddressMapper::to_address(&caller);
+		let addr = crate::address::create2(&deployer, &code, &input, &salt);
+		let account_id = T::AddressMapper::to_account_id_contract(&addr);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
-		_(origin, value, Weight::MAX, storage_deposit, code, input, salt);
+		_(origin, value, Weight::MAX, storage_deposit, code, input, Some(salt));
 
 		let deposit =
-			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &addr);
+			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
 		// uploading the code reserves some balance in the callers account
 		let code_deposit =
 			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
@@ -375,27 +373,26 @@ mod benchmarks {
 			caller_funding::<T>() - value - deposit - code_deposit - Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
-		assert_eq!(T::Currency::balance(&addr), value + Pallet::<T>::min_balance());
+		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
 	}
 
 	// `i`: Size of the input in bytes.
-	// `s`: Size of the salt in bytes.
+	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn instantiate(
-		i: Linear<0, { limits::MEMORY_BYTES }>,
-		s: Linear<0, { limits::MEMORY_BYTES }>,
-	) -> Result<(), BenchmarkError> {
+	fn instantiate(i: Linear<0, { limits::MEMORY_BYTES }>) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
-		let salt = vec![42u8; s as usize];
+		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		let WasmModule { code, .. } = WasmModule::<T>::dummy();
+		let WasmModule { code, .. } = WasmModule::dummy();
 		let storage_deposit = default_deposit_limit::<T>();
+		let deployer = T::AddressMapper::to_address(&caller);
+		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let hash =
 			Contracts::<T>::bare_upload_code(origin.into(), code, storage_deposit)?.code_hash;
-		let addr = Contracts::<T>::contract_address(&caller, &hash, &input, &salt);
+		let account_id = T::AddressMapper::to_account_id_contract(&addr);
 
 		#[extrinsic_call]
 		_(
@@ -405,20 +402,20 @@ mod benchmarks {
 			storage_deposit,
 			hash,
 			input,
-			salt,
+			Some(salt),
 		);
 
 		let deposit =
-			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &addr);
+			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
 		let code_deposit =
-			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
+			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &account_id);
 		// value was removed from the caller
 		assert_eq!(
-			T::Currency::balance(&caller),
+			T::Currency::total_balance(&caller),
 			caller_funding::<T>() - value - deposit - code_deposit - Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
-		assert_eq!(T::Currency::balance(&addr), value + Pallet::<T>::min_balance());
+		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
 
 		Ok(())
 	}
@@ -437,7 +434,7 @@ mod benchmarks {
 			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::dummy(), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
-		let callee = instance.addr.clone();
+		let callee = T::AddressMapper::to_address(&instance.addr);
 		let before = T::Currency::balance(&instance.account_id);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
@@ -470,7 +467,7 @@ mod benchmarks {
 	fn upload_code(c: Linear<0, { T::MaxCodeLen::get() }>) {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c);
+		let WasmModule { code, hash, .. } = WasmModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
@@ -487,7 +484,7 @@ mod benchmarks {
 	fn remove_code() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let WasmModule { code, hash, .. } = WasmModule::<T>::dummy();
+		let WasmModule { code, hash, .. } = WasmModule::dummy();
 		let origin = RawOrigin::Signed(caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		let uploaded =
@@ -508,12 +505,12 @@ mod benchmarks {
 		let instance =
 			<Contract<T>>::with_caller(whitelisted_caller(), WasmModule::dummy(), vec![])?;
 		// we just add some bytes so that the code hash is different
-		let WasmModule { code, .. } = <WasmModule<T>>::dummy_unique(128);
+		let WasmModule { code, .. } = WasmModule::dummy_unique(128);
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		let hash =
 			<Contracts<T>>::bare_upload_code(origin.into(), code, storage_deposit)?.code_hash;
-		let callee = instance.addr.clone();
+		let callee = T::AddressMapper::to_address(&instance.addr);
 		assert_ne!(instance.info()?.code_hash, hash);
 		#[extrinsic_call]
 		_(RawOrigin::Root, callee, hash);
@@ -534,7 +531,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_caller() {
-		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len() as u32;
+		let len = H160::len_bytes();
 		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 
 		let result;
@@ -545,8 +542,8 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(
-			&<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().caller().account_id().unwrap()
+			<H160 as Decode>::decode(&mut &memory[4..]).unwrap(),
+			T::AddressMapper::to_address(&runtime.ext().caller().account_id().unwrap())
 		);
 	}
 
@@ -569,7 +566,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_code_hash() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
-		let len = <CodeHash<T> as MaxEncodedLen>::max_encoded_len() as u32;
+		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
 		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], contract.account_id.encode(), ]);
 
 		let result;
@@ -580,14 +577,14 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(
-			<CodeHash<T> as Decode>::decode(&mut &memory[4..]).unwrap(),
+			<sp_core::H256 as Decode>::decode(&mut &memory[4..]).unwrap(),
 			contract.info().unwrap().code_hash
 		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_own_code_hash() {
-		let len = <CodeHash<T> as MaxEncodedLen>::max_encoded_len() as u32;
+		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
 		build_runtime!(runtime, contract, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 		let result;
 		#[block]
@@ -597,7 +594,7 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(
-			<CodeHash<T> as Decode>::decode(&mut &memory[4..]).unwrap(),
+			<sp_core::H256 as Decode>::decode(&mut &memory[4..]).unwrap(),
 			contract.info().unwrap().code_hash
 		);
 	}
@@ -631,7 +628,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_address() {
-		let len = <AccountIdOf<T> as MaxEncodedLen>::max_encoded_len() as u32;
+		let len = H160::len_bytes();
 		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
 
 		let result;
@@ -640,10 +637,7 @@ mod benchmarks {
 			result = runtime.bench_address(memory.as_mut_slice(), 4, 0);
 		}
 		assert_ok!(result);
-		assert_eq!(
-			&<T::AccountId as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().address()
-		);
+		assert_eq!(<H160 as Decode>::decode(&mut &memory[4..]).unwrap(), runtime.ext().address());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -809,7 +803,7 @@ mod benchmarks {
 		build_runtime!(runtime, memory: [beneficiary.encode(),]);
 
 		(0..n).for_each(|i| {
-			let new_code = WasmModule::<T>::dummy_unique(65 + i);
+			let new_code = WasmModule::dummy_unique(65 + i);
 			Contracts::<T>::bare_upload_code(origin.clone().into(), new_code.code, storage_deposit)
 				.unwrap();
 			runtime.ext().lock_delegate_dependency(new_code.hash).unwrap();
@@ -1534,12 +1528,9 @@ mod benchmarks {
 
 	// t: value to transfer
 	// i: size of input in bytes
-	// s: size of salt in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_instantiate(
-		i: Linear<0, { limits::MEMORY_BYTES }>,
-		s: Linear<0, { limits::MEMORY_BYTES }>,
-	) -> Result<(), BenchmarkError> {
+	fn seal_instantiate(i: Linear<0, { limits::MEMORY_BYTES }>) -> Result<(), BenchmarkError> {
+		let code = WasmModule::dummy();
 		let hash = Contract::<T>::with_index(1, WasmModule::dummy(), vec![])?.info()?.code_hash;
 		let hash_bytes = hash.encode();
 		let hash_len = hash_bytes.len() as u32;
@@ -1561,8 +1552,10 @@ mod benchmarks {
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 
 		let input = vec![42u8; i as _];
-		let salt = vec![42u8; s as _];
-		let addr = Contracts::<T>::contract_address(&account_id, &hash, &input, &salt);
+		let salt = [42u8; 32];
+		let deployer = T::AddressMapper::to_address(&account_id);
+		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
+		let account_id = T::AddressMapper::to_account_id_contract(&addr);
 		let mut memory = memory!(hash_bytes, deposit_bytes, value_bytes, input, salt,);
 
 		let mut offset = {
@@ -1592,13 +1585,13 @@ mod benchmarks {
 				SENTINEL,            // output_ptr
 				0,                   // output_len_ptr
 				offset(i),           // salt_ptr
-				s,                   // salt_len
+				32,                  // salt_len
 			);
 		}
 
 		assert_ok!(result);
 		assert!(ContractInfoOf::<T>::get(&addr).is_some());
-		assert_eq!(T::Currency::balance(&addr), Pallet::<T>::min_balance() + value);
+		assert_eq!(T::Currency::balance(&account_id), Pallet::<T>::min_balance() + value);
 		Ok(())
 	}
 

@@ -91,7 +91,7 @@ use sp_consensus_beefy::{
 	mmr::MmrLeafVersion,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str,
@@ -1392,7 +1392,7 @@ impl pallet_revive::Config for Runtime {
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type ChainExtension = ();
-	type AddressGenerator = pallet_revive::DefaultAddressGenerator;
+	type AddressMapper = pallet_revive::DefaultAddressMapper;
 	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
@@ -2988,11 +2988,11 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, Hash, EventRecord> for Runtime
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, EventRecord> for Runtime
 	{
 		fn call(
 			origin: AccountId,
-			dest: AccountId,
+			dest: H160,
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
@@ -3015,10 +3015,10 @@ impl_runtime_apis! {
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
-			code: pallet_revive::Code<Hash>,
+			code: pallet_revive::Code,
 			data: Vec<u8>,
-			salt: Vec<u8>,
-		) -> pallet_revive::ContractInstantiateResult<AccountId, Balance, EventRecord>
+			salt: Option<[u8; 32]>,
+		) -> pallet_revive::ContractInstantiateResult<Balance, EventRecord>
 		{
 			Revive::bare_instantiate(
 				RuntimeOrigin::signed(origin),
@@ -3037,7 +3037,7 @@ impl_runtime_apis! {
 			origin: AccountId,
 			code: Vec<u8>,
 			storage_deposit_limit: Option<Balance>,
-		) -> pallet_revive::CodeUploadResult<Hash, Balance>
+		) -> pallet_revive::CodeUploadResult<Balance>
 		{
 			Revive::bare_upload_code(
 				RuntimeOrigin::signed(origin),
@@ -3047,8 +3047,8 @@ impl_runtime_apis! {
 		}
 
 		fn get_storage(
-			address: AccountId,
-			key: Vec<u8>,
+			address: H160,
+			key: [u8; 32],
 		) -> pallet_revive::GetStorageResult {
 			Revive::get_storage(
 				address,

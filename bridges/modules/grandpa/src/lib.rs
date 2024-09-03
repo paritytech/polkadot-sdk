@@ -117,7 +117,7 @@ pub mod pallet {
 		///
 		/// However, if the bridged chain gets compromised, its validators may generate as many
 		/// "free" headers as they want. And they may fill the whole block (at this chain) for
-		/// free. This constants limits number of calls that we may refund in a single block.
+		/// free. This constant limits number of calls that we may refund in a single block.
 		/// All calls above this limit are accepted, but are not refunded.
 		#[pallet::constant]
 		type MaxFreeHeadersPerBlock: Get<u32>;
