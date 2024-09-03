@@ -59,6 +59,8 @@ polkadot-runtime-metrics = { workspace = true }
 polkadot-core-primitives = { workspace = true }
 
 [dev-dependencies]
+polkadot-primitives = { workspace = true, features = ["test"] }
+
 futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }

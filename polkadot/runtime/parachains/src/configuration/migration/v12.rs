@@ -24,7 +24,7 @@ use frame_support::{
 	traits::{Defensive, UncheckedOnRuntimeUpgrade},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 use sp_core::Get;
 use sp_staking::SessionIndex;
 
