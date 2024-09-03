@@ -189,7 +189,7 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	}
 
 	fn set_asset_claimer(location: &Location) -> Weight {
-		todo!()
+		XcmGeneric::<RuntimeCall>::set_asset_claimer()
 	}
 
 	fn claim_asset(_assets: &Assets, _ticket: &Location) -> Weight {
