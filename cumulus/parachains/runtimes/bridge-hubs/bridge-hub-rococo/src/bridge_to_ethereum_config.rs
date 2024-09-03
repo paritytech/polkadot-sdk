@@ -166,6 +166,8 @@ parameter_types! {
 	};
 }
 
+pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
+
 impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;

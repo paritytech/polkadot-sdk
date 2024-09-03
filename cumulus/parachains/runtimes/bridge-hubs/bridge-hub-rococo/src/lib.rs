@@ -42,10 +42,6 @@ use bridge_runtime_common::extensions::{
 	CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use snowbridge_core::{
-	outbound::{Command, Fee},
-	AgentId, PricingParameters,
-};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{

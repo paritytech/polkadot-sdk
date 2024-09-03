@@ -38,11 +38,10 @@
 //!
 //! ## Polkadot-native tokens on Ethereum
 //!
-//! Tokens deposited on AssetHub pallet can be bridged to Ethereum as wrapped ERC20 tokens. As a prerequisite,
-//! the token should be registered first.
+//! Tokens deposited on AssetHub pallet can be bridged to Ethereum as wrapped ERC20 tokens. As a
+//! prerequisite, the token should be registered first.
 //!
 //! * [`Call:register_token`]: Register a token location as a wrapped ERC20 contract on Ethereum.
-//!
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(test)]
 mod mock;
@@ -762,7 +761,7 @@ pub mod pallet {
 
 	impl<T: Config> MaybeEquivalence<TokenId, Location> for Pallet<T> {
 		fn convert(foreign_id: &TokenId) -> Option<Location> {
-			ForeignToNativeId::<T>::get(id)
+			ForeignToNativeId::<T>::get(foreign_id)
 		}
 		fn convert_back(location: &Location) -> Option<TokenId> {
 			NativeToForeignId::<T>::get(location)
