@@ -94,11 +94,14 @@ jobs:
           echo -n "v${RELEASE_VERSION}" > ./artifacts/BUILD_RELEASE_VERSION
           cp -r docker/* ./artifacts
 
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+        
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
-          path: artifacts       
+          path: artifacts.tar.tar       
           retention-days: 1
   
   #
@@ -125,11 +128,14 @@ jobs:
           echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___"
           echo ${{ needs.set-image.outputs.REF_NAME }} | tee ./artifacts/VERSION
 
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts         
+
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
-          path: artifacts       
+          path: artifacts.tar       
           retention-days: 1
 
   #
@@ -158,11 +164,14 @@ jobs:
           mkdir -p ./artifacts/zombienet
           mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm ./artifacts/zombienet/.
 
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts         
+
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
-          path: artifacts       
+          path: artifacts.tar       
           retention-days: 1          
 
   #
@@ -192,11 +201,14 @@ jobs:
           echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
 
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts         
+
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
-          path: artifacts       
+          path: artifacts.tar       
           retention-days: 1            
 
   #
@@ -224,11 +236,15 @@ jobs:
           echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
           echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+          
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
-          path: artifacts       
+          path: artifacts.tar       
           retention-days: 1              
 
   #
@@ -265,11 +281,14 @@ jobs:
           sha256sum ./artifacts/substrate/substrate | tee ./artifacts/substrate/substrate.sha256
           cp -r ./docker/dockerfiles/substrate_injected.Dockerfile ./artifacts/substrate/
 
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts         
+
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
-          path: artifacts       
+          path: artifacts.tar       
           retention-days: 1
 
   #
@@ -282,21 +301,25 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}  
     steps:
-       - name: Checkout
-         uses: actions/checkout@v4
-       - name: build
-         run: |
-           time forklift cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
-       - name: pack artifacts
-         run: |
-           mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
-           cp -r bridges/testing ./artifacts/bridges-polkadot-sdk/bridges/testing    
-       - name: upload artifacts
-         uses: actions/upload-artifact@v4
-         with:
-           name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
-           path: artifacts       
-           retention-days: 1              
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          time forklift cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
+      - name: pack artifacts
+        run: |
+          mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
+          cp -r bridges/testing ./artifacts/bridges-polkadot-sdk/bridges/testing 
+           
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts          
+           
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
+          path: artifacts.tar       
+          retention-days: 1              
 
 ### Publish ########################
 
@@ -313,9 +336,12 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with: 
-          path: artifacts
+          path: artifacts.tar
           name: build-test-parachain-${{ needs.set-image.outputs.REF_NAME }}
       
+      - name: tar
+        run: tar -xvf artifacts.tar
+
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
@@ -335,9 +361,12 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with: 
-          path: artifacts
+          path: artifacts.tar
           name: build-linux-stable-${{ needs.set-image.outputs.REF_NAME }}
       
+      - name: tar
+        run: tar -xvf artifacts.tar          
+
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
@@ -360,9 +389,12 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with: 
-          path: artifacts
+          path: artifacts.tar
           name: build-test-collators-${{ needs.set-image.outputs.REF_NAME }}
       
+      - name: tar
+        run: tar -xvf artifacts.tar          
+
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
@@ -383,9 +415,12 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with: 
-          path: artifacts
+          path: artifacts.tar
           name: build-malus-${{ needs.set-image.outputs.REF_NAME }}
       
+      - name: tar
+        run: tar -xvf artifacts.tar          
+
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
@@ -406,9 +441,12 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with: 
-          path: artifacts
+          path: artifacts.tar
           name: build-linux-substrate-${{ needs.set-image.outputs.REF_NAME }}
       
+      - name: tar
+        run: tar -xvf artifacts.tar          
+
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
@@ -431,16 +469,22 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with: 
-          path: artifacts
+          path: artifacts1.tar
           name: build-linux-stable-${{ needs.set-image.outputs.REF_NAME }}
       - uses: actions/download-artifact@v4
         with: 
-          path: artifacts
+          path: artifacts2.tar
           name: build-linux-stable-cumulus-${{ needs.set-image.outputs.REF_NAME }}
       - uses: actions/download-artifact@v4
         with: 
-          path: artifacts
+          path: artifacts3.tar
           name: prepare-bridges-zombienet-artifacts-${{ needs.set-image.outputs.REF_NAME }}            
+
+      - name: tar
+        run: |
+         tar -xvf artifacts1.tar
+         tar -xvf artifacts2.tar 
+         tar -xvf artifacts3.tar 
 
       - name: build and push image
         uses: ./.github/actions/build-push-image
@@ -462,9 +506,12 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with: 
-          path: artifacts
+          path: artifacts.tar
           name: build-linux-stable-cumulus-${{ needs.set-image.outputs.REF_NAME }}
       
+      - name: tar
+        run: tar -xvf artifacts.tar          
+
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
