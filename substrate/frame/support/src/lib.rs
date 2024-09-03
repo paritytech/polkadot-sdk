@@ -1904,8 +1904,8 @@ pub mod pallet_macros {
 	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 	///   metadata where the item was declared.
 	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
-	/// - It's possible to deprecated either certain variants inside the [`Error`] or the whole
-	///   [`Error`] itself. If both the [`Error`] and its variants are deprecated a compile
+	/// - It's possible to deprecated either certain variants inside the `Error` or the whole
+	///   `Error` itself. If both the `Error` and its variants are deprecated a compile
 	///   error will be returned.
 	pub use frame_support_procedural::error;
 
@@ -1954,8 +1954,8 @@ pub mod pallet_macros {
 	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 	///   metadata where the item was declared.
 	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
-	/// - It's possible to deprecated either certain variants inside the [`Event`] or the whole
-	///   [`Event`] itself. If both the [`Event`] and its variants are deprecated a compile
+	/// - It's possible to deprecated either certain variants inside the `Event` or the whole
+	///   `Event` itself. If both the `Event` and its variants are deprecated a compile
 	///   error will be returned.
 	pub use frame_support_procedural::event;
 
