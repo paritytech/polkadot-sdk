@@ -625,7 +625,7 @@ pub mod pallet {
 
 			let pays_fee = PaysFee::<T>::No;
 
-			Self::do_register_token(location, metadata, pays_fee)?;
+			Self::do_register_token(&location, metadata, pays_fee)?;
 
 			Ok(())
 		}
@@ -720,7 +720,7 @@ pub mod pallet {
 		}
 
 		pub(crate) fn do_register_token(
-			location: Location,
+			location: &Location,
 			metadata: AssetMetadata,
 			pays_fee: PaysFee<T>,
 		) -> Result<(), DispatchError> {
@@ -739,7 +739,10 @@ pub mod pallet {
 			};
 			Self::send(SECONDARY_GOVERNANCE_CHANNEL, command, pays_fee)?;
 
-			Self::deposit_event(Event::<T>::RegisterToken { asset_id: location.into(), token_id });
+			Self::deposit_event(Event::<T>::RegisterToken {
+				asset_id: location.clone().into(),
+				token_id,
+			});
 
 			Ok(())
 		}
