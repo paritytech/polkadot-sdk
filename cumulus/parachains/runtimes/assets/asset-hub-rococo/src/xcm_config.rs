@@ -630,17 +630,6 @@ pub mod bridging {
 		/// Allow any asset native to the Westend ecosystem if it comes from Westend Asset Hub.
 		pub type WestendAssetFromAssetHubWestend =
 			matching::RemoteAssetFromLocation<StartsWith<WestendEcosystem>, AssetHubWestend>;
-
-		impl Contains<RuntimeCall> for ToWestendXcmRouter {
-			fn contains(call: &RuntimeCall) -> bool {
-				matches!(
-					call,
-					RuntimeCall::ToWestendXcmRouter(
-						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
-					)
-				)
-			}
-		}
 	}
 
 	pub mod to_ethereum {

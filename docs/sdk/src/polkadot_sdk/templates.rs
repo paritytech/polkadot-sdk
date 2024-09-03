@@ -7,34 +7,22 @@
 //!
 //! ## Internal
 //!
-//! The following [templates](https://github.com/paritytech/polkadot-sdk/blob/master/templates) are
-//! maintained as a part of the `polkadot-sdk` repository:
+//! The following templates are maintained as a part of the `polkadot-sdk` repository:
 //!
-//! - `minimal_template_node`/[`minimal_template_runtime`]: A minimal template that contains the
-//!   least amount of features to be a functioning blockchain. Suitable for learning, development
-//!   and testing. This template is not meant to be used in production.
-//! - `solochain_template_node`/[`solochain_template_runtime`]: Formerly known as
-//!   "substrate-node-template", is a white-labeled substrate-based blockchain (aka. solochain) that
-//!   contains moderate features, such as a basic consensus engine and some FRAME pallets. This
-//!   template can act as a good starting point for those who want to launch a solochain.
-//! - `parachain_template_node`/[`parachain_template_runtime`]: A parachain template ready to be
-//!   connected to a test relay-chain.
+//! - [`minimal-template`](https://github.com/paritytech/polkadot-sdk-minimal-template): A minimal
+//!   template that contains the least amount of features to be a functioning blockchain. Suitable
+//!   for learning and testing.
+//! - [`solochain-template`](https://github.com/paritytech/polkadot-sdk-solochain-template):
+//!   Formerly known as "substrate-node-template", is a white-labeled substrate-based blockchain
+//!   (aka. solochain) that contains moderate features, such as a basic consensus engine and some
+//!   FRAME pallets. This template can act as a good starting point for those who want to launch a
+//!   solochain.
+//! - [`parachain-template`](https://github.com/paritytech/polkadot-sdk-parachain-template):
+//! A parachain template ready to be connected to a relay-chain, such as [Paseo](https://github.com/paseo-network/.github)
+//! , Kusama  or Polkadot.
 //!
-//! These templates are always kept up to date, and are mirrored to external repositories for easy
-//! forking:
-//!
-//! - <https://github.com/paritytech/polkadot-sdk-minimal-template>
-//! - <https://github.com/paritytech/polkadot-sdk-solochain-template>
-//! - <https://github.com/paritytech/polkadot-sdk-parachain-template>
-//!
-//! ## External Templates
-//!
-//! Noteworthy templates outside of this repository.
-//!
-//! - [`extended-parachain-template`](https://github.com/paritytech/extended-parachain-template): A
-//!   parachain template that contains more built-in functionality such as assets and NFTs.
-//! - [`frontier-parachain-template`](https://github.com/paritytech/frontier-parachain-template): A
-//!   parachain template for launching EVM-compatible parachains.
+//! Note that these templates are mirrored automatically from [this](https://github.com/paritytech/polkadot-sdk/blob/master/templates)
+//! directory of polkadot-sdk, therefore any changes to them should be made as a PR to this repo.
 //!
 //! ## OpenZeppelin
 //!
