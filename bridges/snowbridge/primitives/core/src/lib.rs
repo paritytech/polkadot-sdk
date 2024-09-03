@@ -168,6 +168,7 @@ impl DescribeLocation for DescribeHere {
 pub type AgentIdOf =
 	HashedDescription<AgentId, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
 
+/// Metadata to include in the instantiated ERC20 token contract
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct AssetMetadata {
 	pub name: BoundedVec<u8, ConstU32<32>>,
