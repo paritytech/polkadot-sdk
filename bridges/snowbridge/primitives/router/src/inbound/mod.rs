@@ -382,6 +382,9 @@ impl<
 		)
 	}
 
+	/// Constructs an XCM message destined for AssetHub that withdraws assets from the sovereign account
+	/// of the Gateway contract and either deposits those assets into a recipient account or
+	/// forwards the assets to another parachain.
 	fn convert_send_native_token(
 		message_id: H256,
 		chain_id: u64,
