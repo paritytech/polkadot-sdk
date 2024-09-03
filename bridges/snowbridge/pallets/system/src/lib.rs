@@ -267,7 +267,6 @@ pub mod pallet {
 
 	/// Lookup table for native to foreign token ID
 	#[pallet::storage]
-	#[pallet::getter(fn location_tokens)]
 	pub type NativeToForeignId<T: Config> =
 		StorageMap<_, Twox64Concat, xcm::v4::Location, TokenId, OptionQuery>;
 
