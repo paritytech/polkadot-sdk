@@ -54,7 +54,7 @@ use sp_core::{
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
 	traits::{BadOrigin, Convert, Dispatchable, Zero},
-	DispatchError,
+	DispatchError, SaturatedConversion,
 };
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -213,7 +213,7 @@ pub trait Ext: sealing::Sealed {
 		code: H256,
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 	) -> Result<(H160, ExecReturnValue), ExecError>;
 
 	/// Transfer all funds to `beneficiary` and delete the contract.
@@ -573,7 +573,7 @@ enum FrameArgs<'a, T: Config, E> {
 		/// The executable whose `deploy` function is run.
 		executable: E,
 		/// A salt used in the contract address derivation of the new contract.
-		salt: &'a [u8; 32],
+		salt: Option<&'a [u8; 32]>,
 		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
 	},
@@ -750,7 +750,7 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
@@ -863,7 +863,12 @@ where
 			},
 			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
 				let deployer = T::AddressMapper::to_address(&sender);
-				let address = address::create2(&deployer, executable.code(), input_data, salt);
+				let account_nonce = <System<T>>::account_nonce(&sender);
+				let address = if let Some(salt) = salt {
+					address::create2(&deployer, executable.code(), input_data, salt)
+				} else {
+					address::create1(&deployer, account_nonce.saturated_into())
+				};
 				let contract = ContractInfo::new(
 					&address,
 					<System<T>>::account_nonce(&sender),
@@ -1321,7 +1326,7 @@ where
 		code_hash: H256,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = &self.top_frame().account_id;
@@ -2088,7 +2093,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance,
 					vec![1, 2, 3, 4],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				);
 				assert_matches!(result, Ok(_));
@@ -2497,7 +2502,7 @@ mod tests {
 					&mut storage_meter,
 					0, // <- zero value
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				),
 				Err(_)
@@ -2533,7 +2538,7 @@ mod tests {
 
 						min_balance,
 						vec![],
-						&[0;32],
+						Some(&[0 ;32]),
 						None,
 					),
 					Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
@@ -2587,7 +2592,7 @@ mod tests {
 
 						min_balance,
 						vec![],
-						&[0;32],
+						Some(&[0; 32]),
 						None,
 					),
 					Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
@@ -2620,7 +2625,7 @@ mod tests {
 						dummy_ch,
 						<Test as Config>::Currency::minimum_balance(),
 						vec![],
-						&[48; 32],
+						Some(&[48; 32]),
 					)
 					.unwrap();
 
@@ -2698,7 +2703,7 @@ mod tests {
 						dummy_ch,
 						<Test as Config>::Currency::minimum_balance(),
 						vec![],
-						&[0; 32],
+						Some(&[0; 32]),
 					),
 					Err(ExecError {
 						error: DispatchError::Other("It's a trap!"),
@@ -2771,7 +2776,7 @@ mod tests {
 						&mut storage_meter,
 						100,
 						vec![],
-						&[0; 32],
+						Some(&[0; 32]),
 						None,
 					),
 					Err(Error::<Test>::TerminatedInConstructor.into())
@@ -2882,7 +2887,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				);
 				assert_matches!(result, Ok(_));
@@ -3250,7 +3255,7 @@ mod tests {
 					fail_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 				)
 				.ok();
 			exec_success()
@@ -3267,7 +3272,7 @@ mod tests {
 					success_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 				)
 				.unwrap();
 
@@ -3318,7 +3323,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				)
 				.ok();
@@ -3331,7 +3336,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 1);
@@ -3343,7 +3348,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 200,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 2);
@@ -3355,7 +3360,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 200,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 3);
