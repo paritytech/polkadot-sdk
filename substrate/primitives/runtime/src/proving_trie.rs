@@ -16,18 +16,17 @@
 // limitations under the License.
 
 //! Types for a compact base-16 merkle trie used for checking and generating proofs within the
-//! runtime.
+//! runtime. Proofs are created with latest substrate trie format (`LayoutV1`), and are not compatible with proofs using `LayoutV0`.
 
 use crate::{Decode, DispatchError, Encode, MaxEncodedLen, TypeInfo};
+#[cfg(feature = "serde")]
+use crate::{Deserialize, Serialize};
 
 use sp_std::vec::Vec;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1, TrieError as SpTrieError},
 	LayoutV1, MemoryDB, Trie, TrieMut, VerifyError,
 };
-
-#[cfg(feature = "serde")]
-use crate::{Deserialize, Serialize};
 
 type HashOf<Hashing> = <Hashing as sp_core::Hasher>::Out;
 
