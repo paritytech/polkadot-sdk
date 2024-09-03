@@ -222,8 +222,10 @@ pub mod pallet {
 		},
 		/// Register Polkadot-native token as a wrapped ERC20 token on Ethereum
 		RegisterToken {
-			asset_id: VersionedLocation,
-			token_id: H256,
+			/// Location of Polkadot-native token
+			location: VersionedLocation,
+			/// ID of Polkadot-native token on Ethereum 
+			foreign_token_id: H256,
 		},
 	}
 
