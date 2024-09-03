@@ -42,7 +42,6 @@
 //! prerequisite, the token should be registered first.
 //!
 //! * [`Call::register_token`]: Register a token location as a wrapped ERC20 contract on Ethereum.
-
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(test)]
 mod mock;
