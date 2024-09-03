@@ -27,8 +27,8 @@ use crate::{
 		NodeBlock, NodeExtraArgs,
 	},
 	fake_runtime_api,
+	nodes::shell::ShellNode,
 	runtime::BlockNumber,
-	service::ShellNode,
 };
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
@@ -59,12 +59,12 @@ where
 	Block::BoundedHeader: UnwindSafe + RefUnwindSafe,
 {
 	match aura_id {
-		AuraConsensusId::Sr25519 => crate::service::new_aura_node_spec::<
+		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
 			Block,
 			fake_runtime_api::aura_sr25519::RuntimeApi,
 			sp_consensus_aura::sr25519::AuthorityId,
 		>(extra_args),
-		AuraConsensusId::Ed25519 => crate::service::new_aura_node_spec::<
+		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
 			Block,
 			fake_runtime_api::aura_ed25519::RuntimeApi,
 			sp_consensus_aura::ed25519::AuthorityId,
