@@ -65,7 +65,7 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
 
 	let network_params = sc_network::config::Params::<Block, Hash, Network> {
-		role: config.role.clone(),
+		role: config.role,
 		executor: {
 			let spawn_handle = Clone::clone(&spawn_handle);
 			Box::new(move |fut| {

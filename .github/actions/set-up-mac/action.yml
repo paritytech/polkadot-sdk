@@ -1,0 +1,43 @@
+name: "Set up rust on mac"
+description: "Install the required tools for Mac runners"
+inputs:
+  IMAGE:
+    description: "Rust docker image"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Install with Hombrew
+      shell: bash
+      run: brew install protobuf rustup openssl pkg-config zlib xz zstd llvm jq curl gcc make cmake
+    - name: Set version
+      shell: bash
+      run: |
+        VERSION=$(echo $IMAGE | sed -E 's/.*:bullseye-([^-]+)-.*/\1/')
+        echo $VERSION
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        NIGHTLY=$(echo $IMAGE | sed -E 's/.*([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/')
+        echo $NIGHTLY
+        echo "NIGHTLY=$NIGHTLY" >> $GITHUB_ENV
+      env:
+        IMAGE: ${{ inputs.IMAGE }}
+
+    - name: Install rustup
+      shell: bash
+      run: |
+        rustup-init -y
+        rustup install $VERSION
+        rustup default $VERSION
+        rustup toolchain install "nightly-${NIGHTLY}"
+
+    - name: MacOS Deps
+      shell: bash
+      run: |
+        rustup target add wasm32-unknown-unknown --toolchain $VERSION
+        rustup component add rust-src rustfmt clippy --toolchain $VERSION
+
+    - name: Check Rust
+      shell: bash
+      run: |
+        rustup show
+        rustup +nightly show

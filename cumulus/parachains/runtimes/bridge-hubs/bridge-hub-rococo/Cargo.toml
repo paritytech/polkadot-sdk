@@ -3,7 +3,7 @@ name = "bridge-hub-rococo-runtime"
 version = "0.5.0"
 authors.workspace = true
 edition.workspace = true
-description = "Rococo's BridgeHub  parachain runtime"
+description = "Rococo's BridgeHub parachain runtime"
 license = "Apache-2.0"
 
 [lints]
@@ -97,7 +97,7 @@ bp-parachains = { workspace = true }
 bp-polkadot-bulletin = { workspace = true }
 bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
-bp-runtime = { features = ["test-helpers"], workspace = true }
+bp-runtime = { workspace = true }
 bp-rococo = { workspace = true }
 bp-westend = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
@@ -123,9 +123,8 @@ bridge-hub-common = { workspace = true }
 
 [dev-dependencies]
 bridge-hub-test-utils = { workspace = true, default-features = true }
-bridge-runtime-common = { features = [
-	"integrity-test",
-], workspace = true, default-features = true }
+bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
+pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 snowbridge-runtime-test-common = { workspace = true, default-features = true }
 
@@ -305,4 +304,4 @@ fast-runtime = []
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = []

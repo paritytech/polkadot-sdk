@@ -219,7 +219,7 @@ fn get_payment_id(i: SpendIndex) -> Option<u64> {
 fn genesis_config_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(Treasury::proposal_count(), 0);
+		assert_eq!(ProposalCount::<Test>::get(), 0);
 	});
 }
 
@@ -437,9 +437,9 @@ fn remove_already_removed_approval_fails() {
 
 		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
 
-		assert_eq!(Treasury::approvals(), vec![0]);
+		assert_eq!(Approvals::<Test>::get(), vec![0]);
 		assert_ok!(Treasury::remove_approval(RuntimeOrigin::root(), 0));
-		assert_eq!(Treasury::approvals(), vec![]);
+		assert_eq!(Approvals::<Test>::get(), vec![]);
 
 		assert_noop!(
 			Treasury::remove_approval(RuntimeOrigin::root(), 0),

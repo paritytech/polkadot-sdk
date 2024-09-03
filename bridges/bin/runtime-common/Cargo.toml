@@ -25,7 +25,6 @@ bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
 bp-runtime = { workspace = true }
 bp-xcm-bridge-hub = { workspace = true }
-bp-xcm-bridge-hub-router = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 pallet-bridge-parachains = { workspace = true }
@@ -43,12 +42,15 @@ sp-trie = { optional = true, workspace = true }
 
 # Polkadot dependencies
 xcm = { workspace = true }
-xcm-builder = { workspace = true }
 
 [dev-dependencies]
 bp-test-utils = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-bridge-messages = { features = ["std", "test-helpers"], workspace = true }
+pallet-bridge-messages = { features = [
+	"std",
+	"test-helpers",
+], workspace = true }
+sp-core = { workspace = true }
 
 [features]
 default = ["std"]
@@ -60,7 +62,6 @@ std = [
 	"bp-relayers/std",
 	"bp-runtime/std",
 	"bp-test-utils/std",
-	"bp-xcm-bridge-hub-router/std",
 	"bp-xcm-bridge-hub/std",
 	"codec/std",
 	"frame-support/std",
@@ -74,12 +75,12 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"scale-info/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
 	"tuplex/std",
-	"xcm-builder/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -95,10 +96,6 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-trie",
-	"xcm-builder/runtime-benchmarks",
 ]
 integrity-test = ["static_assertions"]
-test-helpers = [
-	"bp-runtime/test-helpers",
-	"sp-trie",
-]
+test-helpers = ["bp-runtime/test-helpers", "sp-trie"]
