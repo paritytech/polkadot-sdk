@@ -18,7 +18,7 @@ use crate::{
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::{BuildEmptyRpcExtensions, BuildParachainRpcExtensions},
-		spec::{BuildImportQueue, DynNodeSpec, NodeSpec, StartConsensus},
+		spec::{BaseNodeSpec, BuildImportQueue, DynNodeSpec, NodeSpec, StartConsensus},
 		types::{
 			AccountId, Balance, Block, Hash, Nonce, ParachainBackend, ParachainBlockImport,
 			ParachainClient,
@@ -87,10 +87,13 @@ impl BuildImportQueue<Block<u32>, FakeRuntimeApi> for BuildShellImportQueue {
 
 pub(crate) struct ShellNode;
 
-impl NodeSpec for ShellNode {
+impl BaseNodeSpec for ShellNode {
 	type Block = Block<u32>;
 	type RuntimeApi = FakeRuntimeApi;
 	type BuildImportQueue = BuildShellImportQueue;
+}
+
+impl NodeSpec for ShellNode {
 	type BuildRpcExtensions = BuildEmptyRpcExtensions<Block<u32>, Self::RuntimeApi>;
 	type StartConsensus = StartRelayChainConsensus;
 
@@ -205,6 +208,21 @@ impl<Block, RuntimeApi, AuraId, StartConsensus> Default
 	}
 }
 
+impl<Block, RuntimeApi, AuraId, StartConsensus> BaseNodeSpec
+	for AuraNode<Block, RuntimeApi, AuraId, StartConsensus>
+where
+	Block: NodeBlock,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	AuraId: AuraIdT + Sync,
+{
+	type Block = Block;
+	type RuntimeApi = RuntimeApi;
+	type BuildImportQueue = BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId>;
+}
+
 impl<Block, RuntimeApi, AuraId, StartConsensus> NodeSpec
 	for AuraNode<Block, RuntimeApi, AuraId, StartConsensus>
 where
@@ -216,9 +234,6 @@ where
 	AuraId: AuraIdT + Sync,
 	StartConsensus: self::StartConsensus<Block, RuntimeApi> + 'static,
 {
-	type Block = Block;
-	type RuntimeApi = RuntimeApi;
-	type BuildImportQueue = BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId>;
 	type BuildRpcExtensions = BuildParachainRpcExtensions<Block, RuntimeApi>;
 	type StartConsensus = StartConsensus;
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;

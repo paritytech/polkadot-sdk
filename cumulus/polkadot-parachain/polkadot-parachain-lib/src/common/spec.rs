@@ -89,7 +89,7 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	}
 }
 
-pub(crate) trait NodeSpec {
+pub(crate) trait BaseNodeSpec {
 	type Block: NodeBlock;
 
 	type RuntimeApi: ConstructNodeRuntimeApi<
@@ -98,16 +98,6 @@ pub(crate) trait NodeSpec {
 	>;
 
 	type BuildImportQueue: BuildImportQueue<Self::Block, Self::RuntimeApi>;
-
-	type BuildRpcExtensions: BuildRpcExtensions<
-		ParachainClient<Self::Block, Self::RuntimeApi>,
-		ParachainBackend<Self::Block>,
-		FullPool<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
-	>;
-
-	type StartConsensus: StartConsensus<Self::Block, Self::RuntimeApi>;
-
-	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
 	/// Starts a `ServiceBuilder` for a full service.
 	///
@@ -185,6 +175,18 @@ pub(crate) trait NodeSpec {
 			other: (block_import, telemetry, telemetry_worker_handle),
 		})
 	}
+}
+
+pub(crate) trait NodeSpec: BaseNodeSpec {
+	type BuildRpcExtensions: BuildRpcExtensions<
+		ParachainClient<Self::Block, Self::RuntimeApi>,
+		ParachainBackend<Self::Block>,
+		FullPool<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+	>;
+
+	type StartConsensus: StartConsensus<Self::Block, Self::RuntimeApi>;
+
+	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
 	/// Start a node with the given parachain spec.
 	///
