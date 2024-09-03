@@ -144,7 +144,9 @@ where
 		let Some(bridge) = Self::bridge(locations.bridge_id()) else {
 			log::error!(
 				target: LOG_TARGET,
-				"Missing opened bridge for requested locations: {locations:?}",
+				"No opened bridge for requested bridge_origin_relative_location: {:?} and bridge_destination_universal_location: {:?}",
+				locations.bridge_origin_relative_location(),
+				locations.bridge_destination_universal_location(),
 			);
 			return Err(SendError::Unroutable)
 		};
