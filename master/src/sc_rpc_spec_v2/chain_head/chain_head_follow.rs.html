@@ -853,11 +853,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#701" id="701">701</a>
 <a href="#702" id="702">702</a>
 <a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1288,9 +1283,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Generates new block events from the given finalized hashes.
 	///
 	/// It may be possible that the `Finalized` event fired before the `NewBlock`
-	/// event. In that case, for each finalized hash that was not reported yet
-	/// generate the `NewBlock` event. For the final finalized hash we must also
-	/// generate one `BestBlock` event.
+	/// event. Only in that case we generate:
+	/// - `NewBlock` event for all finalized hashes.
+	/// - `BestBlock` event for the last finalized hash.
+	///
+	/// This function returns an empty list if all finalized hashes were already reported
+	/// and are pinned.
 	</span><span class="kw">fn </span>generate_finalized_events(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		finalized_block_hashes: <span class="kw-2">&amp;</span>[Block::Hash],
@@ -1314,34 +1312,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 
 			<span class="comment">// Generate `NewBlock` events for all blocks beside the last block in the list
-			</span><span class="kw">if </span>i + <span class="number">1 </span>!= finalized_block_hashes.len() {
+			</span><span class="kw">let </span>is_last = i + <span class="number">1 </span>== finalized_block_hashes.len();
+			<span class="kw">if </span>!is_last {
 				<span class="comment">// Generate only the `NewBlock` event for this block.
 				</span>events.extend(<span class="self">self</span>.generate_import_events(<span class="kw-2">*</span>hash, <span class="kw-2">*</span>parent, <span class="bool-val">false</span>));
-			} <span class="kw">else </span>{
+				<span class="kw">continue</span>;
+			}
+
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(best_block_hash) = <span class="self">self</span>.current_best_block {
+				<span class="kw">let </span>ancestor =
+					sp_blockchain::lowest_common_ancestor(<span class="kw-2">&amp;*</span><span class="self">self</span>.client, <span class="kw-2">*</span>hash, best_block_hash)<span class="question-mark">?</span>;
+
 				<span class="comment">// If we end up here and the `best_block` is a descendent of the finalized block
 				// (last block in the list), it means that there were skipped notifications.
-				// Otherwise `pin_block` would had returned `true`.
+				// Otherwise `pin_block` would had returned `false`.
 				//
 				// When the node falls out of sync and then syncs up to the tip of the chain, it can
 				// happen that we skip notifications. Then it is better to terminate the connection
 				// instead of trying to send notifications for all missed blocks.
-				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(best_block_hash) = <span class="self">self</span>.current_best_block {
-					<span class="kw">let </span>ancestor = sp_blockchain::lowest_common_ancestor(
-						<span class="kw-2">&amp;*</span><span class="self">self</span>.client,
-						<span class="kw-2">*</span>hash,
-						best_block_hash,
-					)<span class="question-mark">?</span>;
-
-					<span class="kw">if </span>ancestor.hash == <span class="kw-2">*</span>hash {
-						<span class="kw">return </span><span class="prelude-val">Err</span>(SubscriptionManagementError::Custom(
-							<span class="string">"A descendent of the finalized block was already reported"</span>.into(),
-						))
-					}
+				</span><span class="kw">if </span>ancestor.hash == <span class="kw-2">*</span>hash {
+					<span class="kw">return </span><span class="prelude-val">Err</span>(SubscriptionManagementError::Custom(
+						<span class="string">"A descendent of the finalized block was already reported"</span>.into(),
+					))
 				}
-
-				<span class="comment">// Let's generate the `NewBlock` and `NewBestBlock` events for the block.
-				</span>events.extend(<span class="self">self</span>.generate_import_events(<span class="kw-2">*</span>hash, <span class="kw-2">*</span>parent, <span class="bool-val">true</span>))
 			}
+
+			<span class="comment">// Let's generate the `NewBlock` and `NewBestBlock` events for the block.
+			</span>events.extend(<span class="self">self</span>.generate_import_events(<span class="kw-2">*</span>hash, <span class="kw-2">*</span>parent, <span class="bool-val">true</span>))
 		}
 
 		<span class="prelude-val">Ok</span>(events)
@@ -1409,39 +1406,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(current_best_block) = <span class="self">self</span>.current_best_block {
-			<span class="comment">// The best reported block is in the pruned list. Report a new best block.
+			<span class="comment">// We need to generate a new best block if the best block is in the pruned list.
 			</span><span class="kw">let </span>is_in_pruned_list =
 				pruned_block_hashes.iter().any(|hash| <span class="kw-2">*</span>hash == current_best_block);
-			<span class="comment">// The block is not the last finalized block.
-			//
-			// It can be either:
-			//  - a descendant of the last finalized block
-			//  - a block on a fork that will be pruned in the future.
-			//
-			// In those cases, we emit a new best block.
-			</span><span class="kw">let </span>is_not_last_finalized = current_best_block != last_finalized;
-
-			<span class="kw">if </span>is_in_pruned_list || is_not_last_finalized {
-				<span class="comment">// We need to generate a best block event.
-				</span><span class="kw">let </span>best_block_hash = <span class="self">self</span>.client.info().best_hash;
-
-				<span class="comment">// Defensive check against state missmatch.
-				</span><span class="kw">if </span>best_block_hash == current_best_block {
-					<span class="comment">// The client doest not have any new information about the best block.
-					// The information from `.info()` is updated from the DB as the last
-					// step of the finalization and it should be up to date.
-					// If the info is outdated, there is nothing the RPC can do for now.
-					</span><span class="macro">debug!</span>(
-						target: LOG_TARGET,
-						<span class="string">"[follow][id={:?}] Client does not contain different best block"</span>,
-						<span class="self">self</span>.sub_id,
-					);
-				} <span class="kw">else </span>{
-					<span class="comment">// The RPC needs to also submit a new best block changed before the
-					// finalized event.
-					</span><span class="self">self</span>.current_best_block = <span class="prelude-val">Some</span>(best_block_hash);
-					events
-						.push(FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash }));
+			<span class="kw">if </span>is_in_pruned_list {
+				<span class="self">self</span>.current_best_block = <span class="prelude-val">Some</span>(last_finalized);
+				events.push(FollowEvent::BestBlockChanged(BestBlockChanged {
+					best_block_hash: last_finalized,
+				}));
+			} <span class="kw">else </span>{
+				<span class="comment">// The pruning logic ensures that when the finalized block is announced,
+				// all blocks on forks that have the common ancestor lower or equal
+				// to the finalized block are reported.
+				//
+				// However, we double check if the best block is a descendant of the last finalized
+				// block to ensure we don't miss any events.
+				</span><span class="kw">let </span>ancestor = sp_blockchain::lowest_common_ancestor(
+					<span class="kw-2">&amp;*</span><span class="self">self</span>.client,
+					last_finalized,
+					current_best_block,
+				)<span class="question-mark">?</span>;
+				<span class="kw">let </span>is_descendant = ancestor.hash == last_finalized;
+				<span class="kw">if </span>!is_descendant {
+					<span class="self">self</span>.current_best_block = <span class="prelude-val">Some</span>(last_finalized);
+					events.push(FollowEvent::BestBlockChanged(BestBlockChanged {
+						best_block_hash: last_finalized,
+					}));
 				}
 			}
 		}
