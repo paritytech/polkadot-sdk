@@ -39,6 +39,7 @@ use cumulus_primitives_core::relay_chain::BlockId;
 pub use url::Url;
 
 mod light_client_worker;
+mod metrics;
 mod reconnecting_ws_client;
 mod rpc_client;
 mod tokio_platform;
@@ -87,12 +88,13 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
-			BlockId::Number(num) =>
+			BlockId::Number(num) => {
 				if let Some(hash) = self.rpc_client.chain_get_block_hash(Some(num)).await? {
 					hash
 				} else {
-					return Ok(None)
-				},
+					return Ok(None);
+				}
+			},
 		};
 		let header = self.rpc_client.chain_get_header(Some(hash)).await?;
 
@@ -213,7 +215,7 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		let mut head_stream = self.rpc_client.get_imported_heads_stream()?;
 
 		if self.rpc_client.chain_get_header(Some(wait_for_hash)).await?.is_some() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let mut timeout = futures_timer::Delay::new(Duration::from_secs(TIMEOUT_IN_SECONDS)).fuse();

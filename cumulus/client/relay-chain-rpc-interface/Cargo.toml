@@ -18,6 +18,8 @@ polkadot-overseer = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
+prometheus-endpoint = { workspace = true, default-features = true }
+
 sp-api = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
@@ -49,3 +51,5 @@ either = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 rand = { workspace = true, default-features = true }
 pin-project = { workspace = true }
+prometheus = { workspace = true }
+
