@@ -253,7 +253,7 @@ mod tests {
 	use super::*;
 	use crate::traits::BlakeTwo256;
 	use sp_core::H256;
-	use sp_std::{collections::btree_map::BTreeMap, str::FromStr};
+	use sp_std::collections::btree_map::BTreeMap;
 
 	// A trie which simulates a trie of accounts (u32) and balances (u128).
 	type BalanceTrie = BasicProvingTrie<BlakeTwo256, u32, u128>;
