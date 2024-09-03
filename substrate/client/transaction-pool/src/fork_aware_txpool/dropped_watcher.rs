@@ -47,8 +47,13 @@ type ViewStream<C> = Pin<Box<dyn futures::Stream<Item = ViewStreamEvent<C>> + Se
 /// views.
 pub(crate) type StreamOfDropped<C> = Pin<Box<dyn futures::Stream<Item = ExtrinsicHash<C>> + Send>>;
 
+/// A type alias for a sender used as the controller of the [`MultiViewDropWatcherContext`].
+/// Used to send control commands from the [`MultiViewDroppedWatcherController`] to
+/// [`MultiViewDropWatcherContext`].
 type Controller<T> = mpsc::TracingUnboundedSender<T>;
 
+/// A type alias for a receiver used as the commands receiver in the
+/// [`MultiViewDropWatcherContext`].
 type CommandReceiver<T> = mpsc::TracingUnboundedReceiver<T>;
 
 /// Commands to control the instance of dropped transactions stream [`StreamOfDropped`].
@@ -90,7 +95,7 @@ where
 	stream_map: Fuse<StreamMap<BlockHash<C>, ViewStream<C>>>,
 	/// A receiver for commands to control the state of the stream, allowing the addition and
 	/// removal of views. This is used to dynamically update which views are being tracked.
-	controller: Fuse<CommandReceiver<Command<C>>>,
+	command_receiver: Fuse<CommandReceiver<Command<C>>>,
 
 	/// For each transaction hash we keep the set of hashes representing the views that see this
 	/// transaction as ready or future.
@@ -167,7 +172,7 @@ where
 
 		let ctx = Self {
 			stream_map: stream_map.fuse(),
-			controller: receiver.fuse(),
+			command_receiver: receiver.fuse(),
 			transaction_states: Default::default(),
 		};
 
@@ -175,7 +180,7 @@ where
 			loop {
 				tokio::select! {
 					biased;
-					cmd = ctx.controller.next() => {
+					cmd = ctx.command_receiver.next() => {
 						match cmd {
 							Some(Command::AddView(key,stream)) => {
 								debug!(target: LOG_TARGET,"dropped_watcher: Command::AddView {key:?}");

@@ -47,11 +47,11 @@ use tokio_stream::StreamMap;
 type StreamOf<I> = Pin<Box<dyn futures::Stream<Item = I> + Send>>;
 
 /// A type alias for a tracing unbounded sender used as the command channel controller.
-/// Used to send control commands to the `AggregatedStreamContext`.
+/// Used to send control commands to the [`AggregatedStreamContext`].
 type Controller<T> = mpsc::TracingUnboundedSender<T>;
 
 /// A type alias for a tracing unbounded receiver used as the command channel receiver.
-/// Used to receive control commands in the `AggregatedStreamContext`.
+/// Used to receive control commands in the [`AggregatedStreamContext`].
 type CommandReceiver<T> = mpsc::TracingUnboundedReceiver<T>;
 
 /// An enum representing commands that can be sent to the multi-sinks context.
@@ -153,7 +153,7 @@ pub struct MultiViewImportNotificationSink<K, I: Send + Sync> {
 }
 
 /// An asynchronous task responsible for dispatching aggregated import notifications to multiple
-/// sinks.
+/// sinks (created by [`MultiViewImportNotificationSink::event_stream`]).
 pub type ImportNotificationTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 impl<K, I> MultiViewImportNotificationSink<K, I>
