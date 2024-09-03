@@ -116,7 +116,6 @@ pub trait Memory<T: Config> {
 	/// The weight of reading a fixed value is included in the overall weight of any
 	/// contract callable function.
 	fn read_as<D: Decode + MaxEncodedLen>(&self, ptr: u32) -> Result<D, DispatchError> {
-		log::debug!( target: LOG_TARGET, "Reading at ptr: {ptr:?}");
 		let buf = self.read(ptr, D::max_encoded_len() as u32)?;
 		let decoded = D::decode_with_depth_limit(MAX_DECODE_NESTING, &mut buf.as_ref())
 			.map_err(|_| DispatchError::from(Error::<T>::DecodingFailed))?;
@@ -1190,12 +1189,12 @@ pub mod env {
 	fn transfer(
 		&mut self,
 		memory: &mut M,
-		account_ptr: u32,
+		address_ptr: u32,
 		value_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Transfer)?;
 		let mut callee = H160::zero();
-		memory.read_into_buf(account_ptr, callee.as_bytes_mut())?;
+		memory.read_into_buf(address_ptr, callee.as_bytes_mut())?;
 		let value: BalanceOf<<E as Ext>::T> = memory.read_as(value_ptr)?;
 		let result = self.ext.transfer(&callee, value);
 		match result {
@@ -1226,7 +1225,7 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		log::debug!(
 			target: LOG_TARGET,
-			"\n===\n<Call flags: {flags:?}, callee_ptr: {callee_ptr}, value_ptr: {value_ptr}, deposit_ptr: {deposit_ptr}, ref_time_limit: {ref_time_limit}, proof_size_limit: {proof_size_limit}, input_data_ptr: {input_data_ptr}, input_data_len: {input_data_len}, output_ptr: {output_ptr}, output_len_ptr: {output_len_ptr}>",
+			"\n===\n<flags: {flags:?}, callee_ptr: {callee_ptr:?}, ref_time_limit: {ref_time_limit:?}, proof_size_limit: {proof_size_limit:?}, deposit_ptr: {deposit_ptr:?}, value_ptr: {value_ptr:?}, input_data_ptr: {input_data_ptr:?}, input_data_len: {input_data_len:?}, output_ptr: {output_ptr:?}, output_len_ptr: {output_len_ptr:?}>\n===\n",
 		);
 		self.call(
 			memory,

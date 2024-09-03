@@ -327,8 +327,8 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn transfer(account_id: &[u8], value: &[u8]) -> Result {
-		let ret_code = unsafe { sys::transfer(account_id.as_ptr(), value.as_ptr()) };
+	fn transfer(address: &[u8; 20], value: &[u8]) -> Result {
+		let ret_code = unsafe { sys::transfer(address.as_ptr(), value.as_ptr()) };
 		ret_code.into()
 	}
 

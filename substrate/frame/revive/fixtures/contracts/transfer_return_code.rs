@@ -28,7 +28,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let ret_code = match api::transfer(&[0u8; 32], &100u64.to_le_bytes()) {
+	let ret_code = match api::transfer(&[0u8; 20], &100u64.to_le_bytes()) {
 		Ok(_) => 0u32,
 		Err(code) => code as u32,
 	};

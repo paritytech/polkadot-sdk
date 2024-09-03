@@ -553,7 +553,7 @@ pub trait HostFn: private::Sealed {
 	/// # Errors
 	///
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	fn transfer(address: &[u8], value: &[u8]) -> Result;
+	fn transfer(address: &[u8; 20], value: &[u8]) -> Result;
 
 	/// Remove the calling account and transfer remaining **free** balance.
 	///
