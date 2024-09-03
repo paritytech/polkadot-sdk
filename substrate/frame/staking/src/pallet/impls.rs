@@ -680,7 +680,11 @@ impl<T: Config> Pallet<T> {
 				.try_collect()
 				.unwrap_or_default()
 		} else {
-			ElectableStashes::<T>::get()
+			ElectableStashes::<T>::iter()
+				.map(|(s, _)| s)
+				.collect::<Vec<_>>()
+				.try_into()
+				.expect("should fit, qed.")
 
 			// TODO: add status to the election in case it fails in any of the elect() calls.
 			//Self::deposit_event(Event::StakingElectionFailed);
@@ -734,17 +738,9 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		log!(info, "Paged results for page {:?}", paged_result);
-		let exposures = Self::collect_exposures(paged_result);
-
-		log!(info, "> Exposures: {:?}", exposures);
-
-		let _ = Self::store_stakers_info_paged(exposures)
+		let _ = Self::store_stakers_info_paged(Self::collect_exposures(paged_result))
 			.iter()
-			.map(|s| {
-				log!(info, "about to append stashes: {:?}", s);
-				ElectableStashes::<T>::try_append(s)
-			})
+			.map(|s| ElectableStashes::<T>::insert(s, ()))
 			.collect::<Vec<_>>();
 	}
 

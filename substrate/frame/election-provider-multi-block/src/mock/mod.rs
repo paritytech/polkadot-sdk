@@ -255,6 +255,16 @@ impl ExtBuilder {
 		self
 	}
 
+	pub(crate) fn snasphot_voters_page(self, voters: VoterIndex) -> Self {
+		VoterSnapshotPerBlock::set(voters);
+		self
+	}
+
+	pub(crate) fn snasphot_targets_page(self, targets: TargetIndex) -> Self {
+		TargetSnapshotPerBlock::set(targets);
+		self
+	}
+
 	pub(crate) fn signed_phase(self, blocks: BlockNumber) -> Self {
 		SignedPhase::set(blocks);
 		self
@@ -372,25 +382,43 @@ impl ExtBuilder {
 pub(crate) fn compute_snapshot_checked() {
 	let msp = crate::Pallet::<T>::msp();
 
-	for page in (0..=msp).rev() {
+	for page in (0..=Pages::get()).rev() {
+		CurrentPhase::<T>::set(Phase::Snapshot(page));
 		crate::Pallet::<T>::try_progress_snapshot(page);
 
 		assert!(Snapshot::<T>::targets_snapshot_exists());
-		assert!(Snapshot::<T>::voters(page).is_some());
+
+		if page <= msp {
+			assert!(Snapshot::<T>::voters(page).is_some());
+		}
 	}
 }
 
-pub(crate) fn mine_and_verify_all() -> Result<(), &'static str> {
+pub(crate) fn mine_and_verify_all() -> Result<
+	Vec<
+		frame_election_provider_support::BoundedSupports<
+			AccountId,
+			MaxWinnersPerPage,
+			MaxBackersPerWinner,
+		>,
+	>,
+	&'static str,
+> {
 	let msp = crate::Pallet::<T>::msp();
+	let mut paged_supports = vec![];
 
 	for page in (0..=msp).rev() {
 		let (_, score, solution) =
-			OffchainWorkerMiner::<T>::mine(page).map_err(|_| "error mining")?;
-		<VerifierPallet as verifier::Verifier>::verify_synchronous(solution, score, page)
-			.map_err(|_| "error verifying paged solution")?;
+			OffchainWorkerMiner::<T>::mine(page).map_err(|e| "error mining")?;
+
+		let supports =
+			<VerifierPallet as verifier::Verifier>::verify_synchronous(solution, score, page)
+				.map_err(|_| "error verifying paged solution")?;
+
+		paged_supports.push(supports);
 	}
 
-	Ok(())
+	Ok(paged_supports)
 }
 
 pub(crate) fn roll_to(n: BlockNumber) {

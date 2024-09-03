@@ -767,7 +767,7 @@ pub mod pallet {
 	// * maybe use pallet-paged-list? (https://paritytech.github.io/polkadot-sdk/master/pallet_paged_list/index.html)
 	#[pallet::storage]
 	pub(crate) type ElectableStashes<T: Config> =
-		StorageValue<_, BoundedVec<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, (), ValueQuery>;
 
 	/// Lock for election data provider.
 	///

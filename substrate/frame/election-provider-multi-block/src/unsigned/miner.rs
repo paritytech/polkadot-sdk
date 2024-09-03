@@ -113,9 +113,6 @@ where
 		pages: PageIndex,
 		do_reduce: bool,
 	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
-		let desired_targets = Snapshot::<T>::desired_targets()
-			.ok_or::<MinerError>(SnapshotType::DesiredTargets.into())?;
-
 		// prepare range to fetch all pages of the target and voter snapshot.
 		let paged_range = (0..EPM::<T>::msp() + 1).take(pages as usize);
 
@@ -133,12 +130,24 @@ where
 		let all_targets = Snapshot::<T>::targets()
 			.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets))?;
 
-		// flatten pages of voters and target snapshots.
-		let all_voters: Vec<VoterOf<T>> =
-			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
+		Self::mine_paged_solution_with_snaphsot(all_voter_pages, all_targets, pages, do_reduce)
+	}
+
+	pub fn mine_paged_solution_with_snaphsot(
+		all_voter_pages: BoundedVec<BoundedVec<VoterOf<T>, T::VoterSnapshotPerBlock>, T::Pages>,
+		all_targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
+		pages: PageIndex,
+		do_reduce: bool,
+	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
+		let desired_targets = Snapshot::<T>::desired_targets()
+			.ok_or::<MinerError>(SnapshotType::DesiredTargets.into())?;
 
 		// useless to proceed if the solution will not be feasible.
 		ensure!(all_targets.len() >= desired_targets as usize, MinerError::NotEnoughTargets);
+
+		// flatten pages of voters and target snapshots.
+		let all_voters: Vec<VoterOf<T>> =
+			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
 		// these closures generate an efficient index mapping of each tvoter -> the snaphot
 		// that they are part of. this needs to be the same indexing fn in the verifier side to

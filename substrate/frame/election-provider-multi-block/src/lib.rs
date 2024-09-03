@@ -1008,3 +1008,81 @@ mod snapshot {
 	#[test]
 	fn try_progress_snapshot_works() {}
 }
+
+#[cfg(test)]
+mod election_provider {
+	use super::*;
+	use crate::{mock::*, unsigned::miner::Miner};
+	use frame_support::testing_prelude::*;
+
+	#[test]
+	fn snapshot_to_supports_conversions_work() {
+		type VotersPerPage = <T as pallet::Config>::VoterSnapshotPerBlock;
+		type TargetsPerPage = <T as pallet::Config>::TargetSnapshotPerBlock;
+		type Pages = <T as pallet::Config>::Pages;
+
+		ExtBuilder::default()
+			.pages(2)
+			.snasphot_voters_page(4)
+			.snasphot_targets_page(4)
+			.desired_targets(2)
+			.build_and_execute(|| {
+				assert_eq!(MultiPhase::msp(), 1);
+
+				let all_targets: BoundedVec<AccountId, TargetsPerPage> =
+					bounded_vec![10, 20, 30, 40];
+
+				let all_voter_pages: BoundedVec<
+					BoundedVec<VoterOf<MockStaking>, VotersPerPage>,
+					Pages,
+				> = bounded_vec![
+					bounded_vec![
+						(1, 100, bounded_vec![10, 20]),
+						(2, 20, bounded_vec![30]),
+						(3, 30, bounded_vec![10]),
+						(10, 10, bounded_vec![10])
+					],
+					bounded_vec![
+						(20, 20, bounded_vec![20]),
+						(30, 30, bounded_vec![30]),
+						(40, 40, bounded_vec![40])
+					],
+				];
+
+				Snapshot::<T>::set_targets(all_targets.clone());
+				Snapshot::<T>::set_voters(0, all_voter_pages[0].clone());
+				Snapshot::<T>::set_voters(1, all_voter_pages[1].clone());
+
+				let (results, _) = Miner::<T, Solver>::mine_paged_solution_with_snaphsot(
+					all_voter_pages,
+					all_targets,
+					Pages::get(),
+					false,
+				)
+				.unwrap();
+
+				let supports_page_zero =
+					PalletVerifier::<T>::feasibility_check(results.solution_pages[0].clone(), 0)
+						.unwrap();
+				let supports_page_one =
+					PalletVerifier::<T>::feasibility_check(results.solution_pages[1].clone(), 1)
+						.unwrap();
+
+				use frame_election_provider_support::{BoundedSupports, TryIntoBoundedSupports};
+				use sp_npos_elections::{Support, Supports};
+
+				let s0: Supports<AccountId> = vec![
+					(10, Support { total: 90, voters: vec![(3, 30), (10, 10), (1, 50)] }),
+					(20, Support { total: 50, voters: vec![(1, 50)] }),
+				];
+				let bs0: BoundedSupports<_, _, _> = s0.try_into_bounded_supports().unwrap();
+
+				let s1: Supports<AccountId> =
+					vec![(20, Support { total: 20, voters: vec![(20, 20)] })];
+				let bs1: BoundedSupports<_, _, _> = s1.try_into_bounded_supports().unwrap();
+
+				assert_eq!(supports_page_zero, bs0);
+				assert_eq!(supports_page_one, bs1);
+			})
+	}
+}

@@ -262,7 +262,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 
 parameter_types! {
 	// pub const Period: u32 = 6 * HOURS;
-	pub const Period: u32 = 5 * MINUTES;
+	pub const Period: u32 = 3 * MINUTES;
 	pub const Offset: u32 = 0;
 }
 
@@ -354,7 +354,7 @@ parameter_types! {
 	pub const MaxExposurePageSize: u32 = 64;
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
-	pub const MaxValidatorSet: u32 = 1_000;
+	pub const MaxValidatorSet: u32 = 1_500;
 }
 
 // Disabling threshold for `UpToLimitDisablingStrategy`
@@ -439,8 +439,8 @@ parameter_types! {
 
 	pub Pages: PageIndex = 3;
 	pub MaxWinnersPerPage: u32 = 1_500;
-	pub MaxBackersPerWinner: u32 = 2_000;
-	pub VoterSnapshotPerBlock: VoterIndex = 9_000; // 9K * 4 = 36K max nominators in the snapshot.
+	pub MaxBackersPerWinner: u32 = 5_000;
+	pub VoterSnapshotPerBlock: VoterIndex = 10_000;
 	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 
 	pub const SignedMaxSubmissions: u32 = 32;

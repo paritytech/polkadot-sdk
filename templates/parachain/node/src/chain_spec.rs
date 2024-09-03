@@ -137,8 +137,8 @@ fn testnet_genesis(
 	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
-	let validators = 100;
-	let nominators = 500;
+	let validators = 1_500;
+	let nominators = 30_000;
 	let edges = 16;
 
 	let staking_gen = staking_genesis::generate(validators, nominators, edges, validators);
