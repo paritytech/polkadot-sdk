@@ -224,7 +224,7 @@ pub mod pallet {
 		RegisterToken {
 			/// Location of Polkadot-native token
 			location: VersionedLocation,
-			/// ID of Polkadot-native token on Ethereum 
+			/// ID of Polkadot-native token on Ethereum
 			foreign_token_id: H256,
 		},
 	}
@@ -739,8 +739,8 @@ pub mod pallet {
 			Self::send(SECONDARY_GOVERNANCE_CHANNEL, command, pays_fee)?;
 
 			Self::deposit_event(Event::<T>::RegisterToken {
-				asset_id: location.clone().into(),
-				token_id,
+				location: location.clone().into(),
+				foreign_token_id: token_id,
 			});
 
 			Ok(())
