@@ -6,10 +6,10 @@ title: Add CLI options for parachain chain specifications + fix bug for swallowi
 doc:
   - audience: Node Operator
     description: |
-      Parachain ID and relay chain can be specified via the CLI arguments if the parachain subcommand is used.
-      A bug that also swallowed custom fields outside of the default config, such as those with Extensions in previous chain specs, has also been fixed.
+      Parachain ID and relay chain can be specified via the CLI arguments for when creating a chain spec.
+      A bug that also swallowed custom fields outside of the default config has also been fixed.
       
 
 crates:
   - name: staging-chain-spec-builder
-    bump: minor
+    bump: major

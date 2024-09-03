@@ -163,7 +163,7 @@ fn generate_para_chain_spec() {
 	  "protocolId": null,
 	  "relay_chain": "polkadot",
 	  "para_id": 1000,
-	  "properties": { "ss58Format": 42, "tokenDecimals": 12, "tokenSymbol": "UNIT" },
+	  "properties": { "tokenDecimals": 12, "tokenSymbol": "UNIT" },
 	  "codeSubstitutes": {},
 	  "genesis": {
 		"runtimeGenesis": {
