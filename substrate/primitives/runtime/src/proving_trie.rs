@@ -178,6 +178,9 @@ where
 	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
 	/// proof.
 	///
+	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
+	/// compatible with `LayoutV0`.
+	///
 	/// When verifying the proof created by this function, you must include all of the keys and
 	/// values of the proof, else the verifier will complain that extra nodes are provided in the
 	/// proof that are not needed.
@@ -193,6 +196,9 @@ where
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
 	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
 	/// proof.
+	///
+	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
+	/// compatible with `LayoutV0`.
 	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<Vec<u8>>, DispatchError> {
 		self.create_proof(&[key])
 	}
@@ -357,12 +363,26 @@ mod tests {
 		let proof = balance_trie.create_single_value_proof(6u32).unwrap();
 
 		// Correct data verifies successfully
-		assert_eq!(verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, Some(6u128)), Ok(()));
+		assert_eq!(
+			verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, Some(6u128)),
+			Ok(())
+		);
 
 		// Fail to verify proof with wrong root
-		assert_eq!(verify_single_value_proof::<BlakeTwo256, _, _>(Default::default(), &proof, 6u32, Some(6u128)), Err(TrieError::RootMismatch.into()));
+		assert_eq!(
+			verify_single_value_proof::<BlakeTwo256, _, _>(
+				Default::default(),
+				&proof,
+				6u32,
+				Some(6u128)
+			),
+			Err(TrieError::RootMismatch.into())
+		);
 
 		// Fail to verify proof with wrong data
-		assert_eq!(verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, Some(6u128)), Err(TrieError::IncompleteProof.into()));
+		assert_eq!(
+			verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, Some(6u128)),
+			Err(TrieError::IncompleteProof.into())
+		);
 	}
 }
