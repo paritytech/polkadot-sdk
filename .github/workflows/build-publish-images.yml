@@ -11,8 +11,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-env:
-  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+env:  
   BUILDAH_IMAGE: docker.io/paritytech/buildah:1.31
   COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -28,13 +27,18 @@ jobs:
       # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
       # This workaround sets the container image for each job using 'set-image' job output.      
       runs-on: ubuntu-latest
+      env:
+        BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
       outputs:
         IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+        REF_NAME: ${{ steps.set_vars.outputs.REF_NAME }}
       steps:
         - name: Checkout
           uses: actions/checkout@v4
         - id: set_image
-          run: cat .github/env >> $GITHUB_OUTPUT    
+          run: cat .github/env >> $GITHUB_OUTPUT
+        - id: set_vars
+          run: cat "REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
 
 ### Build ########################
 
@@ -66,7 +70,7 @@ jobs:
       - name: pack artifacts
         run: |
           mkdir -p ./artifacts
-          VERSION="${BRANCH_NAME//\//-}" # will be tag or branch name
+          VERSION="${{ needs.set-image.outputs.REF_NAME }}" # will be tag or branch name
           mv ./target/testnet/polkadot ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
@@ -75,7 +79,7 @@ jobs:
           sha256sum polkadot | tee polkadot.sha256
           shasum -c polkadot.sha256
           popd
-          EXTRATAG="${BRANCH_NAME//\//-}-${COMMIT_SHA::8}"
+          EXTRATAG="${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA::8}"
           echo "Polkadot version = ${VERSION} (EXTRATAG = ${EXTRATAG})"
           echo -n ${VERSION} > ./artifacts/VERSION
           echo -n ${EXTRATAG} > ./artifacts/EXTRATAG
@@ -87,7 +91,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${GITHUB_JOB}-${BRANCH_NAME//\//-}
+          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
           path: artifacts       
           retention-days: 1
   
@@ -105,23 +109,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: log
-        run: echo ${GITHUB_JOB}-${BRANCH_NAME}
       - name: build
         run: |
-          echo ${GITHUB_JOB}-${BRANCH_NAME}
           echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
           time forklift cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
           echo "___Packing the artifacts___"
           mkdir -p ./artifacts
           mv ./target/release/polkadot-parachain ./artifacts/.
           echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___"
-          echo ${BRANCH_NAME//\//-} | tee ./artifacts/VERSION
+          echo ${{ needs.set-image.outputs.REF_NAME }} | tee ./artifacts/VERSION
 
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${GITHUB_JOB}-${BRANCH_NAME//\//-}
+          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
           path: artifacts       
           retention-days: 1
 
@@ -154,7 +155,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${GITHUB_JOB}-${BRANCH_NAME//\//-}
+          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
           path: artifacts       
           retention-days: 1          
 
@@ -179,8 +180,8 @@ jobs:
           mkdir -p ./artifacts
           mv ./target/testnet/adder-collator ./artifacts/.
           mv ./target/testnet/undying-collator ./artifacts/.
-          echo -n "${BRANCH_NAME//\//-}" > ./artifacts/VERSION
-          echo -n "${BRANCH_NAME//\//-}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.set-image.outputs.REF_NAME }}" > ./artifacts/VERSION
+          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
           echo "adder-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
@@ -188,7 +189,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${GITHUB_JOB}-${BRANCH_NAME//\//-}
+          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
           path: artifacts       
           retention-days: 1            
 
@@ -213,16 +214,16 @@ jobs:
           mv ./target/testnet/malus ./artifacts/.
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
-          echo -n "${BRANCH_NAME//\//-}" > ./artifacts/VERSION
-          echo -n "${BRANCH_NAME//\//-}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.set-image.outputs.REF_NAME }}" > ./artifacts/VERSION
+          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
           echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
 
           mkdir -p ./artifacts
           mv ./target/testnet/adder-collator ./artifacts/.
           mv ./target/testnet/undying-collator ./artifacts/.
-          echo -n "${BRANCH_NAME//\//-}" > ./artifacts/VERSION
-          echo -n "${BRANCH_NAME//\//-}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.set-image.outputs.REF_NAME }}" > ./artifacts/VERSION
+          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
           echo "adder-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
@@ -230,7 +231,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${GITHUB_JOB}-${BRANCH_NAME//\//-}
+          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
           path: artifacts       
           retention-days: 1              
 
@@ -271,7 +272,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${GITHUB_JOB}-${BRANCH_NAME//\//-}
+          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
           path: artifacts       
           retention-days: 1
 
@@ -297,7 +298,7 @@ jobs:
        - name: upload artifacts
          uses: actions/upload-artifact@v4
          with:
-           name: ${GITHUB_JOB}-${BRANCH_NAME//\//-}
+           name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
            path: artifacts       
            retention-days: 1              
 
@@ -307,7 +308,7 @@ jobs:
   #
   #
   build-push-image-test-parachain:
-    needs: [build-test-parachain]
+    needs: [set-image, build-test-parachain]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
@@ -316,7 +317,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
-          name: build-test-parachain-${BRANCH_NAME//\//-}
+          name: build-test-parachain-${{ needs.set-image.outputs.REF_NAME }}
       
       - name: build and push image
         uses: ./.github/actions/build-push-image
@@ -328,7 +329,7 @@ jobs:
   #
   #
   build-push-image-polkadot-debug:
-    needs: [build-linux-stable]
+    needs: [set-image, build-linux-stable]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
@@ -337,7 +338,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
-          name: build-linux-stable-${BRANCH_NAME//\//-}
+          name: build-linux-stable-${{ needs.set-image.outputs.REF_NAME }}
       
       - name: build and push image
         uses: ./.github/actions/build-push-image
@@ -350,7 +351,7 @@ jobs:
   #
   #
   build-push-image-colander:
-    needs: [build-test-collators]
+    needs: [set-image, build-test-collators]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
@@ -359,7 +360,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
-          name: build-test-collators-${BRANCH_NAME//\//-}
+          name: build-test-collators-${{ needs.set-image.outputs.REF_NAME }}
       
       - name: build and push image
         uses: ./.github/actions/build-push-image
@@ -372,7 +373,7 @@ jobs:
   #
   #
   build-push-image-malus:
-    needs: [build-malus]
+    needs: [set-image, build-malus]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
@@ -381,7 +382,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
-          name: build-malus-${BRANCH_NAME//\//-}
+          name: build-malus-${{ needs.set-image.outputs.REF_NAME }}
       
       - name: build and push image
         uses: ./.github/actions/build-push-image
@@ -394,7 +395,7 @@ jobs:
   #
   #
   build-push-image-substrate-pr:
-    needs: [build-linux-substrate]
+    needs: [set-image, build-linux-substrate]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
@@ -403,7 +404,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
-          name: build-linux-substrate-${BRANCH_NAME//\//-}
+          name: build-linux-substrate-${{ needs.set-image.outputs.REF_NAME }}
       
       - name: build and push image
         uses: ./.github/actions/build-push-image
@@ -418,7 +419,7 @@ jobs:
   # unlike other images, bridges+zombienet image is based on Zombienet image that pulls required binaries
   # from other fresh images (polkadot and cumulus)
   build-push-image-bridges-zombienet-tests:
-    needs: [build-linux-stable, build-linux-stable-cumulus, prepare-bridges-zombienet-artifacts]
+    needs: [set-image, build-linux-stable, build-linux-stable-cumulus, prepare-bridges-zombienet-artifacts]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
@@ -427,15 +428,15 @@ jobs:
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
-          name: build-linux-stable-${BRANCH_NAME//\//-}
+          name: build-linux-stable-${{ needs.set-image.outputs.REF_NAME }}
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
-          name: build-linux-stable-cumulus-${BRANCH_NAME//\//-}
+          name: build-linux-stable-cumulus-${{ needs.set-image.outputs.REF_NAME }}
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
-          name: prepare-bridges-zombienet-artifacts-${BRANCH_NAME//\//-}            
+          name: prepare-bridges-zombienet-artifacts-${{ needs.set-image.outputs.REF_NAME }}            
 
       - name: build and push image
         uses: ./.github/actions/build-push-image
@@ -448,7 +449,7 @@ jobs:
   #
   #
   build-push-image-polkadot-parachain-debug:
-    needs: [build-linux-stable-cumulus]
+    needs: [set-image, build-linux-stable-cumulus]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     container:
@@ -457,7 +458,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
-          name: build-linux-stable-cumulus-${BRANCH_NAME//\//-}
+          name: build-linux-stable-cumulus-${{ needs.set-image.outputs.REF_NAME }}
       
       - name: build and push image
         uses: ./.github/actions/build-push-image
