@@ -21,7 +21,7 @@ if [ ! -z "$1" ]; then
     echo "rustup needs to be installed"
     exit
   fi
-  
+
   rustup install $RUST_VERSION
   rustup component add rust-src --toolchain $RUST_VERSION
 fi

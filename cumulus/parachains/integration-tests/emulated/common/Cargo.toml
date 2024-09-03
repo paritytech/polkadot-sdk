@@ -42,5 +42,7 @@ asset-test-utils = { workspace = true, default-features = true }
 
 # Bridges
 bp-messages = { workspace = true, default-features = true }
+bp-xcm-bridge-hub = { workspace = true, default-features = true }
 pallet-bridge-messages = { workspace = true, default-features = true }
+pallet-xcm-bridge-hub = { workspace = true, default-features = true }
 bridge-runtime-common = { workspace = true, default-features = true }

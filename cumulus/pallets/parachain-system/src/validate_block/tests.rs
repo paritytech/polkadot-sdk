@@ -312,7 +312,7 @@ fn validation_params_and_memory_optimized_validation_params_encode_and_decode() 
 fn validate_block_works_with_child_tries() {
 	sp_tracing::try_init_simple();
 
-	let (mut client, parent_head) = create_test_client();
+	let (client, parent_head) = create_test_client();
 	let TestBlockData { block, .. } = build_block_with_witness(
 		&client,
 		vec![generate_extrinsic(&client, Charlie, TestPalletCall::read_and_write_child_tries {})],

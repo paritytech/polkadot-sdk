@@ -29,7 +29,7 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 	let xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
-			network: WestendId.into(),
+			network: WestendId,
 			destination: [Parachain(AssetHubWestend::para_id().into())].into(),
 			xcm: remote_xcm,
 		},
@@ -78,6 +78,9 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
 	// fund sender
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoSender::get().into(), amount * 10)]);
+
+	// open bridge
+	open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
 
 	// send XCM from AssetHubRococo - fails - destination version not known
 	assert_err!(

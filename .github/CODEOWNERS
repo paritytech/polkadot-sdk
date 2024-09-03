@@ -64,7 +64,8 @@
 /substrate/primitives/merkle-mountain-range/ @acatangiu
 
 # Contracts
-/substrate/frame/contracts/ @athei @paritytech/docs-audit
+/substrate/frame/contracts/ @paritytech/smart-contracts @paritytech/docs-audit
+/substrate/frame/revive/ @paritytech/smart-contracts @paritytech/docs-audit
 
 # NPoS and election
 /substrate/frame/election-provider-multi-phase/ @paritytech/staking-core @paritytech/docs-audit
