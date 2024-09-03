@@ -116,7 +116,7 @@ benchmarks! {
 	set_asset_claimer {
 		let mut executor = new_executor::<T>(Default::default());
 		let (sender_account, sender_location) = account_and_location::<T>(1);
-		
+
 		let instruction = Instruction::SetAssetClaimer{ location:sender_location.clone() };
 
 		let xcm = Xcm(vec![instruction]);
