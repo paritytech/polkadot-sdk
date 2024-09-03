@@ -331,4 +331,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 650_000 picoseconds.
 		Weight::from_parts(673_000, 0)
 	}
+	pub fn set_asset_claimer() -> Weight {
+		Weight::from_parts(2_176_000, 0)
+	}
 }

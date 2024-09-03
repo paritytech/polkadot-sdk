@@ -157,7 +157,7 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubWestendXcmWeight<Call> {
 	}
 
 	fn set_asset_claimer(location: &Location) -> Weight {
-		todo!()
+		XcmGeneric::<Runtime>::set_asset_claimer()
 	}
 
 	fn claim_asset(_assets: &Assets, _ticket: &Location) -> Weight {

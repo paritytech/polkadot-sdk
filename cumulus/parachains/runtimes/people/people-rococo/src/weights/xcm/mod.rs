@@ -232,6 +232,6 @@ impl<Call> XcmWeightInfo<Call> for PeopleRococoXcmWeight<Call> {
 		XcmGeneric::<Runtime>::unpaid_execution()
 	}
 	fn set_asset_claimer(location: &Location) -> Weight {
-		todo!()
+		XcmGeneric::<Runtime>::set_asset_claimer()
 	}
 }
