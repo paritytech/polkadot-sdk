@@ -114,11 +114,15 @@
 //! separated from the stable primitives.
 
 use crate::{
-	async_backing, slashing, ApprovalVotingParams, AsyncBackingParams, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
+	slashing,
+	vstaging::{
+		self, CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateHash,
+	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, SessionIndex, SessionInfo,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use alloc::{
@@ -260,7 +264,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns the state of parachain backing for a given para.
 		#[api_version(7)]
-		fn para_backing_state(_: ppp::Id) -> Option<async_backing::BackingState<Hash, BlockNumber>>;
+		fn para_backing_state(_: ppp::Id) -> Option<vstaging::async_backing::BackingState<Hash, BlockNumber>>;
 
 		/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
 		#[api_version(7)]

@@ -225,7 +225,7 @@ use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{defer, H256};
 use sp_runtime::{
 	traits::{One, Zero},
-	SaturatedConversion, Saturating,
+	SaturatedConversion, Saturating, TransactionOutcome,
 };
 use sp_weights::WeightMeter;
 pub use weights::WeightInfo;
@@ -1435,6 +1435,8 @@ impl<T: Config> Pallet<T> {
 	/// The base weight of this function needs to be accounted for by the caller. `weight` is the
 	/// remaining weight to process the message. `overweight_limit` is the maximum weight that a
 	/// message can ever consume. Messages above this limit are marked as permanently overweight.
+	/// This process is also transactional, any form of error that occurs in processing a message
+	/// causes storage changes to be rolled back.
 	fn process_message_payload(
 		origin: MessageOriginOf<T>,
 		page_index: PageIndex,
@@ -1447,7 +1449,27 @@ impl<T: Config> Pallet<T> {
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 
-		match T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id) {
+		let transaction =
+			storage::with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+				let res =
+					T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id);
+				match &res {
+					Ok(_) => TransactionOutcome::Commit(Ok(res)),
+					Err(_) => TransactionOutcome::Rollback(Ok(res)),
+				}
+			});
+
+		let transaction = match transaction {
+			Ok(result) => result,
+			_ => {
+				defensive!(
+					"Error occurred processing message, storage changes will be rolled back"
+				);
+				return MessageExecutionStatus::Unprocessable { permanent: true }
+			},
+		};
+
+		match transaction {
 			Err(Overweight(w)) if w.any_gt(overweight_limit) => {
 				// Permanently overweight.
 				Self::deposit_event(Event::<T>::OverweightEnqueued {
