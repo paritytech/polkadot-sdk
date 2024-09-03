@@ -221,7 +221,7 @@ jobs:
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
           echo -n "${{ needs.set-image.outputs.REF_NAME }}" > ./artifacts/VERSION
-          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA::8}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA:0:8}" > ./artifacts/EXTRATAG
           echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
 
@@ -320,6 +320,9 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
@@ -341,6 +344,9 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
@@ -363,6 +369,9 @@ jobs:
     container:      
       image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
@@ -385,6 +394,9 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
@@ -407,6 +419,9 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
@@ -431,6 +446,9 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
@@ -461,6 +479,9 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.BUILDAH_IMAGE}}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with: 
           path: artifacts
