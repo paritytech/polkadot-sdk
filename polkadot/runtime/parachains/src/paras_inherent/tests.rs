@@ -58,7 +58,9 @@ mod enter {
 	use core::panic;
 	use frame_support::assert_ok;
 	use frame_system::limits;
-	use polkadot_primitives::{AvailabilityBitfield, SchedulerParams, UncheckedSigned};
+	use polkadot_primitives::{
+		vstaging::InternalVersion, AvailabilityBitfield, SchedulerParams, UncheckedSigned,
+	};
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
@@ -70,6 +72,7 @@ mod enter {
 		fill_claimqueue: bool,
 		elastic_paras: BTreeMap<u32, u8>,
 		unavailable_cores: Vec<u32>,
+		v2_descriptor: bool,
 	}
 
 	fn make_inherent_data(
@@ -82,6 +85,7 @@ mod enter {
 			fill_claimqueue,
 			elastic_paras,
 			unavailable_cores,
+			v2_descriptor,
 		}: TestConfig,
 	) -> Bench<Test> {
 		let extra_cores = elastic_paras
@@ -99,7 +103,8 @@ mod enter {
 			.set_backed_and_concluding_paras(backed_and_concluding.clone())
 			.set_dispute_sessions(&dispute_sessions[..])
 			.set_fill_claimqueue(fill_claimqueue)
-			.set_unavailable_cores(unavailable_cores);
+			.set_unavailable_cores(unavailable_cores)
+			.set_candidate_descriptor_v2(v2_descriptor);
 
 		// Setup some assignments as needed:
 		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
@@ -145,6 +150,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			// We expect the scenario to have cores 0 & 1 with pending availability. The backed
@@ -240,6 +246,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -344,6 +351,7 @@ mod enter {
 				fill_claimqueue: true,
 				elastic_paras: [(2, 4)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
+				v2_descriptor: false,
 			});
 
 			let mut expected_para_inherent_data = scenario.data.clone();
@@ -600,6 +608,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -673,6 +682,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -744,6 +754,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -831,6 +842,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -918,6 +930,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -977,6 +990,7 @@ mod enter {
 				fill_claimqueue: true,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1063,6 +1077,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1170,6 +1185,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1238,6 +1254,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1304,6 +1321,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1407,6 +1425,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let mut para_inherent_data = scenario.data.clone();
@@ -1440,7 +1459,7 @@ mod enter {
 
 			// The chained candidates are not picked, instead a single other candidate is picked
 			assert_eq!(backed_candidates.len(), 1);
-			assert_ne!(backed_candidates[0].descriptor().para_id, ParaId::from(1000));
+			assert_ne!(backed_candidates[0].descriptor().para_id(), ParaId::from(1000));
 
 			// All bitfields are kept.
 			assert_eq!(bitfields.len(), 150);
@@ -1461,9 +1480,9 @@ mod enter {
 			// Only the chained candidates should pass filter.
 			assert_eq!(backed_candidates.len(), 3);
 			// Check the actual candidates
-			assert_eq!(backed_candidates[0].descriptor().para_id, ParaId::from(1000));
-			assert_eq!(backed_candidates[1].descriptor().para_id, ParaId::from(1000));
-			assert_eq!(backed_candidates[2].descriptor().para_id, ParaId::from(1000));
+			assert_eq!(backed_candidates[0].descriptor().para_id(), ParaId::from(1000));
+			assert_eq!(backed_candidates[1].descriptor().para_id(), ParaId::from(1000));
+			assert_eq!(backed_candidates[2].descriptor().para_id(), ParaId::from(1000));
 
 			// All bitfields are kept.
 			assert_eq!(bitfields.len(), 150);
@@ -1496,6 +1515,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1524,6 +1544,76 @@ mod enter {
 			assert_eq!(dispatch_error, Error::<Test>::InherentOverweight.into());
 		});
 	}
+
+	#[test]
+	fn v2_descriptors_are_filtered() {
+		let config = default_config();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+		new_test_ext(config).execute_with(|| {
+			// Set the elastic scaling MVP feature.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::ElasticScalingMVP as u8,
+				true,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let unavailable_cores = vec![];
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 5,
+				code_upgrade: None,
+				fill_claimqueue: true,
+				// 8 cores !
+				elastic_paras: [(2, 8)].into_iter().collect(),
+				unavailable_cores: unavailable_cores.clone(),
+				v2_descriptor: true,
+			});
+
+			let mut unfiltered_para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (5 validators per core, 10 backed candidates)
+			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 50);
+			// * 10 v2 candidate descriptors.
+			assert_eq!(unfiltered_para_inherent_data.backed_candidates.len(), 10);
+
+			// Make the last candidate look like v1, by using an unknown version.
+			unfiltered_para_inherent_data.backed_candidates[9]
+				.descriptor_mut()
+				.set_version(InternalVersion(123));
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &unfiltered_para_inherent_data)
+				.unwrap();
+
+			// We expect all backed candidates to be filtered out.
+			let filtered_para_inherend_data =
+				Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+
+			assert_eq!(filtered_para_inherend_data.backed_candidates.len(), 0);
+
+			let dispatch_error = Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				unfiltered_para_inherent_data,
+			)
+			.unwrap_err()
+			.error;
+
+			// We expect `enter` to fail because the inherent data contains backed candidates with
+			// v2 descriptors.
+			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
+		});
+	}
 }
 
 fn default_header() -> polkadot_primitives::Header {
@@ -1540,9 +1630,7 @@ mod sanitizers {
 	use super::*;
 
 	use crate::{
-		inclusion::tests::{
-			back_candidate, collator_sign_candidate, BackingKind, TestCandidateBuilder,
-		},
+		inclusion::tests::{back_candidate, BackingKind, TestCandidateBuilder},
 		mock::new_test_ext,
 	};
 	use bitvec::order::Lsb0;
@@ -1556,7 +1644,6 @@ mod sanitizers {
 	use crate::mock::Test;
 	use polkadot_primitives::PARACHAIN_KEY_TYPE_ID;
 	use sc_keystore::LocalKeystore;
-	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::{Keystore, KeystorePtr};
 	use std::sync::Arc;
 
@@ -1940,7 +2027,7 @@ mod sanitizers {
 				.into_iter()
 				.map(|idx0| {
 					let idx1 = idx0 + 1;
-					let mut candidate = TestCandidateBuilder {
+					let candidate = TestCandidateBuilder {
 						para_id: ParaId::from(idx1),
 						relay_parent,
 						pov_hash: Hash::repeat_byte(idx1 as u8),
@@ -1956,8 +2043,6 @@ mod sanitizers {
 						..Default::default()
 					}
 					.build();
-
-					collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 					let backed = back_candidate(
 						candidate,
@@ -1991,7 +2076,7 @@ mod sanitizers {
 			let mut expected_backed_candidates_with_core = BTreeMap::new();
 
 			for candidate in backed_candidates.iter() {
-				let para_id = candidate.descriptor().para_id;
+				let para_id = candidate.descriptor().para_id();
 
 				expected_backed_candidates_with_core.entry(para_id).or_insert(vec![]).push((
 					candidate.clone(),
@@ -2177,7 +2262,7 @@ mod sanitizers {
 
 			// Para 1
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
@@ -2194,8 +2279,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let prev_candidate = candidate.clone();
 				let backed: BackedCandidate = back_candidate(
@@ -2215,7 +2298,7 @@ mod sanitizers {
 						.push((backed, CoreIndex(0)));
 				}
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),
@@ -2232,8 +2315,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -2255,7 +2336,7 @@ mod sanitizers {
 
 			// Para 2
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
@@ -2271,8 +2352,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -2294,7 +2373,7 @@ mod sanitizers {
 
 			// Para 3
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(3),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(4 as u8),
@@ -2310,8 +2389,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -2331,7 +2408,7 @@ mod sanitizers {
 
 			// Para 4
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(4),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(5 as u8),
@@ -2347,8 +2424,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let prev_candidate = candidate.clone();
 				let backed = back_candidate(
@@ -2366,7 +2441,7 @@ mod sanitizers {
 					.or_insert(vec![])
 					.push((backed, CoreIndex(5)));
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(4),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(6 as u8),
@@ -2384,8 +2459,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -2402,7 +2475,7 @@ mod sanitizers {
 
 			// Para 6.
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(6),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
@@ -2419,8 +2492,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -2435,7 +2506,7 @@ mod sanitizers {
 
 			// Para 7.
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(7),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
@@ -2452,8 +2523,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -2468,7 +2537,7 @@ mod sanitizers {
 
 			// Para 8.
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(8),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
@@ -2484,8 +2553,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -2707,7 +2774,7 @@ mod sanitizers {
 
 			// Para 1
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
@@ -2725,8 +2792,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let prev_candidate = candidate.clone();
 				let prev_backed: BackedCandidate = back_candidate(
 					candidate,
@@ -2738,7 +2803,7 @@ mod sanitizers {
 					core_index_enabled.then_some(CoreIndex(0 as u32)),
 				);
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),
@@ -2756,8 +2821,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -2773,7 +2836,7 @@ mod sanitizers {
 
 			// Para 2.
 			{
-				let mut candidate_1 = TestCandidateBuilder {
+				let candidate_1 = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
@@ -2790,8 +2853,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate_1);
 
 				let backed_1: BackedCandidate = back_candidate(
 					candidate_1,
@@ -2811,7 +2872,7 @@ mod sanitizers {
 						.push((backed_1, CoreIndex(2)));
 				}
 
-				let mut candidate_2 = TestCandidateBuilder {
+				let candidate_2 = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(4 as u8),
@@ -2829,8 +2890,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate_2);
-
 				let backed_2 = back_candidate(
 					candidate_2.clone(),
 					&validators,
@@ -2842,7 +2901,7 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed_2.clone());
 
-				let mut candidate_3 = TestCandidateBuilder {
+				let candidate_3 = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(5 as u8),
@@ -2860,8 +2919,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate_3);
-
 				let backed_3 = back_candidate(
 					candidate_3,
 					&validators,
@@ -2876,7 +2933,7 @@ mod sanitizers {
 
 			// Para 3
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(3),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(6 as u8),
@@ -2893,8 +2950,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let prev_candidate = candidate.clone();
 				let backed: BackedCandidate = back_candidate(
@@ -2914,7 +2969,7 @@ mod sanitizers {
 						.push((backed, CoreIndex(5)));
 				}
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(3),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(6 as u8),
@@ -2931,8 +2986,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -2954,7 +3007,7 @@ mod sanitizers {
 
 			// Para 4
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(4),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(8 as u8),
@@ -2971,8 +3024,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed: BackedCandidate = back_candidate(
 					candidate.clone(),
@@ -3210,7 +3261,7 @@ mod sanitizers {
 
 			// Para 1
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
@@ -3227,8 +3278,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let prev_candidate = candidate.clone();
 				let backed: BackedCandidate = back_candidate(
@@ -3248,7 +3297,7 @@ mod sanitizers {
 						.push((backed, CoreIndex(0)));
 				}
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent: prev_relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
@@ -3267,8 +3316,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let prev_candidate = candidate.clone();
 				let backed = back_candidate(
 					candidate,
@@ -3281,7 +3328,7 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
@@ -3300,8 +3347,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -3316,7 +3361,7 @@ mod sanitizers {
 
 			// Para 2
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent: prev_relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),
@@ -3333,8 +3378,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let prev_candidate = candidate.clone();
 				let backed: BackedCandidate = back_candidate(
@@ -3354,7 +3397,7 @@ mod sanitizers {
 						.push((backed, CoreIndex(3)));
 				}
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),
@@ -3372,8 +3415,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let prev_candidate = candidate.clone();
 				let backed = back_candidate(
@@ -3393,7 +3434,7 @@ mod sanitizers {
 						.push((backed, CoreIndex(4)));
 				}
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),
@@ -3411,8 +3452,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -3486,7 +3525,8 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled
+						core_index_enabled,
+						false,
 					),
 					expected_backed_candidates_with_core,
 				);
@@ -3510,7 +3550,8 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled
+						core_index_enabled,
+						false,
 					),
 					expected_backed_candidates_with_core,
 				);
@@ -3535,6 +3576,7 @@ mod sanitizers {
 						BTreeSet::new(),
 						scheduled,
 						core_index_enabled,
+						false,
 					),
 					expected_backed_candidates_with_core
 				);
@@ -3567,6 +3609,7 @@ mod sanitizers {
 						BTreeSet::new(),
 						scheduled,
 						core_index_enabled,
+						false,
 					),
 					expected_backed_candidates_with_core
 				);
@@ -3607,6 +3650,7 @@ mod sanitizers {
 					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
+					false,
 				);
 
 				if core_index_enabled {
@@ -3677,6 +3721,7 @@ mod sanitizers {
 					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
+					false,
 				);
 
 				if core_index_enabled {
@@ -3715,6 +3760,7 @@ mod sanitizers {
 					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
+					false,
 				);
 
 				assert!(sanitized_backed_candidates.is_empty());
@@ -3751,6 +3797,7 @@ mod sanitizers {
 					set,
 					scheduled,
 					core_index_enabled,
+					false,
 				);
 
 				assert_eq!(sanitized_backed_candidates.len(), backed_candidates.len() / 2);
@@ -3773,9 +3820,9 @@ mod sanitizers {
 				let mut invalid_set = std::collections::BTreeSet::new();
 
 				for (idx, backed_candidate) in backed_candidates.iter().enumerate() {
-					if backed_candidate.descriptor().para_id == ParaId::from(1) && idx == 0 {
+					if backed_candidate.descriptor().para_id() == ParaId::from(1) && idx == 0 {
 						invalid_set.insert(backed_candidate.hash());
-					} else if backed_candidate.descriptor().para_id == ParaId::from(3) {
+					} else if backed_candidate.descriptor().para_id() == ParaId::from(3) {
 						invalid_set.insert(backed_candidate.hash());
 					}
 				}
@@ -3788,6 +3835,7 @@ mod sanitizers {
 					invalid_set,
 					scheduled,
 					true,
+					false,
 				);
 
 				// We'll be left with candidates from paraid 2 and 4.
@@ -3811,7 +3859,7 @@ mod sanitizers {
 				let mut invalid_set = std::collections::BTreeSet::new();
 
 				for (idx, backed_candidate) in backed_candidates.iter().enumerate() {
-					if backed_candidate.descriptor().para_id == ParaId::from(1) && idx == 1 {
+					if backed_candidate.descriptor().para_id() == ParaId::from(1) && idx == 1 {
 						invalid_set.insert(backed_candidate.hash());
 					}
 				}
@@ -3824,6 +3872,7 @@ mod sanitizers {
 					invalid_set,
 					scheduled,
 					true,
+					false,
 				);
 
 				// Only the second candidate of paraid 1 should be removed.
