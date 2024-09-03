@@ -99,3 +99,20 @@ reorder_prdocs() {
     git add -A
     commit_with_message "Reordering prdocs for the release $VERSION"
 }
+
+# Bump the binary version of the polkadot-parachain binary with the
+# new bumped version and commit changes.
+#
+# input: version e.g. 1.16.0
+set_polkadot_parachain_binary_version() {
+    bumped_version="$1"
+    cargo_toml_file="$2"
+
+    set_version "\(^version = \)\".*\"" $bumped_version $cargo_toml_file
+
+    cargo update --workspace --offline # we need this to update Cargo.loc with the new versions as well
+
+    MESSAGE="Bump versions in: ${cargo_toml_file}"
+    commit_with_message "$MESSAGE"
+    git_show_log "$MESSAGE"
+}
