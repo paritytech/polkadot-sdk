@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         reason: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungible::hold::Inspect::Reason">Reason</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-    ) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a> { ... }
+    ) -&gt; DispatchResult { ... }
 <span class="item-spacer"></span>    fn <a href="#method.release" class="fn">release</a>(
         reason: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungible::hold::Inspect::Reason">Reason</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
@@ -166,7 +166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         reason: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungible::hold::Inspect::Reason">Reason</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-    ) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a> { ... }
+    ) -&gt; DispatchResult { ... }
 <span class="item-spacer"></span>    fn <a href="#method.release_all" class="fn">release_all</a>(
         reason: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungible::hold::Inspect::Reason">Reason</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
@@ -235,7 +235,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     reason: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungible::hold::Inspect::Reason">Reason</a>,
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Hold some funds in an account. If a hold for <code>reason</code> is already in place, then this
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Hold some funds in an account. If a hold for <code>reason</code> is already in place, then this
 will increase it.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.release" class="method"><a class="src rightside" href="../../../../../src/frame_support/traits/tokens/fungible/hold.rs.html#226-246">source</a><h4 class="code-header">fn <a href="#method.release" class="fn">release</a>(
     reason: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungible::hold::Inspect::Reason">Reason</a>,
@@ -253,7 +253,7 @@ to be released!</p>
     reason: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungible::hold::Inspect::Reason">Reason</a>,
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>
-) -&gt; <a class="type" href="../../../../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a></h4></section></summary><div class="docblock"><p>Hold or release funds in the account of <code>who</code> to bring the balance on hold for <code>reason</code> to
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Hold or release funds in the account of <code>who</code> to bring the balance on hold for <code>reason</code> to
 exactly <code>amount</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.release_all" class="method"><a class="src rightside" href="../../../../../src/frame_support/traits/tokens/fungible/hold.rs.html#275-281">source</a><h4 class="code-header">fn <a href="#method.release_all" class="fn">release_all</a>(
     reason: &amp;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Reason" title="type frame_support::traits::tokens::fungible::hold::Inspect::Reason">Reason</a>,
