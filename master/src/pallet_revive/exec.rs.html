@@ -4170,6 +4170,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#4018" id="4018">4018</a>
 <a href="#4019" id="4019">4019</a>
 <a href="#4020" id="4020">4020</a>
+<a href="#4021" id="4021">4021</a>
+<a href="#4022" id="4022">4022</a>
+<a href="#4023" id="4023">4023</a>
+<a href="#4024" id="4024">4024</a>
+<a href="#4025" id="4025">4025</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4226,7 +4231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 <span class="kw">use </span>sp_runtime::{
 	traits::{BadOrigin, Convert, Dispatchable, Zero},
-	DispatchError,
+	DispatchError, SaturatedConversion,
 };
 
 <span class="kw">pub type </span>AccountIdOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId;
@@ -4385,7 +4390,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code: H256,
 		value: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
 		input_data: Vec&lt;u8&gt;,
-		salt: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
+		salt: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(H160, ExecReturnValue), ExecError&gt;;
 
 	<span class="doccomment">/// Transfer all funds to `beneficiary` and delete the contract.
@@ -4745,7 +4750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The executable whose `deploy` function is run.
 		</span>executable: E,
 		<span class="doccomment">/// A salt used in the contract address derivation of the new contract.
-		</span>salt: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8; <span class="number">32</span>],
+		</span>salt: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8; <span class="number">32</span>]&gt;,
 		<span class="doccomment">/// The input data is used in the contract address derivation of the new contract.
 		</span>input_data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
 	},
@@ -4922,7 +4927,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
 		value: BalanceOf&lt;T&gt;,
 		input_data: Vec&lt;u8&gt;,
-		salt: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
+		salt: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]&gt;,
 		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DebugBuffer&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(H160, ExecReturnValue), ExecError&gt; {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>stack, executable) = <span class="self">Self</span>::new(
@@ -5035,7 +5040,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			FrameArgs::Instantiate { sender, executable, salt, input_data } =&gt; {
 				<span class="kw">let </span>deployer = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>sender);
-				<span class="kw">let </span>address = address::create2(<span class="kw-2">&amp;</span>deployer, executable.code(), input_data, salt);
+				<span class="kw">let </span>account_nonce = &lt;System&lt;T&gt;&gt;::account_nonce(<span class="kw-2">&amp;</span>sender);
+				<span class="kw">let </span>address = <span class="kw">if let </span><span class="prelude-val">Some</span>(salt) = salt {
+					address::create2(<span class="kw-2">&amp;</span>deployer, executable.code(), input_data, salt)
+				} <span class="kw">else </span>{
+					address::create1(<span class="kw-2">&amp;</span>deployer, account_nonce.saturated_into())
+				};
 				<span class="kw">let </span>contract = ContractInfo::new(
 					<span class="kw-2">&amp;</span>address,
 					&lt;System&lt;T&gt;&gt;::account_nonce(<span class="kw-2">&amp;</span>sender),
@@ -5493,7 +5503,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code_hash: H256,
 		value: BalanceOf&lt;T&gt;,
 		input_data: Vec&lt;u8&gt;,
-		salt: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
+		salt: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(H160, ExecReturnValue), ExecError&gt; {
 		<span class="kw">let </span>executable = E::from_storage(code_hash, <span class="self">self</span>.gas_meter_mut())<span class="question-mark">?</span>;
 		<span class="kw">let </span>sender = <span class="kw-2">&amp;</span><span class="self">self</span>.top_frame().account_id;
@@ -6260,7 +6270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance,
 					<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>],
-					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 					<span class="prelude-val">None</span>,
 				);
 				<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Ok</span>(<span class="kw">_</span>));
@@ -6669,7 +6679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					<span class="number">0</span>, <span class="comment">// &lt;- zero value
 					</span><span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 					<span class="prelude-val">None</span>,
 				),
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>)
@@ -6705,7 +6715,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						min_balance,
 						<span class="macro">vec!</span>[],
-						<span class="kw-2">&amp;</span>[<span class="number">0</span>;<span class="number">32</span>],
+						<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0 </span>;<span class="number">32</span>]),
 						<span class="prelude-val">None</span>,
 					),
 					<span class="prelude-val">Ok</span>((address, <span class="kw-2">ref </span>output)) <span class="kw">if </span>output.data == <span class="macro">vec!</span>[<span class="number">80</span>, <span class="number">65</span>, <span class="number">83</span>, <span class="number">83</span>] =&gt; address
@@ -6759,7 +6769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						min_balance,
 						<span class="macro">vec!</span>[],
-						<span class="kw-2">&amp;</span>[<span class="number">0</span>;<span class="number">32</span>],
+						<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 						<span class="prelude-val">None</span>,
 					),
 					<span class="prelude-val">Ok</span>((address, <span class="kw-2">ref </span>output)) <span class="kw">if </span>output.data == <span class="macro">vec!</span>[<span class="number">70</span>, <span class="number">65</span>, <span class="number">73</span>, <span class="number">76</span>] =&gt; address
@@ -6792,7 +6802,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						dummy_ch,
 						&lt;Test <span class="kw">as </span>Config&gt;::Currency::minimum_balance(),
 						<span class="macro">vec!</span>[],
-						<span class="kw-2">&amp;</span>[<span class="number">48</span>; <span class="number">32</span>],
+						<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">48</span>; <span class="number">32</span>]),
 					)
 					.unwrap();
 
@@ -6870,7 +6880,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						dummy_ch,
 						&lt;Test <span class="kw">as </span>Config&gt;::Currency::minimum_balance(),
 						<span class="macro">vec!</span>[],
-						<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+						<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 					),
 					<span class="prelude-val">Err</span>(ExecError {
 						error: DispatchError::Other(<span class="string">"It's a trap!"</span>),
@@ -6943,7 +6953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw-2">&amp;mut </span>storage_meter,
 						<span class="number">100</span>,
 						<span class="macro">vec!</span>[],
-						<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+						<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 						<span class="prelude-val">None</span>,
 					),
 					<span class="prelude-val">Err</span>(Error::&lt;Test&gt;::TerminatedInConstructor.into())
@@ -7054,7 +7064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 					<span class="prelude-val">None</span>,
 				);
 				<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Ok</span>(<span class="kw">_</span>));
@@ -7422,7 +7432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					fail_code,
 					ctx.ext.minimum_balance() * <span class="number">100</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 				)
 				.ok();
 			exec_success()
@@ -7439,7 +7449,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					success_code,
 					ctx.ext.minimum_balance() * <span class="number">100</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 				)
 				.unwrap();
 
@@ -7490,7 +7500,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance * <span class="number">100</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 					<span class="prelude-val">None</span>,
 				)
 				.ok();
@@ -7503,7 +7513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance * <span class="number">100</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 					<span class="prelude-val">None</span>,
 				));
 				<span class="macro">assert_eq!</span>(System::account_nonce(<span class="kw-2">&amp;</span>ALICE), <span class="number">1</span>);
@@ -7515,7 +7525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance * <span class="number">200</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 					<span class="prelude-val">None</span>,
 				));
 				<span class="macro">assert_eq!</span>(System::account_nonce(<span class="kw-2">&amp;</span>ALICE), <span class="number">2</span>);
@@ -7527,7 +7537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>storage_meter,
 					min_balance * <span class="number">200</span>,
 					<span class="macro">vec!</span>[],
-					<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>],
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 					<span class="prelude-val">None</span>,
 				));
 				<span class="macro">assert_eq!</span>(System::account_nonce(<span class="kw-2">&amp;</span>ALICE), <span class="number">3</span>);

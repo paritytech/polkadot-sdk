@@ -2299,7 +2299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// must be supplied.
 		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
 		#[pallet::weight(
-			T::WeightInfo::instantiate(data.len() <span class="kw">as </span>u32, salt.len() <span class="kw">as </span>u32).saturating_add(<span class="kw-2">*</span>gas_limit)
+			T::WeightInfo::instantiate(data.len() <span class="kw">as </span>u32, <span class="number">32</span>).saturating_add(<span class="kw-2">*</span>gas_limit)
 		)]
 		</span><span class="kw">pub fn </span>instantiate(
 			origin: OriginFor&lt;T&gt;,
@@ -2308,10 +2308,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[pallet::compact] </span>storage_deposit_limit: BalanceOf&lt;T&gt;,
 			code_hash: sp_core::H256,
 			data: Vec&lt;u8&gt;,
-			salt: [u8; <span class="number">32</span>],
+			salt: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;,
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>data_len = data.len() <span class="kw">as </span>u32;
-			<span class="kw">let </span>salt_len = salt.len() <span class="kw">as </span>u32;
 			<span class="kw">let </span><span class="kw-2">mut </span>output = <span class="self">Self</span>::bare_instantiate(
 				origin,
 				value,
@@ -2331,7 +2330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			dispatch_result(
 				output.result.map(|result| result.result),
 				output.gas_consumed,
-				T::WeightInfo::instantiate(data_len, salt_len),
+				T::WeightInfo::instantiate(data_len, <span class="number">32</span>),
 			)
 		}
 
@@ -2350,7 +2349,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///   from the caller to pay for the storage consumed.
 		/// * `code`: The contract code to deploy in raw bytes.
 		/// * `data`: The input data to pass to the contract constructor.
-		/// * `salt`: Used for the address derivation. See [`crate::address::create2`].
+		/// * `salt`: Used for the address derivation. If `Some` is supplied then `CREATE2`
+		/// 	semantics are used. If `None` then `CRATE1` is used.
+		///
 		///
 		/// Instantiation is executed as follows:
 		///
@@ -2362,7 +2363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// - The `deploy` function is executed in the context of the newly-created account.
 		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
 		#[pallet::weight(
-			T::WeightInfo::instantiate_with_code(code.len() <span class="kw">as </span>u32, data.len() <span class="kw">as </span>u32, salt.len() <span class="kw">as </span>u32)
+			T::WeightInfo::instantiate_with_code(code.len() <span class="kw">as </span>u32, data.len() <span class="kw">as </span>u32, <span class="number">32</span>)
 			.saturating_add(<span class="kw-2">*</span>gas_limit)
 		)]
 		</span><span class="kw">pub fn </span>instantiate_with_code(
@@ -2372,11 +2373,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[pallet::compact] </span>storage_deposit_limit: BalanceOf&lt;T&gt;,
 			code: Vec&lt;u8&gt;,
 			data: Vec&lt;u8&gt;,
-			salt: [u8; <span class="number">32</span>],
+			salt: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;,
 		) -&gt; DispatchResultWithPostInfo {
 			<span class="kw">let </span>code_len = code.len() <span class="kw">as </span>u32;
 			<span class="kw">let </span>data_len = data.len() <span class="kw">as </span>u32;
-			<span class="kw">let </span>salt_len = salt.len() <span class="kw">as </span>u32;
 			<span class="kw">let </span><span class="kw-2">mut </span>output = <span class="self">Self</span>::bare_instantiate(
 				origin,
 				value,
@@ -2396,7 +2396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			dispatch_result(
 				output.result.map(|result| result.result),
 				output.gas_consumed,
-				T::WeightInfo::instantiate_with_code(code_len, data_len, salt_len),
+				T::WeightInfo::instantiate_with_code(code_len, data_len, <span class="number">32</span>),
 			)
 		}
 
@@ -2597,7 +2597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">mut </span>storage_deposit_limit: BalanceOf&lt;T&gt;,
 		code: Code,
 		data: Vec&lt;u8&gt;,
-		salt: [u8; <span class="number">32</span>],
+		salt: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
 	) -&gt; ContractInstantiateResult&lt;BalanceOf&lt;T&gt;, EventRecordOf&lt;T&gt;&gt; {
@@ -2633,7 +2633,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;mut </span>storage_meter,
 				value,
 				data,
-				<span class="kw-2">&amp;</span>salt,
+				salt.as_ref(),
 				debug_message.as_mut(),
 			);
 			storage_deposit = storage_meter
@@ -2773,7 +2773,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
 			code: Code,
 			data: Vec&lt;u8&gt;,
-			salt: [u8; <span class="number">32</span>],
+			salt: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;,
 		) -&gt; ContractInstantiateResult&lt;Balance, EventRecord&gt;;
 
 		<span class="doccomment">/// Upload new code without instantiating a contract from it.

@@ -6622,7 +6622,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
 			code: pallet_revive::Code,
 			data: Vec&lt;u8&gt;,
-			salt: [u8; <span class="number">32</span>],
+			salt: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;,
 		) -&gt; pallet_revive::ContractInstantiateResult&lt;Balance, EventRecord&gt;
 		{
 			Revive::bare_instantiate(

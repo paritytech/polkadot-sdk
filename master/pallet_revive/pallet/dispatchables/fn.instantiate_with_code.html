@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     storage_deposit_limit: &lt;&lt;T as <a class="trait" href="../trait.Config.html" title="trait pallet_revive::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../trait.Config.html#associatedtype.Currency" title="type pallet_revive::pallet::Config::Currency">Currency</a> as Inspect&lt;&lt;T as <a class="trait" href="../../chain_extension/trait.SysConfig.html" title="trait pallet_revive::chain_extension::SysConfig">Config</a>&gt;::<a class="associatedtype" href="../../chain_extension/trait.SysConfig.html#associatedtype.AccountId" title="type pallet_revive::chain_extension::SysConfig::AccountId">AccountId</a>&gt;&gt;::Balance,
     code: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;,
     data: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;,
-    salt: [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]
+    salt: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]&gt;
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Instantiates a new contract from the supplied <code>code</code> optionally transferring
 some balance.</p>
 <p>This dispatchable has the same effect as calling [<code>Self::upload_code</code>] +
@@ -169,7 +169,8 @@ also check the documentation of [<code>Self::upload_code</code>].</p>
 from the caller to pay for the storage consumed.</li>
 <li><code>code</code>: The contract code to deploy in raw bytes.</li>
 <li><code>data</code>: The input data to pass to the contract constructor.</li>
-<li><code>salt</code>: Used for the address derivation. See [<code>crate::address::create2</code>].</li>
+<li><code>salt</code>: Used for the address derivation. If <code>Some</code> is supplied then <code>CREATE2</code>
+semantics are used. If <code>None</code> then <code>CRATE1</code> is used.</li>
 </ul>
 <p>Instantiation is executed as follows:</p>
 <ul>

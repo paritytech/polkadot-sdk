@@ -2089,6 +2089,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1937" id="1937">1937</a>
 <a href="#1938" id="1938">1938</a>
 <a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2418,8 +2426,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>CallTransferSurcharge,
 	<span class="doccomment">/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	</span>CallInputCloned(u32),
-	<span class="doccomment">/// Weight of calling `seal_instantiate` for the given input length and salt.
-	</span>Instantiate { input_data_len: u32, salt_len: u32 },
+	<span class="doccomment">/// Weight of calling `seal_instantiate` for the given input lenth.
+	</span>Instantiate { input_data_len: u32 },
 	<span class="doccomment">/// Weight of calling `seal_hash_sha_256` for the given input size.
 	</span>HashSha256(u32),
 	<span class="doccomment">/// Weight of calling `seal_hash_keccak_256` for the given input size.
@@ -2544,8 +2552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			DelegateCallBase =&gt; T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge =&gt; <span class="macro">cost_args!</span>(seal_call, <span class="number">1</span>, <span class="number">0</span>),
 			CallInputCloned(len) =&gt; <span class="macro">cost_args!</span>(seal_call, <span class="number">0</span>, len),
-			Instantiate { input_data_len, salt_len } =&gt;
-				T::WeightInfo::seal_instantiate(input_data_len, salt_len),
+			Instantiate { input_data_len } =&gt; T::WeightInfo::seal_instantiate(input_data_len, <span class="number">32</span>),
 			HashSha256(len) =&gt; T::WeightInfo::seal_hash_sha2_256(len),
 			HashKeccak256(len) =&gt; T::WeightInfo::seal_hash_keccak_256(len),
 			HashBlake256(len) =&gt; T::WeightInfo::seal_hash_blake2_256(len),
@@ -3106,9 +3113,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
-		salt_len: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
-		<span class="self">self</span>.charge_gas(RuntimeCosts::Instantiate { input_data_len, salt_len })<span class="question-mark">?</span>;
+		<span class="self">self</span>.charge_gas(RuntimeCosts::Instantiate { input_data_len })<span class="question-mark">?</span>;
 		<span class="kw">let </span>deposit_limit: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = <span class="kw">if </span>deposit_ptr == SENTINEL {
 			BalanceOf::&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt;::zero()
 		} <span class="kw">else </span>{
@@ -3117,10 +3123,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>value: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = memory.read_as(value_ptr)<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_hash: H256 = memory.read_as(code_hash_ptr)<span class="question-mark">?</span>;
 		<span class="kw">let </span>input_data = memory.read(input_data_ptr, input_data_len)<span class="question-mark">?</span>;
-		<span class="kw">let </span><span class="kw-2">mut </span>salt = [<span class="number">0u8</span>; <span class="number">32</span>];
-		memory.read_into_buf(salt_ptr, salt.as_mut_slice())<span class="question-mark">?</span>;
-		<span class="kw">let </span>instantiate_outcome =
-			<span class="self">self</span>.ext.instantiate(weight, deposit_limit, code_hash, value, input_data, <span class="kw-2">&amp;</span>salt);
+		<span class="kw">let </span>salt = <span class="kw">if </span>salt_ptr == SENTINEL {
+			<span class="prelude-val">None
+		</span>} <span class="kw">else </span>{
+			<span class="kw">let </span><span class="kw-2">mut </span>salt = [<span class="number">0u8</span>; <span class="number">32</span>];
+			memory.read_into_buf(salt_ptr, salt.as_mut_slice())<span class="question-mark">?</span>;
+			<span class="prelude-val">Some</span>(salt)
+		};
+		<span class="kw">let </span>instantiate_outcome = <span class="self">self</span>.ext.instantiate(
+			weight,
+			deposit_limit,
+			code_hash,
+			value,
+			input_data,
+			salt.as_ref(),
+		);
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>((address, output)) = <span class="kw-2">&amp;</span>instantiate_outcome {
 			<span class="kw">if </span>!output.flags.contains(ReturnFlags::REVERT) {
 				<span class="self">self</span>.write_sandbox_output(
@@ -3344,7 +3361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
-		salt_len: u32,
+		_salt_len: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="self">self</span>.instantiate(
 			memory,
@@ -3359,7 +3376,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			output_ptr,
 			output_len_ptr,
 			salt_ptr,
-			salt_len,
 		)
 	}
 

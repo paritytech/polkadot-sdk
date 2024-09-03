@@ -1958,8 +1958,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1806" id="1806">1806</a>
 <a href="#1807" id="1807">1807</a>
 <a href="#1808" id="1808">1808</a>
-<a href="#1809" id="1809">1809</a>
-<a href="#1810" id="1810">1810</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2056,7 +2054,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		data: Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		T::Currency::set_balance(<span class="kw-2">&amp;</span>caller, caller_funding::&lt;T&gt;());
-		<span class="kw">let </span>salt = [<span class="number">0xffu8</span>; <span class="number">32</span>];
+		<span class="kw">let </span>salt = <span class="prelude-val">Some</span>([<span class="number">0xffu8</span>; <span class="number">32</span>]);
 
 		<span class="kw">let </span>outcome = Contracts::&lt;T&gt;::bare_instantiate(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -2306,7 +2304,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// `c`: Size of the code in bytes.
 	// `i`: Size of the input in bytes.
-	// `s`: Size of the salt in bytes.
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>instantiate_with_code(
 		c: Linear&lt;<span class="number">0</span>, { T::MaxCodeLen::get() }&gt;,
@@ -2324,7 +2321,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>account_id = T::AddressMapper::to_account_id_contract(<span class="kw-2">&amp;</span>addr);
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
 		<span class="attr">#[extrinsic_call]
-		</span><span class="kw">_</span>(origin, value, Weight::MAX, storage_deposit, code, input, salt);
+		</span><span class="kw">_</span>(origin, value, Weight::MAX, storage_deposit, code, input, <span class="prelude-val">Some</span>(salt));
 
 		<span class="kw">let </span>deposit =
 			T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>HoldReason::StorageDepositReserve.into(), <span class="kw-2">&amp;</span>account_id);
@@ -2340,7 +2337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// `i`: Size of the input in bytes.
-	// `s`: Size of the salt in bytes.
+	// `s`: Size of e salt in bytes.
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>instantiate(i: Linear&lt;<span class="number">0</span>, { limits::MEMORY_BYTES }&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>input = <span class="macro">vec!</span>[<span class="number">42u8</span>; i <span class="kw">as </span>usize];
@@ -2365,7 +2362,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_deposit,
 			hash,
 			input,
-			salt,
+			<span class="prelude-val">Some</span>(salt),
 		);
 
 		<span class="kw">let </span>deposit =
@@ -3491,7 +3488,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// t: value to transfer
 	// i: size of input in bytes
-	// s: size of salt in bytes
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_instantiate(i: Linear&lt;<span class="number">0</span>, { limits::MEMORY_BYTES }&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>code = WasmModule::dummy();

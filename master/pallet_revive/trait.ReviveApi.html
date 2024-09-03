@@ -174,7 +174,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         storage_deposit_limit: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Balance&gt;,
         code: <a class="enum" href="enum.Code.html" title="enum pallet_revive::Code">Code</a>,
         data: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;,
-        salt: [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]
+        salt: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]&gt;
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.ContractInstantiateResult.html" title="type pallet_revive::ContractInstantiateResult">ContractInstantiateResult</a>&lt;Balance, EventRecord&gt;, ApiError&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.upload_code" class="fn">upload_code</a>(
         &amp;self,
@@ -210,7 +210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     storage_deposit_limit: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Balance&gt;,
     code: <a class="enum" href="enum.Code.html" title="enum pallet_revive::Code">Code</a>,
     data: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;,
-    salt: [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]
+    salt: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.ContractInstantiateResult.html" title="type pallet_revive::ContractInstantiateResult">ContractInstantiateResult</a>&lt;Balance, EventRecord&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Instantiate a new contract.</p>
 <p>See <code>[crate::Pallet::bare_instantiate]</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.upload_code" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1270-1323">source</a><h4 class="code-header">fn <a href="#method.upload_code" class="fn">upload_code</a>(

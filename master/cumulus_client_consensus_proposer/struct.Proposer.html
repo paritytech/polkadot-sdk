@@ -159,7 +159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     &lt;T::Proposer as SubstrateProposer&lt;B&gt;&gt;::Error: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.propose" class="method trait-impl"><a class="src rightside" href="../src/cumulus_client_consensus_proposer/lib.rs.html#104-132">source</a><a href="#method.propose" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ProposerInterface.html#tymethod.propose" class="fn">propose</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
     &amp;'life0 mut self,
     parent_header: &amp;'life1 B::Header,
-    paras_inherent_data: &amp;'life2 <a class="struct" href="../cumulus_primitives_parachain_inherent/struct.ParachainInherentData.html" title="struct cumulus_primitives_parachain_inherent::ParachainInherentData">ParachainInherentData</a>,
+    paras_inherent_data: &amp;'life2 ParachainInherentData,
     other_inherent_data: InherentData,
     inherent_digests: Digest,
     max_duration: <a class="struct" href="https://doc.rust-lang.org/1.77.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>,

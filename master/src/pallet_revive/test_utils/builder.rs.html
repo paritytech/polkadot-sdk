@@ -467,7 +467,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
 		code: Vec&lt;u8&gt;,
 		data: Vec&lt;u8&gt;,
-		salt: [u8; <span class="number">32</span>],
+		salt: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;,
 	) -&gt; DispatchResultWithPostInfo;
 
 	<span class="doccomment">/// Create an [`InstantiateWithCodeBuilder`] with default values.
@@ -479,7 +479,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_deposit_limit: deposit_limit::&lt;T&gt;(),
 			code,
 			data: <span class="macro">vec!</span>[],
-			salt: [<span class="number">0</span>; <span class="number">32</span>],
+			salt: <span class="prelude-val">Some</span>([<span class="number">0</span>; <span class="number">32</span>]),
 		}
 	}
 );
@@ -492,7 +492,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
 		code_hash: sp_core::H256,
 		data: Vec&lt;u8&gt;,
-		salt: [u8; <span class="number">32</span>],
+		salt: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;,
 	) -&gt; DispatchResultWithPostInfo;
 
 	<span class="doccomment">/// Create an [`InstantiateBuilder`] with default values.
@@ -504,7 +504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_deposit_limit: deposit_limit::&lt;T&gt;(),
 			code_hash,
 			data: <span class="macro">vec!</span>[],
-			salt: [<span class="number">0</span>; <span class="number">32</span>],
+			salt: <span class="prelude-val">Some</span>([<span class="number">0</span>; <span class="number">32</span>]),
 		}
 	}
 );
@@ -517,7 +517,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
 		code: Code,
 		data: Vec&lt;u8&gt;,
-		salt: [u8; <span class="number">32</span>],
+		salt: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
 	) -&gt; ContractInstantiateResult&lt;BalanceOf&lt;T&gt;, EventRecordOf&lt;T&gt;&gt;;
@@ -543,7 +543,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_deposit_limit: deposit_limit::&lt;T&gt;(),
 			code,
 			data: <span class="macro">vec!</span>[],
-			salt: [<span class="number">0</span>; <span class="number">32</span>],
+			salt: <span class="prelude-val">Some</span>([<span class="number">0</span>; <span class="number">32</span>]),
 			debug: DebugInfo::UnsafeDebug,
 			collect_events: CollectEvents::Skip,
 		}
