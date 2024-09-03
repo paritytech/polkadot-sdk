@@ -349,5 +349,20 @@ mod tests {
 	}
 
 	#[test]
-	fn proof_fails_with_bad_data() {}
+	fn proof_fails_with_bad_data() {
+		let balance_trie = create_balance_trie();
+		let root = *balance_trie.root();
+
+		// Create a proof for a valid key.
+		let proof = balance_trie.create_single_value_proof(6u32).unwrap();
+
+		// Correct data verifies successfully
+		assert_eq!(verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, Some(6u128)), Ok(()));
+
+		// Fail to verify proof with wrong root
+		assert_eq!(verify_single_value_proof::<BlakeTwo256, _, _>(Default::default(), &proof, 6u32, Some(6u128)), Err(TrieError::RootMismatch.into()));
+
+		// Fail to verify proof with wrong data
+		assert_eq!(verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, Some(6u128)), Err(TrieError::IncompleteProof.into()));
+	}
 }
