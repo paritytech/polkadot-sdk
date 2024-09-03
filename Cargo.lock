@@ -1476,8 +1476,6 @@ dependencies = [
  "array-bytes",
  "hash-db",
  "log",
- "parity-scale-codec",
- "scale-info",
  "sp-core",
  "sp-runtime",
  "sp-tracing 16.0.0",

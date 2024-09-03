@@ -23,7 +23,7 @@ use crate::{Decode, DispatchError, Encode, MaxEncodedLen, TypeInfo};
 use sp_std::vec::Vec;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1, TrieError as SpTrieError},
-	LayoutV1, MemoryDB, Trie, TrieMut, VerifyError, EMPTY_PREFIX,
+	LayoutV1, MemoryDB, Trie, TrieMut, VerifyError,
 };
 
 #[cfg(feature = "serde")]
@@ -185,19 +185,6 @@ where
 	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<Vec<u8>>, DispatchError> {
 		self.create_proof(&[key])
 	}
-
-	/// Create a new instance of `ProvingTrie` from raw nodes. Nodes can be generated using the
-	/// `create_proof` function. Only use internally.
-	fn from_nodes(root: HashOf<Hashing>, nodes: &[Vec<u8>]) -> Self {
-		use sp_trie::HashDBT;
-
-		let mut memory_db = MemoryDB::default();
-		for node in nodes {
-			HashDBT::insert(&mut memory_db, EMPTY_PREFIX, &node[..]);
-		}
-
-		Self { db: memory_db, root, _phantom: Default::default() }
-	}
 }
 
 /// Verify the existence or non-existence of `key` and `value` in a trie proof.
@@ -221,18 +208,22 @@ where
 }
 
 /// Verify a proof which contains multiple keys and values.
-pub fn verify_proof<'a, Hashing, I, K, V>(
+pub fn verify_proof<'a, Hashing, Key, Value>(
 	root: HashOf<Hashing>,
 	proof: &[Vec<u8>],
-	items: I,
+	items: &[(Key, Option<Value>)],
 ) -> Result<(), DispatchError>
 where
 	Hashing: sp_core::Hasher,
-	I: IntoIterator<Item = &'a (K, Option<V>)>,
-	K: 'a + AsRef<[u8]>,
-	V: 'a + AsRef<[u8]>,
+	Key: Encode,
+	Value: Encode,
 {
-	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(&root, proof, items)
+	let items_encoded = items
+		.into_iter()
+		.map(|(key, maybe_value)| (key.encode(), maybe_value.as_ref().map(|value| value.encode())))
+		.collect::<Vec<(Vec<u8>, Option<Vec<u8>>)>>();
+
+	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(&root, proof, &items_encoded)
 		.map_err(|err| TrieError::from(err).into())
 }
 
@@ -338,14 +329,9 @@ mod tests {
 
 		// Create a proof for a valid and invalid key.
 		let proof = balance_trie.create_proof(&[6u32, 69u32, 6969u32]).unwrap();
-
 		let items = [(6u32, Some(6u128)), (69u32, Some(69u128)), (6969u32, None)];
-		let items_encoded = items
-			.into_iter()
-			.map(|(key, maybe_value)| (key.encode(), maybe_value.map(|value| value.encode())))
-			.collect::<Vec<(Vec<u8>, Option<Vec<u8>>)>>();
 
-		assert_eq!(verify_proof::<BlakeTwo256, _, _, _>(root, &proof, &items_encoded), Ok(()));
+		assert_eq!(verify_proof::<BlakeTwo256, _, _>(root, &proof, &items), Ok(()));
 	}
 
 	#[test]
