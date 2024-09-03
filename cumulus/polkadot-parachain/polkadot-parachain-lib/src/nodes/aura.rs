@@ -14,14 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::common::{
-	aura::{AuraIdT, AuraRuntimeApi},
-	rpc::BuildParachainRpcExtensions,
-	spec::{BaseNodeSpec, BuildImportQueue, DynNodeSpec, NodeSpec, StartConsensus},
-	types::{
-		AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport, ParachainClient,
+use crate::{
+	common::{
+		aura::{AuraIdT, AuraRuntimeApi},
+		rpc::BuildParachainRpcExtensions,
+		spec::{BaseNodeSpec, BuildImportQueue, NodeSpec, StartConsensus},
+		types::{
+			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
+			ParachainClient,
+		},
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
+	nodes::DynNodeSpecExt,
 };
 use cumulus_client_collator::service::{
 	CollatorService, ServiceInterface as CollatorServiceInterface,
@@ -199,7 +203,7 @@ where
 
 pub fn new_aura_node_spec<Block, RuntimeApi, AuraId>(
 	extra_args: &NodeExtraArgs,
-) -> Box<dyn DynNodeSpec>
+) -> Box<dyn DynNodeSpecExt>
 where
 	Block: NodeBlock,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,

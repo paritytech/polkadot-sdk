@@ -22,12 +22,11 @@ use crate::{
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 			RuntimeResolver,
 		},
-		spec::DynNodeSpec,
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
 	fake_runtime_api,
-	nodes::shell::ShellNode,
+	nodes::{shell::ShellNode, DynNodeSpecExt},
 	runtime::BlockNumber,
 };
 #[cfg(feature = "runtime-benchmarks")]
@@ -39,7 +38,6 @@ use sc_cli::{Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-use std::panic::{RefUnwindSafe, UnwindSafe};
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
@@ -53,10 +51,9 @@ pub struct RunConfig {
 pub fn new_aura_node_spec<Block>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
-) -> Box<dyn DynNodeSpec>
+) -> Box<dyn DynNodeSpecExt>
 where
-	Block: NodeBlock + UnwindSafe + RefUnwindSafe,
-	Block::BoundedHeader: UnwindSafe + RefUnwindSafe,
+	Block: NodeBlock,
 {
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
@@ -76,7 +73,7 @@ fn new_node_spec(
 	config: &sc_service::Configuration,
 	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	extra_args: &NodeExtraArgs,
-) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
+) -> std::result::Result<Box<dyn DynNodeSpecExt>, sc_cli::Error> {
 	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
 
 	Ok(match runtime {
@@ -215,7 +212,24 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				RelayChainCli::<CliConfig>::new(runner.config(), cli.relay_chain_args.iter());
 			let collator_options = cli.run.collator_options();
 
+			let is_dev_chain = runner.config().chain_spec.id().ends_with("-dev");
+			if cli.manual_seal && !is_dev_chain {
+				return Err("Manual sealing can be turned on only for dev chains".into());
+			}
+
 			runner.run_node_until_exit(|config| async move {
+				let node_spec =
+					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+				let para_id = ParaId::from(
+					Extensions::try_get(&*config.chain_spec)
+						.map(|e| e.para_id)
+						.ok_or("Could not find parachain extension in chain-spec.")?,
+				);
+
+				if cli.manual_seal {
+					return node_spec.start_manual_seal_node(config, para_id).map_err(Into::into)
+				}
+
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the
 				// asset-hub chain spec, then rename the base path to the new chain ID. In the case
 				// that both file paths exist, the node will exit, as the user must decide (by
@@ -262,15 +276,9 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 					}))
 					.flatten();
 
-				let para_id = Extensions::try_get(&*config.chain_spec)
-					.map(|e| e.para_id)
-					.ok_or("Could not find parachain extension in chain-spec.")?;
-
-				let id = ParaId::from(para_id);
-
 				let parachain_account =
 					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
-						&id,
+						&para_id,
 					);
 
 				let tokio_handle = config.tokio_handle.clone();
@@ -278,16 +286,16 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-				info!("🪪 Parachain id: {:?}", id);
+				info!("🪪 Parachain id: {:?}", para_id);
 				info!("🧾 Parachain Account: {}", parachain_account);
 				info!("✍️ Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				start_node(
+					node_spec,
 					config,
-					&cmd_config.runtime_resolver,
 					polkadot_config,
 					collator_options,
-					id,
+					para_id,
 					cli.node_extra_args(),
 					hwbench,
 				)
@@ -297,17 +305,20 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 	}
 }
 
+/// This method is needed only for `#[sc_tracing::logging::prefix_logs_with("Parachain")]`.
+///
+/// Adding this annotation to `DynNodeSpec::start_node()` doesn't work, probably because of the
+/// `Pin<Box<dyn Future<...>>>` return type.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
 async fn start_node(
+	node_spec: Box<dyn DynNodeSpecExt>,
 	config: sc_service::Configuration,
-	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	polkadot_config: sc_service::Configuration,
 	collator_options: cumulus_client_cli::CollatorOptions,
 	id: ParaId,
 	extra_args: NodeExtraArgs,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<sc_service::TaskManager> {
-	let node_spec = new_node_spec(&config, runtime_resolver, &extra_args)?;
 	node_spec
 		.start_node(config, polkadot_config, collator_options, id, hwbench, extra_args)
 		.await

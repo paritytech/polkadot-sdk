@@ -119,6 +119,12 @@ pub struct Cli<Config: CliConfig> {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
+	/// Use manual seal consensus.
+	///
+	/// This works only with dev chains (e.g. asset-hub-rococo-dev).
+	#[arg(long)]
+	pub manual_seal: bool,
+
 	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
 	///
 	/// Use with care, this flag is unstable and subject to change.
