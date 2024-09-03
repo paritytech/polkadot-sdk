@@ -205,7 +205,7 @@ fn rewards_calculation_works() {
 		));
 
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
-		let now =
+		let mut now =
 			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
 
 		run_to_block(round_info.voting_locked_block);
