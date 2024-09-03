@@ -76,7 +76,6 @@ impl AddressMapper<AccountId32> for DefaultAddressMapper {
 }
 
 /// Determine the address of a contract using CREATE semantics.
-#[allow(dead_code)]
 pub fn create1(deployer: &H160, nonce: u64) -> H160 {
 	let mut list = rlp::RlpStream::new_list(2);
 	list.append(&deployer.as_bytes());
