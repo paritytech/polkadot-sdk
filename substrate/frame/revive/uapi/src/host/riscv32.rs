@@ -74,12 +74,8 @@ mod sys {
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
-		pub fn code_hash(
-			account_ptr: *const u8,
-			out_ptr: *mut u8,
-			out_len_ptr: *mut u32,
-		) -> ReturnCode;
-		pub fn own_code_hash(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn code_hash(account_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
+		pub fn own_code_hash(out_ptr: *mut u8);
 		pub fn caller_is_origin() -> ReturnCode;
 		pub fn caller_is_root() -> ReturnCode;
 		pub fn address(out_ptr: *mut u8);
@@ -530,16 +526,14 @@ impl HostFn for HostFnImpl {
 		ret_val.into()
 	}
 
-	fn code_hash(account_id: &[u8], output: &mut [u8]) -> Result {
-		let mut output_len = output.len() as u32;
-		let ret_val =
-			unsafe { sys::code_hash(account_id.as_ptr(), output.as_mut_ptr(), &mut output_len) };
+	// Why is this a Result and own_code_hash is not?
+	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) -> Result {
+		let ret_val = unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) };
 		ret_val.into()
 	}
 
-	fn own_code_hash(output: &mut [u8]) {
-		let mut output_len = output.len() as u32;
-		unsafe { sys::own_code_hash(output.as_mut_ptr(), &mut output_len) }
+	fn own_code_hash(output: &mut [u8; 32]) {
+		unsafe { sys::own_code_hash(output.as_mut_ptr()) }
 	}
 
 	fn lock_delegate_dependency(code_hash: &[u8]) {

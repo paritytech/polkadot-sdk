@@ -212,15 +212,13 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address of the contract.Should be decodable as an `T::AccountId`. Traps
-	///   otherwise.
+	/// - `addr`: The address of the contract.
 	/// - `output`: A reference to the output data buffer to write the code hash.
-	///
 	///
 	/// # Errors
 	///
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	fn code_hash(account_id: &[u8], output: &mut [u8]) -> Result;
+	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]) -> Result;
 
 	/// Checks whether there is a value stored under the given key.
 	///
@@ -439,7 +437,7 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the code hash.
-	fn own_code_hash(output: &mut [u8]);
+	fn own_code_hash(output: &mut [u8; 32]);
 
 	/// Load the latest block timestamp into the supplied buffer
 	///

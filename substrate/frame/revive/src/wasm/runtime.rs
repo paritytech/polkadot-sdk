@@ -1370,18 +1370,16 @@ pub mod env {
 	fn code_hash(
 		&mut self,
 		memory: &mut M,
-		account_ptr: u32,
+		addr_ptr: u32,
 		out_ptr: u32,
-		out_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeHash)?;
 		let mut address = H160::zero();
-		memory.read_into_buf(account_ptr, address.as_bytes_mut())?;
+		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
 		if let Some(value) = self.ext.code_hash(&address) {
-			self.write_sandbox_output(
+			self.write_fixed_sandbox_output(
 				memory,
 				out_ptr,
-				out_len_ptr,
 				&value.encode(),
 				false,
 				already_charged,
@@ -1395,18 +1393,12 @@ pub mod env {
 	/// Retrieve the code hash of the currently executing contract.
 	/// See [`pallet_revive_uapi::HostFn::own_code_hash`].
 	#[api_version(0)]
-	fn own_code_hash(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn own_code_hash(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::OwnCodeHash)?;
 		let code_hash_encoded = &self.ext.own_code_hash().encode();
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			code_hash_encoded,
 			false,
 			already_charged,
