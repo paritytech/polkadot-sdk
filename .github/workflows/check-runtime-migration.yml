@@ -35,7 +35,7 @@ jobs:
     # We need to set this to rather long to allow the snapshot to be created, but the average time
     # should be much lower.
     timeout-minutes: 60
-    needs: [set-image]
+    needs: [ set-image ]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     strategy:
