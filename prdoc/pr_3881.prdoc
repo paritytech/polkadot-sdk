@@ -12,4 +12,4 @@ doc:
 
 crates:
   - name: sp-runtime
-    bump: minor
+    bump: major
