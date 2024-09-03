@@ -45,7 +45,7 @@ jobs:
           run: |
             echo "REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
         # By default we use spot machines that can be terminated at any time.
-        # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.            
+        # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
         - id: set_runner
           run: |
             # Run merge queues on persistent runners
@@ -53,7 +53,7 @@ jobs:
               echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
             else
               echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-            fi            
+            fi
 
 ### Build ########################
 
@@ -343,7 +343,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: build-test-parachain-${{ needs.set-image.outputs.REF_NAME }}
 
@@ -367,7 +367,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: build-linux-stable-${{ needs.set-image.outputs.REF_NAME }}
 
@@ -392,7 +392,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: build-test-collators-${{ needs.set-image.outputs.REF_NAME }}
 
@@ -417,7 +417,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: build-malus-${{ needs.set-image.outputs.REF_NAME }}
 
@@ -442,7 +442,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: build-linux-substrate-${{ needs.set-image.outputs.REF_NAME }}
 
@@ -469,7 +469,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: build-linux-stable-${{ needs.set-image.outputs.REF_NAME }}
       - name: tar
@@ -477,7 +477,7 @@ jobs:
          tar -xvf artifacts.tar
          rm artifacts.tar
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: build-linux-stable-cumulus-${{ needs.set-image.outputs.REF_NAME }}
       - name: tar
@@ -485,7 +485,7 @@ jobs:
          tar -xvf artifacts.tar
          rm artifacts.tar
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: prepare-bridges-zombienet-artifacts-${{ needs.set-image.outputs.REF_NAME }}
       - name: tar
@@ -511,7 +511,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4.1.8
         with:
           name: build-linux-stable-cumulus-${{ needs.set-image.outputs.REF_NAME }}
 
