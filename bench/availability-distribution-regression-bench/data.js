@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725313340904,
+  "lastUpdate": 1725358668060,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -24543,6 +24543,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010584778380000008,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kian Paimani",
+            "username": "kianenigma",
+            "email": "5588131+kianenigma@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3c71db3efb7ed62dc0db950d3f090686803b10c5",
+          "message": "Remove noise from the template list (#5437)\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-09-03T08:27:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3c71db3efb7ed62dc0db950d3f090686803b10c5"
+        },
+        "date": 1725358639010,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012137117073333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1695634920133333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010130685953333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022103433460000002,
             "unit": "seconds"
           }
         ]
