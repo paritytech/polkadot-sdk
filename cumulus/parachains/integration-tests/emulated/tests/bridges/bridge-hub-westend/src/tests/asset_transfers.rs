@@ -24,6 +24,9 @@ fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
 	AssetHubWestend::force_xcm_version(asset_hub_rococo_location(), XCM_VERSION);
 	BridgeHubWestend::force_xcm_version(bridge_hub_rococo_location(), XCM_VERSION);
 
+	// open bridge
+	open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
+
 	// send message over bridge
 	send_fn();
 

@@ -353,6 +353,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			}
 			.into()
 		}
+		.into()
 	}
 
 	/// Create a mock of `CandidatePendingAvailability`.

@@ -14,7 +14,9 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 parity-util-mem = { optional = true, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+serde = { optional = true, features = [
+	"derive",
+], workspace = true, default-features = true }
 
 # Bridge Dependencies
 
