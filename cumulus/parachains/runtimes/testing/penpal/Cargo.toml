@@ -42,6 +42,7 @@ pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-asset-tx-payment = { workspace = true }
 pallet-assets = { workspace = true }
+pallet-asset-conversion = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -79,6 +80,8 @@ parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 assets-common = { workspace = true }
 
+primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "num-traits", "scale-info"] }
+
 [features]
 default = ["std"]
 std = [
@@ -99,6 +102,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime?/std",
 	"log/std",
+	"pallet-asset-conversion/std",
 	"pallet-asset-tx-payment/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
@@ -117,6 +121,7 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
+	"primitive-types/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -149,6 +154,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"hex-literal",
+	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -177,6 +183,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-asset-conversion/try-runtime",
 	"pallet-asset-tx-payment/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",

@@ -1,42 +1,52 @@
-name: checks
+name: Checks
 
 on:
   push:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions: {}
+permissions: { }
 
 jobs:
-  changes:
-    # TODO: remove once migration is complete or this workflow is fully stable
-    if: contains(github.event.label.name, 'GHA-migration')
-    permissions:
-      pull-requests: read
-    uses: ./.github/workflows/reusable-check-changed-files.yml
+  # temporary disabled because currently doesn't work in merge queue
+  # changes:
+  #   permissions:
+  #     pull-requests: read
+  #   uses: ./.github/workflows/reusable-check-changed-files.yml
   set-image:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
+      # By default we use spot machines that can be terminated at any time.
+      # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      - id: set_runner
+        run: |
+          # Run merge queues on persistent runners
+          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
+          else
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+          fi
   cargo-clippy:
-    runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image, changes] # , build-frame-omni-bencher ]
-    if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [set-image]
+    # if: ${{ needs.changes.outputs.rust }}
     timeout-minutes: 40
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -50,9 +60,9 @@ jobs:
           forklift cargo clippy --all-targets --locked --workspace
           forklift cargo clippy --all-targets --all-features --locked --workspace
   check-try-runtime:
-    runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image, changes] # , build-frame-omni-bencher ]
-    if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [set-image]
+    # if: ${{ needs.changes.outputs.rust }}
     timeout-minutes: 40
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -69,9 +79,9 @@ jobs:
           forklift cargo check --locked --all --features try-runtime,experimental
   # check-core-crypto-features works fast without forklift
   check-core-crypto-features:
-    runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image, changes] # , build-frame-omni-bencher ]
-    if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [set-image]
+    # if: ${{ needs.changes.outputs.rust }}
     timeout-minutes: 30
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -88,3 +98,12 @@ jobs:
           cd substrate/primitives/keyring
           ./check-features-variants.sh
           cd -
+  # name of this job must be unique across all workflows
+  # otherwise GitHub will mark all these jobs as required
+  confirm-required-checks-passed:
+    runs-on: ubuntu-latest
+    name: All checks passed
+    # If any new job gets added, be sure to add it to this array
+    needs: [cargo-clippy, check-try-runtime, check-core-crypto-features]
+    steps:
+      - run: echo '### Good job! All the checks passed 🚀' >> $GITHUB_STEP_SUMMARY
