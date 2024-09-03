@@ -41,7 +41,8 @@
 //! Tokens deposited on AssetHub pallet can be bridged to Ethereum as wrapped ERC20 tokens. As a
 //! prerequisite, the token should be registered first.
 //!
-//! * [`Call:register_token`]: Register a token location as a wrapped ERC20 contract on Ethereum.
+//! * [`Call::register_token`]: Register a token location as a wrapped ERC20 contract on Ethereum.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(test)]
 mod mock;
@@ -603,8 +604,13 @@ pub mod pallet {
 		}
 
 		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
+		/// Privileged. Can only be called by root.
+		///
+		/// Fee required: No
 		///
 		/// - `origin`: Must be root
+		/// - `location`: Location of the asset
+		/// - `metadata`: Metadata(name,symbol,decimals) of the asset
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::register_token())]
 		pub fn register_token(
