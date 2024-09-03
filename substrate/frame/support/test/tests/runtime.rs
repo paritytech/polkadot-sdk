@@ -806,9 +806,12 @@ fn test_metadata() {
 				},
 				PalletConstantMetadata {
 					name: "DbWeight",
-					ty: meta_type::<RuntimeDbRefTime>(),
-					value: RuntimeDbRefTime::default().encode(),
-					docs: maybe_docs(vec![" The weight of runtime database operations the runtime can invoke.",]),
+					ty: meta_type::<RuntimeDbWeight>(),
+					value: RuntimeDbWeight::default().encode(),
+					docs: maybe_docs(vec![
+						" The computational time component (`ref_time`) of runtime database operations the runtime",
+						" can invoke.",
+					]
 				},
 				PalletConstantMetadata {
 					name: "Version",
