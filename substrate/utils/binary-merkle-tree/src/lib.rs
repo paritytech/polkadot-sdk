@@ -38,8 +38,6 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use hash_db::Hasher;
-use codec::{Encode, Decode};
-use scale_info::TypeInfo;
 
 /// Construct a root hash of a Binary Merkle Tree created from given leaves.
 ///
@@ -89,8 +87,7 @@ where
 /// A generated merkle proof.
 ///
 /// The structure contains all necessary data to later on verify the proof and the leaf itself.
-// #[derive(Encode, Decode, Debug, PartialEq, Eq, TypeInfo)]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct MerkleProof<H, L> {
 	/// Root hash of generated merkle tree.
 	pub root: H,
@@ -108,36 +105,6 @@ pub struct MerkleProof<H, L> {
 	pub leaf_index: usize,
 	/// Leaf content.
 	pub leaf: L,
-}
-
-// USIZE breaks these needed traits
-impl<H: 'static, L: 'static> TypeInfo for MerkleProof<H, L> {
-	type Identity = Self;
-
-	fn type_info() -> scale_info::Type {
-		scale_info::Type::builder()
-			.path(scale_info::Path::new("Dummy TODO", module_path!()))
-			.composite(
-				scale_info::build::Fields::unnamed()
-					.field(|f| f.ty::<u8>().docs(&["Dummy TODO"])),
-			)
-	}
-}
-
-impl<H, L> Encode for MerkleProof<H, L> {
-	fn size_hint(&self) -> usize {
-		true.size_hint()
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		true.using_encoded(f)
-	}
-}
-
-impl<H, L> Decode for MerkleProof<H, L> {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		Err("DUMMY TODO".into())
-	}
 }
 
 /// A trait of object inspecting merkle root creation.
@@ -259,22 +226,6 @@ impl<'a, H, T: AsRef<[u8]>> From<&'a T> for Leaf<'a, H> {
 		Leaf::Value(v.as_ref())
 	}
 }
-
-// pub fn verify_merkle_proof<'a, H, L>(
-// 	merkle_proof: &'a MerkleProof<H::Out, L>,
-// ) -> bool
-// where
-// 	H: Hasher,
-// 	L: Into<Leaf<'a, H::Out>>,
-// {
-// 	verify_proof::<H, Vec<H::Out>, L>(
-// 		&merkle_proof.root,
-// 		merkle_proof.proof,
-// 		merkle_proof.number_of_leaves,
-// 		merkle_proof.leaf_index,
-// 		merkle_proof.leaf,
-// 	)
-// }
 
 /// Verify Merkle Proof correctness versus given root hash.
 ///

@@ -15,10 +15,6 @@ workspace = true
 array-bytes = { optional = true, workspace = true, default-features = true }
 log = { optional = true, workspace = true }
 hash-db = { workspace = true }
-codec = { features = [
-	"derive",
-], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -29,4 +25,4 @@ sp-runtime = { workspace = true, default-features = true }
 [features]
 debug = ["array-bytes", "log"]
 default = ["debug", "std"]
-std = ["codec/std", "scale-info/std", "hash-db/std", "log/std", "sp-core/std", "sp-runtime/std"]
+std = ["hash-db/std", "log/std", "sp-core/std", "sp-runtime/std"]
