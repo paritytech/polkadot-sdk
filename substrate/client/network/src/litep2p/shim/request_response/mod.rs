@@ -24,7 +24,7 @@ use crate::{
 	peer_store::PeerStoreProvider,
 	request_responses::{IncomingRequest, OutgoingResponse},
 	service::{metrics::Metrics, traits::RequestResponseConfig as RequestResponseConfigT},
-	IfDisconnected, OutboundFailure, ProtocolName, RequestFailure,
+	IfDisconnected, ProtocolName, RequestFailure,
 };
 
 use futures::{channel::oneshot, future::BoxFuture, stream::FuturesUnordered, StreamExt};

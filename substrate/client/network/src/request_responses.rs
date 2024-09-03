@@ -62,7 +62,6 @@ use std::{
 	sync::Arc,
 	task::{Context, Poll},
 	time::{Duration, Instant},
-	fmt::{Display,Formatter},
 	fmt,
 };
 
@@ -752,7 +751,9 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 			}
 
 			let mut fallback_requests = vec![];
+			let mut error_bis_out= CustomOutboundFailure::Timeout;
 
+			let error_bis_in = CustomInboundFailure::Timeout;
 			// Poll request-responses protocols.
 			for (protocol, (ref mut behaviour, ref mut resp_builder)) in &mut self.protocols {
 				'poll_protocol: while let Poll::Ready(ev) = behaviour.poll(cx, params) {
@@ -792,9 +793,9 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 
 					match ev {
 						// Received a request from a remote.
-						Event::Message {
+						request_response::Event::Message {
 							peer,
-							message: CustomMessage::Request { request_id, request, channel, .. },
+							message: request_response::Message::Request { request_id, request, channel, .. },
 						} => {
 							self.pending_responses_arrival_time
 								.insert((protocol.clone(), request_id).into(), Instant::now());
@@ -854,9 +855,9 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						},
 
 						// Received a response from a remote to one of our requests.
-						Event::Message {
+						request_response::Event::Message {
 							peer,
-							message: CustomMessage::Response { request_id, response },
+							message: request_response::Message::Response { request_id, response },
 							..
 						} => {
 							let (started, delivered) = match self
@@ -901,7 +902,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						},
 
 						// One of our requests has failed.
-						Event0::CustomOutboundFailure {
+						request_response::Event::OutboundFailure {
 							peer,
 							request_id,
 							error,
@@ -918,7 +919,8 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								}) => {
 									// Try using the fallback request if the protocol was not
 									// supported.
-									if let CustomOutboundFailure::UnsupportedProtocols = error {
+									if let OutboundFailure::UnsupportedProtocols = error {	
+										error_bis_out = CustomOutboundFailure::UnsupportedProtocols;									
 										if let Some((fallback_request, fallback_protocol)) =
 											fallback_request
 										{
@@ -966,7 +968,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								peer,
 								protocol: protocol.clone(),
 								duration: started.elapsed(),
-								result: Err(RequestFailure::Network(error)),
+								result: Err(RequestFailure::Network(error_bis_out)),
 							};
 
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
@@ -974,8 +976,8 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 
 						// An inbound request failed, either while reading the request or due to
 						// failing to send a response.
-						Event0::CustomInboundFailure {
-							request_id, peer, error, ..
+						request_response::Event::InboundFailure {
+							request_id, peer, ..
 						} => {
 							self.pending_responses_arrival_time
 								.remove(&(protocol.clone(), request_id).into());
@@ -983,13 +985,13 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 							let out = Event::InboundRequest {
 								peer,
 								protocol: protocol.clone(),
-								result: Err(ResponseFailure::Network(error)),
+								result: Err(ResponseFailure::Network(error_bis_in)),
 							};
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
 						},
 
 						// A response to an inbound request has been sent.
-						Event0::CustomResponseSent { request_id, peer } => {
+						request_response::Event::ResponseSent { request_id, peer } => {
 							let arrival_time = self
 								.pending_responses_arrival_time
 								.remove(&(protocol.clone(), request_id).into())
