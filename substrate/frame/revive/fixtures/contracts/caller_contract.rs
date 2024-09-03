@@ -123,6 +123,7 @@ pub extern "C" fn call() {
 		&value,
 		&input,
 		None,
+		// Some(&mut &mut [0u8; 4][..]), // <- works with this
 	);
 	assert!(matches!(res, Err(ReturnErrorCode::CalleeTrapped)));
 

@@ -1,0 +1,12 @@
+title: Make salt optional
+
+doc:
+  - audience: Runtime Dev
+    description: |
+     Remove address_len and salt_len from uapi as both are now fixed size
+
+crates:
+  - name: pallet-revive
+    bump: major
+  - name: pallet-revive-uapi
+    bump: major
