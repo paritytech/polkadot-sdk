@@ -168,7 +168,7 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type MessageExportPrice = ();
 	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubRococoLocation>;
 
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
 	// Only allow calls from relay chains and sibling parachains to directly open the bridge.
 	type OpenBridgeOrigin = EnsureXcm<ParentRelayOrSiblingParachains>;
 	// Converter aligned with `OpenBridgeOrigin`.
