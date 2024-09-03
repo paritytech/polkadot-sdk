@@ -37,14 +37,24 @@ runs:
         export BRANCH_NAME=${{ github.head_ref || github.ref_name }}
         export DOCKER_IMAGES_VERSION=${BRANCH_NAME/\//-}
         if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
-        $BUILDAH_COMMAND build
-        --format=docker
-        --build-arg VCS_REF="${GITHUB_SHA}"
-        --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-        --build-arg IMAGE_NAME="${{ inputs.image-name }}"
-        --build-arg ZOMBIENET_IMAGE="${ZOMBIENET_IMAGE}"
-        --tag "$IMAGE_NAME:$DOCKER_IMAGES_VERSION"
-        --file ${{ inputs.dockerfile }} .      
-        $BUILDAH_COMMAND info
-        $BUILDAH_COMMAND push --format=v2s2 "${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION"
+        docker build \
+          --build-arg VCS_REF="${GITHUB_SHA}" \
+          --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+          --build-arg IMAGE_NAME="${{ inputs.image-name }}" \
+          --build-arg ZOMBIENET_IMAGE="${ZOMBIENET_IMAGE}" \
+          -t "${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION" \
+          -f ${{ inputs.dockerfile }} \
+          .
+        docker push "${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION"
+ 
+        # $BUILDAH_COMMAND build
+        # --format=docker
+        # --build-arg VCS_REF="${GITHUB_SHA}"
+        # --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        # --build-arg IMAGE_NAME="${{ inputs.image-name }}"
+        # --build-arg ZOMBIENET_IMAGE="${ZOMBIENET_IMAGE}"
+        # --tag "${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION"
+        # --file ${{ inputs.dockerfile }} .      
+        # $BUILDAH_COMMAND info
+        # $BUILDAH_COMMAND push --format=v2s2 "${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION"
 
