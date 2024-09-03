@@ -30,6 +30,7 @@ jobs:
         BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
       outputs:
         IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+        RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
         REF_NAME: ${{ steps.set_vars.outputs.REF_NAME }}
       steps:
         - name: Checkout
@@ -43,6 +44,16 @@ jobs:
         - id: set_vars
           run: |
             echo "REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
+        # By default we use spot machines that can be terminated at any time.
+        # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.            
+        - id: set_runner
+          run: |
+            # Run merge queues on persistent runners
+            if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
+              echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
+            else
+              echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+            fi            
 
 ### Build ########################
 
@@ -51,7 +62,7 @@ jobs:
   #
   build-linux-stable:
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -107,7 +118,7 @@ jobs:
   #
   build-linux-stable-cumulus:
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -141,7 +152,7 @@ jobs:
   #
   build-test-parachain:
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -177,7 +188,7 @@ jobs:
   #
   build-test-collators:
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -214,7 +225,7 @@ jobs:
   #
   build-malus:
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -250,7 +261,7 @@ jobs:
   #
   build-linux-substrate:
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -294,7 +305,7 @@ jobs:
   #
   prepare-bridges-zombienet-artifacts:
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
