@@ -661,6 +661,29 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.write(out_len_ptr, &buf_len.encode())
 	}
 
+	/// Same as `write_sandbox_output` but for static size output.
+	pub fn write_fixed_sandbox_output(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		buf: &[u8],
+		allow_skip: bool,
+		create_token: impl FnOnce(u32) -> Option<RuntimeCosts>,
+	) -> Result<(), DispatchError> {
+		if allow_skip && out_ptr == SENTINEL {
+			return Ok(())
+		}
+
+		log::debug!(target: LOG_TARGET, "write_fixed_sandbox_output: buf: {:?}",  buf);
+
+		let buf_len = buf.len() as u32;
+		if let Some(costs) = create_token(buf_len) {
+			self.charge_gas(costs)?;
+		}
+
+		memory.write(out_ptr, buf)
+	}
+
 	/// Computes the given hash function on the supplied input.
 	///
 	/// Reads from the sandboxed input buffer into an intermediate buffer.
@@ -1010,7 +1033,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		input_data_ptr: u32,
 		input_data_len: u32,
 		address_ptr: u32,
-		address_len_ptr: u32,
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
@@ -1041,10 +1063,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		);
 		if let Ok((address, output)) = &instantiate_outcome {
 			if !output.flags.contains(ReturnFlags::REVERT) {
-				self.write_sandbox_output(
+				self.write_fixed_sandbox_output(
 					memory,
 					address_ptr,
-					address_len_ptr,
 					&address.encode(),
 					true,
 					already_charged,
@@ -1203,6 +1224,10 @@ pub mod env {
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
+		log::debug!(
+			target: LOG_TARGET,
+			"\n===\n<Call flags: {flags:?}, callee_ptr: {callee_ptr}, value_ptr: {value_ptr}, deposit_ptr: {deposit_ptr}, ref_time_limit: {ref_time_limit}, proof_size_limit: {proof_size_limit}, input_data_ptr: {input_data_ptr}, input_data_len: {input_data_len}, output_ptr: {output_ptr}, output_len_ptr: {output_len_ptr}>",
+		);
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
@@ -1258,7 +1283,6 @@ pub mod env {
 		input_data_ptr: u32,
 		input_data_len: u32,
 		address_ptr: u32,
-		address_len_ptr: u32,
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
@@ -1273,7 +1297,6 @@ pub mod env {
 			input_data_ptr,
 			input_data_len,
 			address_ptr,
-			address_len_ptr,
 			output_ptr,
 			output_len_ptr,
 			salt_ptr,
