@@ -25,6 +25,7 @@ use log::{debug, info};
 
 use crate::{Database, DatabaseSource, DbHash};
 use codec::Decode;
+use sc_client_api::blockchain::BlockGap;
 use sp_database::Transaction;
 use sp_runtime::{
 	generic::BlockId,
@@ -73,8 +74,8 @@ pub struct Meta<N, H> {
 	pub genesis_hash: H,
 	/// Finalized state, if any
 	pub finalized_state: Option<(H, N)>,
-	/// Block gap, start and end inclusive, if any.
-	pub block_gap: Option<(N, N)>,
+	/// Block gap, if any.
+	pub block_gap: Option<BlockGap<N>>,
 }
 
 /// A block lookup key: used for canonical lookup from block number to hash
