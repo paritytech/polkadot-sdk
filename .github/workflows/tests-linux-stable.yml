@@ -70,4 +70,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
