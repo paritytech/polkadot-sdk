@@ -153,9 +153,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     root: &lt;H as Hash&gt;::Output,
     leaves: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="enum.MmrDataOrHash.html" title="enum bp_beefy::MmrDataOrHash">DataOrHash</a>&lt;H, L&gt;&gt;,
     proof: <a class="struct" href="struct.MmrProof.html" title="struct bp_beefy::MmrProof">LeafProof</a>&lt;&lt;H as Hash&gt;::Output&gt;
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="../sp_mmr_primitives/enum.Error.html" title="enum sp_mmr_primitives::Error">Error</a>&gt;<div class="where">where
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
     H: Hash,
-    L: <a class="trait" href="../sp_mmr_primitives/trait.FullLeaf.html" title="trait sp_mmr_primitives::FullLeaf">FullLeaf</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Stateless MMR proof verification for batch of leaves.</p>
+    L: FullLeaf,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Stateless MMR proof verification for batch of leaves.</p>
 <p>This function can be used to verify received MMR <a href="struct.MmrProof.html" title="struct bp_beefy::MmrProof">primitives::LeafProof</a> (<code>proof</code>)
 for given leaves set (<code>leaves</code>) against a known MMR root hash (<code>root</code>).
 Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
