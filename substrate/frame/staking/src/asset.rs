@@ -27,7 +27,9 @@ use frame_support::traits::{
 };
 use sp_runtime::{traits::Zero, DispatchResult};
 
-use crate::{BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf};
+use crate::{
+	BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf, SessionInterface,
+};
 
 /// Existential deposit for the chain.
 pub fn existential_deposit<T: Config>() -> BalanceOf<T> {
@@ -97,9 +99,16 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
 	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort)
 		.map(|_| ())?;
+
+	// if can't dec provider, try cleaning up session keys first.
+	// FIXME(ank4n): may have to update bench. Also add failing test if non session consumers on
+	// stash.
+	if !frame_system::Pallet::<T>::can_dec_provider(who) {
+		T::SessionInterface::purge_keys(who.clone())?;
+	}
+
 	// dec provider that we incremented for a new stake.
-	// fixme(ank4n): fails while slashing? Need to carefully examine consumer and provider changes.
-	let _ = frame_system::Pallet::<T>::dec_providers(who);
+	let _ = frame_system::Pallet::<T>::dec_providers(who)?;
 	Ok(())
 }
 
