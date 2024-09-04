@@ -18,7 +18,7 @@ accept = [
 	"429",
 ]
 
-exclude_path = ["./target"]
+exclude_path = ["./target", "./prdoc"]
 
 exclude = [
 	# Place holders (no need to fix these):
@@ -53,5 +53,4 @@ exclude = [
 	"https://etherscan.io/block/11090290",
 	"https://subscan.io/",
 	"https://substrate.stackexchange.com/.*",
-	"https://github.com/paritytech/devops/.*",
 ]
