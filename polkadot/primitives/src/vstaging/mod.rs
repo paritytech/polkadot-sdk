@@ -24,12 +24,15 @@ use super::{
 	HashT, HeadData, Header, Id, Id as ParaId, MultiDisputeStatementSet, ScheduledCore,
 	UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
 };
+use alloc::{
+	collections::{BTreeMap, VecDeque},
+	vec,
+	vec::Vec,
+};
 use bitvec::prelude::*;
-use sp_application_crypto::ByteArray;
-
-use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use sp_application_crypto::ByteArray;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
@@ -334,8 +337,10 @@ impl CandidateCommitments {
 	/// `assigned_cores` must be a sorted vec of all core indices assigned to a parachain.
 	pub fn committed_core_index(&self, assigned_cores: &[&CoreIndex]) -> Option<CoreIndex> {
 		if assigned_cores.is_empty() {
+			println!("Assigned cores empty");
 			return None
 		}
+		println!("Selected core: {:?}", self.selected_core());
 
 		self.selected_core().and_then(|(core_selector, _cq_offset)| {
 			let core_index =
@@ -356,7 +361,8 @@ pub enum CandidateReceiptError {
 	InvalidSelectedCore,
 	/// The parachain is not assigned to any core at specified claim queue offset.
 	NoAssignment,
-	/// No core was selected.
+	/// No core was selected. The `SelectCore` commitment is mandatory for
+	/// v2 receipts if parachains has multiple cores assigned.
 	NoCoreSelected,
 	/// Unknown version.
 	UnknownVersion(InternalVersion),
@@ -452,9 +458,12 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 
 impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Checks if descriptor core index is equal to the committed core index.
-	/// Input `assigned_cores` must contain the sorted cores assigned to the para at
-	/// the committed claim queue offset.
-	pub fn check(&self, assigned_cores: &[&CoreIndex]) -> Result<(), CandidateReceiptError> {
+	/// Input `claim_queue` must contain a snapshot of the claim queue at the
+	/// candidate relay parent.
+	pub fn check(
+		&self,
+		claim_queue: &BTreeMap<CoreIndex, VecDeque<Id>>,
+	) -> Result<(), CandidateReceiptError> {
 		match self.descriptor.version() {
 			// Don't check v1 descriptors.
 			CandidateDescriptorVersion::V1 => return Ok(()),
@@ -463,18 +472,48 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 				return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
-		if self.commitments.selected_core().is_none() {
-			return Err(CandidateReceiptError::NoCoreSelected)
-		}
-
-		if assigned_cores.is_empty() {
+		if claim_queue.is_empty() {
+			println!("cq empty");
 			return Err(CandidateReceiptError::NoAssignment)
 		}
 
-		let core_index = self
-			.commitments
-			.committed_core_index(assigned_cores)
-			.ok_or(CandidateReceiptError::NoAssignment)?;
+		let (offset, core_selected) =
+			if let Some((_core_selector, cq_offset)) = self.commitments.selected_core() {
+				(cq_offset.0 as usize, true)
+			} else {
+				// If no core has been selected then we use offset 0 (top of claim queue)
+				(0, false)
+			};
+
+		// The cores assigned to the parachain at above computed offset.
+		//
+		// TODO: this might be inneficient to do for each candidate.
+		// A BTreeMap<Para, Vec<Option<CoreIndex<>> can be computed
+		// once per relay chain block, making this search here much faster.
+		let assigned_cores = claim_queue
+			.iter()
+			.filter_map(move |(core_index, paras)| {
+				let para_at_offset = *paras.get(offset)?;
+				if para_at_offset == self.descriptor.para_id() {
+					Some(core_index)
+				} else {
+					None
+				}
+			})
+			.collect::<Vec<_>>();
+
+		let core_index = if core_selected {
+			self.commitments
+				.committed_core_index(assigned_cores.as_slice())
+				.ok_or(CandidateReceiptError::NoAssignment)?
+		} else {
+			// `SelectCore` commitment is mandatory for elastic scaling parachains.
+			if assigned_cores.len() > 1 {
+				return Err(CandidateReceiptError::NoCoreSelected)
+			}
+
+			**assigned_cores.get(0).ok_or(CandidateReceiptError::NoAssignment)?
+		};
 
 		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
 		if core_index != descriptor_core_index {
@@ -531,6 +570,12 @@ impl<H> BackedCandidate<H> {
 		&self.candidate
 	}
 
+	/// Get a mutable reference to the committed candidate receipt of the candidate.
+	/// Only for testing.
+	#[cfg(feature = "test")]
+	pub fn candidate_mut(&mut self) -> &mut CommittedCandidateReceiptV2<H> {
+		&mut self.candidate
+	}
 	/// Get a reference to the descriptor of the candidate.
 	pub fn descriptor(&self) -> &CandidateDescriptorV2<H> {
 		&self.candidate.descriptor
@@ -797,7 +842,7 @@ mod tests {
 
 		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
 		assert_eq!(
-			new_ccr.check(&vec![].as_slice()),
+			new_ccr.check(&BTreeMap::new()),
 			Err(CandidateReceiptError::UnknownVersion(InternalVersion(100)))
 		)
 	}
@@ -821,7 +866,13 @@ mod tests {
 			.upward_messages
 			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
 
-		assert_eq!(new_ccr.check(&vec![&CoreIndex(123)]), Ok(()));
+		let mut cq = BTreeMap::new();
+		cq.insert(
+			CoreIndex(123),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+		);
+
+		assert_eq!(new_ccr.check(&cq), Ok(()));
 	}
 
 	#[test]
@@ -833,11 +884,12 @@ mod tests {
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
-		// The check should fail because no `SelectCore` signal was sent.
-		assert_eq!(
-			new_ccr.check(&vec![&CoreIndex(0), &CoreIndex(100)]),
-			Err(CandidateReceiptError::NoCoreSelected)
-		);
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
+
+		// The check should not fail because no `SelectCore` signal was sent.
+		// The message is optional.
+		assert!(new_ccr.check(&cq).is_ok());
 
 		// Garbage message.
 		new_ccr.commitments.upward_messages.force_push(vec![0, 13, 200].encode());
@@ -845,11 +897,17 @@ mod tests {
 		// No `SelectCore` can be decoded.
 		assert_eq!(new_ccr.commitments.selected_core(), None);
 
-		// Failure is expected.
-		assert_eq!(
-			new_ccr.check(&vec![&CoreIndex(0), &CoreIndex(100)]),
-			Err(CandidateReceiptError::NoCoreSelected)
+		let mut cq = BTreeMap::new();
+		cq.insert(
+			CoreIndex(0),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
 		);
+		cq.insert(
+			CoreIndex(100),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+		);
+
+		assert_eq!(new_ccr.check(&cq), Err(CandidateReceiptError::NoCoreSelected));
 
 		new_ccr.commitments.upward_messages.clear();
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
@@ -866,7 +924,7 @@ mod tests {
 			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
 
 		// Duplicate doesn't override first signal.
-		assert_eq!(new_ccr.check(&vec![&CoreIndex(0), &CoreIndex(100)]), Ok(()));
+		assert_eq!(new_ccr.check(&cq), Ok(()));
 	}
 
 	#[test]
@@ -903,7 +961,14 @@ mod tests {
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
 		assert_eq!(v2_ccr.descriptor.core_index(), Some(CoreIndex(123)));
-		assert_eq!(new_ccr.check(&vec![&CoreIndex(123)]), Ok(()));
+
+		let mut cq = BTreeMap::new();
+		cq.insert(
+			CoreIndex(123),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+		);
+
+		assert_eq!(new_ccr.check(&cq), Ok(()));
 
 		assert_eq!(new_ccr.hash(), v2_ccr.hash());
 	}
@@ -930,7 +995,12 @@ mod tests {
 
 		assert_eq!(v1_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
 		assert!(v1_ccr.commitments.selected_core().is_some());
-		assert!(v1_ccr.check(&vec![&CoreIndex(0), &CoreIndex(1)]).is_ok());
+
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![v1_ccr.descriptor.para_id()].into());
+		cq.insert(CoreIndex(1), vec![v1_ccr.descriptor.para_id()].into());
+
+		assert!(v1_ccr.check(&cq).is_ok());
 
 		assert_eq!(
 			v1_ccr.commitments.committed_core_index(&vec![&CoreIndex(10), &CoreIndex(5)]),
@@ -941,7 +1011,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_core_select_is_mandatory() {
+	fn test_core_select_is_optional() {
 		// Testing edge case when collators provide zeroed signature and collator id.
 		let mut old_ccr = dummy_old_committed_candidate_receipt();
 		old_ccr.descriptor.para_id = ParaId::new(1000);
@@ -950,11 +1020,19 @@ mod tests {
 		let new_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
+
 		// Since collator sig and id are zeroed, it means that the descriptor uses format
-		// version 2.
-		// We expect the check to fail in such case because there will be no `SelectCore`
-		// commitment.
-		assert_eq!(new_ccr.check(&vec![&CoreIndex(0)]), Err(CandidateReceiptError::NoCoreSelected));
+		// version 2. Should still pass checks without core selector.
+		assert!(new_ccr.check(&cq).is_ok());
+
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
+		cq.insert(CoreIndex(1), vec![new_ccr.descriptor.para_id()].into());
+
+		//  Should fail because 2 cores are assigned,
+		assert_eq!(new_ccr.check(&cq), Err(CandidateReceiptError::NoCoreSelected));
 
 		// Adding collator signature should make it decode as v1.
 		old_ccr.descriptor.signature = dummy_collator_signature();

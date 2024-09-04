@@ -997,16 +997,17 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return true
 	}
 
-	let Some((core_selector, cq_offset)) = candidate.candidate().commitments.selected_core() else {
+	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
+	// any v1 descendants of v2 candidates are dropped.
+	if !allow_v2_receipts {
 		log::debug!(
 			target: LOG_TARGET,
-			"Dropping V2 candidate receipt {:?} for paraid {:?}, no `SelectCore` commitment.",
+			"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id()
 		);
-
 		return false
-	};
+	}
 
 	let Some(session_index) = candidate.descriptor().session_index() else {
 		log::debug!(
@@ -1031,18 +1032,6 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	}
 
-	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
-	// any v1 descendants of v2 candidates are dropped.
-	if !allow_v2_receipts {
-		log::debug!(
-			target: LOG_TARGET,
-			"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
-			candidate.candidate().hash(),
-			candidate.descriptor().para_id()
-		);
-		return false
-	}
-
 	// Get the claim queue snapshot at the candidate relay parent.
 	let Some((rp_info, _)) =
 		allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
@@ -1056,31 +1045,14 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	};
 
-	// The cores assigned to the parachain at the committed claim queue offset.
-	let assigned_cores = rp_info
-		.claim_queue
-		.iter()
-		.filter_map(move |(core_index, paras)| {
-			let para_at_offset = *paras.get(cq_offset.0 as usize)?;
-			if para_at_offset == candidate.descriptor().para_id() {
-				Some(core_index)
-			} else {
-				None
-			}
-		})
-		.collect::<Vec<_>>();
-	let assigned_cores = assigned_cores.as_slice();
-
-	// Check if core index in descriptor matches the one in the commitments.
-	if let Err(err) = candidate.candidate().check(assigned_cores) {
+	// Check validity of `core_index` and `session_index`.
+	if let Err(err) = candidate.candidate().check(&rp_info.claim_queue) {
 		log::debug!(
 			target: LOG_TARGET,
-			"Dropping candidate {:?} for paraid {:?}, {:?}, core_selector={:?}, cq_offset={:?}",
+			"Dropping candidate {:?} for paraid {:?}, {:?}",
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id(),
 			err,
-			core_selector,
-			cq_offset,
 		);
 
 		return false
@@ -1540,6 +1512,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 
 					if let Some(core_index) = get_core_index::<T>(allowed_relay_parents, &candidate)
 					{
+						println!("Core index: {:?}", core_index);
 						if scheduled_cores.remove(&core_index) {
 							temp_backed_candidates.push((candidate, core_index));
 						} else {
@@ -1563,7 +1536,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 
 						log::debug!(
 							target: LOG_TARGET,
-							"Found a backed candidate {:?} with no injected core index, for paraid {:?} which has multiple scheduled cores.",
+							"Found a backed candidate {:?} without core index informationm, but paraid {:?} has multiple scheduled cores.",
 							candidate.candidate().hash(),
 							candidate.descriptor().para_id()
 						);

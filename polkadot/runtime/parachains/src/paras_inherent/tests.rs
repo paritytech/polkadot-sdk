@@ -49,7 +49,7 @@ fn default_config() -> MockGenesisConfig {
 mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
 	use crate::{
-		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder},
+		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier},
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
 		scheduler::{
 			common::{Assignment, AssignmentProvider},
@@ -78,6 +78,7 @@ mod enter {
 		elastic_paras: BTreeMap<u32, u8>,
 		unavailable_cores: Vec<u32>,
 		v2_descriptor: bool,
+		candidate_modifier: Option<CandidateModifier<<Test as frame_system::Config>::Hash>>,
 	}
 
 	fn make_inherent_data(
@@ -91,6 +92,7 @@ mod enter {
 			elastic_paras,
 			unavailable_cores,
 			v2_descriptor,
+			candidate_modifier,
 		}: TestConfig,
 	) -> Bench<Test> {
 		let extra_cores = elastic_paras
@@ -109,7 +111,8 @@ mod enter {
 			.set_dispute_sessions(&dispute_sessions[..])
 			.set_fill_claimqueue(fill_claimqueue)
 			.set_unavailable_cores(unavailable_cores)
-			.set_candidate_descriptor_v2(v2_descriptor);
+			.set_candidate_descriptor_v2(v2_descriptor)
+			.set_candidate_modifier(candidate_modifier);
 
 		// Setup some assignments as needed:
 		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
@@ -166,6 +169,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor,
+				candidate_modifier: None,
 			});
 
 			// We expect the scenario to have cores 0 & 1 with pending availability. The backed
@@ -269,6 +273,7 @@ mod enter {
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
 				v2_descriptor,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -371,6 +376,7 @@ mod enter {
 				elastic_paras: [(2, 4)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let mut expected_para_inherent_data = scenario.data.clone();
@@ -628,6 +634,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -702,6 +709,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -774,6 +782,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -862,6 +871,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -950,6 +960,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1010,6 +1021,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1097,6 +1109,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1205,6 +1218,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1274,6 +1288,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1341,6 +1356,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1464,6 +1480,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor,
+				candidate_modifier: None,
 			});
 
 			let mut para_inherent_data = scenario.data.clone();
@@ -1554,6 +1571,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1613,6 +1631,7 @@ mod enter {
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
+				candidate_modifier: None,
 			});
 
 			let mut unfiltered_para_inherent_data = scenario.data.clone();
@@ -1690,6 +1709,7 @@ mod enter {
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: false,
+				candidate_modifier: None,
 			});
 
 			let inherent_data = scenario.data.clone();
@@ -1741,10 +1761,10 @@ mod enter {
 				num_validators_per_core: 1,
 				code_upgrade: None,
 				fill_claimqueue: true,
-				// 3 cores
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				v2_descriptor: false,
+				v2_descriptor: true,
+				candidate_modifier: None,
 			});
 
 			let mut inherent_data = scenario.data.clone();
@@ -1773,8 +1793,81 @@ mod enter {
 		});
 	}
 
-	// A test to ensure that the paras_inherent filters out candidates
-	// with invalid sesison index in the descriptor.
+	// Mixed test with v1, v2 with/without `UMPSignal::SelectCore`
+	#[test]
+	fn mixed_v1_and_v2_optional_commitments() {
+		let config = default_config();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+		new_test_ext(config).execute_with(|| {
+			// Set the elastic scaling MVP feature.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::ElasticScalingMVP as u8,
+				true,
+			)
+			.unwrap();
+
+			// Enable the v2 receipts.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+			backed_and_concluding.insert(3, 1);
+			backed_and_concluding.insert(4, 1);
+
+			let unavailable_cores = vec![];
+
+			let candidate_modifier = |mut candidate: CommittedCandidateReceiptV2| {
+				// first candidate has v2 descriptor with no commitments
+				if candidate.descriptor.para_id() == ParaId::from(0) {
+					candidate.commitments.upward_messages.clear();
+				}
+
+				if candidate.descriptor.para_id() > ParaId::from(2) {
+					let mut v1: CandidateDescriptor = candidate.descriptor.into();
+
+					v1.collator = junk_collator();
+					v1.signature = junk_collator_signature();
+
+					candidate.descriptor = v1.into();
+				}
+				candidate
+			};
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				fill_claimqueue: true,
+				elastic_paras: Default::default(),
+				unavailable_cores: unavailable_cores.clone(),
+				v2_descriptor: true,
+				candidate_modifier: Some(candidate_modifier),
+			});
+
+			let inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (2 validators per core, 5 backed candidates)
+			assert_eq!(inherent_data.bitfields.len(), 5);
+			// * 5 v2 candidate descriptors.
+			assert_eq!(inherent_data.backed_candidates.len(), 5);
+
+			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data).unwrap();
+		});
+	}
+
+	// A test to ensure that the `paras_inherent`` filters out candidates with invalid
+	// session index in the descriptor.
 	#[test]
 	fn invalid_session_index() {
 		let config = default_config();
@@ -1813,6 +1906,7 @@ mod enter {
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores,
 				v2_descriptor: true,
+				candidate_modifier: None,
 			});
 
 			let mut inherent_data = scenario.data.clone();

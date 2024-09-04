@@ -144,8 +144,13 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	unavailable_cores: Vec<u32>,
 	/// Use v2 candidate descriptor.
 	candidate_descriptor_v2: bool,
+	/// Apply custom changes to generated candidates
+	candidate_modifier: Option<CandidateModifier<T::Hash>>,
 	_phantom: core::marker::PhantomData<T>,
 }
+
+pub type CandidateModifier<Hash> =
+	fn(CommittedCandidateReceipt<Hash>) -> CommittedCandidateReceipt<Hash>;
 
 /// Paras inherent `enter` benchmark scenario.
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -176,6 +181,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			fill_claimqueue: true,
 			unavailable_cores: vec![],
 			candidate_descriptor_v2: false,
+			candidate_modifier: None,
 			_phantom: core::marker::PhantomData::<T>,
 		}
 	}
@@ -287,6 +293,15 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Toggle usage of v2 candidate descriptors.
 	pub(crate) fn set_candidate_descriptor_v2(mut self, enable: bool) -> Self {
 		self.candidate_descriptor_v2 = enable;
+		self
+	}
+
+	/// Set the candidate modifier.
+	pub(crate) fn set_candidate_modifier(
+		mut self,
+		modifier: Option<CandidateModifier<T::Hash>>,
+	) -> Self {
+		self.candidate_modifier = modifier;
 		self
 	}
 
@@ -725,6 +740,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							);
 						}
 
+						// Maybe apply the candidate modifier
+						if let Some(modifier) = self.candidate_modifier {
+							candidate = modifier(candidate);
+						}
+
 						let candidate_hash = candidate.hash();
 
 						let validity_votes: Vec<_> = group_validators
@@ -744,7 +764,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							})
 							.collect();
 
-						let core_idx = if self.candidate_descriptor_v2 {
+						// Don't inject core when it is available in descriptor.
+						let core_idx = if candidate.descriptor.core_index().is_some() {
 							None
 						} else {
 							configuration::ActiveConfig::<T>::get()
