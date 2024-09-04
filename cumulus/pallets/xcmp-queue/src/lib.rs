@@ -64,7 +64,7 @@ use frame_support::{
 	defensive, defensive_assert,
 	traits::{Defensive, EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
 	weights::{Weight, WeightMeter},
-	BoundedVec, StoragePrefixedMap,
+	BoundedVec,
 };
 use pallet_message_queue::OnQueueChanged;
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;

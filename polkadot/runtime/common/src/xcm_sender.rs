@@ -19,7 +19,7 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::{traits::Get, StoragePrefixedMap};
+use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
