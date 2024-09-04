@@ -23,6 +23,9 @@ doc:
         - `PalletMetadataIR`
         - `PalletEventMetadataIR`
         - `PalletErrorMetadataIR`
+      Examples of the deprecation info produced can be seen inside
+        - Tests for `frame-support`
+        - hackmd link https://hackmd.io/@Zett98/Bys0YgbcR
 
 crates:
   - name: frame-support-procedural
