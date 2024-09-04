@@ -153,7 +153,7 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 
 	fn has_good_judgement(who: &AccountId) -> bool {
 		if let Some(judgements) =
-			IdentityOf::<Test>::get(who).map(|(registration, _)| registration.judgements)
+			IdentityOf::<Test>::get(who).map(|registration| registration.judgements)
 		{
 			judgements
 				.iter()
