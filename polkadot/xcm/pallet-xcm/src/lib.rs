@@ -2457,8 +2457,10 @@ impl<T: Config> Pallet<T> {
 		<RuntimeCall as Dispatchable>::RuntimeOrigin: From<OriginCaller>,
 	{
 		crate::Pallet::<Runtime>::set_record_xcm(true);
-		Router::clear_messages(); // Clear other messages in queues.
-		frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
+		// Clear other messages in queues...
+		Router::clear_messages();
+		// ...and reset events to make sure we only record events from current call.
+		frame_system::Pallet::<Runtime>::reset_events();
 		let result = call.dispatch(origin.into());
 		crate::Pallet::<Runtime>::set_record_xcm(false);
 		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm();
