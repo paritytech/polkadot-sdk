@@ -677,7 +677,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let username = bounded_username::<T>(bench_username(), bench_suffix());
 
-		Identity::<T>::queue_acceptance(&caller, username.clone(), Provider::Governance);
+		Identity::<T>::queue_acceptance(&caller, username.clone(), Provider::Allocation);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), username.clone());
@@ -710,9 +710,9 @@ mod benchmarks {
 		let provider = match p {
 			0 => {
 				let _ = T::Currency::reserve(&authority, username_deposit);
-				Provider::Authority(username_deposit)
+				Provider::AuthorityDeposit(username_deposit)
 			},
-			1 => Provider::Governance,
+			1 => Provider::Allocation,
 			_ => unreachable!(),
 		};
 		Identity::<T>::queue_acceptance(&caller, username.clone(), provider);
@@ -746,8 +746,8 @@ mod benchmarks {
 		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
 
 		// First one will be set as primary. Second will not be.
-		Identity::<T>::insert_username(&caller, first_username, Provider::Governance);
-		Identity::<T>::insert_username(&caller, second_username.clone(), Provider::Governance);
+		Identity::<T>::insert_username(&caller, first_username, Provider::Allocation);
+		Identity::<T>::insert_username(&caller, second_username.clone(), Provider::Allocation);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), second_username.clone());
@@ -765,8 +765,8 @@ mod benchmarks {
 		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
 
 		// First one will be set as primary. Second will not be.
-		Identity::<T>::insert_username(&caller, first_username.clone(), Provider::Governance);
-		Identity::<T>::insert_username(&caller, second_username.clone(), Provider::Governance);
+		Identity::<T>::insert_username(&caller, first_username.clone(), Provider::Allocation);
+		Identity::<T>::insert_username(&caller, second_username.clone(), Provider::Allocation);
 
 		// Root calls `kill_username`, leaving their second username as "dangling"
 		Identity::<T>::kill_username(RawOrigin::Root.into(), first_username.into())?;
@@ -805,7 +805,7 @@ mod benchmarks {
 		Identity::<T>::insert_username(
 			&caller,
 			username.clone(),
-			Provider::Authority(username_deposit),
+			Provider::AuthorityDeposit(username_deposit),
 		);
 
 		#[extrinsic_call]
@@ -828,7 +828,7 @@ mod benchmarks {
 		Identity::<T>::insert_username(
 			&caller,
 			username.clone(),
-			Provider::Authority(username_deposit),
+			Provider::AuthorityDeposit(username_deposit),
 		);
 		let now = frame_system::Pallet::<T>::block_number();
 		UnbindingUsernames::<T>::insert(&username, now);
@@ -866,9 +866,9 @@ mod benchmarks {
 		let provider = match p {
 			0 => {
 				let _ = T::Currency::reserve(&authority, username_deposit);
-				Provider::Authority(username_deposit)
+				Provider::AuthorityDeposit(username_deposit)
 			},
-			1 => Provider::Governance,
+			1 => Provider::Allocation,
 			_ => unreachable!(),
 		};
 		Identity::<T>::insert_username(&caller, username.clone(), provider);

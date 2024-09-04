@@ -123,7 +123,9 @@ use codec::Encode;
 use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult},
-	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency, StorageVersion},
+	traits::{
+		BalanceStatus, Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StorageVersion,
+	},
 	BoundedVec,
 };
 use frame_system::pallet_prelude::*;
@@ -165,7 +167,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type ByteDeposit: Get<BalanceOf<Self>>;
 
-		/// The amount held on deposit per registered username.
+		/// The amount held on deposit per registered username. This value should change only in
+		/// runtime upgrades with proper migration of existing deposits.
 		#[pallet::constant]
 		type UsernameDeposit: Get<BalanceOf<Self>>;
 
@@ -389,6 +392,11 @@ pub mod pallet {
 		TooEarly,
 		/// The username cannot be removed because it is not unbinding.
 		NotUnbinding,
+		/// The username cannot be unbound because it is already unbinding.
+		AlreadyUnbinding,
+		/// The action cannot be performed because of insufficient privileges (e.g. authority
+		/// trying to unbind a username provided by the system).
+		InsufficientPrivileges,
 	}
 
 	#[pallet::event]
@@ -1266,14 +1274,11 @@ pub mod pallet {
 		}
 
 		/// Start the process of removing a username by placing it in the unbinding usernames map.
-		/// Once the grace period has passed, the username can be permanently deleted by calling
+		/// Once the grace period has passed, the username can be deleted by calling
 		/// [remove_username](crate::Call::remove_username).
 		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::unbind_username())]
-		pub fn unbind_username(
-			origin: OriginFor<T>,
-			username: Username<T>,
-		) -> DispatchResultWithPostInfo {
+		pub fn unbind_username(origin: OriginFor<T>, username: Username<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let username_info =
 				UsernameInfoOf::<T>::get(&username).ok_or(Error::<T>::NoUsername)?;
@@ -1287,16 +1292,16 @@ pub mod pallet {
 					let now = frame_system::Pallet::<T>::block_number();
 					UnbindingUsernames::<T>::try_mutate(&username, |maybe_init| {
 						if maybe_init.is_some() {
-							return Err(Error::<T>::TooEarly);
+							return Err(Error::<T>::AlreadyUnbinding);
 						}
 						*maybe_init = Some(now);
 						Ok(())
 					})?;
 				},
-				Provider::System => return Err(Error::<T>::InvalidTarget.into()),
+				Provider::System => return Err(Error::<T>::InsufficientPrivileges.into()),
 			}
 			Self::deposit_event(Event::UsernameUnbound { username });
-			Ok(Pays::Yes.into())
+			Ok(())
 		}
 
 		/// Permanently delete a username which has been unbinding for longer than the grace period.
@@ -1315,21 +1320,20 @@ pub mod pallet {
 				now >= grace_period_start.saturating_add(T::UsernameGracePeriod::get()),
 				Error::<T>::TooEarly
 			);
-			let username_info =
-				UsernameInfoOf::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
+			let username_info = UsernameInfoOf::<T>::take(&username)
+				.defensive_proof("an unbinding username must exist")
+				.ok_or(Error::<T>::NoUsername)?;
 			// If this is the primary username, remove the entry from the account -> username map.
 			UsernameOf::<T>::mutate(&username_info.owner, |maybe_primary| {
-				if match maybe_primary {
-					Some(primary) if *primary == username => true,
-					_ => false,
-				} {
+				if maybe_primary.as_ref().map_or(false, |primary| *primary == username) {
 					*maybe_primary = None;
 				}
 			});
 			match username_info.provider {
 				Provider::AuthorityDeposit(username_deposit) => {
-					let suffix =
-						Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
+					let suffix = Self::suffix_of_username(&username)
+						.defensive_proof("registered username must be valid")
+						.ok_or(Error::<T>::InvalidUsername)?;
 					if let Some(authority_account) =
 						AuthorityOf::<T>::get(&suffix).map(|auth_info| auth_info.account_id)
 					{
@@ -1341,7 +1345,7 @@ pub mod pallet {
 				Provider::Allocation => {
 					// We don't refund the allocation, it is lost.
 				},
-				Provider::System => return Err(Error::<T>::InvalidTarget.into()),
+				Provider::System => return Err(Error::<T>::InsufficientPrivileges.into()),
 			}
 			Self::deposit_event(Event::UsernameRemoved { username });
 			Ok(Pays::No.into())
@@ -1435,13 +1439,11 @@ impl<T: Config> Pallet<T> {
 
 	/// Validate that a username conforms to allowed characters/format.
 	///
-	/// The function will validate the characters in `username` and that `length` (if `Some`)
-	/// conforms to the limit. It is not expected to pass a fully formatted username here (i.e. one
-	/// with any protocol-added characters included, such as a `.`). The suffix is also separately
-	/// validated by this function to ensure the full username conforms.
+	/// The function will validate the characters in `username`. It is expected to pass a fully
+	/// formatted username here (i.e. "username.suffix"). The suffix is also separately validated
+	/// and returned by this function.
 	fn validate_username(username: &Vec<u8>) -> Result<Suffix<T>, DispatchError> {
-		// Verify input length before allocating a Vec with the user's input. `<` instead of `<=`
-		// because it needs one element for the point (`username` + `.` + `suffix`).
+		// Verify input length before allocating a Vec with the user's input.
 		ensure!(
 			username.len() <= T::MaxUsernameLength::get() as usize,
 			Error::<T>::InvalidUsername
@@ -1469,6 +1471,7 @@ impl<T: Config> Pallet<T> {
 		Ok(suffix)
 	}
 
+	/// Return the suffix of a username, if it is valid.
 	fn suffix_of_username(username: &Username<T>) -> Option<Suffix<T>> {
 		let separator_idx = username.iter().rposition(|c| *c == b'.')?;
 		let suffix_start = separator_idx.checked_add(1)?;

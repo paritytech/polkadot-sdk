@@ -2223,15 +2223,6 @@ fn unbind_and_remove_username_should_work() {
 		// Advance the block number to simulate the grace period passing.
 		System::set_block_number(3);
 
-		// Simulate a dangling entry in the unbinding map without an actual username registered.
-		UnbindingUsernames::<Test>::insert(dummy_username.clone(), 0);
-		assert_noop!(
-			Identity::remove_username(RuntimeOrigin::signed(account(0)), dummy_username.clone()),
-			Error::<Test>::NoUsername
-		);
-		// Clean up storage.
-		UnbindingUsernames::<Test>::remove(dummy_username);
-
 		let suffix: Suffix<Test> = suffix.try_into().unwrap();
 		// We can now remove the username from any account.
 		assert_ok!(Identity::remove_username(
@@ -2270,5 +2261,74 @@ fn unbind_and_remove_username_should_work() {
 		assert_eq!(Balances::free_balance(authority.clone()), initial_authority_balance);
 		// Allocation didn't change.
 		assert_eq!(AuthorityOf::<Test>::get(&suffix).unwrap().allocation, 9);
+	});
+}
+
+#[test]
+#[should_panic]
+fn unbind_dangling_username_defensive_should_panic() {
+	new_test_ext().execute_with(|| {
+		let initial_authority_balance = 10000;
+		// Set up authority.
+		let authority = account(100);
+		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		let username_deposit: BalanceOf<Test> = <Test as Config>::UsernameDeposit::get();
+
+		// Set up username.
+		let username = test_username_of(b"42".to_vec(), suffix.clone());
+
+		// Set up user and sign message.
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
+
+		// Set an identity for who. They need some balance though.
+		Balances::make_free_balance_be(&who_account, 1000);
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			who_account.clone(),
+			username.clone().into(),
+			Some(signature),
+			false
+		));
+		assert_eq!(
+			Balances::free_balance(authority.clone()),
+			initial_authority_balance - username_deposit
+		);
+
+		// We can successfully unbind the username as the authority that granted it.
+		assert_ok!(Identity::unbind_username(
+			RuntimeOrigin::signed(authority.clone()),
+			username.clone()
+		));
+		assert_eq!(System::block_number(), 1);
+		assert_eq!(UnbindingUsernames::<Test>::get(&username), Some(1));
+
+		// Still in the grace period.
+		assert_noop!(
+			Identity::remove_username(RuntimeOrigin::signed(account(0)), username.clone()),
+			Error::<Test>::TooEarly
+		);
+
+		// Advance the block number to simulate the grace period passing.
+		System::set_block_number(3);
+
+		// Simulate a dangling entry in the unbinding map without an actual username registered.
+		UsernameInfoOf::<Test>::remove(&username);
+		UsernameOf::<Test>::remove(&who_account);
+		assert_noop!(
+			Identity::remove_username(RuntimeOrigin::signed(account(0)), username.clone()),
+			Error::<Test>::NoUsername
+		);
 	});
 }
