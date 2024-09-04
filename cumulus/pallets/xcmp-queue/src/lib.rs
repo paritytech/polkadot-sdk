@@ -1009,9 +1009,8 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {
 	fn clear_messages() {
-		let prefix = OutboundXcmpMessages::<T>::final_prefix();
 		// Best effort.
-		let _ = frame_support::storage::unhashed::clear_prefix(&prefix, None, None);
+		let _ = OutboundXcmpMessages::<T>::clear(u32::MAX, None);
 	}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {

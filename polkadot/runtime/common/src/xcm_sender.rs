@@ -142,9 +142,8 @@ where
 
 impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P> {
 	fn clear_messages() {
-		let prefix = dmp::DownwardMessageQueues::<T>::final_prefix();
 		// Best effort.
-		let _ = frame_support::storage::unhashed::clear_prefix(&prefix, None, None);
+		let _ = dmp::DownwardMessageQueues::<T>::clear(u32::MAX, None);
 	}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
