@@ -49,7 +49,7 @@ impl<Suffix: DescribeLocation> DescribeLocation for DescribeGlobalPrefix<Suffix>
 				let mut tail = l.clone().split_first_interior().0;
 				tail.dec_parent();
 				let interior = Suffix::describe_location(&tail)?;
-				Some((b"PNA", network, interior).encode())
+				Some((b"GlobalConsensus", network, interior).encode())
 			},
 			_ => None,
 		}
@@ -61,20 +61,22 @@ impl DescribeLocation for DescribeTokenTerminal {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		match l.unpack().1 {
 			[] => Some(Vec::<u8>::new().encode()),
-			[GeneralIndex(index)] => Some((*index).encode()),
-			[GeneralKey { data, .. }] => Some((*data).encode()),
-			[AccountKey20 { key, .. }] => Some((*key).encode()),
-			[AccountId32 { id, .. }] => Some((*id).encode()),
+			[GeneralIndex(index)] => Some((b"Index", *index).encode()),
+			[GeneralKey { data, .. }] => Some((b"Key", *data).encode()),
+			[AccountKey20 { key, .. }] => Some((b"AccountKey", *key).encode()),
+			[AccountId32 { id, .. }] => Some((b"AccountId", *id).encode()),
 
 			// Pallet
-			[PalletInstance(instance)] => Some((*instance).encode()),
-			[PalletInstance(instance), GeneralIndex(index)] => Some((*instance, *index).encode()),
+			[PalletInstance(instance)] => Some((b"Pallet", *instance).encode()),
+			[PalletInstance(instance), GeneralIndex(index)] =>
+				Some((b"Pallet", *instance, "Index", *index).encode()),
 			[PalletInstance(instance), GeneralKey { data, .. }] =>
-				Some((*instance, *data).encode()),
+				Some((b"Pallet", *instance, b"Key", *data).encode()),
 
 			[PalletInstance(instance), AccountKey20 { key, .. }] =>
-				Some((*instance, *key).encode()),
-			[PalletInstance(instance), AccountId32 { id, .. }] => Some((*instance, *id).encode()),
+				Some((b"Pallet", *instance, b"AccountKey", *key).encode()),
+			[PalletInstance(instance), AccountId32 { id, .. }] =>
+				Some((b"Pallet", *instance, b"AccountId", *id).encode()),
 
 			// Reject all other locations
 			_ => None,
@@ -86,8 +88,8 @@ impl DescribeLocation for DescribeTokenTerminal {
 mod tests {
 	use crate::TokenIdOf;
 	use xcm::prelude::{
-		GeneralIndex, GeneralKey, GlobalConsensus, Kusama, Location, PalletInstance, Parachain,
-		Westend,
+		GeneralIndex, GeneralKey, GlobalConsensus, Junction::*, Location, NetworkId::*,
+		PalletInstance, Parachain,
 	};
 	use xcm_executor::traits::ConvertLocation;
 
@@ -106,15 +108,82 @@ mod tests {
 			Location::new(2, [GlobalConsensus(Kusama), Parachain(2000)]),
 			// Parachain general index
 			Location::new(1, [GlobalConsensus(Westend), Parachain(2000), GeneralIndex(1)]),
-			// Parchain Pallet instance cases
-			Location::new(1, [GlobalConsensus(Westend), Parachain(2000), PalletInstance(8)]),
-			// Parachain General Key
+			// Parachain general key
 			Location::new(
 				1,
 				[
 					GlobalConsensus(Westend),
 					Parachain(2000),
-					GeneralKey { length: 32, data: [1; 32] },
+					GeneralKey { length: 32, data: [0; 32] },
+				],
+			),
+			// Parachain account key 20
+			Location::new(
+				1,
+				[
+					GlobalConsensus(Westend),
+					Parachain(2000),
+					AccountKey20 { network: None, key: [0; 20] },
+				],
+			),
+			// Parachain account id 32
+			Location::new(
+				1,
+				[
+					GlobalConsensus(Westend),
+					Parachain(2000),
+					AccountId32 { network: None, id: [0; 32] },
+				],
+			),
+			// Parchain Pallet instance cases
+			// Parachain pallet instance
+			Location::new(1, [GlobalConsensus(Westend), Parachain(2000), PalletInstance(8)]),
+			// Parachain Pallet general index
+			Location::new(
+				1,
+				[GlobalConsensus(Westend), Parachain(2000), PalletInstance(8), GeneralIndex(1)],
+			),
+			// Parachain Pallet general key
+			Location::new(
+				1,
+				[
+					GlobalConsensus(Westend),
+					Parachain(2000),
+					PalletInstance(8),
+					GeneralKey { length: 32, data: [0; 32] },
+				],
+			),
+			// Parachain Pallet account key 20
+			Location::new(
+				1,
+				[
+					GlobalConsensus(Westend),
+					Parachain(2000),
+					PalletInstance(8),
+					AccountKey20 { network: None, key: [0; 20] },
+				],
+			),
+			// Parachain Pallet account id 32
+			Location::new(
+				1,
+				[
+					GlobalConsensus(Westend),
+					Parachain(2000),
+					PalletInstance(8),
+					AccountId32 { network: None, id: [0; 32] },
+				],
+			),
+			// Ethereum cases
+			// Ethereum location relative to Polkadot
+			Location::new(2, [GlobalConsensus(Ethereum { chain_id: 1 })]),
+			// Ethereum location relative to Ethereum
+			Location::new(1, [GlobalConsensus(Ethereum { chain_id: 2 })]),
+			// Ethereum ERC20 location relative to Polkadot
+			Location::new(
+				2,
+				[
+					GlobalConsensus(Ethereum { chain_id: 1 }),
+					AccountKey20 { network: None, key: [0; 20] },
 				],
 			),
 		];
@@ -126,7 +195,12 @@ mod tests {
 			);
 		}
 
-		let non_token_locations = [Location::new(1, [])];
+		let non_token_locations = [
+			// Relative location for a token should fail.
+			Location::new(1, []),
+			// Relative location for a token should fail.
+			Location::new(1, [Parachain(1000)]),
+		];
 
 		for token in non_token_locations {
 			assert!(
