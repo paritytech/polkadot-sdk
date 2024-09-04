@@ -33,7 +33,7 @@ pub extern "C" fn call() {
 	// The value to transfer on instantiation and calls. Chosen to be greater than existential
 	// deposit.
 	let value = 32768u64.to_le_bytes();
-	let salt = [0u8; 0];
+	let salt = [0u8; 32];
 
 	// Callee will use the first 4 bytes of the input to return an exit status.
 	let input = [0u8, 1, 34, 51, 68, 85, 102, 119];
@@ -72,7 +72,7 @@ pub extern "C" fn call() {
 	assert!(matches!(res, Err(ReturnErrorCode::CalleeTrapped)));
 
 	// Deploy the contract successfully.
-	let mut callee = [0u8; 32];
+	let mut callee = [0u8; 20];
 	let callee = &mut &mut callee[..];
 
 	api::instantiate(
@@ -87,7 +87,7 @@ pub extern "C" fn call() {
 		&salt,
 	)
 	.unwrap();
-	assert_eq!(callee.len(), 32);
+	assert_eq!(callee.len(), 20);
 
 	// Call the new contract and expect it to return failing exit code.
 	let res = api::call(

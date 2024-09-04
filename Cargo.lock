@@ -4457,6 +4457,7 @@ dependencies = [
  "parity-scale-codec",
  "pin-project",
  "polkadot-overseer",
+ "portpicker",
  "rand",
  "sc-client-api",
  "sc-rpc-api",
@@ -10314,10 +10315,12 @@ dependencies = [
 name = "pallet-collective"
 version = "28.0.0"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -11472,6 +11475,7 @@ dependencies = [
  "paste",
  "polkavm 0.10.0",
  "pretty_assertions",
+ "rlp",
  "scale-info",
  "serde",
  "sp-api",
@@ -11494,6 +11498,8 @@ dependencies = [
  "frame-system",
  "parity-wasm",
  "polkavm-linker 0.10.0",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "tempfile",
  "toml 0.8.12",
@@ -14127,6 +14133,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
+ "polkadot-primitives-test-helpers",
  "scale-info",
  "serde",
  "sp-api",
@@ -14140,6 +14147,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-staking",
+ "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -16922,9 +16930,9 @@ dependencies = [
 
 [[package]]
 name = "ruint"
-version = "1.11.1"
+version = "1.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "608a5726529f2f0ef81b8fde9873c4bb829d6b5b5ca6be4d97345ddf0749c825"
+checksum = "2c3cc4c2511671f327125da14133d0c5c5d137f006a1017a16f557bc85b16286"
 dependencies = [
  "alloy-rlp",
  "ark-ff 0.3.0",
@@ -16946,9 +16954,9 @@ dependencies = [
 
 [[package]]
 name = "ruint-macro"
-version = "1.1.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e666a5496a0b2186dbcd0ff6106e29e093c15591bde62c20d3842007c6978a09"
+checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 
 [[package]]
 name = "rustc-demangle"
@@ -21189,8 +21197,10 @@ dependencies = [
  "clap 4.5.11",
  "log",
  "sc-chain-spec",
+ "serde",
  "serde_json",
  "sp-tracing 16.0.0",
+ "substrate-test-runtime",
 ]
 
 [[package]]

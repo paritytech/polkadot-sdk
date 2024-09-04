@@ -21,7 +21,7 @@
 use common::{input, output};
 use uapi::{HostFn, HostFnImpl as api};
 
-const DJANGO: [u8; 32] = [4u8; 32];
+const ETH_DJANGO: [u8; 20] = [4u8; 20];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -36,7 +36,7 @@ pub extern "C" fn call() {
 	input!(input, 4,);
 
 	if !input.is_empty() {
-		output!(addr, [0u8; 32], api::address,);
+		output!(addr, [0u8; 20], api::address,);
 		api::call(
 			uapi::CallFlags::ALLOW_REENTRY,
 			addr,
@@ -50,6 +50,6 @@ pub extern "C" fn call() {
 		.unwrap();
 	} else {
 		// Try to terminate and give balance to django.
-		api::terminate(&DJANGO);
+		api::terminate(&ETH_DJANGO);
 	}
 }
