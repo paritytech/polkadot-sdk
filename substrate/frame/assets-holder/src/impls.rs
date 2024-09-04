@@ -40,8 +40,15 @@ impl<T: Config<I>, I: 'static> BalanceOnHold<T::AssetId, T::AccountId, T::Balanc
 	}
 
 	fn died(asset: T::AssetId, who: &T::AccountId) {
-		BalancesOnHold::<T, I>::remove(asset.clone(), who);
-		Holds::<T, I>::remove(asset, who);
+		let _ = Holds::<T, I>::try_mutate(asset.clone(), who, |holds| {
+			for l in holds.iter() {
+				Self::burn_all_held(asset.clone(), &l.id, who, Precision::Exact, Fortitude::Force)?;
+			}
+
+			Holds::<T, I>::remove(asset.clone(), who);
+			BalancesOnHold::<T, I>::remove(asset.clone(), who);
+			Ok::<(), DispatchError>(())
+		});
 	}
 }
 
@@ -255,7 +262,7 @@ impl<T: Config<I>, I: 'static> MutateHold<T::AccountId> for Pallet<T, I> {
 		who: &T::AccountId,
 		amount: Self::Balance,
 	) {
-		Self::deposit_event(Event::<T, I>::Slashed {
+		Self::deposit_event(Event::<T, I>::Burned {
 			asset_id,
 			who: who.clone(),
 			reason: *reason,

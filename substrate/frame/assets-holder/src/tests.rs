@@ -535,7 +535,7 @@ mod impl_hold_mutate {
 				Fortitude::Polite,
 			));
 			System::assert_has_event(
-				Event::<Test>::Slashed {
+				Event::<Test>::Burned {
 					who: WHO,
 					asset_id: ASSET_ID,
 					reason: DummyHoldReason::Governance,

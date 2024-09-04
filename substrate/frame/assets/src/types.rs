@@ -232,17 +232,19 @@ impl<AssetId, AccountId, Balance> FrozenBalance<AssetId, AccountId, Balance> for
 	fn died(_: AssetId, _: &AccountId) {}
 }
 
-/// Trait for specifying a balance that is distinct from the free balance.
-/// This balance is then summed up with the balance of the account, and the
-/// `minimum_balance` (and frozen balance, if any) of the asset to calculate
-/// the reducible balance.
+/// This trait indicates a balance that is _on hold_ for an asset account.
+///
+/// A balance _on hold_ is a balance that, while is assigned to an account,
+/// is outside the direct control of it. Instead, is being _held_ by the
+/// system logic (i.e. Pallets) and can be eventually burned or released.
 pub trait BalanceOnHold<AssetId, AccountId, Balance> {
 	/// Return the held balance.
 	///
-	/// If `Some`, it means some balance is suspended, and it can be infallibly
-	/// slashed.
+	/// If `Some`, it means some balance is _on hold_, and it can be
+	/// infallibly burned.
 	///
-	/// If `None` is returned, then nothing special is enforced.
+	/// If `None` is returned, then no balance is _on hold_ for `who`'s asset
+	/// account.
 	fn balance_on_hold(asset: AssetId, who: &AccountId) -> Option<Balance>;
 
 	/// Called after an account has been removed.

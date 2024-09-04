@@ -105,7 +105,7 @@ pub mod pallet {
 			amount: T::Balance,
 		},
 		// `who`s balance on hold was burned by `amount`.
-		Slashed {
+		Burned {
 			who: T::AccountId,
 			asset_id: T::AssetId,
 			reason: T::RuntimeHoldReason,
@@ -159,7 +159,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let mut amount_from_holds: T::Balance = Zero::zero();
 			for l in Holds::<T, I>::get(asset.clone(), who.clone()).iter() {
 				ensure!(l.amount != Zero::zero(), "zero amount is invalid");
-				amount_from_holds = amount_from_holds.saturating_add(l.amount);
+				amount_from_holds =
+					amount_from_holds.checked_add(l.amount).ok_or(ArithmeticError::Overflow)?;
 			}
 
 			frame_support::ensure!(

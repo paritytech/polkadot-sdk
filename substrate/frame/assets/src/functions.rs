@@ -211,8 +211,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					let frozen = maybe_frozen.unwrap_or_default();
 					let held = maybe_held.unwrap_or_default();
 
-					let required = frozen.saturating_sub(held).max(details.min_balance);
-					if rest < required {
+					// The `untouchable` balance of the asset account of `who`. This is described
+					// here: https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/index.html#visualising-balance-components-together-
+					let untouchable = frozen.saturating_sub(held).max(details.min_balance);
+					if rest < untouchable {
 						return Frozen
 					}
 
