@@ -28,7 +28,9 @@ use sp_core::{ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
-use xcm::prelude::{GlobalConsensus, Junction::Parachain, Location};
+use xcm::prelude::{
+	GeneralIndex, GeneralKey, GlobalConsensus, Junction::Parachain, Location, PalletInstance,
+};
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
 
 /// The ID of an agent contract
@@ -177,8 +179,7 @@ pub struct AssetMetadata {
 pub type TokenId = H256;
 
 /// Convert a token location to a stable ID that can be used on the Ethereum side
-pub type TokenIdOf =
-	HashedDescription<TokenId, DescribeGlobalPrefix<DescribeFamily<DescribeAllTerminal>>>;
+pub type TokenIdOf = HashedDescription<TokenId, DescribeGlobalPrefix<DescribeInner>>;
 
 pub struct DescribeGlobalPrefix<DescribeInterior>(sp_std::marker::PhantomData<DescribeInterior>);
 impl<Suffix: DescribeLocation> DescribeLocation for DescribeGlobalPrefix<Suffix> {
@@ -187,8 +188,26 @@ impl<Suffix: DescribeLocation> DescribeLocation for DescribeGlobalPrefix<Suffix>
 			(1, Some(GlobalConsensus(network))) => {
 				let tail = l.clone().split_first_interior().0;
 				let interior = Suffix::describe_location(&tail.into())?;
-				Some((b"PNA", network, interior).encode())
+				Some((b"pna", network, interior).encode())
 			},
+			_ => None,
+		}
+	}
+}
+
+pub struct DescribeInner;
+impl DescribeLocation for DescribeInner {
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
+		match l.unpack().1 {
+			[] => Some(Vec::<u8>::new().encode()),
+			[Parachain(id)] => Some((*id).encode()),
+			[Parachain(id), PalletInstance(instance)] => Some((*id, *instance).encode()),
+			[Parachain(id), PalletInstance(instance), GeneralIndex(index)] =>
+				Some((*id, *instance, *index).encode()),
+			[Parachain(id), PalletInstance(instance), GeneralKey { data, .. }] =>
+				Some((*id, *instance, *data).encode()),
+			[Parachain(id), GeneralIndex(index)] => Some((*id, *index).encode()),
+			[Parachain(id), GeneralKey { data, .. }] => Some((*id, *data).encode()),
 			_ => None,
 		}
 	}

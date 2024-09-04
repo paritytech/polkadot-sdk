@@ -110,48 +110,6 @@ impl DescribeLocation for DescribeBodyTerminal {
 	}
 }
 
-pub struct DescribePalletInstanceAndGeneralIndexTerminal;
-impl DescribeLocation for DescribePalletInstanceAndGeneralIndexTerminal {
-	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match l.unpack() {
-			(0, [PalletInstance(instance), GeneralIndex(index)]) =>
-				Some((b"Pallet", b"GeneralIndex", *instance, *index).encode()),
-			_ => return None,
-		}
-	}
-}
-
-pub struct DescribePalletInstanceAndGeneralKeyTerminal;
-impl DescribeLocation for DescribePalletInstanceAndGeneralKeyTerminal {
-	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match l.unpack() {
-			(0, [PalletInstance(instance), GeneralKey { data, .. }]) =>
-				Some((b"Pallet", b"GeneralKey", *instance, *data).encode()),
-			_ => return None,
-		}
-	}
-}
-
-pub struct DescribeGeneralKeyTerminal;
-impl DescribeLocation for DescribeGeneralKeyTerminal {
-	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match l.unpack() {
-			(0, [GeneralKey { data, .. }]) => Some((b"GeneralKey", *data).encode()),
-			_ => return None,
-		}
-	}
-}
-
-pub struct DescribeGeneralIndexTerminal;
-impl DescribeLocation for DescribeGeneralIndexTerminal {
-	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match l.unpack() {
-			(0, [GeneralIndex(index)]) => Some((b"GeneralIndex", *index).encode()),
-			_ => return None,
-		}
-	}
-}
-
 pub type DescribeAllTerminal = (
 	DescribeTerminus,
 	DescribePalletTerminal,
@@ -159,10 +117,6 @@ pub type DescribeAllTerminal = (
 	DescribeAccountKey20Terminal,
 	DescribeTreasuryVoiceTerminal,
 	DescribeBodyTerminal,
-	DescribePalletInstanceAndGeneralIndexTerminal,
-	DescribePalletInstanceAndGeneralKeyTerminal,
-	DescribeGeneralKeyTerminal,
-	DescribeGeneralIndexTerminal,
 );
 
 pub struct DescribeFamily<DescribeInterior>(PhantomData<DescribeInterior>);
