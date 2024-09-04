@@ -14869,6 +14869,7 @@ version = "4.0.0"
 dependencies = [
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
+ "bp-messages",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
  "collectives-westend-runtime",

@@ -58,6 +58,9 @@ xcm = { workspace = true, default-features = true }
 # Cumulus
 cumulus-primitives-core = { workspace = true, default-features = true }
 
+# Bridges
+bp-messages = { workspace = true, default-features = true }
+
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
 
