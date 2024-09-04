@@ -177,7 +177,6 @@ pub fn new_partial(
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
 			impl Fn(
-				node_rpc::DenyUnsafe,
 				sc_rpc::SubscriptionTaskExecutor,
 			) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>,
 			(
@@ -209,7 +208,7 @@ pub fn new_partial(
 		})
 		.transpose()?;
 
-	let executor = sc_service::new_wasm_executor(&config);
+	let executor = sc_service::new_wasm_executor(&config.executor);
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -318,13 +317,12 @@ pub fn new_partial(
 		let rpc_backend = backend.clone();
 		let rpc_statement_store = statement_store.clone();
 		let rpc_extensions_builder =
-			move |deny_unsafe, subscription_executor: node_rpc::SubscriptionTaskExecutor| {
+			move |subscription_executor: node_rpc::SubscriptionTaskExecutor| {
 				let deps = node_rpc::FullDeps {
 					client: client.clone(),
 					pool: pool.clone(),
 					select_chain: select_chain.clone(),
 					chain_spec: chain_spec.cloned_box(),
-					deny_unsafe,
 					babe: node_rpc::BabeDeps {
 						keystore: keystore.clone(),
 						babe_worker_handle: babe_worker_handle.clone(),
@@ -406,7 +404,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	),
 ) -> Result<NewFullBase, ServiceError> {
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
-	let role = config.role.clone();
+	let role = config.role;
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks =
 		Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
@@ -719,7 +717,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		name: Some(name),
 		observer_enabled: false,
 		keystore,
-		local_role: role.clone(),
+		local_role: role,
 		telemetry: telemetry.as_ref().map(|x| x.handle()),
 		protocol_name: grandpa_protocol_name,
 	};

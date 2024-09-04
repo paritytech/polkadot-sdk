@@ -20,15 +20,43 @@
 
 pub(crate) mod aura;
 pub mod chain_spec;
+pub mod command;
+pub mod rpc;
 pub mod runtime;
+pub mod spec;
+pub mod types;
 
 use cumulus_primitives_core::CollectCollationInfo;
+use sc_client_db::DbHash;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::{
+	traits::{Block as BlockT, BlockNumber, Header as HeaderT, NumberFor},
+	OpaqueExtrinsic,
+};
 use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
-use std::path::PathBuf;
+use std::{fmt::Debug, path::PathBuf, str::FromStr};
+
+pub trait NodeBlock:
+	BlockT<Extrinsic = OpaqueExtrinsic, Header = Self::BoundedHeader, Hash = DbHash>
+	+ for<'de> serde::Deserialize<'de>
+{
+	type BoundedFromStrErr: Debug;
+	type BoundedNumber: FromStr<Err = Self::BoundedFromStrErr> + BlockNumber;
+	type BoundedHeader: HeaderT<Number = Self::BoundedNumber> + Unpin;
+}
+
+impl<T> NodeBlock for T
+where
+	T: BlockT<Extrinsic = OpaqueExtrinsic, Hash = DbHash> + for<'de> serde::Deserialize<'de>,
+	<T as BlockT>::Header: Unpin,
+	<NumberFor<T> as FromStr>::Err: Debug,
+{
+	type BoundedFromStrErr = <NumberFor<T> as FromStr>::Err;
+	type BoundedNumber = NumberFor<T>;
+	type BoundedHeader = <T as BlockT>::Header;
+}
 
 /// Convenience trait that defines the basic bounds for the `RuntimeApi` of a parachain node.
 pub trait NodeRuntimeApi<Block: BlockT>:
