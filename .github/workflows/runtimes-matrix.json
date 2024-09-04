@@ -30,7 +30,7 @@
     "name": "asset-hub-westend",
     "package": "asset-hub-westend-runtime",
     "path": "cumulus/parachains/runtimes/assets/asset-hub-westend",
-    "header": "polkadot/file_header.txt",
+    "header": "cumulus/file_header.txt",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-asset-hub-rpc.polkadot.io:443",
     "is_relay": false
