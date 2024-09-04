@@ -128,7 +128,7 @@ where
 	type AccountId = T::AccountId;
 	type Call = T::RuntimeCall;
 	type AdditionalSigned = ();
-	type Pre = Option<u64>;
+	type Pre = (Option<u64>, Self::Call);
 
 	fn additional_signed(
 		&self,
@@ -140,11 +140,11 @@ where
 	fn pre_dispatch(
 		self,
 		_who: &Self::AccountId,
-		_call: &Self::Call,
+		call: &Self::Call,
 		_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-		Ok(get_proof_size())
+		Ok((get_proof_size(), call.clone()))
 	}
 
 	fn post_dispatch(
@@ -154,7 +154,7 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		let Some(Some(pre_dispatch_proof_size)) = pre else {
+		let Some((Some(pre_dispatch_proof_size), call)) = pre else {
 			return Ok(());
 		};
 
@@ -183,13 +183,13 @@ where
 			if consumed_weight > benchmarked_weight {
 				log::error!(
 					target: LOG_TARGET,
-					"Benchmarked storage weight smaller than consumed storage weight. benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}"
+					"Benchmarked storage weight smaller than consumed storage weight. call: {call:?} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}"
 				);
 				current.accrue(Weight::from_parts(0, storage_size_diff), info.class)
 			} else {
 				log::trace!(
 					target: LOG_TARGET,
-					"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: {consumed_weight} unspent: {unspent}"
+					"Reclaiming storage weight. call: {call:?} benchmarked: {benchmarked_weight}, consumed: {consumed_weight} unspent: {unspent}"
 				);
 				current.reduce(Weight::from_parts(0, storage_size_diff), info.class)
 			}
@@ -293,7 +293,7 @@ mod tests {
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
-			assert_eq!(pre, Some(0));
+			assert_eq!(pre, (Some(0), CALL.clone()));
 
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 			// We expect a refund of 400
@@ -332,7 +332,7 @@ mod tests {
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
-			assert_eq!(pre, Some(0));
+			assert_eq!(pre, (Some(0), CALL.clone()));
 
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 			// We expect an accrue of 1
@@ -368,7 +368,7 @@ mod tests {
 				let pre = StorageWeightReclaim::<Test>(PhantomData)
 					.pre_dispatch(&ALICE, CALL, &info, LEN)
 					.unwrap();
-				assert_eq!(pre, Some(1000));
+				assert_eq!(pre, (Some(1000), CALL.clone()));
 
 				assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 				assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
@@ -404,7 +404,7 @@ mod tests {
 				let pre = StorageWeightReclaim::<Test>(PhantomData)
 					.pre_dispatch(&ALICE, CALL, &info, LEN)
 					.unwrap();
-				assert_eq!(pre, Some(175));
+				assert_eq!(pre, (Some(175), CALL.clone()));
 
 				assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 
@@ -442,7 +442,7 @@ mod tests {
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
-			assert_eq!(pre, None);
+			assert_eq!(pre, (None, CALL.clone()));
 
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
@@ -473,7 +473,7 @@ mod tests {
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
-			assert_eq!(pre, Some(100));
+			assert_eq!(pre, (Some(100), CALL.clone()));
 
 			// We expect no refund
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
@@ -505,7 +505,7 @@ mod tests {
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
-			assert_eq!(pre, Some(0));
+			assert_eq!(pre, (Some(0), CALL.clone()));
 
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
@@ -537,7 +537,7 @@ mod tests {
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
-			assert_eq!(pre, Some(300));
+			assert_eq!(pre, (Some(300), CALL.clone()));
 
 			// Refund 500 unspent weight according to `post_info`, total weight is now 1650
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
@@ -576,7 +576,7 @@ mod tests {
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
-			assert_eq!(pre, Some(100));
+			assert_eq!(pre, (Some(100), CALL.clone()));
 
 			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
@@ -615,7 +615,7 @@ mod tests {
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
-			assert_eq!(pre, Some(100));
+			assert_eq!(pre, (Some(100), CALL.clone()));
 
 			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
@@ -660,7 +660,7 @@ mod tests {
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			// Should return `setup_test_externalities` proof recorder value: 100.
-			assert_eq!(pre, Some(0));
+			assert_eq!(pre, (Some(0), CALL.clone()));
 
 			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
@@ -705,7 +705,7 @@ mod tests {
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
-			assert_eq!(pre, Some(100));
+			assert_eq!(pre, (Some(100), CALL.clone()));
 
 			// This refunds 100 - 50(unspent), total weight is now 1400
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
@@ -746,7 +746,7 @@ mod tests {
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
-			assert_eq!(pre, Some(100));
+			assert_eq!(pre, (Some(100), CALL.clone()));
 
 			// Adds additional 150 weight recorded
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
