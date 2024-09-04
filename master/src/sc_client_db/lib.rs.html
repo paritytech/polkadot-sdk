@@ -4829,22 +4829,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#4677" id="4677">4677</a>
 <a href="#4678" id="4678">4678</a>
 <a href="#4679" id="4679">4679</a>
-<a href="#4680" id="4680">4680</a>
-<a href="#4681" id="4681">4681</a>
-<a href="#4682" id="4682">4682</a>
-<a href="#4683" id="4683">4683</a>
-<a href="#4684" id="4684">4684</a>
-<a href="#4685" id="4685">4685</a>
-<a href="#4686" id="4686">4686</a>
-<a href="#4687" id="4687">4687</a>
-<a href="#4688" id="4688">4688</a>
-<a href="#4689" id="4689">4689</a>
-<a href="#4690" id="4690">4690</a>
-<a href="#4691" id="4691">4691</a>
-<a href="#4692" id="4692">4692</a>
-<a href="#4693" id="4693">4693</a>
-<a href="#4694" id="4694">4694</a>
-<a href="#4695" id="4695">4695</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5385,8 +5369,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>insert_justifications_if_pinned(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash, justification: Justification) {
 		<span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.pinned_blocks_cache.write();
 		<span class="kw">if </span>!cache.contains(hash) {
-			<span class="kw">return
-		</span>}
+			<span class="kw">return</span>;
+		}
 
 		<span class="kw">let </span>justifications = Justifications::from(justification);
 		cache.insert_justifications(hash, <span class="prelude-val">Some</span>(justifications));
@@ -5398,7 +5382,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>insert_persisted_justifications_if_pinned(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; ClientResult&lt;()&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.pinned_blocks_cache.write();
 		<span class="kw">if </span>!cache.contains(hash) {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 		}
 
 		<span class="kw">let </span>justifications = <span class="self">self</span>.justifications_uncached(hash)<span class="question-mark">?</span>;
@@ -5412,7 +5396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>insert_persisted_body_if_pinned(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; ClientResult&lt;()&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.pinned_blocks_cache.write();
 		<span class="kw">if </span>!cache.contains(hash) {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 		}
 
 		<span class="kw">let </span>body = <span class="self">self</span>.body_uncached(hash)<span class="question-mark">?</span>;
@@ -5441,9 +5425,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(justifications) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(justifications)),
 				<span class="prelude-val">Err</span>(err) =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(
-						<span class="string">"Error decoding justifications: {}"</span>,
-						err
-					))),
+						<span class="string">"Error decoding justifications: {err}"
+					</span>))),
 			},
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 		}
@@ -5457,10 +5440,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">match </span>Decode::decode(<span class="kw-2">&amp;mut &amp;</span>body[..]) {
 				<span class="prelude-val">Ok</span>(body) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(body)),
 				<span class="prelude-val">Err</span>(err) =&gt;
-					<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(
-						<span class="string">"Error decoding body: {}"</span>,
-						err
-					))),
+					<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(<span class="string">"Error decoding body: {err}"</span>))),
 			}
 		}
 
@@ -5483,18 +5463,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										<span class="kw">let </span>ex = Block::Extrinsic::decode(<span class="kw-2">&amp;mut </span>input).map_err(
 											|err| {
 												sp_blockchain::Error::Backend(<span class="macro">format!</span>(
-													<span class="string">"Error decoding indexed extrinsic: {}"</span>,
-													err
-												))
+													<span class="string">"Error decoding indexed extrinsic: {err}"
+												</span>))
 											},
 										)<span class="question-mark">?</span>;
 										body.push(ex);
 									},
 									<span class="prelude-val">None </span>=&gt;
 										<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(
-											<span class="string">"Missing indexed transaction {:?}"</span>,
-											hash
-										))),
+											<span class="string">"Missing indexed transaction {hash:?}"
+										</span>))),
 								};
 							},
 							DbExtrinsic::Full(ex) =&gt; {
@@ -5502,12 +5480,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							},
 						}
 					}
-					<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(body))
+					<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(body));
 				},
 				<span class="prelude-val">Err</span>(err) =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(
-						<span class="string">"Error decoding body list: {}"</span>,
-						err
+						<span class="string">"Error decoding body list: {err}"</span>,
 					))),
 			}
 		}
@@ -5519,7 +5496,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>header(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; ClientResult&lt;<span class="prelude-ty">Option</span>&lt;Block::Header&gt;&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.header_cache.lock();
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(result) = cache.get_refresh(<span class="kw-2">&amp;</span>hash) {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(result.clone())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(result.clone());
 		}
 		<span class="kw">let </span>header = utils::read_header(
 			<span class="kw-2">&amp;*</span><span class="self">self</span>.db,
@@ -5571,7 +5548,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>body(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; ClientResult&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Block::Extrinsic&gt;&gt;&gt; {
 		<span class="kw">let </span>cache = <span class="self">self</span>.pinned_blocks_cache.read();
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(result) = cache.body(<span class="kw-2">&amp;</span>hash) {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(result.clone())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(result.clone());
 		}
 
 		<span class="self">self</span>.body_uncached(hash)
@@ -5580,7 +5557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>justifications(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; ClientResult&lt;<span class="prelude-ty">Option</span>&lt;Justifications&gt;&gt; {
 		<span class="kw">let </span>cache = <span class="self">self</span>.pinned_blocks_cache.read();
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(result) = cache.justifications(<span class="kw-2">&amp;</span>hash) {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(result.clone())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(result.clone());
 		}
 
 		<span class="self">self</span>.justifications_uncached(hash)
@@ -5625,8 +5602,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="prelude-val">Some</span>(t) =&gt; transactions.push(t),
 							<span class="prelude-val">None </span>=&gt;
 								<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(
-									<span class="string">"Missing indexed transaction {:?}"</span>,
-									hash
+									<span class="string">"Missing indexed transaction {hash:?}"</span>,
 								))),
 						}
 					}
@@ -5634,7 +5610,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(transactions))
 			},
 			<span class="prelude-val">Err</span>(err) =&gt;
-				<span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(<span class="string">"Error decoding body list: {}"</span>, err))),
+				<span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(<span class="string">"Error decoding body list: {err}"</span>))),
 		}
 	}
 }
@@ -5657,8 +5633,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})
 					.ok_or_else(|| {
 						ClientError::UnknownBlock(<span class="macro">format!</span>(
-							<span class="string">"Header was not found in the database: {:?}"</span>,
-							hash
+							<span class="string">"Header was not found in the database: {hash:?}"</span>,
 						))
 					})
 			},
@@ -5705,7 +5680,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">if </span>count &gt; <span class="number">0 </span>{
-			<span class="macro">log::debug!</span>(target: <span class="string">"sc_offchain"</span>, <span class="string">"Applied {} offchain indexing changes."</span>, count);
+			<span class="macro">log::debug!</span>(target: <span class="string">"sc_offchain"</span>, <span class="string">"Applied {count} offchain indexing changes."</span>);
 		}
 	}
 
@@ -5724,7 +5699,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state_version: StateVersion,
 	) -&gt; ClientResult&lt;Block::Hash&gt; {
 		<span class="kw">if </span>storage.top.keys().any(|k| well_known_keys::is_child_storage_key(k)) {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::InvalidState)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::InvalidState);
 		}
 
 		<span class="kw">let </span>child_delta = storage.children_default.values().map(|child_content| {
@@ -5858,7 +5833,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="self">self</span>.state_db.get(key.as_ref(), <span class="self">self</span>)
 		}
-		.map_err(|e| <span class="macro">format!</span>(<span class="string">"Database backend error: {:?}"</span>, e))
+		.map_err(|e| <span class="macro">format!</span>(<span class="string">"Database backend error: {e:?}"</span>))
 	}
 }
 
@@ -6135,7 +6110,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>meta.best_number.saturating_sub(best_number).saturated_into::&lt;u64&gt;() &gt;
 			<span class="self">self</span>.canonicalization_delay
 		{
-			<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::SetHeadTooOld)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::SetHeadTooOld);
 		}
 
 		<span class="kw">let </span>parent_exists =
@@ -6154,7 +6129,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						(<span class="kw-2">&amp;</span>r.number, <span class="kw-2">&amp;</span>r.hash)
 					);
 
-					<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::NotInFinalizedChain)
+					<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::NotInFinalizedChain);
 				}
 
 				retracted.push(r.hash);
@@ -6196,10 +6171,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">*</span>header.parent_hash() != last_finalized
 		{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::NonSequentialFinalization(<span class="macro">format!</span>(
-				<span class="string">"Last finalized {:?} not parent of {:?}"</span>,
-				last_finalized,
+				<span class="string">"Last finalized {last_finalized:?} not parent of {:?}"</span>,
 				header.hash()
-			)))
+			)));
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -6276,10 +6250,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				hash_to_canonicalize,
 				to_canonicalize.saturated_into(),
 			) {
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 			}
 
-			<span class="macro">trace!</span>(target: <span class="string">"db"</span>, <span class="string">"Canonicalize block #{} ({:?})"</span>, to_canonicalize, hash_to_canonicalize);
+			<span class="macro">trace!</span>(target: <span class="string">"db"</span>, <span class="string">"Canonicalize block #{to_canonicalize} ({hash_to_canonicalize:?})"</span>);
 			<span class="kw">let </span>commit = <span class="self">self</span>.storage.state_db.canonicalize_block(<span class="kw-2">&amp;</span>hash_to_canonicalize).map_err(
 				sp_blockchain::Error::from_state_db::&lt;
 					sc_state_db::Error&lt;sp_database::error::DatabaseError&gt;,
@@ -6302,6 +6276,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>meta = <span class="self">self</span>.blockchain.meta.read();
 			(meta.best_number, meta.finalized_hash, meta.finalized_number, meta.block_gap)
 		};
+
+		<span class="kw">let </span><span class="kw-2">mut </span>block_gap_updated = <span class="bool-val">false</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>current_transaction_justifications: HashMap&lt;Block::Hash, Justification&gt; =
 			HashMap::new();
@@ -6470,13 +6446,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>is_best = pending_block.leaf_state.is_best();
 			<span class="macro">debug!</span>(
 				target: <span class="string">"db"</span>,
-				<span class="string">"DB Commit {:?} ({}), best={}, state={}, existing={}, finalized={}"</span>,
-				hash,
-				number,
-				is_best,
+				<span class="string">"DB Commit {hash:?} ({number}), best={is_best}, state={}, existing={existing_header}, finalized={finalized}"</span>,
 				operation.commit_state,
-				existing_header,
-				finalized,
 			);
 
 			<span class="self">self</span>.state_usage.merge_sm(operation.old_state.usage_info());
@@ -6540,19 +6511,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							number,
 							hash,
 						)<span class="question-mark">?</span>;
-					}
-					<span class="kw">if </span>start &gt; end {
-						transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-						block_gap = <span class="prelude-val">None</span>;
-						<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Removed block gap."</span>);
-					} <span class="kw">else </span>{
-						block_gap = <span class="prelude-val">Some</span>((start, end));
-						<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Update block gap. {:?}"</span>, block_gap);
-						transaction.set(
-							columns::META,
-							meta_keys::BLOCK_GAP,
-							<span class="kw-2">&amp;</span>(start, end).encode(),
-						);
+						<span class="kw">if </span>start &gt; end {
+							transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+							block_gap = <span class="prelude-val">None</span>;
+							<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Removed block gap."</span>);
+						} <span class="kw">else </span>{
+							block_gap = <span class="prelude-val">Some</span>((start, end));
+							<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Update block gap. {block_gap:?}"</span>);
+							transaction.set(
+								columns::META,
+								meta_keys::BLOCK_GAP,
+								<span class="kw-2">&amp;</span>(start, end).encode(),
+							);
+						}
+						block_gap_updated = <span class="bool-val">true</span>;
 					}
 				} <span class="kw">else if </span>number &gt; best_num + One::one() &amp;&amp;
 					number &gt; One::one() &amp;&amp; <span class="self">self</span>.blockchain.header(parent_hash)<span class="question-mark">?</span>.is_none()
@@ -6560,7 +6532,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>gap = (best_num + One::one(), number - One::one());
 					transaction.set(columns::META, meta_keys::BLOCK_GAP, <span class="kw-2">&amp;</span>gap.encode());
 					block_gap = <span class="prelude-val">Some</span>(gap);
-					<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Detected block gap {:?}"</span>, block_gap);
+					block_gap_updated = <span class="bool-val">true</span>;
+					<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Detected block gap {block_gap:?}"</span>);
 				}
 			}
 
@@ -6594,9 +6567,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 			} <span class="kw">else </span>{
 				<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(
-					<span class="string">"Cannot set head {:?}"</span>,
-					set_head
-				)))
+					<span class="string">"Cannot set head {set_head:?}"</span>,
+				)));
 			}
 		}
 
@@ -6606,7 +6578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// Code beyond this point can't fail.
 
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>((header, hash)) = imported {
-			<span class="macro">trace!</span>(target: <span class="string">"db"</span>, <span class="string">"DB Commit done {:?}"</span>, hash);
+			<span class="macro">trace!</span>(target: <span class="string">"db"</span>, <span class="string">"DB Commit done {hash:?}"</span>);
 			<span class="kw">let </span>header_metadata = CachedHeaderMetadata::from(<span class="kw-2">&amp;</span>header);
 			<span class="self">self</span>.blockchain.insert_header_metadata(header_metadata.hash, header_metadata);
 			cache_header(<span class="kw-2">&amp;mut </span><span class="self">self</span>.blockchain.header_cache.lock(), hash, <span class="prelude-val">Some</span>(header));
@@ -6615,7 +6587,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>m <span class="kw">in </span>meta_updates {
 			<span class="self">self</span>.blockchain.update_meta(m);
 		}
-		<span class="self">self</span>.blockchain.update_block_gap(block_gap);
+		<span class="kw">if </span>block_gap_updated {
+			<span class="self">self</span>.blockchain.update_block_gap(block_gap);
+		}
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -6722,7 +6696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		transaction: <span class="kw-2">&amp;mut </span>Transaction&lt;DbHash&gt;,
 		id: BlockId&lt;Block&gt;,
 	) -&gt; ClientResult&lt;()&gt; {
-		<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Removing block #{}"</span>, id);
+		<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Removing block #{id}"</span>);
 		utils::remove_from_db(
 			transaction,
 			<span class="kw-2">&amp;*</span><span class="self">self</span>.storage.db,
@@ -6756,8 +6730,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 				<span class="prelude-val">Err</span>(err) =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(
-						<span class="string">"Error decoding body list: {}"</span>,
-						err
+						<span class="string">"Error decoding body list: {err}"</span>,
 					))),
 			}
 		}
@@ -6985,14 +6958,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>number &gt; <span class="self">self</span>.blockchain.info().finalized_number ||
 			(hash != last_finalized &amp;&amp; !is_descendent_of(<span class="kw-2">&amp;</span>hash, <span class="kw-2">&amp;</span>last_finalized)<span class="question-mark">?</span>)
 		{
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::NotInFinalizedChain)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::NotInFinalizedChain);
 		}
 
 		<span class="kw">let </span>justifications = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>stored_justifications) =
 			<span class="self">self</span>.blockchain.justifications(hash)<span class="question-mark">?
 		</span>{
 			<span class="kw">if </span>!stored_justifications.append(justification) {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::BadJustification(<span class="string">"Duplicate consensus engine ID"</span>.into()))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::BadJustification(<span class="string">"Duplicate consensus engine ID"</span>.into()));
 			}
 			stored_justifications
 		} <span class="kw">else </span>{
@@ -7077,13 +7050,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>revert_blocks = || -&gt; ClientResult&lt;NumberFor&lt;Block&gt;&gt; {
 			<span class="kw">for </span>c <span class="kw">in </span><span class="number">0</span>..n.saturated_into::&lt;u64&gt;() {
 				<span class="kw">if </span>number_to_revert.is_zero() {
-					<span class="kw">return </span><span class="prelude-val">Ok</span>(c.saturated_into::&lt;NumberFor&lt;Block&gt;&gt;())
+					<span class="kw">return </span><span class="prelude-val">Ok</span>(c.saturated_into::&lt;NumberFor&lt;Block&gt;&gt;());
 				}
 				<span class="kw">let </span><span class="kw-2">mut </span>transaction = Transaction::new();
 				<span class="kw">let </span>removed = <span class="self">self</span>.blockchain.header(hash_to_revert)<span class="question-mark">?</span>.ok_or_else(|| {
 					sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(
-						<span class="string">"Error reverting to {}. Block header not found."</span>,
-						hash_to_revert,
+						<span class="string">"Error reverting to {hash_to_revert}. Block header not found."</span>,
 					))
 				})<span class="question-mark">?</span>;
 				<span class="kw">let </span>removed_hash = removed.hash();
@@ -7093,7 +7065,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if </span>prev_number == best_number { best_hash } <span class="kw">else </span>{ <span class="kw-2">*</span>removed.parent_hash() };
 
 				<span class="kw">if </span>!<span class="self">self</span>.have_state_at(prev_hash, prev_number) {
-					<span class="kw">return </span><span class="prelude-val">Ok</span>(c.saturated_into::&lt;NumberFor&lt;Block&gt;&gt;())
+					<span class="kw">return </span><span class="prelude-val">Ok</span>(c.saturated_into::&lt;NumberFor&lt;Block&gt;&gt;());
 				}
 
 				<span class="kw">match </span><span class="self">self</span>.storage.state_db.revert_one() {
@@ -7189,23 +7161,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>best_hash = <span class="self">self</span>.blockchain.info().best_hash;
 
 		<span class="kw">if </span>best_hash == hash {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(<span class="string">"Can't remove best block {:?}"</span>, hash)))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(<span class="string">"Can't remove best block {hash:?}"</span>)));
 		}
 
 		<span class="kw">let </span>hdr = <span class="self">self</span>.blockchain.header_metadata(hash)<span class="question-mark">?</span>;
 		<span class="kw">if </span>!<span class="self">self</span>.have_state_at(hash, hdr.number) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(
-				<span class="string">"State already discarded for {:?}"</span>,
-				hash
-			)))
+				<span class="string">"State already discarded for {hash:?}"</span>,
+			)));
 		}
 
 		<span class="kw">let </span><span class="kw-2">mut </span>leaves = <span class="self">self</span>.blockchain.leaves.write();
 		<span class="kw">if </span>!leaves.contains(hdr.number, hash) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(
-				<span class="string">"Can't remove non-leaf block {:?}"</span>,
-				hash
-			)))
+				<span class="string">"Can't remove non-leaf block {hash:?}"</span>,
+			)));
 		}
 
 		<span class="kw">let </span><span class="kw-2">mut </span>transaction = Transaction::new();
@@ -7245,7 +7215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(outcome) = remove_outcome {
 				leaves.undo().undo_remove(outcome);
 			}
-			<span class="kw">return </span><span class="prelude-val">Err</span>(e.into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(e.into());
 		}
 		<span class="self">self</span>.blockchain().remove_header_metadata(hash);
 		<span class="prelude-val">Ok</span>(())
@@ -7267,7 +7237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.build();
 
 				<span class="kw">let </span>state = RefTrackingState::new(db_state, <span class="self">self</span>.storage.clone(), <span class="prelude-val">None</span>);
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(RecordStatsState::new(state, <span class="prelude-val">None</span>, <span class="self">self</span>.state_usage.clone()))
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(RecordStatsState::new(state, <span class="prelude-val">None</span>, <span class="self">self</span>.state_usage.clone()));
 			}
 		}
 
@@ -7293,8 +7263,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Ok</span>(RecordStatsState::new(state, <span class="prelude-val">Some</span>(hash), <span class="self">self</span>.state_usage.clone()))
 				} <span class="kw">else </span>{
 					<span class="prelude-val">Err</span>(sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(
-						<span class="string">"State already discarded for {:?}"</span>,
-						hash
+						<span class="string">"State already discarded for {hash:?}"</span>,
 					)))
 				}
 			},
@@ -7359,16 +7328,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.storage.state_db.pin(<span class="kw-2">&amp;</span>hash, number.saturated_into::&lt;u64&gt;(), hint).map_err(
 				|<span class="kw">_</span>| {
 					sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(
-						<span class="string">"Unable to pin: state already discarded for `{:?}`"</span>,
-						hash
+						<span class="string">"Unable to pin: state already discarded for `{hash:?}`"</span>,
 					))
 				},
 			)<span class="question-mark">?</span>;
 		} <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::UnknownBlock(<span class="macro">format!</span>(
-				<span class="string">"Can not pin block with hash `{:?}`. Block not found."</span>,
-				hash
-			)))
+				<span class="string">"Can not pin block with hash `{hash:?}`. Block not found."</span>,
+			)));
 		}
 
 		<span class="kw">if </span><span class="self">self</span>.blocks_pruning != BlocksPruning::KeepAll {
@@ -9073,8 +9040,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>pruning_mode {
 				<span class="comment">// we can only revert to blocks for which we have state, if pruning is enabled
 				// then the last state available will be that of the latest finalized block
-				</span>BlocksPruning::Some(<span class="kw">_</span>) =&gt;
-					<span class="macro">assert_eq!</span>(backend.blockchain().info().finalized_number, <span class="number">8</span>),
+				</span>BlocksPruning::Some(<span class="kw">_</span>) =&gt; {
+					<span class="macro">assert_eq!</span>(backend.blockchain().info().finalized_number, <span class="number">8</span>)
+				},
 				<span class="comment">// otherwise if we're not doing state pruning we can revert past finalized blocks
 				</span><span class="kw">_ </span>=&gt; <span class="macro">assert_eq!</span>(backend.blockchain().info().finalized_number, <span class="number">5</span>),
 			}
