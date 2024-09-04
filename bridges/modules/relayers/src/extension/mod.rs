@@ -1061,21 +1061,36 @@ mod tests {
 	fn run_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestExtension = BridgeRelayersTransactionExtension(PhantomData);
 		extension
-			.validate_only(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+			.validate_only(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+			)
 			.map(|t| t.0)
 	}
 
 	fn run_grandpa_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestGrandpaExtension = BridgeRelayersTransactionExtension(PhantomData);
 		extension
-			.validate_only(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+			.validate_only(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+			)
 			.map(|t| t.0)
 	}
 
 	fn run_messages_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestMessagesExtension = BridgeRelayersTransactionExtension(PhantomData);
 		extension
-			.validate_only(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+			.validate_only(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+			)
 			.map(|t| t.0)
 	}
 
