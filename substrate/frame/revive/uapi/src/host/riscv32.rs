@@ -209,8 +209,6 @@ impl HostFn for HostFnImpl {
 		salt: &[u8],
 	) -> Result {
 		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
-		assert_eq!(address_len, 20);
-
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
 		#[repr(packed)]
@@ -224,6 +222,7 @@ impl HostFn for HostFnImpl {
 			input: *const u8,
 			input_len: usize,
 			address: *const u8,
+			address_len: *mut u32,
 			output: *mut u8,
 			output_len: *mut u32,
 			salt: *const u8,
@@ -238,6 +237,7 @@ impl HostFn for HostFnImpl {
 			input: input.as_ptr(),
 			input_len: input.len(),
 			address: address_ptr,
+			address_len: &mut address_len as *mut _,
 			output: output_ptr,
 			output_len: &mut output_len as *mut _,
 			salt: salt.as_ptr(),
