@@ -18,7 +18,10 @@ accept = [
 	"429",
 ]
 
-exclude_path = ["./target", "./prdoc"]
+exclude_path = [
+	"./prdoc",
+	"./target",
+]
 
 exclude = [
 	# Place holders (no need to fix these):
