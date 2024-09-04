@@ -131,7 +131,7 @@ impl SendXcm for TestToBridgeHubSender {
 
 impl InspectMessageQueues for TestToBridgeHubSender {
 	fn clear_messages() {
-		SENT_XCM.with(|q| *q.borrow_mut().clear());
+		SENT_XCM.with(|q| q.borrow_mut().clear());
 	}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
