@@ -318,7 +318,7 @@ pub mod pallet {
 	/// Usernames that an authority has granted, but that the account controller has not confirmed
 	/// that they want it. Used primarily in cases where the `AccountId` cannot provide a signature
 	/// because they are a pure proxy, multisig, etc. In order to confirm it, they should call
-	/// [`Call::accept_username`].
+	/// [accept_username](`Call::accept_username`).
 	///
 	/// First tuple item is the account and second is the acceptance deadline.
 	#[pallet::storage]
@@ -330,6 +330,10 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// Usernames for which the authority that granted them has started the removal process by
+	/// unbinding them. Each unbinding username maps to its grace period expiry, which is the first
+	/// block in which the username could be deleted through a
+	/// [remove_username](`Call::remove_username`) call.
 	#[pallet::storage]
 	pub type UnbindingUsernames<T: Config> =
 		StorageMap<_, Blake2_128Concat, Username<T>, BlockNumberFor<T>, OptionQuery>;
@@ -1290,11 +1294,12 @@ pub mod pallet {
 			match username_info.provider {
 				Provider::AuthorityDeposit(_) | Provider::Allocation => {
 					let now = frame_system::Pallet::<T>::block_number();
+					let grace_period_expiry = now.saturating_add(T::UsernameGracePeriod::get());
 					UnbindingUsernames::<T>::try_mutate(&username, |maybe_init| {
 						if maybe_init.is_some() {
 							return Err(Error::<T>::AlreadyUnbinding);
 						}
-						*maybe_init = Some(now);
+						*maybe_init = Some(grace_period_expiry);
 						Ok(())
 					})?;
 				},
@@ -1313,13 +1318,10 @@ pub mod pallet {
 			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
-			let grace_period_start =
+			let grace_period_expiry =
 				UnbindingUsernames::<T>::take(&username).ok_or(Error::<T>::NotUnbinding)?;
 			let now = frame_system::Pallet::<T>::block_number();
-			ensure!(
-				now >= grace_period_start.saturating_add(T::UsernameGracePeriod::get()),
-				Error::<T>::TooEarly
-			);
+			ensure!(now >= grace_period_expiry, Error::<T>::TooEarly);
 			let username_info = UsernameInfoOf::<T>::take(&username)
 				.defensive_proof("an unbinding username must exist")
 				.ok_or(Error::<T>::NoUsername)?;

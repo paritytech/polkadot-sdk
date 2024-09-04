@@ -2211,8 +2211,14 @@ fn unbind_and_remove_username_should_work() {
 			RuntimeOrigin::signed(authority.clone()),
 			username_two.clone()
 		));
-		assert_eq!(System::block_number(), 1);
-		assert_eq!(UnbindingUsernames::<Test>::get(&username_two), Some(1));
+		let grace_period: BlockNumberFor<Test> = <Test as Config>::UsernameGracePeriod::get();
+		let now = 1;
+		assert_eq!(System::block_number(), now);
+		let expected_grace_period_expiry: BlockNumberFor<Test> = now + grace_period;
+		assert_eq!(
+			UnbindingUsernames::<Test>::get(&username_two),
+			Some(expected_grace_period_expiry)
+		);
 
 		// Still in the grace period.
 		assert_noop!(
@@ -2221,7 +2227,7 @@ fn unbind_and_remove_username_should_work() {
 		);
 
 		// Advance the block number to simulate the grace period passing.
-		System::set_block_number(3);
+		System::set_block_number(expected_grace_period_expiry);
 
 		let suffix: Suffix<Test> = suffix.try_into().unwrap();
 		// We can now remove the username from any account.
@@ -2247,9 +2253,12 @@ fn unbind_and_remove_username_should_work() {
 			RuntimeOrigin::signed(authority.clone()),
 			username.clone()
 		));
-		assert_eq!(UnbindingUsernames::<Test>::get(&username), Some(3));
+		let now: BlockNumberFor<Test> = expected_grace_period_expiry;
+		assert_eq!(System::block_number(), now);
+		let expected_grace_period_expiry: BlockNumberFor<Test> = now + grace_period;
+		assert_eq!(UnbindingUsernames::<Test>::get(&username), Some(expected_grace_period_expiry));
 		// Advance the block number to simulate the grace period passing.
-		System::set_block_number(5);
+		System::set_block_number(expected_grace_period_expiry);
 		// We can now remove the username from any account.
 		assert_ok!(Identity::remove_username(RuntimeOrigin::signed(account(0)), username.clone()));
 		// The username is gone.

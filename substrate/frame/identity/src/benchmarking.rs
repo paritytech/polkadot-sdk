@@ -831,9 +831,10 @@ mod benchmarks {
 			Provider::AuthorityDeposit(username_deposit),
 		);
 		let now = frame_system::Pallet::<T>::block_number();
-		UnbindingUsernames::<T>::insert(&username, now);
+		let expiry = now + T::UsernameGracePeriod::get();
+		UnbindingUsernames::<T>::insert(&username, expiry);
 
-		frame_system::Pallet::<T>::set_block_number(now + T::UsernameGracePeriod::get());
+		frame_system::Pallet::<T>::set_block_number(expiry);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), username.clone());
