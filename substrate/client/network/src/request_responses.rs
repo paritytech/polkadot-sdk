@@ -35,9 +35,8 @@
 //! is used to handle incoming requests.
 
 use crate::{
-	peer_store::{PeerStoreProvider, BANNED_THRESHOLD},
-	service::traits::RequestResponseConfig as RequestResponseConfigT,
-	types::ProtocolName,
+	peer_store::PeerStoreProvider,
+	service::traits::RequestResponseConfig as RequestResponseConfigT, types::ProtocolName,
 	ReputationChange,
 };
 
@@ -645,7 +644,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 
 			// Poll request-responses protocols.
 			for (protocol, (ref mut behaviour, ref mut resp_builder)) in &mut self.protocols {
-				'poll_protocol: while let Poll::Ready(ev) = behaviour.poll(cx, params) {
+				while let Poll::Ready(ev) = behaviour.poll(cx, params) {
 					let ev = match ev {
 						// Main events we are interested in.
 						ToSwarm::GenerateEvent(ev) => ev,
@@ -689,17 +688,16 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 							self.pending_responses_arrival_time
 								.insert((protocol.clone(), request_id).into(), Instant::now());
 
-							let reputation = self.peer_store.peer_reputation(&peer.into());
-
-							if reputation < BANNED_THRESHOLD {
-								log::debug!(
-									target: "sub-libp2p",
-									"Cannot handle requests from a node with a low reputation {}: {}",
-									peer,
-									reputation,
-								);
-								continue 'poll_protocol
-							}
+							let _reputation = self.peer_store.peer_reputation(&peer.into());
+							// if reputation < BANNED_THRESHOLD {
+							// 	log::debug!(
+							// 		target: "sub-libp2p",
+							// 		"Cannot handle requests from a node with a low reputation {}: {}",
+							// 		peer,
+							// 		reputation,
+							// 	);
+							// 	continue 'poll_protocol
+							// }
 
 							let (tx, rx) = oneshot::channel();
 

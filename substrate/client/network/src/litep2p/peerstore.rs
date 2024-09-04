@@ -43,7 +43,7 @@ use std::{
 const LOG_TARGET: &str = "sub-libp2p::peerstore";
 
 /// We don't accept nodes whose reputation is under this value.
-pub const BANNED_THRESHOLD: i32 = 71 * (i32::MIN / 100);
+// pub const BANNED_THRESHOLD: i32 = 71 * (i32::MIN / 100);
 
 /// Relative decrement of a reputation value that is applied every second. I.e., for inverse
 /// decrement of 200 we decrease absolute value of the reputation by 1/200.
@@ -83,7 +83,7 @@ impl Default for PeerInfo {
 
 impl PeerInfo {
 	fn is_banned(&self) -> bool {
-		self.reputation < BANNED_THRESHOLD
+		false //self.reputation < BANNED_THRESHOLD
 	}
 
 	fn add_reputation(&mut self, increment: i32) {

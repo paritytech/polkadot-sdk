@@ -197,7 +197,7 @@ impl PartialOrd for PeerInfo {
 
 impl PeerInfo {
 	fn is_banned(&self) -> bool {
-		self.reputation < BANNED_THRESHOLD
+		false // self.reputation < BANNED_THRESHOLD
 	}
 
 	fn add_reputation(&mut self, increment: i32) {
