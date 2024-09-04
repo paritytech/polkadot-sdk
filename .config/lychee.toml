@@ -53,4 +53,5 @@ exclude = [
 	"https://etherscan.io/block/11090290",
 	"https://subscan.io/",
 	"https://substrate.stackexchange.com/.*",
+	"https://github.com/paritytech/devops/.*",
 ]
