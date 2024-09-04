@@ -162,7 +162,9 @@ impl<T: Config> Memory<T> for [u8] {
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
 	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
-		self.read_memory_into(ptr, buf).map(|_| ())
+		self.read_memory_into(ptr, buf)
+			.map(|_| ())
+			.map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 
 	fn write(&mut self, ptr: u32, buf: &[u8]) -> Result<(), DispatchError> {
