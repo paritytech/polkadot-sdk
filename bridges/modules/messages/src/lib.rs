@@ -97,7 +97,7 @@ pub const LOG_TARGET: &str = "runtime::bridge-messages";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use bp_messages::{ReceivedMessages, ReceptionResult};
+	use bp_messages::{LaneIdBytes, ReceivedMessages, ReceptionResult};
 	use bp_runtime::RangeInclusiveExt;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -387,7 +387,7 @@ pub mod pallet {
 				// emit 'delivered' event
 				let received_range = confirmed_messages.begin..=confirmed_messages.end;
 				Self::deposit_event(Event::MessagesDelivered {
-					lane_id,
+					lane_id: lane_id.into(),
 					messages: confirmed_messages,
 				});
 
@@ -441,7 +441,7 @@ pub mod pallet {
 		/// Message has been accepted and is waiting to be delivered.
 		MessageAccepted {
 			/// Lane, which has accepted the message.
-			lane_id: LaneId,
+			lane_id: LaneIdBytes,
 			/// Nonce of accepted message.
 			nonce: MessageNonce,
 		},
@@ -453,7 +453,7 @@ pub mod pallet {
 		/// Messages in the inclusive range have been delivered to the bridged chain.
 		MessagesDelivered {
 			/// Lane for which the delivery has been confirmed.
-			lane_id: LaneId,
+			lane_id: LaneIdBytes,
 			/// Delivered messages.
 			messages: DeliveredMessages,
 		},
@@ -703,7 +703,10 @@ where
 			message_len,
 		);
 
-		Pallet::<T, I>::deposit_event(Event::MessageAccepted { lane_id: args.lane_id, nonce });
+		Pallet::<T, I>::deposit_event(Event::MessageAccepted {
+			lane_id: args.lane_id.into(),
+			nonce,
+		});
 
 		SendMessageArtifacts { nonce, enqueued_messages }
 	}

@@ -174,7 +174,7 @@ mod tests {
 				*b"test",
 				RewardsAccountOwner::ThisChain
 			)),
-			hex_literal::hex!("627261700074657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc")
+			hex_literal::hex!("62726170007465737448615368b1d3dccd8b3c3a012afe265f3e3c4432129b8a")
 				.into(),
 		);
 
@@ -184,7 +184,7 @@ mod tests {
 				*b"test",
 				RewardsAccountOwner::ThisChain
 			)),
-			hex_literal::hex!("627261700074657374a43e8951aa302c133beb5f85821a21645f07b487270ef3")
+			hex_literal::hex!("62726170007465737448615368a43e8951aa302c133beb5f85821a21645f07b4")
 				.into(),
 		);
 	}
@@ -197,7 +197,7 @@ mod tests {
 				*b"test",
 				RewardsAccountOwner::ThisChain
 			)),
-			hex_literal::hex!("627261700074657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc")
+			hex_literal::hex!("62726170007465737448615368b1d3dccd8b3c3a012afe265f3e3c4432129b8a")
 				.into(),
 		);
 
@@ -207,7 +207,7 @@ mod tests {
 				*b"test",
 				RewardsAccountOwner::BridgedChain
 			)),
-			hex_literal::hex!("627261700174657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc")
+			hex_literal::hex!("62726170017465737448615368b1d3dccd8b3c3a012afe265f3e3c4432129b8a")
 				.into(),
 		);
 	}

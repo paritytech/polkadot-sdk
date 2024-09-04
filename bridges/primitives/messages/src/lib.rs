@@ -38,7 +38,7 @@ pub use call_info::{
 	BaseMessagesProofInfo, BridgeMessagesCall, BridgeMessagesCallOf, MessagesCallInfo,
 	ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
 };
-pub use lane::{LaneId, LaneState};
+pub use lane::{LaneId, LaneIdBytes, LaneState};
 
 mod call_info;
 mod lane;
@@ -339,7 +339,7 @@ pub struct UnrewardedRelayer<RelayerId> {
 #[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
 pub struct ReceivedMessages<DispatchLevelResult> {
 	/// Id of the lane which is receiving messages.
-	pub lane: LaneId,
+	pub lane: LaneIdBytes,
 	/// Result of messages which we tried to dispatch
 	pub receive_results: Vec<(MessageNonce, ReceptionResult<DispatchLevelResult>)>,
 }
@@ -350,7 +350,7 @@ impl<DispatchLevelResult> ReceivedMessages<DispatchLevelResult> {
 		lane: LaneId,
 		receive_results: Vec<(MessageNonce, ReceptionResult<DispatchLevelResult>)>,
 	) -> Self {
-		ReceivedMessages { lane, receive_results }
+		ReceivedMessages { lane: lane.into(), receive_results }
 	}
 
 	/// Push `result` of the `message` delivery onto `receive_results` vector.
