@@ -24,7 +24,6 @@ use frame_support::traits::{
 		Balanced, Inspect as FunInspect,
 	},
 	tokens::Precision,
-	Defensive,
 };
 use sp_runtime::{traits::Zero, DispatchResult};
 
