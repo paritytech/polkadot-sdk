@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["inner_main","main"],"type":["ChainSpec"]};
+window.SIDEBAR_ITEMS = {"fn":["inner_main","main"]};

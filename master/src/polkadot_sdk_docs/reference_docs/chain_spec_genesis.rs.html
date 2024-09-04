@@ -335,7 +335,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! # What is chain-spec.
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! # What is a chain specification
 //!
 //! A chain specification file defines the set of properties that are required to run the node as
 //! part of the chain. The chain specification consists of two main parts:
@@ -502,8 +504,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs"</span>, list_presets)]
 </span><span class="doccomment">//! ## Displaying preset with given name
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs"</span>, get_preset)]
-</span><span class="doccomment">//! ## Building chain-spec using given preset
+</span><span class="doccomment">//! ## Building a solo chain-spec (the default) using given preset
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs"</span>, generate_chain_spec)]
+</span><span class="doccomment">//! ## Building a parachain chain-spec using given preset
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs"</span>, generate_para_chain_spec)]
 </span><span class="doccomment">//!
 //! [`RuntimeGenesisConfig`]:
 //!     chain_spec_guide_runtime::runtime::RuntimeGenesisConfig

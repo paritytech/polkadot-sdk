@@ -149,8 +149,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module chain_spec_genesis</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div>
-    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">chain_spec_genesis</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/chain_spec_genesis.rs.html#1-185">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about chain specification file and the genesis state of the blockchain.</p>
-<h2 id="what-is-chain-spec"><a class="doc-anchor" href="#what-is-chain-spec">§</a>What is chain-spec.</h2>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">chain_spec_genesis</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/chain_spec_genesis.rs.html#1-187">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about chain specification file and the genesis state of the blockchain.</p>
+<h2 id="what-is-a-chain-specification"><a class="doc-anchor" href="#what-is-a-chain-specification">§</a>What is a chain specification</h2>
 <p>A chain specification file defines the set of properties that are required to run the node as
 part of the chain. The chain specification consists of two main parts:</p>
 <ul>
@@ -537,7 +537,7 @@ cargo build -p chain-spec-guide-runtime --release</code></pre></div>
 	});
 	<span class="macro">assert_eq!</span>(output, expected_output, <span class="string">"Output did not match expected"</span>);
 }</code></pre></div>
-<h3 id="building-chain-spec-using-given-preset"><a class="doc-anchor" href="#building-chain-spec-using-given-preset">§</a>Building chain-spec using given preset</h3>
+<h3 id="building-a-solo-chain-spec-the-default-using-given-preset"><a class="doc-anchor" href="#building-a-solo-chain-spec-the-default-using-given-preset">§</a>Building a solo chain-spec (the default) using given preset</h3>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>generate_chain_spec() {
 	<span class="kw">let </span>output = Command::new(get_chain_spec_builder_path())
@@ -566,7 +566,65 @@ cargo build -p chain-spec-guide-runtime --release</code></pre></div>
 	  <span class="string">"bootNodes"</span>: [],
 	  <span class="string">"telemetryEndpoints"</span>: null,
 	  <span class="string">"protocolId"</span>: null,
-	  <span class="string">"properties"</span>: null,
+	  <span class="string">"properties"</span>: { <span class="string">"tokenDecimals"</span>: <span class="number">12</span>, <span class="string">"tokenSymbol"</span>: <span class="string">"UNIT" </span>},
+	  <span class="string">"codeSubstitutes"</span>: {},
+	  <span class="string">"genesis"</span>: {
+		<span class="string">"runtimeGenesis"</span>: {
+		  <span class="string">"code"</span>: <span class="string">"0x123"</span>,
+		  <span class="string">"patch"</span>: {
+			<span class="string">"bar"</span>: {
+			  <span class="string">"initialAccount"</span>: <span class="string">"5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"
+			</span>},
+			<span class="string">"foo"</span>: {
+			  <span class="string">"someEnum"</span>: {
+				<span class="string">"Data2"</span>: {
+				  <span class="string">"values"</span>: <span class="string">"0x0c10"
+				</span>}
+			  },
+			  <span class="string">"someInteger"</span>: <span class="number">200
+			</span>}
+		  }
+		}
+	  }
+	});
+	<span class="macro">assert_eq!</span>(output, expected_output, <span class="string">"Output did not match expected"</span>);
+}</code></pre></div>
+<h3 id="building-a-parachain-chain-spec-using-given-preset"><a class="doc-anchor" href="#building-a-parachain-chain-spec-using-given-preset">§</a>Building a parachain chain-spec using given preset</h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>generate_para_chain_spec() {
+	<span class="kw">let </span>output = Command::new(get_chain_spec_builder_path())
+		.arg(<span class="string">"-c"</span>)
+		.arg(<span class="string">"/dev/stdout"</span>)
+		.arg(<span class="string">"create"</span>)
+		.arg(<span class="string">"-c"</span>)
+		.arg(<span class="string">"polkadot"</span>)
+		.arg(<span class="string">"-p"</span>)
+		.arg(<span class="string">"1000"</span>)
+		.arg(<span class="string">"-r"</span>)
+		.arg(WASM_FILE_PATH)
+		.arg(<span class="string">"named-preset"</span>)
+		.arg(<span class="string">"preset_2"</span>)
+		.output()
+		.expect(<span class="string">"Failed to execute command"</span>);
+
+	<span class="kw">let </span><span class="kw-2">mut </span>output: serde_json::Value = serde_json::from_slice(<span class="kw-2">&amp;</span>output.stdout).unwrap();
+
+	<span class="comment">//remove code field for better readability
+	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(code) = output[<span class="string">"genesis"</span>][<span class="string">"runtimeGenesis"</span>].as_object_mut().unwrap().get_mut(<span class="string">"code"</span>)
+	{
+		<span class="kw-2">*</span>code = Value::String(<span class="string">"0x123"</span>.to_string());
+	}
+
+	<span class="kw">let </span>expected_output = <span class="macro">json!</span>({
+	  <span class="string">"name"</span>: <span class="string">"Custom"</span>,
+	  <span class="string">"id"</span>: <span class="string">"custom"</span>,
+	  <span class="string">"chainType"</span>: <span class="string">"Live"</span>,
+	  <span class="string">"bootNodes"</span>: [],
+	  <span class="string">"telemetryEndpoints"</span>: null,
+	  <span class="string">"protocolId"</span>: null,
+	  <span class="string">"relay_chain"</span>: <span class="string">"polkadot"</span>,
+	  <span class="string">"para_id"</span>: <span class="number">1000</span>,
+	  <span class="string">"properties"</span>: { <span class="string">"tokenDecimals"</span>: <span class="number">12</span>, <span class="string">"tokenSymbol"</span>: <span class="string">"UNIT" </span>},
 	  <span class="string">"codeSubstitutes"</span>: {},
 	  <span class="string">"genesis"</span>: {
 		<span class="string">"runtimeGenesis"</span>: {
