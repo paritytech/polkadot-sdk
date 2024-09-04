@@ -296,9 +296,11 @@ impl Bridge for () {
 	fn init() {}
 }
 
+pub type BridgeLaneId = Vec<u8>;
+
 #[derive(Clone, Default, Debug)]
 pub struct BridgeMessage {
-	pub id: u32,
+	pub lane_id: BridgeLaneId,
 	pub nonce: u64,
 	pub payload: Vec<u8>,
 }
@@ -310,7 +312,7 @@ pub trait BridgeMessageHandler {
 		message: BridgeMessage,
 	) -> Result<(), BridgeMessageDispatchError>;
 
-	fn notify_source_message_delivery(lane_id: u32);
+	fn notify_source_message_delivery(lane_id: BridgeLaneId);
 }
 
 impl BridgeMessageHandler for () {
@@ -324,7 +326,7 @@ impl BridgeMessageHandler for () {
 		Err(BridgeMessageDispatchError(Box::new("Not a bridge")))
 	}
 
-	fn notify_source_message_delivery(_lane_id: u32) {}
+	fn notify_source_message_delivery(_lane_id: BridgeLaneId) {}
 }
 
 #[derive(Debug)]
@@ -1079,12 +1081,12 @@ macro_rules! decl_test_networks {
 						});
 
 						match dispatch_result {
-							Err(e) => panic!("Error {:?} processing bridged message: {:?}", e, msg.clone()),
+							Err(e) => panic!("Error {:?} processing bridged message: {:?}", e, msg),
 							Ok(()) => {
 								<<Self::Bridge as Bridge>::Source as TestExt>::ext_wrapper(|| {
-									<<Self::Bridge as Bridge>::Handler as BridgeMessageHandler>::notify_source_message_delivery(msg.id);
+									<<Self::Bridge as Bridge>::Handler as BridgeMessageHandler>::notify_source_message_delivery(msg.lane_id.clone());
 								});
-								$crate::log::debug!(target: concat!("bridge::", stringify!($name)) , "Bridged message processed {:?}", msg.clone());
+								$crate::log::debug!(target: concat!("bridge::", stringify!($name)) , "Bridged message processed {:?}", msg);
 							}
 						}
 					}

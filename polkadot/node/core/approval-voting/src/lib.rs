@@ -40,8 +40,9 @@ use polkadot_node_subsystem::{
 		ApprovalCheckError, ApprovalCheckResult, ApprovalDistributionMessage,
 		ApprovalVotingMessage, AssignmentCheckError, AssignmentCheckResult,
 		AvailabilityRecoveryMessage, BlockDescription, CandidateValidationMessage, ChainApiMessage,
-		ChainSelectionMessage, DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
-		PvfExecPriority, RuntimeApiMessage, RuntimeApiRequest,
+		ChainSelectionMessage, CheckedIndirectAssignment, CheckedIndirectSignedApprovalVote,
+		DisputeCoordinatorMessage, HighestApprovedAncestorBlock, PvfExecPriority, RuntimeApiMessage,
+		RuntimeApiRequest,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
@@ -55,9 +56,8 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
-	CandidateIndex, CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex,
-	Hash, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorPair, ValidatorSignature,
+	CandidateIndex, CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex, Hash, PvfExecKind,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -91,9 +91,11 @@ use schnellru::{ByLength, LruMap};
 
 use approval_checking::RequiredTranches;
 use bitvec::{order::Lsb0, vec::BitVec};
-use criteria::{AssignmentCriteria, RealAssignmentCriteria};
+pub use criteria::{AssignmentCriteria, Config as AssignmentConfig, RealAssignmentCriteria};
 use persisted_entries::{ApprovalEntry, BlockEntry, CandidateEntry};
-use time::{slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick};
+use polkadot_node_primitives::approval::time::{
+	slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick,
+};
 
 mod approval_checking;
 pub mod approval_db;
@@ -102,7 +104,6 @@ pub mod criteria;
 mod import;
 mod ops;
 mod persisted_entries;
-pub mod time;
 
 use crate::{
 	approval_checking::{Check, TranchesToApproveResult},
@@ -123,7 +124,6 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
 const APPROVAL_CACHE_SIZE: u32 = 1024;
 
-const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
 const APPROVAL_DELAY: Tick = 2;
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting";
 
@@ -1607,9 +1607,30 @@ async fn distribution_messages_for_activation<Context>(
 			hash: block_hash,
 			number: block_entry.block_number(),
 			parent_hash: block_entry.parent_hash(),
-			candidates: block_entry.candidates().iter().map(|(_, c_hash)| *c_hash).collect(),
+			candidates: block_entry
+				.candidates()
+				.iter()
+				.map(|(core_index, c_hash)| {
+					let candidate = db.load_candidate_entry(c_hash).ok().flatten();
+					let group_index = candidate
+						.and_then(|entry| {
+							entry.approval_entry(&block_hash).map(|entry| entry.backing_group())
+						})
+						.unwrap_or_else(|| {
+							gum::warn!(
+								target: LOG_TARGET,
+								?block_hash,
+								?c_hash,
+								"Missing candidate entry or approval entry",
+							);
+							GroupIndex::default()
+						});
+					(*c_hash, *core_index, group_index)
+				})
+				.collect(),
 			slot: block_entry.slot(),
 			session: block_entry.session(),
+			vrf_story: block_entry.relay_vrf_story(),
 		});
 		let mut signatures_queued = HashSet::new();
 		for (core_index, candidate_hash) in block_entry.candidates() {
@@ -1872,35 +1893,45 @@ async fn handle_from_overseer<Context>(
 			vec![Action::Conclude]
 		},
 		FromOrchestra::Communication { msg } => match msg {
-			ApprovalVotingMessage::CheckAndImportAssignment(a, claimed_cores, res) => {
-				let (check_outcome, actions) = check_and_import_assignment(
+			ApprovalVotingMessage::ImportAssignment(checked_assignment, tx) => {
+				let (check_outcome, actions) = import_assignment(
 					ctx.sender(),
 					state,
 					db,
 					session_info_provider,
-					a,
-					claimed_cores,
+					checked_assignment,
 				)
 				.await?;
-				let _ = res.send(check_outcome);
-
+				// approval-distribution makes sure this assignment is valid and expected,
+				// so this import should never fail, if it does it might mean one of two things,
+				// there is a bug in the code or the two subsystems got out of sync.
+				if let AssignmentCheckResult::Bad(ref err) = check_outcome {
+					gum::debug!(target: LOG_TARGET, ?err, "Unexpected fail when importing an assignment");
+				}
+				let _ = tx.map(|tx| tx.send(check_outcome));
 				actions
 			},
-			ApprovalVotingMessage::CheckAndImportApproval(a, res) =>
-				check_and_import_approval(
+			ApprovalVotingMessage::ImportApproval(a, tx) => {
+				let result = import_approval(
 					ctx.sender(),
 					state,
 					db,
 					session_info_provider,
 					metrics,
 					a,
-					|r| {
-						let _ = res.send(r);
-					},
 					&wakeups,
 				)
-				.await?
-				.0,
+				.await?;
+				// approval-distribution makes sure this vote is valid and expected,
+				// so this import should never fail, if it does it might mean one of two things,
+				// there is a bug in the code or the two subsystems got out of sync.
+				if let ApprovalCheckResult::Bad(ref err) = result.1 {
+					gum::debug!(target: LOG_TARGET, ?err, "Unexpected fail when importing an approval");
+				}
+				let _ = tx.map(|tx| tx.send(result.1));
+
+				result.0
+			},
 			ApprovalVotingMessage::ApprovedAncestor(target, lower_bound, res) => {
 				let mut approved_ancestor_span = state
 					.spans
@@ -2439,29 +2470,30 @@ fn schedule_wakeup_action(
 	maybe_action
 }
 
-async fn check_and_import_assignment<Sender>(
+async fn import_assignment<Sender>(
 	sender: &mut Sender,
 	state: &State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
-	assignment: IndirectAssignmentCertV2,
-	candidate_indices: CandidateBitfield,
+	checked_assignment: CheckedIndirectAssignment,
 ) -> SubsystemResult<(AssignmentCheckResult, Vec<Action>)>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
 	let tick_now = state.clock.tick_now();
-
-	let mut check_and_import_assignment_span = state
+	let assignment = checked_assignment.assignment();
+	let candidate_indices = checked_assignment.candidate_indices();
+	let tranche = checked_assignment.tranche();
+	let mut import_assignment_span = state
 		.spans
 		.get(&assignment.block_hash)
-		.map(|span| span.child("check-and-import-assignment"))
-		.unwrap_or_else(|| jaeger::Span::new(assignment.block_hash, "check-and-import-assignment"))
+		.map(|span| span.child("import-assignment"))
+		.unwrap_or_else(|| jaeger::Span::new(assignment.block_hash, "import-assignment"))
 		.with_relay_parent(assignment.block_hash)
 		.with_stage(jaeger::Stage::ApprovalChecking);
 
 	for candidate_index in candidate_indices.iter_ones() {
-		check_and_import_assignment_span.add_uint_tag("candidate-index", candidate_index as u64);
+		import_assignment_span.add_uint_tag("candidate-index", candidate_index as u64);
 	}
 
 	let block_entry = match db.load_block_entry(&assignment.block_hash)? {
@@ -2514,8 +2546,6 @@ where
 		))
 	}
 
-	// The Compact VRF modulo assignment cert has multiple core assignments.
-	let mut backing_groups = Vec::new();
 	let mut claimed_core_indices = Vec::new();
 	let mut assigned_candidate_hashes = Vec::new();
 
@@ -2544,26 +2574,23 @@ where
 				)), // no candidate at core.
 		};
 
-		check_and_import_assignment_span
+		import_assignment_span
 			.add_string_tag("candidate-hash", format!("{:?}", assigned_candidate_hash));
-		check_and_import_assignment_span.add_string_tag(
+		import_assignment_span.add_string_tag(
 			"traceID",
 			format!("{:?}", jaeger::hash_to_trace_identifier(assigned_candidate_hash.0)),
 		);
 
-		let approval_entry = match candidate_entry.approval_entry_mut(&assignment.block_hash) {
-			Some(a) => a,
-			None =>
-				return Ok((
-					AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
-						assignment.block_hash,
-						assigned_candidate_hash,
-					)),
-					Vec::new(),
+		if candidate_entry.approval_entry_mut(&assignment.block_hash).is_none() {
+			return Ok((
+				AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
+					assignment.block_hash,
+					assigned_candidate_hash,
 				)),
+				Vec::new(),
+			));
 		};
 
-		backing_groups.push(approval_entry.backing_group());
 		claimed_core_indices.push(claimed_core_index);
 		assigned_candidate_hashes.push(assigned_candidate_hash);
 	}
@@ -2578,42 +2605,6 @@ where
 			Vec::new(),
 		))
 	}
-
-	// Check the assignment certificate.
-	let res = state.assignment_criteria.check_assignment_cert(
-		claimed_core_indices
-			.clone()
-			.try_into()
-			.expect("Checked for null assignment above; qed"),
-		assignment.validator,
-		&criteria::Config::from(session_info),
-		block_entry.relay_vrf_story(),
-		&assignment.cert,
-		backing_groups,
-	);
-
-	let tranche = match res {
-		Err(crate::criteria::InvalidAssignment(reason)) =>
-			return Ok((
-				AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCert(
-					assignment.validator,
-					format!("{:?}", reason),
-				)),
-				Vec::new(),
-			)),
-		Ok(tranche) => {
-			let current_tranche =
-				state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
-
-			let too_far_in_future = current_tranche + TICK_TOO_FAR_IN_FUTURE as DelayTranche;
-
-			if tranche >= too_far_in_future {
-				return Ok((AssignmentCheckResult::TooFarInFuture, Vec::new()))
-			}
-
-			tranche
-		},
-	};
 
 	let mut actions = Vec::new();
 	let res = {
@@ -2647,7 +2638,7 @@ where
 			};
 			is_duplicate &= approval_entry.is_assigned(assignment.validator);
 			approval_entry.import_assignment(tranche, assignment.validator, tick_now);
-			check_and_import_assignment_span.add_uint_tag("tranche", tranche as u64);
+			import_assignment_span.add_uint_tag("tranche", tranche as u64);
 
 			// We've imported a new assignment, so we need to schedule a wake-up for when that might
 			// no-show.
@@ -2704,30 +2695,28 @@ where
 	Ok((res, actions))
 }
 
-async fn check_and_import_approval<T, Sender>(
+async fn import_approval<Sender>(
 	sender: &mut Sender,
 	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
 	metrics: &Metrics,
-	approval: IndirectSignedApprovalVoteV2,
-	with_response: impl FnOnce(ApprovalCheckResult) -> T,
+	approval: CheckedIndirectSignedApprovalVote,
 	wakeups: &Wakeups,
-) -> SubsystemResult<(Vec<Action>, T)>
+) -> SubsystemResult<(Vec<Action>, ApprovalCheckResult)>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
 	macro_rules! respond_early {
 		($e: expr) => {{
-			let t = with_response($e);
-			return Ok((Vec::new(), t))
+			return Ok((Vec::new(), $e))
 		}};
 	}
 	let mut span = state
 		.spans
 		.get(&approval.block_hash)
-		.map(|span| span.child("check-and-import-approval"))
-		.unwrap_or_else(|| jaeger::Span::new(approval.block_hash, "check-and-import-approval"))
+		.map(|span| span.child("import-approval"))
+		.unwrap_or_else(|| jaeger::Span::new(approval.block_hash, "import-approval"))
 		.with_string_fmt_debug_tag("candidate-index", approval.candidate_indices.clone())
 		.with_relay_parent(approval.block_hash)
 		.with_stage(jaeger::Stage::ApprovalChecking);
@@ -2774,67 +2763,11 @@ where
 		),
 	);
 
-	{
-		let session_info = match get_session_info(
-			session_info_provider,
-			sender,
-			approval.block_hash,
-			block_entry.session(),
-		)
-		.await
-		{
-			Some(s) => s,
-			None => {
-				respond_early!(ApprovalCheckResult::Bad(ApprovalCheckError::UnknownSessionIndex(
-					block_entry.session()
-				),))
-			},
-		};
-
-		let pubkey = match session_info.validators.get(approval.validator) {
-			Some(k) => k,
-			None => respond_early!(ApprovalCheckResult::Bad(
-				ApprovalCheckError::InvalidValidatorIndex(approval.validator),
-			)),
-		};
-
-		gum::trace!(
-			target: LOG_TARGET,
-			"Received approval for num_candidates {:}",
-			approval.candidate_indices.count_ones()
-		);
-
-		let candidate_hashes: Vec<CandidateHash> =
-			approved_candidates_info.iter().map(|candidate| candidate.1).collect();
-		// Signature check:
-		match DisputeStatement::Valid(
-			ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes.clone()),
-		)
-		.check_signature(
-			&pubkey,
-			if let Some(candidate_hash) = candidate_hashes.first() {
-				*candidate_hash
-			} else {
-				respond_early!(ApprovalCheckResult::Bad(ApprovalCheckError::InvalidValidatorIndex(
-					approval.validator
-				),))
-			},
-			block_entry.session(),
-			&approval.signature,
-		) {
-			Err(_) => {
-				gum::error!(
-					target: LOG_TARGET,
-					"Error while checking signature {:}",
-					approval.candidate_indices.count_ones()
-				);
-				respond_early!(ApprovalCheckResult::Bad(ApprovalCheckError::InvalidSignature(
-					approval.validator
-				),))
-			},
-			Ok(()) => {},
-		};
-	}
+	gum::trace!(
+		target: LOG_TARGET,
+		"Received approval for num_candidates {:}",
+		approval.candidate_indices.count_ones()
+	);
 
 	let mut actions = Vec::new();
 	for (approval_candidate_index, approved_candidate_hash) in approved_candidates_info {
@@ -2898,9 +2831,7 @@ where
 	}
 
 	// importing the approval can be heavy as it may trigger acceptance for a series of blocks.
-	let t = with_response(ApprovalCheckResult::Accepted);
-
-	Ok((actions, t))
+	Ok((actions, ApprovalCheckResult::Accepted))
 }
 
 #[derive(Debug)]

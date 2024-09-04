@@ -576,7 +576,6 @@ where
 				Phase::Complete => None,
 			},
 			num_peers: self.peers.len().saturated_into(),
-			num_connected_peers: self.peers.len().saturated_into(),
 			queued_blocks: 0,
 			state_sync: None,
 			warp_sync: Some(self.progress()),

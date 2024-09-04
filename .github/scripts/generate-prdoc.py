@@ -96,6 +96,7 @@ def create_prdoc(pr, audience, title, description, patch, bump, force):
 	# write the parsed PR documentation back to the file
 	with open(path, "w") as f:
 		yaml.dump(prdoc, f)
+		print(f"PrDoc for PR {pr} written to {path}")
 
 def parse_args():
 	parser = argparse.ArgumentParser()

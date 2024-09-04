@@ -34,7 +34,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{
 	approval::{
-		v1::BlockApprovalMeta,
+		v1::{BlockApprovalMeta, DelayTranche},
 		v2::{CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
@@ -919,7 +919,7 @@ pub enum CollationGenerationMessage {
 	SubmitCollation(SubmitCollationParams),
 }
 
-/// The result type of [`ApprovalVotingMessage::CheckAndImportAssignment`] request.
+/// The result type of [`ApprovalVotingMessage::ImportAssignment`] request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AssignmentCheckResult {
 	/// The vote was accepted and should be propagated onwards.
@@ -932,7 +932,7 @@ pub enum AssignmentCheckResult {
 	Bad(AssignmentCheckError),
 }
 
-/// The error result type of [`ApprovalVotingMessage::CheckAndImportAssignment`] request.
+/// The error result type of [`ApprovalVotingMessage::ImportAssignment`] request.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub enum AssignmentCheckError {
@@ -952,7 +952,7 @@ pub enum AssignmentCheckError {
 	InvalidBitfield(usize),
 }
 
-/// The result type of [`ApprovalVotingMessage::CheckAndImportApproval`] request.
+/// The result type of [`ApprovalVotingMessage::ImportApproval`] request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApprovalCheckResult {
 	/// The vote was accepted and should be propagated onwards.
@@ -961,7 +961,7 @@ pub enum ApprovalCheckResult {
 	Bad(ApprovalCheckError),
 }
 
-/// The error result type of [`ApprovalVotingMessage::CheckAndImportApproval`] request.
+/// The error result type of [`ApprovalVotingMessage::ImportApproval`] request.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub enum ApprovalCheckError {
@@ -1009,21 +1009,68 @@ pub struct HighestApprovedAncestorBlock {
 	pub descriptions: Vec<BlockDescription>,
 }
 
+/// A checked indirect assignment, the crypto for the cert has been validated
+/// and the `candidate_bitfield` is correctly claimed at `delay_tranche`.
+#[derive(Debug)]
+pub struct CheckedIndirectAssignment {
+	assignment: IndirectAssignmentCertV2,
+	candidate_indices: CandidateBitfield,
+	tranche: DelayTranche,
+}
+
+impl CheckedIndirectAssignment {
+	/// Builds a checked assignment from an assignment that was checked to be valid for the
+	/// `claimed_candidate_indices` at the give tranche
+	pub fn from_checked(
+		assignment: IndirectAssignmentCertV2,
+		claimed_candidate_indices: CandidateBitfield,
+		tranche: DelayTranche,
+	) -> Self {
+		Self { assignment, candidate_indices: claimed_candidate_indices, tranche }
+	}
+
+	/// Returns the indirect assignment.
+	pub fn assignment(&self) -> &IndirectAssignmentCertV2 {
+		&self.assignment
+	}
+
+	/// Returns the candidate bitfield claimed by the assignment.
+	pub fn candidate_indices(&self) -> &CandidateBitfield {
+		&self.candidate_indices
+	}
+
+	/// Returns the tranche this assignment is claimed at.
+	pub fn tranche(&self) -> DelayTranche {
+		self.tranche
+	}
+}
+
+/// A checked indirect signed approval vote.
+///
+/// The crypto for the vote has been validated and the signature can be trusted as being valid and
+/// to correspond to the `validator_index` inside the structure.
+#[derive(Debug, derive_more::Deref, derive_more::Into)]
+pub struct CheckedIndirectSignedApprovalVote(IndirectSignedApprovalVoteV2);
+
+impl CheckedIndirectSignedApprovalVote {
+	/// Builds a checked vote from a vote that was checked to be valid and correctly signed.
+	pub fn from_checked(vote: IndirectSignedApprovalVoteV2) -> Self {
+		Self(vote)
+	}
+}
+
 /// Message to the Approval Voting subsystem.
 #[derive(Debug)]
 pub enum ApprovalVotingMessage {
-	/// Check if the assignment is valid and can be accepted by our view of the protocol.
-	/// Should not be sent unless the block hash is known.
-	CheckAndImportAssignment(
-		IndirectAssignmentCertV2,
-		CandidateBitfield,
-		oneshot::Sender<AssignmentCheckResult>,
-	),
-	/// Check if the approval vote is valid and can be accepted by our view of the
-	/// protocol.
+	/// Import an assignment into the approval-voting database.
 	///
-	/// Should not be sent unless the block hash within the indirect vote is known.
-	CheckAndImportApproval(IndirectSignedApprovalVoteV2, oneshot::Sender<ApprovalCheckResult>),
+	/// Should not be sent unless the block hash is known and the VRF assignment checks out.
+	ImportAssignment(CheckedIndirectAssignment, Option<oneshot::Sender<AssignmentCheckResult>>),
+	/// Import an approval vote into approval-voting database
+	///
+	/// Should not be sent unless the block hash within the indirect vote is known, vote is
+	/// correctly signed and we had a previous assignment for the candidate.
+	ImportApproval(CheckedIndirectSignedApprovalVote, Option<oneshot::Sender<ApprovalCheckResult>>),
 	/// Returns the highest possible ancestor hash of the provided block hash which is
 	/// acceptable to vote on finality for.
 	/// The `BlockNumber` provided is the number of the block's ancestor which is the
