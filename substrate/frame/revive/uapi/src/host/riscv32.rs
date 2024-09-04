@@ -209,7 +209,6 @@ impl HostFn for HostFnImpl {
 		salt: &[u8],
 	) -> Result {
 		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
-
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
 		#[repr(packed)]

@@ -1226,7 +1226,7 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		log::debug!(
 			target: LOG_TARGET,
-			"\n===\n<Call flags: {flags:?}, callee_ptr: {callee_ptr}, value_ptr: {value_ptr}, deposit_ptr: {deposit_ptr}, ref_time_limit: {ref_time_limit}, proof_size_limit: {proof_size_limit}, input_data_ptr: {input_data_ptr}, input_data_len: {input_data_len}, output_ptr: {output_ptr}, output_len_ptr: {output_len_ptr}>",
+			"\n===\ncall(flags: {flags:?}, callee_ptr: {callee_ptr}, value_ptr: {value_ptr}, deposit_ptr: {deposit_ptr}, ref_time_limit: {ref_time_limit}, proof_size_limit: {proof_size_limit}, input_data_ptr: {input_data_ptr}, input_data_len: {input_data_len}, output_ptr: {output_ptr}, output_len_ptr: {output_len_ptr}>",
 		);
 		self.call(
 			memory,
