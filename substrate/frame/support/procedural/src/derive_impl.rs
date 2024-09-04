@@ -75,8 +75,6 @@ impl syn::parse::Parse for DeriveImplAttrArgs {
 				default_impl_path
 					.segments
 					.push(PathSegment { ident: ident.clone(), arguments: PathArguments::None });
-				// let mut args = args.clone();
-				// args.colon2_token = None;
 				(default_impl_path, Some(args.clone()))
 			},
 			_ => (default_impl_path, None),
