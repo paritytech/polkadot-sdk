@@ -8752,6 +8752,8 @@ dependencies = [
  "parking_lot 0.12.3",
  "relay-utils",
  "sp-arithmetic",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]

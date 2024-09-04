@@ -23,6 +23,7 @@ use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::StorageDoubleMapKeyProvider;
 use codec::Decode;
 use frame_system::AccountInfo;
+use messages_relay::lane_to_label;
 use pallet_balances::AccountData;
 use relay_substrate_client::{
 	metrics::{FloatStorageValue, FloatStorageValueMetric},
@@ -91,7 +92,7 @@ where
 						account.id(),
 						&RewardsAccountParams::new(*lane, BC::ID, RewardsAccountOwner::ThisChain),
 					),
-					format!("at_{}_relay_{}_reward_for_msgs_from_{}_on_lane_{}", C::NAME, account.tag(), BC::NAME, hex::encode(lane.as_ref())),
+					format!("at_{}_relay_{}_reward_for_msgs_from_{}_on_lane_{}", C::NAME, account.tag(), BC::NAME, lane_to_label(lane)),
 					format!("Reward of the {} relay account at {} for delivering messages from {} on lane {:?}", account.tag(), C::NAME, BC::NAME, lane),
 				)?.register_and_spawn(&metrics.registry)?;
 
@@ -103,7 +104,7 @@ where
 						account.id(),
 						&RewardsAccountParams::new(*lane, BC::ID, RewardsAccountOwner::BridgedChain),
 					),
-					format!("at_{}_relay_{}_reward_for_msgs_to_{}_on_lane_{}", C::NAME, account.tag(), BC::NAME, hex::encode(lane.as_ref())),
+					format!("at_{}_relay_{}_reward_for_msgs_to_{}_on_lane_{}", C::NAME, account.tag(), BC::NAME, lane_to_label(lane)),
 					format!("Reward of the {} relay account at {} for delivering messages confirmations from {} on lane {:?}", account.tag(), C::NAME, BC::NAME, lane),
 				)?.register_and_spawn(&metrics.registry)?;
 			}
