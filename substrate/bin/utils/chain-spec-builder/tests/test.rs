@@ -151,30 +151,41 @@ fn test_update_code() {
 	const SUFFIX: &str = "07";
 	let builder = get_builder(
 		SUFFIX,
-		vec!["update-code", "tests/input/chain-spec-extras.json", "tests/input/code-040506.bin"],
+		vec!["update-code", "tests/input/chain_spec_plain.json", "tests/input/code_040506.blob"],
 	);
 	builder.run().unwrap();
 	assert_output_eq_expected(false, SUFFIX, "tests/expected/update_code.json");
 }
 
 #[test]
-fn test_convert_to_raw() {
+fn test_update_code_raw() {
 	const SUFFIX: &str = "08";
+	let builder = get_builder(
+		SUFFIX,
+		vec!["update-code", "tests/input/chain_spec_raw.json", "tests/input/code_040506.blob"],
+	);
+	builder.run().unwrap();
+	assert_output_eq_expected(false, SUFFIX, "tests/expected/update_code_raw.json");
+}
+
+#[test]
+fn test_convert_to_raw() {
+	const SUFFIX: &str = "09";
 	let builder =
-		get_builder(SUFFIX, vec!["convert-to-raw", "tests/input/chain-spec-conversion-test.json"]);
+		get_builder(SUFFIX, vec!["convert-to-raw", "tests/input/chain_spec_conversion_test.json"]);
 	builder.run().unwrap();
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/convert_to_raw.json");
 }
 
 #[test]
 fn test_add_code_substitute() {
-	const SUFFIX: &str = "09";
+	const SUFFIX: &str = "10";
 	let builder = get_builder(
 		SUFFIX,
 		vec![
 			"add-code-substitute",
-			"tests/input/chain-spec-extras.json",
-			"tests/input/code-040506.bin",
+			"tests/input/chain_spec_plain.json",
+			"tests/input/code_040506.blob",
 			"100",
 		],
 	);
