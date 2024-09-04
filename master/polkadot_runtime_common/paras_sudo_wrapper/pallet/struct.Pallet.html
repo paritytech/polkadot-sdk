@@ -153,7 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 functions within the pallet.</p>
 </div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../../../src/polkadot_runtime_common/paras_sudo_wrapper.rs.html#69-182">source</a><a href="#impl-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait polkadot_runtime_common::paras_sudo_wrapper::pallet::Config">Config</a>&gt; <a class="struct" href="struct.Pallet.html" title="struct polkadot_runtime_common::paras_sudo_wrapper::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.sudo_schedule_para_initialize" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_common/paras_sudo_wrapper.rs.html#31">source</a><h4 class="code-header">pub fn <a href="#method.sudo_schedule_para_initialize" class="fn">sudo_schedule_para_initialize</a>(
     origin: OriginFor&lt;T&gt;,
-    id: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
+    id: ParaId,
     genesis: ParaGenesisArgs
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Schedule a para to be initialized at the start of the next session.</p>
 <p>This should only be used for TESTING and not on PRODUCTION chains. It automatically
@@ -161,27 +161,27 @@ assigns Coretime to the chain and increases the number of cores. Thus, there is 
 running coretime chain required.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.sudo_schedule_para_cleanup" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_common/paras_sudo_wrapper.rs.html#31">source</a><h4 class="code-header">pub fn <a href="#method.sudo_schedule_para_cleanup" class="fn">sudo_schedule_para_cleanup</a>(
     origin: OriginFor&lt;T&gt;,
-    id: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>
+    id: ParaId
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Schedule a para to be cleaned up at the start of the next session.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.sudo_schedule_parathread_upgrade" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_common/paras_sudo_wrapper.rs.html#31">source</a><h4 class="code-header">pub fn <a href="#method.sudo_schedule_parathread_upgrade" class="fn">sudo_schedule_parathread_upgrade</a>(
     origin: OriginFor&lt;T&gt;,
-    id: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>
+    id: ParaId
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Upgrade a parathread (on-demand parachain) to a lease holding parachain</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.sudo_schedule_parachain_downgrade" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_common/paras_sudo_wrapper.rs.html#31">source</a><h4 class="code-header">pub fn <a href="#method.sudo_schedule_parachain_downgrade" class="fn">sudo_schedule_parachain_downgrade</a>(
     origin: OriginFor&lt;T&gt;,
-    id: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>
+    id: ParaId
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Downgrade a lease holding parachain to an on-demand parachain</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.sudo_queue_downward_xcm" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_common/paras_sudo_wrapper.rs.html#31">source</a><h4 class="code-header">pub fn <a href="#method.sudo_queue_downward_xcm" class="fn">sudo_queue_downward_xcm</a>(
     origin: OriginFor&lt;T&gt;,
-    id: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
+    id: ParaId,
     xcm: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;VersionedXcm&gt;
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Send a downward XCM to the given para.</p>
 <p>The given parachain should exist and the payload should not exceed the preconfigured
 size <code>config.max_downward_message_size</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.sudo_establish_hrmp_channel" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_common/paras_sudo_wrapper.rs.html#31">source</a><h4 class="code-header">pub fn <a href="#method.sudo_establish_hrmp_channel" class="fn">sudo_establish_hrmp_channel</a>(
     origin: OriginFor&lt;T&gt;,
-    sender: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
-    recipient: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
+    sender: ParaId,
+    recipient: ParaId,
     max_capacity: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     max_message_size: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Forcefully establish a channel from the sender to the recipient.</p>
