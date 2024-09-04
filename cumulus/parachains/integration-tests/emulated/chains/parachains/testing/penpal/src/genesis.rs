@@ -27,6 +27,7 @@ use penpal_runtime::xcm_config::{LocalReservableFromAssetHub, RelayLocation, Usd
 pub const PARA_ID_A: u32 = 2000;
 pub const PARA_ID_B: u32 = 2001;
 pub const ED: Balance = penpal_runtime::EXISTENTIAL_DEPOSIT;
+pub const USDT_ED: Balance = 70_000;
 
 parameter_types! {
 	pub PenpalSudoAccount: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
@@ -81,8 +82,8 @@ pub fn genesis(para_id: u32) -> Storage {
 				(RelayLocation::get(), PenpalAssetOwner::get(), true, ED),
 				// Sufficient AssetHub asset representation
 				(LocalReservableFromAssetHub::get(), PenpalAssetOwner::get(), true, ED),
-				// USDT from Asset Hub
-				(UsdtFromAssetHub::get(), PenpalAssetOwner::get(), true, ED),
+				// USDT from AssetHub
+				(UsdtFromAssetHub::get(), PenpalAssetOwner::get(), true, USDT_ED),
 			],
 			..Default::default()
 		},
