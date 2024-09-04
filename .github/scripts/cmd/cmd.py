@@ -130,12 +130,12 @@ def main():
                 print('No runtimes found')
             sys.exit(1)
 
-        header_path = os.path.abspath(runtimesMatrix[runtime]['header'])
-        template = None
-
         for runtime in runtime_pallets_map:
             for pallet in runtime_pallets_map[runtime]:
                 config = runtimesMatrix[runtime]
+                header_path = os.path.abspath(config['header'])
+                template = None
+
                 print(f'-- config: {config}')
                 if runtime == 'dev':
                     # to support sub-modules (https://github.com/paritytech/command-bot/issues/275)

@@ -7,7 +7,7 @@ import argparse
 
 # Mock data for runtimes-matrix.json
 mock_runtimes_matrix = [
-    {"name": "dev", "package": "kitchensink-runtime", "path": "substrate/frame", "header": "substrate/HEADER-APACHE2", "template": ".maintain/xcm-bench-template.hbs"},
+    {"name": "dev", "package": "kitchensink-runtime", "path": "substrate/frame", "header": "substrate/HEADER-APACHE2", "template": "substrate/.maintain/frame-weight-template.hbs"},
     {"name": "westend", "package": "westend-runtime", "path": "polkadot/runtime/westend", "header": "polkadot/file_header.txt", "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs"},
     {"name": "rococo", "package": "rococo-runtime", "path": "polkadot/runtime/rococo", "header": "polkadot/file_header.txt", "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs"},
     {"name": "asset-hub-westend", "package": "asset-hub-westend-runtime", "path": "cumulus/parachains/runtimes/assets/asset-hub-westend", "header": "cumulus/file_header.txt", "template": "cumulus/templates/xcm-bench-template.hbs"},
@@ -180,7 +180,7 @@ class TestCmd(unittest.TestCase):
                     'pallet_balances', 
                     manifest_dir + "/src/weights.rs", 
                     header_path, 
-                    ".maintain/xcm-bench-template.hbs"
+                    "substrate/.maintain/frame-weight-template.hbs"
                 )),
             ]
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
@@ -223,7 +223,7 @@ class TestCmd(unittest.TestCase):
         self.mock_parse_args.return_value = (argparse.Namespace(
             command='bench',
             runtime=['asset-hub-westend'],
-            pallet=['pallet_xcm_benchmarks::generic'],
+            pallet=['pallet_xcm_benchmarks::generic', 'pallet_assets'],
             continue_on_fail=False,
             quiet=False,
             clean=False,
@@ -249,6 +249,12 @@ class TestCmd(unittest.TestCase):
                     './cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights/xcm', 
                     header_path, 
                     "cumulus/templates/xcm-bench-template.hbs"
+                )),
+                call(get_mock_bench_output(
+                    'asset-hub-westend', 
+                    'pallet_assets', 
+                    './cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights', 
+                    header_path
                 )),
             ]
 
