@@ -16,18 +16,23 @@
 // limitations under the License.
 
 //! Types for a compact base-16 merkle trie used for checking and generating proofs within the
-//! runtime.
+//! runtime. The `sp-trie` crate exposes all of these same functionality (and more), but this
+//! library is designed to work more easily with runtime native types, which simply need to
+//! implement `Encode`/`Decode`. It also exposes a runtime friendly `TrieError` type which can be
+//! use inside of a FRAME Pallet.
+//!
+//! Proofs are created with latest substrate trie format (`LayoutV1`), and are not compatible with
+//! proofs using `LayoutV0`.
 
 use crate::{Decode, DispatchError, Encode, MaxEncodedLen, TypeInfo};
+#[cfg(feature = "serde")]
+use crate::{Deserialize, Serialize};
 
 use sp_std::vec::Vec;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1, TrieError as SpTrieError},
 	LayoutV1, MemoryDB, Trie, TrieMut, VerifyError,
 };
-
-#[cfg(feature = "serde")]
-use crate::{Deserialize, Serialize};
 
 type HashOf<Hashing> = <Hashing as sp_core::Hasher>::Out;
 
@@ -118,7 +123,9 @@ impl From<TrieError> for &'static str {
 	}
 }
 
-/// A basic trie implementation for checking and generating proofs for a key / value pair.
+/// A helper structure for building a basic base-16 merkle trie and creating compact proofs for that
+/// trie. Proofs are created with latest substrate trie format (`LayoutV1`), and are not compatible
+/// with proofs using `LayoutV0`.
 pub struct BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
@@ -158,7 +165,7 @@ where
 		&self.root
 	}
 
-	/// Check a proof contained within the current `MemoryDB`. Returns `None` if the
+	/// Query a value contained within the current trie. Returns `None` if the
 	/// nodes within the current `MemoryDB` are insufficient to query the item.
 	pub fn query(&self, key: Key) -> Option<Value> {
 		let trie = TrieDBBuilder::new(&self.db, &self.root).build();
@@ -167,9 +174,16 @@ where
 			.and_then(|raw| Value::decode(&mut &*raw).ok())
 	}
 
-	/// Create the full verification data needed to prove all `keys` and their values in the trie.
+	/// Create a compact merkle proof needed to prove all `keys` and their values are in the trie.
 	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
 	/// proof.
+	///
+	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
+	/// compatible with `LayoutV0`.
+	///
+	/// When verifying the proof created by this function, you must include all of the keys and
+	/// values of the proof, else the verifier will complain that extra nodes are provided in the
+	/// proof that are not needed.
 	pub fn create_proof(&self, keys: &[Key]) -> Result<Vec<Vec<u8>>, DispatchError> {
 		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
 			&self.db,
@@ -179,15 +193,20 @@ where
 		.map_err(|err| TrieError::from(*err).into())
 	}
 
-	/// Create the full verification data needed to prove a single key and its value in the trie.
+	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
 	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
 	/// proof.
+	///
+	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
+	/// compatible with `LayoutV0`.
 	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<Vec<u8>>, DispatchError> {
 		self.create_proof(&[key])
 	}
 }
 
-/// Verify the existence or non-existence of `key` and `value` in a trie proof.
+/// Verify the existence or non-existence of `key` and `value` in a given trie root and proof.
+///
+/// Proofs must be created with latest substrate trie format (`LayoutV1`).
 pub fn verify_single_value_proof<Hashing, Key, Value>(
 	root: HashOf<Hashing>,
 	proof: &[Vec<u8>],
@@ -207,8 +226,10 @@ where
 	.map_err(|err| TrieError::from(err).into())
 }
 
-/// Verify a proof which contains multiple keys and values.
-pub fn verify_proof<'a, Hashing, Key, Value>(
+/// Verify the existence or non-existence of multiple `items` in a given trie root and proof.
+///
+/// Proofs must be created with latest substrate trie format (`LayoutV1`).
+pub fn verify_proof<Hashing, Key, Value>(
 	root: HashOf<Hashing>,
 	proof: &[Vec<u8>],
 	items: &[(Key, Option<Value>)],
@@ -232,15 +253,14 @@ mod tests {
 	use super::*;
 	use crate::traits::BlakeTwo256;
 	use sp_core::H256;
-	use sp_std::{collections::btree_map::BTreeMap, str::FromStr};
+	use sp_std::collections::btree_map::BTreeMap;
 
 	// A trie which simulates a trie of accounts (u32) and balances (u128).
 	type BalanceTrie = BasicProvingTrie<BlakeTwo256, u32, u128>;
 
 	// The expected root hash for an empty trie.
 	fn empty_root() -> H256 {
-		H256::from_str("0x03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314")
-			.unwrap()
+		sp_trie::empty_trie_root::<LayoutV1<BlakeTwo256>>()
 	}
 
 	fn create_balance_trie() -> BalanceTrie {
@@ -335,5 +355,34 @@ mod tests {
 	}
 
 	#[test]
-	fn proof_fails_with_bad_data() {}
+	fn proof_fails_with_bad_data() {
+		let balance_trie = create_balance_trie();
+		let root = *balance_trie.root();
+
+		// Create a proof for a valid key.
+		let proof = balance_trie.create_single_value_proof(6u32).unwrap();
+
+		// Correct data verifies successfully
+		assert_eq!(
+			verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, Some(6u128)),
+			Ok(())
+		);
+
+		// Fail to verify proof with wrong root
+		assert_eq!(
+			verify_single_value_proof::<BlakeTwo256, _, _>(
+				Default::default(),
+				&proof,
+				6u32,
+				Some(6u128)
+			),
+			Err(TrieError::RootMismatch.into())
+		);
+
+		// Fail to verify proof with wrong data
+		assert_eq!(
+			verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, Some(6u128)),
+			Err(TrieError::IncompleteProof.into())
+		);
+	}
 }
