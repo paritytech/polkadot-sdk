@@ -21195,8 +21195,10 @@ dependencies = [
  "clap 4.5.11",
  "log",
  "sc-chain-spec",
+ "serde",
  "serde_json",
  "sp-tracing 16.0.0",
+ "substrate-test-runtime",
 ]
 
 [[package]]
