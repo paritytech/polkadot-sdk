@@ -64,7 +64,7 @@ use frame_support::{
 	defensive, defensive_assert,
 	traits::{Defensive, EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
 	weights::{Weight, WeightMeter},
-	BoundedVec,
+	BoundedVec, StoragePrefixedMap,
 };
 use pallet_message_queue::OnQueueChanged;
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
@@ -1008,6 +1008,12 @@ impl<T: Config> SendXcm for Pallet<T> {
 }
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn clear_messages() {
+		let prefix = OutboundXcmpMessages::<T>::final_prefix();
+		// Best effort.
+		let _ = frame_support::storage::unhashed::clear_prefix(&prefix, None, None);
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		use xcm::prelude::*;
 

@@ -19,7 +19,7 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::traits::Get;
+use frame_support::{traits::Get, StoragePrefixedMap};
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
@@ -141,6 +141,12 @@ where
 }
 
 impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P> {
+	fn clear_messages() {
+		let prefix = dmp::DownwardMessageQueues::<T>::final_prefix();
+		// Best effort.
+		let _ = frame_support::storage::unhashed::clear_prefix(&prefix, None, None);
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		dmp::DownwardMessageQueues::<T>::iter()
 			.map(|(para_id, messages)| {

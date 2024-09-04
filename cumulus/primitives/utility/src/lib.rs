@@ -99,6 +99,10 @@ where
 impl<T: UpwardMessageSender + InspectMessageQueues, W, P> InspectMessageQueues
 	for ParentAsUmp<T, W, P>
 {
+	fn clear_messages() {
+		T::clear_messages();
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		T::get_messages()
 	}

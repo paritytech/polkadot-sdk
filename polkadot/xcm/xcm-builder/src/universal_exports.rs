@@ -340,6 +340,10 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 impl<Bridges, Router: InspectMessageQueues, UniversalLocation> InspectMessageQueues
 	for SovereignPaidRemoteExporter<Bridges, Router, UniversalLocation>
 {
+	fn clear_messages() {
+		Router::clear_messages()
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		Router::get_messages()
 	}

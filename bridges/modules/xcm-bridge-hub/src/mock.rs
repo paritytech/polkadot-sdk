@@ -281,6 +281,10 @@ impl SendXcm for TestExportXcmWithXcmOverBridge {
 	}
 }
 impl InspectMessageQueues for TestExportXcmWithXcmOverBridge {
+	fn clear_messages() {
+		todo!()
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		todo!()
 	}
