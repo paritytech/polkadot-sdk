@@ -131,6 +131,7 @@ def main():
             sys.exit(1)
 
         header_path = os.path.abspath(runtimesMatrix[runtime]['header'])
+        template = None
 
         for runtime in runtime_pallets_map:
             for pallet in runtime_pallets_map[runtime]:
@@ -148,10 +149,15 @@ def main():
                     print(f'-- package_dir: {package_dir}')
                     print(f'-- manifest_path: {manifest_path}')
                     output_path = os.path.join(package_dir, "src", "weights.rs")
+                    template = config['template']
                 else:
                     default_path = f"./{config['path']}/src/weights"
                     xcm_path = f"./{config['path']}/src/weights/xcm"
-                    output_path = default_path if not pallet.startswith("pallet_xcm_benchmarks") else xcm_path
+                    output_path = default_path
+                    if pallet.startswith("pallet_xcm_benchmarks"):
+                        template = config['template']
+                        output_path = xcm_path
+
                 print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
                 cmd = f"frame-omni-bencher v1 benchmark pallet " \
                     f"--extrinsic=* " \
@@ -163,6 +169,7 @@ def main():
                     f"--steps=50 " \
                     f"--repeat=20 " \
                     f"--heap-pages=4096 " \
+                    f"--template={template} " if template else "" \
                     f"--no-storage-info --no-min-squares --no-median-slopes"
                 print(f'-- Running: {cmd}')
                 status = os.system(cmd)
