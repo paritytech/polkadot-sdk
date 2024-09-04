@@ -9,11 +9,13 @@
 mod tests;
 
 pub mod inbound;
+pub mod location;
 pub mod operating_mode;
 pub mod outbound;
 pub mod pricing;
 pub mod ringbuffer;
 
+pub use location::{AgentId, AgentIdOf, TokenId, TokenIdOf};
 pub use polkadot_parachain_primitives::primitives::{
 	Id as ParaId, IsSystem, Sibling as SiblingParaId,
 };
@@ -28,11 +30,7 @@ use sp_core::{ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
-use xcm::prelude::{
-	AccountId32, AccountKey20, GeneralIndex, GeneralKey, GlobalConsensus, Junction::Parachain,
-	Location, PalletInstance,
-};
-use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
+use xcm::prelude::{Junction::Parachain, Location};
 
 /// The ID of an agent contract
 pub use operating_mode::BasicOperatingMode;
@@ -159,66 +157,4 @@ pub struct AssetMetadata {
 	pub name: BoundedVec<u8, ConstU32<32>>,
 	pub symbol: BoundedVec<u8, ConstU32<32>>,
 	pub decimals: u8,
-}
-
-pub type AgentId = H256;
-
-/// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
-/// Ethereum which acts as the sovereign account for the Location.
-pub type AgentIdOf =
-	HashedDescription<AgentId, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
-
-pub type TokenId = H256;
-
-/// Convert a token location to a stable ID that can be used on the Ethereum side
-pub type TokenIdOf =
-	HashedDescription<TokenId, DescribeGlobalPrefix<DescribeFamily<DescribeToken>>>;
-
-pub struct DescribeHere;
-impl DescribeLocation for DescribeHere {
-	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match l.unpack() {
-			(0, []) => Some(Vec::<u8>::new().encode()),
-			_ => None,
-		}
-	}
-}
-pub struct DescribeGlobalPrefix<DescribeInterior>(sp_std::marker::PhantomData<DescribeInterior>);
-impl<Suffix: DescribeLocation> DescribeLocation for DescribeGlobalPrefix<Suffix> {
-	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match (l.parent_count(), l.first_interior()) {
-			(_, Some(GlobalConsensus(network))) => {
-				let tail = l.clone().split_first_interior().0;
-				let interior = Suffix::describe_location(&tail.into())?;
-				Some((b"PNA", network, interior).encode())
-			},
-			_ => None,
-		}
-	}
-}
-
-pub struct DescribeToken;
-impl DescribeLocation for DescribeToken {
-	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match l.unpack().1 {
-			[] => Some(Vec::<u8>::new().encode()),
-			[GeneralIndex(index)] => Some((*index).encode()),
-			[GeneralKey { data, .. }] => Some((*data).encode()),
-			[AccountKey20 { key, .. }] => Some((*key).encode()),
-			[AccountId32 { id, .. }] => Some((*id).encode()),
-
-			// Pallet
-			[PalletInstance(instance)] => Some((*instance).encode()),
-			[PalletInstance(instance), GeneralIndex(index)] => Some((*instance, *index).encode()),
-			[PalletInstance(instance), GeneralKey { data, .. }] =>
-				Some((*instance, *data).encode()),
-
-			[PalletInstance(instance), AccountKey20 { key, .. }] =>
-				Some((*instance, *key).encode()),
-			[PalletInstance(instance), AccountId32 { id, .. }] => Some((*instance, *id).encode()),
-
-			// Reject all other locations
-			_ => None,
-		}
-	}
 }
