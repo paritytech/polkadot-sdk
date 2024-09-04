@@ -24,8 +24,17 @@ benchmarks! {
 			T: mq::Config,
 	}
 
+<<<<<<< HEAD
 	receive_upward_messages {
 		let i in 1 .. 1000;
+=======
+	enact_candidate {
+		let u in 0 .. 2;
+		let h in 0 .. 2;
+		let c in 0 .. 1;
+
+		let para = 42_u32.into();	// not especially important.
+>>>>>>> de0b6f25 (try making bench numbers make sense (#5526))
 
 		let max_len = mq::MaxMessageLenOf::<T>::get() as usize;
 		let para = 42u32.into();	// not especially important.
