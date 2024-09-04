@@ -162,10 +162,7 @@ impl<T: Config> Memory<T> for [u8] {
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
 	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
-		self.read_memory_into(ptr, buf).map(|_| ()).map_err(|err| {
-			log::debug!( target: LOG_TARGET, "Out of bounds read ptr: {ptr:?}: {err:?}",);
-			Error::<T>::OutOfBounds.into()
-		})
+		self.read_memory_into(ptr, buf).map(|_| ())
 	}
 
 	fn write(&mut self, ptr: u32, buf: &[u8]) -> Result<(), DispatchError> {
@@ -1223,10 +1220,6 @@ pub mod env {
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		log::debug!(
-			target: LOG_TARGET,
-			"\n===\n<flags: {flags:?}, callee_ptr: {callee_ptr:?}, ref_time_limit: {ref_time_limit:?}, proof_size_limit: {proof_size_limit:?}, deposit_ptr: {deposit_ptr:?}, value_ptr: {value_ptr:?}, input_data_ptr: {input_data_ptr:?}, input_data_len: {input_data_len:?}, output_ptr: {output_ptr:?}, output_len_ptr: {output_len_ptr:?}>\n===\n",
-		);
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
