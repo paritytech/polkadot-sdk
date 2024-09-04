@@ -117,11 +117,6 @@
 //! [sp-genesis-builder-list]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.preset_names
 //! [sp-genesis-builder-get-preset]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset
 
-use std::{
-	fs,
-	path::{Path, PathBuf},
-};
-
 use clap::{Parser, Subcommand};
 use sc_chain_spec::{
 	json_patch, set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, ChainType,
@@ -129,6 +124,11 @@ use sc_chain_spec::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::{
+	borrow::Cow,
+	fs,
+	path::{Path, PathBuf},
+};
 
 /// A utility to easily create a chain spec definition.
 #[derive(Debug, Parser)]
@@ -188,7 +188,6 @@ pub struct CreateCmd {
 	#[clap(skip)]
 	code: Option<Cow<'static, [u8]>>,
 }
-use std::borrow::Cow;
 
 #[derive(Subcommand, Debug, Clone)]
 enum GenesisBuildAction {
