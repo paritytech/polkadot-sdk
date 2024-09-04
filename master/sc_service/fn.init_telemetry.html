@@ -157,12 +157,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     authority: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>,
     network: Network,
     client: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Client&gt;,
-    telemetry: &amp;mut <a class="struct" href="../sc_telemetry/struct.Telemetry.html" title="struct sc_telemetry::Telemetry">Telemetry</a>,
-    sysinfo: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sc_telemetry/struct.SysInfo.html" title="struct sc_telemetry::SysInfo">SysInfo</a>&gt;
-) -&gt; <a class="type" href="../sc_telemetry/error/type.Result.html" title="type sc_telemetry::error::Result">Result</a>&lt;<a class="struct" href="../sc_telemetry/struct.TelemetryHandle.html" title="struct sc_telemetry::TelemetryHandle">TelemetryHandle</a>&gt;<div class="where">where
+    telemetry: &amp;mut Telemetry,
+    sysinfo: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;SysInfo&gt;
+) -&gt; Result&lt;TelemetryHandle&gt;<div class="where">where
     Block: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
     Client: <a class="trait" href="../sc_client_api/client/trait.BlockBackend.html" title="trait sc_client_api::client::BlockBackend">BlockBackend</a>&lt;Block&gt;,
-    Network: NetworkStateInfo,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Initialize telemetry with provided configuration and return telemetry handle</p>
+    Network: <a class="trait" href="../sc_network/service/traits/trait.NetworkStateInfo.html" title="trait sc_network::service::traits::NetworkStateInfo">NetworkStateInfo</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Initialize telemetry with provided configuration and return telemetry handle</p>
 </div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

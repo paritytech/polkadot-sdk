@@ -157,26 +157,26 @@ authorities. Alternatively we can pass a target block when we want to skip downl
 proofs, in this case we will continue polling until the target block is known.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.add_peer" class="method"><a class="src rightside" href="../../../src/sc_network_sync/strategy/warp.rs.html#263-267">source</a><h4 class="code-header">pub fn <a href="#method.add_peer" class="fn">add_peer</a>(
     &amp;mut self,
-    peer_id: PeerId,
+    peer_id: <a class="struct" href="../../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
     _best_hash: B::<a class="associatedtype" href="../../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
     best_number: <a class="type" href="../../../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;B&gt;
 )</h4></section></summary><div class="docblock"><p>Notify that a new peer has connected.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_peer" class="method"><a class="src rightside" href="../../../src/sc_network_sync/strategy/warp.rs.html#270-280">source</a><h4 class="code-header">pub fn <a href="#method.remove_peer" class="fn">remove_peer</a>(&amp;mut self, peer_id: &amp;PeerId)</h4></section></summary><div class="docblock"><p>Notify that a peer has disconnected.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_peer" class="method"><a class="src rightside" href="../../../src/sc_network_sync/strategy/warp.rs.html#270-280">source</a><h4 class="code-header">pub fn <a href="#method.remove_peer" class="fn">remove_peer</a>(&amp;mut self, peer_id: &amp;<a class="struct" href="../../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>)</h4></section></summary><div class="docblock"><p>Notify that a peer has disconnected.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.on_validated_block_announce" class="method"><a class="src rightside" href="../../../src/sc_network_sync/strategy/warp.rs.html#286-301">source</a><h4 class="code-header">pub fn <a href="#method.on_validated_block_announce" class="fn">on_validated_block_announce</a>(
     &amp;mut self,
     is_best: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>,
-    peer_id: PeerId,
+    peer_id: <a class="struct" href="../../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
     announce: &amp;<a class="struct" href="../../../sc_network_common/sync/message/generic/struct.BlockAnnounce.html" title="struct sc_network_common::sync::message::generic::BlockAnnounce">BlockAnnounce</a>&lt;B::<a class="associatedtype" href="../../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a>&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(B::<a class="associatedtype" href="../../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>, <a class="type" href="../../../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;B&gt;)&gt;</h4></section></summary><div class="docblock"><p>Submit a validated block announcement.</p>
 <p>Returns new best hash &amp; best number of the peer if they are updated.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.on_warp_proof_response" class="method"><a class="src rightside" href="../../../src/sc_network_sync/strategy/warp.rs.html#321-360">source</a><h4 class="code-header">pub fn <a href="#method.on_warp_proof_response" class="fn">on_warp_proof_response</a>(
     &amp;mut self,
-    peer_id: &amp;PeerId,
+    peer_id: &amp;<a class="struct" href="../../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
     response: <a class="struct" href="struct.EncodedProof.html" title="struct sc_network_sync::strategy::warp::EncodedProof">EncodedProof</a>
 )</h4></section></summary><div class="docblock"><p>Process warp proof response.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.on_block_response" class="method"><a class="src rightside" href="../../../src/sc_network_sync/strategy/warp.rs.html#363-372">source</a><h4 class="code-header">pub fn <a href="#method.on_block_response" class="fn">on_block_response</a>(
     &amp;mut self,
-    peer_id: PeerId,
+    peer_id: <a class="struct" href="../../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
     request: <a class="type" href="../../../sc_network_common/sync/message/type.BlockRequest.html" title="type sc_network_common::sync::message::BlockRequest">BlockRequest</a>&lt;B&gt;,
     blocks: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="type" href="../../../sc_network_common/sync/message/type.BlockData.html" title="type sc_network_common::sync::message::BlockData">BlockData</a>&lt;B&gt;&gt;
 )</h4></section></summary><div class="docblock"><p>Process (target) block response.</p>

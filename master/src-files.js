@@ -470,7 +470,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["sp_offchain",["",[],["lib.rs"]]],\
 ["sp_panic_handler",["",[],["lib.rs"]]],\
 ["sp_rpc",["",[],["lib.rs","list.rs","number.rs","tracing.rs"]]],\
-["sp_runtime",["",[["generic",[],["block.rs","checked_extrinsic.rs","digest.rs","era.rs","header.rs","mod.rs","unchecked_extrinsic.rs"]],["legacy",[],["byte_sized_error.rs"]],["offchain",[],["http.rs","mod.rs","storage.rs","storage_lock.rs"]]],["curve.rs","legacy.rs","lib.rs","multiaddress.rs","runtime_logger.rs","runtime_string.rs","testing.rs","traits.rs","transaction_validity.rs","type_with_default.rs"]]],\
+["sp_runtime",["",[["generic",[],["block.rs","checked_extrinsic.rs","digest.rs","era.rs","header.rs","mod.rs","unchecked_extrinsic.rs"]],["legacy",[],["byte_sized_error.rs"]],["offchain",[],["http.rs","mod.rs","storage.rs","storage_lock.rs"]]],["curve.rs","legacy.rs","lib.rs","multiaddress.rs","proving_trie.rs","runtime_logger.rs","runtime_string.rs","testing.rs","traits.rs","transaction_validity.rs","type_with_default.rs"]]],\
 ["sp_runtime_interface",["",[],["host.rs","impls.rs","lib.rs","pass_by.rs","util.rs","wasm.rs"]]],\
 ["sp_runtime_interface_proc_macro",["",[["pass_by",[],["codec.rs","enum_.rs","inner.rs","mod.rs"]],["runtime_interface",[],["bare_function_interface.rs","host_function_interface.rs","mod.rs","trait_decl_impl.rs"]]],["lib.rs","utils.rs"]]],\
 ["sp_runtime_interface_test",["",[],["lib.rs"]]],\

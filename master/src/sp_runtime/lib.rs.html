@@ -1324,6 +1324,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1172" id="1172">1172</a>
 <a href="#1173" id="1173">1173</a>
 <a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1416,6 +1432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>legacy;
 <span class="kw">mod </span>multiaddress;
 <span class="kw">pub mod </span>offchain;
+<span class="kw">pub mod </span>proving_trie;
 <span class="kw">pub mod </span>runtime_logger;
 <span class="kw">mod </span>runtime_string;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
@@ -1428,6 +1445,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Re-export Multiaddress
 </span><span class="kw">pub use </span>multiaddress::MultiAddress;
+
+<span class="kw">use </span>proving_trie::TrieError;
 
 <span class="doccomment">/// Re-export these since they're only "kind of" generic.
 </span><span class="kw">pub use </span>generic::{Digest, DigestItem};
@@ -1918,6 +1937,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Unavailable,
 	<span class="doccomment">/// Root origin is not allowed.
 	</span>RootNotAllowed,
+	<span class="doccomment">/// An error with tries.
+	</span>Trie(TrieError),
 }
 
 <span class="doccomment">/// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
@@ -2023,6 +2044,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="kw">impl </span>From&lt;TrieError&gt; <span class="kw">for </span>DispatchError {
+	<span class="kw">fn </span>from(e: TrieError) -&gt; DispatchError {
+		<span class="self">Self</span>::Trie(e)
+	}
+}
+
 <span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; <span class="kw">for </span>DispatchError {
 	<span class="kw">fn </span>from(err: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; DispatchError {
 		<span class="self">Self</span>::Other(err)
@@ -2047,6 +2074,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Corruption =&gt; <span class="string">"State corrupt"</span>,
 			Unavailable =&gt; <span class="string">"Resource unavailable"</span>,
 			RootNotAllowed =&gt; <span class="string">"Root not allowed"</span>,
+			Trie(e) =&gt; e.into(),
 		}
 	}
 }
@@ -2094,6 +2122,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Corruption =&gt; <span class="string">"State corrupt"</span>.print(),
 			Unavailable =&gt; <span class="string">"Resource unavailable"</span>.print(),
 			RootNotAllowed =&gt; <span class="string">"Root not allowed"</span>.print(),
+			Trie(e) =&gt; {
+				<span class="string">"Trie error: "</span>.print();
+				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
+			},
 		}
 	}
 }
