@@ -3603,6 +3603,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3451" id="3451">3451</a>
 <a href="#3452" id="3452">3452</a>
 <a href="#3453" id="3453">3453</a>
+<a href="#3454" id="3454">3454</a>
+<a href="#3455" id="3455">3455</a>
+<a href="#3456" id="3456">3456</a>
+<a href="#3457" id="3457">3457</a>
+<a href="#3458" id="3458">3458</a>
+<a href="#3459" id="3459">3459</a>
+<a href="#3460" id="3460">3460</a>
+<a href="#3461" id="3461">3461</a>
+<a href="#3462" id="3462">3462</a>
+<a href="#3463" id="3463">3463</a>
+<a href="#3464" id="3464">3464</a>
+<a href="#3465" id="3465">3465</a>
+<a href="#3466" id="3466">3466</a>
+<a href="#3467" id="3467">3467</a>
+<a href="#3468" id="3468">3468</a>
+<a href="#3469" id="3469">3469</a>
+<a href="#3470" id="3470">3470</a>
+<a href="#3471" id="3471">3471</a>
+<a href="#3472" id="3472">3472</a>
+<a href="#3473" id="3473">3473</a>
+<a href="#3474" id="3474">3474</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4719,6 +4740,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>CouncilMotionDuration: BlockNumber = <span class="number">5 </span>* DAYS;
 	<span class="kw">pub const </span>CouncilMaxProposals: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>CouncilMaxMembers: u32 = <span class="number">100</span>;
+	<span class="kw">pub const </span>ProposalDepositOffset: Balance = ExistentialDeposit::get() + ExistentialDeposit::get();
+	<span class="kw">pub const </span>ProposalHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Council(pallet_collective::HoldReason::ProposalSubmission);
 }
 
 <span class="kw">type </span>CouncilCollective = pallet_collective::Instance1;
@@ -4733,6 +4757,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = pallet_collective::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>SetMembersOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
 	<span class="kw">type </span>MaxProposalWeight = MaxCollectivesProposalWeight;
+	<span class="kw">type </span>DisapproveOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>KillOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>Consideration = HoldConsideration&lt;
+		AccountId,
+		Balances,
+		ProposalHoldReason,
+		pallet_collective::deposit::Delayed&lt;
+			ConstU32&lt;<span class="number">2</span>&gt;,
+			pallet_collective::deposit::Linear&lt;ConstU32&lt;<span class="number">2</span>&gt;, ProposalDepositOffset&gt;,
+		&gt;,
+		u32,
+	&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4794,6 +4830,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = pallet_collective::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>SetMembersOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
 	<span class="kw">type </span>MaxProposalWeight = MaxCollectivesProposalWeight;
+	<span class="kw">type </span>DisapproveOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>KillOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>Consideration = ();
 }
 
 <span class="kw">type </span>EnsureRootOrHalfCouncil = EitherOfDiverse&lt;
@@ -5632,6 +5671,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = pallet_collective::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>SetMembersOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
 	<span class="kw">type </span>MaxProposalWeight = MaxCollectivesProposalWeight;
+	<span class="kw">type </span>DisapproveOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>KillOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>Consideration = ();
 }
 
 <span class="macro">parameter_types! </span>{

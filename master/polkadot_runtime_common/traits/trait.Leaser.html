@@ -156,14 +156,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
     // Required methods
     fn <a href="#tymethod.lease_out" class="fn">lease_out</a>(
-        para: ParaId,
+        para: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
         leaser: &amp;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>,
         amount: &lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.Currency" title="type polkadot_runtime_common::traits::Leaser::Currency">Currency</a> as Currency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;&gt;::Balance,
         period_begin: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
         period_count: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.LeaseError.html" title="enum polkadot_runtime_common::traits::LeaseError">LeaseError</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.deposit_held" class="fn">deposit_held</a>(
-        para: ParaId,
+        para: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
         leaser: &amp;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>
     ) -&gt; &lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.Currency" title="type polkadot_runtime_common::traits::Leaser::Currency">Currency</a> as Currency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;&gt;::Balance;
 <span class="item-spacer"></span>    fn <a href="#tymethod.lease_period_length" class="fn">lease_period_length</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.tuple.html">(BlockNumber, BlockNumber)</a>;
@@ -171,7 +171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         block: BlockNumber
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>)&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.already_leased" class="fn">already_leased</a>(
-        para_id: ParaId,
+        para_id: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
         first_period: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
         last_period: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>
     ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>;
@@ -180,7 +180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><details class="toggle" open><summary><section id="associatedtype.LeasePeriod" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#109">source</a><h4 class="code-header">type <a href="#associatedtype.LeasePeriod" class="associatedtype">LeasePeriod</a></h4></section></summary><div class="docblock"><p>The measurement type for counting lease periods (generally just a <code>BlockNumber</code>).</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.Currency" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#112">source</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: ReservableCurrency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;</h4></section></summary><div class="docblock"><p>The currency type in which the lease is taken.</p>
 </div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.lease_out" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#126-132">source</a><h4 class="code-header">fn <a href="#tymethod.lease_out" class="fn">lease_out</a>(
-    para: ParaId,
+    para: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
     leaser: &amp;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>,
     amount: &lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.Currency" title="type polkadot_runtime_common::traits::Leaser::Currency">Currency</a> as Currency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;&gt;::Balance,
     period_begin: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
@@ -194,7 +194,7 @@ reserve/unreserve calls. The caller of this trait <em>SHOULD NOT</em> pre-reserv
 the <code>para</code> already has a slot leased during those periods.</p>
 <p>Returns <code>Err</code> in the case of an error, and in which case nothing is changed.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.deposit_held" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#136-139">source</a><h4 class="code-header">fn <a href="#tymethod.deposit_held" class="fn">deposit_held</a>(
-    para: ParaId,
+    para: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
     leaser: &amp;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>
 ) -&gt; &lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.Currency" title="type polkadot_runtime_common::traits::Leaser::Currency">Currency</a> as Currency&lt;Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.AccountId" title="type polkadot_runtime_common::traits::Leaser::AccountId">AccountId</a>&gt;&gt;::Balance</h4></section></summary><div class="docblock"><p>Return the amount of balance currently held in reserve on <code>leaser</code>’s account for leasing
 <code>para</code>. This won’t go down outside a lease period.</p>
@@ -204,7 +204,7 @@ This is only used in benchmarking to automate certain calls.</p>
 <p>Will return <code>None</code> if the first lease period has not started yet, for example when an offset
 is placed.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.already_leased" class="method"><a class="src rightside" href="../../src/polkadot_runtime_common/traits.rs.html#155-159">source</a><h4 class="code-header">fn <a href="#tymethod.already_leased" class="fn">already_leased</a>(
-    para_id: ParaId,
+    para_id: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
     first_period: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>,
     last_period: Self::<a class="associatedtype" href="trait.Leaser.html#associatedtype.LeasePeriod" title="type polkadot_runtime_common::traits::Leaser::LeasePeriod">LeasePeriod</a>
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns true if the parachain already has a lease in any of lease periods in the inclusive

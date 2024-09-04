@@ -1352,6 +1352,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1200" id="1200">1200</a>
 <a href="#1201" id="1201">1201</a>
 <a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1906,6 +1909,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>SetMembersOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>WeightInfo = weights::pallet_collective::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>MaxProposalWeight = MaxProposalWeight;
+	<span class="kw">type </span>DisapproveOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>KillOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>Consideration = ();
 }
 
 <span class="kw">pub const </span>MAX_FELLOWS: u32 = ALLIANCE_MAX_MEMBERS;

@@ -153,7 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 functions within the pallet.</p>
 </div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#503-900">source</a><a href="#impl-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait polkadot_runtime_parachains::hrmp::pallet::Config">Config</a>&gt; <a class="struct" href="struct.Pallet.html" title="struct polkadot_runtime_parachains::hrmp::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.hrmp_init_open_channel" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#249">source</a><h4 class="code-header">pub fn <a href="#method.hrmp_init_open_channel" class="fn">hrmp_init_open_channel</a>(
     origin: OriginFor&lt;T&gt;,
-    recipient: ParaId,
+    recipient: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
     proposed_max_capacity: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     proposed_max_message_size: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Initiate opening a channel from a parachain to a given recipient with given channel
@@ -167,18 +167,18 @@ parameters.</p>
 change.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.hrmp_accept_open_channel" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#249">source</a><h4 class="code-header">pub fn <a href="#method.hrmp_accept_open_channel" class="fn">hrmp_accept_open_channel</a>(
     origin: OriginFor&lt;T&gt;,
-    sender: ParaId
+    sender: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Accept a pending open channel request from the given sender.</p>
 <p>The channel will be opened only on the next session boundary.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.hrmp_close_channel" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#249">source</a><h4 class="code-header">pub fn <a href="#method.hrmp_close_channel" class="fn">hrmp_close_channel</a>(
     origin: OriginFor&lt;T&gt;,
-    channel_id: HrmpChannelId
+    channel_id: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.HrmpChannelId.html" title="struct polkadot_parachain_primitives::primitives::HrmpChannelId">HrmpChannelId</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Initiate unilateral closing of a channel. The origin must be either the sender or the
 recipient in the channel being closed.</p>
 <p>The closure can only happen on a session change.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.force_clean_hrmp" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#249">source</a><h4 class="code-header">pub fn <a href="#method.force_clean_hrmp" class="fn">force_clean_hrmp</a>(
     origin: OriginFor&lt;T&gt;,
-    para: ParaId,
+    para: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
     num_inbound: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     num_outbound: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>This extrinsic triggers the cleanup of all the HRMP storage items that a para may have.
@@ -204,7 +204,7 @@ all of those requests immediately.</p>
 <p>Origin must be the <code>ChannelManager</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.hrmp_cancel_open_request" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#249">source</a><h4 class="code-header">pub fn <a href="#method.hrmp_cancel_open_request" class="fn">hrmp_cancel_open_request</a>(
     origin: OriginFor&lt;T&gt;,
-    channel_id: HrmpChannelId,
+    channel_id: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.HrmpChannelId.html" title="struct polkadot_parachain_primitives::primitives::HrmpChannelId">HrmpChannelId</a>,
     open_requests: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>This cancels a pending open channel request. It can be canceled by either of the sender
 or the recipient for that request. The origin must be either of those.</p>
@@ -214,8 +214,8 @@ already accepted.</p>
 witness data.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.force_open_hrmp_channel" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#249">source</a><h4 class="code-header">pub fn <a href="#method.force_open_hrmp_channel" class="fn">force_open_hrmp_channel</a>(
     origin: OriginFor&lt;T&gt;,
-    sender: ParaId,
-    recipient: ParaId,
+    sender: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
+    recipient: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
     max_capacity: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     max_message_size: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
 ) -&gt; DispatchResultWithPostInfo</h4></section></summary><div class="docblock"><p>Open a channel from a <code>sender</code> to a <code>recipient</code> <code>ParaId</code>. Although opened by governance,
@@ -226,8 +226,8 @@ governed by the system, e.g. a system parachain.</p>
 <p>Origin must be the <code>ChannelManager</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.establish_system_channel" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#249">source</a><h4 class="code-header">pub fn <a href="#method.establish_system_channel" class="fn">establish_system_channel</a>(
     origin: OriginFor&lt;T&gt;,
-    sender: ParaId,
-    recipient: ParaId
+    sender: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
+    recipient: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>
 ) -&gt; DispatchResultWithPostInfo</h4></section></summary><div class="docblock"><p>Establish an HRMP channel between two system chains. If the channel does not already
 exist, the transaction fees will be refunded to the caller. The system does not take
 deposits for channels between system chains, and automatically sets the message number
@@ -241,8 +241,8 @@ and size limits to the maximum allowed by the network’s configuration.</p>
 the channel does not exist yet, there is no fee.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.poke_channel_deposits" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#249">source</a><h4 class="code-header">pub fn <a href="#method.poke_channel_deposits" class="fn">poke_channel_deposits</a>(
     origin: OriginFor&lt;T&gt;,
-    sender: ParaId,
-    recipient: ParaId
+    sender: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
+    recipient: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Update the deposits held for an HRMP channel to the latest <code>Configuration</code>. Channels
 with system chains do not require a deposit.</p>
 <p>Arguments:</p>
@@ -253,7 +253,7 @@ with system chains do not require a deposit.</p>
 <p>Any signed origin can call this function.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.establish_channel_with_system" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#249">source</a><h4 class="code-header">pub fn <a href="#method.establish_channel_with_system" class="fn">establish_channel_with_system</a>(
     origin: OriginFor&lt;T&gt;,
-    target_system_chain: ParaId
+    target_system_chain: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>
 ) -&gt; DispatchResultWithPostInfo</h4></section></summary><div class="docblock"><p>Establish a bidirectional HRMP channel between a parachain and a system chain.</p>
 <p>Arguments:</p>
 <ul>
@@ -262,8 +262,8 @@ with system chains do not require a deposit.</p>
 <p>The origin needs to be the parachain origin.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Pallet%3CT%3E-1" class="impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#927-1669">source</a><a href="#impl-Pallet%3CT%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait polkadot_runtime_parachains::hrmp::pallet::Config">Config</a>&gt; <a class="struct" href="struct.Pallet.html" title="struct polkadot_runtime_parachains::hrmp::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="docblock"><p>Routines and getters related to HRMP.</p>
 </div><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.init_open_channel" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#1428-1511">source</a><h4 class="code-header">pub fn <a href="#method.init_open_channel" class="fn">init_open_channel</a>(
-    origin: ParaId,
-    recipient: ParaId,
+    origin: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
+    recipient: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
     proposed_max_capacity: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     proposed_max_message_size: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Initiate opening a channel from a parachain to a given recipient with given channel
@@ -272,7 +272,7 @@ will be required for <code>origin</code> (the sender) upon opening the request a
 accepting it.</p>
 <p>Basically the same as <a href="struct.Pallet.html#method.hrmp_init_open_channel" title="associated function polkadot_runtime_parachains::hrmp::pallet::Pallet::hrmp_init_open_channel"><code>hrmp_init_open_channel</code></a> but
 intended for calling directly from other pallets rather than dispatched.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.accept_open_channel" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#1517-1561">source</a><h4 class="code-header">pub fn <a href="#method.accept_open_channel" class="fn">accept_open_channel</a>(origin: ParaId, sender: ParaId) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Accept a pending open channel request from the given sender.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.accept_open_channel" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#1517-1561">source</a><h4 class="code-header">pub fn <a href="#method.accept_open_channel" class="fn">accept_open_channel</a>(origin: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>, sender: <a class="struct" href="../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Accept a pending open channel request from the given sender.</p>
 <p>Basically the same as <a href="struct.Pallet.html#method.hrmp_accept_open_channel" title="associated function polkadot_runtime_parachains::hrmp::pallet::Pallet::hrmp_accept_open_channel"><code>hrmp_accept_open_channel</code></a> but
 intended for calling directly from other pallets rather than dispatched.</p>
 </div></details></div></details></div><h2 id="trait-implementations" class="section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-BeforeAllRuntimeMigrations-for-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#253">source</a><a href="#impl-BeforeAllRuntimeMigrations-for-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait polkadot_runtime_parachains::hrmp::pallet::Config">Config</a>&gt; BeforeAllRuntimeMigrations for <a class="struct" href="struct.Pallet.html" title="struct polkadot_runtime_parachains::hrmp::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.before_all_runtime_migrations" class="method trait-impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp.rs.html#253">source</a><a href="#method.before_all_runtime_migrations" class="anchor">§</a><h4 class="code-header">fn <a class="fn">before_all_runtime_migrations</a>() -&gt; Weight</h4></section></summary><div class='docblock'>Something that should happen before runtime migrations are executed.</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Benchmarking-for-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/hrmp/benchmarking.rs.html#153">source</a><a href="#impl-Benchmarking-for-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; Benchmarking for <a class="struct" href="struct.Pallet.html" title="struct polkadot_runtime_parachains::hrmp::pallet::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
