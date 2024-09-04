@@ -175,7 +175,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 	collator_pair: CollatorPair,
 	relay_chain_rpc_client: Arc<BlockChainRpcClient>,
 ) -> Result<NewMinimalNode, RelayChainError> {
-	let role = config.role.clone();
+	let role = config.role;
 	let mut net_config = sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(
 		&config.network,
 		config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),

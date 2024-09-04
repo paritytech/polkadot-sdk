@@ -18,23 +18,20 @@
 //! obsolete (duplicated) data or do not pass some additional pallet-specific
 //! checks.
 
-use crate::{
-	extensions::refund_relayer_extension::RefundableParachainId,
-	messages_call_ext::MessagesCallSubType,
-};
+use bp_parachains::SubmitParachainHeadsInfo;
 use bp_relayers::ExplicitOrAccountParams;
 use bp_runtime::Parachain;
 use pallet_bridge_grandpa::{
 	BridgedBlockNumber, CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper,
 };
-use pallet_bridge_parachains::{
-	CallSubType as ParachainsCallSubtype, SubmitParachainHeadsHelper, SubmitParachainHeadsInfo,
-};
+use pallet_bridge_messages::CallSubType as MessagesCallSubType;
+use pallet_bridge_parachains::{CallSubType as ParachainsCallSubtype, SubmitParachainHeadsHelper};
 use pallet_bridge_relayers::Pallet as RelayersPallet;
 use sp_runtime::{
-	traits::{Get, PhantomData, UniqueSaturatedInto},
+	traits::{Get, UniqueSaturatedInto},
 	transaction_validity::{TransactionPriority, TransactionValidity, ValidTransactionBuilder},
 };
+use sp_std::marker::PhantomData;
 
 // Re-export to avoid include tuplex dependency everywhere.
 #[doc(hidden)]
@@ -126,17 +123,27 @@ where
 /// `(BundledHeaderNumber - 1 - BestKnownHeaderNumber) * Priority::get()`.
 /// The boost is only applied if submitter has active registration in the relayers
 /// pallet.
-pub struct CheckAndBoostBridgeParachainsTransactions<T, RefPara, Priority, SlashAccount>(
-	PhantomData<(T, RefPara, Priority, SlashAccount)>,
-);
+pub struct CheckAndBoostBridgeParachainsTransactions<
+	T,
+	ParachainsInstance,
+	Para,
+	Priority,
+	SlashAccount,
+>(PhantomData<(T, ParachainsInstance, Para, Priority, SlashAccount)>);
 
-impl<T, RefPara, Priority: Get<TransactionPriority>, SlashAccount: Get<T::AccountId>>
-	BridgeRuntimeFilterCall<T::AccountId, T::RuntimeCall>
-	for CheckAndBoostBridgeParachainsTransactions<T, RefPara, Priority, SlashAccount>
+impl<
+		T,
+		ParachainsInstance,
+		Para,
+		Priority: Get<TransactionPriority>,
+		SlashAccount: Get<T::AccountId>,
+	> BridgeRuntimeFilterCall<T::AccountId, T::RuntimeCall>
+	for CheckAndBoostBridgeParachainsTransactions<T, ParachainsInstance, Para, Priority, SlashAccount>
 where
-	T: pallet_bridge_relayers::Config + pallet_bridge_parachains::Config<RefPara::Instance>,
-	RefPara: RefundableParachainId,
-	T::RuntimeCall: ParachainsCallSubtype<T, RefPara::Instance>,
+	T: pallet_bridge_relayers::Config + pallet_bridge_parachains::Config<ParachainsInstance>,
+	ParachainsInstance: 'static,
+	Para: Parachain,
+	T::RuntimeCall: ParachainsCallSubtype<T, ParachainsInstance>,
 {
 	// bridged header number, bundled in transaction
 	type ToPostDispatch = Option<SubmitParachainHeadsInfo>;
@@ -145,10 +152,10 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 	) -> (Self::ToPostDispatch, TransactionValidity) {
-		match ParachainsCallSubtype::<T, RefPara::Instance>::check_obsolete_submit_parachain_heads(
+		match ParachainsCallSubtype::<T, ParachainsInstance>::check_obsolete_submit_parachain_heads(
 			call,
 		) {
-			Ok(Some(our_tx)) if our_tx.base.para_id.0 == RefPara::BridgedChain::PARACHAIN_ID => {
+			Ok(Some(our_tx)) if our_tx.base.para_id.0 == Para::PARACHAIN_ID => {
 				let to_post_dispatch = Some(our_tx.base);
 				let total_priority_boost =
 					compute_priority_boost::<T, _, Priority>(&who, our_tx.improved_by);
@@ -167,7 +174,7 @@ where
 		let Some(update) = maybe_update else { return };
 		// we are only interested in failed or unneeded transactions
 		let has_failed = has_failed ||
-			!SubmitParachainHeadsHelper::<T, RefPara::Instance>::was_successful(&update);
+			!SubmitParachainHeadsHelper::<T, ParachainsInstance>::was_successful(&update);
 
 		if !has_failed {
 			return
@@ -275,7 +282,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 			type Pre = (
 				$account_id,
 				( $(
-					<$filter_call as $crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
+					<$filter_call as $crate::extensions::BridgeRuntimeFilterCall<
 						$account_id,
 						$call,
 					>>::ToPostDispatch,
@@ -302,7 +309,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				$(
 					let (from_validate, call_filter_validity) = <
 						$filter_call as
-						$crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
+						$crate::extensions::BridgeRuntimeFilterCall<
 							Self::AccountId,
 							$call,
 						>>::validate(&who, call);
@@ -319,12 +326,13 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
 				len: usize,
 			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-				use $crate::extensions::check_obsolete_extension::__private::tuplex::PushBack;
+				use $crate::extensions::__private::tuplex::PushBack;
+
 				let to_post_dispatch = ();
 				$(
 					let (from_validate, call_filter_validity) = <
 						$filter_call as
-						$crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
+						$crate::extensions::BridgeRuntimeFilterCall<
 							$account_id,
 							$call,
 						>>::validate(&relayer, call);
@@ -342,14 +350,15 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				len: usize,
 				result: &sp_runtime::DispatchResult,
 			) -> Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
-				use $crate::extensions::check_obsolete_extension::__private::tuplex::PopFront;
+				use $crate::extensions::__private::tuplex::PopFront;
+
 				let Some((relayer, to_post_dispatch)) = to_post_dispatch else { return Ok(()) };
 				let has_failed = result.is_err();
 				$(
 					let (item, to_post_dispatch) = to_post_dispatch.pop_front();
 					<
 						$filter_call as
-						$crate::extensions::check_obsolete_extension::BridgeRuntimeFilterCall<
+						$crate::extensions::BridgeRuntimeFilterCall<
 							$account_id,
 							$call,
 						>>::post_dispatch(&relayer, has_failed, item);
@@ -363,24 +372,36 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{
-		extensions::refund_relayer_extension::{
-			tests::{
-				initialize_environment, relayer_account_at_this_chain,
-				submit_parachain_head_call_ex, submit_relay_header_call_ex,
-			},
-			RefundableParachain,
-		},
-		mock::*,
-	};
-	use bp_polkadot_core::parachains::ParaId;
+	use crate::mock::*;
+	use bp_header_chain::StoredHeaderDataBuilder;
+	use bp_messages::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData};
+	use bp_parachains::{BestParaHeadHash, ParaInfo};
+	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
+	use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 	use bp_runtime::HeaderId;
-	use frame_support::{assert_err, assert_ok};
+	use bp_test_utils::{make_default_justification, test_keyring, TEST_GRANDPA_SET_ID};
+	use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
+	use pallet_bridge_grandpa::{Call as GrandpaCall, StoredAuthoritySet};
+	use pallet_bridge_parachains::Call as ParachainsCall;
 	use sp_runtime::{
-		traits::{ConstU64, SignedExtension},
+		traits::{parameter_types, ConstU64, Header as _, SignedExtension},
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 		DispatchError,
 	};
+
+	parameter_types! {
+		pub MsgProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
+			test_lane_id(),
+			TEST_BRIDGED_CHAIN_ID,
+			RewardsAccountOwner::ThisChain,
+		);
+		pub MsgDeliveryProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
+			test_lane_id(),
+			TEST_BRIDGED_CHAIN_ID,
+			RewardsAccountOwner::BridgedChain,
+		);
+		pub TestLaneId: LaneId = test_lane_id();
+	}
 
 	pub struct MockCall {
 		data: u32,
@@ -453,6 +474,103 @@ mod tests {
 			Self::post_dispatch_called_with(!has_failed);
 			assert_eq!(to_post_dispatch, 2);
 		}
+	}
+
+	fn test_lane_id() -> LaneId {
+		LaneId::new(1, 2)
+	}
+
+	fn initial_balance_of_relayer_account_at_this_chain() -> ThisChainBalance {
+		let test_stake: ThisChainBalance = TestStake::get();
+		ExistentialDeposit::get().saturating_add(test_stake * 100)
+	}
+
+	// in tests, the following accounts are equal (because of how `into_sub_account_truncating`
+	// works)
+
+	fn delivery_rewards_account() -> ThisChainAccountId {
+		TestPaymentProcedure::rewards_account(MsgProofsRewardsAccount::get())
+	}
+
+	fn confirmation_rewards_account() -> ThisChainAccountId {
+		TestPaymentProcedure::rewards_account(MsgDeliveryProofsRewardsAccount::get())
+	}
+
+	fn relayer_account_at_this_chain() -> ThisChainAccountId {
+		0
+	}
+
+	fn initialize_environment(
+		best_relay_header_number: BridgedChainBlockNumber,
+		parachain_head_at_relay_header_number: BridgedChainBlockNumber,
+		best_message: MessageNonce,
+	) {
+		let authorities = test_keyring().into_iter().map(|(a, w)| (a.into(), w)).collect();
+		let best_relay_header = HeaderId(best_relay_header_number, BridgedChainHash::default());
+		pallet_bridge_grandpa::CurrentAuthoritySet::<TestRuntime>::put(
+			StoredAuthoritySet::try_new(authorities, TEST_GRANDPA_SET_ID).unwrap(),
+		);
+		pallet_bridge_grandpa::BestFinalized::<TestRuntime>::put(best_relay_header);
+		pallet_bridge_grandpa::ImportedHeaders::<TestRuntime>::insert(
+			best_relay_header.hash(),
+			bp_test_utils::test_header::<BridgedChainHeader>(0).build(),
+		);
+
+		let para_id = ParaId(BridgedUnderlyingParachain::PARACHAIN_ID);
+		let para_info = ParaInfo {
+			best_head_hash: BestParaHeadHash {
+				at_relay_block_number: parachain_head_at_relay_header_number,
+				head_hash: [parachain_head_at_relay_header_number as u8; 32].into(),
+			},
+			next_imported_hash_position: 0,
+		};
+		pallet_bridge_parachains::ParasInfo::<TestRuntime>::insert(para_id, para_info);
+
+		let lane_id = test_lane_id();
+		let in_lane_data =
+			InboundLaneData { last_confirmed_nonce: best_message, ..Default::default() };
+		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(lane_id, in_lane_data);
+
+		let out_lane_data =
+			OutboundLaneData { latest_received_nonce: best_message, ..Default::default() };
+		pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(lane_id, out_lane_data);
+
+		Balances::mint_into(&delivery_rewards_account(), ExistentialDeposit::get()).unwrap();
+		Balances::mint_into(&confirmation_rewards_account(), ExistentialDeposit::get()).unwrap();
+		Balances::mint_into(
+			&relayer_account_at_this_chain(),
+			initial_balance_of_relayer_account_at_this_chain(),
+		)
+		.unwrap();
+	}
+
+	fn submit_relay_header_call(relay_header_number: BridgedChainBlockNumber) -> RuntimeCall {
+		let relay_header = BridgedChainHeader::new(
+			relay_header_number,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+		let relay_justification = make_default_justification(&relay_header);
+
+		RuntimeCall::BridgeGrandpa(GrandpaCall::submit_finality_proof {
+			finality_target: Box::new(relay_header),
+			justification: relay_justification,
+		})
+	}
+
+	fn submit_parachain_head_call(
+		parachain_head_at_relay_header_number: BridgedChainBlockNumber,
+	) -> RuntimeCall {
+		RuntimeCall::BridgeParachains(ParachainsCall::submit_parachain_heads {
+			at_relay_block: (parachain_head_at_relay_header_number, BridgedChainHash::default()),
+			parachains: vec![(
+				ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
+				[parachain_head_at_relay_header_number as u8; 32].into(),
+			)],
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
+		})
 	}
 
 	#[test]
@@ -546,7 +664,7 @@ mod tests {
 
 			let priority_boost = BridgeGrandpaWrapper::validate(
 				&relayer_account_at_this_chain(),
-				&submit_relay_header_call_ex(200),
+				&submit_relay_header_call(200),
 			)
 			.1
 			.unwrap()
@@ -564,7 +682,7 @@ mod tests {
 
 			let priority_boost = BridgeGrandpaWrapper::validate(
 				&relayer_account_at_this_chain(),
-				&submit_relay_header_call_ex(200),
+				&submit_relay_header_call(200),
 			)
 			.1
 			.unwrap()
@@ -601,7 +719,8 @@ mod tests {
 
 	type BridgeParachainsWrapper = CheckAndBoostBridgeParachainsTransactions<
 		TestRuntime,
-		RefundableParachain<(), BridgedUnderlyingParachain>,
+		(),
+		BridgedUnderlyingParachain,
 		ConstU64<1_000>,
 		SlashDestination,
 	>;
@@ -613,7 +732,7 @@ mod tests {
 
 			let priority_boost = BridgeParachainsWrapper::validate(
 				&relayer_account_at_this_chain(),
-				&submit_parachain_head_call_ex(200),
+				&submit_parachain_head_call(200),
 			)
 			.1
 			.unwrap()
@@ -631,7 +750,7 @@ mod tests {
 
 			let priority_boost = BridgeParachainsWrapper::validate(
 				&relayer_account_at_this_chain(),
-				&submit_parachain_head_call_ex(200),
+				&submit_parachain_head_call(200),
 			)
 			.1
 			.unwrap()
