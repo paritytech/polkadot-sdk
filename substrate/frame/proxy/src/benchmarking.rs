@@ -23,22 +23,24 @@ use super::*;
 use crate::Pallet as Proxy;
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
-use frame_support::traits::{Currency as CurrencyTrait};
+use frame_support::traits::Currency as CurrencyTrait;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::traits::Bounded;
 
 const SEED: u32 = 0;
 
-type Balances<T> = pallet_balances::Pallet::<T>;
+type Balances<T> = pallet_balances::Pallet<T>;
 
-type BalanceOf<T> =
-	<Balances<T> as CurrencyTrait<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> = <Balances<T> as CurrencyTrait<<T as frame_system::Config>::AccountId>>::Balance;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
-fn add_proxies<T: Config + pallet_balances::Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(), &'static str> {
+fn add_proxies<T: Config + pallet_balances::Config>(
+	n: u32,
+	maybe_who: Option<T::AccountId>,
+) -> Result<(), &'static str> {
 	let caller = maybe_who.unwrap_or_else(whitelisted_caller);
 	Balances::<T>::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 	for i in 0..n {

@@ -45,8 +45,8 @@ use frame_support::{
 	traits::{
 		fungible, fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
-		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
-		InstanceFilter, LinearStoragePrice, TransformOrigin, ZeroFootprintOr,
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, InstanceFilter,
+		LinearStoragePrice, TransformOrigin, ZeroFootprintOr,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,

@@ -40,9 +40,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
-	traits::{
-		Consideration, Footprint, Get, InstanceFilter, IsSubType, IsType, OriginTrait,
-	},
+	traits::{Consideration, Footprint, Get, InstanceFilter, IsSubType, IsType, OriginTrait},
 	BoundedVec,
 };
 use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};

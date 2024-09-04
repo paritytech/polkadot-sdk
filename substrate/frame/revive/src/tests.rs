@@ -69,7 +69,7 @@ use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, Convert, IdentityLookup},
+	traits::{Convert, IdentityLookup},
 	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
 };
 

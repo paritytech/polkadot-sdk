@@ -24,9 +24,7 @@ use crate as pallet_tx_pause;
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{
-		Everything, InsideBoth, InstanceFilter,
-	},
+	traits::{Everything, InsideBoth, InstanceFilter},
 };
 use frame_system::EnsureSignedBy;
 use sp_runtime::BuildStorage;
