@@ -9,6 +9,9 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [lints]
 workspace = true
 
+[dev-dependencies]
+portpicker = "0.1.1"
+
 [dependencies]
 polkadot-overseer = { workspace = true, default-features = true }
 
