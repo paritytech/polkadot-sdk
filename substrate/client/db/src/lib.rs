@@ -92,6 +92,7 @@ use sp_state_machine::{
 	StorageValue, UsageInfo as StateUsageInfo,
 };
 use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
+use utils::BLOCK_GAP_CURRENT_VERSION;
 
 // Re-export the Database trait so that one can pass an implementation of it.
 pub use sc_state_db::PruningMode;
@@ -1685,6 +1686,7 @@ impl<Block: BlockT> Backend<Block> {
 								)?;
 								if gap.start > gap.end {
 									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
 									block_gap = None;
 									debug!(target: "db", "Removed block gap.");
 								} else {
@@ -1694,6 +1696,11 @@ impl<Block: BlockT> Backend<Block> {
 										columns::META,
 										meta_keys::BLOCK_GAP,
 										&gap.encode(),
+									);
+									transaction.set(
+										columns::META,
+										meta_keys::BLOCK_GAP_VERSION,
+										&BLOCK_GAP_CURRENT_VERSION.encode(),
 									);
 								}
 								block_gap_updated = true;
@@ -1711,6 +1718,11 @@ impl<Block: BlockT> Backend<Block> {
 						gap_type: BlockGapType::MissingHeaderAndBody,
 					};
 					transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
+					transaction.set(
+						columns::META,
+						meta_keys::BLOCK_GAP_VERSION,
+						&BLOCK_GAP_CURRENT_VERSION.encode(),
+					);
 					block_gap = Some(gap);
 					block_gap_updated = true;
 					debug!(target: "db", "Detected block gap {block_gap:?}");
