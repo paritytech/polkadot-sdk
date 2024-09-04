@@ -1905,8 +1905,8 @@ pub mod pallet_macros {
 	///   metadata where the item was declared.
 	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 	/// - It's possible to deprecated either certain variants inside the `Error` or the whole
-	///   `Error` itself. If both the `Error` and its variants are deprecated a compile
-	///   error will be returned.
+	///   `Error` itself. If both the `Error` and its variants are deprecated a compile error
+	///   will be returned.
 	pub use frame_support_procedural::error;
 
 	/// Allows defining pallet events.
@@ -1955,8 +1955,8 @@ pub mod pallet_macros {
 	///   metadata where the item was declared.
 	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 	/// - It's possible to deprecated either certain variants inside the `Event` or the whole
-	///   `Event` itself. If both the `Event` and its variants are deprecated a compile
-	///   error will be returned.
+	///   `Event` itself. If both the `Event` and its variants are deprecated a compile error
+	///   will be returned.
 	pub use frame_support_procedural::event;
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*.
