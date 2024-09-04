@@ -39,7 +39,7 @@ use crate::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_race_delivery::run as run_message_delivery_race,
 	message_race_receiving::run as run_message_receiving_race,
-	metrics::MessageLaneLoopMetrics,
+	metrics::{lane_to_label, MessageLaneLoopMetrics},
 };
 
 /// Message lane loop configuration params.
@@ -276,7 +276,7 @@ pub struct ClientsState<P: MessageLane> {
 /// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs
 /// sync loop.
 pub fn metrics_prefix<P: MessageLane>(lane: &LaneId) -> String {
-	format!("{}_to_{}_MessageLane_{:?}", P::SOURCE_NAME, P::TARGET_NAME, lane)
+	format!("{}_to_{}_MessageLane_{}", P::SOURCE_NAME, P::TARGET_NAME, lane_to_label(lane))
 }
 
 /// Run message lane service loop.
@@ -1279,6 +1279,10 @@ pub(crate) mod tests {
 	fn metrics_prefix_is_valid() {
 		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<TestMessageLane>(
 			&LaneId::new(1, 2)
+		)))
+		.is_ok());
+		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<TestMessageLane>(
+			&LaneId::from_inner(sp_runtime::Either::Right([0, 0, 0, 1]))
 		)))
 		.is_ok());
 	}

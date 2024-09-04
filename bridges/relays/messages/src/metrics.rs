@@ -21,11 +21,12 @@ use crate::{
 	message_lane_loop::{SourceClientState, TargetClientState},
 };
 
-use bp_messages::MessageNonce;
+use bp_messages::{LaneId, MessageNonce};
 use finality_relay::SyncLoopMetrics;
 use relay_utils::metrics::{
 	metric_name, register, GaugeVec, Metric, Opts, PrometheusError, Registry, U64,
 };
+use sp_runtime::Either;
 
 /// Message lane relay metrics.
 ///
@@ -145,4 +146,21 @@ impl Metric for MessageLaneLoopMetrics {
 		register(self.lane_state_nonces.clone(), registry)?;
 		Ok(())
 	}
+}
+
+/// Unified label for `LaneId`.
+pub fn lane_to_label(lane: &LaneId) -> String {
+	match lane.inner() {
+		Either::Left(hash) => format!("{:?}", hash),
+		Either::Right(array) => hex::encode(array),
+	}
+}
+
+#[test]
+fn lane_to_label_works() {
+	assert_eq!(
+		"0x0101010101010101010101010101010101010101010101010101010101010101",
+		lane_to_label(&LaneId::from_inner(Either::Left(sp_core::H256::from([1u8; 32])))),
+	);
+	assert_eq!("00000001", lane_to_label(&LaneId::from_inner(Either::Right([0, 0, 0, 1]))));
 }

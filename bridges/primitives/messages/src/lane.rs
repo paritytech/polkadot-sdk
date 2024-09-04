@@ -86,6 +86,14 @@ impl LaneId {
 			Either::Right(array) => InnerLaneId::Array(array),
 		})
 	}
+
+	/// Access the inner lane representation.
+	pub fn inner(&self) -> Either<&H256, &[u8; 4]> {
+		match &self.0 {
+			InnerLaneId::Array(array) => Either::Right(array),
+			InnerLaneId::Hash(hash) => Either::Left(hash),
+		}
+	}
 }
 
 impl core::fmt::Display for LaneId {
