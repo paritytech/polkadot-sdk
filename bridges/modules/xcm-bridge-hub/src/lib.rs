@@ -726,7 +726,7 @@ pub mod pallet {
 		/// Keep in mind that we are **NOT** reserving any amount for the bridges opened at
 		/// genesis. We are **NOT** opening lanes, used by this bridge. It all must be done using
 		/// other pallets genesis configuration or some other means.
-		pub opened_bridges: Vec<(Location, InteriorLocation)>,
+		pub opened_bridges: Vec<(Location, InteriorLocation, Option<LaneId>)>,
 		/// Dummy marker.
 		#[serde(skip)]
 		pub _phantom: sp_std::marker::PhantomData<(T, I)>,
@@ -738,16 +738,22 @@ pub mod pallet {
 		T: frame_system::Config<AccountId = AccountIdOf<ThisChainOf<T, I>>>,
 	{
 		fn build(&self) {
-			for (bridge_origin_relative_location, bridge_destination_universal_location) in
-				&self.opened_bridges
+			for (
+				bridge_origin_relative_location,
+				bridge_destination_universal_location,
+				maybe_lane_id,
+			) in &self.opened_bridges
 			{
 				let locations = Pallet::<T, I>::bridge_locations(
 					bridge_origin_relative_location.clone(),
 					bridge_destination_universal_location.clone().into(),
 				)
 				.expect("Invalid genesis configuration");
-				let lane_id =
-					locations.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations");
+				let lane_id = match maybe_lane_id {
+					Some(lane_id) => lane_id.clone(),
+					None =>
+						locations.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations"),
+				};
 				let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
 					locations.bridge_origin_relative_location(),
 				)

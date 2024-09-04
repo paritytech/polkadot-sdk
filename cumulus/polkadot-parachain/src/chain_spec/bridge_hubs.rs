@@ -15,12 +15,15 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
+use bp_messages::LaneId;
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as BridgeHubBalance;
 use polkadot_parachain_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::ChainSpec;
 use sp_core::sr25519;
+use sp_runtime::Either;
 use std::str::FromStr;
+use xcm::latest::prelude::*;
 
 /// Collects all supported BridgeHub configurations
 #[derive(Debug, PartialEq)]
@@ -82,6 +85,11 @@ impl BridgeHubRuntimeType {
 				"westend-local",
 				ParaId::new(1002),
 				Some("Bob".to_string()),
+				vec![(
+					Location::new(1, [Parachain(1000)]),
+					Junctions::from([Rococo.into(), Parachain(1000)]),
+					Some(LaneId::from_inner(Either::Right([0, 0, 0, 2]))),
+				)],
 			))),
 			BridgeHubRuntimeType::WestendDevelopment => Ok(Box::new(westend::local_config(
 				westend::BRIDGE_HUB_WESTEND_DEVELOPMENT,
@@ -89,6 +97,7 @@ impl BridgeHubRuntimeType {
 				"westend-dev",
 				ParaId::new(1002),
 				Some("Bob".to_string()),
+				vec![],
 			))),
 			BridgeHubRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/bridge-hub-rococo.json")[..],
@@ -99,6 +108,11 @@ impl BridgeHubRuntimeType {
 				"rococo-local",
 				ParaId::new(1013),
 				Some("Bob".to_string()),
+				vec![(
+					Location::new(1, [Parachain(1000)]),
+					Junctions::from([Westend.into(), Parachain(1000)]),
+					Some(LaneId::from_inner(Either::Right([0, 0, 0, 2]))),
+				)],
 				|_| (),
 			))),
 			BridgeHubRuntimeType::RococoDevelopment => Ok(Box::new(rococo::local_config(
@@ -107,6 +121,7 @@ impl BridgeHubRuntimeType {
 				"rococo-dev",
 				ParaId::new(1013),
 				Some("Bob".to_string()),
+				vec![],
 				|_| (),
 			))),
 			other => Err(std::format!("No default config present for {:?}", other)),
@@ -129,13 +144,11 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 
 /// Sub-module for Rococo setup
 pub mod rococo {
-	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
+	use super::*;
 	use crate::chain_spec::SAFE_XCM_VERSION;
 	use parachains_common::{AccountId, AuraId};
 	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-
-	use super::BridgeHubBalance;
 
 	pub(crate) const BRIDGE_HUB_ROCOCO: &str = "bridge-hub-rococo";
 	pub(crate) const BRIDGE_HUB_ROCOCO_LOCAL: &str = "bridge-hub-rococo-local";
@@ -149,6 +162,7 @@ pub mod rococo {
 		relay_chain: &str,
 		para_id: ParaId,
 		bridges_pallet_owner_seed: Option<String>,
+		opened_bridges: Vec<(Location, InteriorLocation, Option<LaneId>)>,
 		modify_props: ModifyProperties,
 	) -> GenericChainSpec {
 		// Rococo defaults
@@ -196,6 +210,7 @@ pub mod rococo {
 			bridges_pallet_owner_seed
 				.as_ref()
 				.map(|seed| get_account_id_from_seed::<sr25519::Public>(seed)),
+			opened_bridges,
 		))
 		.with_properties(properties)
 		.build()
@@ -206,6 +221,7 @@ pub mod rococo {
 		endowed_accounts: Vec<AccountId>,
 		id: ParaId,
 		bridges_pallet_owner: Option<AccountId>,
+		opened_bridges: Vec<(Location, InteriorLocation, Option<LaneId>)>,
 	) -> serde_json::Value {
 		serde_json::json!({
 			"balances": {
@@ -239,6 +255,9 @@ pub mod rococo {
 			"bridgeWestendMessages": {
 				"owner": bridges_pallet_owner.clone(),
 			},
+			"xcmOverBridgeHubWestend": {
+				"openedBridges": opened_bridges,
+			},
 			"ethereumSystem": {
 				"paraId": id,
 				"assetHubParaId": 1000
@@ -255,13 +274,11 @@ pub mod kusama {
 
 /// Sub-module for Westend setup.
 pub mod westend {
-	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
+	use super::*;
 	use crate::chain_spec::SAFE_XCM_VERSION;
 	use parachains_common::{AccountId, AuraId};
 	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-
-	use super::BridgeHubBalance;
 
 	pub(crate) const BRIDGE_HUB_WESTEND: &str = "bridge-hub-westend";
 	pub(crate) const BRIDGE_HUB_WESTEND_LOCAL: &str = "bridge-hub-westend-local";
@@ -275,6 +292,7 @@ pub mod westend {
 		relay_chain: &str,
 		para_id: ParaId,
 		bridges_pallet_owner_seed: Option<String>,
+		opened_bridges: Vec<(Location, InteriorLocation, Option<LaneId>)>,
 	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("tokenSymbol".into(), "WND".into());
@@ -318,6 +336,7 @@ pub mod westend {
 			bridges_pallet_owner_seed
 				.as_ref()
 				.map(|seed| get_account_id_from_seed::<sr25519::Public>(seed)),
+			opened_bridges,
 		))
 		.with_properties(properties)
 		.build()
@@ -328,6 +347,7 @@ pub mod westend {
 		endowed_accounts: Vec<AccountId>,
 		id: ParaId,
 		bridges_pallet_owner: Option<AccountId>,
+		opened_bridges: Vec<(Location, InteriorLocation, Option<LaneId>)>,
 	) -> serde_json::Value {
 		serde_json::json!({
 			"balances": {
@@ -360,6 +380,9 @@ pub mod westend {
 			},
 			"bridgeRococoMessages":  {
 				"owner": bridges_pallet_owner.clone(),
+			},
+			"xcmOverBridgeHubRococo": {
+				"openedBridges": opened_bridges,
 			},
 			"ethereumSystem": {
 				"paraId": id,
