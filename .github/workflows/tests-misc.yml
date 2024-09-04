@@ -211,13 +211,20 @@ jobs:
       - name: script
         id: compare
         run: |
-          FAILED_MSG='### node-bench-regression-guard failed ❌, check the regression in *cargo-check-benches* job'
           docker run --rm \
           -v $PWD/artifacts/master:/artifacts/master \
           -v $PWD/artifacts/current:/artifacts/current \
           paritytech/node-bench-regression-guard:latest \
-          node-bench-regression-guard --reference /artifacts/master --compare-with /artifacts/current \
-          || echo $FAILED_MSG >> $GITHUB_STEP_SUMMARY && echo $FAILED_MSG && exit 1
+          node-bench-regression-guard --reference /artifacts/master --compare-with /artifacts/current
+
+          if [ $? -ne 0 ]; then
+            FAILED_MSG='### node-bench-regression-guard failed ❌, check the regression in *cargo-check-benches* job'
+            echo $FAILED_MSG
+            echo $FAILED_MSG >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "### node-bench-regression-guard passed ✅" >> $GITHUB_STEP_SUMMARY
+          fi
 
   test-node-metrics:
     needs: [ set-image ]
