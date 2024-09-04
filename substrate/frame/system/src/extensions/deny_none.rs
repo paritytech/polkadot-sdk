@@ -20,7 +20,7 @@ use frame_support::{
 	dispatch::DispatchInfo,
 	pallet_prelude::{Decode, DispatchResult, Encode, TypeInfo, Weight},
 	traits::OriginTrait,
-	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use sp_runtime::{
 	traits::{
@@ -31,14 +31,21 @@ use sp_runtime::{
 };
 
 #[derive(
-	Encode, Decode, CloneNoBound, EqNoBound, PartialEqNoBound, TypeInfo, RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	DefaultNoBound,
+	TypeInfo,
+	RuntimeDebugNoBound,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct DenyNone<T>(core::marker::PhantomData<T>);
 
 impl<T> DenyNone<T> {
 	pub fn new() -> Self {
-		Self(Default::default())
+		Default::default()
 	}
 }
 
@@ -99,14 +106,13 @@ where
 
 #[cfg(test)]
 mod tests {
-	use frame_support::derive_impl;
-	use sp_runtime::BuildStorage;
-	use sp_runtime::transaction_validity::TransactionValidityError;
-	use sp_runtime::transaction_validity::InvalidTransaction;
 	use crate as frame_system;
-	use frame_support::traits::OriginTrait;
-	use sp_runtime::traits::TransactionExtension as _;
-
+	use frame_support::{derive_impl, traits::OriginTrait};
+	use sp_runtime::{
+		traits::TransactionExtension as _,
+		transaction_validity::{InvalidTransaction, TransactionValidityError},
+		BuildStorage,
+	};
 
 	#[frame_support::pallet]
 	pub mod pallet1 {
@@ -142,9 +148,7 @@ mod tests {
 		pub type Pallet1 = pallet1::Pallet<Runtime>;
 	}
 
-	pub type TransactionExtension = (
-		frame_system::DenyNone<Runtime>,
-	);
+	pub type TransactionExtension = (frame_system::DenyNone<Runtime>,);
 
 	pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
@@ -163,11 +167,7 @@ mod tests {
 	impl pallet1::Config for Runtime {}
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
-		let t = RuntimeGenesisConfig {
-			..Default::default()
-		}
-			.build_storage()
-			.unwrap();
+		let t = RuntimeGenesisConfig { ..Default::default() }.build_storage().unwrap();
 		t.into()
 	}
 
@@ -185,14 +185,15 @@ mod tests {
 				o
 			};
 
-			let (_, (), new_origin) = ext.validate(
-				origin,
-				&RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 42 }),
-				&crate::DispatchInfo::default(),
-				Default::default(),
-				(),
-				&(),
-			)
+			let (_, (), new_origin) = ext
+				.validate(
+					origin,
+					&RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 42 }),
+					&crate::DispatchInfo::default(),
+					Default::default(),
+					(),
+					&(),
+				)
 				.expect("valid");
 
 			assert!(!new_origin.filter_call(&filtered_call));
@@ -206,14 +207,15 @@ mod tests {
 
 			let origin: RuntimeOrigin = crate::Origin::<Runtime>::None.into();
 
-			let err = ext.validate(
-				origin,
-				&RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 42 }),
-				&crate::DispatchInfo::default(),
-				Default::default(),
-				(),
-				&(),
-			)
+			let err = ext
+				.validate(
+					origin,
+					&RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 42 }),
+					&crate::DispatchInfo::default(),
+					Default::default(),
+					(),
+					&(),
+				)
 				.expect_err("invalid");
 
 			assert_eq!(err, TransactionValidityError::Invalid(InvalidTransaction::Call));
