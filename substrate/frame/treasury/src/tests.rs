@@ -219,7 +219,7 @@ fn get_payment_id(i: SpendIndex) -> Option<u64> {
 fn genesis_config_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(Treasury::proposal_count(), 0);
+		assert_eq!(ProposalCount::<Test>::get(), 0);
 	});
 }
 
@@ -296,13 +296,13 @@ fn accepted_spend_proposal_ignored_outside_spend_period() {
 #[test]
 fn unused_pot_should_diminish() {
 	ExtBuilder::default().build().execute_with(|| {
-		let init_total_issuance = Balances::total_issuance();
+		let init_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Balances::total_issuance(), init_total_issuance + 100);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance + 100);
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 50);
-		assert_eq!(Balances::total_issuance(), init_total_issuance + 50);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance + 50);
 	});
 }
 
@@ -437,9 +437,9 @@ fn remove_already_removed_approval_fails() {
 
 		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
 
-		assert_eq!(Treasury::approvals(), vec![0]);
+		assert_eq!(Approvals::<Test>::get(), vec![0]);
 		assert_ok!(Treasury::remove_approval(RuntimeOrigin::root(), 0));
-		assert_eq!(Treasury::approvals(), vec![]);
+		assert_eq!(Approvals::<Test>::get(), vec![]);
 
 		assert_noop!(
 			Treasury::remove_approval(RuntimeOrigin::root(), 0),

@@ -240,6 +240,11 @@ pub mod pallet {
 	pub type Nodes<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, NodeIndex, HashOf<T, I>, OptionQuery>;
 
+	/// Helper flag used in the runtime benchmarks for the initial setup.
+	#[cfg(feature = "runtime-benchmarks")]
+	#[pallet::storage]
+	pub type UseLocalStorage<T, I = ()> = StorageValue<_, bool, ValueQuery>;
+
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
@@ -437,6 +442,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaf_count);
 		mmr.generate_ancestry_proof(prev_leaf_count)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn generate_mock_ancestry_proof() -> Result<primitives::AncestryProof<HashOf<T, I>>, Error>
+	{
+		let leaf_count = Self::block_num_to_leaf_count(<frame_system::Pallet<T>>::block_number())?;
+		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaf_count);
+		mmr.generate_mock_ancestry_proof()
 	}
 
 	pub fn verify_ancestry_proof(

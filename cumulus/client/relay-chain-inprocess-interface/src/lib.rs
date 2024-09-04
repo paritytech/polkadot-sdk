@@ -137,7 +137,11 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		hash: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
-		Ok(self.full_client.runtime_api().candidate_pending_availability(hash, para_id)?)
+		Ok(self
+			.full_client
+			.runtime_api()
+			.candidate_pending_availability(hash, para_id)?
+			.map(|receipt| receipt.into()))
 	}
 
 	async fn session_index_for_child(&self, hash: PHash) -> RelayChainResult<SessionIndex> {
@@ -260,7 +264,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		&self,
 		relay_parent: PHash,
 	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
-		Ok(self.full_client.runtime_api().availability_cores(relay_parent)?)
+		Ok(self
+			.full_client
+			.runtime_api()
+			.availability_cores(relay_parent)?
+			.into_iter()
+			.map(|core_state| core_state.into())
+			.collect::<Vec<_>>())
 	}
 
 	async fn candidates_pending_availability(
@@ -268,7 +278,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		hash: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
-		Ok(self.full_client.runtime_api().candidates_pending_availability(hash, para_id)?)
+		Ok(self
+			.full_client
+			.runtime_api()
+			.candidates_pending_availability(hash, para_id)?
+			.into_iter()
+			.map(|receipt| receipt.into())
+			.collect::<Vec<_>>())
 	}
 }
 
@@ -423,7 +439,7 @@ mod tests {
 
 	#[test]
 	fn returns_directly_for_available_block() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		block_on(client.import(BlockOrigin::Own, block)).expect("Imports the block");
@@ -439,7 +455,7 @@ mod tests {
 
 	#[test]
 	fn resolve_after_block_import_notification_was_received() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		block_on(async move {
@@ -468,7 +484,7 @@ mod tests {
 
 	#[test]
 	fn do_not_resolve_after_different_block_import_notification_was_received() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		let ext = construct_transfer_extrinsic(

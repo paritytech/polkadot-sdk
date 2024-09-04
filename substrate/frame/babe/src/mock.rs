@@ -319,7 +319,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 
 	// NOTE: this will initialize the babe authorities
 	// through OneSessionHandler::on_genesis_session
-	pallet_session::GenesisConfig::<Test> { keys: session_keys }
+	pallet_session::GenesisConfig::<Test> { keys: session_keys, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
