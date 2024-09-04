@@ -1512,7 +1512,6 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 
 					if let Some(core_index) = get_core_index::<T>(allowed_relay_parents, &candidate)
 					{
-						println!("Core index: {:?}", core_index);
 						if scheduled_cores.remove(&core_index) {
 							temp_backed_candidates.push((candidate, core_index));
 						} else {

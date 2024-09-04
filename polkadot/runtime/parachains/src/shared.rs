@@ -40,8 +40,12 @@ pub use pallet::*;
 // which guarantees that at least one full session has passed before any changes are applied.
 pub(crate) const SESSION_DELAY: SessionIndex = 2;
 
+const LOG_TARGET: &str = "runtime::inclusion";
+
 #[cfg(test)]
 mod tests;
+
+mod migration;
 
 /// Information about a relay parent.
 #[derive(Encode, Decode, Default, TypeInfo, Debug)]
