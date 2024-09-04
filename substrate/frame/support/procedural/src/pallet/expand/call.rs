@@ -18,7 +18,7 @@
 use crate::{
 	pallet::{
 		expand::warnings::{weight_constant_warning, weight_witness_warning},
-		parse::call::CallWeightDef,
+		parse::{call::CallWeightDef, helper::CallReturnType},
 		Def,
 	},
 	COUNTER,
@@ -197,18 +197,36 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
 
 	// Wrap all calls inside of storage layers
-	if let Some(syn::Item::Impl(item_impl)) = def
-		.call
-		.as_ref()
-		.map(|c| &mut def.item.content.as_mut().expect("Checked by def parser").1[c.index])
-	{
-		item_impl.items.iter_mut().for_each(|i| {
-			if let syn::ImplItem::Fn(method) = i {
+	if let Some(call) = def.call.as_ref() {
+		let item_impl =
+			&mut def.item.content.as_mut().expect("Checked by def parser").1[call.index];
+		let syn::Item::Impl(item_impl) = item_impl else {
+			unreachable!("Checked by def parser");
+		};
+
+		item_impl.items.iter_mut().enumerate().for_each(|(i, item)| {
+			if let syn::ImplItem::Fn(method) = item {
+				let return_type =
+					&call.methods.get(i).expect("def should be consistent with item").return_type;
+
+				let (ok_type, err_type) = match return_type {
+					CallReturnType::DispatchResult => (
+						quote::quote!(()),
+						quote::quote!(#frame_support::pallet_prelude::DispatchError),
+					),
+					CallReturnType::DispatchResultWithPostInfo => (
+						quote::quote!(#frame_support::dispatch::PostDispatchInfo),
+						quote::quote!(#frame_support::dispatch::DispatchErrorWithPostInfo),
+					),
+				};
+
 				let block = &method.block;
 				method.block = syn::parse_quote! {{
 					// We execute all dispatchable in a new storage layer, allowing them
 					// to return an error at any point, and undoing any storage changes.
-					#frame_support::storage::with_storage_layer(|| #block)
+					#frame_support::storage::with_storage_layer::<#ok_type, #err_type, _>(
+						|| #block
+					)
 				}};
 			}
 		});
