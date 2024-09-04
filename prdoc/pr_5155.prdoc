@@ -1,0 +1,27 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Use umbrella crate for minimal template
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Minor additions to the `polkadot-sdk-frame` crate and making it ready for usage in more templates. This PR already integrates it in the minimal template.
+
+
+crates:
+  - name: polkadot-sdk
+    bump: major
+  - name: polkadot-sdk-frame
+    bump: patch
+  - name: sp-wasm-interface 
+    bump: patch
+  - name: pallet-revive
+    bump: patch
+  - name: pallet-revive-fixtures 
+    bump: patch
+  - name: frame-support
+    bump: patch
+  - name: pallet-balances
+    bump: patch
+

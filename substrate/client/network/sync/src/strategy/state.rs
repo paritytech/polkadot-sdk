@@ -340,7 +340,6 @@ impl<B: BlockT> StateStrategy<B> {
 			},
 			best_seen_block: Some(self.state_sync.target_number()),
 			num_peers: self.peers.len().saturated_into(),
-			num_connected_peers: self.peers.len().saturated_into(),
 			queued_blocks: 0,
 			state_sync: Some(self.state_sync.progress()),
 			warp_sync: None,
