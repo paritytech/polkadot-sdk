@@ -58,7 +58,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod impls;
+mod impl_fungibles;
 
 #[frame_support::pallet]
 pub mod pallet {
