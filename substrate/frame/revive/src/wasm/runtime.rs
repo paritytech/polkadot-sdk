@@ -1225,7 +1225,7 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		log::debug!(
 			target: LOG_TARGET,
-			"\n===\ncall(flags: {flags:?}, callee_ptr: {callee_ptr:?}, ref_time_limit: {ref_time_limit:?}, proof_size_limit: {proof_size_limit:?}, deposit_ptr: {deposit_ptr:?}, value_ptr: {value_ptr:?}, input_data_ptr: {input_data_ptr:?}, input_data_len: {input_data_len:?}, output_ptr: {output_ptr:?}, output_len_ptr: {output_len_ptr:?})\n===\n",
+			"\n===\n<flags: {flags:?}, callee_ptr: {callee_ptr:?}, ref_time_limit: {ref_time_limit:?}, proof_size_limit: {proof_size_limit:?}, deposit_ptr: {deposit_ptr:?}, value_ptr: {value_ptr:?}, input_data_ptr: {input_data_ptr:?}, input_data_len: {input_data_len:?}, output_ptr: {output_ptr:?}, output_len_ptr: {output_len_ptr:?}>\n===\n",
 		);
 		self.call(
 			memory,
@@ -1286,9 +1286,6 @@ pub mod env {
 		output_len_ptr: u32,
 		salt_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		log::debug!(
-			target: LOG_TARGET,
-			"\n===\ninstantiate(code_hash_ptr: {code_hash_ptr:?}, ref_time_limit: {ref_time_limit:?}, proof_size_limit: {proof_size_limit:?}, deposit_ptr: {deposit_ptr:?}, value_ptr: {value_ptr:?}, input_data_ptr: {input_data_ptr:?}, input_data_len: {input_data_len:?}, address_ptr: {address_ptr:?}, output_ptr: {output_ptr:?}, output_len_ptr: {output_len_ptr:?}, salt_ptr: {salt_ptr:?})\n===\n");
 		self.instantiate(
 			memory,
 			code_hash_ptr,

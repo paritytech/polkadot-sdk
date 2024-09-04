@@ -19,80 +19,6 @@ use crate::{
 	ReturnFlags,
 };
 
-macro_rules! encode {
-	(@inner $buffer:expr, $cursor:expr,) => {};
-	(@size $size:expr, ) => { $size };
-
-	// Match a u8 variable.
-	(@inner $buffer:expr, $cursor:expr, $var:expr => u8, $($rest:tt)*) => {
-    $buffer[$cursor] = $var;
-		encode!(@inner $buffer, $cursor + 1, $($rest)*);
-	};
-
-	// Size of u8 variable.
-	(@size $size:expr, $var:expr => u8, $($rest:tt)*) => {
-		encode!(@size $size + 1, $($rest)*)
-	};
-
-	// Match a u64 variable.
-	(@inner $buffer:expr, $cursor:expr, $var:expr => u64, $($rest:tt)*) => {
-		$buffer[$cursor..$cursor + 8].copy_from_slice(&$var.to_le_bytes());
-		encode!(@inner $buffer, $cursor + 8, $($rest)*);
-	};
-
-	// Size of u64 variable.
-	(@size $size:expr, $var:expr => u64, $($rest:tt)*) => {
-		encode!(@size $size + 8, $($rest)*)
-	};
-
-	// Match a u32 variable.
-	(@inner $buffer:expr, $cursor:expr, $var:expr => u32, $($rest:tt)*) => {
-		$buffer[$cursor..$cursor + 4].copy_from_slice(&$var.to_le_bytes());
-		encode!(@inner $buffer, $cursor + 4, $($rest)*);
-	};
-
-	// Size of u32 variable.
-	(@size $size:expr, $var:expr => u32, $($rest:tt)*) => {
-		encode!(@size $size + 4, $($rest)*)
-	};
-
-	// Match a slice (converted to a pointer)
-	(@inner $buffer:expr, $cursor:expr, $var:expr => &[u8], $($rest:tt)*) => {
-		let ptr = $var.as_ptr() as usize;
-		$buffer[$cursor..$cursor + core::mem::size_of::<usize>()].copy_from_slice(&ptr.to_le_bytes());
-		encode!(@inner $buffer, $cursor + core::mem::size_of::<usize>(), $($rest)*);
-	};
-
-	// Size of a slice (converted to a pointer).
-	(@size $size:expr, $var:expr => &[u8], $($rest:tt)*) => {
-		encode!(@size $size + core::mem::size_of::<usize>(), $($rest)*)
-	};
-
-	// Match a pointer
-	(@inner $buffer:expr, $cursor:expr, $var:expr => ptr, $($rest:tt)*) => {
-		let ptr = $var as usize;
-		$buffer[$cursor..$cursor + core::mem::size_of::<usize>()].copy_from_slice(&ptr.to_le_bytes());
-		encode!(@inner $buffer, $cursor + core::mem::size_of::<usize>(), $($rest)*);
-	};
-
-	// Size of a pointer
-	(@size $size:expr, $var:expr => ptr, $($rest:tt)*) => {
-		encode!(@size $size + core::mem::size_of::<usize>(), $($rest)*)
-	};
-
-	// Entry point, with the buffer and it's size.
-	($buffer:ident, $size:expr, $($rest:tt)*) => {
-		let mut $buffer = [0u8; $size];
-		encode!(@inner $buffer, 0, $($rest)*);
-	};
-
-	// Entry point
-	// e.g encode!(buffer, var1: u32, var2: u64, );
-	($buffer: ident, $($rest:tt)*) => {
-		encode!($buffer, encode!(@size 0, $($rest)*), $($rest)*);
-	};
-}
-
 mod sys {
 	use crate::ReturnCode;
 
@@ -284,50 +210,36 @@ impl HostFn for HostFnImpl {
 		};
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
-		//#[repr(packed)]
-		//#[allow(dead_code)]
-		//struct Args {
-		//	code_hash: *const u8,
-		//	ref_time_limit: u64,
-		//	proof_size_limit: u64,
-		//	deposit_limit: *const u8,
-		//	value: *const u8,
-		//	input: *const u8,
-		//	input_len: u32,
-		//	address: *const u8,
-		//	output: *mut u8,
-		//	output_len: *mut u32,
-		//	salt: *const u8,
-		//}
-		//let args = Args {
-		//	code_hash: code_hash.as_ptr(),
-		//	ref_time_limit,
-		//	proof_size_limit,
-		//	deposit_limit: deposit_limit_ptr,
-		//	value: value.as_ptr(),
-		//	input: input.as_ptr(),
-		//	input_len: input.len() as _,
-		//	address,
-		//	output: output_ptr,
-		//	output_len: &mut output_len as *mut _,
-		//	salt: salt.as_ptr(),
-		//};
+		#[repr(packed)]
+		#[allow(dead_code)]
+		struct Args {
+			code_hash: *const u8,
+			ref_time_limit: u64,
+			proof_size_limit: u64,
+			deposit_limit: *const u8,
+			value: *const u8,
+			input: *const u8,
+			input_len: u32,
+			address: *const u8,
+			output: *mut u8,
+			output_len: *mut u32,
+			salt: *const u8,
+		}
+		let args = Args {
+			code_hash: code_hash.as_ptr(),
+			ref_time_limit,
+			proof_size_limit,
+			deposit_limit: deposit_limit_ptr,
+			value: value.as_ptr(),
+			input: input.as_ptr(),
+			input_len: input.len() as _,
+			address,
+			output: output_ptr,
+			output_len: &mut output_len as *mut _,
+			salt: salt.as_ptr(),
+		};
 
-		encode!(
-			args,
-			code_hash => &[u8],
-			ref_time_limit => u64,
-			proof_size_limit => u64,
-			ptr_or_sentinel(&deposit_limit) => ptr,
-			value => &[u8],
-			input => &[u8],
-			input.len() as u32 => u32,
-			address => ptr,
-			output_ptr => ptr,
-			(&mut output_len as *mut _) => ptr,
-			salt => &[u8],
-		);
-		let ret_code = { unsafe { sys::instantiate(args.as_ptr()) } };
+		let ret_code = { unsafe { sys::instantiate(&args as *const Args as *const _) } };
 
 		if let Some(ref mut output) = output {
 			extract_from_slice(output, output_len as usize);
@@ -348,48 +260,34 @@ impl HostFn for HostFnImpl {
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
-		//#[repr(packed)]
-		//#[allow(dead_code)]
-		//struct Args {
-		//	flags: u32,
-		//	callee: *const u8,
-		//	ref_time_limit: u64,
-		//	proof_size_limit: u64,
-		//	deposit_limit: *const u8,
-		//	value: *const u8,
-		//	input: *const u8,
-		//	input_len: u32,
-		//	output: *mut u8,
-		//	output_len: *mut u32,
-		//}
-		//let args = Args {
-		//	flags: flags.bits(),
-		//	callee: callee.as_ptr(),
-		//	ref_time_limit,
-		//	proof_size_limit,
-		//	deposit_limit: deposit_limit_ptr,
-		//	value: value.as_ptr(),
-		//	input: input.as_ptr(),
-		//	input_len: input.len() as _,
-		//	output: output_ptr,
-		//	output_len: &mut output_len as *mut _,
-		//};
+		#[repr(packed)]
+		#[allow(dead_code)]
+		struct Args {
+			flags: u32,
+			callee: *const u8,
+			ref_time_limit: u64,
+			proof_size_limit: u64,
+			deposit_limit: *const u8,
+			value: *const u8,
+			input: *const u8,
+			input_len: u32,
+			output: *mut u8,
+			output_len: *mut u32,
+		}
+		let args = Args {
+			flags: flags.bits(),
+			callee: callee.as_ptr(),
+			ref_time_limit,
+			proof_size_limit,
+			deposit_limit: deposit_limit_ptr,
+			value: value.as_ptr(),
+			input: input.as_ptr(),
+			input_len: input.len() as _,
+			output: output_ptr,
+			output_len: &mut output_len as *mut _,
+		};
 
-		encode!(
-			args,
-			flags.bits() => u32,
-			callee => &[u8],
-			ref_time_limit => u64,
-			proof_size_limit => u64,
-			deposit_limit_ptr => ptr,
-			value => &[u8],
-			input => &[u8],
-			input.len() as u32 => u32,
-			output_ptr => ptr,
-			(&mut output_len as *mut _) => ptr,
-		);
-
-		let ret_code = { unsafe { sys::call(args.as_ptr()) } };
+		let ret_code = { unsafe { sys::call(&args as *const Args as *const _) } };
 
 		if let Some(ref mut output) = output {
 			extract_from_slice(output, output_len as usize);
