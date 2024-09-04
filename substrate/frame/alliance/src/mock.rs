@@ -82,11 +82,13 @@ impl pallet_collective::Config<AllianceCollective> for Test {
 parameter_types! {
 	pub const BasicDeposit: u64 = 100;
 	pub const ByteDeposit: u64 = 10;
+	pub const UsernameDeposit: u64 = 10;
 	pub const SubAccountDeposit: u64 = 100;
 	pub const MaxSubAccounts: u32 = 2;
 	pub const MaxAdditionalFields: u32 = 2;
 	pub const MaxRegistrars: u32 = 20;
 	pub const PendingUsernameExpiration: u64 = 100;
+	pub const UsernameGracePeriod: u64 = 10;
 }
 ord_parameter_types! {
 	pub const One: u64 = 1;
@@ -103,6 +105,7 @@ impl pallet_identity::Config for Test {
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
 	type ByteDeposit = ByteDeposit;
+	type UsernameDeposit = UsernameDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
@@ -114,6 +117,7 @@ impl pallet_identity::Config for Test {
 	type SigningPublicKey = AccountU64;
 	type UsernameAuthorityOrigin = EnsureOneOrRoot;
 	type PendingUsernameExpiration = PendingUsernameExpiration;
+	type UsernameGracePeriod = UsernameGracePeriod;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
