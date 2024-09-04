@@ -22,8 +22,9 @@ use clap::Parser;
 use sc_chain_spec::update_code_in_json_chain_spec;
 use staging_chain_spec_builder::ChainSpecBuilder;
 
-const RUNTIME_PATH: &str =
-	"../../../../target/release/wbuild/substrate-test-runtime/substrate_test_runtime.wasm";
+// note: the runtime path will not be read, runtime code will be set directly, to avoid hassle with
+// creating the wasm file or providing a valid existing path during test execution.
+const DUMMY_PATH: &str = "fake-runtime-path";
 
 const OUTPUT_FILE: &str = "/tmp/chain_spec_builder.test_output_file.json";
 
@@ -58,7 +59,8 @@ fn get_builder(suffix: &str, command_args: Vec<&str>) -> ChainSpecBuilder {
 #[test]
 fn test_create_default() {
 	const SUFFIX: &str = "00";
-	let builder = get_builder(SUFFIX, vec!["create", "-r", RUNTIME_PATH, "default"]);
+	let mut builder = get_builder(SUFFIX, vec!["create", "-r", DUMMY_PATH, "default"]);
+	builder.set_create_cmd_runtime_code(substrate_test_runtime::WASM_BINARY.unwrap().into());
 	builder.run().unwrap();
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/create_default.json");
 }
@@ -66,8 +68,9 @@ fn test_create_default() {
 #[test]
 fn test_create_with_named_preset() {
 	const SUFFIX: &str = "01";
-	let builder =
-		get_builder(SUFFIX, vec!["create", "-r", RUNTIME_PATH, "named-preset", "staging"]);
+	let mut builder =
+		get_builder(SUFFIX, vec!["create", "-r", DUMMY_PATH, "named-preset", "staging"]);
+	builder.set_create_cmd_runtime_code(substrate_test_runtime::WASM_BINARY.unwrap().into());
 	builder.run().unwrap();
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/create_with_named_preset.json");
 }
@@ -75,8 +78,9 @@ fn test_create_with_named_preset() {
 #[test]
 fn test_create_with_patch() {
 	const SUFFIX: &str = "02";
-	let builder =
-		get_builder(SUFFIX, vec!["create", "-r", RUNTIME_PATH, "patch", "tests/input/patch.json"]);
+	let mut builder =
+		get_builder(SUFFIX, vec!["create", "-r", DUMMY_PATH, "patch", "tests/input/patch.json"]);
+	builder.set_create_cmd_runtime_code(substrate_test_runtime::WASM_BINARY.unwrap().into());
 	builder.run().unwrap();
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/create_with_patch.json");
 }
@@ -84,8 +88,9 @@ fn test_create_with_patch() {
 #[test]
 fn test_create_with_full() {
 	const SUFFIX: &str = "03";
-	let builder =
-		get_builder(SUFFIX, vec!["create", "-r", RUNTIME_PATH, "full", "tests/input/full.json"]);
+	let mut builder =
+		get_builder(SUFFIX, vec!["create", "-r", DUMMY_PATH, "full", "tests/input/full.json"]);
+	builder.set_create_cmd_runtime_code(substrate_test_runtime::WASM_BINARY.unwrap().into());
 	builder.run().unwrap();
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/create_with_full.json");
 }
@@ -93,21 +98,11 @@ fn test_create_with_full() {
 #[test]
 fn test_create_with_params() {
 	const SUFFIX: &str = "04";
-	let builder = get_builder(
+	let mut builder = get_builder(
 		SUFFIX,
-		vec![
-			"create",
-			"-r",
-			RUNTIME_PATH,
-			"-n",
-			"test_chain",
-			"-i",
-			"100",
-			"-t",
-			"live",
-			"default",
-		],
+		vec!["create", "-r", DUMMY_PATH, "-n", "test_chain", "-i", "100", "-t", "live", "default"],
 	);
+	builder.set_create_cmd_runtime_code(substrate_test_runtime::WASM_BINARY.unwrap().into());
 	builder.run().unwrap();
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/create_with_params.json");
 }
@@ -115,12 +110,12 @@ fn test_create_with_params() {
 #[test]
 fn test_create_parachain() {
 	const SUFFIX: &str = "05";
-	let builder = get_builder(
+	let mut builder = get_builder(
 		SUFFIX,
 		vec![
 			"create",
 			"-r",
-			RUNTIME_PATH,
+			DUMMY_PATH,
 			"-n",
 			"test_chain",
 			"-i",
@@ -134,6 +129,7 @@ fn test_create_parachain() {
 			"default",
 		],
 	);
+	builder.set_create_cmd_runtime_code(substrate_test_runtime::WASM_BINARY.unwrap().into());
 	builder.run().unwrap();
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/create_parachain.json");
 }
@@ -141,10 +137,11 @@ fn test_create_parachain() {
 #[test]
 fn test_create_raw_storage() {
 	const SUFFIX: &str = "06";
-	let builder = get_builder(
+	let mut builder = get_builder(
 		SUFFIX,
-		vec!["create", "-r", RUNTIME_PATH, "-s", "patch", "tests/input/patch.json"],
+		vec!["create", "-r", DUMMY_PATH, "-s", "patch", "tests/input/patch.json"],
 	);
+	builder.set_create_cmd_runtime_code(substrate_test_runtime::WASM_BINARY.unwrap().into());
 	builder.run().unwrap();
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/create_raw_storage.json");
 }

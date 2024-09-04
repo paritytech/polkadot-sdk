@@ -183,7 +183,12 @@ pub struct CreateCmd {
 	verify: bool,
 	#[command(subcommand)]
 	action: GenesisBuildAction,
+
+	/// Allows to provide the runtime code blob, instead of reading it from the provided file path.
+	#[clap(skip)]
+	code: Option<Cow<'static, [u8]>>,
 }
+use std::borrow::Cow;
 
 #[derive(Subcommand, Debug, Clone)]
 enum GenesisBuildAction {
@@ -305,6 +310,7 @@ pub struct ParachainExtension {
 type ChainSpec = GenericChainSpec<()>;
 
 impl ChainSpecBuilder {
+	/// Executes the internal command.
 	pub fn run(self) -> Result<(), String> {
 		let chain_spec_path = self.chain_spec_path.to_path_buf();
 
@@ -411,6 +417,21 @@ impl ChainSpecBuilder {
 		}
 		Ok(())
 	}
+
+	/// Sets the code used by [`CreateCmd`]
+	///
+	/// The file pointed by [`CreateCmd::runtime`] field will not be read. Provided blob will used
+	/// instead for chain spec generation.
+	pub fn set_create_cmd_runtime_code(&mut self, code: Cow<'static, [u8]>) {
+		match &mut self.command {
+			ChainSpecBuilderCmd::Create(cmd) => {
+				cmd.code = Some(code);
+			},
+			_ => {
+				panic!("Overwriting code blob is only supported for CreateCmd");
+			},
+		};
+	}
 }
 
 fn process_action<T: Serialize + Clone + Sync + 'static>(
@@ -458,10 +479,24 @@ fn process_action<T: Serialize + Clone + Sync + 'static>(
 	}
 }
 
+impl CreateCmd {
+	/// Returns the associated runtime code.
+	///
+	/// If the code blob was previously set, returns it. Otherwise reads the file.
+	fn get_runtime_code(&self) -> Result<Cow<'static, [u8]>, String> {
+		Ok(if let Some(code) = self.code.clone() {
+			code
+		} else {
+			fs::read(self.runtime.as_path())
+				.map_err(|e| format!("wasm blob shall be readable {e}"))?
+				.into()
+		})
+	}
+}
+
 /// Processes `CreateCmd` and returns string represenataion of JSON version of `ChainSpec`.
 pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
-	let code =
-		fs::read(cmd.runtime.as_path()).map_err(|e| format!("wasm blob shall be readable {e}"))?;
+	let code = cmd.get_runtime_code()?;
 
 	let chain_type = &cmd.chain_type;
 
