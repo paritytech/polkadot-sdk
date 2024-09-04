@@ -11,7 +11,7 @@ _HelpAction = _help._HelpAction
 f = open('.github/workflows/runtimes-matrix.json', 'r')
 runtimesMatrix = json.load(f)
 
-print(f'runtimesMatrix: {runtimesMatrix}')
+print(f'runtimesMatrix: {runtimesMatrix}\n')
 
 runtimeNames = list(map(lambda x: x['name'], runtimesMatrix))
 
@@ -103,8 +103,10 @@ def main():
                     all_pallets.add(pallet.split(',')[0].strip())
 
             pallets = list(all_pallets)
-            print(f'Pallets in {runtime}: {pallets}')
+            print(f'Pallets in {runtime["name"]}: {pallets}')
             runtime_pallets_map[runtime['name']] = pallets
+
+        print(f'\n')
 
         # filter out only the specified pallets from collected runtimes/pallets
         if args.pallet:
@@ -117,7 +119,7 @@ def main():
 
             runtime_pallets_map = new_pallets_map
 
-        print(f'Filtered out runtimes & pallets: {runtime_pallets_map}')
+        print(f'Filtered out runtimes & pallets: {runtime_pallets_map}\n')
 
         if not runtime_pallets_map:
             if args.pallet and not args.runtime:
@@ -169,9 +171,9 @@ def main():
                     f"--steps=50 " \
                     f"--repeat=20 " \
                     f"--heap-pages=4096 " \
-                    f"--template={template} " if template else "" \
+                    f"{f'--template={template} ' if template else ''}" \
                     f"--no-storage-info --no-min-squares --no-median-slopes"
-                print(f'-- Running: {cmd}')
+                print(f'-- Running: {cmd} \n')
                 status = os.system(cmd)
                 if status != 0 and not args.continue_on_fail:
                     print(f'Failed to benchmark {pallet} in {runtime}')

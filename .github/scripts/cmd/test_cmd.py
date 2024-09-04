@@ -20,7 +20,7 @@ def get_mock_bench_output(runtime, pallets, output_path, header, template = None
            f"--output={output_path} " \
            f"--wasm-execution=compiled " \
            f"--steps=50 --repeat=20 --heap-pages=4096 " \
-           f"--template={template} " if template else ""  \
+           f"{f'--template={template} ' if template else ''}" \
            f"--no-storage-info --no-min-squares --no-median-slopes"
 
 class TestCmd(unittest.TestCase):
@@ -48,6 +48,44 @@ class TestCmd(unittest.TestCase):
         self.patcher3.stop()
         self.patcher4.stop()
         self.patcher5.stop()
+
+    def test_bench_command_normal_execution_all_runtimes(self):
+        self.mock_parse_args.return_value = (argparse.Namespace(
+            command='bench',
+            runtime=list(map(lambda x: x['name'], mock_runtimes_matrix)),
+            pallet=['pallet_balances'],
+            continue_on_fail=False,
+            quiet=False,
+            clean=False,
+            image=None
+        ), [])
+        
+        self.mock_popen.return_value.read.side_effect = [
+            "pallet_balances\npallet_staking\npallet_something\n",  # Output for dev runtime
+            "pallet_balances\npallet_staking\npallet_something\n",  # Output for westend runtime
+            "pallet_staking\npallet_something\n",                   # Output for rococo runtime - no pallet here
+            "pallet_balances\npallet_staking\npallet_something\n",  # Output for asset-hub-westend runtime
+            "./substrate/frame/balances/Cargo.toml\n",                # Mock manifest path for dev -> pallet_balances
+        ]
+        
+        with patch('sys.exit') as mock_exit:
+            import cmd
+            cmd.main()
+            mock_exit.assert_not_called()
+
+            expected_calls = [
+                # Build calls
+                call("forklift cargo build -p kitchensink-runtime --profile release --features runtime-benchmarks"),
+                call("forklift cargo build -p westend-runtime --profile release --features runtime-benchmarks"),
+                call("forklift cargo build -p rococo-runtime --profile release --features runtime-benchmarks"),
+                call("forklift cargo build -p asset-hub-westend-runtime --profile release --features runtime-benchmarks"),
+                
+                call(get_mock_bench_output('kitchensink', 'pallet_balances', './substrate/frame/balances/src/weights.rs', os.path.abspath('substrate/HEADER-APACHE2'), "substrate/.maintain/frame-weight-template.hbs")),
+                call(get_mock_bench_output('westend', 'pallet_balances', './polkadot/runtime/westend/src/weights', os.path.abspath('polkadot/file_header.txt'))),
+                # skips rococo benchmark
+                call(get_mock_bench_output('asset-hub-westend', 'pallet_balances', './cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights', os.path.abspath('cumulus/file_header.txt'))),
+            ]
+            self.mock_system.assert_has_calls(expected_calls, any_order=True)
 
     def test_bench_command_normal_execution(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
