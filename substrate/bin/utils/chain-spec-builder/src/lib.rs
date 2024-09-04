@@ -420,7 +420,7 @@ impl ChainSpecBuilder {
 
 	/// Sets the code used by [`CreateCmd`]
 	///
-	/// The file pointed by [`CreateCmd::runtime`] field will not be read. Provided blob will used
+	/// The file pointed by `CreateCmd::runtime` field will not be read. Provided blob will used
 	/// instead for chain spec generation.
 	pub fn set_create_cmd_runtime_code(&mut self, code: Cow<'static, [u8]>) {
 		match &mut self.command {
