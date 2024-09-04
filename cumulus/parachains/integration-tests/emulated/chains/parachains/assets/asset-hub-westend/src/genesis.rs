@@ -27,6 +27,7 @@ use parachains_common::{AccountId, Balance};
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
+pub const USDT_ED: Balance = 70_000;
 
 parameter_types! {
 	pub AssetHubWestendAssetOwner: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
@@ -67,7 +68,7 @@ pub fn genesis() -> Storage {
 		assets: asset_hub_westend_runtime::AssetsConfig {
 			assets: vec![
 				(RESERVABLE_ASSET_ID, AssetHubWestendAssetOwner::get(), false, ED),
-				(USDT_ID, AssetHubWestendAssetOwner::get(), true, ED),
+				(USDT_ID, AssetHubWestendAssetOwner::get(), true, USDT_ED),
 			],
 			..Default::default()
 		},

@@ -18,8 +18,8 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error, Event, HoldReason,
-	Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
+	address::AddressMapper, storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error,
+	Event, HoldReason, Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 
 use alloc::vec::Vec;
@@ -537,8 +537,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 				)?;
 
 				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndHeld {
-					from: origin.clone(),
-					to: contract.clone(),
+					from: T::AddressMapper::to_address(origin),
+					to: T::AddressMapper::to_address(contract),
 					amount: *amount,
 				});
 			},
@@ -554,8 +554,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 				)?;
 
 				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndReleased {
-					from: contract.clone(),
-					to: origin.clone(),
+					from: T::AddressMapper::to_address(contract),
+					to: T::AddressMapper::to_address(origin),
 					amount: transferred,
 				});
 

@@ -26,3 +26,6 @@ testnet-parachains-constants = { features = ["westend"], workspace = true, defau
 
 # Polkadot
 xcm = { workspace = true }
+
+# Bridges
+bp-bridge-hub-westend = { workspace = true }

@@ -78,8 +78,9 @@ use sc_network::{
 };
 use sc_service::{
 	config::{
-		BlocksPruning, DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, RpcEndpoint, WasmExecutionMethod,
+		BlocksPruning, DatabaseSource, ExecutorConfiguration, KeystoreConfig, MultiaddrWithPeerId,
+		NetworkConfiguration, OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig,
+		RpcConfiguration, RpcEndpoint, WasmExecutionMethod,
 	},
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
@@ -194,15 +195,16 @@ pub fn new_partial(
 	enable_import_proof_record: bool,
 ) -> Result<Service, sc_service::Error> {
 	let heap_pages = config
+		.executor
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
 	let executor = WasmExecutor::builder()
-		.with_execution_method(config.wasm_method)
+		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
-		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
@@ -863,38 +865,41 @@ pub fn node_config(
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
-		wasm_method: WasmExecutionMethod::Compiled {
-			instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
+		executor: ExecutorConfiguration {
+			wasm_method: WasmExecutionMethod::Compiled {
+				instantiation_strategy:
+					sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
+			},
+			..ExecutorConfiguration::default()
 		},
-		rpc_addr: None,
-		rpc_max_connections: Default::default(),
-		rpc_cors: None,
-		rpc_methods: Default::default(),
-		rpc_max_request_size: Default::default(),
-		rpc_max_response_size: Default::default(),
-		rpc_id_provider: None,
-		rpc_max_subs_per_conn: Default::default(),
-		rpc_port: 9945,
-		rpc_message_buffer_capacity: Default::default(),
-		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
-		rpc_rate_limit: None,
-		rpc_rate_limit_whitelisted_ips: Default::default(),
-		rpc_rate_limit_trust_proxy_headers: Default::default(),
+		rpc: RpcConfiguration {
+			addr: None,
+			max_connections: Default::default(),
+			cors: None,
+			methods: Default::default(),
+			max_request_size: Default::default(),
+			max_response_size: Default::default(),
+			id_provider: None,
+			max_subs_per_conn: Default::default(),
+			port: 9945,
+			message_buffer_capacity: Default::default(),
+			batch_config: RpcBatchRequestConfig::Unlimited,
+			rate_limit: None,
+			rate_limit_whitelisted_ips: Default::default(),
+			rate_limit_trust_proxy_headers: Default::default(),
+		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
-		default_heap_pages: None,
 		offchain_worker: OffchainWorkerConfig { enabled: true, indexing_enabled: false },
 		force_authoring: false,
 		disable_grandpa: false,
 		dev_key_seed: Some(key_seed),
 		tracing_targets: None,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: 8,
 		announce_block: true,
 		data_path: root,
 		base_path,
 		wasm_runtime_overrides: None,
-		runtime_cache_size: 2,
 	})
 }
 
@@ -1006,19 +1011,19 @@ pub fn run_relay_chain_validator_node(
 	);
 
 	if let Some(port) = port {
-		config.rpc_addr = Some(vec![RpcEndpoint {
-			batch_config: config.rpc_batch_config,
-			cors: config.rpc_cors.clone(),
+		config.rpc.addr = Some(vec![RpcEndpoint {
+			batch_config: config.rpc.batch_config,
+			cors: config.rpc.cors.clone(),
 			listen_addr: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)),
-			max_connections: config.rpc_max_connections,
-			max_payload_in_mb: config.rpc_max_request_size,
-			max_payload_out_mb: config.rpc_max_response_size,
-			max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
-			max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
-			rpc_methods: config.rpc_methods,
-			rate_limit: config.rpc_rate_limit,
-			rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
-			rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+			max_connections: config.rpc.max_connections,
+			max_payload_in_mb: config.rpc.max_request_size,
+			max_payload_out_mb: config.rpc.max_response_size,
+			max_subscriptions_per_connection: config.rpc.max_subs_per_conn,
+			max_buffer_capacity_per_connection: config.rpc.message_buffer_capacity,
+			rpc_methods: config.rpc.methods,
+			rate_limit: config.rpc.rate_limit,
+			rate_limit_trust_proxy_headers: config.rpc.rate_limit_trust_proxy_headers,
+			rate_limit_whitelisted_ips: config.rpc.rate_limit_whitelisted_ips.clone(),
 			retry_random_port: true,
 			is_optional: false,
 		}]);
