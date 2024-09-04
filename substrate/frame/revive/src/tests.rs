@@ -56,10 +56,9 @@ use frame_support::{
 	parameter_types,
 	storage::child,
 	traits::{
-		fungible::{BalancedHold, HoldConsideration, Inspect, Mutate, MutateHold},
+		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
 		tokens::Preservation,
-		ConstU32, ConstU64, Contains, LinearStoragePrice, OnIdle, OnInitialize, StorageVersion,
-		ZeroFootprintOr,
+		Contains, OnIdle, OnInitialize, StorageVersion,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightMeter},
 };
@@ -361,8 +360,6 @@ parameter_types! {
 			Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
 		);
 	pub static ExistentialDeposit: u64 = 1;
-	pub const ProxyHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Proxy);
-	pub const AnnouncementHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Announcement);
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -390,27 +387,8 @@ impl pallet_utility::Config for Test {
 	type WeightInfo = ();
 }
 
-impl pallet_proxy::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type ProxyType = ();
-	type MaxProxies = ConstU32<32>;
-	type WeightInfo = ();
-	type MaxPending = ConstU32<32>;
-	type CallHasher = BlakeTwo256;
-	type ProxyConsideration = HoldConsideration<
-		<Test as frame_system::Config>::AccountId,
-		Balances,
-		ProxyHoldReason,
-		ZeroFootprintOr<LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>, u64>,
-	>;
-	type AnnouncementConsideration = HoldConsideration<
-		<Test as frame_system::Config>::AccountId,
-		Balances,
-		ProxyHoldReason,
-		ZeroFootprintOr<LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>, u64>,
-	>;
-}
+#[derive_impl(pallet_proxy::config_preludes::TestDefaultConfig)]
+impl pallet_proxy::Config for Test {}
 
 impl pallet_dummy::Config for Test {}
 

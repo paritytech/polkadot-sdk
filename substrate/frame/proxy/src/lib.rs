@@ -51,7 +51,7 @@ pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
+	traits::{BlakeTwo256, Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
 	DispatchError, DispatchResult, RuntimeDebug,
 };
 pub use weights::WeightInfo;
@@ -112,13 +112,40 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::derive_impl;
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+			type ProxyType = ();
+			type MaxProxies = ConstU32<4>;
+			type MaxPending = ConstU32<2>;
+			type WeightInfo = ();
+			type CallHasher = BlakeTwo256;
+			type ProxyConsideration = ();
+			type AnnouncementConsideration = ();
+		}
+	}
+
 	/// Configuration trait.
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
+		#[pallet::no_default_bounds]
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ GetDispatchInfo
@@ -130,6 +157,7 @@ pub mod pallet {
 		/// The instance filter determines whether a given call may be proxied under this type.
 		///
 		/// IMPORTANT: `Default` must be provided and MUST BE the the *most permissive* value.
+		#[pallet::no_default_bounds]
 		type ProxyType: Parameter
 			+ Member
 			+ Ord

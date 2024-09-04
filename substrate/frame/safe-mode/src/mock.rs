@@ -25,12 +25,11 @@ use crate as pallet_safe_mode;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{
-		ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec, LinearStoragePrice,
-		SafeModeNotify, ZeroFootprintOr,
+		ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec,
+		SafeModeNotify,
 	},
 };
 use frame_system::EnsureSignedBy;
-use fungible::HoldConsideration;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -129,31 +128,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	}
 }
 
-parameter_types! {
-	pub const ProxyHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Proxy);
-	pub const AnnouncementHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Announcement);
-}
-
+#[derive_impl(pallet_proxy::config_preludes::TestDefaultConfig)]
 impl pallet_proxy::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
 	type ProxyType = ProxyType;
-	type ProxyConsideration = HoldConsideration<
-		u64,
-		Balances,
-		ProxyHoldReason,
-		ZeroFootprintOr<LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>, u64>,
-	>;
-	type AnnouncementConsideration = HoldConsideration<
-		u64,
-		Balances,
-		AnnouncementHoldReason,
-		ZeroFootprintOr<LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>, u64>,
-	>;
-	type MaxProxies = ConstU32<4>;
-	type WeightInfo = ();
-	type CallHasher = BlakeTwo256;
-	type MaxPending = ConstU32<2>;
 }
 
 /// The calls that can always bypass safe-mode.

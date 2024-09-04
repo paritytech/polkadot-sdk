@@ -25,12 +25,11 @@ use crate as pallet_tx_pause;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstU64, Everything, InsideBoth, InstanceFilter,
-		LinearStoragePrice, ZeroFootprintOr,
+		Everything, InsideBoth, InstanceFilter,
 	},
 };
 use frame_system::EnsureSignedBy;
-use sp_runtime::{traits::BlakeTwo256, BuildStorage};
+use sp_runtime::BuildStorage;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -95,32 +94,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	}
 }
 
+#[derive_impl(pallet_proxy::config_preludes::TestDefaultConfig)]
 impl pallet_proxy::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
 	type ProxyType = ProxyType;
-	type MaxProxies = ConstU32<4>;
-	type WeightInfo = ();
-	type CallHasher = BlakeTwo256;
-	type MaxPending = ConstU32<2>;
-	type ProxyConsideration = HoldConsideration<
-		u64,
-		Balances,
-		ProxyHoldReason,
-		ZeroFootprintOr<LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>, u64>,
-	>;
-	type AnnouncementConsideration = HoldConsideration<
-		u64,
-		Balances,
-		ProxyHoldReason,
-		ZeroFootprintOr<LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>, u64>,
-	>;
 }
 
 parameter_types! {
 	pub const MaxNameLen: u32 = 50;
-	pub const ProxyHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Proxy);
-	pub const AnnouncementHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Announcement);
 }
 
 frame_support::ord_parameter_types! {

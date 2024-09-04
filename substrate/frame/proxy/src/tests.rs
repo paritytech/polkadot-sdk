@@ -26,7 +26,7 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
-	traits::{fungible::HoldConsideration, ConstU32, Contains, Currency},
+	traits::{fungible::HoldConsideration, Contains, Currency},
 };
 use sp_core::H256;
 use sp_runtime::{
@@ -148,14 +148,9 @@ impl Get<RuntimeHoldReason> for ProxyHoldReason {
 	}
 }
 
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
 	type ProxyType = ProxyType;
-	type MaxProxies = ConstU32<4>;
-	type WeightInfo = ();
-	type CallHasher = BlakeTwo256;
-	type MaxPending = ConstU32<2>;
 	type ProxyConsideration = HoldConsideration<
 		<Test as frame_system::Config>::AccountId,
 		Balances,
