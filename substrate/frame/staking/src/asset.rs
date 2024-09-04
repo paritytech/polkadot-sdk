@@ -99,7 +99,8 @@ pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
 	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort)
 		.map(|_| ())?;
 	// dec provider that we incremented for a new stake.
-	let _ = frame_system::Pallet::<T>::dec_providers(who).defensive();
+	// fixme(ank4n): fails while slashing? Need to carefully examine consumer and provider changes.
+	let _ = frame_system::Pallet::<T>::dec_providers(who);
 	Ok(())
 }
 
