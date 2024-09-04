@@ -143,7 +143,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_messages::{LaneId, LaneState, MessageNonce};
+use bp_messages::{LaneId, LaneIdBytes, LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
 pub use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
 use bp_xcm_bridge_hub::{BridgeLocations, BridgeLocationsError, LocalXcmChannelManager};
@@ -391,7 +391,7 @@ pub mod pallet {
 				// deposit the `ClosingBridge` event
 				Self::deposit_event(Event::<T, I>::ClosingBridge {
 					bridge_id: *locations.bridge_id(),
-					lane_id: bridge.lane_id,
+					lane_id: bridge.lane_id.into(),
 					pruned_messages,
 					enqueued_messages,
 				});
@@ -438,7 +438,7 @@ pub mod pallet {
 			// deposit the `BridgePruned` event
 			Self::deposit_event(Event::<T, I>::BridgePruned {
 				bridge_id: *locations.bridge_id(),
-				lane_id: bridge.lane_id,
+				lane_id: bridge.lane_id.into(),
 				bridge_deposit: released_deposit,
 				pruned_messages,
 			});
@@ -541,7 +541,7 @@ pub mod pallet {
 				remote_endpoint: Box::new(
 					locations.bridge_destination_universal_location().clone(),
 				),
-				lane_id,
+				lane_id: lane_id.into(),
 			});
 
 			Ok(())
@@ -805,14 +805,14 @@ pub mod pallet {
 			/// Universal location of remote bridge endpoint.
 			remote_endpoint: Box<InteriorLocation>,
 			/// Lane identifier.
-			lane_id: LaneId,
+			lane_id: LaneIdBytes,
 		},
 		/// Bridge is going to be closed, but not yet fully pruned from the runtime storage.
 		ClosingBridge {
 			/// Bridge identifier.
 			bridge_id: BridgeId,
 			/// Lane identifier.
-			lane_id: LaneId,
+			lane_id: LaneIdBytes,
 			/// Number of pruned messages during the close call.
 			pruned_messages: MessageNonce,
 			/// Number of enqueued messages that need to be pruned in follow up calls.
@@ -824,7 +824,7 @@ pub mod pallet {
 			/// Bridge identifier.
 			bridge_id: BridgeId,
 			/// Lane identifier.
-			lane_id: LaneId,
+			lane_id: LaneIdBytes,
 			/// Amount of deposit released.
 			bridge_deposit: BalanceOf<ThisChainOf<T, I>>,
 			/// Number of pruned messages during the close call.
@@ -1221,7 +1221,7 @@ mod tests {
 							remote_endpoint: Box::new(
 								locations.bridge_destination_universal_location().clone()
 							),
-							lane_id
+							lane_id: lane_id.into()
 						}),
 						topics: vec![],
 					}),
@@ -1364,7 +1364,7 @@ mod tests {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::ClosingBridge {
 						bridge_id: *locations.bridge_id(),
-						lane_id: bridge.lane_id,
+						lane_id: bridge.lane_id.into(),
 						pruned_messages: 16,
 						enqueued_messages: 16,
 					}),
@@ -1412,7 +1412,7 @@ mod tests {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::ClosingBridge {
 						bridge_id: *locations.bridge_id(),
-						lane_id: bridge.lane_id,
+						lane_id: bridge.lane_id.into(),
 						pruned_messages: 8,
 						enqueued_messages: 8,
 					}),
@@ -1453,7 +1453,7 @@ mod tests {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::BridgePruned {
 						bridge_id: *locations.bridge_id(),
-						lane_id: bridge.lane_id,
+						lane_id: bridge.lane_id.into(),
 						bridge_deposit: expected_deposit,
 						pruned_messages: 8,
 					}),

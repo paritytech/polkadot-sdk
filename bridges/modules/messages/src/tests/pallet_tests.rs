@@ -67,7 +67,10 @@ fn send_regular_message(lane_id: LaneId) {
 		System::<TestRuntime>::events(),
 		vec![EventRecord {
 			phase: Phase::Initialization,
-			event: TestEvent::Messages(Event::MessageAccepted { lane_id, nonce: message_nonce }),
+			event: TestEvent::Messages(Event::MessageAccepted {
+				lane_id: lane_id.into(),
+				nonce: message_nonce
+			}),
 			topics: vec![],
 		}],
 	);
@@ -105,7 +108,7 @@ fn receive_messages_delivery_proof() {
 		vec![EventRecord {
 			phase: Phase::Initialization,
 			event: TestEvent::Messages(Event::MessagesDelivered {
-				lane_id: test_lane_id(),
+				lane_id: test_lane_id().into(),
 				messages: DeliveredMessages::new(1),
 			}),
 			topics: vec![],
