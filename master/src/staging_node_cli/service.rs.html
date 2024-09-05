@@ -1687,7 +1687,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>hwbench = (!disable_hardware_benchmarks)
 		.then_some(config.database.path().map(|database_path| {
 			<span class="kw">let _ </span>= std::fs::create_dir_all(<span class="kw-2">&amp;</span>database_path);
-			sc_sysinfo::gather_hwbench(<span class="prelude-val">Some</span>(database_path))
+			sc_sysinfo::gather_hwbench(<span class="prelude-val">Some</span>(database_path), <span class="kw-2">&amp;</span>SUBSTRATE_REFERENCE_HARDWARE)
 		}))
 		.flatten();
 
@@ -1824,7 +1824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(<span class="kw-2">&amp;</span>hwbench);
-		<span class="kw">match </span>SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench) {
+		<span class="kw">match </span>SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench, <span class="bool-val">false</span>) {
 			<span class="prelude-val">Err</span>(err) <span class="kw">if </span>role.is_authority() =&gt; {
 				<span class="macro">log::warn!</span>(
 					<span class="string">"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'."</span>,

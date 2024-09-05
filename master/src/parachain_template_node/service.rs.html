@@ -893,7 +893,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Here you can check whether the hardware meets your chains' requirements. Putting a link
 		// in there and swapping out the requirements for your own are probably a good idea. The
 		// requirements for a para-chain are dictated by its relay-chain.
-		</span><span class="kw">match </span>SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench) {
+		</span><span class="kw">match </span>SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench, <span class="bool-val">false</span>) {
 			<span class="prelude-val">Err</span>(err) <span class="kw">if </span>validator =&gt; {
 				<span class="macro">log::warn!</span>(
 				<span class="string">"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'."</span>,

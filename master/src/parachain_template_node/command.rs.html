@@ -527,6 +527,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
@@ -749,7 +752,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>hwbench = (!cli.no_hardware_benchmarks)
 					.then_some(config.database.path().map(|database_path| {
 						<span class="kw">let _ </span>= std::fs::create_dir_all(database_path);
-						sc_sysinfo::gather_hwbench(<span class="prelude-val">Some</span>(database_path))
+						sc_sysinfo::gather_hwbench(
+							<span class="prelude-val">Some</span>(database_path),
+							<span class="kw-2">&amp;</span>SUBSTRATE_REFERENCE_HARDWARE,
+						)
 					}))
 					.flatten();
 

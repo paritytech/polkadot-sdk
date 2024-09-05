@@ -543,6 +543,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -625,7 +627,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>warn_if_slow_hardware(hwbench: <span class="kw-2">&amp;</span>sc_sysinfo::HwBench) {
 	<span class="comment">// Polkadot para-chains should generally use these requirements to ensure that the relay-chain
 	// will not take longer than expected to import its blocks.
-	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench) {
+	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
+		frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench, <span class="bool-val">false</span>)
+	{
 		<span class="macro">log::warn!</span>(
 			<span class="string">"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
 			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware"</span>,

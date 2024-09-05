@@ -173,7 +173,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </ul>
 <h3 id="ordering"><a class="doc-anchor" href="#ordering">§</a>Ordering</h3>
 <p>For all hooks, except [<code>OnIdle</code>] the order of execution is derived from how the pallets are
-ordered in [<code>crate::construct_runtime</code>].</p>
+ordered in <a href="../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>crate::construct_runtime</code></a>.</p>
 <h3 id="summary"><a class="doc-anchor" href="#summary">§</a>Summary</h3>
 <p>In short, the following diagram shows the flow of hooks in a pallet</p>
 <div class="example-wrap"><pre class="language-mermaid"><code>graph LR
@@ -301,14 +301,14 @@ meaningless. Writes can be pushed back to the chain by submitting extrinsics fro
 offchain worker to the transaction pool. See <code>pallet-example-offchain-worker</code> for more
 details on this.</p>
 <p>Moreover, the code in this function has access to a wider range of host functions in
-[<code>sp-io</code>], namely [<code>sp_io::offchain</code>]. This includes exotic operations such as HTTP calls
+[<code>sp-io</code>], namely <a href="../sp_io/offchain/index.html" title="mod sp_io::offchain"><code>sp_io::offchain</code></a>. This includes exotic operations such as HTTP calls
 that are not really possible in the rest of the runtime code.</p>
 <p>The execution of this hook is entirely optional and is left at the discretion of the
 node-side software and its configuration. In a normal substrate-cli, look for the CLI
 flags related to offchain-workers to learn more.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.integrity_test" class="method"><h4 class="code-header">fn <a href="#method.integrity_test" class="fn">integrity_test</a>()</h4></section></summary><div class="docblock"><p>Check the integrity of this pallet’s configuration.</p>
 <p>Any code located in this hook is placed in an auto-generated test, and generated as a part
-of [<code>crate::construct_runtime</code>]’s expansion. Look for a test case with a name along the
+of <a href="../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>crate::construct_runtime</code></a>’s expansion. Look for a test case with a name along the
 lines of: <code>__construct_runtime_integrity_test</code>.</p>
 <p>This hook is the location where the values/types provided to the <code>Config</code> trait
 of the pallet can be tested for correctness. For example, if two <code>type Foo: Get&lt;u32&gt;</code> and

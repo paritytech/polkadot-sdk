@@ -882,7 +882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>hwbench = (!cli.run.no_hardware_benchmarks)
 			.then_some(config.database.path().map(|database_path| {
 				<span class="kw">let _ </span>= std::fs::create_dir_all(<span class="kw-2">&amp;</span>database_path);
-				sc_sysinfo::gather_hwbench(<span class="prelude-val">Some</span>(database_path))
+				sc_sysinfo::gather_hwbench(<span class="prelude-val">Some</span>(database_path), <span class="kw-2">&amp;</span>SUBSTRATE_REFERENCE_HARDWARE)
 			}))
 			.flatten();
 

@@ -465,6 +465,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -725,7 +728,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>hwbench = (!cli.no_hardware_benchmarks)
 					.then_some(config.database.path().map(|database_path| {
 						<span class="kw">let _ </span>= std::fs::create_dir_all(database_path);
-						sc_sysinfo::gather_hwbench(<span class="prelude-val">Some</span>(database_path))
+						sc_sysinfo::gather_hwbench(
+							<span class="prelude-val">Some</span>(database_path),
+							<span class="kw-2">&amp;</span>SUBSTRATE_REFERENCE_HARDWARE,
+						)
 					}))
 					.flatten();
 

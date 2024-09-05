@@ -314,6 +314,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -343,10 +355,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>sysinfo_linux;
 
 <span class="kw">pub use </span>sysinfo::{
-	benchmark_cpu, benchmark_disk_random_writes, benchmark_disk_sequential_writes,
-	benchmark_memory, benchmark_sr25519_verify, gather_hwbench, gather_sysinfo,
-	serialize_throughput, serialize_throughput_option, Metric, Requirement, Requirements,
-	Throughput,
+	benchmark_cpu, benchmark_cpu_parallelism, benchmark_disk_random_writes,
+	benchmark_disk_sequential_writes, benchmark_memory, benchmark_sr25519_verify, gather_hwbench,
+	gather_sysinfo, serialize_throughput, serialize_throughput_option, Metric, Requirement,
+	Requirements, Throughput,
 };
 
 <span class="doccomment">/// The operating system part of the current target triplet.
@@ -364,6 +376,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The CPU speed, as measured in how many MB/s it can hash using the BLAKE2b-256 hash.
 	</span><span class="attr">#[serde(serialize_with = <span class="string">"serialize_throughput"</span>)]
 	</span><span class="kw">pub </span>cpu_hashrate_score: Throughput,
+	<span class="doccomment">/// The parallel CPU speed, as measured in how many MB/s it can hash in parallel using the
+	/// BLAKE2b-256 hash.
+	</span><span class="attr">#[serde(serialize_with = <span class="string">"serialize_throughput"</span>)]
+	</span><span class="kw">pub </span>parallel_cpu_hashrate_score: Throughput,
+	<span class="doccomment">/// The number of expected cores used for computing the parallel CPU speed.
+	</span><span class="kw">pub </span>parallel_cpu_cores: usize,
 	<span class="doccomment">/// Memory bandwidth in MB/s, calculated by measuring the throughput of `memcpy`.
 	</span><span class="attr">#[serde(serialize_with = <span class="string">"serialize_throughput"</span>)]
 	</span><span class="kw">pub </span>memory_memcpy_score: Throughput,
@@ -381,7 +399,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>disk_random_write_score: <span class="prelude-ty">Option</span>&lt;Throughput&gt;,
 }
 
-<span class="doccomment">/// Limit the execution time of a benchmark.
+<span class="attr">#[derive(Copy, Clone, Debug)]
+</span><span class="doccomment">/// Limit the execution time of a benchmark.
 </span><span class="kw">pub enum </span>ExecutionLimit {
 	<span class="doccomment">/// Limit by the maximal duration.
 	</span>MaxDuration(Duration),
@@ -448,7 +467,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Prints out the results of the hardware benchmarks in the logs.
 </span><span class="kw">pub fn </span>print_hwbench(hwbench: <span class="kw-2">&amp;</span>HwBench) {
-	<span class="macro">log::info!</span>(<span class="string">"🏁 CPU score: {}"</span>, hwbench.cpu_hashrate_score);
+	<span class="macro">log::info!</span>(
+		<span class="string">"🏁 CPU single core score: {}, parallelism score: {} with expected cores: {}"</span>,
+		hwbench.cpu_hashrate_score,
+		hwbench.parallel_cpu_hashrate_score,
+		hwbench.parallel_cpu_cores,
+	);
 	<span class="macro">log::info!</span>(<span class="string">"🏁 Memory score: {}"</span>, hwbench.memory_memcpy_score);
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(score) = hwbench.disk_sequential_write_score {
