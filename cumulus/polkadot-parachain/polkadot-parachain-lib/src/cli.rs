@@ -119,11 +119,11 @@ pub struct Cli<Config: CliConfig> {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
-	/// Use manual seal consensus.
+	/// Dev option for producing a block each `dev_block_time` ms.
 	///
 	/// This works only with dev chains (e.g. asset-hub-rococo-dev).
 	#[arg(long)]
-	pub manual_seal: bool,
+	pub dev_block_time: Option<u64>,
 
 	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
 	///

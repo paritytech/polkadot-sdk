@@ -72,6 +72,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 		&self,
 		config: Configuration,
 		para_id: ParaId,
+		block_time: u64,
 	) -> sc_service::error::Result<TaskManager>
 	where
 		Net: NetworkBackend<NodeSpec::Block, Hash>,
@@ -122,7 +123,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 		let mut manual_seal_sink_clone = manual_seal_sink.clone();
 		task_manager.spawn_handle().spawn("block_authoring", None, async move {
 			loop {
-				futures_timer::Delay::new(std::time::Duration::from_millis(6000)).await;
+				futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
 				manual_seal_sink_clone
 					.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
 						create_empty: true,

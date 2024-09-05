@@ -213,7 +213,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			let collator_options = cli.run.collator_options();
 
 			let is_dev_chain = runner.config().chain_spec.id().ends_with("-dev");
-			if cli.manual_seal && !is_dev_chain {
+			if cli.dev_block_time.is_some() && !is_dev_chain {
 				return Err("Manual sealing can be turned on only for dev chains".into());
 			}
 
@@ -226,8 +226,10 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 						.ok_or("Could not find parachain extension in chain-spec.")?,
 				);
 
-				if cli.manual_seal {
-					return node_spec.start_manual_seal_node(config, para_id).map_err(Into::into)
+				if let Some(dev_block_time) = cli.dev_block_time {
+					return node_spec
+						.start_manual_seal_node(config, para_id, dev_block_time)
+						.map_err(Into::into)
 				}
 
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the
