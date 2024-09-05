@@ -537,7 +537,7 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `address`: The address of the account to transfer funds to.
-	/// - `value`: The value to transfer.
+	/// - `value`: The U256 value to transfer.
 	///
 	/// # Errors
 	///
