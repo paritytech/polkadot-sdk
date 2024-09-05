@@ -26,3 +26,5 @@ crates:
     bump: minor
   - name: polkadot-runtime-common
     bump: minor
+  - name: pallet-xcm-bridge-hub
+    bump: minor
