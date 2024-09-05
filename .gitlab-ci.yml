@@ -21,7 +21,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  CI_IMAGE: !reference [ .ci-unified, variables, CI_IMAGE ]
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
@@ -39,7 +39,7 @@ default:
       - runner_system_failure
       - unknown_failure
       - api_failure
-  cache: {}
+  cache: { }
   interruptible: true
 
 .collect-artifacts:
@@ -68,8 +68,8 @@ default:
 
 .common-before-script:
   before_script:
-    - !reference [.job-switcher, before_script]
-    - !reference [.pipeline-stopper-vars, script]
+    - !reference [ .job-switcher, before_script ]
+    - !reference [ .pipeline-stopper-vars, script ]
 
 .job-switcher:
   before_script:
@@ -78,8 +78,8 @@ default:
 .kubernetes-env:
   image: "${CI_IMAGE}"
   before_script:
-    - !reference [.common-before-script, before_script]
-    - !reference [.prepare-env, before_script]
+    - !reference [ .common-before-script, before_script ]
+    - !reference [ .prepare-env, before_script ]
   tags:
     - kubernetes-parity-build
 
@@ -107,12 +107,12 @@ default:
 .docker-env:
   image: "${CI_IMAGE}"
   variables:
-    FL_FORKLIFT_VERSION: !reference [.forklift, variables, FL_FORKLIFT_VERSION]
+    FL_FORKLIFT_VERSION: !reference [ .forklift, variables, FL_FORKLIFT_VERSION ]
   before_script:
-    - !reference [.common-before-script, before_script]
-    - !reference [.prepare-env, before_script]
-    - !reference [.rust-info-script, script]
-    - !reference [.forklift-cache, before_script]
+    - !reference [ .common-before-script, before_script ]
+    - !reference [ .prepare-env, before_script ]
+    - !reference [ .rust-info-script, script ]
+    - !reference [ .forklift-cache, before_script ]
   tags:
     - linux-docker
 
@@ -269,56 +269,6 @@ remove-cancel-pipeline-message:
   trigger:
     project: "parity/infrastructure/ci_cd/pipeline-stopper"
 
-cancel-pipeline-cargo-check-benches1:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-benches 1/2"
-
-cancel-pipeline-cargo-check-benches2:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-benches 2/2"
-
-cancel-pipeline-cargo-check-each-crate-1:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 1/6"
-
-cancel-pipeline-cargo-check-each-crate-2:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 2/6"
-
-cancel-pipeline-cargo-check-each-crate-3:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 3/6"
-
-cancel-pipeline-cargo-check-each-crate-4:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 4/6"
-
-cancel-pipeline-cargo-check-each-crate-5:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 5/6"
-
-cancel-pipeline-cargo-check-each-crate-6:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 6/6"
-
-cancel-pipeline-cargo-check-each-crate-macos:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: cargo-check-each-crate-macos
-
-cancel-pipeline-check-tracing:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-tracing
-
 cancel-pipeline-build-linux-stable:
   extends: .cancel-pipeline-template
   needs:
@@ -333,21 +283,6 @@ cancel-pipeline-build-linux-substrate:
   extends: .cancel-pipeline-template
   needs:
     - job: build-linux-substrate
-
-cancel-pipeline-test-node-metrics:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-node-metrics
-
-cancel-pipeline-test-frame-ui:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-frame-ui
-
-cancel-pipeline-test-frame-examples-compile-to-wasm:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-frame-examples-compile-to-wasm
 
 cancel-pipeline-build-short-benchmark:
   extends: .cancel-pipeline-template
