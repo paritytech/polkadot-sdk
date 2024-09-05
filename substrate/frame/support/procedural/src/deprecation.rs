@@ -131,11 +131,11 @@ pub fn get_deprecation_enum<'a>(
 		(None, _) => {
 			let children = quote::quote! { #path::__private::scale_info::prelude::collections::BTreeMap::from([#( #children),*]) };
 			Ok(
-				quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::PartiallyDeprecated(#children) },
+				quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::VariantsDeprecated(#children) },
 			)
 		},
 		(Some(depr), _) => Ok(
-			quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::FullyDeprecated(#depr) },
+			quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::ItemDeprecated(#depr) },
 		),
 	}
 }

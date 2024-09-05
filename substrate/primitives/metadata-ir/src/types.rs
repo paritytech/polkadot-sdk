@@ -501,22 +501,22 @@ pub enum DeprecationInfoIR<T: Form = MetaForm> {
 	/// Type is not deprecated
 	NotDeprecated,
 	/// Entry is fully deprecated.
-	FullyDeprecated(DeprecationStatusIR<T>),
+	ItemDeprecated(DeprecationStatusIR<T>),
 	/// Entry is partially deprecated.
-	PartiallyDeprecated(BTreeMap<Compact<u8>, DeprecationStatusIR<T>>),
+	VariantsDeprecated(BTreeMap<Compact<u8>, DeprecationStatusIR<T>>),
 }
 impl IntoPortable for DeprecationInfoIR {
 	type Output = DeprecationInfoIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		match self {
-			Self::PartiallyDeprecated(entries) => {
+			Self::VariantsDeprecated(entries) => {
 				let entries =
 					entries.into_iter().map(|(k, entry)| (k, entry.into_portable(registry)));
-				DeprecationInfoIR::PartiallyDeprecated(entries.collect())
+				DeprecationInfoIR::VariantsDeprecated(entries.collect())
 			},
-			Self::FullyDeprecated(deprecation) =>
-				DeprecationInfoIR::FullyDeprecated(deprecation.into_portable(registry)),
+			Self::ItemDeprecated(deprecation) =>
+				DeprecationInfoIR::ItemDeprecated(deprecation.into_portable(registry)),
 			Self::NotDeprecated => DeprecationInfoIR::NotDeprecated,
 		}
 	}

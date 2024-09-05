@@ -2431,9 +2431,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		// any storage version "enabled".
 		assert!(
 			ExecutiveWithUpgradePallet4::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost)
-				.unwrap_err() == "On chain storage version set, while the pallet \
+				.unwrap_err() ==
+				"On chain storage version set, while the pallet \
 				doesn't have the `#[pallet::storage_version(VERSION)]` attribute."
-				.into()
+					.into()
 		);
 	});
 }
@@ -2503,7 +2504,7 @@ fn pallet_metadata() {
 		// Example pallet calls is fully and partially deprecated
 		let meta = &example.calls.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::PartiallyDeprecated(BTreeMap::from([(
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
 				codec::Compact(0),
 				DeprecationStatusIR::Deprecated { note: "test", since: None }
 			)])),
@@ -2514,7 +2515,7 @@ fn pallet_metadata() {
 		// Example pallet errors are partially and fully deprecated
 		let meta = &example.error.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::PartiallyDeprecated(BTreeMap::from([(
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
 				codec::Compact(2),
 				DeprecationStatusIR::Deprecated { note: "test", since: None }
 			)])),
@@ -2525,7 +2526,7 @@ fn pallet_metadata() {
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::FullyDeprecated(DeprecationStatusIR::Deprecated {
+			DeprecationInfoIR::ItemDeprecated(DeprecationStatusIR::Deprecated {
 				note: "test",
 				since: None
 			}),

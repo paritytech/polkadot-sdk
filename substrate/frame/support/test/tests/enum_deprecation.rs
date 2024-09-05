@@ -156,14 +156,14 @@ fn pallet_metadata() {
 			// Result should be this, but instead we get the result below
 			// see: https://github.com/paritytech/parity-scale-codec/issues/507
 			//
-			// DeprecationInfoIR::PartiallyDeprecated(BTreeMap::from([
+			// DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([
 			// 	(codec::Compact(0), DeprecationStatusIR::Deprecated { note: "first", since: None
 			// }), 	(
 			// 		codec::Compact(1),
 			// 		DeprecationStatusIR::Deprecated { note: "second", since: None }
 			// 	)
 			// ])),
-			DeprecationInfoIR::PartiallyDeprecated(BTreeMap::from([(
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
 				codec::Compact(0),
 				DeprecationStatusIR::Deprecated { note: "first", since: None }
 			),])),
