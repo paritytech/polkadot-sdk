@@ -212,11 +212,6 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				RelayChainCli::<CliConfig>::new(runner.config(), cli.relay_chain_args.iter());
 			let collator_options = cli.run.collator_options();
 
-			let is_dev_chain = runner.config().chain_spec.id().ends_with("-dev");
-			if cli.dev_block_time.is_some() && !is_dev_chain {
-				return Err("Manual sealing can be turned on only for dev chains".into());
-			}
-
 			runner.run_node_until_exit(|config| async move {
 				let node_spec =
 					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
