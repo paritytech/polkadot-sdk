@@ -36,18 +36,18 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use inbound_lane::StoredInboundLaneData;
-pub use outbound_lane::StoredMessagePayload;
+pub use inbound_lane::{InboundLane, InboundLaneStorage, StoredInboundLaneData};
+pub use lanes_manager::{
+	LanesManager, LanesManagerError, RuntimeInboundLaneStorage, RuntimeOutboundLaneStorage,
+};
+pub use outbound_lane::{
+	OutboundLane, OutboundLaneStorage, ReceptionConfirmationError, StoredMessagePayload,
+};
 pub use weights::WeightInfo;
 pub use weights_ext::{
 	ensure_able_to_receive_confirmation, ensure_able_to_receive_message,
 	ensure_maximal_message_dispatch, ensure_weights_are_correct, WeightInfoExt,
 	EXPECTED_DEFAULT_MESSAGE_LENGTH, EXTRA_STORAGE_PROOF_SIZE,
-};
-
-use crate::{
-	inbound_lane::{InboundLane, InboundLaneStorage},
-	outbound_lane::{OutboundLane, OutboundLaneStorage, ReceptionConfirmationError},
 };
 
 use bp_header_chain::HeaderChain;
@@ -68,11 +68,13 @@ use bp_runtime::{
 	AccountIdOf, BasicOperatingMode, HashOf, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt,
 	Size,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
 use sp_std::{marker::PhantomData, prelude::*};
 
+mod call_ext;
 mod inbound_lane;
+mod lanes_manager;
 mod outbound_lane;
 mod proofs;
 mod tests;
@@ -82,7 +84,9 @@ pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+pub mod migration;
 
+pub use call_ext::*;
 pub use pallet::*;
 #[cfg(feature = "test-helpers")]
 pub use tests::*;
@@ -115,9 +119,6 @@ pub mod pallet {
 		/// Bridged chain headers provider.
 		type BridgedHeaderChain: HeaderChain<Self::BridgedChain>;
 
-		/// Get all active outbound lanes that the message pallet is serving.
-		type ActiveOutboundLanes: Get<&'static [LaneId]>;
-
 		/// Payload type of outbound messages. This payload is dispatched on the bridged chain.
 		type OutboundPayload: Parameter + Size;
 		/// Payload type of inbound messages. This payload is dispatched on this chain.
@@ -143,6 +144,7 @@ pub mod pallet {
 	pub type BridgedHeaderChainOf<T, I> = <T as Config<I>>::BridgedHeaderChain;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	impl<T: Config<I>, I: 'static> OwnedBridgeModule<T> for Pallet<T, I> {
@@ -215,9 +217,6 @@ pub mod pallet {
 				Error::<T, I>::TooManyMessagesInTheProof
 			);
 
-			// if message dispatcher is currently inactive, we won't accept any messages
-			ensure!(T::MessageDispatch::is_active(), Error::<T, I>::MessageDispatchInactive);
-
 			// why do we need to know the weight of this (`receive_messages_proof`) call? Because
 			// we may want to return some funds for not-dispatching (or partially dispatching) some
 			// messages to the call origin (relayer). And this is done by returning actual weight
@@ -236,92 +235,89 @@ pub mod pallet {
 			let mut actual_weight = declared_weight;
 
 			// verify messages proof && convert proof into messages
-			let messages = verify_and_decode_messages_proof::<T, I>(*proof, messages_count)
-				.map_err(|err| {
-					log::trace!(target: LOG_TARGET, "Rejecting invalid messages proof: {:?}", err,);
+			let (lane_id, lane_data) =
+				verify_and_decode_messages_proof::<T, I>(*proof, messages_count).map_err(
+					|err| {
+						log::trace!(target: LOG_TARGET, "Rejecting invalid messages proof: {:?}", err,);
 
-					Error::<T, I>::InvalidMessagesProof
-				})?;
+						Error::<T, I>::InvalidMessagesProof
+					},
+				)?;
 
 			// dispatch messages and (optionally) update lane(s) state(s)
 			let mut total_messages = 0;
 			let mut valid_messages = 0;
-			let mut messages_received_status = Vec::with_capacity(messages.len());
 			let mut dispatch_weight_left = dispatch_weight;
-			for (lane_id, lane_data) in messages {
-				let mut lane = inbound_lane::<T, I>(lane_id);
+			let mut lane = active_inbound_lane::<T, I>(lane_id)?;
 
-				// subtract extra storage proof bytes from the actual PoV size - there may be
-				// less unrewarded relayers than the maximal configured value
-				let lane_extra_proof_size_bytes = lane.storage_mut().extra_proof_size_bytes();
-				actual_weight = actual_weight.set_proof_size(
-					actual_weight.proof_size().saturating_sub(lane_extra_proof_size_bytes),
-				);
+			// subtract extra storage proof bytes from the actual PoV size - there may be
+			// less unrewarded relayers than the maximal configured value
+			let lane_extra_proof_size_bytes = lane.storage().extra_proof_size_bytes();
+			actual_weight = actual_weight.set_proof_size(
+				actual_weight.proof_size().saturating_sub(lane_extra_proof_size_bytes),
+			);
 
-				if let Some(lane_state) = lane_data.lane_state {
-					let updated_latest_confirmed_nonce = lane.receive_state_update(lane_state);
-					if let Some(updated_latest_confirmed_nonce) = updated_latest_confirmed_nonce {
-						log::trace!(
-							target: LOG_TARGET,
-							"Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}",
-							lane_id,
-							updated_latest_confirmed_nonce,
-							UnrewardedRelayersState::from(&lane.storage_mut().get_or_init_data()),
-						);
-					}
+			if let Some(lane_state) = lane_data.lane_state {
+				let updated_latest_confirmed_nonce = lane.receive_state_update(lane_state);
+				if let Some(updated_latest_confirmed_nonce) = updated_latest_confirmed_nonce {
+					log::trace!(
+						target: LOG_TARGET,
+						"Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}",
+						lane_id,
+						updated_latest_confirmed_nonce,
+						UnrewardedRelayersState::from(&lane.storage().data()),
+					);
 				}
+			}
 
-				let mut lane_messages_received_status =
-					ReceivedMessages::new(lane_id, Vec::with_capacity(lane_data.messages.len()));
-				for mut message in lane_data.messages {
-					debug_assert_eq!(message.key.lane_id, lane_id);
-					total_messages += 1;
+			let mut messages_received_status =
+				ReceivedMessages::new(lane_id, Vec::with_capacity(lane_data.messages.len()));
+			for mut message in lane_data.messages {
+				debug_assert_eq!(message.key.lane_id, lane_id);
+				total_messages += 1;
 
-					// ensure that relayer has declared enough weight for dispatching next message
-					// on this lane. We can't dispatch lane messages out-of-order, so if declared
-					// weight is not enough, let's move to next lane
-					let message_dispatch_weight = T::MessageDispatch::dispatch_weight(&mut message);
-					if message_dispatch_weight.any_gt(dispatch_weight_left) {
-						log::trace!(
-							target: LOG_TARGET,
-							"Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}",
-							lane_id,
-							message_dispatch_weight,
-							dispatch_weight_left,
-						);
-
-						fail!(Error::<T, I>::InsufficientDispatchWeight);
-					}
-
-					let receival_result = lane.receive_message::<T::MessageDispatch>(
-						&relayer_id_at_bridged_chain,
-						message.key.nonce,
-						message.data,
+				// ensure that relayer has declared enough weight for dispatching next message
+				// on this lane. We can't dispatch lane messages out-of-order, so if declared
+				// weight is not enough, let's move to next lane
+				let message_dispatch_weight = T::MessageDispatch::dispatch_weight(&mut message);
+				if message_dispatch_weight.any_gt(dispatch_weight_left) {
+					log::trace!(
+						target: LOG_TARGET,
+						"Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}",
+						lane_id,
+						message_dispatch_weight,
+						dispatch_weight_left,
 					);
 
-					// note that we're returning unspent weight to relayer even if message has been
-					// rejected by the lane. This allows relayers to submit spam transactions with
-					// e.g. the same set of already delivered messages over and over again, without
-					// losing funds for messages dispatch. But keep in mind that relayer pays base
-					// delivery transaction cost anyway. And base cost covers everything except
-					// dispatch, so we have a balance here.
-					let unspent_weight = match &receival_result {
-						ReceptionResult::Dispatched(dispatch_result) => {
-							valid_messages += 1;
-							dispatch_result.unspent_weight
-						},
-						ReceptionResult::InvalidNonce |
-						ReceptionResult::TooManyUnrewardedRelayers |
-						ReceptionResult::TooManyUnconfirmedMessages => message_dispatch_weight,
-					};
-					lane_messages_received_status.push(message.key.nonce, receival_result);
-
-					let unspent_weight = unspent_weight.min(message_dispatch_weight);
-					dispatch_weight_left -= message_dispatch_weight - unspent_weight;
-					actual_weight = actual_weight.saturating_sub(unspent_weight);
+					fail!(Error::<T, I>::InsufficientDispatchWeight);
 				}
 
-				messages_received_status.push(lane_messages_received_status);
+				let receival_result = lane.receive_message::<T::MessageDispatch>(
+					&relayer_id_at_bridged_chain,
+					message.key.nonce,
+					message.data,
+				);
+
+				// note that we're returning unspent weight to relayer even if message has been
+				// rejected by the lane. This allows relayers to submit spam transactions with
+				// e.g. the same set of already delivered messages over and over again, without
+				// losing funds for messages dispatch. But keep in mind that relayer pays base
+				// delivery transaction cost anyway. And base cost covers everything except
+				// dispatch, so we have a balance here.
+				let unspent_weight = match &receival_result {
+					ReceptionResult::Dispatched(dispatch_result) => {
+						valid_messages += 1;
+						dispatch_result.unspent_weight
+					},
+					ReceptionResult::InvalidNonce |
+					ReceptionResult::TooManyUnrewardedRelayers |
+					ReceptionResult::TooManyUnconfirmedMessages => message_dispatch_weight,
+				};
+				messages_received_status.push(message.key.nonce, receival_result);
+
+				let unspent_weight = unspent_weight.min(message_dispatch_weight);
+				dispatch_weight_left -= message_dispatch_weight - unspent_weight;
+				actual_weight = actual_weight.saturating_sub(unspent_weight);
 			}
 
 			// let's now deal with relayer payments
@@ -377,7 +373,7 @@ pub mod pallet {
 			);
 
 			// mark messages as delivered
-			let mut lane = outbound_lane::<T, I>(lane_id);
+			let mut lane = any_state_outbound_lane::<T, I>(lane_id)?;
 			let last_delivered_nonce = lane_data.last_delivered_nonce();
 			let confirmed_messages = lane
 				.confirm_delivery(
@@ -452,7 +448,7 @@ pub mod pallet {
 		/// Messages have been received from the bridged chain.
 		MessagesReceived(
 			/// Result of received messages dispatch.
-			Vec<ReceivedMessages<<T::MessageDispatch as MessageDispatch>::DispatchLevelResult>>,
+			ReceivedMessages<<T::MessageDispatch as MessageDispatch>::DispatchLevelResult>,
 		),
 		/// Messages in the inclusive range have been delivered to the bridged chain.
 		MessagesDelivered {
@@ -468,14 +464,10 @@ pub mod pallet {
 	pub enum Error<T, I = ()> {
 		/// Pallet is not in Normal operating mode.
 		NotOperatingNormally,
-		/// The outbound lane is inactive.
-		InactiveOutboundLane,
-		/// The inbound message dispatcher is inactive.
-		MessageDispatchInactive,
+		/// Error that is reported by the lanes manager.
+		LanesManager(LanesManagerError),
 		/// Message has been treated as invalid by the pallet logic.
 		MessageRejectedByPallet(VerificationError),
-		/// Submitter has failed to pay fee for delivering and dispatching messages.
-		FailedToWithdrawMessageFee,
 		/// The transaction brings too many messages.
 		TooManyMessagesInTheProof,
 		/// Invalid messages has been submitted.
@@ -488,8 +480,6 @@ pub mod pallet {
 		/// The cumulative dispatch weight, passed by relayer is not enough to cover dispatch
 		/// of all bundled messages.
 		InsufficientDispatchWeight,
-		/// The message someone is trying to work with (i.e. increase fee) is not yet sent.
-		MessageIsNotYetSent,
 		/// Error confirming messages receival.
 		ReceptionConfirmation(ReceptionConfirmationError),
 		/// Error generated by the `OwnedBridgeModule` trait.
@@ -514,10 +504,13 @@ pub mod pallet {
 	pub type PalletOperatingMode<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, MessagesOperatingMode, ValueQuery>;
 
+	// TODO: https://github.com/paritytech/parity-bridges-common/pull/2213: let's limit number of
+	// possible opened lanes && use it to constraint maps below
+
 	/// Map of lane id => inbound lane data.
 	#[pallet::storage]
 	pub type InboundLanes<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, LaneId, StoredInboundLaneData<T, I>, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, LaneId, StoredInboundLaneData<T, I>, OptionQuery>;
 
 	/// Map of lane id => outbound lane data.
 	#[pallet::storage]
@@ -525,28 +518,7 @@ pub mod pallet {
 		Hasher = Blake2_128Concat,
 		Key = LaneId,
 		Value = OutboundLaneData,
-		QueryKind = ValueQuery,
-		OnEmpty = GetDefault,
-		MaxValues = MaybeOutboundLanesCount<T, I>,
-	>;
-
-	/// Map of lane id => is congested signal sent. It is managed by the
-	/// `bridge_runtime_common::LocalXcmQueueManager`.
-	///
-	/// **bridges-v1**: this map is a temporary hack and will be dropped in the `v2`. We can emulate
-	/// a storage map using `sp_io::unhashed` storage functions, but then benchmarks are not
-	/// accounting its `proof_size`, so it is missing from the final weights. So we need to make it
-	/// a map inside some pallet. We could use a simply value instead of map here, because
-	/// in `v1` we'll only have a single lane. But in the case of adding another lane before `v2`,
-	/// it'll be easier to deal with the isolated storage map instead.
-	#[pallet::storage]
-	pub type OutboundLanesCongestedSignals<T: Config<I>, I: 'static = ()> = StorageMap<
-		Hasher = Blake2_128Concat,
-		Key = LaneId,
-		Value = bool,
-		QueryKind = ValueQuery,
-		OnEmpty = GetDefault,
-		MaxValues = MaybeOutboundLanesCount<T, I>,
+		QueryKind = OptionQuery,
 	>;
 
 	/// All queued outbound messages.
@@ -561,8 +533,11 @@ pub mod pallet {
 		pub operating_mode: MessagesOperatingMode,
 		/// Initial pallet owner.
 		pub owner: Option<T::AccountId>,
+		/// Opened lanes.
+		pub opened_lanes: Vec<LaneId>,
 		/// Dummy marker.
-		pub phantom: sp_std::marker::PhantomData<I>,
+		#[serde(skip)]
+		pub _phantom: sp_std::marker::PhantomData<I>,
 	}
 
 	#[pallet::genesis_build]
@@ -571,6 +546,11 @@ pub mod pallet {
 			PalletOperatingMode::<T, I>::put(self.operating_mode);
 			if let Some(ref owner) = self.owner {
 				PalletOwner::<T, I>::put(owner);
+			}
+
+			for lane_id in &self.opened_lanes {
+				InboundLanes::<T, I>::insert(lane_id, InboundLaneData::opened());
+				OutboundLanes::<T, I>::insert(lane_id, OutboundLaneData::opened());
 			}
 		}
 	}
@@ -605,15 +585,15 @@ pub mod pallet {
 		}
 
 		/// Return outbound lane data.
-		pub fn outbound_lane_data(lane: LaneId) -> OutboundLaneData {
+		pub fn outbound_lane_data(lane: LaneId) -> Option<OutboundLaneData> {
 			OutboundLanes::<T, I>::get(lane)
 		}
 
 		/// Return inbound lane data.
 		pub fn inbound_lane_data(
 			lane: LaneId,
-		) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
-			InboundLanes::<T, I>::get(lane).0
+		) -> Option<InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>> {
+			InboundLanes::<T, I>::get(lane).map(|lane| lane.0)
 		}
 	}
 
@@ -668,15 +648,6 @@ pub mod pallet {
 			Ok(())
 		}
 	}
-
-	/// Get-parameter that returns number of active outbound lanes that the pallet maintains.
-	pub struct MaybeOutboundLanesCount<T, I>(PhantomData<(T, I)>);
-
-	impl<T: Config<I>, I: 'static> Get<Option<u32>> for MaybeOutboundLanesCount<T, I> {
-		fn get() -> Option<u32> {
-			Some(T::ActiveOutboundLanes::get().len() as u32)
-		}
-	}
 }
 
 /// Structure, containing a validated message payload and all the info required
@@ -684,6 +655,7 @@ pub mod pallet {
 #[derive(Debug, PartialEq, Eq)]
 pub struct SendMessageArgs<T: Config<I>, I: 'static> {
 	lane_id: LaneId,
+	lane: OutboundLane<RuntimeOutboundLaneStorage<T, I>>,
 	payload: StoredMessagePayload<T, I>,
 }
 
@@ -696,16 +668,18 @@ where
 	type SendMessageArgs = SendMessageArgs<T, I>;
 
 	fn validate_message(
-		lane: LaneId,
+		lane_id: LaneId,
 		message: &T::OutboundPayload,
 	) -> Result<SendMessageArgs<T, I>, Self::Error> {
+		// we can't accept any messages if the pallet is halted
 		ensure_normal_operating_mode::<T, I>()?;
 
-		// let's check if outbound lane is active
-		ensure!(T::ActiveOutboundLanes::get().contains(&lane), Error::<T, I>::InactiveOutboundLane);
+		// check lane
+		let lane = active_outbound_lane::<T, I>(lane_id)?;
 
 		Ok(SendMessageArgs {
-			lane_id: lane,
+			lane_id,
+			lane,
 			payload: StoredMessagePayload::<T, I>::try_from(message.encode()).map_err(|_| {
 				Error::<T, I>::MessageRejectedByPallet(VerificationError::MessageTooLarge)
 			})?,
@@ -714,7 +688,7 @@ where
 
 	fn send_message(args: SendMessageArgs<T, I>) -> SendMessageArtifacts {
 		// save message in outbound storage and emit event
-		let mut lane = outbound_lane::<T, I>(args.lane_id);
+		let mut lane = args.lane;
 		let message_len = args.payload.len();
 		let nonce = lane.send_message(args.payload);
 
@@ -746,122 +720,31 @@ fn ensure_normal_operating_mode<T: Config<I>, I: 'static>() -> Result<(), Error<
 	Err(Error::<T, I>::NotOperatingNormally)
 }
 
-/// Creates new inbound lane object, backed by runtime storage.
-fn inbound_lane<T: Config<I>, I: 'static>(
+/// Creates new inbound lane object, backed by runtime storage. Lane must be active.
+fn active_inbound_lane<T: Config<I>, I: 'static>(
 	lane_id: LaneId,
-) -> InboundLane<RuntimeInboundLaneStorage<T, I>> {
-	InboundLane::new(RuntimeInboundLaneStorage::from_lane_id(lane_id))
+) -> Result<InboundLane<RuntimeInboundLaneStorage<T, I>>, Error<T, I>> {
+	LanesManager::<T, I>::new()
+		.active_inbound_lane(lane_id)
+		.map_err(Error::LanesManager)
+}
+
+/// Creates new outbound lane object, backed by runtime storage. Lane must be active.
+fn active_outbound_lane<T: Config<I>, I: 'static>(
+	lane_id: LaneId,
+) -> Result<OutboundLane<RuntimeOutboundLaneStorage<T, I>>, Error<T, I>> {
+	LanesManager::<T, I>::new()
+		.active_outbound_lane(lane_id)
+		.map_err(Error::LanesManager)
 }
 
 /// Creates new outbound lane object, backed by runtime storage.
-fn outbound_lane<T: Config<I>, I: 'static>(
+fn any_state_outbound_lane<T: Config<I>, I: 'static>(
 	lane_id: LaneId,
-) -> OutboundLane<RuntimeOutboundLaneStorage<T, I>> {
-	OutboundLane::new(RuntimeOutboundLaneStorage { lane_id, _phantom: Default::default() })
-}
-
-/// Runtime inbound lane storage.
-struct RuntimeInboundLaneStorage<T: Config<I>, I: 'static = ()> {
-	lane_id: LaneId,
-	cached_data: Option<InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>>,
-	_phantom: PhantomData<I>,
-}
-
-impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
-	/// Creates new runtime inbound lane storage.
-	fn from_lane_id(lane_id: LaneId) -> RuntimeInboundLaneStorage<T, I> {
-		RuntimeInboundLaneStorage { lane_id, cached_data: None, _phantom: Default::default() }
-	}
-}
-
-impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
-	/// Returns number of bytes that may be subtracted from the PoV component of
-	/// `receive_messages_proof` call, because the actual inbound lane state is smaller than the
-	/// maximal configured.
-	///
-	/// Maximal inbound lane state set size is configured by the
-	/// `MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX` constant from the pallet configuration. The PoV
-	/// of the call includes the maximal size of inbound lane state. If the actual size is smaller,
-	/// we may subtract extra bytes from this component.
-	pub fn extra_proof_size_bytes(&mut self) -> u64 {
-		let max_encoded_len = StoredInboundLaneData::<T, I>::max_encoded_len();
-		let relayers_count = self.get_or_init_data().relayers.len();
-		let actual_encoded_len =
-			InboundLaneData::<AccountIdOf<BridgedChainOf<T, I>>>::encoded_size_hint(relayers_count)
-				.unwrap_or(usize::MAX);
-		max_encoded_len.saturating_sub(actual_encoded_len) as _
-	}
-}
-
-impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<T, I> {
-	type Relayer = AccountIdOf<BridgedChainOf<T, I>>;
-
-	fn id(&self) -> LaneId {
-		self.lane_id
-	}
-
-	fn max_unrewarded_relayer_entries(&self) -> MessageNonce {
-		BridgedChainOf::<T, I>::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX
-	}
-
-	fn max_unconfirmed_messages(&self) -> MessageNonce {
-		BridgedChainOf::<T, I>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX
-	}
-
-	fn get_or_init_data(&mut self) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
-		match self.cached_data {
-			Some(ref data) => data.clone(),
-			None => {
-				let data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> =
-					InboundLanes::<T, I>::get(self.lane_id).into();
-				self.cached_data = Some(data.clone());
-				data
-			},
-		}
-	}
-
-	fn set_data(&mut self, data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>) {
-		self.cached_data = Some(data.clone());
-		InboundLanes::<T, I>::insert(self.lane_id, StoredInboundLaneData::<T, I>(data))
-	}
-}
-
-/// Runtime outbound lane storage.
-struct RuntimeOutboundLaneStorage<T, I = ()> {
-	lane_id: LaneId,
-	_phantom: PhantomData<(T, I)>,
-}
-
-impl<T: Config<I>, I: 'static> OutboundLaneStorage for RuntimeOutboundLaneStorage<T, I> {
-	type StoredMessagePayload = StoredMessagePayload<T, I>;
-
-	fn id(&self) -> LaneId {
-		self.lane_id
-	}
-
-	fn data(&self) -> OutboundLaneData {
-		OutboundLanes::<T, I>::get(self.lane_id)
-	}
-
-	fn set_data(&mut self, data: OutboundLaneData) {
-		OutboundLanes::<T, I>::insert(self.lane_id, data)
-	}
-
-	#[cfg(test)]
-	fn message(&self, nonce: &MessageNonce) -> Option<Self::StoredMessagePayload> {
-		OutboundMessages::<T, I>::get(MessageKey { lane_id: self.lane_id, nonce: *nonce })
-	}
-
-	fn save_message(&mut self, nonce: MessageNonce, message_payload: Self::StoredMessagePayload) {
-		OutboundMessages::<T, I>::insert(
-			MessageKey { lane_id: self.lane_id, nonce },
-			message_payload,
-		);
-	}
-
-	fn remove_message(&mut self, nonce: &MessageNonce) {
-		OutboundMessages::<T, I>::remove(MessageKey { lane_id: self.lane_id, nonce: *nonce });
-	}
+) -> Result<OutboundLane<RuntimeOutboundLaneStorage<T, I>>, Error<T, I>> {
+	LanesManager::<T, I>::new()
+		.any_state_outbound_lane(lane_id)
+		.map_err(Error::LanesManager)
 }
 
 /// Verify messages proof and return proved messages with decoded payload.
@@ -872,18 +755,13 @@ fn verify_and_decode_messages_proof<T: Config<I>, I: 'static>(
 	// `receive_messages_proof` weight formula and `MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX`
 	// check guarantees that the `message_count` is sane and Vec<Message> may be allocated.
 	// (tx with too many messages will either be rejected from the pool, or will fail earlier)
-	proofs::verify_messages_proof::<T, I>(proof, messages_count).map(|messages_by_lane| {
-		messages_by_lane
-			.into_iter()
-			.map(|(lane, lane_data)| {
-				(
-					lane,
-					ProvedLaneMessages {
-						lane_state: lane_data.lane_state,
-						messages: lane_data.messages.into_iter().map(Into::into).collect(),
-					},
-				)
-			})
-			.collect()
+	proofs::verify_messages_proof::<T, I>(proof, messages_count).map(|(lane, lane_data)| {
+		(
+			lane,
+			ProvedLaneMessages {
+				lane_state: lane_data.lane_state,
+				messages: lane_data.messages.into_iter().map(Into::into).collect(),
+			},
+		)
 	})
 }
