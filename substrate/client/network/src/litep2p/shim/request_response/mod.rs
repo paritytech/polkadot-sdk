@@ -29,8 +29,10 @@ use crate::{
 
 use futures::{channel::oneshot, future::BoxFuture, stream::FuturesUnordered, StreamExt};
 use litep2p::{
+	error::ImmediateDialError,
 	protocol::request_response::{
-		DialOptions, RequestResponseError, RequestResponseEvent, RequestResponseHandle,
+		DialOptions, RejectReason, RequestResponseError, RequestResponseEvent,
+		RequestResponseHandle,
 	},
 	types::RequestId,
 };
@@ -371,10 +373,33 @@ impl RequestResponseProtocol {
 
 		let status = match error {
 			RequestResponseError::NotConnected =>
-				Some((RequestFailure::NotConnected, "not-connected")),
-			RequestResponseError::Rejected => Some((RequestFailure::Refused, "rejected")),
+				Some((RequestFailure::NotConnected, "not-connected".to_string())),
+			RequestResponseError::Rejected(reason) => {
+				let reason = match reason {
+					RejectReason::ConnectionClosed => "connection-closed".to_string(),
+					RejectReason::SubstreamClosed => "substream-closed".to_string(),
+					RejectReason::SubstreamOpenError(substream_error) => {
+						format!("substream-open-error: {:?}", substream_error)
+					},
+					RejectReason::DialFailed(None) => "dial-failed".to_string(),
+					RejectReason::DialFailed(Some(ImmediateDialError::AlreadyConnected)) =>
+						"dial-already-connected".to_string(),
+					RejectReason::DialFailed(Some(ImmediateDialError::PeerIdMissing)) =>
+						"dial-peerid-missing".to_string(),
+					RejectReason::DialFailed(Some(ImmediateDialError::TriedToDialSelf)) =>
+						"dial-tried-to-dial-self".to_string(),
+					RejectReason::DialFailed(Some(ImmediateDialError::NoAddressAvailable)) =>
+						"dial-no-address-available".to_string(),
+					RejectReason::DialFailed(Some(ImmediateDialError::TaskClosed)) =>
+						"dial-task-closed".to_string(),
+					RejectReason::DialFailed(Some(ImmediateDialError::ChannelClogged)) =>
+						"dial-channel-clogged".to_string(),
+				};
+
+				Some((RequestFailure::Refused, reason))
+			},
 			RequestResponseError::Timeout =>
-				Some((RequestFailure::Network(OutboundFailure::Timeout), "timeout")),
+				Some((RequestFailure::Network(OutboundFailure::Timeout), "timeout".to_string())),
 			RequestResponseError::Canceled => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -389,7 +414,7 @@ impl RequestResponseProtocol {
 					"{}: tried to send too large request to {peer:?} ({request_id:?})",
 					self.protocol,
 				);
-				Some((RequestFailure::Refused, "payload-too-large"))
+				Some((RequestFailure::Refused, "payload-too-large".to_string()))
 			},
 			RequestResponseError::UnsupportedProtocol => match fallback_request {
 				Some((request, protocol)) => match self.request_tx.get(&protocol) {
@@ -428,15 +453,15 @@ impl RequestResponseProtocol {
 							peer,
 						);
 
-						Some((RequestFailure::Refused, "invalid-fallback-protocol"))
+						Some((RequestFailure::Refused, "invalid-fallback-protocol".to_string()))
 					},
 				},
-				None => Some((RequestFailure::Refused, "unsupported-protocol")),
+				None => Some((RequestFailure::Refused, "unsupported-protocol".to_string())),
 			},
 		};
 
 		if let Some((error, reason)) = status {
-			self.metrics.register_outbound_request_failure(reason);
+			self.metrics.register_outbound_request_failure(reason.as_str());
 			let _ = tx.send(Err(error));
 		}
 	}
