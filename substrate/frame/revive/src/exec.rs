@@ -184,9 +184,9 @@ pub trait Ext: sealing::Sealed {
 	fn call(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: U256,
 		to: &H160,
-		value: BalanceOf<Self::T>,
+		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
@@ -1252,9 +1252,9 @@ where
 	fn call(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<T>,
+		deposit_limit: U256,
 		dest: &H160,
-		value: BalanceOf<T>,
+		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
@@ -1283,9 +1283,9 @@ where
 				});
 			let executable = self.push_frame(
 				FrameArgs::Call { dest, cached_info, delegated_call: None },
-				value,
+				value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 				gas_limit,
-				deposit_limit,
+				deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 				// Enable read-only access if requested; cannot disable it if already set.
 				read_only || self.is_read_only(),
 			)?;
@@ -2119,9 +2119,9 @@ mod tests {
 			// Try to call into yourself.
 			let r = ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::<Test>::zero(),
+				U256::zero(),
 				&BOB_ADDR,
-				0,
+				U256::zero(),
 				vec![],
 				true,
 				false,
@@ -2182,9 +2182,9 @@ mod tests {
 			assert_matches!(
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					&CHARLIE_ADDR,
-					0,
+					U256::zero(),
 					vec![],
 					true,
 					false
@@ -2323,9 +2323,9 @@ mod tests {
 			// BOB calls CHARLIE
 			ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::<Test>::zero(),
+				U256::zero(),
 				&CHARLIE_ADDR,
-				0,
+				U256::zero(),
 				vec![],
 				true,
 				false,
@@ -2417,9 +2417,9 @@ mod tests {
 			// BOB calls CHARLIE.
 			ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::<Test>::zero(),
+				U256::zero(),
 				&CHARLIE_ADDR,
-				0,
+				U256::zero(),
 				vec![],
 				true,
 				false,
@@ -2455,9 +2455,9 @@ mod tests {
 			assert_matches!(
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					&CHARLIE_ADDR,
-					0,
+					U256::zero(),
 					vec![],
 					true,
 					false
@@ -2811,9 +2811,9 @@ mod tests {
 				assert_eq!(
 					ctx.ext.call(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						&CHARLIE_ADDR,
-						0,
+						U256::zero(),
 						vec![],
 						true,
 						false
@@ -2827,15 +2827,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					&BOB_ADDR,
-					0,
-					vec![99],
-					true,
-					false
-				)
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
 				.is_ok());
 			exec_trapped()
 		});
@@ -2867,7 +2859,7 @@ mod tests {
 			let addr = <Test as Config>::AddressMapper::to_address(&account_id);
 
 			assert_matches!(
-						   ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), &addr, 0, vec![],
+						   ctx.ext.call(Weight::zero(), U256::zero(), &addr, U256::zero(), vec![],
 			true, false), 				Err(ExecError{error, ..}) if error == <Error<Test>>::ContractNotFound.into()
 					   );
 			exec_success()
@@ -3005,7 +2997,7 @@ mod tests {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			let dest = H160::from_slice(ctx.input_data.as_ref());
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), &dest, 0, vec![], false, false)
+				.call(Weight::zero(), U256::zero(), &dest, U256::zero(), vec![], false, false)
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3050,9 +3042,9 @@ mod tests {
 			if ctx.input_data[0] == 0 {
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					&CHARLIE_ADDR,
-					0,
+					U256::zero(),
 					vec![],
 					false,
 					false,
@@ -3066,9 +3058,9 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::<Test>::zero(),
+				U256::zero(),
 				&BOB_ADDR,
-				0,
+				U256::zero(),
 				vec![1],
 				true,
 				false,
@@ -3291,7 +3283,7 @@ mod tests {
 
 			// a plain call should not influence the account counter
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), &addr, 0, vec![], false, false)
+				.call(Weight::zero(), U256::zero(), &addr, U256::zero(), vec![], false, false)
 				.unwrap();
 
 			assert_eq!(System::account_nonce(ALICE), alice_nonce);
@@ -3829,9 +3821,9 @@ mod tests {
 				assert_eq!(
 					ctx.ext.call(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						&CHARLIE_ADDR,
-						0,
+						U256::zero(),
 						vec![],
 						true,
 						false,
@@ -3856,15 +3848,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					&BOB_ADDR,
-					0,
-					vec![99],
-					true,
-					false
-				)
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
 				.is_ok());
 			// CHARLIE can not read BOB`s storage.
 			assert_eq!(ctx.ext.get_transient_storage(storage_key_1), None);
@@ -3941,9 +3925,9 @@ mod tests {
 				assert_eq!(
 					ctx.ext.call(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						&CHARLIE_ADDR,
-						0,
+						U256::zero(),
 						vec![],
 						true,
 						false
@@ -3964,15 +3948,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					&BOB_ADDR,
-					0,
-					vec![99],
-					true,
-					false
-				)
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
 				.is_ok());
 			exec_trapped()
 		});

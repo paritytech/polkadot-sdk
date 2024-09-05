@@ -37,7 +37,7 @@ use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
-use sp_runtime::{traits::Zero, DispatchError, RuntimeDebug};
+use sp_runtime::{DispatchError, RuntimeDebug};
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
@@ -963,13 +963,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			CallType::Call { callee_ptr, value_ptr, deposit_ptr, weight } => {
 				let mut callee = H160::zero();
 				memory.read_into_buf(callee_ptr, callee.as_bytes_mut())?;
-				let deposit_limit: BalanceOf<<E as Ext>::T> = if deposit_ptr == SENTINEL {
-					BalanceOf::<<E as Ext>::T>::zero()
+				let deposit_limit: U256 = if deposit_ptr == SENTINEL {
+					U256::zero()
 				} else {
 					memory.read_as(deposit_ptr)?
 				};
 				let read_only = flags.contains(CallFlags::READ_ONLY);
-				let value: BalanceOf<<E as Ext>::T> = memory.read_as(value_ptr)?;
+				let value: U256 = memory.read_as(value_ptr)?;
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
 					// error.

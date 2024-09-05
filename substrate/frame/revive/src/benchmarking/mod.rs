@@ -1446,10 +1446,10 @@ mod benchmarks {
 		let callee_len = callee_bytes.len() as u32;
 
 		let value: BalanceOf<T> = t.into();
-		let value_bytes = value.encode();
+		let value_bytes = Into::<U256>::into(value).encode();
 
 		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
-		let deposit_bytes = deposit.encode();
+		let deposit_bytes = Into::<U256>::into(deposit).encode();
 		let deposit_len = deposit_bytes.len() as u32;
 
 		let mut setup = CallSetup::<T>::default();
