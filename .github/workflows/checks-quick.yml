@@ -181,3 +181,20 @@ jobs:
         env:
           ASSERT_REGEX: "FAIL-CI"
           GIT_DEPTH: 1
+
+  confirm-required-checks-quick-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All quick checks passed
+    # If any new job gets added, be sure to add it to this array
+    needs:
+      - fmt
+      - check-dependency-rules
+      - check-rust-feature-propagation
+      - test-rust-features
+      - check-toml-format
+      - check-workspace
+      - check-markdown
+      - check-umbrella
+      - check-fail-ci
+    steps:
+      - run: echo '### Good job! All the quick checks passed 🚀' >> $GITHUB_STEP_SUMMARY
