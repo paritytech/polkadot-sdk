@@ -1,5 +1,5 @@
 error[E0308]: mismatched types
-  --> tests/pallet_ui/aaaa.rs:32:15
+  --> tests/pallet_ui/call_span_for_error.rs:32:15
    |
 32 |             return Err(DispatchError::BadOrigin);
    |                    --- ^^^^^^^^^^^^^^^^^^^^^^^^ expected `DispatchErrorWithPostInfo<PostDispatchInfo>`, found `DispatchError`
@@ -9,7 +9,7 @@ error[E0308]: mismatched types
    = note: expected struct `DispatchErrorWithPostInfo<PostDispatchInfo>`
                 found enum `frame_support::pallet_prelude::DispatchError`
 help: the type constructed contains `frame_support::pallet_prelude::DispatchError` due to the type of the argument passed
-  --> tests/pallet_ui/aaaa.rs:32:11
+  --> tests/pallet_ui/call_span_for_error.rs:32:11
    |
 32 |             return Err(DispatchError::BadOrigin);
    |                    ^^^^------------------------^
