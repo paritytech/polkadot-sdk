@@ -17,7 +17,6 @@ body.sdk-docs {
 	}
 }
 
-/* A shadow for the logo to be readable on a light background */
 html[data-theme="light"] .sidebar-crate > .logo-container > img {
   content: url("https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_Black.png");
 }
