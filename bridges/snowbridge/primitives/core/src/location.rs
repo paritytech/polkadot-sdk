@@ -61,22 +61,22 @@ impl DescribeLocation for DescribeTokenTerminal {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		match l.unpack().1 {
 			[] => Some(Vec::<u8>::new().encode()),
-			[GeneralIndex(index)] => Some((b"Index", *index).encode()),
-			[GeneralKey { data, .. }] => Some((b"Key", *data).encode()),
-			[AccountKey20 { key, .. }] => Some((b"AccountKey", *key).encode()),
-			[AccountId32 { id, .. }] => Some((b"AccountId", *id).encode()),
+			[GeneralIndex(index)] => Some((b"GeneralIndex", *index).encode()),
+			[GeneralKey { data, .. }] => Some((b"GeneralKey", *data).encode()),
+			[AccountKey20 { key, .. }] => Some((b"AccountKey20", *key).encode()),
+			[AccountId32 { id, .. }] => Some((b"AccountId32", *id).encode()),
 
 			// Pallet
-			[PalletInstance(instance)] => Some((b"Pallet", *instance).encode()),
+			[PalletInstance(instance)] => Some((b"PalletInstance", *instance).encode()),
 			[PalletInstance(instance), GeneralIndex(index)] =>
-				Some((b"Pallet", *instance, "Index", *index).encode()),
+				Some((b"PalletInstance", *instance, "GeneralIndex", *index).encode()),
 			[PalletInstance(instance), GeneralKey { data, .. }] =>
-				Some((b"Pallet", *instance, b"Key", *data).encode()),
+				Some((b"PalletInstance", *instance, b"GeneralKey", *data).encode()),
 
 			[PalletInstance(instance), AccountKey20 { key, .. }] =>
-				Some((b"Pallet", *instance, b"AccountKey", *key).encode()),
+				Some((b"PalletInstance", *instance, b"AccountKey20", *key).encode()),
 			[PalletInstance(instance), AccountId32 { id, .. }] =>
-				Some((b"Pallet", *instance, b"AccountId", *id).encode()),
+				Some((b"PalletInstance", *instance, b"AccountId32", *id).encode()),
 
 			// Reject all other locations
 			_ => None,
