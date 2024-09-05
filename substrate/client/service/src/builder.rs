@@ -542,15 +542,15 @@ where
 		rpc_id_provider,
 	)?;
 
-	let listen_addrs = match rpc_server_handle.listen_addr() {
-		Some(socket_addr) => {
+	let listen_addrs = rpc_server_handle
+		.listen_addrs()
+		.into_iter()
+		.map(|socket_addr| {
 			let mut multiaddr: Multiaddr = socket_addr.ip().into();
 			multiaddr.push(Protocol::Tcp(socket_addr.port()));
-			vec![multiaddr]
-		},
-		None => vec![],
-	};
-
+			multiaddr
+		})
+		.collect();
 
 	let in_memory_rpc = {
 		let mut module = gen_rpc_module()?;

@@ -23,11 +23,13 @@
 pub mod middleware;
 pub mod utils;
 
-use std::{error::Error as StdError, time::Duration};
+use std::{error::Error as StdError, net::SocketAddr, time::Duration};
 
 use jsonrpsee::{
 	core::BoxError,
-	server::{serve_with_graceful_shutdown, stop_channel, ws, PingConfig, ServerHandle, StopHandle},
+	server::{
+		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, ServerHandle, StopHandle,
+	},
 	Methods, RpcModule,
 };
 use middleware::NodeHealthProxyLayer;
@@ -51,23 +53,24 @@ pub struct Server {
 	/// Handle to the rpc server
 	handle: ServerHandle,
 	/// Listening address of the server
-	listen_addr: Option<SocketAddr>,
+	listen_addrs: Vec<SocketAddr>,
 }
 
 impl Server {
 	/// Creates a new Server.
-	pub fn new(handle: ServerHandle, listen_addr: Option<SocketAddr>) -> Server {
-		Server { handle, listen_addr }
+	pub fn new(handle: ServerHandle, listen_addrs: Vec<SocketAddr>) -> Server {
+		Server { handle, listen_addrs }
 	}
 
-	/// Returns the `jsonrpsee::server::ServerHandle` for this Server. Can be used to stop the server.
+	/// Returns the `jsonrpsee::server::ServerHandle` for this Server. Can be used to stop the
+	/// server.
 	pub fn handle(&self) -> &ServerHandle {
 		&self.handle
 	}
 
 	/// The listen address for the running RPC service.
-	pub fn listen_addr(&self) -> Option<&SocketAddr> {
-		self.listen_addr.as_ref()
+	pub fn listen_addrs(&self) -> &[SocketAddr] {
+		&self.listen_addrs
 	}
 }
 
@@ -295,5 +298,5 @@ where
 	// This is to make it work with old scripts/utils that parse the logs.
 	log::info!("Running JSON-RPC server: addr={}", format_listen_addrs(&local_addrs));
 
-	Ok(Server::new(server_handle, local_addr))
+	Ok(Server::new(server_handle, local_addrs))
 }
