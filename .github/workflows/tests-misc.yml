@@ -144,7 +144,7 @@ jobs:
 
   cargo-check-benches-branches:
     needs: [ set-image ]
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
     timeout-minutes: 60
     outputs:
       branch: ${{ steps.branch.outputs.branch }}
