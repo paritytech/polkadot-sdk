@@ -53,6 +53,55 @@ fn tracker_earliest_block_number() {
 }
 
 #[test]
+fn tracker_claim_queue_remap() {
+	let mut tracker = AllowedRelayParentsTracker::<Hash, u32>::default();
+
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(CoreIndex(0), vec![Id::from(0), Id::from(1), Id::from(2)].into());
+	claim_queue.insert(CoreIndex(1), vec![Id::from(0), Id::from(0), Id::from(100)].into());
+	claim_queue.insert(CoreIndex(2), vec![Id::from(1), Id::from(2), Id::from(100)].into());
+
+	tracker.update(Hash::zero(), Hash::zero(), claim_queue, 1u32, 3u32);
+
+	let (info, _block_num) = tracker.acquire_info(Hash::zero(), None).unwrap();
+	assert_eq!(
+		info.claim_queue.get(&Id::from(0)).unwrap()[0],
+		vec![CoreIndex(0), CoreIndex(1)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(
+		info.claim_queue.get(&Id::from(1)).unwrap()[0],
+		vec![CoreIndex(2)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(info.claim_queue.get(&Id::from(2)).unwrap()[0], BTreeSet::new());
+	assert_eq!(info.claim_queue.get(&Id::from(100)).unwrap()[0], BTreeSet::new());
+
+	assert_eq!(
+		info.claim_queue.get(&Id::from(0)).unwrap()[1],
+		vec![CoreIndex(0)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(
+		info.claim_queue.get(&Id::from(1)).unwrap()[1],
+		vec![CoreIndex(1)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(
+		info.claim_queue.get(&Id::from(2)).unwrap()[1],
+		vec![CoreIndex(2)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(info.claim_queue.get(&Id::from(100)).unwrap()[1], BTreeSet::new());
+
+	assert_eq!(info.claim_queue.get(&Id::from(0)).unwrap()[1], BTreeSet::new());
+	assert_eq!(info.claim_queue.get(&Id::from(1)).unwrap()[1], BTreeSet::new());
+	assert_eq!(
+		info.claim_queue.get(&Id::from(2)).unwrap()[1],
+		vec![CoreIndex(0)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(
+		info.claim_queue.get(&Id::from(100)).unwrap()[1],
+		vec![CoreIndex(1), CoreIndex(1)].into_iter().collect::<BTreeSet<_>>()
+	);
+}
+
+#[test]
 fn tracker_acquire_info() {
 	let mut tracker = AllowedRelayParentsTracker::<Hash, u32>::default();
 	let max_ancestry_len = 2;

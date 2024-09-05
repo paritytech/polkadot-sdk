@@ -25,7 +25,7 @@ use super::{
 	UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
 };
 use alloc::{
-	collections::{BTreeMap, VecDeque},
+	collections::{BTreeMap, BTreeSet, VecDeque},
 	vec,
 	vec::Vec,
 };
@@ -460,7 +460,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// candidate relay parent.
 	pub fn check_core_index(
 		&self,
-		claim_queue: &BTreeMap<CoreIndex, VecDeque<Id>>,
+		cores_per_para: &BTreeMap<ParaId, VecDeque<BTreeSet<CoreIndex>>>,
 	) -> Result<(), CandidateReceiptError> {
 		match self.descriptor.version() {
 			// Don't check v1 descriptors.
@@ -470,7 +470,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 				return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
-		if claim_queue.is_empty() {
+		if cores_per_para.is_empty() {
 			return Err(CandidateReceiptError::NoAssignment)
 		}
 
@@ -483,20 +483,12 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			};
 
 		// The cores assigned to the parachain at above computed offset.
-		//
-		// TODO: this might be inneficient to do for each candidate.
-		// A BTreeMap<Para, Vec<Option<CoreIndex<>> can be computed
-		// once per relay chain block, making this search here much faster.
-		let assigned_cores = claim_queue
-			.iter()
-			.filter_map(move |(core_index, paras)| {
-				let para_at_offset = *paras.get(offset)?;
-				if para_at_offset == self.descriptor.para_id() {
-					Some(core_index)
-				} else {
-					None
-				}
-			})
+		let assigned_cores = cores_per_para
+			.get(&self.descriptor.para_id())
+			.ok_or(CandidateReceiptError::NoAssignment)?
+			.get(offset)
+			.ok_or(CandidateReceiptError::NoAssignment)?
+			.into_iter()
 			.collect::<Vec<_>>();
 
 		let core_index = if core_selected {
