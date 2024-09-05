@@ -39,8 +39,8 @@ been approved.
 ## Protocol
 
 Input:
-  * `ApprovalVotingMessage::CheckAndImportAssignment`
-  * `ApprovalVotingMessage::CheckAndImportApproval`
+  * `ApprovalVotingMessage::ImportAssignment`
+  * `ApprovalVotingMessage::ImportApproval`
   * `ApprovalVotingMessage::ApprovedAncestor`
 
 Output:
@@ -266,39 +266,17 @@ On receiving an `OverseerSignal::ActiveLeavesUpdate(update)`:
     0-tranche assignment, kick off approval work, and schedule the next delay.
   * Dispatch an `ApprovalDistributionMessage::NewBlocks` with the meta information filled out for each new block.
 
-#### `ApprovalVotingMessage::CheckAndImportAssignment`
+#### `ApprovalVotingMessage::ImportAssignment`
 
-On receiving a `ApprovalVotingMessage::CheckAndImportAssignment` message, we check the assignment cert against the block
-entry. The cert itself contains information necessary to determine the candidate that is being assigned-to. In detail:
+On receiving a `ApprovalVotingMessage::ImportAssignment` message, we assume the assignment cert itself has already been
+checked to be valid we proceed then to import the assignment inside the block entry. The cert itself contains
+information necessary to determine the candidate that is being assigned-to. In detail:
   * Load the `BlockEntry` for the relay-parent referenced by the message. If there is none, return
     `AssignmentCheckResult::Bad`.
   * Fetch the `SessionInfo` for the session of the block
   * Determine the assignment key of the validator based on that.
   * Determine the claimed core index by looking up the candidate with given index in `block_entry.candidates`. Return
     `AssignmentCheckResult::Bad` if missing.
-  * Check the assignment cert
-    * If the cert kind is `RelayVRFModulo`, then the certificate is valid as long as `sample <
-      session_info.relay_vrf_samples` and the VRF is valid for the validator's key with the input
-      `block_entry.relay_vrf_story ++ sample.encode()` as described with
-      [the approvals protocol section](../../protocol-approval.md#assignment-criteria). We set
-      `core_index = vrf.make_bytes().to_u32() % session_info.n_cores`. If the `BlockEntry` causes
-      inclusion of a candidate at `core_index`, then this is a valid assignment for the candidate
-      at `core_index` and has delay tranche 0. Otherwise, it can be ignored.
-    * If the cert kind is `RelayVRFModuloCompact`, then the certificate is valid as long as the VRF
-      is valid for the validator's key with the input `block_entry.relay_vrf_story ++ relay_vrf_samples.encode()`
-      as described with [the approvals protocol section](../../protocol-approval.md#assignment-criteria).
-      We enforce that all `core_bitfield` indices are included in the set of the core indices sampled from the
-      VRF Output. The assignment is considered a valid tranche0 assignment for all claimed candidates if all
-      `core_bitfield` indices match the core indices where the claimed candidates were included at.
-
-    * If the cert kind is `RelayVRFDelay`, then we check if the VRF is valid for the validator's key with the
-      input `block_entry.relay_vrf_story ++ cert.core_index.encode()` as described in [the approvals protocol
-      section](../../protocol-approval.md#assignment-criteria). The cert can be ignored if the block did not
-      cause inclusion of a candidate on that core index. Otherwise, this is a valid assignment for the included
-      candidate. The delay tranche for the assignment is determined by reducing
-      `(vrf.make_bytes().to_u64() % (session_info.n_delay_tranches + session_info.zeroth_delay_tranche_width)).saturating_sub(session_info.zeroth_delay_tranche_width)`.
-    * We also check that the core index derived by the output is covered by the `VRFProof` by means of an auxiliary signature.
-    * If the delay tranche is too far in the future, return `AssignmentCheckResult::TooFarInFuture`.
   * Import the assignment.
     * Load the candidate in question and access the `approval_entry` for the block hash the cert references.
     * Ignore if we already observe the validator as having been assigned.
@@ -309,14 +287,12 @@ entry. The cert itself contains information necessary to determine the candidate
   * [Schedule a wakeup](#schedule-wakeup) for this block, candidate pair.
   * return the appropriate `AssignmentCheckResult` on the response channel.
 
-#### `ApprovalVotingMessage::CheckAndImportApproval`
+#### `ApprovalVotingMessage::ImportApproval`
 
-On receiving a `CheckAndImportApproval(indirect_approval_vote, response_channel)` message:
+On receiving a `ImportApproval(indirect_approval_vote, response_channel)` message:
   * Fetch the `BlockEntry` from the indirect approval vote's `block_hash`. If none, return `ApprovalCheckResult::Bad`.
   * Fetch all `CandidateEntry` from the indirect approval vote's `candidate_indices`. If the block did not trigger
     inclusion of enough candidates, return `ApprovalCheckResult::Bad`.
-  * Construct a `SignedApprovalVote` using the candidates hashes and check against the validator's approval key,
-    based on the session info of the block. If invalid or no such validator, return `ApprovalCheckResult::Bad`.
   * Send `ApprovalCheckResult::Accepted`
   * [Import the checked approval vote](#import-checked-approval) for all candidates
 
