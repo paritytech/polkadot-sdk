@@ -275,7 +275,7 @@ pub mod pallet {
 				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
 			}
 
-			// Decode payload into VersionMessage
+			// Decode payload into `VersionedMessage`
 			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
 				.map_err(|_| Error::<T>::InvalidPayload)?;
 
