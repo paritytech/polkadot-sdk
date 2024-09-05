@@ -181,6 +181,10 @@ impl WeightInfo for TestWeightInfo {
 	fn claim_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
+
+	fn set_asset_claimer() -> Weight {
+		Weight::from_parts(2_176_000, 0)
+	}
 }
 
 #[frame_support::pallet]
