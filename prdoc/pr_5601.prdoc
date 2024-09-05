@@ -1,0 +1,10 @@
+title: Introduce `RpcParams` in sc-cli
+
+doc:
+  - audience: Node Dev
+    description: |
+      Refactors and consolidates all RPC-related parameters in the run command into a dedicated `RpcParams` struct. This change allows downstream users to build custom run command without duplicating code.
+
+crates:
+  - name: sc-cli
+    bump: major
