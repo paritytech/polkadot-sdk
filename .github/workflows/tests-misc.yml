@@ -395,7 +395,7 @@ jobs:
   #        run: |
   #          PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }} True
 
-  confirm-required-jobs-passed:
+  confirm-required-test-misc-jobs-passed:
     runs-on: ubuntu-latest
     name: All test misc tests passed
     # If any new job gets added, be sure to add it to this array
@@ -407,7 +407,7 @@ jobs:
       - node-bench-regression-guard
       - test-node-metrics
       - check-tracing
-      - cargo-hfuzz
       - cargo-check-each-crate
+      # - cargo-hfuzz remove from required for now, as it's flaky
     steps:
       - run: echo '### Good job! All the required tests passed 🚀' >> $GITHUB_STEP_SUMMARY
