@@ -5,7 +5,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [ opened, synchronize, reopened, ready_for_review ]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -44,7 +44,7 @@ jobs:
 
   # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
   quick-benchmarks:
-    needs: [set-image]
+    needs: [ set-image ]
     # if: ${{ needs.changes.outputs.rust }}
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
@@ -63,7 +63,7 @@ jobs:
 
   # cf https://github.com/paritytech/polkadot-sdk/issues/1652
   test-syscalls:
-    needs: [set-image]
+    needs: [ set-image ]
     # if: ${{ needs.changes.outputs.rust }}
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
@@ -87,8 +87,9 @@ jobs:
         run: |
           echo "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed." >> $GITHUB_STEP_SUMMARY
 
+
   cargo-check-all-benches:
-    needs: [set-image]
+    needs: [ set-image ]
     # if: ${{ needs.changes.outputs.rust }}
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
