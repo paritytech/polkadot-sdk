@@ -1028,6 +1028,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#876" id="876">876</a>
 <a href="#877" id="877">877</a>
 <a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1129,6 +1133,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: UpwardMessageSender + InspectMessageQueues, W, P&gt; InspectMessageQueues
 	<span class="kw">for </span>ParentAsUmp&lt;T, W, P&gt;
 {
+	<span class="kw">fn </span>clear_messages() {
+		T::clear_messages();
+	}
+
 	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
 		T::get_messages()
 	}

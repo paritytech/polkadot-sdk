@@ -825,6 +825,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1235,6 +1239,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; InspectMessageQueues <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	<span class="kw">fn </span>clear_messages() {
+		ViaBridgeHubExporter::&lt;T, I&gt;::clear_messages()
+	}
+
 	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
 		ViaBridgeHubExporter::&lt;T, I&gt;::get_messages()
 	}

@@ -288,11 +288,11 @@ upgrade taking place.</p>
 Use with caution.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_async_backing_params" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#507">source</a><h4 class="code-header">pub fn <a href="#method.set_async_backing_params" class="fn">set_async_backing_params</a>(
     origin: OriginFor&lt;T&gt;,
-    new: AsyncBackingParams
+    new: <a class="struct" href="../../../polkadot_primitives/v8/async_backing/struct.AsyncBackingParams.html" title="struct polkadot_primitives::v8::async_backing::AsyncBackingParams">AsyncBackingParams</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set the asynchronous backing parameters.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_executor_params" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#507">source</a><h4 class="code-header">pub fn <a href="#method.set_executor_params" class="fn">set_executor_params</a>(
     origin: OriginFor&lt;T&gt;,
-    new: ExecutorParams
+    new: <a class="struct" href="../../../polkadot_primitives/v8/executor_params/struct.ExecutorParams.html" title="struct polkadot_primitives::v8::executor_params::ExecutorParams">ExecutorParams</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set PVF executor parameters.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_on_demand_base_fee" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#507">source</a><h4 class="code-header">pub fn <a href="#method.set_on_demand_base_fee" class="fn">set_on_demand_base_fee</a>(
     origin: OriginFor&lt;T&gt;,
@@ -325,11 +325,11 @@ Use with caution.</p>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set/Unset a node feature.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_approval_voting_params" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#507">source</a><h4 class="code-header">pub fn <a href="#method.set_approval_voting_params" class="fn">set_approval_voting_params</a>(
     origin: OriginFor&lt;T&gt;,
-    new: ApprovalVotingParams
+    new: <a class="struct" href="../../../polkadot_primitives/v8/struct.ApprovalVotingParams.html" title="struct polkadot_primitives::v8::ApprovalVotingParams">ApprovalVotingParams</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set approval-voting-params.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_scheduler_params" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#507">source</a><h4 class="code-header">pub fn <a href="#method.set_scheduler_params" class="fn">set_scheduler_params</a>(
     origin: OriginFor&lt;T&gt;,
-    new: SchedulerParams&lt;BlockNumberFor&lt;T&gt;&gt;
+    new: <a class="struct" href="../../../polkadot_primitives/v8/struct.SchedulerParams.html" title="struct polkadot_primitives::v8::SchedulerParams">SchedulerParams</a>&lt;BlockNumberFor&lt;T&gt;&gt;
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set scheduler-params.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Pallet%3CT%3E-1" class="impl"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#1269-1278">source</a><a href="#impl-Pallet%3CT%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait polkadot_runtime_parachains::configuration::pallet::Config">Config</a>&gt; <a class="struct" href="struct.Pallet.html" title="struct polkadot_runtime_parachains::configuration::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.set_coretime_cores_unchecked" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#1273-1277">source</a><h4 class="code-header">pub fn <a href="#method.set_coretime_cores_unchecked" class="fn">set_coretime_cores_unchecked</a>(new: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set coretime cores.</p>
 <p>To be used if authorization is checked otherwise.</p>

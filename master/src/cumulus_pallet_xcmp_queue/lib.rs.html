@@ -1214,6 +1214,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1062" id="1062">1062</a>
 <a href="#1063" id="1063">1063</a>
 <a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2224,6 +2229,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; InspectMessageQueues <span class="kw">for </span>Pallet&lt;T&gt; {
+	<span class="kw">fn </span>clear_messages() {
+		<span class="comment">// Best effort.
+		</span><span class="kw">let _ </span>= OutboundXcmpMessages::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+	}
+
 	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
 		<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 

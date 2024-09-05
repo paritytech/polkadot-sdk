@@ -1853,6 +1853,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1701" id="1701">1701</a>
 <a href="#1702" id="1702">1702</a>
 <a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -3395,6 +3399,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; InspectMessageQueues <span class="kw">for </span>Pallet&lt;T&gt; {
+	<span class="kw">fn </span>clear_messages() {
+		PendingUpwardMessages::&lt;T&gt;::kill();
+	}
+
 	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
 		<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 

@@ -858,6 +858,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1200,6 +1204,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Bridges, Router: InspectMessageQueues, UniversalLocation&gt; InspectMessageQueues
 	<span class="kw">for </span>SovereignPaidRemoteExporter&lt;Bridges, Router, UniversalLocation&gt;
 {
+	<span class="kw">fn </span>clear_messages() {
+		Router::clear_messages()
+	}
+
 	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
 		Router::get_messages()
 	}

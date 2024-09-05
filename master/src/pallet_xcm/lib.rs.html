@@ -3522,6 +3522,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3370" id="3370">3370</a>
 <a href="#3371" id="3371">3371</a>
 <a href="#3372" id="3372">3372</a>
+<a href="#3373" id="3373">3373</a>
+<a href="#3374" id="3374">3374</a>
+<a href="#3375" id="3375">3375</a>
+<a href="#3376" id="3376">3376</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -5981,11 +5985,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		&lt;RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin: From&lt;OriginCaller&gt;,
 	{
 		<span class="kw">crate</span>::Pallet::&lt;Runtime&gt;::set_record_xcm(<span class="bool-val">true</span>);
-		frame_system::Pallet::&lt;Runtime&gt;::reset_events(); <span class="comment">// To make sure we only record events from current call.
-		</span><span class="kw">let </span>result = call.dispatch(origin.into());
+		<span class="comment">// Clear other messages in queues...
+		</span>Router::clear_messages();
+		<span class="comment">// ...and reset events to make sure we only record events from current call.
+		</span>frame_system::Pallet::&lt;Runtime&gt;::reset_events();
+		<span class="kw">let </span>result = call.dispatch(origin.into());
 		<span class="kw">crate</span>::Pallet::&lt;Runtime&gt;::set_record_xcm(<span class="bool-val">false</span>);
 		<span class="kw">let </span>local_xcm = <span class="kw">crate</span>::Pallet::&lt;Runtime&gt;::recorded_xcm();
-		<span class="kw">let </span>forwarded_xcms = Router::get_messages();
+		<span class="comment">// Should only get messages from this call since we cleared previous ones.
+		</span><span class="kw">let </span>forwarded_xcms = Router::get_messages();
 		<span class="kw">let </span>events: Vec&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt; =
 			frame_system::Pallet::&lt;Runtime&gt;::read_events_no_consensus()
 				.map(|record| record.event.clone())
