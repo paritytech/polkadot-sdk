@@ -65,7 +65,6 @@ const UNBALANCED_TRIE_LAYERS: u32 = 20;
 struct Contract<T: Config> {
 	caller: T::AccountId,
 	account_id: T::AccountId,
-	addr: T::AccountId,
 }
 
 impl<T> Contract<T>
@@ -114,7 +113,7 @@ where
 
 		let address = outcome.result?.addr;
 		let account_id = T::AddressMapper::to_account_id_contract(&address);
-		let result = Contract { caller, account_id: account_id.clone(), addr: account_id };
+		let result = Contract { caller, account_id: account_id.clone() };
 
 		ContractInfoOf::<T>::insert(&address, result.info()?);
 
@@ -335,7 +334,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
-		let callee = T::AddressMapper::to_address(&instance.addr);
+		let callee = T::AddressMapper::to_address(&instance.account_id);
 		let storage_deposit = default_deposit_limit::<T>();
 
 		#[extrinsic_call]
@@ -443,7 +442,7 @@ mod benchmarks {
 			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::dummy(), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
-		let callee = T::AddressMapper::to_address(&instance.addr);
+		let callee = T::AddressMapper::to_address(&instance.account_id);
 		let before = T::Currency::balance(&instance.account_id);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
@@ -519,7 +518,7 @@ mod benchmarks {
 		let storage_deposit = default_deposit_limit::<T>();
 		let hash =
 			<Contracts<T>>::bare_upload_code(origin.into(), code, storage_deposit)?.code_hash;
-		let callee = T::AddressMapper::to_address(&instance.addr);
+		let callee = T::AddressMapper::to_address(&instance.account_id);
 		assert_ne!(instance.info()?.code_hash, hash);
 		#[extrinsic_call]
 		_(RawOrigin::Root, callee, hash);
