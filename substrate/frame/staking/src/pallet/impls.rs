@@ -34,13 +34,10 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
-use sp_runtime::{
-	traits::{
-		Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion, Saturating,
-		StaticLookup, Zero,
-	},
-	ArithmeticError, Perbill, Percent,
-};
+use sp_runtime::{traits::{
+	Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion, Saturating,
+	StaticLookup, Zero,
+}, ArithmeticError, Perbill, Percent, DispatchResult};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
@@ -1916,9 +1913,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 }
 
 impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
-	fn migrate_to_virtual_staker(who: &Self::AccountId) {
-		let _ = asset::kill_stake::<T>(who).defensive();
+	fn migrate_to_virtual_staker(who: &Self::AccountId) -> DispatchResult {
+		asset::kill_stake::<T>(who)?;
 		VirtualStakers::<T>::insert(who, ());
+		Ok(())
 	}
 
 	/// Virtually bonds `keyless_who` to `payee` with `value`.

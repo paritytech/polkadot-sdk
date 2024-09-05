@@ -956,6 +956,8 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Operation not allowed for virtual stakers.
 		VirtualStakerNotAllowed,
+		/// Stash could not be reaped as other pallet might depend on it.
+		CannotReapStash,
 	}
 
 	#[pallet::hooks]

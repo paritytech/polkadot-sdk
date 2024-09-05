@@ -7253,7 +7253,7 @@ mod staking_unchecked {
 			assert_eq!(asset::staked::<Test>(&200), 1000);
 
 			// migrate them to virtual staker
-			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200);
+			assert_ok!(<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200));
 			// payee needs to be updated to a non-stash account.
 			assert_ok!(<Staking as StakingInterface>::set_payee(&200, &201));
 
@@ -7280,7 +7280,7 @@ mod staking_unchecked {
 				// 101 is a nominator for 11
 				assert_eq!(initial_exposure.others.first().unwrap().who, 101);
 				// make 101 a virtual nominator
-				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
+				assert_ok!(<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101));
 				// set payee different to self.
 				assert_ok!(<Staking as StakingInterface>::set_payee(&101, &102));
 
@@ -7355,7 +7355,7 @@ mod staking_unchecked {
 				// 101 is a nominator for 11
 				assert_eq!(initial_exposure.others.first().unwrap().who, 101);
 				// make 101 a virtual nominator
-				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
+				assert_ok!(<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101));
 				// set payee different to self.
 				assert_ok!(<Staking as StakingInterface>::set_payee(&101, &102));
 
@@ -7411,7 +7411,7 @@ mod staking_unchecked {
 			// 333 is corrupted
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
 			// migrate to virtual staker.
-			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&333);
+			assert_ok!(<Staking as StakingUnchecked>::migrate_to_virtual_staker(&333));
 
 			// recover the ledger won't work for virtual staker
 			assert_noop!(
