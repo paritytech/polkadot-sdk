@@ -42,8 +42,8 @@ use sc_executor::{
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
-	config::{FullNetworkConfiguration, SyncMode},
-	multiaddr::Protocol,
+	config::{FullNetworkConfiguration, ProtocolId, SyncMode},
+    multiaddr::Protocol,
 	service::{
 		traits::{PeerStore, RequestResponseConfig},
 		NotificationMetrics,
@@ -58,7 +58,7 @@ use sc_network_sync::{
 	engine::SyncingEngine,
 	service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
-	strategy::{PolkadotSyncingStrategy, SyncingConfig},
+	strategy::{PolkadotSyncingStrategy, SyncingConfig, SyncingStrategy},
 	warp_request_handler::RequestHandler as WarpSyncRequestHandler,
 	SyncingService, WarpSyncConfig,
 };
@@ -854,19 +854,6 @@ where
 		metrics,
 	} = params;
 
-	if warp_sync_config.is_none() && config.network.sync_mode.is_warp() {
-		return Err("Warp sync enabled, but no warp sync provider configured.".into())
-	}
-
-	if client.requires_full_sync() {
-		match config.network.sync_mode {
-			SyncMode::LightState { .. } =>
-				return Err("Fast sync doesn't work for archive nodes".into()),
-			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
-			SyncMode::Full => {},
-		}
-	}
-
 	let protocol_id = config.protocol_id();
 	let genesis_hash = client.info().genesis_hash;
 
@@ -897,39 +884,6 @@ where
 		block_server.run().await;
 	});
 
-	let (state_request_protocol_config, state_request_protocol_name) = {
-		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
-			net_config.network_config.default_peers_set.reserved_nodes.len();
-		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) = StateRequestHandler::new::<TNet>(
-			&protocol_id,
-			config.chain_spec.fork_id(),
-			client.clone(),
-			num_peer_hint,
-		);
-		let config_name = protocol_config.protocol_name().clone();
-
-		spawn_handle.spawn("state-request-handler", Some("networking"), handler.run());
-		(protocol_config, config_name)
-	};
-
-	let (warp_sync_protocol_config, warp_sync_protocol_name) = match warp_sync_config.as_ref() {
-		Some(WarpSyncConfig::WithProvider(warp_with_provider)) => {
-			// Allow both outgoing and incoming requests.
-			let (handler, protocol_config) = WarpSyncRequestHandler::new::<_, TNet>(
-				protocol_id.clone(),
-				genesis_hash,
-				config.chain_spec.fork_id(),
-				warp_with_provider.clone(),
-			);
-			let config_name = protocol_config.protocol_name().clone();
-
-			spawn_handle.spawn("warp-sync-request-handler", Some("networking"), handler.run());
-			(Some(protocol_config), Some(config_name))
-		},
-		_ => (None, None),
-	};
-
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
 		let (handler, protocol_config) = LightClientRequestHandler::new::<TNet>(
@@ -943,12 +897,7 @@ where
 
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(block_request_protocol_config);
-	net_config.add_request_response_protocol(state_request_protocol_config);
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
-
-	if let Some(config) = warp_sync_protocol_config {
-		net_config.add_request_response_protocol(config);
-	}
 
 	let bitswap_config = config.network.ipfs_server.then(|| {
 		let (handler, config) = TNet::bitswap_server(client.clone());
@@ -974,20 +923,15 @@ where
 	let peer_store_handle = peer_store.handle();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
 
-	let syncing_config = SyncingConfig {
-		mode: net_config.network_config.sync_mode,
-		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
-		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
-		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
-		state_request_protocol_name,
-	};
-	// Initialize syncing strategy.
-	let syncing_strategy = Box::new(PolkadotSyncingStrategy::new(
-		syncing_config,
-		client.clone(),
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		protocol_id.clone(),
+		config.chain_spec.fork_id(),
+		&mut net_config,
 		warp_sync_config,
-		warp_sync_protocol_name,
-	)?);
+		client.clone(),
+		&spawn_handle,
+		config.prometheus_config.as_ref().map(|config| &config.registry),
+	)?;
 
 	let (engine, sync_service, block_announce_config) = SyncingEngine::new(
 		Roles::from(&config.role),
@@ -1017,7 +961,7 @@ where
 		},
 		network_config: net_config,
 		genesis_hash,
-		protocol_id: protocol_id.clone(),
+		protocol_id,
 		fork_id: config.chain_spec.fork_id().map(ToOwned::to_owned),
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
@@ -1113,6 +1057,90 @@ where
 		NetworkStarter(network_start_tx),
 		sync_service.clone(),
 	))
+}
+
+fn build_polkadot_syncing_strategy<Block, Client, Net>(
+	protocol_id: ProtocolId,
+	fork_id: Option<&str>,
+	net_config: &mut FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
+	warp_sync_config: Option<WarpSyncConfig<Block>>,
+	client: Arc<Client>,
+	spawn_handle: &SpawnTaskHandle,
+	metrics_registry: Option<&Registry>,
+) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
+where
+	Block: BlockT,
+	Client: HeaderBackend<Block>
+		+ BlockBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProofProvider<Block>
+		+ Send
+		+ Sync
+		+ 'static,
+
+	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+{
+	if warp_sync_config.is_none() && net_config.network_config.sync_mode.is_warp() {
+		return Err("Warp sync enabled, but no warp sync provider configured.".into())
+	}
+
+	if client.requires_full_sync() {
+		match net_config.network_config.sync_mode {
+			SyncMode::LightState { .. } =>
+				return Err("Fast sync doesn't work for archive nodes".into()),
+			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
+			SyncMode::Full => {},
+		}
+	}
+
+	let genesis_hash = client.info().genesis_hash;
+
+	let (state_request_protocol_config, state_request_protocol_name) = {
+		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
+			net_config.network_config.default_peers_set.reserved_nodes.len();
+		// Allow both outgoing and incoming requests.
+		let (handler, protocol_config) =
+			StateRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone(), num_peer_hint);
+		let config_name = protocol_config.protocol_name().clone();
+
+		spawn_handle.spawn("state-request-handler", Some("networking"), handler.run());
+		(protocol_config, config_name)
+	};
+	net_config.add_request_response_protocol(state_request_protocol_config);
+
+	let (warp_sync_protocol_config, warp_sync_protocol_name) = match warp_sync_config.as_ref() {
+		Some(WarpSyncConfig::WithProvider(warp_with_provider)) => {
+			// Allow both outgoing and incoming requests.
+			let (handler, protocol_config) = WarpSyncRequestHandler::new::<_, Net>(
+				protocol_id,
+				genesis_hash,
+				fork_id,
+				warp_with_provider.clone(),
+			);
+			let config_name = protocol_config.protocol_name().clone();
+
+			spawn_handle.spawn("warp-sync-request-handler", Some("networking"), handler.run());
+			(Some(protocol_config), Some(config_name))
+		},
+		_ => (None, None),
+	};
+	if let Some(config) = warp_sync_protocol_config {
+		net_config.add_request_response_protocol(config);
+	}
+
+	let syncing_config = SyncingConfig {
+		mode: net_config.network_config.sync_mode,
+		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
+		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
+		metrics_registry: metrics_registry.cloned(),
+		state_request_protocol_name,
+	};
+	Ok(Box::new(PolkadotSyncingStrategy::new(
+		syncing_config,
+		client,
+		warp_sync_config,
+		warp_sync_protocol_name,
+	)?))
 }
 
 /// Object used to start the network.
