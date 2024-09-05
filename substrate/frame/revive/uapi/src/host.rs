@@ -79,10 +79,10 @@ pub trait HostFn: private::Sealed {
 	///   otherwise.
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a
-	///   `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for
-	///   the call, which implies storage usage up to the limit of the parent call.
-	/// - `value`: The U256 value to transfer into the contract.
+	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
+	///   specific limit for the call, which implies storage usage up to the limit of the parent
+	///   call.
+	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
 	///   is provided then the output buffer is not copied.
@@ -369,10 +369,10 @@ pub trait HostFn: private::Sealed {
 	/// - `code_hash`: The hash of the code to be instantiated.
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a
-	///   `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for
-	///   the call, which implies storage usage up to the limit of the parent call.
-	/// - `value`: The U256 value to transfer into the contract.
+	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
+	///   specific limit for the call, which implies storage usage up to the limit of the parent
+	///   call.
+	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The input data buffer.
 	/// - `address`: A reference to the address buffer to write the address of the contract. If
 	///   `None` is provided then the output buffer is not copied.
