@@ -21,11 +21,11 @@ use syn::{
 	punctuated::Punctuated, spanned::Spanned, Error, Expr, ExprLit, Lit, Meta, MetaNameValue,
 	Result, Token, Variant,
 };
+
 fn deprecation_msg_formatter(msg: &str) -> String {
 	format!(
-		"{msg}\n{helper}",
-		msg = msg,
-		helper = r#"help: the following are the possible correct uses
+		r#"{msg}
+		help: the following are the possible correct uses
 |
 |     #[deprecated = "reason"]
 |
@@ -56,8 +56,7 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 					acc.0.replace(value);
 				} else if item.path.is_ident("since") {
 					acc.1.replace(value);
-				} else {
-				};
+				}
 				Ok::<(Option<&syn::Lit>, Option<&syn::Lit>), Error>(acc)
 			})?;
 			note.map_or_else(
@@ -108,8 +107,7 @@ fn parse_deprecation(path: &TokenStream, attrs: &[syn::Attribute]) -> Result<Opt
 	attrs
 		.iter()
 		.find(|a| a.path().is_ident("deprecated"))
-		.map(|a| parse_deprecated_meta(path, a).map(|x| Some(x)))
-		.unwrap_or_else(|| Ok(None))
+		.map(|a| parse_deprecated_meta(path, a)).transpose()
 }
 
 /// collects deprecation attribute if its present for enum-like types
@@ -163,7 +161,7 @@ pub fn variant_index_for_deprecation(index: u8, item: &Variant) -> u8 {
 			index as u8
 		};
 
-	let index: u8 = item
+	item
 		.attrs
 		.iter()
 		.find(|attr| attr.path().is_ident("codec"))
@@ -188,6 +186,5 @@ pub fn variant_index_for_deprecation(index: u8, item: &Variant) -> u8 {
 				acc
 			})
 		})
-		.unwrap_or(index);
-	index
+		.unwrap_or(index)
 }

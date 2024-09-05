@@ -503,8 +503,6 @@ pub enum DeprecationInfoIR<T: Form = MetaForm> {
 	/// Entry is fully deprecated.
 	FullyDeprecated(DeprecationStatusIR<T>),
 	/// Entry is partially deprecated.
-	/// For Errors and Events this means that only some of the variants are deprecated
-	/// For Calls only certain call indexes are deprecated
 	PartiallyDeprecated(BTreeMap<Compact<u8>, DeprecationStatusIR<T>>),
 }
 impl IntoPortable for DeprecationInfoIR {

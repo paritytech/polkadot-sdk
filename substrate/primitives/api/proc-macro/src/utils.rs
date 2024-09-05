@@ -288,9 +288,8 @@ pub fn filter_cfg_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
 
 fn deprecation_msg_formatter(msg: &str) -> String {
 	format!(
-		"{msg}\n{helper}",
-		msg = msg,
-		helper = r#"help: the following are the possible correct uses
+		r#"{msg}
+		help: the following are the possible correct uses
 |
 |     #[deprecated = "reason"]
 |
@@ -321,8 +320,7 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 					acc.0.replace(value);
 				} else if item.path.is_ident("since") {
 					acc.1.replace(value);
-				} else {
-				};
+				}
 				Ok::<(Option<&syn::Lit>, Option<&syn::Lit>), Error>(acc)
 			})?;
 			note.map_or_else(
