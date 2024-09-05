@@ -219,7 +219,7 @@ impl Protocol {
 				1_000,
 				POV_RESPONSE_SIZE as u64 * 3,
 				// We are connected to all validators:
-				CHUNK_REQUEST_TIMEOUT,
+				CHUNK_REQUEST_TIMEOUT * 4,
 				tx,
 			),
 			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =>
@@ -229,7 +229,7 @@ impl Protocol {
 					1_000,
 					POV_RESPONSE_SIZE,
 					// Taken from initial implementation in collator protocol:
-					POV_REQUEST_TIMEOUT_CONNECTED,
+					POV_REQUEST_TIMEOUT_CONNECTED * 4,
 					tx,
 				),
 			Protocol::PoVFetchingV1 => N::request_response_config(
@@ -237,7 +237,7 @@ impl Protocol {
 				legacy_names,
 				1_000,
 				POV_RESPONSE_SIZE,
-				POV_REQUEST_TIMEOUT_CONNECTED,
+				POV_REQUEST_TIMEOUT_CONNECTED * 4,
 				tx,
 			),
 			Protocol::AvailableDataFetchingV1 => N::request_response_config(
@@ -246,7 +246,7 @@ impl Protocol {
 				1_000,
 				// Available data size is dominated by the PoV size.
 				POV_RESPONSE_SIZE,
-				POV_REQUEST_TIMEOUT_CONNECTED,
+				POV_REQUEST_TIMEOUT_CONNECTED * 4,
 				tx,
 			),
 			Protocol::StatementFetchingV1 => N::request_response_config(
@@ -264,7 +264,7 @@ impl Protocol {
 				// waiting for timeout on an overloaded node.  Fetches from slow nodes will likely
 				// fail, but this is desired, so we can quickly move on to a faster one - we should
 				// also decrease its reputation.
-				Duration::from_secs(1),
+				Duration::from_secs(4),
 				tx,
 			),
 			Protocol::DisputeSendingV1 => N::request_response_config(
@@ -282,7 +282,7 @@ impl Protocol {
 				legacy_names,
 				1_000,
 				ATTESTED_CANDIDATE_RESPONSE_SIZE,
-				ATTESTED_CANDIDATE_TIMEOUT,
+				ATTESTED_CANDIDATE_TIMEOUT * 2,
 				tx,
 			),
 		}

@@ -66,7 +66,7 @@ pub(crate) fn on_demand_justifications_protocol_config<
 		32,
 		MAX_RESPONSE_SIZE,
 		// We are connected to all validators:
-		JUSTIF_REQUEST_TIMEOUT,
+		JUSTIF_REQUEST_TIMEOUT * 2,
 		Some(tx),
 	);
 	(rx, cfg)
