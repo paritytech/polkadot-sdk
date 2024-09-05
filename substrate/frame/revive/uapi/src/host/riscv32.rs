@@ -81,17 +81,17 @@ mod sys {
 		pub fn address(out_ptr: *mut u8);
 		pub fn weight_to_fee(ref_time: u64, proof_size: u64, out_ptr: *mut u8);
 		pub fn weight_left(out_ptr: *mut u8, out_len_ptr: *mut u32);
-		pub fn balance(out_ptr: *mut u8, out_len_ptr: *mut u32);
-		pub fn value_transferred(out_ptr: *mut u8, out_len_ptr: *mut u32);
-		pub fn now(out_ptr: *mut u8, out_len_ptr: *mut u32);
-		pub fn minimum_balance(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn balance(out_ptr: *mut u8);
+		pub fn value_transferred(out_ptr: *mut u8);
+		pub fn now(out_ptr: *mut u8);
+		pub fn minimum_balance(out_ptr: *mut u8);
 		pub fn deposit_event(
 			topics_ptr: *const u8,
 			topics_len: u32,
 			data_ptr: *const u8,
 			data_len: u32,
 		);
-		pub fn block_number(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn block_number(out_ptr: *mut u8);
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -134,7 +134,8 @@ mod sys {
 /// A macro to implement all Host functions with a signature of `fn(&mut [u8; n])`.
 macro_rules! impl_wrapper_for {
 	(@impl_fn $name:ident, $n: literal) => {
-		fn $name(_output: &mut [u8; $n]) {
+		fn $name(output: &mut [u8; $n]) {
+			unsafe { sys::$name(output.as_mut_ptr()) }
 		}
 	};
 

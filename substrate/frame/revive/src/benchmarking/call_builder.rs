@@ -22,12 +22,13 @@ use crate::{
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	wasm::{ApiVersion, PreparedCall, Runtime},
-	BalanceOf, Config, DebugBuffer, Error, GasMeter, Origin, TypeInfo, WasmBlob, Weight,
+	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, TypeInfo, WasmBlob, Weight,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
 use frame_benchmarking::benchmarking;
+use sp_core::U256;
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
@@ -48,6 +49,9 @@ impl<T> Default for CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+	BalanceOf<T>: Into<U256>,
+	BalanceOf<T>: TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 {
 	fn default() -> Self {
 		Self::new(WasmModule::dummy())
@@ -58,6 +62,9 @@ impl<T> CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+	BalanceOf<T>: Into<U256>,
+	BalanceOf<T>: TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 {
 	/// Setup a new call for the given module.
 	pub fn new(module: WasmModule) -> Self {

@@ -593,6 +593,7 @@ impl Default for Origin<Test> {
 mod run_tests {
 	use super::*;
 	use pretty_assertions::{assert_eq, assert_ne};
+	use sp_core::U256;
 
 	// Perform a call to a plain account.
 	// The actual transfer fails because we can only call contracts.

@@ -27,7 +27,9 @@ mod benchmarking_dummy;
 mod exec;
 mod gas;
 mod primitives;
+use crate::exec::MomentOf;
 pub use primitives::*;
+use sp_core::U256;
 
 mod limits;
 mod storage;
@@ -129,6 +131,7 @@ pub mod pallet {
 	use crate::debug::Debugger;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_core::U256;
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
@@ -569,6 +572,8 @@ pub mod pallet {
 		InvalidStorageFlags,
 		/// PolkaVM failed during code execution. Probably due to a malformed program.
 		ExecutionFailed,
+		/// Failed to convert a U256 to a Balance.
+		ConversionFailed,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -772,6 +777,9 @@ pub mod pallet {
 	impl<T: Config> Pallet<T>
 	where
 		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+		BalanceOf<T>: Into<U256>,
+		BalanceOf<T>: TryFrom<U256>,
+		MomentOf<T>: Into<U256>,
 	{
 		/// Makes a call to an account, optionally transferring some balance.
 		///
@@ -1053,7 +1061,13 @@ fn dispatch_result<R>(
 		.map_err(|e| DispatchErrorWithPostInfo { post_info, error: e })
 }
 
-impl<T: Config> Pallet<T> {
+impl<T> Pallet<T>
+where
+	T: Config,
+	BalanceOf<T>: Into<U256>,
+	BalanceOf<T>: TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
+{
 	/// A generalized version of [`Self::call`].
 	///
 	/// Identical to [`Self::call`] but tailored towards being called by other code within the
@@ -1226,24 +1240,6 @@ impl<T: Config> Pallet<T> {
 		Ok((module, deposit))
 	}
 
-	/// Deposit a pallet contracts event.
-	fn deposit_event(event: Event<T>) {
-		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
-	}
-
-	/// Deposit a pallet contracts indexed event.
-	fn deposit_indexed_event(topics: Vec<T::Hash>, event: Event<T>) {
-		<frame_system::Pallet<T>>::deposit_event_indexed(
-			&topics,
-			<T as Config>::RuntimeEvent::from(event).into(),
-		)
-	}
-
-	/// Return the existential deposit of [`Config::Currency`].
-	fn min_balance() -> BalanceOf<T> {
-		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
-	}
-
 	/// Run the supplied function `f` if no other instance of this pallet is on the stack.
 	fn run_guarded<R, F: FnOnce() -> Result<R, ExecError>>(f: F) -> Result<R, ExecError> {
 		executing_contract::using_once(&mut false, || {
@@ -1261,6 +1257,29 @@ impl<T: Config> Pallet<T> {
 				.map(|_| f())
 				.and_then(|r| r)
 		})
+	}
+}
+
+impl<T> Pallet<T>
+where
+	T: Config,
+{
+	/// Return the existential deposit of [`Config::Currency`].
+	fn min_balance() -> BalanceOf<T> {
+		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
+	}
+
+	/// Deposit a pallet contracts event.
+	fn deposit_event(event: Event<T>) {
+		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
+	}
+
+	/// Deposit a pallet contracts indexed event.
+	fn deposit_indexed_event(topics: Vec<T::Hash>, event: Event<T>) {
+		<frame_system::Pallet<T>>::deposit_event_indexed(
+			&topics,
+			<T as Config>::RuntimeEvent::from(event).into(),
+		)
 	}
 }
 

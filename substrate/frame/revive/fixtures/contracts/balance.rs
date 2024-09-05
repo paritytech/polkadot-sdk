@@ -28,7 +28,6 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	// Initialize buffer with 1s so that we can check that it is overwritten.
 	let balance = u64_output!(api::balance,);
 	assert_eq!(balance, 0);
 }

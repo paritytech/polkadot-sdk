@@ -72,6 +72,9 @@ impl<T> Contract<T>
 where
 	T: Config + pallet_balances::Config,
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+	BalanceOf<T>: Into<U256>,
+	BalanceOf<T>: TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 {
 	/// Create new contract and use a default account id as instantiator.
 	fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
@@ -219,6 +222,10 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 		<BalanceOf<T> as codec::HasCompact>::Type: Clone + Eq + PartialEq + core::fmt::Debug + scale_info::TypeInfo + codec::Encode,
 		T: Config + pallet_balances::Config,
 		BalanceOf<T>: From<<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance>,
+		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+		BalanceOf<T>: Into<U256>,
+		BalanceOf<T>: TryFrom<U256>,
+		MomentOf<T>: Into<U256>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
 )]
 mod benchmarks {
@@ -661,85 +668,67 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_balance() {
-		let len = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_balance(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_balance(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(
-			<T::Balance as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().balance().into()
-		);
+		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().balance());
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_value_transferred() {
-		let len = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_value_transferred(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_value_transferred(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(
-			<T::Balance as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().value_transferred().into()
-		);
+		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().value_transferred());
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_minimum_balance() {
-		let len = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_minimum_balance(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_minimum_balance(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(
-			<T::Balance as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().minimum_balance().into()
-		);
+		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().minimum_balance());
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_block_number() {
-		let len = <BlockNumberFor<T> as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_block_number(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_block_number(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(
-			<BlockNumberFor<T>>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().block_number()
-		);
+		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().block_number());
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_now() {
-		let len = <MomentOf<T> as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_now(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_now(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(<MomentOf<T>>::decode(&mut &memory[4..]).unwrap(), *runtime.ext().now());
+		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().now());
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_weight_to_fee() {
-		let len = <T::Balance as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let weight = Weight::from_parts(500_000, 300_000);
 		let result;
 		#[block]
@@ -748,15 +737,11 @@ mod benchmarks {
 				memory.as_mut_slice(),
 				weight.ref_time(),
 				weight.proof_size(),
-				4,
 				0,
 			);
 		}
 		assert_ok!(result);
-		assert_eq!(
-			<BalanceOf<T>>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().get_weight_price(weight)
-		);
+		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().get_weight_price(weight));
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1536,11 +1521,11 @@ mod benchmarks {
 		let hash_len = hash_bytes.len() as u32;
 
 		let value: BalanceOf<T> = 1u32.into();
-		let value_bytes = value.encode();
+		let value_bytes = Into::<U256>::into(value).encode();
 		let value_len = value_bytes.len() as u32;
 
 		let deposit: BalanceOf<T> = 0u32.into();
-		let deposit_bytes = deposit.encode();
+		let deposit_bytes = Into::<U256>::into(deposit).encode();
 		let deposit_len = deposit_bytes.len() as u32;
 
 		let mut setup = CallSetup::<T>::default();

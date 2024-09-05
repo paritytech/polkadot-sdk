@@ -209,9 +209,9 @@ pub trait Ext: sealing::Sealed {
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: U256,
 		code: H256,
-		value: BalanceOf<Self::T>,
+		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 	) -> Result<(H160, ExecReturnValue), ExecError>;
@@ -697,6 +697,9 @@ impl<T: Config> CachedContract<T> {
 impl<'a, T, E> Stack<'a, T, E>
 where
 	T: Config,
+	BalanceOf<T>: Into<U256>,
+	BalanceOf<T>: TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 	E: Executable<T>,
 {
 	/// Create and run a new call stack by calling into `dest`.
@@ -1240,6 +1243,9 @@ impl<'a, T, E> Ext for Stack<'a, T, E>
 where
 	T: Config,
 	E: Executable<T>,
+	BalanceOf<T>: Into<U256>,
+	BalanceOf<T>: TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 {
 	type T = T;
 
@@ -1322,9 +1328,9 @@ where
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: U256,
 		code_hash: H256,
-		value: BalanceOf<T>,
+		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
@@ -1337,9 +1343,9 @@ where
 				salt,
 				input_data: input_data.as_ref(),
 			},
-			value,
+			value.try_into().map_err(|_| Error::<T>::ConversionFailed)?,
 			gas_limit,
-			deposit_limit,
+			deposit_limit.try_into().map_err(|_| Error::<T>::ConversionFailed)?,
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
@@ -1462,24 +1468,25 @@ where
 		self.caller_is_origin() && self.origin == Origin::Root
 	}
 
-	fn balance(&self) -> BalanceOf<T> {
+	fn balance(&self) -> U256 {
 		T::Currency::reducible_balance(
 			&self.top_frame().account_id,
 			Preservation::Preserve,
 			Fortitude::Polite,
 		)
+		.into()
 	}
 
-	fn value_transferred(&self) -> BalanceOf<T> {
-		self.top_frame().value_transferred
+	fn value_transferred(&self) -> U256 {
+		self.top_frame().value_transferred.into()
 	}
 
-	fn now(&self) -> &MomentOf<T> {
-		&self.timestamp
+	fn now(&self) -> U256 {
+		self.timestamp.clone().into()
 	}
 
-	fn minimum_balance(&self) -> BalanceOf<T> {
-		T::Currency::minimum_balance()
+	fn minimum_balance(&self) -> U256 {
+		T::Currency::minimum_balance().into()
 	}
 
 	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
@@ -1492,16 +1499,16 @@ where
 		);
 	}
 
-	fn block_number(&self) -> BlockNumberFor<T> {
-		self.block_number
+	fn block_number(&self) -> U256 {
+		self.block_number.into()
 	}
 
 	fn max_value_size(&self) -> u32 {
 		limits::PAYLOAD_BYTES
 	}
 
-	fn get_weight_price(&self, weight: Weight) -> BalanceOf<Self::T> {
-		T::WeightPrice::convert(weight)
+	fn get_weight_price(&self, weight: Weight) -> U256 {
+		T::WeightPrice::convert(weight).into()
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
@@ -1864,7 +1871,7 @@ mod tests {
 		let value = 55;
 
 		let success_ch = MockLoader::insert(Call, move |ctx, _| {
-			assert_eq!(ctx.ext.value_transferred(), value);
+			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
@@ -1896,12 +1903,12 @@ mod tests {
 		let value = 35;
 
 		let success_ch = MockLoader::insert(Call, move |ctx, _| {
-			assert_eq!(ctx.ext.value_transferred(), value);
+			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
 		let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
-			assert_eq!(ctx.ext.value_transferred(), value);
+			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
 			let _ = ctx.ext.delegate_call(success_ch, Vec::new())?;
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
@@ -2621,9 +2628,9 @@ mod tests {
 					.ext
 					.instantiate(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						dummy_ch,
-						<Test as Config>::Currency::minimum_balance(),
+						<Test as Config>::Currency::minimum_balance().into(),
 						vec![],
 						Some(&[48; 32]),
 					)
@@ -2699,9 +2706,9 @@ mod tests {
 				assert_matches!(
 					ctx.ext.instantiate(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						dummy_ch,
-						<Test as Config>::Currency::minimum_balance(),
+						<Test as Config>::Currency::minimum_balance().into(),
 						vec![],
 						Some(&[0; 32]),
 					),
@@ -3251,7 +3258,7 @@ mod tests {
 			ctx.ext
 				.instantiate(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					fail_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -3268,7 +3275,7 @@ mod tests {
 				.ext
 				.instantiate(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					success_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],

@@ -35,7 +35,7 @@ use frame_support::{
 };
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
-use sp_core::{H160, H256};
+use sp_core::{H160, H256, U256};
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
 use sp_runtime::{traits::Zero, DispatchError, RuntimeDebug};
 
@@ -1036,12 +1036,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		salt_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Instantiate { input_data_len })?;
-		let deposit_limit: BalanceOf<<E as Ext>::T> = if deposit_ptr == SENTINEL {
-			BalanceOf::<<E as Ext>::T>::zero()
-		} else {
-			memory.read_as(deposit_ptr)?
-		};
-		let value: BalanceOf<<E as Ext>::T> = memory.read_as(value_ptr)?;
+		let deposit_limit: U256 =
+			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_as(deposit_ptr)? };
+		let value: U256 = memory.read_as(value_ptr)?;
 		let code_hash: H256 = memory.read_as(code_hash_ptr)?;
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
 		let salt = if salt_ptr == SENTINEL {
@@ -1439,14 +1436,12 @@ pub mod env {
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		out_ptr: u32,
-		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
 		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
 		self.charge_gas(RuntimeCosts::WeightToFee)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			&self.ext.get_weight_price(weight).encode(),
 			false,
 			already_charged,
