@@ -34,10 +34,13 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
-use sp_runtime::{traits::{
-	Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion, Saturating,
-	StaticLookup, Zero,
-}, ArithmeticError, Perbill, Percent, DispatchResult};
+use sp_runtime::{
+	traits::{
+		Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion, Saturating,
+		StaticLookup, Zero,
+	},
+	ArithmeticError, DispatchResult, Perbill, Percent,
+};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
@@ -1950,7 +1953,8 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 	fn migrate_to_direct_staker(who: &Self::AccountId) {
 		assert!(VirtualStakers::<T>::contains_key(who));
 		let ledger = StakingLedger::<T>::get(Stash(who.clone())).unwrap();
-		let _ = asset::update_stake::<T>(who, ledger.total).expect("funds must be transferred to stash");
+		let _ = asset::update_stake::<T>(who, ledger.total)
+			.expect("funds must be transferred to stash");
 		VirtualStakers::<T>::remove(who);
 	}
 }
