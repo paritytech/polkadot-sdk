@@ -28,7 +28,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(buffer, 36, code_hash: [u8; 32],);
+	input!(buffer, 36, code_hash: &[u8; 32],);
 	let input = &buffer[32..];
 
 	let err_code = match api::instantiate(
@@ -41,7 +41,7 @@ pub extern "C" fn call() {
 		input,
 		None,
 		None,
-		&[0u8; 0], // Empty salt.
+		&[0u8; 32], // Salt.
 	) {
 		Ok(_) => 0u32,
 		Err(code) => code as u32,
