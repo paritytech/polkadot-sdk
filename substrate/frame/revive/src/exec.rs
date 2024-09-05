@@ -1484,7 +1484,7 @@ where
 	}
 
 	fn now(&self) -> U256 {
-		self.timestamp.clone().into()
+		self.timestamp.into()
 	}
 
 	fn minimum_balance(&self) -> U256 {
