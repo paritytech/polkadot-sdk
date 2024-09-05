@@ -222,7 +222,7 @@ mod tests {
 			reanchored_asset,
 			Location { parents: 1, interior: [GlobalConsensus(Rococo)].into() }
 		);
-		let bh_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1013)].into();
+		let bh_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1002)].into();
 		let ah = Location::new(1, [GlobalConsensus(Westend), Parachain(1000)]);
 		let mut reanchored_asset = reanchored_asset.clone();
 		assert_ok!(reanchored_asset.reanchor(&ah, &bh_context));
