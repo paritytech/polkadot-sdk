@@ -86,7 +86,7 @@ mod v1 {
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			log::trace!(LOG_TARGET, "Running pre_upgrade() for inclusion MigrateToV1");
+			log::trace!(target: LOG_TARGET, "Running pre_upgrade() for inclusion MigrateToV1");
 			let bytes = u32::to_ne_bytes(AllowedRelayParents::<T>::get().buffer.len() as u32);
 
 			Ok(bytes.to_vec())
