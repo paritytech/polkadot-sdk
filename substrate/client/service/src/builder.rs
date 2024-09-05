@@ -868,11 +868,7 @@ where
 	}
 
 	let protocol_id = config.protocol_id();
-	let genesis_hash = client
-		.block_hash(0u32.into())
-		.ok()
-		.flatten()
-		.expect("Genesis block exists; qed");
+	let genesis_hash = client.info().genesis_hash;
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
 		f(client.clone())
@@ -1008,7 +1004,6 @@ where
 	let sync_service_import_queue = sync_service.clone();
 	let sync_service = Arc::new(sync_service);
 
-	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 	let network_params = sc_network::config::Params::<TBl, <TBl as BlockT>::Hash, TNet> {
 		role: config.role,
 		executor: {
