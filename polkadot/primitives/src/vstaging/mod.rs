@@ -337,10 +337,8 @@ impl CandidateCommitments {
 	/// `assigned_cores` must be a sorted vec of all core indices assigned to a parachain.
 	pub fn committed_core_index(&self, assigned_cores: &[&CoreIndex]) -> Option<CoreIndex> {
 		if assigned_cores.is_empty() {
-			println!("Assigned cores empty");
 			return None
 		}
-		println!("Selected core: {:?}", self.selected_core());
 
 		self.selected_core().and_then(|(core_selector, _cq_offset)| {
 			let core_index =
@@ -473,7 +471,6 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 		}
 
 		if claim_queue.is_empty() {
-			println!("cq empty");
 			return Err(CandidateReceiptError::NoAssignment)
 		}
 

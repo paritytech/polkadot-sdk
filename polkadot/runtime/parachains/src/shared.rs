@@ -40,12 +40,10 @@ pub use pallet::*;
 // which guarantees that at least one full session has passed before any changes are applied.
 pub(crate) const SESSION_DELAY: SessionIndex = 2;
 
-const LOG_TARGET: &str = "runtime::inclusion";
-
 #[cfg(test)]
 mod tests;
 
-mod migration;
+pub mod migration;
 
 /// Information about a relay parent.
 #[derive(Encode, Decode, Default, TypeInfo, Debug)]
@@ -142,8 +140,11 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 pub mod pallet {
 	use super::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]

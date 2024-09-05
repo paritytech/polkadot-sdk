@@ -16,7 +16,9 @@ use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::ValueQuery, traits::UncheckedOnRuntimeUpgrade, weights::Weight,
 };
-pub use v1::MigrateToV1;
+
+#[cfg(feature = "try-runtime")]
+const LOG_TARGET: &str = "runtime::shared";
 
 pub mod v0 {
 	use super::*;
@@ -60,8 +62,8 @@ pub mod v0 {
 
 mod v1 {
 	use super::*;
-	use alloc::vec::Vec;
 
+	#[cfg(feature = "try-runtime")]
 	use codec::Decode;
 	#[cfg(feature = "try-runtime")]
 	use frame_support::{
@@ -84,7 +86,7 @@ mod v1 {
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			log::trace!(target: crate::shared::LOG_TARGET, "Running pre_upgrade() for inclusion MigrateToV1");
+			log::trace!(LOG_TARGET, "Running pre_upgrade() for inclusion MigrateToV1");
 			let bytes = u32::to_ne_bytes(AllowedRelayParents::<T>::get().buffer.len() as u32);
 
 			Ok(bytes.to_vec())
@@ -105,7 +107,7 @@ mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			log::trace!(target: crate::shared::LOG_TARGET, "Running post_upgrade() for inclusion MigrateToV1");
+			log::trace!(target: LOG_TARGET, "Running post_upgrade() for inclusion MigrateToV1");
 			ensure!(
 				Pallet::<T>::on_chain_storage_version() >= StorageVersion::new(1),
 				"Storage version should be >= 1 after the migration"
@@ -124,16 +126,16 @@ mod v1 {
 			Ok(())
 		}
 	}
-
-	/// Migrate shared module storage to v1.
-	pub type MigrateToV1<T> = frame_support::migrations::VersionedMigration<
-		0,
-		1,
-		VersionUncheckedMigrateToV1<T>,
-		Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
 }
+
+/// Migrate shared module storage to v1.
+pub type MigrateToV1<T> = frame_support::migrations::VersionedMigration<
+	0,
+	1,
+	v1::VersionUncheckedMigrateToV1<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
 #[cfg(test)]
 mod tests {
