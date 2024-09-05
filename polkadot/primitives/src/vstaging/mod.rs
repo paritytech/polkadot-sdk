@@ -750,6 +750,29 @@ impl<H: Copy> From<CoreState<H>> for super::v8::CoreState<H> {
 	}
 }
 
+/// Returns a mapping between the para id and the core indices assigned at different
+/// depths in the claim queue.
+pub fn remap_claim_queue(
+	claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
+) -> BTreeMap<ParaId, VecDeque<BTreeSet<CoreIndex>>> {
+	let mut per_para_claim_queue = BTreeMap::new();
+
+	for (core, paras) in claim_queue {
+		// Iterate paras assigned to this core at each depth.
+		for (depth, para) in paras.into_iter().enumerate() {
+			let depths: &mut VecDeque<BTreeSet<CoreIndex>> =
+				per_para_claim_queue.entry(para).or_insert_with(|| Default::default());
+
+			let initialize_count = (depth + 1).saturating_sub(depths.len());
+			depths.extend((0..initialize_count).into_iter().map(|_| BTreeSet::new()));
+			depths[depth].insert(core);
+		}
+	}
+
+	println!("Remaped CQ: {:?}", per_para_claim_queue);
+	per_para_claim_queue
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -861,7 +884,7 @@ mod tests {
 			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
 		);
 
-		assert_eq!(new_ccr.check_core_index(&cq), Ok(()));
+		assert_eq!(new_ccr.check_core_index(&remap_claim_queue(cq)), Ok(()));
 	}
 
 	#[test]
@@ -878,7 +901,7 @@ mod tests {
 
 		// The check should not fail because no `SelectCore` signal was sent.
 		// The message is optional.
-		assert!(new_ccr.check_core_index(&cq).is_ok());
+		assert!(new_ccr.check_core_index(&remap_claim_queue(cq)).is_ok());
 
 		// Garbage message.
 		new_ccr.commitments.upward_messages.force_push(vec![0, 13, 200].encode());
@@ -896,7 +919,10 @@ mod tests {
 			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
 		);
 
-		assert_eq!(new_ccr.check_core_index(&cq), Err(CandidateReceiptError::NoCoreSelected));
+		assert_eq!(
+			new_ccr.check_core_index(&remap_claim_queue(cq.clone())),
+			Err(CandidateReceiptError::NoCoreSelected)
+		);
 
 		new_ccr.commitments.upward_messages.clear();
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
@@ -913,7 +939,7 @@ mod tests {
 			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
 
 		// Duplicate doesn't override first signal.
-		assert_eq!(new_ccr.check_core_index(&cq), Ok(()));
+		assert_eq!(new_ccr.check_core_index(&remap_claim_queue(cq)), Ok(()));
 	}
 
 	#[test]
@@ -957,7 +983,7 @@ mod tests {
 			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
 		);
 
-		assert_eq!(new_ccr.check_core_index(&cq), Ok(()));
+		assert_eq!(new_ccr.check_core_index(&remap_claim_queue(cq)), Ok(()));
 
 		assert_eq!(new_ccr.hash(), v2_ccr.hash());
 	}
@@ -989,7 +1015,7 @@ mod tests {
 		cq.insert(CoreIndex(0), vec![v1_ccr.descriptor.para_id()].into());
 		cq.insert(CoreIndex(1), vec![v1_ccr.descriptor.para_id()].into());
 
-		assert!(v1_ccr.check_core_index(&cq).is_ok());
+		assert!(v1_ccr.check_core_index(&remap_claim_queue(cq)).is_ok());
 
 		assert_eq!(
 			v1_ccr.commitments.committed_core_index(&vec![&CoreIndex(10), &CoreIndex(5)]),
@@ -1014,14 +1040,17 @@ mod tests {
 
 		// Since collator sig and id are zeroed, it means that the descriptor uses format
 		// version 2. Should still pass checks without core selector.
-		assert!(new_ccr.check_core_index(&cq).is_ok());
+		assert!(new_ccr.check_core_index(&remap_claim_queue(cq)).is_ok());
 
 		let mut cq = BTreeMap::new();
 		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
 		cq.insert(CoreIndex(1), vec![new_ccr.descriptor.para_id()].into());
 
 		//  Should fail because 2 cores are assigned,
-		assert_eq!(new_ccr.check_core_index(&cq), Err(CandidateReceiptError::NoCoreSelected));
+		assert_eq!(
+			new_ccr.check_core_index(&remap_claim_queue(cq)),
+			Err(CandidateReceiptError::NoCoreSelected)
+		);
 
 		// Adding collator signature should make it decode as v1.
 		old_ccr.descriptor.signature = dummy_collator_signature();

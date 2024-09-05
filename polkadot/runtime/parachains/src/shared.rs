@@ -25,7 +25,9 @@ use alloc::{
 };
 use frame_support::{pallet_prelude::*, traits::DisabledValidators};
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex};
+use polkadot_primitives::{
+	vstaging::remap_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
+};
 use sp_runtime::traits::AtLeast32BitUnsigned;
 
 use rand::{seq::SliceRandom, SeedableRng};
@@ -86,29 +88,12 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		number: BlockNumber,
 		max_ancestry_len: u32,
 	) {
-		let mut per_para_claim_queue = BTreeMap::new();
-
-		// Re-map the claim queue by `ParaId`.
-		for (core, paras) in claim_queue {
-			// Iterate paras assigned to this core at each depth.
-			for (depth, para) in paras.into_iter().enumerate() {
-				let depths: &mut VecDeque<BTreeSet<CoreIndex>> =
-					per_para_claim_queue.entry(para).or_default();
-				let initialize_count = depth.saturating_sub(depths.len()) + 1;
-				depths.extend((0..initialize_count).into_iter().map(|_| BTreeSet::new()));
-
-				depths[depth].insert(core);
-			}
-		}
+		let claim_queue = remap_claim_queue(claim_queue);
 
 		// + 1 for the most recent block, which is always allowed.
 		let buffer_size_limit = max_ancestry_len as usize + 1;
 
-		self.buffer.push_back(RelayParentInfo {
-			relay_parent,
-			state_root,
-			claim_queue: per_para_claim_queue,
-		});
+		self.buffer.push_back(RelayParentInfo { relay_parent, state_root, claim_queue });
 
 		self.latest_number = number;
 		while self.buffer.len() > buffer_size_limit {

@@ -89,8 +89,8 @@ fn tracker_claim_queue_remap() {
 	);
 	assert_eq!(info.claim_queue.get(&Id::from(100)).unwrap()[1], BTreeSet::new());
 
-	assert_eq!(info.claim_queue.get(&Id::from(0)).unwrap()[2], BTreeSet::new());
-	assert_eq!(info.claim_queue.get(&Id::from(1)).unwrap()[2], BTreeSet::new());
+	assert_eq!(info.claim_queue.get(&Id::from(0)).unwrap().get(2), None);
+	assert_eq!(info.claim_queue.get(&Id::from(1)).unwrap().get(2), None);
 	assert_eq!(
 		info.claim_queue.get(&Id::from(2)).unwrap()[2],
 		vec![CoreIndex(0)].into_iter().collect::<BTreeSet<_>>()
