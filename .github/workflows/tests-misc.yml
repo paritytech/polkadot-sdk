@@ -121,7 +121,7 @@ jobs:
 
   test-deterministic-wasm:
     timeout-minutes: 20
-    needs: [ set-image, test-frame-ui ]
+    needs: [ set-image ]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -408,6 +408,7 @@ jobs:
       - test-node-metrics
       - check-tracing
       - cargo-check-each-crate
+      - test-deterministic-wasm
       # - cargo-hfuzz remove from required for now, as it's flaky
     steps:
       - run: echo '### Good job! All the required tests passed 🚀' >> $GITHUB_STEP_SUMMARY
