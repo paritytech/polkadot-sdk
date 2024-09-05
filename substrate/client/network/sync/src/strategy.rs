@@ -26,6 +26,7 @@ pub mod state_sync;
 pub mod warp;
 
 use crate::{
+	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncStatus},
 	LOG_TARGET,
 };
@@ -509,10 +510,18 @@ where
 {
 	/// Initialize a new syncing strategy.
 	pub fn new(
-		config: SyncingConfig,
+		mut config: SyncingConfig,
 		client: Arc<Client>,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
 	) -> Result<Self, ClientError> {
+		if config.max_blocks_per_request > MAX_BLOCKS_IN_RESPONSE as u32 {
+			info!(
+				target: LOG_TARGET,
+				"clamping maximum blocks per request to {MAX_BLOCKS_IN_RESPONSE}",
+			);
+			config.max_blocks_per_request = MAX_BLOCKS_IN_RESPONSE as u32;
+		}
+
 		if let SyncMode::Warp = config.mode {
 			let warp_sync_config = warp_sync_config
 				.expect("Warp sync configuration must be supplied in warp sync mode.");

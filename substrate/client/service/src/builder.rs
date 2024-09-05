@@ -53,10 +53,14 @@ use sc_network::{
 use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
-	block_relay_protocol::BlockRelayParams, block_request_handler::BlockRequestHandler,
-	engine::SyncingEngine, service::network::NetworkServiceProvider,
+	block_relay_protocol::BlockRelayParams,
+	block_request_handler::BlockRequestHandler,
+	engine::SyncingEngine,
+	service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
-	warp_request_handler::RequestHandler as WarpSyncRequestHandler, SyncingService, WarpSyncConfig,
+	strategy::{PolkadotSyncingStrategy, SyncingConfig},
+	warp_request_handler::RequestHandler as WarpSyncRequestHandler,
+	SyncingService, WarpSyncConfig,
 };
 use sc_rpc::{
 	author::AuthorApiServer,
@@ -974,6 +978,16 @@ where
 	let peer_store_handle = peer_store.handle();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
 
+	let syncing_config = SyncingConfig {
+		mode: net_config.network_config.sync_mode,
+		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
+		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
+		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
+	};
+	// Initialize syncing strategy.
+	let syncing_strategy =
+		Box::new(PolkadotSyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?);
+
 	let (engine, sync_service, block_announce_config) = SyncingEngine::new(
 		Roles::from(&config.role),
 		client.clone(),
@@ -983,7 +997,7 @@ where
 		protocol_id.clone(),
 		&config.chain_spec.fork_id().map(ToOwned::to_owned),
 		block_announce_validator,
-		warp_sync_config,
+		syncing_strategy,
 		chain_sync_network_handle,
 		import_queue.service(),
 		block_downloader,

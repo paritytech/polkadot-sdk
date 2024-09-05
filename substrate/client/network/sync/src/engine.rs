@@ -24,7 +24,6 @@ use crate::{
 		BlockAnnounceValidationResult, BlockAnnounceValidator as BlockAnnounceValidatorStream,
 	},
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
-	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
 	pending_responses::{PendingResponses, ResponseEvent},
 	schema::v1::{StateRequest, StateResponse},
 	service::{
@@ -32,8 +31,8 @@ use crate::{
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
 	strategy::{
-		warp::{EncodedProof, WarpProofRequest, WarpSyncConfig},
-		PolkadotSyncingStrategy, StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
+		warp::{EncodedProof, WarpProofRequest},
+		StrategyKey, SyncingAction, SyncingStrategy,
 	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
@@ -189,7 +188,7 @@ pub struct Peer<B: BlockT> {
 
 pub struct SyncingEngine<B: BlockT, Client> {
 	/// Syncing strategy.
-	strategy: PolkadotSyncingStrategy<B, Client>,
+	strategy: Box<dyn SyncingStrategy<B>>,
 
 	/// Blockchain client.
 	client: Arc<Client>,
@@ -301,7 +300,7 @@ where
 		protocol_id: ProtocolId,
 		fork_id: &Option<String>,
 		block_announce_validator: Box<dyn BlockAnnounceValidator<B> + Send>,
-		warp_sync_config: Option<WarpSyncConfig<B>>,
+		syncing_strategy: Box<dyn SyncingStrategy<B>>,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
@@ -312,24 +311,6 @@ where
 	where
 		N: NetworkBackend<B, <B as BlockT>::Hash>,
 	{
-		let mode = net_config.network_config.sync_mode;
-		let max_parallel_downloads = net_config.network_config.max_parallel_downloads;
-		let max_blocks_per_request =
-			if net_config.network_config.max_blocks_per_request > MAX_BLOCKS_IN_RESPONSE as u32 {
-				log::info!(
-					target: LOG_TARGET,
-					"clamping maximum blocks per request to {MAX_BLOCKS_IN_RESPONSE}",
-				);
-				MAX_BLOCKS_IN_RESPONSE as u32
-			} else {
-				net_config.network_config.max_blocks_per_request
-			};
-		let syncing_config = SyncingConfig {
-			mode,
-			max_parallel_downloads,
-			max_blocks_per_request,
-			metrics_registry: metrics_registry.cloned(),
-		};
 		let cache_capacity = (net_config.network_config.default_peers_set.in_peers +
 			net_config.network_config.default_peers_set.out_peers)
 			.max(1);
@@ -388,10 +369,6 @@ where
 				Arc::clone(&peer_store_handle),
 			);
 
-		// Initialize syncing strategy.
-		let strategy =
-			PolkadotSyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?;
-
 		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
 		let num_connected = Arc::new(AtomicUsize::new(0));
@@ -413,7 +390,7 @@ where
 			Self {
 				roles,
 				client,
-				strategy,
+				strategy: syncing_strategy,
 				network_service,
 				peers: HashMap::new(),
 				block_announce_data_cache: LruMap::new(ByLength::new(cache_capacity)),
