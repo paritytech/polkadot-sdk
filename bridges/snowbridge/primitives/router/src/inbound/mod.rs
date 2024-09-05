@@ -438,7 +438,9 @@ impl<
 				let dest_para_fee_asset: Asset = (Location::parent(), dest_para_fee).into();
 
 				instructions.extend(vec![
-					// `SetFeesMode` to pay transport fee from bridge sovereign
+					// `SetFeesMode` to pay transport fee from bridge sovereign, which depends on
+					//  unspent AH fees deposited to the bridge sovereign,
+					//  more context and analysis in https://github.com/paritytech/polkadot-sdk/pull/5546#discussion_r1744682864
 					SetFeesMode { jit_withdraw: true },
 					// `SetAppendix` ensures that `fees` are not trapped in any case
 					SetAppendix(Xcm(vec![DepositAsset {
