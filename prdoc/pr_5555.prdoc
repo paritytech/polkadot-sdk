@@ -10,5 +10,6 @@ crates:
     bump: patch
   - name: pallet-revive-uapi
     bump: patch
-  - pallet-revive-fixtures
+  - name: pallet-revive-fixtures
     bump: patch
+
