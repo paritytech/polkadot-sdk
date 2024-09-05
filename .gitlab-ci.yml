@@ -288,3 +288,8 @@ cancel-pipeline-build-short-benchmark:
   extends: .cancel-pipeline-template
   needs:
     - job: build-short-benchmark
+
+cancel-pipeline-cargo-check-each-crate-macos:
+  extends: .cancel-pipeline-template
+  needs:
+    - job: cargo-check-each-crate-macos
