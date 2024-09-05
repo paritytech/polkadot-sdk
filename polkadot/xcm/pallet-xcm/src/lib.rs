@@ -96,6 +96,7 @@ pub trait WeightInfo {
 	fn new_query() -> Weight;
 	fn take_response() -> Weight;
 	fn claim_assets() -> Weight;
+	fn set_asset_claimer() -> Weight;
 }
 
 /// fallback implementation
