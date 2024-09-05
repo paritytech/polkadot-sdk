@@ -60,8 +60,7 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 				Ok::<(Option<&syn::Lit>, Option<&syn::Lit>), Error>(acc)
 			})?;
 			note.map_or_else(
-		  || Err(Error::new(attr.span(), 						deprecation_msg_formatter(
-					"Invalid deprecation attribute: missing `note`"))),
+		  || Err(Error::new(attr.span(), deprecation_msg_formatter("Invalid deprecation attribute: missing `note`"))),
 				|note| {
 					let since = if let Some(str) = since {
 						quote! { Some(#str) }
@@ -107,7 +106,8 @@ fn parse_deprecation(path: &TokenStream, attrs: &[syn::Attribute]) -> Result<Opt
 	attrs
 		.iter()
 		.find(|a| a.path().is_ident("deprecated"))
-		.map(|a| parse_deprecated_meta(path, a)).transpose()
+		.map(|a| parse_deprecated_meta(path, a))
+		.transpose()
 }
 
 /// collects deprecation attribute if its present for enum-like types
@@ -134,17 +134,9 @@ pub fn get_deprecation_enum<'a>(
 				quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::PartiallyDeprecated(#children) },
 			)
 		},
-		(Some(depr), []) => Ok(
+		(Some(depr), _) => Ok(
 			quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::FullyDeprecated(#depr) },
 		),
-		(Some(_), _) => {
-			let span = parent_attrs
-				.iter()
-				.find(|a| a.path().is_ident("deprecated"))
-				.map(|x| x.span())
-				.expect("this can never fail, because we have found the deprecated attribute above; qed");
-			Err(Error::new(span, "Invalid deprecation usage. Either deprecate variants/call indexes or the type as a whole"))
-		},
 	}
 }
 
@@ -161,8 +153,7 @@ pub fn variant_index_for_deprecation(index: u8, item: &Variant) -> u8 {
 			index as u8
 		};
 
-	item
-		.attrs
+	item.attrs
 		.iter()
 		.find(|attr| attr.path().is_ident("codec"))
 		.and_then(|attr| {
