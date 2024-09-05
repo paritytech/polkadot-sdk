@@ -350,6 +350,8 @@ jobs:
 
       - name: script
         run: |
+          mkdir -p /github/home/.forklift
+          cp .forklift/config.toml /github/home/.forklift/config.toml
           PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
 
   # TODO: enable when we have a macos Self-Hosted runners
