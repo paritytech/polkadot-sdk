@@ -24,7 +24,7 @@ use crate::{
 	limits,
 	primitives::ExecReturnValue,
 	weights::WeightInfo,
-	BalanceOf, Config, Error, LOG_TARGET, SENTINEL,
+	Config, Error, LOG_TARGET, SENTINEL,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
@@ -1191,7 +1191,7 @@ pub mod env {
 		self.charge_gas(RuntimeCosts::Transfer)?;
 		let mut callee = H160::zero();
 		memory.read_into_buf(address_ptr, callee.as_bytes_mut())?;
-		let value: BalanceOf<<E as Ext>::T> = memory.read_as(value_ptr)?;
+		let value: U256 = memory.read_as(value_ptr)?;
 		let result = self.ext.transfer(&callee, value);
 		match result {
 			Ok(()) => Ok(ReturnErrorCode::Success),

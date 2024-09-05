@@ -226,7 +226,7 @@ pub trait Ext: sealing::Sealed {
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
 
 	/// Transfer some amount of funds into the specified account.
-	fn transfer(&mut self, to: &H160, value: BalanceOf<Self::T>) -> DispatchResult;
+	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult;
 
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
@@ -1380,12 +1380,12 @@ where
 		Ok(())
 	}
 
-	fn transfer(&mut self, to: &H160, value: BalanceOf<T>) -> DispatchResult {
+	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult {
 		Self::transfer(
 			Preservation::Preserve,
 			&self.top_frame().account_id,
 			&T::AddressMapper::to_account_id(to),
-			value,
+			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 		)
 	}
 

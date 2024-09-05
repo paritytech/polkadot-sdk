@@ -1420,7 +1420,7 @@ mod benchmarks {
 
 		let account_bytes = account.encode();
 		let account_len = account_bytes.len() as u32;
-		let value_bytes = value.encode();
+		let value_bytes = Into::<U256>::into(value).encode();
 		let mut memory = memory!(account_bytes, value_bytes,);
 
 		let result;
