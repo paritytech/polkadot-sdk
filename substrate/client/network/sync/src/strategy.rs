@@ -201,7 +201,12 @@ pub enum SyncingAction<B: BlockT> {
 		request: OpaqueStateRequest,
 	},
 	/// Send warp proof request to peer.
-	SendWarpProofRequest { peer_id: PeerId, key: StrategyKey, request: WarpProofRequest<B> },
+	SendWarpProofRequest {
+		peer_id: PeerId,
+		key: StrategyKey,
+		protocol_name: ProtocolName,
+		request: WarpProofRequest<B>,
+	},
 	/// Drop stale request.
 	CancelRequest { peer_id: PeerId, key: StrategyKey },
 	/// Peer misbehaved. Disconnect, report it and cancel any requests to it.
@@ -228,8 +233,13 @@ impl<B: BlockT> SyncingAction<B> {
 impl<B: BlockT> From<WarpSyncAction<B>> for SyncingAction<B> {
 	fn from(action: WarpSyncAction<B>) -> Self {
 		match action {
-			WarpSyncAction::SendWarpProofRequest { peer_id, request } =>
-				SyncingAction::SendWarpProofRequest { peer_id, key: StrategyKey::Warp, request },
+			WarpSyncAction::SendWarpProofRequest { peer_id, protocol_name, request } =>
+				SyncingAction::SendWarpProofRequest {
+					peer_id,
+					key: StrategyKey::Warp,
+					protocol_name,
+					request,
+				},
 			WarpSyncAction::SendBlockRequest { peer_id, request } =>
 				SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::Warp, request },
 			WarpSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
@@ -526,6 +536,7 @@ where
 		mut config: SyncingConfig,
 		client: Arc<Client>,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
+		warp_sync_protocol_name: Option<ProtocolName>,
 	) -> Result<Self, ClientError> {
 		if config.max_blocks_per_request > MAX_BLOCKS_IN_RESPONSE as u32 {
 			info!(
@@ -538,7 +549,8 @@ where
 		if let SyncMode::Warp = config.mode {
 			let warp_sync_config = warp_sync_config
 				.expect("Warp sync configuration must be supplied in warp sync mode.");
-			let warp_sync = WarpSync::new(client.clone(), warp_sync_config);
+			let warp_sync =
+				WarpSync::new(client.clone(), warp_sync_config, warp_sync_protocol_name);
 			Ok(Self {
 				config,
 				client,

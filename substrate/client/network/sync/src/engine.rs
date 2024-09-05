@@ -270,9 +270,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
 
-	/// Protocol name used to send out warp sync requests
-	warp_sync_protocol_name: Option<ProtocolName>,
-
 	/// Handle to import queue.
 	import_queue: Box<dyn ImportQueueService<B>>,
 }
@@ -301,7 +298,6 @@ where
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
-		warp_sync_protocol_name: Option<ProtocolName>,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
 	) -> Result<(Self, SyncingService<B>, N::NotificationProtocolConfig), ClientError>
 	where
@@ -423,7 +419,6 @@ where
 				},
 				pending_responses: PendingResponses::new(),
 				block_downloader,
-				warp_sync_protocol_name,
 				import_queue,
 			},
 			SyncingService::new(tx, num_connected, is_major_syncing),
@@ -632,8 +627,8 @@ where
 						"Processed `ChainSyncAction::SendStateRequest` to {peer_id}.",
 					);
 				},
-				SyncingAction::SendWarpProofRequest { peer_id, key, request } => {
-					self.send_warp_proof_request(peer_id, key, request.clone());
+				SyncingAction::SendWarpProofRequest { peer_id, key, protocol_name, request } => {
+					self.send_warp_proof_request(peer_id, key, protocol_name, request.clone());
 
 					trace!(
 						target: LOG_TARGET,
@@ -1062,6 +1057,7 @@ where
 		&mut self,
 		peer_id: PeerId,
 		key: StrategyKey,
+		protocol_name: ProtocolName,
 		request: WarpProofRequest<B>,
 	) {
 		if !self.peers.contains_key(&peer_id) {
@@ -1074,21 +1070,13 @@ where
 
 		self.pending_responses.insert(peer_id, key, PeerRequest::WarpProof, rx.boxed());
 
-		match &self.warp_sync_protocol_name {
-			Some(name) => self.network_service.start_request(
-				peer_id,
-				name.clone(),
-				request.encode(),
-				tx,
-				IfDisconnected::ImmediateError,
-			),
-			None => {
-				log::warn!(
-					target: LOG_TARGET,
-					"Trying to send warp sync request when no protocol is configured {request:?}",
-				);
-			},
-		}
+		self.network_service.start_request(
+			peer_id,
+			protocol_name,
+			request.encode(),
+			tx,
+			IfDisconnected::ImmediateError,
+		);
 	}
 
 	fn encode_state_request(request: &OpaqueStateRequest) -> Result<Vec<u8>, String> {

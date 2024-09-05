@@ -918,8 +918,13 @@ pub trait TestNetFactory: Default + Sized + Send {
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
-			PolkadotSyncingStrategy::new(syncing_config, client.clone(), Some(warp_sync_config))
-				.unwrap(),
+			PolkadotSyncingStrategy::new(
+				syncing_config,
+				client.clone(),
+				Some(warp_sync_config),
+				Some(warp_protocol_config.name.clone()),
+			)
+			.unwrap(),
 		);
 
 		let (engine, sync_service, block_announce_config) =
@@ -936,7 +941,6 @@ pub trait TestNetFactory: Default + Sized + Send {
 				chain_sync_network_handle,
 				import_queue.service(),
 				block_relay_params.downloader,
-				Some(warp_protocol_config.name.clone()),
 				peer_store_handle.clone(),
 			)
 			.unwrap();

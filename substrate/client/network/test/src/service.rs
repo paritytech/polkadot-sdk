@@ -211,8 +211,9 @@ impl TestNetworkBuilder {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 		};
 		// Initialize syncing strategy.
-		let syncing_strategy =
-			Box::new(PolkadotSyncingStrategy::new(syncing_config, client.clone(), None).unwrap());
+		let syncing_strategy = Box::new(
+			PolkadotSyncingStrategy::new(syncing_config, client.clone(), None, None).unwrap(),
+		);
 
 		let (engine, chain_sync_service, block_announce_config) = SyncingEngine::new(
 			Roles::from(&config::Role::Full),
@@ -227,7 +228,6 @@ impl TestNetworkBuilder {
 			chain_sync_network_handle,
 			import_queue.service(),
 			block_relay_params.downloader,
-			None,
 			Arc::clone(&peer_store_handle),
 		)
 		.unwrap();

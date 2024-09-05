@@ -913,7 +913,7 @@ where
 		(protocol_config, config_name)
 	};
 
-	let (warp_sync_protocol_config, warp_request_protocol_name) = match warp_sync_config.as_ref() {
+	let (warp_sync_protocol_config, warp_sync_protocol_name) = match warp_sync_config.as_ref() {
 		Some(WarpSyncConfig::WithProvider(warp_with_provider)) => {
 			// Allow both outgoing and incoming requests.
 			let (handler, protocol_config) = WarpSyncRequestHandler::new::<_, TNet>(
@@ -982,8 +982,12 @@ where
 		state_request_protocol_name,
 	};
 	// Initialize syncing strategy.
-	let syncing_strategy =
-		Box::new(PolkadotSyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?);
+	let syncing_strategy = Box::new(PolkadotSyncingStrategy::new(
+		syncing_config,
+		client.clone(),
+		warp_sync_config,
+		warp_sync_protocol_name,
+	)?);
 
 	let (engine, sync_service, block_announce_config) = SyncingEngine::new(
 		Roles::from(&config.role),
@@ -998,7 +1002,6 @@ where
 		chain_sync_network_handle,
 		import_queue.service(),
 		block_downloader,
-		warp_request_protocol_name,
 		Arc::clone(&peer_store_handle),
 	)?;
 	let sync_service_import_queue = sync_service.clone();
