@@ -131,8 +131,10 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 
 		// Include the method metadata only if its `cfg` features are enabled.
 		let attrs = filter_cfg_attributes(&method.attrs);
-		let deprecation = crate::utils::get_deprecation(&crate_, &method.attrs)
-			.unwrap_or_else(syn::Error::into_compile_error);
+		let deprecation = match crate::utils::get_deprecation(&crate_, &method.attrs) {
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
 		methods.push(quote!(
 			#( #attrs )*
 			#crate_::metadata_ir::RuntimeApiMethodMetadataIR {
@@ -148,8 +150,10 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 	let trait_name_ident = &decl.ident;
 	let trait_name = trait_name_ident.to_string();
 	let docs = collect_docs(&decl.attrs, &crate_);
-	let deprecation = crate::utils::get_deprecation(&crate_, &decl.attrs)
-		.unwrap_or_else(syn::Error::into_compile_error);
+	let deprecation = match crate::utils::get_deprecation(&crate_, &decl.attrs) {
+		Ok(deprecation) => deprecation,
+		Err(e) => return e.into_compile_error(),
+	};
 	let attrs = filter_cfg_attributes(&decl.attrs);
 	// The trait generics where already extended with `Block: BlockT`.
 	let mut generics = decl.generics.clone();

@@ -95,7 +95,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 		event_item.variants.push(variant);
 	}
 
-	let deprecation = crate::deprecation::get_deprecation_enum(
+	let deprecation = match crate::deprecation::get_deprecation_enum(
 		&quote::quote! {#frame_support},
 		&event.attrs,
 		event_item.variants.iter().enumerate().map(|(index, item)| {
@@ -103,8 +103,10 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 			(index, item.attrs.as_ref())
 		}),
-	)
-	.unwrap_or_else(syn::Error::into_compile_error);
+	) {
+		Ok(deprecation) => deprecation,
+		Err(e) => return e.into_compile_error(),
+	};
 
 	if get_doc_literals(&event_item.attrs).is_empty() {
 		event_item

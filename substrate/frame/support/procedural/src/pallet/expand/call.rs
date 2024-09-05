@@ -245,12 +245,14 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		});
 
-	let deprecation = crate::deprecation::get_deprecation_enum(
+	let deprecation = match crate::deprecation::get_deprecation_enum(
 		&quote::quote! {#frame_support},
 		def.call.as_ref().map(|call| call.attrs.as_ref()).unwrap_or(&[]),
 		methods.iter().map(|item| (item.call_index as u8, item.attrs.as_ref())),
-	)
-	.unwrap_or_else(syn::Error::into_compile_error);
+	) {
+		Ok(deprecation) => deprecation,
+		Err(e) => return e.into_compile_error(),
+	};
 
 	quote::quote_spanned!(span =>
 		#[doc(hidden)]

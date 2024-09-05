@@ -408,8 +408,8 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 	let frame_support = &def.frame_support;
 	let frame_system = &def.frame_system;
 	let pallet_ident = &def.pallet_struct.pallet;
-
-	let entries_builder = def.storages.iter().map(|storage| {
+	let mut entries_builder = vec![];
+	for storage in def.storages.iter() {
 		let no_docs = vec![];
 		let docs = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &storage.docs };
 
@@ -418,10 +418,14 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		let full_ident = quote::quote_spanned!(storage.attr_span => #ident<#gen> );
 
 		let cfg_attrs = &storage.cfg_attrs;
-		let deprecation =
-			crate::deprecation::get_deprecation(&quote::quote! { #frame_support }, &storage.attrs)
-				.unwrap_or_else(syn::Error::into_compile_error);
-		quote::quote_spanned!(storage.attr_span =>
+		let deprecation = match crate::deprecation::get_deprecation(
+			&quote::quote! { #frame_support },
+			&storage.attrs,
+		) {
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
+		entries_builder.push(quote::quote_spanned!(storage.attr_span =>
 			#(#cfg_attrs)*
 			{
 				<#full_ident as #frame_support::storage::StorageEntryMetadataBuilder>::build_metadata(
@@ -432,8 +436,8 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					&mut entries,
 				);
 			}
-		)
-	});
+		))
+	}
 
 	let getters = def.storages.iter().map(|storage| {
 		if let Some(getter) = &storage.getter {

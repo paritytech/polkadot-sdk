@@ -186,8 +186,11 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 	];
 	let deprecation_status =
-		crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &def.item.attrs)
-			.unwrap_or_else(syn::Error::into_compile_error);
+		match crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &def.item.attrs)
+		{
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
 	quote::quote_spanned!(def.pallet_struct.attr_span =>
 		#pallet_error_metadata
 
