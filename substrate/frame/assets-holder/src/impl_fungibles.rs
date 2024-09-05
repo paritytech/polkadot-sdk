@@ -181,46 +181,57 @@ impl<T: Config<I>, I: 'static> UnbalancedHold<T::AccountId> for Pallet<T, I> {
 		amount: Self::Balance,
 	) -> DispatchResult {
 		let mut holds = Holds::<T, I>::get(asset.clone(), who);
-
-		let (increase, delta) = if let Some(pos) = holds.iter().position(|x| &x.id == reason) {
-			let item = &mut holds[pos];
-			let (increase, delta) =
-				(amount > item.amount, item.amount.max(amount) - item.amount.min(amount));
-
-			item.amount = amount;
-			if item.amount.is_zero() {
-				holds.swap_remove(pos);
-			}
-
-			(increase, delta)
-		} else {
-			if !amount.is_zero() {
-				holds
-					.try_push(IdAmount { id: *reason, amount })
-					.map_err(|_| Error::<T, I>::TooManyHolds)?;
-			}
-			(true, amount)
-		};
-
 		let amount_on_hold =
 			BalancesOnHold::<T, I>::get(asset.clone(), who).unwrap_or_else(Zero::zero);
 
-		let amount_on_hold = if increase {
-			amount_on_hold.checked_add(&delta).ok_or(ArithmeticError::Overflow)?
+		let amount_on_hold = if amount.is_zero() {
+			if let Some(pos) = holds.iter().position(|x| &x.id == reason) {
+				let item = &mut holds[pos];
+				let amount = item.amount;
+
+				holds.swap_remove(pos);
+				amount_on_hold.checked_sub(&amount).ok_or(ArithmeticError::Underflow)?
+			} else {
+				amount_on_hold
+			}
 		} else {
-			amount_on_hold.checked_sub(&delta).ok_or(ArithmeticError::Underflow)?
+			let (increase, delta) = if let Some(pos) = holds.iter().position(|x| &x.id == reason) {
+				let item = &mut holds[pos];
+				let (increase, delta) =
+					(amount > item.amount, item.amount.max(amount) - item.amount.min(amount));
+
+				item.amount = amount;
+				if item.amount.is_zero() {
+					holds.swap_remove(pos);
+				}
+
+				(increase, delta)
+			} else {
+				holds
+					.try_push(IdAmount { id: *reason, amount })
+					.map_err(|_| Error::<T, I>::TooManyHolds)?;
+				(true, amount)
+			};
+
+			let amount_on_hold = if increase {
+				amount_on_hold.checked_add(&delta).ok_or(ArithmeticError::Overflow)?
+			} else {
+				amount_on_hold.checked_sub(&delta).ok_or(ArithmeticError::Underflow)?
+			};
+
+			amount_on_hold
 		};
+
+		if !holds.is_empty() {
+			Holds::<T, I>::insert(asset.clone(), who, holds);
+		} else {
+			Holds::<T, I>::remove(asset.clone(), who);
+		}
 
 		if amount_on_hold.is_zero() {
 			BalancesOnHold::<T, I>::remove(asset.clone(), who);
 		} else {
 			BalancesOnHold::<T, I>::insert(asset.clone(), who, amount_on_hold);
-		}
-
-		if !holds.is_empty() {
-			Holds::<T, I>::insert(asset, who, holds);
-		} else {
-			Holds::<T, I>::remove(asset, who);
 		}
 
 		Ok(())
