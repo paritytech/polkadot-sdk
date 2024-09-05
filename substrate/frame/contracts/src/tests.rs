@@ -386,7 +386,6 @@ impl pallet_utility::Config for Test {
 	type WeightInfo = ();
 }
 
-
 #[derive_impl(pallet_proxy::config_preludes::TestDefaultConfig)]
 impl pallet_proxy::Config for Test {}
 
