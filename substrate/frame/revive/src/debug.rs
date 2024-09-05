@@ -20,6 +20,7 @@ pub use crate::{
 	primitives::ExecReturnValue,
 };
 use crate::{Config, LOG_TARGET};
+use sp_core::H160;
 
 /// Umbrella trait for all interfaces that serves for debugging.
 pub trait Debugger<T: Config>: Tracing<T> + CallInterceptor<T> {}
@@ -43,7 +44,7 @@ pub trait Tracing<T: Config> {
 	/// * `entry_point` - Describes whether the call is the constructor or a regular call.
 	/// * `input_data` - The raw input data of the call.
 	fn new_call_span(
-		contract_address: &T::AccountId,
+		contract_address: &H160,
 		entry_point: ExportedFunction,
 		input_data: &[u8],
 	) -> Self::CallSpan;
@@ -62,11 +63,7 @@ pub trait CallSpan {
 impl<T: Config> Tracing<T> for () {
 	type CallSpan = ();
 
-	fn new_call_span(
-		contract_address: &T::AccountId,
-		entry_point: ExportedFunction,
-		input_data: &[u8],
-	) {
+	fn new_call_span(contract_address: &H160, entry_point: ExportedFunction, input_data: &[u8]) {
 		log::trace!(target: LOG_TARGET, "call {entry_point:?} account: {contract_address:?}, input_data: {input_data:?}")
 	}
 }
@@ -95,7 +92,7 @@ pub trait CallInterceptor<T: Config> {
 	/// is returned.
 	/// * `None` - otherwise, i.e. the call should be executed normally.
 	fn intercept_call(
-		contract_address: &T::AccountId,
+		contract_address: &H160,
 		entry_point: ExportedFunction,
 		input_data: &[u8],
 	) -> Option<ExecResult>;
@@ -103,7 +100,7 @@ pub trait CallInterceptor<T: Config> {
 
 impl<T: Config> CallInterceptor<T> for () {
 	fn intercept_call(
-		_contract_address: &T::AccountId,
+		_contract_address: &H160,
 		_entry_point: ExportedFunction,
 		_input_data: &[u8],
 	) -> Option<ExecResult> {
