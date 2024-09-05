@@ -268,27 +268,6 @@ remove-cancel-pipeline-message:
     PR_NUM: "${CI_COMMIT_REF_NAME}"
   trigger:
     project: "parity/infrastructure/ci_cd/pipeline-stopper"
-# need to copy jobs this way because otherwise gitlab will wait
-# for all 3 jobs to finish instead of cancelling if one fails
-cancel-pipeline-test-linux-stable1:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable 1/3"
-
-cancel-pipeline-test-linux-stable2:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable 2/3"
-
-cancel-pipeline-test-linux-stable3:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable 3/3"
-
-cancel-pipeline-test-linux-stable-int:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-linux-stable-int
 
 cancel-pipeline-build-linux-stable:
   extends: .cancel-pipeline-template
