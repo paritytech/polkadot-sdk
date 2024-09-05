@@ -769,7 +769,6 @@ pub fn remap_claim_queue(
 		}
 	}
 
-	println!("Remaped CQ: {:?}", per_para_claim_queue);
 	per_para_claim_queue
 }
 
