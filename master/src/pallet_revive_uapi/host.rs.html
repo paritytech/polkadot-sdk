@@ -784,15 +784,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
 <a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -835,12 +826,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>HostFn: private::Sealed {
 	<span class="doccomment">/// Stores the address of the current contract into the supplied buffer.
 	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the address.
-	</span><span class="kw">fn </span>address(output: <span class="kw-2">&amp;mut &amp;mut </span>[u8]);
+	</span><span class="kw">fn </span>address(output: <span class="kw-2">&amp;mut </span>[u8; <span class="number">20</span>]);
 
 	<span class="doccomment">/// Lock a new delegate dependency to the contract.
 	///
@@ -851,7 +840,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	</span><span class="kw">fn </span>lock_delegate_dependency(code_hash: <span class="kw-2">&amp;</span>[u8]);
+	</span><span class="kw">fn </span>lock_delegate_dependency(code_hash: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]);
 
 	<span class="doccomment">/// Stores the *free* balance of the current account into the supplied buffer.
 	///
@@ -900,7 +889,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
 	</span><span class="kw">fn </span>call(
 		flags: CallFlags,
-		callee: <span class="kw-2">&amp;</span>[u8],
+		callee: <span class="kw-2">&amp;</span>[u8; <span class="number">20</span>],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
@@ -961,8 +950,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Stores the address of the caller into the supplied buffer.
 	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
 	/// If this is a top-level call (i.e. initiated by an extrinsic) the origin address of the
 	/// extrinsic will be returned. Otherwise, if this call is initiated by another contract then
 	/// the address of the contract will be returned.
@@ -973,7 +960,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the caller address.
-	</span><span class="kw">fn </span>caller(output: <span class="kw-2">&amp;mut &amp;mut </span>[u8]);
+	</span><span class="kw">fn </span>caller(output: <span class="kw-2">&amp;mut </span>[u8; <span class="number">20</span>]);
 
 	<span class="doccomment">/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///
@@ -1011,15 +998,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address of the contract.Should be decodable as an `T::AccountId`. Traps
-	///   otherwise.
+	/// - `addr`: The address of the contract.
 	/// - `output`: A reference to the output data buffer to write the code hash.
-	///
 	///
 	/// # Errors
 	///
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	</span><span class="kw">fn </span>code_hash(account_id: <span class="kw-2">&amp;</span>[u8], output: <span class="kw-2">&amp;mut </span>[u8]) -&gt; <span class="prelude-ty">Result</span>;
+	</span><span class="kw">fn </span>code_hash(addr: <span class="kw-2">&amp;</span>[u8; <span class="number">20</span>], output: <span class="kw-2">&amp;mut </span>[u8; <span class="number">32</span>]) -&gt; <span class="prelude-ty">Result</span>;
 
 	<span class="doccomment">/// Checks whether there is a value stored under the given key.
 	///
@@ -1076,7 +1061,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	</span><span class="kw">fn </span>delegate_call(
 		flags: CallFlags,
-		code_hash: <span class="kw-2">&amp;</span>[u8],
+		code_hash: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
 		input_data: <span class="kw-2">&amp;</span>[u8],
 		output: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut &amp;mut </span>[u8]&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>;
@@ -1200,28 +1185,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	</span><span class="kw">fn </span>instantiate(
-		code_hash: <span class="kw-2">&amp;</span>[u8],
+		code_hash: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		deposit: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
 		value: <span class="kw-2">&amp;</span>[u8],
 		input: <span class="kw-2">&amp;</span>[u8],
-		address: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut &amp;mut </span>[u8]&gt;,
+		address: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>[u8; <span class="number">20</span>]&gt;,
 		output: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut &amp;mut </span>[u8]&gt;,
-		salt: <span class="kw-2">&amp;</span>[u8],
+		salt: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
 	) -&gt; <span class="prelude-ty">Result</span>;
 
 	<span class="doccomment">/// Checks whether a specified address belongs to a contract.
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address to check. Should be decodable as an `T::AccountId`. Traps
-	///   otherwise.
+	/// - `address`: The address to check
 	///
 	/// # Return
 	///
 	/// Returns `true` if the address belongs to a contract.
-	</span><span class="kw">fn </span>is_contract(account_id: <span class="kw-2">&amp;</span>[u8]) -&gt; bool;
+	</span><span class="kw">fn </span>is_contract(address: <span class="kw-2">&amp;</span>[u8; <span class="number">20</span>]) -&gt; bool;
 
 	<span class="doccomment">/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	/// The data is encoded as `T::Balance`.
@@ -1238,7 +1222,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the code hash.
-	</span><span class="kw">fn </span>own_code_hash(output: <span class="kw-2">&amp;mut </span>[u8]);
+	</span><span class="kw">fn </span>own_code_hash(output: <span class="kw-2">&amp;mut </span>[u8; <span class="number">32</span>]);
 
 	<span class="doccomment">/// Load the latest block timestamp into the supplied buffer
 	///
@@ -1257,7 +1241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	</span><span class="kw">fn </span>unlock_delegate_dependency(code_hash: <span class="kw-2">&amp;</span>[u8]);
+	</span><span class="kw">fn </span>unlock_delegate_dependency(code_hash: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]);
 
 	<span class="doccomment">/// Cease contract execution and save a data buffer as a result of the execution.
 	///
@@ -1305,7 +1289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Errors
 	///
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	</span><span class="kw">fn </span>set_code_hash(code_hash: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>;
+	</span><span class="kw">fn </span>set_code_hash(code_hash: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; <span class="prelude-ty">Result</span>;
 
 	<span class="doccomment">/// Set the value at the given key in the contract storage.
 	///
@@ -1349,14 +1333,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address of the account to transfer funds to. Should be decodable as an
-	///   `T::AccountId`. Traps otherwise.
+	/// - `address`: The address of the account to transfer funds to.
 	/// - `value`: The value to transfer. Should be decodable as a `T::Balance`. Traps otherwise.
 	///
 	/// # Errors
 	///
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	</span><span class="kw">fn </span>transfer(account_id: <span class="kw-2">&amp;</span>[u8], value: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>;
+	</span><span class="kw">fn </span>transfer(address: <span class="kw-2">&amp;</span>[u8; <span class="number">20</span>], value: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>;
 
 	<span class="doccomment">/// Remove the calling account and transfer remaining **free** balance.
 	///
@@ -1366,15 +1349,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Parameters
 	///
-	/// - `beneficiary`: The address of the beneficiary account, Should be decodable as an
-	/// `T::AccountId`.
+	/// - `beneficiary`: The address of the beneficiary account
 	///
 	/// # Traps
 	///
 	/// - The contract is live i.e is already on the call stack.
 	/// - Failed to send the balance to the beneficiary.
 	/// - The deletion queue is full.
-	</span><span class="kw">fn </span>terminate(beneficiary: <span class="kw-2">&amp;</span>[u8]) -&gt; !;
+	</span><span class="kw">fn </span>terminate(beneficiary: <span class="kw-2">&amp;</span>[u8; <span class="number">20</span>]) -&gt; !;
 
 	<span class="doccomment">/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	/// The data is encoded as `T::Balance`.

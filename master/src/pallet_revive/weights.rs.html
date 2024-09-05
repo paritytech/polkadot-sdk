@@ -2264,12 +2264,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2112" id="2112">2112</a>
 <a href="#2113" id="2113">2113</a>
 <a href="#2114" id="2114">2114</a>
-<a href="#2115" id="2115">2115</a>
-<a href="#2116" id="2116">2116</a>
-<a href="#2117" id="2117">2117</a>
-<a href="#2118" id="2118">2118</a>
-<a href="#2119" id="2119">2119</a>
-<a href="#2120" id="2120">2120</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2337,8 +2331,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>on_runtime_upgrade_in_progress() -&gt; Weight;
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight;
 	<span class="kw">fn </span>call_with_code_per_byte(c: u32, ) -&gt; Weight;
-	<span class="kw">fn </span>instantiate_with_code(c: u32, i: u32, s: u32, ) -&gt; Weight;
-	<span class="kw">fn </span>instantiate(i: u32, s: u32, ) -&gt; Weight;
+	<span class="kw">fn </span>instantiate_with_code(c: u32, i: u32) -&gt; Weight;
+	<span class="kw">fn </span>instantiate(i: u32) -&gt; Weight;
 	<span class="kw">fn </span>call() -&gt; Weight;
 	<span class="kw">fn </span>upload_code_determinism_enforced(c: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>upload_code_determinism_relaxed(c: u32, ) -&gt; Weight;
@@ -2387,7 +2381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>seal_transfer() -&gt; Weight;
 	<span class="kw">fn </span>seal_call(t: u32, i: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>seal_delegate_call() -&gt; Weight;
-	<span class="kw">fn </span>seal_instantiate(i: u32, s: u32, ) -&gt; Weight;
+	<span class="kw">fn </span>seal_instantiate(i: u32) -&gt; Weight;
 	<span class="kw">fn </span>seal_hash_sha2_256(n: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>seal_hash_keccak_256(n: u32, ) -&gt; Weight;
 	<span class="kw">fn </span>seal_hash_blake2_256(n: u32, ) -&gt; Weight;
@@ -2654,7 +2648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The range of component `c` is `[0, 125952]`.
 	/// The range of component `i` is `[0, 1048576]`.
 	/// The range of component `s` is `[0, 1048576]`.
-	</span><span class="kw">fn </span>instantiate_with_code(c: u32, i: u32, s: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>instantiate_with_code(c: u32, i: u32) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `323`
 		//  Estimated: `6262`
@@ -2665,8 +2659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Standard Error: 22
 			</span>.saturating_add(Weight::from_parts(<span class="number">2_143</span>, <span class="number">0</span>).saturating_mul(i.into()))
 			<span class="comment">// Standard Error: 22
-			</span>.saturating_add(Weight::from_parts(<span class="number">2_210</span>, <span class="number">0</span>).saturating_mul(s.into()))
-			.saturating_add(T::DbWeight::get().reads(<span class="number">8_u64</span>))
+			</span>.saturating_add(T::DbWeight::get().reads(<span class="number">8_u64</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">7_u64</span>))
 	}
 	<span class="doccomment">/// Storage: `Contracts::MigrationInProgress` (r:1 w:0)
@@ -2687,7 +2680,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
 	/// The range of component `i` is `[0, 1048576]`.
 	/// The range of component `s` is `[0, 1048576]`.
-	</span><span class="kw">fn </span>instantiate(i: u32, s: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>instantiate(i: u32) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `560`
 		//  Estimated: `4017`
@@ -2696,8 +2689,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Standard Error: 32
 			</span>.saturating_add(Weight::from_parts(<span class="number">934</span>, <span class="number">0</span>).saturating_mul(i.into()))
 			<span class="comment">// Standard Error: 32
-			</span>.saturating_add(Weight::from_parts(<span class="number">920</span>, <span class="number">0</span>).saturating_mul(s.into()))
-			.saturating_add(T::DbWeight::get().reads(<span class="number">8_u64</span>))
+			</span>.saturating_add(T::DbWeight::get().reads(<span class="number">8_u64</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">5_u64</span>))
 	}
 	<span class="doccomment">/// Storage: `Contracts::MigrationInProgress` (r:1 w:0)
@@ -3250,7 +3242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `i` is `[0, 983040]`.
 	/// The range of component `s` is `[0, 983040]`.
-	</span><span class="kw">fn </span>seal_instantiate(i: u32, s: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>seal_instantiate(i: u32) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `676`
 		//  Estimated: `4132`
@@ -3259,8 +3251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Standard Error: 24
 			</span>.saturating_add(Weight::from_parts(<span class="number">581</span>, <span class="number">0</span>).saturating_mul(i.into()))
 			<span class="comment">// Standard Error: 24
-			</span>.saturating_add(Weight::from_parts(<span class="number">915</span>, <span class="number">0</span>).saturating_mul(s.into()))
-			.saturating_add(T::DbWeight::get().reads(<span class="number">5_u64</span>))
+			</span>.saturating_add(T::DbWeight::get().reads(<span class="number">5_u64</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">3_u64</span>))
 	}
 	<span class="doccomment">/// The range of component `n` is `[0, 1048576]`.
@@ -3647,7 +3638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The range of component `c` is `[0, 125952]`.
 	/// The range of component `i` is `[0, 1048576]`.
 	/// The range of component `s` is `[0, 1048576]`.
-	</span><span class="kw">fn </span>instantiate_with_code(c: u32, i: u32, s: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>instantiate_with_code(c: u32, i: u32) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `323`
 		//  Estimated: `6262`
@@ -3658,8 +3649,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Standard Error: 22
 			</span>.saturating_add(Weight::from_parts(<span class="number">2_143</span>, <span class="number">0</span>).saturating_mul(i.into()))
 			<span class="comment">// Standard Error: 22
-			</span>.saturating_add(Weight::from_parts(<span class="number">2_210</span>, <span class="number">0</span>).saturating_mul(s.into()))
-			.saturating_add(RocksDbWeight::get().reads(<span class="number">8_u64</span>))
+			</span>.saturating_add(RocksDbWeight::get().reads(<span class="number">8_u64</span>))
 			.saturating_add(RocksDbWeight::get().writes(<span class="number">7_u64</span>))
 	}
 	<span class="doccomment">/// Storage: `Contracts::MigrationInProgress` (r:1 w:0)
@@ -3680,7 +3670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
 	/// The range of component `i` is `[0, 1048576]`.
 	/// The range of component `s` is `[0, 1048576]`.
-	</span><span class="kw">fn </span>instantiate(i: u32, s: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>instantiate(i: u32) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `560`
 		//  Estimated: `4017`
@@ -3689,8 +3679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Standard Error: 32
 			</span>.saturating_add(Weight::from_parts(<span class="number">934</span>, <span class="number">0</span>).saturating_mul(i.into()))
 			<span class="comment">// Standard Error: 32
-			</span>.saturating_add(Weight::from_parts(<span class="number">920</span>, <span class="number">0</span>).saturating_mul(s.into()))
-			.saturating_add(RocksDbWeight::get().reads(<span class="number">8_u64</span>))
+			</span>.saturating_add(RocksDbWeight::get().reads(<span class="number">8_u64</span>))
 			.saturating_add(RocksDbWeight::get().writes(<span class="number">5_u64</span>))
 	}
 	<span class="doccomment">/// Storage: `Contracts::MigrationInProgress` (r:1 w:0)
@@ -4243,7 +4232,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `i` is `[0, 983040]`.
 	/// The range of component `s` is `[0, 983040]`.
-	</span><span class="kw">fn </span>seal_instantiate(i: u32, s: u32, ) -&gt; Weight {
+	</span><span class="kw">fn </span>seal_instantiate(i: u32) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `676`
 		//  Estimated: `4132`
@@ -4252,8 +4241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Standard Error: 24
 			</span>.saturating_add(Weight::from_parts(<span class="number">581</span>, <span class="number">0</span>).saturating_mul(i.into()))
 			<span class="comment">// Standard Error: 24
-			</span>.saturating_add(Weight::from_parts(<span class="number">915</span>, <span class="number">0</span>).saturating_mul(s.into()))
-			.saturating_add(RocksDbWeight::get().reads(<span class="number">5_u64</span>))
+			</span>.saturating_add(RocksDbWeight::get().reads(<span class="number">5_u64</span>))
 			.saturating_add(RocksDbWeight::get().writes(<span class="number">3_u64</span>))
 	}
 	<span class="doccomment">/// The range of component `n` is `[0, 1048576]`.

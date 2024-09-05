@@ -2097,6 +2097,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1945" id="1945">1945</a>
 <a href="#1946" id="1946">1946</a>
 <a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2552,7 +2553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			DelegateCallBase =&gt; T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge =&gt; <span class="macro">cost_args!</span>(seal_call, <span class="number">1</span>, <span class="number">0</span>),
 			CallInputCloned(len) =&gt; <span class="macro">cost_args!</span>(seal_call, <span class="number">0</span>, len),
-			Instantiate { input_data_len } =&gt; T::WeightInfo::seal_instantiate(input_data_len, <span class="number">32</span>),
+			Instantiate { input_data_len } =&gt; T::WeightInfo::seal_instantiate(input_data_len),
 			HashSha256(len) =&gt; T::WeightInfo::seal_hash_sha2_256(len),
 			HashKeccak256(len) =&gt; T::WeightInfo::seal_hash_keccak_256(len),
 			HashBlake256(len) =&gt; T::WeightInfo::seal_hash_blake2_256(len),
@@ -2758,6 +2759,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		memory.write(out_ptr, buf)<span class="question-mark">?</span>;
 		memory.write(out_len_ptr, <span class="kw-2">&amp;</span>buf_len.encode())
+	}
+
+	<span class="doccomment">/// Same as `write_sandbox_output` but for static size output.
+	</span><span class="kw">pub fn </span>write_fixed_sandbox_output(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		memory: <span class="kw-2">&amp;mut </span>M,
+		out_ptr: u32,
+		buf: <span class="kw-2">&amp;</span>[u8],
+		allow_skip: bool,
+		create_token: <span class="kw">impl </span>FnOnce(u32) -&gt; <span class="prelude-ty">Option</span>&lt;RuntimeCosts&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		<span class="kw">if </span>allow_skip &amp;&amp; out_ptr == SENTINEL {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="kw">let </span>buf_len = buf.len() <span class="kw">as </span>u32;
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(costs) = create_token(buf_len) {
+			<span class="self">self</span>.charge_gas(costs)<span class="question-mark">?</span>;
+		}
+
+		memory.write(out_ptr, buf)
 	}
 
 	<span class="doccomment">/// Computes the given hash function on the supplied input.
@@ -3109,7 +3131,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		input_data_ptr: u32,
 		input_data_len: u32,
 		address_ptr: u32,
-		address_len_ptr: u32,
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
@@ -3140,11 +3161,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>((address, output)) = <span class="kw-2">&amp;</span>instantiate_outcome {
 			<span class="kw">if </span>!output.flags.contains(ReturnFlags::REVERT) {
-				<span class="self">self</span>.write_sandbox_output(
+				<span class="self">self</span>.write_fixed_sandbox_output(
 					memory,
 					address_ptr,
-					address_len_ptr,
-					<span class="kw-2">&amp;</span>address.encode(),
+					<span class="kw-2">&amp;</span>address.as_bytes(),
 					<span class="bool-val">true</span>,
 					already_charged,
 				)<span class="question-mark">?</span>;
@@ -3268,12 +3288,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>transfer(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		memory: <span class="kw-2">&amp;mut </span>M,
-		account_ptr: u32,
+		address_ptr: u32,
 		value_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Transfer)<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>callee = H160::zero();
-		memory.read_into_buf(account_ptr, callee.as_bytes_mut())<span class="question-mark">?</span>;
+		memory.read_into_buf(address_ptr, callee.as_bytes_mut())<span class="question-mark">?</span>;
 		<span class="kw">let </span>value: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = memory.read_as(value_ptr)<span class="question-mark">?</span>;
 		<span class="kw">let </span>result = <span class="self">self</span>.ext.transfer(<span class="kw-2">&amp;</span>callee, value);
 		<span class="kw">match </span>result {
@@ -3357,11 +3377,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		input_data_ptr: u32,
 		input_data_len: u32,
 		address_ptr: u32,
-		address_len_ptr: u32,
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
-		_salt_len: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="self">self</span>.instantiate(
 			memory,
@@ -3372,7 +3390,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			input_data_ptr,
 			input_data_len,
 			address_ptr,
-			address_len_ptr,
 			output_ptr,
 			output_len_ptr,
 			salt_ptr,
@@ -3419,13 +3436,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Stores the address of the caller into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::caller`].
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
-	</span><span class="kw">fn </span>caller(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32, out_len_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
+	</span><span class="kw">fn </span>caller(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Caller)<span class="question-mark">?</span>;
 		<span class="kw">let </span>caller = &lt;E::T <span class="kw">as </span>Config&gt;::AddressMapper::to_address(<span class="self">self</span>.ext.caller().account_id()<span class="question-mark">?</span>);
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			caller.as_bytes(),
 			<span class="bool-val">false</span>,
 			already_charged,
@@ -3448,18 +3464,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>code_hash(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		memory: <span class="kw-2">&amp;mut </span>M,
-		account_ptr: u32,
+		addr_ptr: u32,
 		out_ptr: u32,
-		out_len_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::CodeHash)<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>address = H160::zero();
-		memory.read_into_buf(account_ptr, address.as_bytes_mut())<span class="question-mark">?</span>;
+		memory.read_into_buf(addr_ptr, address.as_bytes_mut())<span class="question-mark">?</span>;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(value) = <span class="self">self</span>.ext.code_hash(<span class="kw-2">&amp;</span>address) {
-			<span class="self">self</span>.write_sandbox_output(
+			<span class="self">self</span>.write_fixed_sandbox_output(
 				memory,
 				out_ptr,
-				out_len_ptr,
 				<span class="kw-2">&amp;</span>value.encode(),
 				<span class="bool-val">false</span>,
 				already_charged,
@@ -3473,18 +3487,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Retrieve the code hash of the currently executing contract.
 	/// See [`pallet_revive_uapi::HostFn::own_code_hash`].
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
-	</span><span class="kw">fn </span>own_code_hash(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		memory: <span class="kw-2">&amp;mut </span>M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
+	</span><span class="kw">fn </span>own_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::OwnCodeHash)<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_hash_encoded = <span class="kw-2">&amp;</span><span class="self">self</span>.ext.own_code_hash().encode();
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			code_hash_encoded,
 			<span class="bool-val">false</span>,
 			already_charged,
@@ -3510,18 +3518,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Stores the address of the current contract into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::address`].
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
-	</span><span class="kw">fn </span>address(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		memory: <span class="kw-2">&amp;mut </span>M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
+	</span><span class="kw">fn </span>address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Address)<span class="question-mark">?</span>;
 		<span class="kw">let </span>address = <span class="self">self</span>.ext.address();
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			address.as_bytes(),
 			<span class="bool-val">false</span>,
 			already_charged,

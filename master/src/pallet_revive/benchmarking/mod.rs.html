@@ -1956,8 +1956,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1804" id="1804">1804</a>
 <a href="#1805" id="1805">1805</a>
 <a href="#1806" id="1806">1806</a>
-<a href="#1807" id="1807">1807</a>
-<a href="#1808" id="1808">1808</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2492,17 +2490,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_caller() {
 		<span class="kw">let </span>len = H160::len_bytes();
-		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
+		<span class="macro">build_runtime!</span>(runtime, memory: [<span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
 
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
 		</span>{
-			result = runtime.bench_caller(memory.as_mut_slice(), <span class="number">4</span>, <span class="number">0</span>);
+			result = runtime.bench_caller(memory.as_mut_slice(), <span class="number">0</span>);
 		}
 
 		<span class="macro">assert_ok!</span>(result);
 		<span class="macro">assert_eq!</span>(
-			&lt;H160 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
+			&lt;H160 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[..]).unwrap(),
 			T::AddressMapper::to_address(<span class="kw-2">&amp;</span>runtime.ext().caller().account_id().unwrap())
 		);
 	}
@@ -2527,17 +2525,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>seal_code_hash() {
 		<span class="kw">let </span>contract = Contract::&lt;T&gt;::with_index(<span class="number">1</span>, WasmModule::dummy(), <span class="macro">vec!</span>[]).unwrap();
 		<span class="kw">let </span>len = &lt;sp_core::H256 <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
-		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], contract.account_id.encode(), ]);
+		<span class="macro">build_runtime!</span>(runtime, memory: [<span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], contract.account_id.encode(), ]);
 
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
 		</span>{
-			result = runtime.bench_code_hash(memory.as_mut_slice(), <span class="number">4 </span>+ len, <span class="number">4</span>, <span class="number">0</span>);
+			result = runtime.bench_code_hash(memory.as_mut_slice(), len, <span class="number">0</span>);
 		}
 
 		<span class="macro">assert_ok!</span>(result);
 		<span class="macro">assert_eq!</span>(
-			&lt;sp_core::H256 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
+			&lt;sp_core::H256 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[..]).unwrap(),
 			contract.info().unwrap().code_hash
 		);
 	}
@@ -2545,16 +2543,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_own_code_hash() {
 		<span class="kw">let </span>len = &lt;sp_core::H256 <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
-		<span class="macro">build_runtime!</span>(runtime, contract, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
+		<span class="macro">build_runtime!</span>(runtime, contract, memory: [<span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
 		</span>{
-			result = runtime.bench_own_code_hash(memory.as_mut_slice(), <span class="number">4</span>, <span class="number">0</span>);
+			result = runtime.bench_own_code_hash(memory.as_mut_slice(), <span class="number">0</span>);
 		}
 
 		<span class="macro">assert_ok!</span>(result);
 		<span class="macro">assert_eq!</span>(
-			&lt;sp_core::H256 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
+			&lt;sp_core::H256 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[..]).unwrap(),
 			contract.info().unwrap().code_hash
 		);
 	}
@@ -2589,15 +2587,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_address() {
 		<span class="kw">let </span>len = H160::len_bytes();
-		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
+		<span class="macro">build_runtime!</span>(runtime, memory: [<span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
 
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
 		</span>{
-			result = runtime.bench_address(memory.as_mut_slice(), <span class="number">4</span>, <span class="number">0</span>);
+			result = runtime.bench_address(memory.as_mut_slice(), <span class="number">0</span>);
 		}
 		<span class="macro">assert_ok!</span>(result);
-		<span class="macro">assert_eq!</span>(&lt;H160 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(), runtime.ext().address());
+		<span class="macro">assert_eq!</span>(&lt;H160 <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[..]).unwrap(), runtime.ext().address());
 	}
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
@@ -3541,11 +3539,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>offset(value_len),   <span class="comment">// input_data_ptr
 				</span>i,                   <span class="comment">// input_data_len
 				</span>SENTINEL,            <span class="comment">// address_ptr
-				</span><span class="number">0</span>,                   <span class="comment">// address_len_ptr
 				</span>SENTINEL,            <span class="comment">// output_ptr
 				</span><span class="number">0</span>,                   <span class="comment">// output_len_ptr
 				</span>offset(i),           <span class="comment">// salt_ptr
-				</span><span class="number">32</span>,                  <span class="comment">// salt_len
 			</span>);
 		}
 

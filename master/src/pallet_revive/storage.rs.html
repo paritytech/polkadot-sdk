@@ -718,16 +718,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This returns an `Err` if an contract with the supplied `account` already exists
 	/// in storage.
 	</span><span class="kw">pub fn </span>new(
-		account: <span class="kw-2">&amp;</span>H160,
+		address: <span class="kw-2">&amp;</span>H160,
 		nonce: T::Nonce,
 		code_hash: sp_core::H256,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
-		<span class="kw">if </span>&lt;ContractInfoOf&lt;T&gt;&gt;::contains_key(account) {
+		<span class="kw">if </span>&lt;ContractInfoOf&lt;T&gt;&gt;::contains_key(address) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::DuplicateContract.into())
 		}
 
 		<span class="kw">let </span>trie_id = {
-			<span class="kw">let </span>buf = (<span class="string">"bcontract_trie_v1"</span>, account, nonce).using_encoded(T::Hashing::hash);
+			<span class="kw">let </span>buf = (<span class="string">"bcontract_trie_v1"</span>, address, nonce).using_encoded(T::Hashing::hash);
 			buf.as_ref()
 				.to_vec()
 				.try_into()
