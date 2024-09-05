@@ -95,6 +95,7 @@ mod build {
 		};
 		set_dep("uapi", "../uapi")?;
 		set_dep("common", "./contracts/common")?;
+
 		cargo_toml["bin"] = toml::Value::Array(
 			entries
 				.map(|entry| {

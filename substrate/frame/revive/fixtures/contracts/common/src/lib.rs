@@ -179,7 +179,7 @@ macro_rules! u64_output {
 	}};
 }
 
-/// Convert a u* into a [u8; 32].
+/// Convert a u64 into a [u8; 32].
 pub const fn u256_bytes(value: u64) -> [u8; 32] {
 	let mut buffer = [0u8; 32];
 	let bytes = value.to_le_bytes();

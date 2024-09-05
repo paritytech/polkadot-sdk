@@ -1343,9 +1343,9 @@ where
 				salt,
 				input_data: input_data.as_ref(),
 			},
-			value.try_into().map_err(|_| Error::<T>::ConversionFailed)?,
+			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,
-			deposit_limit.try_into().map_err(|_| Error::<T>::ConversionFailed)?,
+			deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);

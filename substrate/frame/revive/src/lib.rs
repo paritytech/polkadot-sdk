@@ -573,7 +573,7 @@ pub mod pallet {
 		/// PolkaVM failed during code execution. Probably due to a malformed program.
 		ExecutionFailed,
 		/// Failed to convert a U256 to a Balance.
-		ConversionFailed,
+		BalanceConversionFailed,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
