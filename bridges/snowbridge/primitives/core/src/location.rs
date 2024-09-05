@@ -15,12 +15,15 @@ use sp_std::prelude::*;
 use xcm::prelude::{
 	AccountId32, AccountKey20, GeneralIndex, GeneralKey, GlobalConsensus, Location, PalletInstance,
 };
-use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
+use xcm_builder::{
+	DescribeAllTerminal, DescribeFamily, DescribeLocation, DescribeTerminus, HashedDescription,
+};
 
 pub type AgentId = H256;
 
 /// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
 /// Ethereum which acts as the sovereign account for the Location.
+#[allow(deprecated)]
 pub type AgentIdOf =
 	HashedDescription<AgentId, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
 
@@ -29,10 +32,16 @@ pub type TokenId = H256;
 /// Convert a token location to a stable ID that can be used on the Ethereum side
 pub type TokenIdOf = HashedDescription<
 	TokenId,
-	DescribeGlobalPrefix<(DescribeHere, DescribeFamily<DescribeTokenTerminal>)>,
+	DescribeGlobalPrefix<(DescribeTerminus, DescribeFamily<DescribeTokenTerminal>)>,
 >;
 
+/// This looks like DescribeTerminus that was added to xcm-builder. However this does an extra
+/// `encode` to the Vector producing a different output to DescribeTerminus. `DescribeHere`
+/// should NOT be used for new code. This is left here for backwards compatibility of channels and
+/// agents.
+#[deprecated(note = "Use DescribeTerminus from xcm-builder instead.")]
 pub struct DescribeHere;
+#[allow(deprecated)]
 impl DescribeLocation for DescribeHere {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		match l.unpack() {
