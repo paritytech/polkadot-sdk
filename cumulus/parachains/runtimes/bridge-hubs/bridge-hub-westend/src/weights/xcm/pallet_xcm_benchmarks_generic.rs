@@ -339,14 +339,14 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:2 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	// Storage: `XcmOverBridgeHubRococo::Bridges` (r:1 w:0)
+	// Proof: `XcmOverBridgeHubRococo::Bridges` (`max_values`: None, `max_size`: Some(1918), added: 4393, mode: `MaxEncodedLen`)
 	// Storage: `BridgeRococoMessages::PalletOperatingMode` (r:1 w:0)
 	// Proof: `BridgeRococoMessages::PalletOperatingMode` (`max_values`: Some(1), `max_size`: Some(2), added: 497, mode: `MaxEncodedLen`)
 	// Storage: `BridgeRococoMessages::OutboundLanes` (r:1 w:1)
-	// Proof: `BridgeRococoMessages::OutboundLanes` (`max_values`: Some(1), `max_size`: Some(44), added: 539, mode: `MaxEncodedLen`)
-	// Storage: `BridgeRococoMessages::OutboundLanesCongestedSignals` (r:1 w:0)
-	// Proof: `BridgeRococoMessages::OutboundLanesCongestedSignals` (`max_values`: Some(1), `max_size`: Some(21), added: 516, mode: `MaxEncodedLen`)
+	// Proof: `BridgeRococoMessages::OutboundLanes` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
 	// Storage: `BridgeRococoMessages::OutboundMessages` (r:0 w:1)
-	// Proof: `BridgeRococoMessages::OutboundMessages` (`max_values`: None, `max_size`: Some(65568), added: 68043, mode: `MaxEncodedLen`)
+	// Proof: `BridgeRococoMessages::OutboundMessages` (`max_values`: None, `max_size`: Some(65597), added: 68072, mode: `MaxEncodedLen`)
 	/// The range of component `x` is `[1, 1000]`.
 	pub fn export_message(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:

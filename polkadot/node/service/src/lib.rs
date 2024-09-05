@@ -437,15 +437,16 @@ fn new_partial_basics(
 		.transpose()?;
 
 	let heap_pages = config
+		.executor
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
 	let executor = WasmExecutor::builder()
-		.with_execution_method(config.wasm_method)
+		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
-		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
@@ -486,7 +487,6 @@ fn new_partial<ChainSelection>(
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
 			impl Fn(
-				polkadot_rpc::DenyUnsafe,
 				polkadot_rpc::SubscriptionTaskExecutor,
 			) -> Result<polkadot_rpc::RpcExtension, SubstrateServiceError>,
 			(
@@ -593,15 +593,13 @@ where
 		let chain_spec = config.chain_spec.cloned_box();
 		let backend = backend.clone();
 
-		move |deny_unsafe,
-		      subscription_executor: polkadot_rpc::SubscriptionTaskExecutor|
+		move |subscription_executor: polkadot_rpc::SubscriptionTaskExecutor|
 		      -> Result<polkadot_rpc::RpcExtension, sc_service::Error> {
 			let deps = polkadot_rpc::FullDeps {
 				client: client.clone(),
 				pool: transaction_pool.clone(),
 				select_chain: select_chain.clone(),
 				chain_spec: chain_spec.cloned_box(),
-				deny_unsafe,
 				babe: polkadot_rpc::BabeDeps {
 					babe_worker_handle: babe_worker_handle.clone(),
 					keystore: keystore.clone(),
@@ -767,7 +765,7 @@ pub fn new_full<
 	use sc_network_sync::WarpSyncConfig;
 
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
-	let role = config.role.clone();
+	let role = config.role;
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks = if !force_authoring_backoff &&
 		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())

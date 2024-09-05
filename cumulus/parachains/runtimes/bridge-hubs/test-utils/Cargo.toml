@@ -41,14 +41,17 @@ xcm-executor = { workspace = true }
 # Bridges
 bp-header-chain = { workspace = true }
 bp-messages = { workspace = true }
+bp-parachains = { workspace = true }
 bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
 bp-runtime = { workspace = true }
 bp-test-utils = { workspace = true }
+bp-xcm-bridge-hub = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-parachains = { workspace = true }
 pallet-bridge-messages = { features = ["test-helpers"], workspace = true }
 pallet-bridge-relayers = { workspace = true }
+pallet-xcm-bridge-hub = { workspace = true }
 bridge-runtime-common = { workspace = true }
 
 [features]
@@ -57,10 +60,12 @@ std = [
 	"asset-test-utils/std",
 	"bp-header-chain/std",
 	"bp-messages/std",
+	"bp-parachains/std",
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-runtime/std",
 	"bp-test-utils/std",
+	"bp-xcm-bridge-hub/std",
 	"bridge-runtime-common/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
@@ -75,6 +80,7 @@ std = [
 	"pallet-bridge-relayers/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
+	"pallet-xcm-bridge-hub/std",
 	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",
 	"sp-core/std",
