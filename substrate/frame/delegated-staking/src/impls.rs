@@ -136,8 +136,6 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 				);
 				<Delegators<T>>::remove(&delegator);
 			});
-
-		T::CoreStaking::migrate_to_direct_staker(&agent.get());
 	}
 }
 
