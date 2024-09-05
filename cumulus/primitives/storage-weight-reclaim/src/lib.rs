@@ -181,16 +181,17 @@ where
 		// that in.
 		frame_system::BlockWeight::<T>::mutate(|current| {
 			if consumed_weight > benchmarked_weight {
-				let extrinsic_count = frame_system::Pallet::<T>::extrinsic_count();
 				log::error!(
 					target: LOG_TARGET,
-					"Benchmarked storage weight smaller than consumed storage weight. extrinsic: {extrinsic_count} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}"
+					"Benchmarked storage weight smaller than consumed storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}",
+					frame_system::Pallet::<T>::extrinsic_count()
 				);
 				current.accrue(Weight::from_parts(0, storage_size_diff), info.class)
 			} else {
 				log::trace!(
 					target: LOG_TARGET,
-					"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: {consumed_weight} unspent: {unspent}"
+					"Reclaiming storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}",
+					frame_system::Pallet::<T>::extrinsic_count()
 				);
 				current.reduce(Weight::from_parts(0, storage_size_diff), info.class)
 			}
