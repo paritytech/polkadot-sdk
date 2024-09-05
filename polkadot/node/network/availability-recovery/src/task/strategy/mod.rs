@@ -30,7 +30,6 @@ use crate::{
 };
 
 use codec::Decode;
-use sc_network::request_responses::CustomOutboundFailure;
 use futures::{channel::oneshot, SinkExt};
 use polkadot_erasure_coding::branch_hash;
 #[cfg(not(test))]
@@ -44,7 +43,10 @@ use polkadot_node_subsystem::{
 	overseer, RecoveryError,
 };
 use polkadot_primitives::{AuthorityDiscoveryId, BlakeTwo256, ChunkIndex, HashT, ValidatorIndex};
-use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
+use sc_network::{
+	request_responses::CustomOutboundFailure, IfDisconnected, OutboundFailure, ProtocolName,
+	RequestFailure,
+};
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
 	time::Duration,
