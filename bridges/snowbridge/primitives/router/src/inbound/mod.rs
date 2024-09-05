@@ -394,7 +394,7 @@ impl<
 		asset_hub_fee: u128,
 	) -> Result<(Xcm<()>, Balance), ConvertMessageError> {
 		let network = Ethereum { chain_id };
-		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee / 2).into();
+		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
 
 		let (dest_para_id, beneficiary, dest_para_fee) = match destination {
 			// Final destination is a 32-byte account on AssetHub
@@ -431,15 +431,19 @@ impl<
 			WithdrawAsset(asset.clone().into()),
 		];
 
+		let bridge_location = Location::new(2, GlobalConsensus(network));
+
 		match dest_para_id {
 			Some(dest_para_id) => {
 				let dest_para_fee_asset: Asset = (Location::parent(), dest_para_fee).into();
 
 				instructions.extend(vec![
+					// `SetFeesMode` to pay transport fee from bridge sovereign
+					SetFeesMode { jit_withdraw: true },
 					// `SetAppendix` ensures that `fees` are not trapped in any case
 					SetAppendix(Xcm(vec![DepositAsset {
-						assets: AllCounted(1).into(),
-						beneficiary: Location::new(1, [Parachain(dest_para_id)]),
+						assets: AllCounted(2).into(),
+						beneficiary: bridge_location,
 					}])),
 					// Perform a reserve withdraw to send to destination chain. Leave half of the
 					// asset_hub_fee for the delivery cost
@@ -451,7 +455,7 @@ impl<
 						xcm: vec![
 							// Buy execution on target.
 							BuyExecution { fees: dest_para_fee_asset, weight_limit: Unlimited },
-							// Deposit asset to beneficiary.
+							// Deposit asset and fee to beneficiary.
 							DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
 							// Forward message id to destination parachain.
 							SetTopic(message_id.into()),
