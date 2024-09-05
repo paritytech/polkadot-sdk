@@ -301,7 +301,7 @@ meaningless. Writes can be pushed back to the chain by submitting extrinsics fro
 offchain worker to the transaction pool. See <code>pallet-example-offchain-worker</code> for more
 details on this.</p>
 <p>Moreover, the code in this function has access to a wider range of host functions in
-[<code>sp-io</code>], namely <a href="../../sp_io/offchain/index.html" title="mod sp_io::offchain"><code>sp_io::offchain</code></a>. This includes exotic operations such as HTTP calls
+[<code>sp-io</code>], namely [<code>sp_io::offchain</code>]. This includes exotic operations such as HTTP calls
 that are not really possible in the rest of the runtime code.</p>
 <p>The execution of this hook is entirely optional and is left at the discretion of the
 node-side software and its configuration. In a normal substrate-cli, look for the CLI

@@ -163,15 +163,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     ) -&gt; Weight { ... }
 <span class="item-spacer"></span>    fn <a href="#method.receive_messages_delivery_proof_weight" class="fn">receive_messages_delivery_proof_weight</a>(
         proof: &amp;impl Size,
-        relayers_state: &amp;UnrewardedRelayersState
+        relayers_state: &amp;<a class="struct" href="../bp_messages/struct.UnrewardedRelayersState.html" title="struct bp_messages::UnrewardedRelayersState">UnrewardedRelayersState</a>
     ) -&gt; Weight { ... }
 <span class="item-spacer"></span>    fn <a href="#method.receive_messages_proof_outbound_lane_state_overhead" class="fn">receive_messages_proof_outbound_lane_state_overhead</a>() -&gt; Weight { ... }
 <span class="item-spacer"></span>    fn <a href="#method.receive_messages_delivery_proof_overhead" class="fn">receive_messages_delivery_proof_overhead</a>() -&gt; Weight { ... }
 <span class="item-spacer"></span>    fn <a href="#method.receive_messages_delivery_proof_messages_overhead" class="fn">receive_messages_delivery_proof_messages_overhead</a>(
-        messages: MessageNonce
+        messages: <a class="type" href="../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>
     ) -&gt; Weight { ... }
 <span class="item-spacer"></span>    fn <a href="#method.receive_messages_delivery_proof_relayers_overhead" class="fn">receive_messages_delivery_proof_relayers_overhead</a>(
-        relayers: MessageNonce
+        relayers: <a class="type" href="../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>
     ) -&gt; Weight { ... }
 <span class="item-spacer"></span>    fn <a href="#method.storage_proof_size_overhead" class="fn">storage_proof_size_overhead</a>(proof_size: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; Weight { ... }
 <span class="item-spacer"></span>    fn <a href="#method.message_dispatch_weight" class="fn">message_dispatch_weight</a>(message_size: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; Weight { ... }
@@ -192,18 +192,18 @@ extensions that are declared at runtime level.</p>
 ) -&gt; Weight</h4></section></summary><div class="docblock"><p>Weight of message delivery extrinsic.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.receive_messages_delivery_proof_weight" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#331-357">source</a><h4 class="code-header">fn <a href="#method.receive_messages_delivery_proof_weight" class="fn">receive_messages_delivery_proof_weight</a>(
     proof: &amp;impl Size,
-    relayers_state: &amp;UnrewardedRelayersState
+    relayers_state: &amp;<a class="struct" href="../bp_messages/struct.UnrewardedRelayersState.html" title="struct bp_messages::UnrewardedRelayersState">UnrewardedRelayersState</a>
 ) -&gt; Weight</h4></section></summary><div class="docblock"><p>Weight of confirmation delivery extrinsic.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.receive_messages_proof_outbound_lane_state_overhead" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#363-368">source</a><h4 class="code-header">fn <a href="#method.receive_messages_proof_outbound_lane_state_overhead" class="fn">receive_messages_proof_outbound_lane_state_overhead</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns weight that needs to be accounted when message delivery transaction
 (<code>receive_messages_proof</code>) is carrying outbound lane state proof.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.receive_messages_delivery_proof_overhead" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#372-379">source</a><h4 class="code-header">fn <a href="#method.receive_messages_delivery_proof_overhead" class="fn">receive_messages_delivery_proof_overhead</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns weight overhead of delivery confirmation transaction
 (<code>receive_messages_delivery_proof</code>).</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.receive_messages_delivery_proof_messages_overhead" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#383-390">source</a><h4 class="code-header">fn <a href="#method.receive_messages_delivery_proof_messages_overhead" class="fn">receive_messages_delivery_proof_messages_overhead</a>(
-    messages: MessageNonce
+    messages: <a class="type" href="../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>
 ) -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns weight that needs to be accounted when receiving confirmations for given a number of
 messages with delivery confirmation transaction (<code>receive_messages_delivery_proof</code>).</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.receive_messages_delivery_proof_relayers_overhead" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#394-402">source</a><h4 class="code-header">fn <a href="#method.receive_messages_delivery_proof_relayers_overhead" class="fn">receive_messages_delivery_proof_relayers_overhead</a>(
-    relayers: MessageNonce
+    relayers: <a class="type" href="../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>
 ) -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns weight that needs to be accounted when receiving confirmations for given a number of
 relayers entries with delivery confirmation transaction (<code>receive_messages_delivery_proof</code>).</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.storage_proof_size_overhead" class="method"><a class="src rightside" href="../src/pallet_bridge_messages/weights_ext.rs.html#412-417">source</a><h4 class="code-header">fn <a href="#method.storage_proof_size_overhead" class="fn">storage_proof_size_overhead</a>(proof_size: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Returns weight that needs to be accounted when storage proof of given size is received
