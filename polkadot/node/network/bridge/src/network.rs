@@ -23,7 +23,7 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 
 use codec::Encode;
-use sc_network::service::CustomOutboundFailure;
+use sc_network::request_responses::CustomOutboundFailure;
 
 use sc_network::{
 	config::parse_addr, multiaddr::Multiaddr, service::traits::NetworkService, types::ProtocolName,

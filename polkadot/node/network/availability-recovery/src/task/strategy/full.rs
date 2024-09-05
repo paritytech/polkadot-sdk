@@ -26,7 +26,7 @@ use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, overseer, RecoveryError};
 use polkadot_primitives::ValidatorIndex;
 use sc_network::{IfDisconnected, OutboundFailure, RequestFailure};
-use sc_network::service::CustomOutboundFailure;
+use sc_network::request_responses::CustomOutboundFailure;
 use futures::{channel::oneshot, SinkExt};
 use rand::seq::SliceRandom;
 

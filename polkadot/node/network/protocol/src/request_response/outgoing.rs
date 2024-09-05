@@ -23,7 +23,7 @@ use sc_network as network;
 use sc_network_types::PeerId;
 
 use polkadot_primitives::AuthorityDiscoveryId;
-use sc_network::service::CustomOutboundFailure;
+use sc_network::request_responses::CustomOutboundFailure;
 
 use super::{v1, v2, IsRequest, Protocol};
 

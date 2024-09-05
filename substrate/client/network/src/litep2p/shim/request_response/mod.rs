@@ -27,8 +27,8 @@ use crate::{
 	IfDisconnected, ProtocolName, RequestFailure,
 };
 
+use crate::request_responses::CustomOutboundFailure;
 use futures::{channel::oneshot, future::BoxFuture, stream::FuturesUnordered, StreamExt};
-use crate::service::CustomOutboundFailure;
 use litep2p::{
 	protocol::request_response::{
 		DialOptions, RequestResponseError, RequestResponseEvent, RequestResponseHandle,

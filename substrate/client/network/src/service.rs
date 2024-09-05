@@ -90,8 +90,8 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use sp_runtime::traits::Block as BlockT;
 
 pub use behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
-// Import our custom type 
-pub use crate::request_responses::{CustomOutboundFailure,CustomInboundFailure};
+// Import our custom type
+use crate::request_responses::{CustomInboundFailure, CustomOutboundFailure};
 pub use libp2p::identity::{DecodingError, Keypair, PublicKey};
 pub use metrics::NotificationMetrics;
 pub use protocol::NotificationsSink;
@@ -1519,16 +1519,20 @@ where
 							let reason = match err {
 								ResponseFailure::Network(CustomInboundFailure::Timeout) =>
 									Some("timeout"),
-								ResponseFailure::Network(CustomInboundFailure::UnsupportedProtocols) =>
+								ResponseFailure::Network(
+									CustomInboundFailure::UnsupportedProtocols,
+								) =>
 								// `UnsupportedProtocols` is reported for every single
 								// inbound request whenever a request with an unsupported
 								// protocol is received. This is not reported in order to
 								// avoid confusions.
 									None,
-								ResponseFailure::Network(CustomInboundFailure::ResponseOmission) =>
-									Some("busy-omitted"),
-								ResponseFailure::Network(CustomInboundFailure::ConnectionClosed) =>
-									Some("connection-closed"),
+								ResponseFailure::Network(
+									CustomInboundFailure::ResponseOmission,
+								) => Some("busy-omitted"),
+								ResponseFailure::Network(
+									CustomInboundFailure::ConnectionClosed,
+								) => Some("connection-closed"),
 							};
 
 							if let Some(reason) = reason {
@@ -1555,22 +1559,23 @@ where
 								.with_label_values(&[&protocol])
 								.observe(duration.as_secs_f64());
 						},
-						// we also could remove Network cases here like we did in engine 
 						Err(err) => {
 							let reason = match err {
 								RequestFailure::NotConnected => "not-connected",
 								RequestFailure::UnknownProtocol => "unknown-protocol",
 								RequestFailure::Refused => "refused",
 								RequestFailure::Obsolete => "obsolete",
-								
+
 								RequestFailure::Network(CustomOutboundFailure::DialFailure) =>
 									"dial-failure",
-								RequestFailure::Network(CustomOutboundFailure::Timeout) => "timeout",
-								RequestFailure::Network(CustomOutboundFailure::ConnectionClosed) =>
-									"connection-closed",
-								RequestFailure::Network(CustomOutboundFailure::UnsupportedProtocols) =>
-									"unsupported",
-								
+								RequestFailure::Network(CustomOutboundFailure::Timeout) =>
+									"timeout",
+								RequestFailure::Network(
+									CustomOutboundFailure::ConnectionClosed,
+								) => "connection-closed",
+								RequestFailure::Network(
+									CustomOutboundFailure::UnsupportedProtocols,
+								) => "unsupported",
 							};
 
 							metrics
@@ -1695,6 +1700,9 @@ where
 				self.event_streams.send(Event::Dht(event));
 			},
 			SwarmEvent::Behaviour(BehaviourOut::None) => {
+				// Ignored event from lower layers.
+			},
+			SwarmEvent::Behaviour(_) => {
 				// Ignored event from lower layers.
 			},
 			SwarmEvent::ConnectionEstablished {

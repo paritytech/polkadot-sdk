@@ -42,10 +42,7 @@ use crate::{
 };
 
 use codec::{Decode, DecodeAll, Encode};
-
 use futures::{channel::oneshot, FutureExt, StreamExt};
-use libp2p::request_response::OutboundFailure;
-
 use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
@@ -1234,8 +1231,6 @@ where
 								response receiver.",
 						);
 					},
-					//If OutboundFailure is used, 
-					RequestFailure::Network(_) => {debug_assert!(false, "Don't use deprecated Network");},
 				}
 			},
 			Err(oneshot::Canceled) => {

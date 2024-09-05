@@ -30,7 +30,7 @@ use crate::{
 };
 
 use codec::Decode;
-use sc_network::service::CustomOutboundFailure;
+use sc_network::request_responses::CustomOutboundFailure;
 use futures::{channel::oneshot, SinkExt};
 use polkadot_erasure_coding::branch_hash;
 #[cfg(not(test))]

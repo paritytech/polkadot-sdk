@@ -23,7 +23,10 @@ use crate::{
 	peer_store::PeerStoreProvider,
 	protocol::{CustomMessageOutcome, NotificationsSink, Protocol},
 	protocol_controller::SetId,
-	request_responses::{self, IfDisconnected, ProtocolConfig, RequestFailure},
+	request_responses::{
+		self, CustomInboundFailure, CustomMessage, CustomOutboundFailure, IfDisconnected,
+		InboundRequestId, OutboundRequestId, ProtocolConfig, RequestFailure,
+	},
 	service::traits::Direction,
 	types::ProtocolName,
 	ReputationChange,
@@ -101,6 +104,44 @@ pub enum BehaviourOut {
 
 	/// A request protocol handler issued reputation changes for the given peer.
 	ReputationChanges { peer: PeerId, changes: Vec<ReputationChange> },
+
+	/// An incoming message (request or response).
+	Message {
+		/// The peer who sent the message.
+		peer: PeerId,
+		/// The incoming message.
+		message: CustomMessage,
+	},
+
+	/// An outbound request failed.
+	CustomOutboundFailure {
+		/// The peer to whom the request was sent.
+		peer: PeerId,
+		/// The (local) ID of the failed request.
+		request_id: OutboundRequestId,
+		/// The error that occurred.
+		error: CustomOutboundFailure,
+	},
+	/// An inbound request failed.
+	CustomInboundFailure {
+		/// The peer from whom the request was received.
+		peer: PeerId,
+		/// The ID of the failed inbound request.
+		request_id: InboundRequestId,
+		/// The error that occurred.
+		error: CustomInboundFailure,
+	},
+
+	/// A response to an inbound request has been sent.
+	///
+	/// When this event is received, the response has been flushed on
+	/// the underlying transport connection.
+	CustomResponseSent {
+		/// The peer to whom the response was sent.
+		peer: PeerId,
+		/// The ID of the inbound request whose response was sent.
+		request_id: InboundRequestId,
+	},
 
 	/// Opened a substream with the given node with the given notifications protocol.
 	///
@@ -356,7 +397,14 @@ impl From<request_responses::Event> for BehaviourOut {
 				BehaviourOut::RequestFinished { peer, protocol, duration, result },
 			request_responses::Event::ReputationChanges { peer, changes } =>
 				BehaviourOut::ReputationChanges { peer, changes },
-			_ => BehaviourOut::None,
+			request_responses::Event::Message { peer, message } =>
+				BehaviourOut::Message { peer, message },
+			request_responses::Event::CustomOutboundFailure { peer, request_id, error } =>
+				BehaviourOut::CustomOutboundFailure { peer, request_id, error },
+			request_responses::Event::CustomInboundFailure { peer, request_id, error } =>
+				BehaviourOut::CustomInboundFailure { peer, request_id, error },
+			request_responses::Event::CustomResponseSent { peer, request_id } =>
+				BehaviourOut::CustomResponseSent { peer, request_id },
 		}
 	}
 }
