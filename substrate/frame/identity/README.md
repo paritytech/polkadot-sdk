@@ -27,15 +27,24 @@ no state-bloat attack is viable.
 
 #### Usernames
 
-The pallet provides functionality for username authorities to issue usernames. When an account
-receives a username, they get a default instance of `IdentityInfo`. Usernames also serve as a
-reverse lookup from username to account.
+The pallet provides functionality for username authorities to issue usernames, which are independent
+of the identity information functionality; an account can set:
+- an identity without setting a username
+- a username without setting an identity
+- an identity and a username
 
-Username authorities are given an allocation by governance to prevent state bloat. Usernames
-impose no cost or deposit on the user.
+The username functionality implemented in this pallet is meant to be a user friendly lookup of
+accounts. There are mappings in both directions, "account -> username" and "username -> account".
 
-Users can have multiple usernames that map to the same `AccountId`, however one `AccountId` can
-only map to a single username, known as the *primary*.
+To grant a username, a username authority can either:
+- be given an allocation by governane of a specific amount of usernames to issue for free,
+  without any deposit associated with storage costs;
+- put up a deposit for each username it issues (usually a subsidized, reduced deposit, relative
+  to other deposits in the system).
+
+Users can have multiple usernames that map to the same `AccountId`, however one `AccountId` can only
+map to a single username, known as the _primary_. This primary username will be the result of a
+lookup in the `UsernameOf` map for any given account.
 
 ### Interface
 
@@ -50,7 +59,8 @@ only map to a single username, known as the *primary*.
 - `accept_username` - Accept a username issued by a username authority.
 - `remove_expired_approval` - Remove a username that was issued but never accepted.
 - `set_primary_username` - Set a given username as an account's primary.
-- `remove_dangling_username` - Remove a username that maps to an account without an identity.
+- `remove_dangling_username` - Remove a username that maps to an account without a primary username.
+- `remove_username` - Remove a username after its grace period has ended.
 
 ##### For General Users with Sub-Identities
 - `set_subs` - Set the sub-accounts of an identity.
@@ -66,12 +76,14 @@ only map to a single username, known as the *primary*.
 
 ##### For Username Authorities
 - `set_username_for` - Set a username for a given account. The account must approve it.
+- `unbind_username` - Start the grace period for a username.
 
 ##### For Superusers
 - `add_registrar` - Add a new registrar to the system.
 - `kill_identity` - Forcibly remove the associated identity; the deposit is lost.
 - `add_username_authority` - Add an account with the ability to issue usernames.
 - `remove_username_authority` - Remove an account with the ability to issue usernames.
+- `kill_username` - Forcibly remove a username.
 
 [`Call`]: ./enum.Call.html
 [`Config`]: ./trait.Config.html
