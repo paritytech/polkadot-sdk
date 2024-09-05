@@ -4457,6 +4457,7 @@ dependencies = [
  "parity-scale-codec",
  "pin-project",
  "polkadot-overseer",
+ "portpicker",
  "rand",
  "sc-client-api",
  "sc-rpc-api",
@@ -10314,10 +10315,12 @@ dependencies = [
 name = "pallet-collective"
 version = "28.0.0"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -20786,6 +20789,7 @@ dependencies = [
  "sp-state-machine",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
+ "sp-trie",
  "sp-weights",
  "substrate-test-runtime-client",
  "tracing",
@@ -21242,8 +21246,10 @@ dependencies = [
  "clap 4.5.11",
  "log",
  "sc-chain-spec",
+ "serde",
  "serde_json",
  "sp-tracing 16.0.0",
+ "substrate-test-runtime",
 ]
 
 [[package]]
