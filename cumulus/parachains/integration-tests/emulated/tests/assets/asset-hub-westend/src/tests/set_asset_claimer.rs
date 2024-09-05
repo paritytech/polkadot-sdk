@@ -15,15 +15,14 @@
 
 //! Tests related to claiming assets trapped during XCM execution.
 
-use emulated_integration_tests_common::accounts::{ALICE, BOB, CHARLIE};
+use emulated_integration_tests_common::accounts::{ALICE, BOB};
 use emulated_integration_tests_common::impls::AccountId32;
 use crate::{
     imports::*,
 };
 
 use frame_support::{
-    dispatch::RawOrigin,
-    sp_runtime::{traits::Dispatchable, DispatchResult},
+    sp_runtime::{traits::Dispatchable},
 };
 #[test]
 fn test_set_asset_claimer_within_a_chain() {
@@ -52,7 +51,7 @@ fn test_set_asset_claimer_within_a_chain() {
             0,
         ),
     };
-    let mut test = ParaToParaThroughAHTest::new(test_args);
+    let test = ParaToParaThroughAHTest::new(test_args);
     execute_test(test.clone(), bob_location.clone(), transfer_assets);
 
     let alice_assets_after = query_balance(&alice_account, &native_asset_location);
@@ -70,7 +69,7 @@ fn test_set_asset_claimer_within_a_chain() {
             0,
         ),
     };
-    let mut test = ParaToParaThroughAHTest::new(test_args);
+    let test = ParaToParaThroughAHTest::new(test_args);
     execute_test(test.clone(), bob_location.clone(), claim_assets);
 
     let bob_assets_after = query_balance(&bob_account, &native_asset_location);
