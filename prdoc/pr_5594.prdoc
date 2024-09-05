@@ -6,7 +6,7 @@ title: "Add debugging info for `StorageWeightReclaim`"
 doc:
   - audience: Runtime Dev
     description: |
-      - Includes call information to be displayed in the logs when the consumed weight is higher than the measured one.
+      - Includes extrinsic index to be displayed in the logs when the consumed weight is higher than the measured one.
 
 crates:
   - name: cumulus-primitives-storage-weight-reclaim
