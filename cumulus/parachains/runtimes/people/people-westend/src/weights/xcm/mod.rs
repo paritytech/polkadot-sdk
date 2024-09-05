@@ -231,7 +231,7 @@ impl<Call> XcmWeightInfo<Call> for PeopleWestendXcmWeight<Call> {
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()
 	}
-	fn set_asset_claimer(location: &Location) -> Weight {
+	fn set_asset_claimer(_location: &Location) -> Weight {
 		XcmGeneric::<Runtime>::set_asset_claimer()
 	}
 }

@@ -188,7 +188,7 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 		XcmGeneric::<Runtime>::clear_error()
 	}
 
-	fn set_asset_claimer(location: &Location) -> Weight {
+	fn set_asset_claimer(_location: &Location) -> Weight {
 		XcmGeneric::<Runtime>::set_asset_claimer()
 	}
 

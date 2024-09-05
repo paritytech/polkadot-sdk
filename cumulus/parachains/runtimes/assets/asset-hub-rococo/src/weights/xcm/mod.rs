@@ -153,7 +153,7 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 	fn clear_error() -> Weight {
 		XcmGeneric::<Runtime>::clear_error()
 	}
-	fn set_asset_claimer(location: &Location) -> Weight {
+	fn set_asset_claimer(_location: &Location) -> Weight {
 		XcmGeneric::<Runtime>::set_asset_claimer()
 	}
 
