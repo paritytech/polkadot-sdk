@@ -260,9 +260,9 @@ impl<T: Config> StakingLedger<T> {
 			<Payee<T>>::remove(&stash);
 
 			// kill virtual staker if it exists.
-			if <VirtualStakers<T>>::take(&stash).is_none() {
+			if <VirtualStakers<T>>::take(&ledger.stash).is_none() {
 				// if not virtual staker, clear locks.
-				let _ = asset::kill_stake::<T>(&ledger.stash).defensive();
+				asset::kill_stake::<T>(&ledger.stash).map_err(|_| Error::<T>::CannotReapStash)?;
 			}
 
 			Ok(())
