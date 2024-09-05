@@ -375,6 +375,10 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	}
 
 	fn set_asset_claimer() -> Weight {
-		Weight::from_parts(2_176_000, 0)
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 707_000 picoseconds.
+		Weight::from_parts(749_000, 0)
 	}
 }
