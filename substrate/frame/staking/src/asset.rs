@@ -100,10 +100,12 @@ pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
 	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort)
 		.map(|_| ())?;
 
-	// if can't dec provider, try cleaning up session keys first.
 	// FIXME(ank4n): may have to update bench. Also add failing test if non session consumers on
 	// stash.
 	if !frame_system::Pallet::<T>::can_dec_provider(who) {
+		// The session pallet keeps a consumer reference to validator stash which may block this
+		// pallet from clearing its provider reference. If the account cannot provide for itself
+		// (via enough free balance) to keep the session key, we should clean up the session keys.
 		T::SessionInterface::purge_keys(who.clone())?;
 	}
 

@@ -896,7 +896,7 @@ impl<AccountId> SessionInterface<AccountId> for () {
 	fn prune_historical_up_to(_: SessionIndex) {
 		()
 	}
-	fn purge_keys(stash: AccountId) -> DispatchResult {
+	fn purge_keys(_stash: AccountId) -> DispatchResult {
 		Ok(())
 	}
 }
