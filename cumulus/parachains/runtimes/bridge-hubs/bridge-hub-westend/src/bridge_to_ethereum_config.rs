@@ -188,6 +188,8 @@ impl snowbridge_pallet_system::Config for Runtime {
 	type Helper = ();
 	type DefaultPricingParameters = Parameters;
 	type InboundDeliveryCost = EthereumInboundQueue;
+	type UniversalLocation = UniversalLocation;
+	type EthereumNetwork = EthereumNetwork;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

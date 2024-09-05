@@ -295,9 +295,11 @@ fn transfer_relay_token() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let asset_id: Location = Location { parents: 1, interior: [GlobalConsensus(Westend)].into() };
+	let asset_id: Location = Location { parents: 1, interior: [].into() };
+	let expected_asset_id: Location =
+		Location { parents: 1, interior: [GlobalConsensus(Westend)].into() };
 
-	let token_id = TokenIdOf::convert_location(&asset_id).unwrap();
+	let expected_token_id = TokenIdOf::convert_location(&expected_asset_id).unwrap();
 
 	let ethereum_sovereign: AccountId =
 		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&Location::new(
@@ -389,7 +391,7 @@ fn transfer_relay_token() {
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::SendNativeToken {
-				token_id,
+				token_id: expected_token_id,
 				destination: Destination::AccountId32 { id: AssetHubWestendReceiver::get().into() },
 				amount: TOKEN_AMOUNT,
 				fee: XCM_FEE,

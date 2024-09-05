@@ -170,6 +170,7 @@ parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(1013)].into();
+	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 }
 
 pub const DOT: u128 = 10_000_000_000;
@@ -177,8 +178,8 @@ pub const DOT: u128 = 10_000_000_000;
 parameter_types! {
 	pub TreasuryAccount: AccountId = PalletId(*b"py/trsry").into_account_truncating();
 	pub Fee: u64 = 1000;
-	pub const RococoNetwork: NetworkId = NetworkId::Rococo;
 	pub const InitialFunding: u128 = 1_000_000_000_000;
+	pub BridgeHubParaId: ParaId = ParaId::new(1002);
 	pub AssetHubParaId: ParaId = ParaId::new(1000);
 	pub TestParaId: u32 = 2000;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
@@ -188,7 +189,6 @@ parameter_types! {
 		multiplier: FixedU128::from_rational(4, 3)
 	};
 	pub const InboundDeliveryCost: u128 = 1_000_000_000;
-
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -208,6 +208,8 @@ impl crate::Config for Test {
 	type DefaultPricingParameters = Parameters;
 	type WeightInfo = ();
 	type InboundDeliveryCost = InboundDeliveryCost;
+	type UniversalLocation = UniversalLocation;
+	type EthereumNetwork = EthereumNetwork;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 }

@@ -173,6 +173,12 @@ pub mod pallet {
 
 		type WeightInfo: WeightInfo;
 
+		/// This chain's Universal Location.
+		type UniversalLocation: Get<InteriorLocation>;
+
+		// The bridges configured Ethereum network with chain id.
+		type EthereumNetwork: Get<NetworkId>;
+
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
 	}
@@ -242,7 +248,6 @@ pub mod pallet {
 		InvalidTokenTransferFees,
 		InvalidPricingParameters,
 		InvalidUpgradeParameters,
-		TokenExists,
 	}
 
 	/// The set of registered agents
@@ -723,6 +728,12 @@ pub mod pallet {
 			metadata: AssetMetadata,
 			pays_fee: PaysFee<T>,
 		) -> Result<(), DispatchError> {
+			let bridge_location = Location::new(2, [GlobalConsensus(T::EthereumNetwork::get())]);
+			let mut location = location.clone();
+			location
+				.reanchor(&bridge_location, &T::UniversalLocation::get())
+				.map_err(|_| Error::<T>::LocationConversionFailed)?;
+
 			// Record the token id or fail if it has already been created
 			let token_id = TokenIdOf::convert_location(&location)
 				.ok_or(Error::<T>::LocationConversionFailed)?;
