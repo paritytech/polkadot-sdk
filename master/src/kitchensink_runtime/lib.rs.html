@@ -3623,7 +3623,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3471" id="3471">3471</a>
 <a href="#3472" id="3472">3472</a>
 <a href="#3473" id="3473">3473</a>
-<a href="#3474" id="3474">3474</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4133,8 +4132,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">type </span>MaxAuthorities = MaxAuthorities;
 	<span class="kw">type </span>MaxNominators = MaxNominators;
-	<span class="kw">type </span>KeyOwnerProof =
-		&lt;Historical <span class="kw">as </span>KeyOwnerProofSystem&lt;(KeyTypeId, pallet_babe::AuthorityId)&gt;&gt;::Proof;
+	<span class="kw">type </span>KeyOwnerProof = sp_session::MembershipProof;
 	<span class="kw">type </span>EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem&lt;<span class="self">Self</span>, Offences, Historical, ReportLongevity&gt;;
 }
@@ -5160,7 +5158,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxAuthorities = MaxAuthorities;
 	<span class="kw">type </span>MaxNominators = MaxNominators;
 	<span class="kw">type </span>MaxSetIdSessionEntries = MaxSetIdSessionEntries;
-	<span class="kw">type </span>KeyOwnerProof = &lt;Historical <span class="kw">as </span>KeyOwnerProofSystem&lt;(KeyTypeId, GrandpaId)&gt;&gt;::Proof;
+	<span class="kw">type </span>KeyOwnerProof = sp_session::MembershipProof;
 	<span class="kw">type </span>EquivocationReportSystem =
 		pallet_grandpa::EquivocationReportSystem&lt;<span class="self">Self</span>, Offences, Historical, ReportLongevity&gt;;
 }
@@ -6240,7 +6238,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>OnNewValidatorSet = MmrLeaf;
 	<span class="kw">type </span>AncestryHelper = MmrLeaf;
 	<span class="kw">type </span>WeightInfo = ();
-	<span class="kw">type </span>KeyOwnerProof = &lt;Historical <span class="kw">as </span>KeyOwnerProofSystem&lt;(KeyTypeId, BeefyId)&gt;&gt;::Proof;
+	<span class="kw">type </span>KeyOwnerProof = sp_session::MembershipProof;
 	<span class="kw">type </span>EquivocationReportSystem =
 		pallet_beefy::EquivocationReportSystem&lt;<span class="self">Self</span>, Offences, Historical, ReportLongevity&gt;;
 }

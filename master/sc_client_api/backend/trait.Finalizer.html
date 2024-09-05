@@ -157,13 +157,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         block: Block::Hash,
         justification: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Justification&gt;,
         notify: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
-    ) -&gt; <a class="type" href="../../sp_blockchain/error/type.Result.html" title="type sp_blockchain::error::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;;
+    ) -&gt; Result&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.finalize_block" class="fn">finalize_block</a>(
         &amp;self,
         block: Block::Hash,
         justification: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Justification&gt;,
         notify: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
-    ) -&gt; <a class="type" href="../../sp_blockchain/error/type.Result.html" title="type sp_blockchain::error::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;;
+    ) -&gt; Result&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Finalize Facilities</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.apply_finality" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#257-263">source</a><h4 class="code-header">fn <a href="#tymethod.apply_finality" class="fn">apply_finality</a>(
     &amp;self,
@@ -171,7 +171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     block: Block::Hash,
     justification: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Justification&gt;,
     notify: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
-) -&gt; <a class="type" href="../../sp_blockchain/error/type.Result.html" title="type sp_blockchain::error::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Mark all blocks up to given as finalized in operation.</p>
+) -&gt; Result&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Mark all blocks up to given as finalized in operation.</p>
 <p>If <code>justification</code> is provided it is stored with the given finalized
 block (any other finalized blocks are left unjustified).</p>
 <p>If the block being finalized is on a different fork from the current
@@ -183,7 +183,7 @@ best block should use <code>SelectChain</code> instead of the client.</p>
     block: Block::Hash,
     justification: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Justification&gt;,
     notify: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
-) -&gt; <a class="type" href="../../sp_blockchain/error/type.Result.html" title="type sp_blockchain::error::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Finalize a block.</p>
+) -&gt; Result&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Finalize a block.</p>
 <p>This will implicitly finalize all blocks up to it and
 fire finality notifications.</p>
 <p>If the block being finalized is on a different fork from the current
