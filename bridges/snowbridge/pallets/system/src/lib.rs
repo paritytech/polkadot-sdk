@@ -613,7 +613,7 @@ pub mod pallet {
 		/// Fee required: No
 		///
 		/// - `origin`: Must be root
-		/// - `location`: Location of the asset
+		/// - `location`: Location of the asset (relative to this chain)
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::register_token())]
