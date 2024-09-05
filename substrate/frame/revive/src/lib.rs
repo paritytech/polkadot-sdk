@@ -782,8 +782,7 @@ pub mod pallet {
 	where
 		T::Hash: IsType<H256>,
 		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
-		BalanceOf<T>: Into<U256>,
-		BalanceOf<T>: TryFrom<U256>,
+		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		MomentOf<T>: Into<U256>,
 	{
 		/// Makes a call to an account, optionally transferring some balance.
@@ -1068,8 +1067,7 @@ fn dispatch_result<R>(
 
 impl<T: Config> Pallet<T>
 where
-	BalanceOf<T>: Into<U256>,
-	BalanceOf<T>: TryFrom<U256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: IsType<H256>,
 {

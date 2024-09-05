@@ -126,8 +126,7 @@ impl<T: Config> Token<T> for CodeLoadToken {
 impl<T: Config> WasmBlob<T>
 where
 	T::Hash: IsType<H256>,
-	BalanceOf<T>: Into<U256>,
-	BalanceOf<T>: TryFrom<U256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
 	/// We only check for size and nothing else when the code is uploaded.
 	pub fn from_code(
@@ -326,8 +325,7 @@ impl<T: Config> WasmBlob<T> {
 
 impl<T: Config> Executable<T> for WasmBlob<T>
 where
-	BalanceOf<T>: Into<U256>,
-	BalanceOf<T>: TryFrom<U256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
 	fn from_storage(
 		code_hash: sp_core::H256,

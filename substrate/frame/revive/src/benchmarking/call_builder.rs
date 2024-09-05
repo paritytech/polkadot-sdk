@@ -50,8 +50,7 @@ impl<T> Default for CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
-	BalanceOf<T>: Into<U256>,
-	BalanceOf<T>: TryFrom<U256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	T::Hash: IsType<H256>,
 	MomentOf<T>: Into<U256>,
 {
@@ -65,8 +64,7 @@ where
 	T: Config + pallet_balances::Config,
 	T::Hash: IsType<H256>,
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
-	BalanceOf<T>: Into<U256>,
-	BalanceOf<T>: TryFrom<U256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 {
 	/// Setup a new call for the given module.

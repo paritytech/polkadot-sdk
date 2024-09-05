@@ -71,8 +71,7 @@ impl<T> Contract<T>
 where
 	T: Config + pallet_balances::Config,
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
-	BalanceOf<T>: Into<U256>,
-	BalanceOf<T>: TryFrom<U256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: IsType<H256>,
 {
@@ -221,10 +220,8 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 	where
 		<BalanceOf<T> as codec::HasCompact>::Type: Clone + Eq + PartialEq + core::fmt::Debug + scale_info::TypeInfo + codec::Encode,
 		T: Config + pallet_balances::Config,
-		BalanceOf<T>: From<<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance>,
+		BalanceOf<T>: From<<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance> + Into<U256> + TryFrom<U256>,
 		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
-		BalanceOf<T>: Into<U256>,
-		BalanceOf<T>: TryFrom<U256>,
 		MomentOf<T>: Into<U256>,
 	T::Hash: IsType<H256>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,

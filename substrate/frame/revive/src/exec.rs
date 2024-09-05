@@ -698,8 +698,7 @@ impl<'a, T, E> Stack<'a, T, E>
 where
 	T: Config,
 	T::Hash: IsType<H256>,
-	BalanceOf<T>: Into<U256>,
-	BalanceOf<T>: TryFrom<U256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	E: Executable<T>,
 {
@@ -1245,8 +1244,7 @@ where
 	T: Config,
 	T::Hash: IsType<H256>,
 	E: Executable<T>,
-	BalanceOf<T>: Into<U256>,
-	BalanceOf<T>: TryFrom<U256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 {
 	type T = T;
