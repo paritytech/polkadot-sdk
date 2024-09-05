@@ -28,7 +28,8 @@ use alloc::{vec, vec::Vec};
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
 use frame_benchmarking::benchmarking;
-use sp_core::U256;
+use frame_support::traits::IsType;
+use sp_core::{H256, U256};
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
@@ -51,6 +52,7 @@ where
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 	BalanceOf<T>: Into<U256>,
 	BalanceOf<T>: TryFrom<U256>,
+	T::Hash: IsType<H256>,
 	MomentOf<T>: Into<U256>,
 {
 	fn default() -> Self {
@@ -61,6 +63,7 @@ where
 impl<T> CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
+	T::Hash: IsType<H256>,
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 	BalanceOf<T>: Into<U256>,
 	BalanceOf<T>: TryFrom<U256>,

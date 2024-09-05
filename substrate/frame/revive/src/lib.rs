@@ -28,6 +28,7 @@ mod exec;
 mod gas;
 mod primitives;
 use crate::exec::MomentOf;
+use frame_support::traits::IsType;
 pub use primitives::*;
 use sp_core::U256;
 
@@ -209,7 +210,7 @@ pub mod pallet {
 		///
 		/// # Note
 		///
-		/// It is safe to chage this value on a live chain as all refunds are pro rata.
+		/// It is safe to change this value on a live chain as all refunds are pro rata.
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
 		type DepositPerByte: Get<BalanceOf<Self>>;
@@ -218,7 +219,7 @@ pub mod pallet {
 		///
 		/// # Note
 		///
-		/// It is safe to chage this value on a live chain as all refunds are pro rata.
+		/// It is safe to change this value on a live chain as all refunds are pro rata.
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
 		type DepositPerItem: Get<BalanceOf<Self>>;
@@ -308,13 +309,13 @@ pub mod pallet {
 			BlockNumberFor<Self>,
 		>;
 
-		/// The amount of memory in bytes that parachain nodes alot to the runtime.
+		/// The amount of memory in bytes that parachain nodes a lot to the runtime.
 		///
 		/// This is used in [`Pallet::integrity_test`] to make sure that the runtime has enough
 		/// memory to support this pallet if set to the correct value.
 		type RuntimeMemory: Get<u32>;
 
-		/// The amount of memory in bytes that relay chain validators alot to the PoV.
+		/// The amount of memory in bytes that relay chain validators a lot to the PoV.
 		///
 		/// This is used in [`Pallet::integrity_test`] to make sure that the runtime has enough
 		/// memory to support this pallet if set to the correct value.
@@ -625,7 +626,10 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+	where
+		T::Hash: IsType<H256>,
+	{
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			use migration::MigrateResult::*;
 			let mut meter = WeightMeter::with_limit(limit);
@@ -776,6 +780,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
+		T::Hash: IsType<H256>,
 		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 		BalanceOf<T>: Into<U256>,
 		BalanceOf<T>: TryFrom<U256>,
@@ -1061,12 +1066,12 @@ fn dispatch_result<R>(
 		.map_err(|e| DispatchErrorWithPostInfo { post_info, error: e })
 }
 
-impl<T> Pallet<T>
+impl<T: Config> Pallet<T>
 where
-	T: Config,
 	BalanceOf<T>: Into<U256>,
 	BalanceOf<T>: TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
+	T::Hash: IsType<H256>,
 {
 	/// A generalized version of [`Self::call`].
 	///
@@ -1263,6 +1268,7 @@ where
 impl<T> Pallet<T>
 where
 	T: Config,
+	T::Hash: IsType<H256>,
 {
 	/// Return the existential deposit of [`Config::Currency`].
 	fn min_balance() -> BalanceOf<T> {
@@ -1275,9 +1281,9 @@ where
 	}
 
 	/// Deposit a pallet contracts indexed event.
-	fn deposit_indexed_event(topics: Vec<T::Hash>, event: Event<T>) {
+	fn deposit_indexed_event(topics: Vec<H256>, event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event_indexed(
-			&topics,
+			&topics.into_iter().map(Into::into).collect::<Vec<_>>(),
 			<T as Config>::RuntimeEvent::from(event).into(),
 		)
 	}

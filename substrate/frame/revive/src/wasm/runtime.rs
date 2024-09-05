@@ -1545,7 +1545,7 @@ pub mod env {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let topics: Vec<TopicOf<<E as Ext>::T>> = match topics_len {
+		let topics: Vec<H256> = match topics_len {
 			0 => Vec::new(),
 			_ => memory.read_as_unbounded(topics_ptr, topics_len)?,
 		};

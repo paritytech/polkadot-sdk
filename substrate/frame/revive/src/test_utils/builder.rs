@@ -57,6 +57,7 @@ macro_rules! builder {
 			BalanceOf<T>: Into<sp_core::U256>,
 			BalanceOf<T>: TryFrom<sp_core::U256>,
 			crate::MomentOf<T>: Into<sp_core::U256>,
+			T::Hash: frame_support::traits::IsType<sp_core::H256>,
 		{
 			$(
 				#[doc = concat!("Set the ", stringify!($field))]

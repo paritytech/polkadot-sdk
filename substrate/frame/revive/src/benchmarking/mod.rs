@@ -75,6 +75,7 @@ where
 	BalanceOf<T>: Into<U256>,
 	BalanceOf<T>: TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
+	T::Hash: IsType<H256>,
 {
 	/// Create new contract and use a default account id as instantiator.
 	fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
@@ -226,6 +227,7 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 		BalanceOf<T>: Into<U256>,
 		BalanceOf<T>: TryFrom<U256>,
 		MomentOf<T>: Into<U256>,
+	T::Hash: IsType<H256>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
 )]
 mod benchmarks {

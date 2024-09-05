@@ -45,9 +45,9 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
-	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
+	traits::{fungible::MutateHold, tokens::Precision::BestEffort, IsType},
 };
-use sp_core::{Get, U256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
 /// Validated Wasm module ready for execution.
@@ -125,6 +125,7 @@ impl<T: Config> Token<T> for CodeLoadToken {
 
 impl<T: Config> WasmBlob<T>
 where
+	T::Hash: IsType<H256>,
 	BalanceOf<T>: Into<U256>,
 	BalanceOf<T>: TryFrom<U256>,
 {

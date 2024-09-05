@@ -37,7 +37,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::{Fortitude, Preservation},
-		Contains, OriginTrait, Time,
+		Contains, IsType, OriginTrait, Time,
 	},
 	weights::Weight,
 	Blake2_128Concat, BoundedVec, StorageHasher,
@@ -318,7 +318,7 @@ pub trait Ext: sealing::Sealed {
 	/// Deposit an event with the given topics.
 	///
 	/// There should not be any duplicates in `topics`.
-	fn deposit_event(&mut self, topics: Vec<TopicOf<Self::T>>, data: Vec<u8>);
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>);
 
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
@@ -697,6 +697,7 @@ impl<T: Config> CachedContract<T> {
 impl<'a, T, E> Stack<'a, T, E>
 where
 	T: Config,
+	T::Hash: IsType<H256>,
 	BalanceOf<T>: Into<U256>,
 	BalanceOf<T>: TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
@@ -1242,6 +1243,7 @@ where
 impl<'a, T, E> Ext for Stack<'a, T, E>
 where
 	T: Config,
+	T::Hash: IsType<H256>,
 	E: Executable<T>,
 	BalanceOf<T>: Into<U256>,
 	BalanceOf<T>: TryFrom<U256>,
@@ -1489,7 +1491,7 @@ where
 		T::Currency::minimum_balance().into()
 	}
 
-	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
 		Contracts::<Self::T>::deposit_indexed_event(
 			topics,
 			Event::ContractEmitted {
