@@ -73,7 +73,6 @@ use litep2p::{
 	},
 	Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
 };
-use parking_lot::RwLock;
 use prometheus_endpoint::Registry;
 
 use sc_client_api::BlockBackend;
@@ -184,9 +183,6 @@ pub struct Litep2pNetworkBackend {
 
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
-
-	/// External addresses.
-	external_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
 }
 
 impl Litep2pNetworkBackend {
@@ -577,9 +573,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let litep2p =
 			Litep2p::new(config_builder.build()).map_err(|error| Error::Litep2p(error))?;
 
-		let external_addresses: Arc<RwLock<HashSet<Multiaddr>>> = Arc::new(RwLock::new(
-			HashSet::from_iter(network_config.public_addresses.iter().cloned().map(Into::into)),
-		));
 		litep2p.listen_addresses().for_each(|address| {
 			log::debug!(target: LOG_TARGET, "listening on: {address}");
 
@@ -605,7 +598,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			block_announce_protocol.clone(),
 			request_response_senders,
 			Arc::clone(&listen_addresses),
-			Arc::clone(&external_addresses),
+			public_addresses,
 		));
 
 		// register rest of the metrics now that `Litep2p` has been created
@@ -631,7 +624,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			event_streams: out_events::OutChannels::new(None)?,
 			peers: HashMap::new(),
 			litep2p,
-			external_addresses,
 		})
 	}
 
@@ -934,9 +926,12 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						self.discovery.add_self_reported_address(peer, supported_protocols, listen_addresses).await;
 					}
 					Some(DiscoveryEvent::ExternalAddressDiscovered { address }) => {
-						let mut addresses = self.external_addresses.write();
-
-						if addresses.insert(address.clone()) {
+						if let Err(err) = self.litep2p.public_addresses().add_address(address.clone().into()) {
+							log::warn!(
+								target: LOG_TARGET,
+								"🔍 Failed to add discovered external address {address:?}: {err:?}",
+							);
+						} else {
 							log::info!(target: LOG_TARGET, "🔍 Discovered new external address for our node: {address}");
 						}
 					}
