@@ -61,7 +61,7 @@ mod tests;
 /// How long to wait before proposing.
 const PRE_PROPOSE_TIMEOUT: std::time::Duration = core::time::Duration::from_millis(2000);
 /// Some timeout to ensure task won't hang around in the background forever on issues.
-const SEND_INHERENT_DATA_TIMEOUT: std::time::Duration = core::time::Duration::from_millis(500);
+const SEND_INHERENT_DATA_TIMEOUT: std::time::Duration = core::time::Duration::from_millis(2000);
 
 const LOG_TARGET: &str = "parachain::provisioner";
 
