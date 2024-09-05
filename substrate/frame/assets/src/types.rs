@@ -250,14 +250,16 @@ pub trait BalanceOnHold<AssetId, AccountId, Balance> {
 	/// Called after an account has been removed.
 	///
 	/// NOTE: It is possible that the asset does no longer exist when this hook is called.
-	fn died(asset: AssetId, who: &AccountId);
+	fn died(asset: AssetId, who: &AccountId) -> DispatchResult;
 }
 
 impl<AssetId, AccountId, Balance> BalanceOnHold<AssetId, AccountId, Balance> for () {
 	fn balance_on_hold(_: AssetId, _: &AccountId) -> Option<Balance> {
 		None
 	}
-	fn died(_: AssetId, _: &AccountId) {}
+	fn died(_: AssetId, _: &AccountId) -> DispatchResult {
+		Ok(())
+	}
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]

@@ -50,7 +50,9 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_runtime::traits::CheckedAdd;
+
+#[cfg(any(test, feature = "try-runtime"))]
+use sp_runtime::{traits::CheckedAdd, ArithmeticError};
 
 pub use pallet::*;
 
@@ -161,7 +163,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			for l in Holds::<T, I>::get(asset.clone(), who.clone()).iter() {
 				ensure!(l.amount != Zero::zero(), "zero amount is invalid");
 				amount_from_holds =
-					amount_from_holds.checked_add(l.amount).ok_or(ArithmeticError::Overflow)?;
+					amount_from_holds.checked_add(&l.amount).ok_or(ArithmeticError::Overflow)?;
 			}
 
 			frame_support::ensure!(

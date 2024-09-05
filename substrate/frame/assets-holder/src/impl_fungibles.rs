@@ -39,16 +39,16 @@ impl<T: Config<I>, I: 'static> BalanceOnHold<T::AssetId, T::AccountId, T::Balanc
 		BalancesOnHold::<T, I>::get(asset, who)
 	}
 
-	fn died(asset: T::AssetId, who: &T::AccountId) {
-		let _ = Holds::<T, I>::try_mutate(asset.clone(), who, |holds| {
+	fn died(asset: T::AssetId, who: &T::AccountId) -> DispatchResult {
+		Holds::<T, I>::try_mutate(asset.clone(), who, |holds| {
 			for l in holds.iter() {
 				Self::burn_all_held(asset.clone(), &l.id, who, Precision::Exact, Fortitude::Force)?;
 			}
 
-			Holds::<T, I>::remove(asset.clone(), who);
+			*holds = BoundedVec::new();
 			BalancesOnHold::<T, I>::remove(asset.clone(), who);
-			Ok::<(), DispatchError>(())
-		});
+			Ok(())
+		})
 	}
 }
 

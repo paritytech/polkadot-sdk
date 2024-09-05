@@ -80,7 +80,7 @@ mod impl_balance_on_hold {
 	fn died_works() {
 		new_test_ext(|| {
 			test_hold(DummyHoldReason::Governance, 1);
-			AssetsHolder::died(ASSET_ID, &WHO);
+			assert_ok!(AssetsHolder::died(ASSET_ID, &WHO));
 			assert!(BalancesOnHold::<Test>::get(ASSET_ID, WHO).is_none());
 			assert!(Holds::<Test>::get(ASSET_ID, WHO).is_empty());
 		});
