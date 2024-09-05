@@ -31,7 +31,6 @@ where
 	Block: BlockT + DeserializeOwned,
 	Block::Header: DeserializeOwned,
 {
-
 	let mut ext = Builder::<Block>::new()
 		.mode(Mode::Online(OnlineConfig {
 			transport: ws_url.to_string().into(),
