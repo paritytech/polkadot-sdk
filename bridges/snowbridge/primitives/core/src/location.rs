@@ -45,7 +45,7 @@ pub struct DescribeGlobalPrefix<DescribeInterior>(sp_std::marker::PhantomData<De
 impl<Suffix: DescribeLocation> DescribeLocation for DescribeGlobalPrefix<Suffix> {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
 		match (l.parent_count(), l.first_interior()) {
-			(_, Some(GlobalConsensus(network))) => {
+			(1, Some(GlobalConsensus(network))) => {
 				let mut tail = l.clone().split_first_interior().0;
 				tail.dec_parent();
 				let interior = Suffix::describe_location(&tail)?;
@@ -100,13 +100,9 @@ mod tests {
 			// Relay Chain cases
 			// Relay Chain relative to Ethereum
 			Location::new(1, [GlobalConsensus(Westend)]),
-			// Relay Chain relative to another polkadot chain.
-			Location::new(2, [GlobalConsensus(Kusama)]),
 			// Parachain cases
 			// Parachain relative to Ethereum
 			Location::new(1, [GlobalConsensus(Westend), Parachain(2000)]),
-			// Parachain relative to another polkadot chain.
-			Location::new(2, [GlobalConsensus(Kusama), Parachain(2000)]),
 			// Parachain general index
 			Location::new(1, [GlobalConsensus(Westend), Parachain(2000), GeneralIndex(1)]),
 			// Parachain general key
@@ -172,19 +168,6 @@ mod tests {
 					Parachain(2000),
 					PalletInstance(8),
 					AccountId32 { network: None, id: [0; 32] },
-				],
-			),
-			// Ethereum cases
-			// Ethereum location relative to Polkadot
-			Location::new(2, [GlobalConsensus(Ethereum { chain_id: 1 })]),
-			// Ethereum location relative to Ethereum
-			Location::new(1, [GlobalConsensus(Ethereum { chain_id: 2 })]),
-			// Ethereum ERC20 location relative to Polkadot
-			Location::new(
-				2,
-				[
-					GlobalConsensus(Ethereum { chain_id: 1 }),
-					AccountKey20 { network: None, key: [0; 20] },
 				],
 			),
 		];
