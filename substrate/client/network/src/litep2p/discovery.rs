@@ -243,11 +243,11 @@ impl Discovery {
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
 		let user_agent = format!("{} ({})", config.client_version, config.node_name);
-		let (identify_config, identify_event_stream) = IdentifyConfig::new(
-			"/substrate/1.0".to_string(),
-			Some(user_agent),
-			config.public_addresses.clone().into_iter().map(Into::into).collect(),
-		);
+
+		// The public addresses are now are added on the litep2p object instead,
+		// using `litep2p.public_addresses` object.
+		let (identify_config, identify_event_stream) =
+			IdentifyConfig::new("/substrate/1.0".to_string(), Some(user_agent));
 
 		let (mdns_config, mdns_event_stream) = match config.transport {
 			crate::config::TransportConfig::Normal { enable_mdns, .. } => match enable_mdns {

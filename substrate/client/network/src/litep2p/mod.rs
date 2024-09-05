@@ -54,6 +54,7 @@ use libp2p::kad::{PeerRecord, Record as P2PRecord, RecordKey};
 use litep2p::{
 	config::ConfigBuilder,
 	crypto::ed25519::Keypair,
+	error::DialError,
 	executor::Executor,
 	protocol::{
 		libp2p::{
@@ -70,7 +71,7 @@ use litep2p::{
 		multiaddr::{Multiaddr, Protocol},
 		ConnectionId,
 	},
-	Error as Litep2pError, Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
+	Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
 };
 use parking_lot::RwLock;
 use prometheus_endpoint::Registry;
@@ -579,6 +580,16 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			listen_addresses.write().insert(address.clone());
 		});
 
+		let public_addresses = litep2p.public_addresses();
+		for address in network_config.public_addresses.iter() {
+			if let Err(err) = public_addresses.add_address(address.clone().into()) {
+				log::warn!(
+					target: LOG_TARGET,
+					"failed to add public address {address:?}: {err:?}",
+				);
+			}
+		}
+
 		let network_service = Arc::new(Litep2pNetworkService::new(
 			local_peer_id,
 			keypair.clone(),
@@ -1006,20 +1017,36 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(Litep2pEvent::DialFailure { address, error }) => {
-						log::trace!(
+						log::debug!(
 							target: LOG_TARGET,
 							"failed to dial peer at {address:?}: {error:?}",
 						);
 
-						let reason = match error {
-							Litep2pError::PeerIdMismatch(_, _) => "invalid-peer-id",
-							Litep2pError::Timeout | Litep2pError::TransportError(_) |
-							Litep2pError::IoError(_) | Litep2pError::WebSocket(_) => "transport-error",
-							_ => "other",
-						};
+						if let Some(metrics) = &self.metrics {
+							let reason = match error {
+								DialError::Timeout => "timeout".to_string(),
+								DialError::AddressError(_) => "invalid-address".to_string(),
+								DialError::DnsError(_) => "cannot-resolve-dns".to_string(),
+								DialError::NegotiationError(error) => match error {
+										litep2p::error::NegotiationError::Timeout => "timeout".to_string(),
+										litep2p::error::NegotiationError::PeerIdMissing => "missing-peer-id".to_string(),
+										litep2p::error::NegotiationError::StateMismatch => "state-mismatch".to_string(),
+										litep2p::error::NegotiationError::PeerIdMismatch(_, _) => "peer-id-missmatch".to_string(),
+										error => format!("negotiation-error-{:?}", error),
+								}
+							};
+
+							metrics.pending_connections_errors_total.with_label_values(&[&reason]).inc();
+						}
+					}
+					Some(Litep2pEvent::ListDialFailures { errors }) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"failed to dial peer on multiple addresses {errors:?}",
+						);
 
 						if let Some(metrics) = &self.metrics {
-							metrics.pending_connections_errors_total.with_label_values(&[reason]).inc();
+							metrics.pending_connections_errors_total.with_label_values(&["transport-errors"]).inc();
 						}
 					}
 					_ => {}
