@@ -136,6 +136,7 @@ where
 
 #[frame_support::pallet]
 pub mod pallet {
+	use frame_support::dispatch::PostDispatchInfo;
 	use snowbridge_core::StaticLookup;
 	use sp_core::U256;
 
@@ -621,7 +622,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			location: Box<VersionedLocation>,
 			metadata: AssetMetadata,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
 			let location: Location =
@@ -631,7 +632,10 @@ pub mod pallet {
 
 			Self::do_register_token(&location, metadata, pays_fee)?;
 
-			Ok(())
+			Ok(PostDispatchInfo {
+				actual_weight: Some(T::WeightInfo::register_token()),
+				pays_fee: Pays::No,
+			})
 		}
 	}
 
