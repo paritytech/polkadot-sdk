@@ -323,7 +323,7 @@ pub mod pallet {
 	/// A reason for placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// Funds held for stake delegation to another account.
+		/// Funds on stake by a nominator or a validator.
 		#[codec(index = 0)]
 		Staking,
 	}

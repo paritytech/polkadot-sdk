@@ -1945,11 +1945,12 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 		Ok(())
 	}
 
+	/// Only meant to be used in tests.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn migrate_to_direct_staker(who: &Self::AccountId) {
 		assert!(VirtualStakers::<T>::contains_key(who));
 		let ledger = StakingLedger::<T>::get(Stash(who.clone())).unwrap();
-		let _ = asset::update_stake::<T>(who, ledger.total);
+		let _ = asset::update_stake::<T>(who, ledger.total).expect("funds must be transferred to stash");
 		VirtualStakers::<T>::remove(who);
 	}
 }
