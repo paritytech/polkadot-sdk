@@ -148,7 +148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module substrate</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::polkadot_sdk</a></h2></div></nav><div class="sidebar-resizer"></div>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module substrate</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::polkadot_sdk</a></h2></div></nav><div class="sidebar-resizer"></div>
     <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">polkadot_sdk</a>::<wbr><a class="mod" href="#">substrate</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/polkadot_sdk/substrate.rs.html#1-153">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about Substrate, the main blockchain framework used in the Polkadot ecosystem.</p>
 <h2 id="substrate"><a class="doc-anchor" href="#substrate">§</a>Substrate</h2>
 <p>Substrate is a Rust framework for building blockchains in a modular and extensible way. While in
@@ -214,7 +214,7 @@ categories:</p>
 <ul>
 <li><code>sc-*</code> (short for <em>Substrate-client</em>) crates, located under <code>./client</code> folder. These are all
 the crates that lead to the node software. Notable examples are <a href="../../../sc_network/index.html" title="mod sc_network"><code>sc_network</code></a>, various
-consensus crates, RPC (<a href="../../../sc_rpc_api/index.html" title="mod sc_rpc_api"><code>sc_rpc_api</code></a>) and database (<a href="../../../sc_client_db/index.html" title="mod sc_client_db"><code>sc_client_db</code></a>), all of which are
+consensus crates, RPC ([<code>sc_rpc_api</code>]) and database (<a href="../../../sc_client_db/index.html" title="mod sc_client_db"><code>sc_client_db</code></a>), all of which are
 expected to reside in the node side.</li>
 <li><code>sp-*</code> (short for <em>substrate-primitives</em>) crates, located under <code>./primitives</code> folder. These
 are crates that facilitate both the node and the runtime, but are not opinionated about what
@@ -251,7 +251,7 @@ node. Other projects typically contain a <code>build-spec</code> subcommand that
 <li><a href="https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node"><code>node_template</code></a>:
 a template node that contains a minimal set of features and can act as a starting point of a
 project.</li>
-<li><a href="../../../subkey/index.html" title="mod subkey"><code>subkey</code></a>: Substrate’s key management utility.</li>
+<li>[<code>subkey</code>]: Substrate’s key management utility.</li>
 </ul>
 <h4 id="anatomy-of-a-binary-crate"><a class="doc-anchor" href="#anatomy-of-a-binary-crate">§</a>Anatomy of a Binary Crate</h4>
 <p>From the above, <a href="../../../staging_node_cli/index.html" title="mod staging_node_cli"><code>node_cli</code></a>/[<code>kitchensink_runtime</code>] and <code>node-template</code> are essentially
@@ -286,14 +286,14 @@ top of Substrate, empowering any substrate-based chain to be a Polkadot parachai
 <h3 id="where-to-go-next"><a class="doc-anchor" href="#where-to-go-next">§</a>Where To Go Next?</h3>
 <p>Additional noteworthy crates within substrate:</p>
 <ul>
-<li>RPC APIs of a Substrate node: <a href="../../../sc_rpc_api/index.html" title="mod sc_rpc_api"><code>sc_rpc_api</code></a>/<a href="../../../sc_rpc/index.html" title="mod sc_rpc"><code>sc_rpc</code></a></li>
-<li>CLI Options of a Substrate node: <a href="../../../sc_cli/index.html" title="mod sc_cli"><code>sc_cli</code></a></li>
+<li>RPC APIs of a Substrate node: [<code>sc_rpc_api</code>]/[<code>sc_rpc</code>]</li>
+<li>CLI Options of a Substrate node: [<code>sc_cli</code>]</li>
 <li>All of the consensus related crates provided by Substrate:
 <ul>
-<li><a href="../../../sc_consensus_aura/index.html" title="mod sc_consensus_aura"><code>sc_consensus_aura</code></a></li>
-<li><a href="../../../sc_consensus_babe/index.html" title="mod sc_consensus_babe"><code>sc_consensus_babe</code></a></li>
-<li><a href="../../../sc_consensus_grandpa/index.html" title="mod sc_consensus_grandpa"><code>sc_consensus_grandpa</code></a></li>
-<li><a href="../../../sc_consensus_beefy/index.html" title="mod sc_consensus_beefy"><code>sc_consensus_beefy</code></a> (TODO: @adrian, add some high level docs <a href="https://github.com/paritytech/polkadot-sdk-docs/issues/57">https://github.com/paritytech/polkadot-sdk-docs/issues/57</a>)</li>
+<li>[<code>sc_consensus_aura</code>]</li>
+<li>[<code>sc_consensus_babe</code>]</li>
+<li>[<code>sc_consensus_grandpa</code>]</li>
+<li>[<code>sc_consensus_beefy</code>] (TODO: @adrian, add some high level docs <a href="https://github.com/paritytech/polkadot-sdk-docs/issues/57">https://github.com/paritytech/polkadot-sdk-docs/issues/57</a>)</li>
 <li><a href="../../../sc_consensus_manual_seal/index.html" title="mod sc_consensus_manual_seal"><code>sc_consensus_manual_seal</code></a></li>
 <li><a href="../../../sc_consensus_pow/index.html" title="mod sc_consensus_pow"><code>sc_consensus_pow</code></a></li>
 </ul>

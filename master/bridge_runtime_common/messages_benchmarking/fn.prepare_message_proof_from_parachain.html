@@ -153,7 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     params: MessageProofParams,
     message_generator: impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.usize.html">usize</a>) -&gt; MessagePayload
 ) -&gt; (FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChainOf&lt;R, MI&gt;&gt;&gt;, Weight)<div class="where">where
-    R: Config&lt;PI&gt; + Config&lt;MI&gt;,
+    R: <a class="trait" href="../../pallet_bridge_parachains/pallet/trait.Config.html" title="trait pallet_bridge_parachains::pallet::Config">Config</a>&lt;PI&gt; + Config&lt;MI&gt;,
     PI: 'static,
     MI: 'static,
     BridgedChainOf&lt;R, MI&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Prepare proof of messages for the <code>receive_messages_proof</code> call.</p>
