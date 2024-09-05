@@ -1611,6 +1611,10 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 }
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn clear_messages() {
+		PendingUpwardMessages::<T>::kill();
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		use xcm::prelude::*;
 
