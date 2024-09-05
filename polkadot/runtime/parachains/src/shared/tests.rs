@@ -77,11 +77,11 @@ fn tracker_claim_queue_remap() {
 
 	assert_eq!(
 		info.claim_queue.get(&Id::from(0)).unwrap()[1],
-		vec![CoreIndex(0)].into_iter().collect::<BTreeSet<_>>()
+		vec![CoreIndex(1)].into_iter().collect::<BTreeSet<_>>()
 	);
 	assert_eq!(
 		info.claim_queue.get(&Id::from(1)).unwrap()[1],
-		vec![CoreIndex(1)].into_iter().collect::<BTreeSet<_>>()
+		vec![CoreIndex(0)].into_iter().collect::<BTreeSet<_>>()
 	);
 	assert_eq!(
 		info.claim_queue.get(&Id::from(2)).unwrap()[1],
