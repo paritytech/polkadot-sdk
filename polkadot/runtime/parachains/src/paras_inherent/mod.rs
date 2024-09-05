@@ -1045,8 +1045,8 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	};
 
-	// Check validity of `core_index` and `session_index`.
-	if let Err(err) = candidate.candidate().check(&rp_info.claim_queue) {
+	// Check validity of `core_index`.
+	if let Err(err) = candidate.candidate().check_core_index(&rp_info.claim_queue) {
 		log::debug!(
 			target: LOG_TARGET,
 			"Dropping candidate {:?} for paraid {:?}, {:?}",
