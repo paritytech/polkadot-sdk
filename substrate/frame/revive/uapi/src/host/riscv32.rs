@@ -79,12 +79,7 @@ mod sys {
 		pub fn caller_is_origin() -> ReturnCode;
 		pub fn caller_is_root() -> ReturnCode;
 		pub fn address(out_ptr: *mut u8);
-		pub fn weight_to_fee(
-			ref_time: u64,
-			proof_size: u64,
-			out_ptr: *mut u8,
-			out_len_ptr: *mut u32,
-		);
+		pub fn weight_to_fee(ref_time: u64, proof_size: u64, out_ptr: *mut u8);
 		pub fn weight_left(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn balance(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn value_transferred(out_ptr: *mut u8, out_len_ptr: *mut u32);
@@ -136,21 +131,19 @@ mod sys {
 	}
 }
 
+/// A macro to implement all Host functions with a signature of `fn(&mut [u8; n])`.
 macro_rules! impl_wrapper_for {
-    ( $( $name:ident, )* ) => {
-        $(
-            fn $name(output: &mut &mut [u8]) {
-                let mut output_len = output.len() as u32;
-                unsafe {
-                    sys::$name(
-                        output.as_mut_ptr(),
-                        &mut output_len,
-                    )
-                }
-                extract_from_slice(output, output_len as usize)
-            }
-        )*
-    }
+	(@impl_fn $name:ident, $n: literal) => {
+		fn $name(_output: &mut [u8; $n]) {
+		}
+	};
+
+	() => {};
+
+	([u8; $n: literal] => $($name:ident),*; $($tail:tt)*) => {
+		$(impl_wrapper_for!(@impl_fn $name, $n);)*
+		impl_wrapper_for!($($tail)*);
+	};
 }
 
 macro_rules! impl_hash_fn {
@@ -185,7 +178,7 @@ fn ptr_len_or_sentinel(data: &mut Option<&mut &mut [u8]>) -> (*mut u8, u32) {
 }
 
 #[inline(always)]
-fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
+fn ptr_or_sentinel(data: &Option<&[u8; 32]>) -> *const u8 {
 	match data {
 		Some(ref data) => data.as_ptr(),
 		None => crate::SENTINEL as _,
@@ -197,8 +190,8 @@ impl HostFn for HostFnImpl {
 		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8]>,
-		value: &[u8],
+		deposit_limit: Option<&[u8; 32]>,
+		value: &[u8; 32],
 		input: &[u8],
 		mut address: Option<&mut [u8; 20]>,
 		mut output: Option<&mut &mut [u8]>,
@@ -253,8 +246,8 @@ impl HostFn for HostFnImpl {
 		callee: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8]>,
-		value: &[u8],
+		deposit_limit: Option<&[u8; 32]>,
+		value: &[u8; 32],
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
@@ -327,7 +320,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn transfer(address: &[u8; 20], value: &[u8]) -> Result {
+	fn transfer(address: &[u8; 20], value: &[u8; 32]) -> Result {
 		let ret_code = unsafe { sys::transfer(address.as_ptr(), value.as_ptr()) };
 		ret_code.into()
 	}
@@ -449,33 +442,19 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn address(output: &mut [u8; 20]) {
-		unsafe { sys::address(output.as_mut_ptr()) }
-	}
-
-	fn caller(output: &mut [u8; 20]) {
-		unsafe { sys::caller(output.as_mut_ptr()) }
-	}
-
 	impl_wrapper_for! {
-		block_number, balance,
-		value_transferred,now, minimum_balance,
-		weight_left,
+		[u8; 32] => block_number, balance, value_transferred, now, minimum_balance;
+		[u8; 20] => address, caller;
 	}
 
-	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut &mut [u8]) {
+	fn weight_left(output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
-		{
-			unsafe {
-				sys::weight_to_fee(
-					ref_time_limit,
-					proof_size_limit,
-					output.as_mut_ptr(),
-					&mut output_len,
-				)
-			};
-		}
-		extract_from_slice(output, output_len as usize);
+		unsafe { sys::weight_left(output.as_mut_ptr(), &mut output_len) }
+		extract_from_slice(output, output_len as usize)
+	}
+
+	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]) {
+		unsafe { sys::weight_to_fee(ref_time_limit, proof_size_limit, output.as_mut_ptr()) };
 	}
 
 	impl_hash_fn!(sha2_256, 32);

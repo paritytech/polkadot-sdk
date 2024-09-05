@@ -1477,17 +1477,11 @@ pub mod env {
 	/// Stores the *free* balance of the current account into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::balance`].
 	#[api_version(0)]
-	fn balance(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Balance)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			&self.ext.balance().encode(),
 			false,
 			already_charged,
@@ -1497,17 +1491,11 @@ pub mod env {
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::value_transferred`].
 	#[api_version(0)]
-	fn value_transferred(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn value_transferred(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::ValueTransferred)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			&self.ext.value_transferred().encode(),
 			false,
 			already_charged,
@@ -1517,12 +1505,11 @@ pub mod env {
 	/// Load the latest block timestamp into the supplied buffer
 	/// See [`pallet_revive_uapi::HostFn::now`].
 	#[api_version(0)]
-	fn now(&mut self, memory: &mut M, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
+	fn now(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Now)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			&self.ext.now().encode(),
 			false,
 			already_charged,
@@ -1532,17 +1519,11 @@ pub mod env {
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
 	#[api_version(0)]
-	fn minimum_balance(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::MinimumBalance)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			&self.ext.minimum_balance().encode(),
 			false,
 			already_charged,
@@ -1589,17 +1570,11 @@ pub mod env {
 	/// Stores the current block number of the current contract into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::block_number`].
 	#[api_version(0)]
-	fn block_number(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn block_number(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::BlockNumber)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			&self.ext.block_number().encode(),
 			false,
 			already_charged,

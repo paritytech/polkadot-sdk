@@ -49,7 +49,7 @@ use frame_system::{
 use sp_core::{
 	ecdsa::Public as ECDSAPublic,
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
-	ConstU32, Get, H160, H256,
+	ConstU32, Get, H160, H256, U256,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
@@ -304,16 +304,16 @@ pub trait Ext: sealing::Sealed {
 	/// Returns the balance of the current contract.
 	///
 	/// The `value_transferred` is already added.
-	fn balance(&self) -> BalanceOf<Self::T>;
+	fn balance(&self) -> U256;
 
 	/// Returns the value transferred along with this call.
-	fn value_transferred(&self) -> BalanceOf<Self::T>;
+	fn value_transferred(&self) -> U256;
 
-	/// Returns a reference to the timestamp of the current block
-	fn now(&self) -> &MomentOf<Self::T>;
+	/// Returns the timestamp of the current block
+	fn now(&self) -> U256;
 
 	/// Returns the minimum balance that is required for creating an account.
-	fn minimum_balance(&self) -> BalanceOf<Self::T>;
+	fn minimum_balance(&self) -> U256;
 
 	/// Deposit an event with the given topics.
 	///
@@ -321,13 +321,13 @@ pub trait Ext: sealing::Sealed {
 	fn deposit_event(&mut self, topics: Vec<TopicOf<Self::T>>, data: Vec<u8>);
 
 	/// Returns the current block number.
-	fn block_number(&self) -> BlockNumberFor<Self::T>;
+	fn block_number(&self) -> U256;
 
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
 
 	/// Returns the price for the specified amount of weight.
-	fn get_weight_price(&self, weight: Weight) -> BalanceOf<Self::T>;
+	fn get_weight_price(&self, weight: Weight) -> U256;
 
 	/// Get an immutable reference to the nested gas meter.
 	fn gas_meter(&self) -> &GasMeter<Self::T>;

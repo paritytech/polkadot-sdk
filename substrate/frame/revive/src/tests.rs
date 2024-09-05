@@ -3402,7 +3402,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(13)
-					.data((100u32, &addr_callee, 0u64).encode())
+					.data((100u32, &addr_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3416,7 +3416,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(14)
-					.data((101u32, &addr_callee, 0u64).encode())
+					.data((101u32, &addr_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3429,7 +3429,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(16)
-					.data((102u32, &addr_callee, 1u64).encode())
+					.data((102u32, &addr_callee, U256::from(1u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3440,7 +3440,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(0)
-					.data((87u32, &addr_callee, 0u64).encode())
+					.data((87u32, &addr_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3450,7 +3450,9 @@ mod run_tests {
 			// Require more than the sender's balance.
 			// We don't set a special limit for the nested call.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller).data((512u32, &addr_callee, 1u64).encode()).build(),
+				builder::call(addr_caller)
+					.data((512u32, &addr_callee, U256::from(1u64)).encode())
+					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
 
@@ -3459,7 +3461,7 @@ mod run_tests {
 			// enforced as callee frees up storage. This should pass.
 			assert_ok!(builder::call(addr_caller)
 				.storage_deposit_limit(1)
-				.data((87u32, &addr_callee, 1u64).encode())
+				.data((87u32, &addr_callee, U256::from(1u64)).encode())
 				.build());
 		});
 	}
@@ -3500,7 +3502,7 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 1)
-					.data((0u32, &code_hash_callee, 0u64).encode())
+					.data((0u32, &code_hash_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3514,7 +3516,7 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 2)
-					.data((1u32, &code_hash_callee, 0u64).encode())
+					.data((1u32, &code_hash_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3528,7 +3530,10 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 2)
-					.data((0u32, &code_hash_callee, callee_info_len + 2 + ED + 1).encode())
+					.data(
+						(0u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 1))
+							.encode()
+					)
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3543,7 +3548,10 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 3) // enough parent limit
-					.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 2).encode())
+					.data(
+						(1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 2))
+							.encode()
+					)
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3554,7 +3562,7 @@ mod run_tests {
 			let result = builder::bare_call(addr_caller)
 				.origin(RuntimeOrigin::signed(BOB))
 				.storage_deposit_limit(callee_info_len + 2 + ED + 4)
-				.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 3).encode())
+				.data((1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 3)).encode())
 				.build();
 
 			let returned = result.result.unwrap();

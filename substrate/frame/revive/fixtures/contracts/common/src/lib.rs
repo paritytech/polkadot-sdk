@@ -167,3 +167,30 @@ macro_rules! unwrap_output {
 		$host_fn($($arg,)* $output).unwrap();
 	};
 }
+
+/// Call the host function and convert the [u8; 32] output to u64.
+#[macro_export]
+macro_rules! u64_output {
+	($host_fn:path, $($arg:expr),*) => {{
+		let mut buffer = [1u8; 32];
+		$host_fn($($arg,)* &mut buffer);
+		assert!(buffer[8..].iter().all(|&x| x == 0));
+		u64::from_le_bytes(buffer[..8].try_into().unwrap())
+	}};
+}
+
+/// Convert a u* into a [u8; 32].
+pub const fn u256_bytes(value: u64) -> [u8; 32] {
+	let mut buffer = [0u8; 32];
+	let bytes = value.to_le_bytes();
+
+	buffer[0] = bytes[0];
+	buffer[1] = bytes[1];
+	buffer[2] = bytes[2];
+	buffer[3] = bytes[3];
+	buffer[4] = bytes[4];
+	buffer[5] = bytes[5];
+	buffer[6] = bytes[6];
+	buffer[7] = bytes[7];
+	buffer
+}
