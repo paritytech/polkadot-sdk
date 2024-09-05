@@ -50,6 +50,7 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use sp_runtime::traits::CheckedAdd;
 
 pub use pallet::*;
 
