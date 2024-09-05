@@ -308,7 +308,6 @@ function import_gpg_keys() {
 
   echo "Importing GPG keys from $GPG_KEYSERVER"
   for key in $SEC $EGOR $MORGAN $PARITY_RELEASES; do
-  # for key in $PARITY_RELEASES; do
     (
       echo "Importing GPG key $key"
       gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key
