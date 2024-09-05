@@ -1702,9 +1702,18 @@ where
 			SwarmEvent::Behaviour(BehaviourOut::None) => {
 				// Ignored event from lower layers.
 			},
-			SwarmEvent::Behaviour(_) => {
+			SwarmEvent::Behaviour(BehaviourOut::Message{ peer, message }) => {
+				// Ignored event from lower layers.
+			},			
+			SwarmEvent::Behaviour(BehaviourOut::CustomOutboundFailure{ peer,request_id,error }) => {
 				// Ignored event from lower layers.
 			},
+			SwarmEvent::Behaviour(BehaviourOut::CustomInboundFailure{ peer,request_id,error }) => {
+				// Ignored event from lower layers.
+			},
+			SwarmEvent::Behaviour(BehaviourOut::CustomResponseSent{ peer,request_id }) => {
+				// Ignored event from lower layers.
+			},			
 			SwarmEvent::ConnectionEstablished {
 				peer_id,
 				endpoint,
