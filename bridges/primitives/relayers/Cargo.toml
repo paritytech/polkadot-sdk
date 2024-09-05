@@ -15,13 +15,15 @@ codec = { features = ["bit-vec", "derive"], workspace = true }
 scale-info = { features = ["bit-vec", "derive"], workspace = true }
 
 # Bridge Dependencies
-
+bp-header-chain = { workspace = true }
 bp-messages = { workspace = true }
+bp-parachains = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate Dependencies
-
+frame-system = { workspace = true }
 frame-support = { workspace = true }
+pallet-utility = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
@@ -32,10 +34,14 @@ hex-literal = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"bp-header-chain/std",
 	"bp-messages/std",
+	"bp-parachains/std",
 	"bp-runtime/std",
 	"codec/std",
 	"frame-support/std",
+	"frame-system/std",
+	"pallet-utility/std",
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",

@@ -1049,7 +1049,7 @@ async fn syncs_all_forks_from_single_peer() {
 		})
 		.await;
 
-		if net.peer(1).sync_service().best_seen_block().await.unwrap() == Some(12) {
+		if net.peer(1).sync_service().status().await.unwrap().best_seen_block == Some(12) {
 			break
 		}
 	}
