@@ -1403,6 +1403,15 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Get the subs of an account.
+	pub fn subs(who: &T::AccountId) -> Vec<(T::AccountId, Data)> {
+		SubsOf::<T>::get(who)
+			.1
+			.into_iter()
+			.filter_map(|a| SuperOf::<T>::get(&a).map(|x| (a, x.1)))
+			.collect()
+	}
+
 	/// Calculate the deposit required for a number of `sub` accounts.
 	fn subs_deposit(subs: u32) -> BalanceOf<T> {
 		T::SubAccountDeposit::get().saturating_mul(BalanceOf::<T>::from(subs))
