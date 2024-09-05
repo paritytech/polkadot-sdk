@@ -13,18 +13,18 @@ doc:
 
 crates:
   - name: pallet-xcm
-    bump: minor
+    bump: patch
   - name: staging-xcm-builder
-    bump: major
+    bump: patch
   - name: pallet-xcm-bridge-hub-router
-    bump: minor
+    bump: patch
   - name: cumulus-pallet-parachain-system
-    bump: minor
+    bump: patch
   - name: cumulus-pallet-xcmp-queue
-    bump: minor
+    bump: patch
   - name: cumulus-primitives-utility
-    bump: minor
+    bump: patch
   - name: polkadot-runtime-common
-    bump: minor
+    bump: patch
   - name: pallet-xcm-bridge-hub
-    bump: minor
+    bump: patch
