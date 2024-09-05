@@ -979,6 +979,7 @@ where
 		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
 		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
+		state_request_protocol_name,
 	};
 	// Initialize syncing strategy.
 	let syncing_strategy =
@@ -997,7 +998,6 @@ where
 		chain_sync_network_handle,
 		import_queue.service(),
 		block_downloader,
-		state_request_protocol_name,
 		warp_request_protocol_name,
 		Arc::clone(&peer_store_handle),
 	)?;

@@ -35,6 +35,7 @@ use log::{debug, error, info};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
+use sc_network::ProtocolName;
 use sc_network_common::sync::{
 	message::{BlockAnnounce, BlockData, BlockRequest},
 	SyncMode,
@@ -173,6 +174,8 @@ pub struct SyncingConfig {
 	pub max_blocks_per_request: u32,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
+	/// Protocol name used to send out state requests
+	pub state_request_protocol_name: ProtocolName,
 }
 
 /// The key identifying a specific strategy for responses routing.
@@ -191,7 +194,12 @@ pub enum SyncingAction<B: BlockT> {
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendBlockRequest { peer_id: PeerId, key: StrategyKey, request: BlockRequest<B> },
 	/// Send state request to peer.
-	SendStateRequest { peer_id: PeerId, key: StrategyKey, request: OpaqueStateRequest },
+	SendStateRequest {
+		peer_id: PeerId,
+		key: StrategyKey,
+		protocol_name: ProtocolName,
+		request: OpaqueStateRequest,
+	},
 	/// Send warp proof request to peer.
 	SendWarpProofRequest { peer_id: PeerId, key: StrategyKey, request: WarpProofRequest<B> },
 	/// Drop stale request.
@@ -233,8 +241,13 @@ impl<B: BlockT> From<WarpSyncAction<B>> for SyncingAction<B> {
 impl<B: BlockT> From<StateStrategyAction<B>> for SyncingAction<B> {
 	fn from(action: StateStrategyAction<B>) -> Self {
 		match action {
-			StateStrategyAction::SendStateRequest { peer_id, request } =>
-				SyncingAction::SendStateRequest { peer_id, key: StrategyKey::State, request },
+			StateStrategyAction::SendStateRequest { peer_id, protocol_name, request } =>
+				SyncingAction::SendStateRequest {
+					peer_id,
+					key: StrategyKey::State,
+					protocol_name,
+					request,
+				},
 			StateStrategyAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
 			StateStrategyAction::ImportBlocks { origin, blocks } =>
 				SyncingAction::ImportBlocks { origin, blocks },
@@ -540,6 +553,7 @@ where
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
+				config.state_request_protocol_name.clone(),
 				config.metrics_registry.as_ref(),
 				std::iter::empty(),
 			)?;
@@ -573,6 +587,7 @@ where
 						self.peer_best_blocks
 							.iter()
 							.map(|(peer_id, (_, best_number))| (*peer_id, *best_number)),
+						self.config.state_request_protocol_name.clone(),
 					);
 
 					self.warp = None;
@@ -589,6 +604,7 @@ where
 						self.client.clone(),
 						self.config.max_parallel_downloads,
 						self.config.max_blocks_per_request,
+						self.config.state_request_protocol_name.clone(),
 						self.config.metrics_registry.as_ref(),
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(*peer_id, *best_hash, *best_number)
@@ -617,6 +633,7 @@ where
 				self.client.clone(),
 				self.config.max_parallel_downloads,
 				self.config.max_blocks_per_request,
+				self.config.state_request_protocol_name.clone(),
 				self.config.metrics_registry.as_ref(),
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(*peer_id, *best_hash, *best_number)

@@ -270,9 +270,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
 
-	/// Protocol name used to send out state requests
-	state_request_protocol_name: ProtocolName,
-
 	/// Protocol name used to send out warp sync requests
 	warp_sync_protocol_name: Option<ProtocolName>,
 
@@ -304,7 +301,6 @@ where
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
-		state_request_protocol_name: ProtocolName,
 		warp_sync_protocol_name: Option<ProtocolName>,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
 	) -> Result<(Self, SyncingService<B>, N::NotificationProtocolConfig), ClientError>
@@ -427,7 +423,6 @@ where
 				},
 				pending_responses: PendingResponses::new(),
 				block_downloader,
-				state_request_protocol_name,
 				warp_sync_protocol_name,
 				import_queue,
 			},
@@ -629,8 +624,8 @@ where
 						"Processed {action:?}, response removed: {removed}.",
 					);
 				},
-				SyncingAction::SendStateRequest { peer_id, key, request } => {
-					self.send_state_request(peer_id, key, request);
+				SyncingAction::SendStateRequest { peer_id, key, protocol_name, request } => {
+					self.send_state_request(peer_id, key, protocol_name, request);
 
 					trace!(
 						target: LOG_TARGET,
@@ -1031,6 +1026,7 @@ where
 		&mut self,
 		peer_id: PeerId,
 		key: StrategyKey,
+		protocol_name: ProtocolName,
 		request: OpaqueStateRequest,
 	) {
 		if !self.peers.contains_key(&peer_id) {
@@ -1047,7 +1043,7 @@ where
 			Ok(data) => {
 				self.network_service.start_request(
 					peer_id,
-					self.state_request_protocol_name.clone(),
+					protocol_name,
 					data,
 					tx,
 					IfDisconnected::ImmediateError,
