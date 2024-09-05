@@ -35,7 +35,7 @@ codecov-start:
     - .pipeline-stopper-artifacts
     - .run-immediately
   script:
-    - !reference [ .codecov-check, script ]
+    - !reference [.codecov-check, script]
     - >
       if [ "$CI_COMMIT_REF_NAME" != "master" ]; then
         codecovcli -v create-commit -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --pr ${CI_COMMIT_REF_NAME} --git-service github;
@@ -57,7 +57,7 @@ codecov-finish:
   needs:
     - test-linux-stable-codecov
   script:
-    - !reference [ .codecov-check, script ]
+    - !reference [.codecov-check, script]
     - codecovcli -v create-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
     - codecovcli -v get-report-results -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
     - codecovcli -v send-notifications -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --git-service github
@@ -83,7 +83,7 @@ test-linux-stable-codecov:
   parallel: 2
   script:
     # tools
-    - !reference [ .codecov-check, script ]
+    - !reference [.codecov-check, script]
     - rustup component add llvm-tools-preview
     - mkdir -p target/coverage/result/
     # Place real test call here
@@ -109,119 +109,6 @@ test-linux-stable-codecov:
       else
         codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;
       fi
-
-test-linux-stable:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  parallel: 3
-  script:
-    # Build all but only execute 'runtime' tests.
-    - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
-    - >
-      time cargo nextest run \
-        --workspace \
-        --locked \
-        --release \
-        --no-fail-fast \
-        --features try-runtime,experimental,riscv,ci-only-tests \
-        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
-    # Upload tests results to Elasticsearch
-    - echo "Upload test results to Elasticsearch"
-    - cat target/nextest/default/junit.xml | xq . > target/nextest/default/junit.json
-    - >
-      curl -v -XPOST --http1.1 \
-      -u ${ELASTIC_USERNAME}:${ELASTIC_PASSWORD} \
-      https://elasticsearch.parity-build.parity.io/unit-tests/_doc/${CI_JOB_ID} \
-      -H 'Content-Type: application/json' \
-      -d @target/nextest/default/junit.json || echo "failed to upload junit report"
-    # run runtime-api tests with `enable-staging-api` feature on the 1st node
-    - if [ ${CI_NODE_INDEX} == 1 ]; then time cargo nextest run -p sp-api-test --features enable-staging-api; fi
-  artifacts:
-    when: always
-    paths:
-      - target/nextest/default/junit.xml
-    reports:
-      junit: target/nextest/default/junit.xml
-  timeout: 90m
-
-test-linux-oldkernel-stable:
-  extends: test-linux-stable
-  tags:
-    - oldkernel-vm
-
-# https://github.com/paritytech/ci_cd/issues/864
-test-linux-stable-runtime-benchmarks:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    - time cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
-
-# can be used to run all tests
-# test-linux-stable-all:
-#   stage: test
-#   extends:
-#     - .docker-env
-#     - .common-refs
-#     - .run-immediately
-#   variables:
-#     RUST_TOOLCHAIN: stable
-#     # Enable debug assertions since we are running optimized builds for testing
-#     # but still want to have debug assertions.
-#     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-#   parallel: 3
-#   script:
-#     # Build all but only execute 'runtime' tests.
-#     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
-#     - >
-#       time cargo nextest run \
-#         --workspace \
-#         --locked \
-#         --release \
-#         --no-fail-fast \
-#         --features runtime-benchmarks,try-runtime \
-#         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
-#     # todo: add flacky-test collector
-
-# takes about 1,5h without cache
-# can be used to check that nextest works correctly
-# test-linux-stable-polkadot:
-#   stage: test
-#   timeout: 2h
-#   extends:
-#     - .docker-env
-#     - .common-refs
-#     - .run-immediately
-#     - .collect-artifacts-short
-#   variables:
-#     RUST_TOOLCHAIN: stable
-#     # Enable debug assertions since we are running optimized builds for testing
-#     # but still want to have debug assertions.
-#     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-#   script:
-#     - mkdir -p artifacts
-#     - time cargo test --workspace
-#       --locked
-#       --profile testnet
-#       --features=runtime-benchmarks,runtime-metrics,try-runtime --
-#       --skip upgrade_version_checks_should_work
 
 test-doc:
   stage: test
@@ -316,7 +203,7 @@ cargo-check-benches:
       git merge --verbose --no-edit FETCH_HEAD;
       fi
       fi'
-    - !reference [ .forklift-cache, before_script ]
+    - !reference [.forklift-cache, before_script]
   parallel: 2
   script:
     - mkdir -p ./artifacts/benches/$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA
@@ -360,7 +247,7 @@ node-bench-regression-guard:
       artifacts: true
   variables:
     CI_IMAGE: "paritytech/node-bench-regression-guard:latest"
-  before_script: [ "" ]
+  before_script: [""]
   script:
     - if [ $(ls -la artifacts/benches/ | grep master | wc -l) == 0 ]; then
       echo "Couldn't find master artifacts";
@@ -371,7 +258,7 @@ node-bench-regression-guard:
     - echo "In case of this job failure, check your pipeline's cargo-check-benches"
     - "node-bench-regression-guard --reference artifacts/benches/master-*
       --compare-with artifacts/benches/$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA"
-  after_script: [ "" ]
+  after_script: [""]
 
 # if this fails run `bot update-ui` in the Pull Request or "./scripts/update-ui-tests.sh" locally
 # see ./docs/contributor/CONTRIBUTING.md#ui-tests
@@ -443,26 +330,6 @@ test-frame-examples-compile-to-wasm:
   # FIXME
   allow_failure: true
 
-test-linux-stable-int:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-C debug-assertions -D warnings"
-    RUST_BACKTRACE: 1
-    WASM_BUILD_NO_COLOR: 1
-    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
-    # Ensure we run the UI tests.
-    RUN_UI_TESTS: 1
-  script:
-    - WASM_BUILD_NO_COLOR=1
-      time cargo test -p staging-node-cli --release --locked -- --ignored
-
 # more information about this job can be found here:
 # https://github.com/paritytech/substrate/pull/6916
 check-tracing:
@@ -533,9 +400,9 @@ cargo-check-each-crate-macos:
     # - .collect-artifacts
   before_script:
     # skip timestamp script, the osx bash doesn't support printf %()T
-    - !reference [ .job-switcher, before_script ]
-    - !reference [ .rust-info-script, script ]
-    - !reference [ .pipeline-stopper-vars, script ]
+    - !reference [.job-switcher, before_script]
+    - !reference [.rust-info-script, script]
+    - !reference [.pipeline-stopper-vars, script]
   variables:
     SKIP_WASM_BUILD: 1
   script:
