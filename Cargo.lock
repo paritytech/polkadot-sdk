@@ -4912,7 +4912,7 @@ name = "dev-omni-node"
 version = "1.0.0"
 dependencies = [
  "assert_cmd",
- "clap 4.5.9",
+ "clap 4.5.11",
  "docify",
  "frame-system-rpc-runtime-api",
  "futures",
@@ -21241,10 +21241,14 @@ name = "staging-chain-spec-builder"
 version = "1.6.1"
 dependencies = [
  "clap 4.5.11",
+ "frame-remote-externalities",
  "log",
  "sc-chain-spec",
  "serde_json",
+ "sp-core",
+ "sp-runtime",
  "sp-tracing 16.0.0",
+ "tokio",
 ]
 
 [[package]]

@@ -21,14 +21,16 @@ use chain_spec_builder::{
 	ConvertToRawCmd, DisplayPresetCmd, ListPresetsCmd, UpdateCodeCmd, VerifyCmd,
 };
 use clap::Parser;
+use remote_externalities::RemoteExternalities;
 use sc_chain_spec::{
 	set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, GenericChainSpec,
 	GenesisConfigBuilderRuntimeCaller,
 };
+use sp_core::{storage::well_known_keys::is_default_child_storage_key, twox_64};
 use staging_chain_spec_builder as chain_spec_builder;
 use std::fs;
 
-type ChainSpec = GenericChainSpec<(), ()>;
+type ChainSpec = GenericChainSpec<sc_chain_spec::NoExtension, ()>;
 
 //avoid error message escaping
 fn main() {
@@ -134,6 +136,70 @@ fn inner_main() -> Result<(), String> {
 				.get_named_preset(preset_name.as_ref())
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
 			println!("{preset}");
+		},
+		ChainSpecBuilderCmd::FromLive(cmd) => {
+			use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper, H256 as Hash};
+			type Block = RawBlock<ExtrinsicWrapper<Hash>>;
+			use remote_externalities::{Mode, OnlineConfig, SnapshotConfig, Transport};
+
+			let rt = tokio::runtime::Runtime::new().unwrap();
+			let ext: RemoteExternalities<Block> = rt.block_on(async {
+				remote_externalities::Builder::<Block>::new()
+					.mode(Mode::Online(OnlineConfig {
+						transport: Transport::Uri(cmd.uri),
+						state_snapshot: Some(SnapshotConfig { path: "./try-runtime.snap".into() }),
+						child_trie: true,
+						..Default::default()
+					}))
+					.blacklist_hashed_key(&twox_64(b"Babe"))
+					.blacklist_hashed_key(&twox_64(b"Grandpa"))
+					.blacklist_hashed_key(&twox_64(b"Session"))
+					.blacklist_hashed_key(&twox_64(b"Beefy"))
+					.blacklist_hashed_key(&twox_64(b"Authorship"))
+					.build()
+					.await
+					.unwrap()
+			});
+			let storage = ext.inner_ext.into_storage();
+
+			println!(
+				"{} top keys, {} child keys",
+				storage.top.keys().len(),
+				storage.children_default.keys().len()
+			);
+			println!(
+				"has code? {}",
+				storage.top.keys().any(|k| k == sp_core::storage::well_known_keys::CODE)
+			);
+			let maybe_child = storage
+				.top
+				.keys()
+				.filter(|k| is_default_child_storage_key(k))
+				.collect::<Vec<_>>();
+			println!(
+				"{}, {:?} child keys",
+				maybe_child.len(),
+				maybe_child.iter().take(5).collect::<Vec<_>>()
+			);
+
+			// parse cmd.chain_spec as a json file
+			let chain_spec = ChainSpec::from_json_file(cmd.chain_spec.clone()).unwrap();
+
+			// TODO: assuming original is not raw
+			let mut original_spec_json = serde_json::from_str::<serde_json::Value>(
+				&chain_spec.clone().as_json(false).unwrap(),
+			)
+			.unwrap();
+			let mut new_spec = chain_spec;
+
+			<ChainSpec as sc_chain_spec::ChainSpec>::set_storage(&mut new_spec, storage);
+			let new_spec_json =
+				serde_json::from_str::<serde_json::Value>(&new_spec.as_json(false).unwrap())
+					.unwrap();
+			sc_chain_spec::json_patch::merge(&mut original_spec_json, new_spec_json);
+
+			fs::write("./out.json", serde_json::to_string_pretty(&original_spec_json).unwrap())
+				.map_err(|err| err.to_string())?;
 		},
 	};
 	Ok(())

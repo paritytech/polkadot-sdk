@@ -36,7 +36,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 	StateVersion,
 };
-use sp_state_machine::TestExternalities;
+pub use sp_state_machine::TestExternalities;
 use spinners::{Spinner, Spinners};
 use std::{
 	cmp::{max, min},
@@ -87,7 +87,7 @@ impl<B: BlockT> Snapshot<B> {
 		}
 	}
 
-	fn load(path: &PathBuf) -> Result<Snapshot<B>, &'static str> {
+	fn load(path: &PathBuf) -> Result<Self, &'static str> {
 		let bytes = fs::read(path).map_err(|_| "fs::read failed.")?;
 		// The first item in the SCALE encoded struct bytes is the snapshot version. We decode and
 		// check that first, before proceeding to decode the rest of the snapshot.
@@ -971,7 +971,11 @@ where
 			log::info!(
 				target: LOG_TARGET,
 				"adding data for hashed prefix: {:?}, took {:.2}s",
-				HexDisplay::from(prefix),
+				match &prefix[..] {
+					&[] => "[] (will download everything)".to_string(),
+					x @ _ if is_default_child_storage_key(x) => {format!("{} (default child tree prefix)", HexDisplay::from(prefix))}
+					_ => { format!("{}", HexDisplay::from(prefix))}
+				},
 				elapsed.as_secs_f32()
 			);
 			keys_and_values.extend(additional_key_values);
@@ -1040,10 +1044,6 @@ where
 			.filter(|p| *p != DEFAULT_CHILD_STORAGE_KEY_PREFIX)
 			.count() == 0
 		{
-			log::info!(
-				target: LOG_TARGET,
-				"since no prefix is filtered, the data for all pallets will be downloaded"
-			);
 			online_config.hashed_prefixes.push(vec![]);
 		}
 
@@ -1171,11 +1171,11 @@ where
 		if !self.hashed_blacklist.is_empty() {
 			log::info!(
 				target: LOG_TARGET,
-				"excluding externalities from {} keys",
+				"excluding externalities from {} keys/prefixes",
 				self.hashed_blacklist.len()
 			);
 			for k in self.hashed_blacklist {
-				ext.execute_with(|| sp_io::storage::clear(&k));
+				ext.execute_with(|| sp_io::storage::clear_prefix(&k, None));
 			}
 		}
 

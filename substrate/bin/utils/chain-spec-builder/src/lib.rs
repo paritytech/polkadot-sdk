@@ -144,6 +144,16 @@ pub enum ChainSpecBuilderCmd {
 	ListPresets(ListPresetsCmd),
 	DisplayPreset(DisplayPresetCmd),
 	AddCodeSubstitute(AddCodeSubstituteCmd),
+	FromLive(FromLiveCmd),
+}
+
+#[derive(Parser, Debug)]
+pub struct FromLiveCmd {
+	#[arg(long)]
+	pub uri: String,
+
+	#[arg(long)]
+	pub chain_spec: PathBuf,
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.

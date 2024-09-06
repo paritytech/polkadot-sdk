@@ -29,3 +29,7 @@ log = { workspace = true, default-features = true }
 sc-chain-spec = { features = ["clap"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-runtime = { workspace = true }
+sp-core = { workspace = true }
+remote-externalities = { workspace = true }
+tokio = { workspace = true,  features = ["full"] }

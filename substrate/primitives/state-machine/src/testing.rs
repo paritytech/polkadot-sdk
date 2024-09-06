@@ -205,6 +205,27 @@ where
 		(raw_key_values, *self.backend.root())
 	}
 
+	/// Convert `self` into [`sp_storage::Storage`].
+	pub fn into_storage(mut self) -> Storage {
+		self.commit_all().unwrap();
+		let (data, _) = self.into_raw_snapshot();
+
+		let kvs = data
+			.into_iter()
+			.map(|(k, (v, _))| {
+				// TODO: I RE-ed this from the methods above, not super sure what this hash key
+				// stuff is.
+				let hash_key_len = H::Out::default().as_ref().len();
+				(k[..(k.len() - hash_key_len)].to_vec(), v)
+			})
+			.collect::<Vec<_>>();
+		// split into top and children_default, based on the key prefix
+		let (top, children_default_raw) =
+			kvs.into_iter().partition(|(k, _)| !is_child_storage_key(k));
+		// TODO: re-propagate child stuff
+		Storage { top, children_default: Default::default() }
+	}
+
 	/// Return a new backend with all pending changes.
 	///
 	/// In contrast to [`commit_all`](Self::commit_all) this will not panic if there are open
