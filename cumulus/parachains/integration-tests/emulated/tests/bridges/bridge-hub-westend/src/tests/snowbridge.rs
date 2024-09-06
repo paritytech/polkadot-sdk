@@ -458,6 +458,15 @@ fn transfer_ah_token() {
 	let asset_id: Location =
 		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())].into();
 
+	let asset_id_in_bh: Location = Location::new(
+		1,
+		[
+			Parachain(AssetHubWestend::para_id().into()),
+			PalletInstance(ASSETS_PALLET_ID),
+			GeneralIndex(RESERVABLE_ASSET_ID.into()),
+		],
+	);
+
 	let asset_id_after_reanchored =
 		Location::new(1, [GlobalConsensus(Westend), Parachain(AssetHubWestend::para_id().into())])
 			.appended_with(asset_id.clone().interior)
@@ -467,12 +476,17 @@ fn transfer_ah_token() {
 
 	// Register token
 	BridgeHubWestend::execute_with(|| {
-		type Runtime = <BridgeHubWestend as Chain>::Runtime;
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
 
-		snowbridge_pallet_system::ForeignToNativeId::<Runtime>::insert(
-			token_id,
-			asset_id_after_reanchored.clone(),
-		);
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
+			RuntimeOrigin::root(),
+			Box::new(VersionedLocation::V4(asset_id_in_bh.clone())),
+			AssetMetadata {
+				name: "ah_asset".as_bytes().to_vec().try_into().unwrap(),
+				symbol: "ah_asset".as_bytes().to_vec().try_into().unwrap(),
+				decimals: 12,
+			},
+		));
 	});
 
 	// Mint some token
@@ -637,12 +651,17 @@ fn transfer_penpal_native_token() {
 
 	// Create token
 	BridgeHubWestend::execute_with(|| {
-		type Runtime = <BridgeHubWestend as Chain>::Runtime;
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
 
-		snowbridge_pallet_system::ForeignToNativeId::<Runtime>::insert(
-			token_id,
-			penpal_asset_location_after_reanchored.clone(),
-		);
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
+			RuntimeOrigin::root(),
+			Box::new(VersionedLocation::V4(penpal_asset_location.clone())),
+			AssetMetadata {
+				name: "penpal_asset".as_bytes().to_vec().try_into().unwrap(),
+				symbol: "penpal_asset".as_bytes().to_vec().try_into().unwrap(),
+				decimals: 12,
+			},
+		));
 	});
 
 	// Send token to Ethereum
