@@ -39,10 +39,9 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 	}
 }
 
-pub fn create_project(project_account: AccountId, amount: u128) {
+pub fn create_project(project_id: AccountId, amount: u128) {
 	let submission_block = <Test as Config>::BlockNumberProvider::current_block_number();
-	let project: types::ProjectInfo<Test> =
-		ProjectInfo { project_account, submission_block, amount };
+	let project: types::ProjectInfo<Test> = ProjectInfo { project_id, submission_block, amount };
 	Projects::<Test>::mutate(|value| {
 		let mut val = value.clone();
 		let _ = val.try_push(project);
@@ -103,17 +102,17 @@ fn spends_creation_works() {
 			RuntimeEvent::Distribution(Event::SpendCreated {
 				when: now.saturating_sub(1),
 				amount: list[0].clone().unwrap().amount,
-				project_account: list[0].clone().unwrap().whitelisted_project.unwrap(),
+				project_id: list[0].clone().unwrap().whitelisted_project.unwrap(),
 			}),
 			RuntimeEvent::Distribution(Event::SpendCreated {
 				when: now.saturating_sub(1),
 				amount: list[1].clone().unwrap().amount,
-				project_account: list[1].clone().unwrap().whitelisted_project.unwrap(),
+				project_id: list[1].clone().unwrap().whitelisted_project.unwrap(),
 			}),
 			RuntimeEvent::Distribution(Event::SpendCreated {
 				when: now.saturating_sub(1),
 				amount: list[2].clone().unwrap().amount,
-				project_account: list[2].clone().unwrap().whitelisted_project.unwrap(),
+				project_id: list[2].clone().unwrap().whitelisted_project.unwrap(),
 			}),
 		]);
 
@@ -193,18 +192,18 @@ fn funds_claim_works() {
 		run_to_block(now);
 
 		let project = Spends::<Test>::get(ALICE).unwrap();
-		let project_account = project.whitelisted_project.unwrap();
+		let project_id = project.whitelisted_project.unwrap();
 		let balance_0 =
-			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);
+			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);
 		now = now.saturating_add(project.valid_from);
 		run_to_block(now);
 
 		// Spend is in storage
 		assert!(Spends::<Test>::get(ALICE).is_some());
 
-		assert_ok!(Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_account,));
+		assert_ok!(Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_id,));
 		let balance_1 =
-			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);
+			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);
 
 		assert!(balance_1 > balance_0);
 		assert_eq!(Projects::<Test>::get().len(), 0);
@@ -234,10 +233,10 @@ fn funds_claim_fails_before_claim_period() {
 		run_to_block(now);
 
 		let project = Spends::<Test>::get(ALICE).unwrap();
-		let project_account = project.whitelisted_project.unwrap();
+		let project_id = project.whitelisted_project.unwrap();
 
 		assert_noop!(
-			Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_account),
+			Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_id),
 			Error::<Test>::NotClaimingPeriod
 		);
 	})

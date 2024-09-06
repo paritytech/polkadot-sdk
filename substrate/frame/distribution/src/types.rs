@@ -75,7 +75,7 @@ pub struct SpendInfo<T: Config> {
 impl<T: Config> SpendInfo<T> {
 	pub fn new(whitelisted: &ProjectInfo<T>) -> Self {
 		let amount = whitelisted.amount;
-		let whitelisted_project = Some(whitelisted.project_account.clone());
+		let whitelisted_project = Some(whitelisted.project_id.clone());
 		let claimed = false;
 		let valid_from =
 			<frame_system::Pallet<T>>::block_number().saturating_add(T::BufferPeriod::get());
@@ -83,7 +83,7 @@ impl<T: Config> SpendInfo<T> {
 		let spend = SpendInfo { amount, valid_from, whitelisted_project, claimed };
 
 		//Add it to the Spends storage
-		Spends::<T>::insert(whitelisted.project_account.clone(), spend.clone());
+		Spends::<T>::insert(whitelisted.project_id.clone(), spend.clone());
 
 		spend
 	}
@@ -93,7 +93,7 @@ impl<T: Config> SpendInfo<T> {
 #[scale_info(skip_type_params(T))]
 pub struct ProjectInfo<T: Config> {
 	/// AcountId that will receive the payment.
-	pub project_account: ProjectId<T>,
+	pub project_id: ProjectId<T>,
 
 	/// Block at which the project was submitted for reward distribution
 	pub submission_block: BlockNumberFor<T>,

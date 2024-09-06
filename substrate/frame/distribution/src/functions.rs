@@ -94,7 +94,7 @@ impl<T: Config> Pallet<T> {
 						Self::deposit_event(Event::SpendCreated {
 							when: now,
 							amount: new_spend.amount,
-							project_account: project.project_account,
+							project_id: project.project_id,
 						});
 					}
 				}

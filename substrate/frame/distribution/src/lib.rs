@@ -132,18 +132,10 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Reward successfully claimed
-		RewardClaimed {
-			when: BlockNumberFor<T>,
-			amount: BalanceOf<T>,
-			project_account: ProjectId<T>,
-		},
+		RewardClaimed { when: BlockNumberFor<T>, amount: BalanceOf<T>, project_id: ProjectId<T> },
 
 		/// A Spend was created
-		SpendCreated {
-			when: BlockNumberFor<T>,
-			amount: BalanceOf<T>,
-			project_account: ProjectId<T>,
-		},
+		SpendCreated { when: BlockNumberFor<T>, amount: BalanceOf<T>, project_id: ProjectId<T> },
 	}
 
 	#[pallet::error]
@@ -188,7 +180,7 @@ pub mod pallet {
 		/// From this extrinsic any user can claim a reward for a nominated/whitelisted project.
 		///
 		/// ### Parameters
-		/// - `project_account`: The account that will receive the reward.
+		/// - `project_id`: The account that will receive the reward.
 		///
 		/// ### Errors
 		/// - [`Error::<T>::InexistentSpend`]:Spend or Spend index does not exists
@@ -199,15 +191,10 @@ pub mod pallet {
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim_reward_for(T::MaxProjects::get()))]
-		pub fn claim_reward_for(
-			origin: OriginFor<T>,
-			project_account: ProjectId<T>,
-		) -> DispatchResult {
+		pub fn claim_reward_for(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let pot = Self::pot_account();
-			let info = Spends::<T>::get(&project_account).ok_or(Error::<T>::InexistentSpend)?;
-			let project_account =
-				info.whitelisted_project.clone().ok_or(Error::<T>::NoValidAccount)?;
+			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
 			let now = T::BlockNumberProvider::current_block_number();
 
 			// Check that we're within the claiming period
@@ -220,14 +207,14 @@ pub mod pallet {
 				Precision::Exact,
 			)?;
 			// transfer the funds
-			Self::spend(info.amount, project_account.clone())?;
+			Self::spend(info.amount, project_id.clone())?;
 
-			let infos = Spends::<T>::take(&project_account).ok_or(Error::<T>::InexistentSpend)?;
+			let infos = Spends::<T>::take(&project_id).ok_or(Error::<T>::InexistentSpend)?;
 
 			Self::deposit_event(Event::RewardClaimed {
 				when: now,
 				amount: infos.amount,
-				project_account,
+				project_id,
 			});
 
 			Ok(())

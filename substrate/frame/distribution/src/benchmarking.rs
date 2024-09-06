@@ -44,9 +44,9 @@ fn run_to_block<T: Config>(n: frame_system::pallet_prelude::BlockNumberFor<T>) {
 	}
 }
 
-fn create_project<T: Config>(project_account: AccountIdOf<T>, amount: BalanceOf<T>) {
+fn create_project<T: Config>(project_id: AccountIdOf<T>, amount: BalanceOf<T>) {
 	let submission_block = T::BlockNumberProvider::current_block_number();
-	let project: types::ProjectInfo<T> = ProjectInfo { project_account, submission_block, amount };
+	let project: types::ProjectInfo<T> = ProjectInfo { project_id, submission_block, amount };
 	Projects::<T>::mutate(|value| {
 		let mut val = value.clone();
 		let _ = val.try_push(project);
@@ -100,7 +100,7 @@ mod benchmarks {
 		run_to_block::<T>(when);
 		/* execute extrinsic or function */
 
-		let project_id = &project.project_account;
+		let project_id = &project.project_id;
 		let spend = <Spends<T>>::get(&project_id);
 		when = when.saturating_add(spend.unwrap().valid_from);
 		run_to_block::<T>(when);
