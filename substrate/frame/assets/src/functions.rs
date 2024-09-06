@@ -478,6 +478,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let (asset_id, merkle_root) =
 			MerklizedDistribution::<T, I>::get(distribution_id).ok_or(Error::<T, I>::Unknown)?;
 
+		ensure!(
+			!MerklizedDistributionTracker::<T, I>::contains_key(distribution_id, &beneficiary),
+			Error::<T, I>::AlreadyClaimed
+		);
+
 		sp_runtime::proving_trie::verify_single_value_proof::<T::Hashing, _, _>(
 			merkle_root,
 			&merkle_proof,

@@ -1921,3 +1921,73 @@ fn asset_id_cannot_be_reused() {
 		assert!(Asset::<Test>::contains_key(7));
 	});
 }
+
+#[test]
+fn merklized_distribution_works() {
+	new_test_ext().execute_with(|| {
+		use alloc::collections::BTreeMap;
+		use sp_runtime::proving_trie::BasicProvingTrie;
+
+		// Create asset id 0 controlled by user 1, sufficient so it does not need ED.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+
+		// Offchain, user 1 creates a distribution of tokens.
+		type DistributionTrie =
+			BasicProvingTrie<<Test as frame_system::Config>::Hashing, AccountId, Balance>;
+		let mut distribution = BTreeMap::<AccountId, Balance>::new();
+		for i in 0..100u64 {
+			distribution.insert(i, i.into());
+		}
+
+		// Maybe the owner gives himself a little extra ;)
+		distribution.insert(1, 1337);
+
+		let distribution_trie = DistributionTrie::generate_for(distribution).unwrap();
+		let root = *distribution_trie.root();
+
+		// Use this trie root for the distribution
+		assert_ok!(Assets::mint_distribution(RuntimeOrigin::signed(1), 0, root));
+
+		// Now users claim their distributions permissionlessly with a proof.
+		let proof_for_1 = distribution_trie.create_single_value_proof(1).unwrap();
+		let amount_for_1 = distribution_trie.query(1).unwrap();
+		assert_ok!(Assets::claim_distribution(
+			RuntimeOrigin::signed(1),
+			0,
+			1,
+			amount_for_1,
+			proof_for_1
+		));
+		assert_eq!(Assets::balance(0, 1), 1337);
+
+		// Other users can claim their tokens.
+		let proof_for_69 = distribution_trie.create_single_value_proof(69).unwrap();
+		let amount_for_69 = distribution_trie.query(69).unwrap();
+		assert_ok!(Assets::claim_distribution(
+			RuntimeOrigin::signed(55),
+			0,
+			69,
+			amount_for_69,
+			proof_for_69
+		));
+		assert_eq!(Assets::balance(0, 69), 69);
+
+		// Owner (or anyone) can also distribute on behalf of the other users.
+		let proof_for_6 = distribution_trie.create_single_value_proof(6).unwrap();
+		let amount_for_6 = distribution_trie.query(6).unwrap();
+		assert_ok!(Assets::claim_distribution(
+			RuntimeOrigin::signed(1),
+			0,
+			6,
+			amount_for_6,
+			proof_for_6.clone()
+		));
+		assert_eq!(Assets::balance(0, 6), 6);
+
+		// You cannot double claim.
+		assert_noop!(
+			Assets::claim_distribution(RuntimeOrigin::signed(6), 0, 6, amount_for_6, proof_for_6),
+			Error::<Test>::AlreadyClaimed
+		);
+	});
+}

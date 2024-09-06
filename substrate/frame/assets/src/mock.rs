@@ -39,8 +39,9 @@ construct_runtime!(
 	}
 );
 
-type AccountId = u64;
-type AssetId = u32;
+pub(crate) type AccountId = u64;
+pub(crate) type AssetId = u32;
+pub(crate) type Balance = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {

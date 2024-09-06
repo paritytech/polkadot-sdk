@@ -715,6 +715,8 @@ pub mod pallet {
 		CallbackFailed,
 		/// The asset ID must be equal to the [`NextAssetId`].
 		BadAssetId,
+		/// The asset distribution was already claimed!
+		AlreadyClaimed,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
