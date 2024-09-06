@@ -68,6 +68,7 @@
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
+	time::Duration,
 };
 
 use bitvec::vec::BitVec;
@@ -625,6 +626,7 @@ async fn request_candidate_validation(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
+	mode: ProspectiveParachainsMode,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 	let is_system = candidate_receipt.descriptor.para_id.is_system();
@@ -642,6 +644,7 @@ async fn request_candidate_validation(
 				PvfExecPriority::Backing
 			},
 			response_sender: tx,
+			ttl: Some(validation_request_ttl(mode)),
 		})
 		.await;
 
@@ -678,6 +681,7 @@ async fn validate_and_make_available(
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Sync,
 	>,
 	core_index: CoreIndex,
+	mode: ProspectiveParachainsMode,
 ) -> Result<(), Error> {
 	let BackgroundValidationParams {
 		mut sender,
@@ -754,6 +758,7 @@ async fn validate_and_make_available(
 			candidate.clone(),
 			pov.clone(),
 			executor_params,
+			mode,
 		)
 		.await?
 	};
@@ -1812,10 +1817,13 @@ async fn background_validate_and_make_available<Context>(
 ) -> Result<(), Error> {
 	let candidate_hash = params.candidate.hash();
 	let Some(core_index) = rp_state.assigned_core else { return Ok(()) };
+	let prospective_parachains_mode = rp_state.prospective_parachains_mode;
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			if let Err(error) = validate_and_make_available(params, core_index).await {
+			if let Err(error) =
+				validate_and_make_available(params, core_index, prospective_parachains_mode).await
+			{
 				if let Error::BackgroundValidationMpsc(error) = error {
 					gum::debug!(
 						target: LOG_TARGET,
@@ -2217,4 +2225,14 @@ fn handle_get_backable_candidates_message(
 
 	tx.send(backed).map_err(|data| Error::Send(data))?;
 	Ok(())
+}
+
+fn validation_request_ttl(mode: ProspectiveParachainsMode) -> Duration {
+	const MILLISECS_PER_BLOCK: u64 = 6000;
+	let ttl_in_blocks = match mode {
+		ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. } => allowed_ancestry_len,
+		_ => 1,
+	} as u64;
+
+	Duration::from_millis(MILLISECS_PER_BLOCK * ttl_in_blocks)
 }

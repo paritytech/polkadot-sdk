@@ -1294,6 +1294,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd.clone(),
 			pov1.clone(),
 			Priority::Normal,
@@ -1307,6 +1308,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd.clone(),
 			pov1,
 			Priority::Critical,
@@ -1320,6 +1322,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(2),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd,
 			pov2,
 			Priority::Normal,
@@ -1470,6 +1473,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
@@ -1519,6 +1523,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(2),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd,
 			pov,
 			Priority::Critical,
@@ -1630,6 +1635,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
@@ -1662,6 +1668,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
@@ -1686,6 +1693,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
@@ -1745,6 +1753,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
@@ -1777,6 +1786,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
@@ -1801,6 +1811,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
@@ -1876,6 +1887,7 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
+			None,
 			pvd,
 			pov,
 			Priority::Normal,

@@ -2749,6 +2749,7 @@ fn validator_ignores_statements_from_disabled_validators() {
 					executor_params: _,
 					exec_kind,
 					response_sender,
+					..
 				}
 			) if validation_data == pvd &&
 				validation_code == expected_validation_code &&

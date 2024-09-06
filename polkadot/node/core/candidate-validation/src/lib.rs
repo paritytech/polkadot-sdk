@@ -187,6 +187,7 @@ where
 			executor_params,
 			exec_kind,
 			response_sender,
+			ttl,
 			..
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
@@ -198,6 +199,7 @@ where
 				pov,
 				executor_params,
 				exec_kind,
+				ttl,
 				&metrics,
 			)
 			.await;
@@ -792,6 +794,7 @@ where
 		pov,
 		executor_params,
 		exec_kind,
+		None,
 		metrics,
 	)
 	.await;
@@ -828,6 +831,7 @@ async fn validate_candidate_exhaustive(
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecPriority,
+	request_ttl: Option<Duration>,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -858,6 +862,7 @@ async fn validate_candidate_exhaustive(
 		PvfExecPriority::Backing | PvfExecPriority::BackingSystemParas => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
+			let exec_deadline = pvf_exec_deadline(exec_timeout, request_ttl);
 			let pvf = PvfPrepData::from_code(
 				validation_code.0,
 				executor_params,
@@ -869,7 +874,7 @@ async fn validate_candidate_exhaustive(
 				.validate_candidate(
 					pvf,
 					exec_timeout,
-					pvf_exec_deadline(),
+					exec_deadline,
 					persisted_validation_data.clone(),
 					pov,
 					exec_kind.into(),
@@ -877,12 +882,14 @@ async fn validate_candidate_exhaustive(
 				)
 				.await
 		},
-		PvfExecPriority::Approval | PvfExecPriority::Dispute =>
+		PvfExecPriority::Approval | PvfExecPriority::Dispute => {
+			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
+			let exec_deadline = pvf_exec_deadline(exec_timeout, request_ttl);
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
-					pvf_exec_timeout(&executor_params, exec_kind.into()),
-					pvf_exec_deadline(),
+					exec_timeout,
+					exec_deadline,
 					persisted_validation_data.clone(),
 					pov,
 					executor_params,
@@ -890,7 +897,8 @@ async fn validate_candidate_exhaustive(
 					exec_kind.into(),
 					exec_kind,
 				)
-				.await,
+				.await
+		},
 	};
 
 	if let Err(ref error) = result {
@@ -1263,6 +1271,9 @@ fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: PvfExecKind) -> Dura
 	}
 }
 
-fn pvf_exec_deadline() -> Option<Instant> {
-	None
+fn pvf_exec_deadline(
+	exec_timeout: Duration,
+	validation_request_ttl: Option<Duration>,
+) -> Option<Instant> {
+	validation_request_ttl.map(|ttl| Instant::now() + ttl - exec_timeout)
 }

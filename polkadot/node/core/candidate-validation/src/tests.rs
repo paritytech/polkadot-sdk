@@ -465,6 +465,7 @@ fn candidate_validation_ok_is_ok() {
 		Arc::new(pov),
 		ExecutorParams::default(),
 		PvfExecPriority::Backing,
+		None,
 		&Default::default(),
 	))
 	.unwrap();
@@ -517,6 +518,7 @@ fn candidate_validation_bad_return_is_invalid() {
 		Arc::new(pov),
 		ExecutorParams::default(),
 		PvfExecPriority::Backing,
+		None,
 		&Default::default(),
 	))
 	.unwrap();
@@ -598,6 +600,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		Arc::new(pov),
 		ExecutorParams::default(),
 		PvfExecPriority::Approval,
+		None,
 		&Default::default(),
 	))
 	.unwrap();
@@ -639,6 +642,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		Arc::new(pov),
 		ExecutorParams::default(),
 		PvfExecPriority::Approval,
+		None,
 		&Default::default(),
 	))
 	.unwrap();
@@ -753,6 +757,7 @@ fn candidate_validation_retry_on_error_helper(
 		Arc::new(pov),
 		ExecutorParams::default(),
 		exec_kind,
+		None,
 		&Default::default(),
 	))
 }
@@ -795,6 +800,7 @@ fn candidate_validation_timeout_is_internal_error() {
 		Arc::new(pov),
 		ExecutorParams::default(),
 		PvfExecPriority::Backing,
+		None,
 		&Default::default(),
 	));
 
@@ -840,6 +846,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		Arc::new(pov),
 		ExecutorParams::default(),
 		PvfExecPriority::Backing,
+		None,
 		&Default::default(),
 	))
 	.unwrap();
@@ -892,6 +899,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		Arc::new(pov),
 		ExecutorParams::default(),
 		PvfExecPriority::Backing,
+		None,
 		&Default::default(),
 	))
 	.unwrap();
@@ -949,6 +957,7 @@ fn compressed_code_works() {
 		Arc::new(pov),
 		ExecutorParams::default(),
 		PvfExecPriority::Backing,
+		None,
 		&Default::default(),
 	));
 

@@ -818,6 +818,7 @@ mod tests {
 		ExecuteJob {
 			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
 			exec_timeout: Duration::from_secs(10),
+			exec_deadline: None,
 			pvd,
 			pov,
 			executor_params: ExecutorParams::default(),
