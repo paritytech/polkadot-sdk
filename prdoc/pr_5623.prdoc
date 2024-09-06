@@ -6,24 +6,27 @@ title: Generic slashing side-effects
 doc:
   - audience: Runtime Dev
     description: |
-        What?
-        Make it possible for other pallets to implement their own logic when a slash on a balance occurs.
+    What?
+    Make it possible for other pallets to implement their own logic when a slash on a balance occurs.
 
-        Why?
-        In the introduction of holds @gavofyork said:
+    Why?
+    In the introduction of holds @gavofyork said:
 
-        Since Holds are designed to be infallibly slashed, this means that any logic using a Freeze must handle the possibility of the frozen amount being reduced, potentially to zero. A permissionless function should be provided in order to allow bookkeeping to be updated in this instance.
+    Since Holds are designed to be infallibly slashed, this means that any logic using a Freeze must handle the possibility of the frozen amount being reduced, potentially to zero. A permissionless function should be provided in order to allow bookkeeping to be updated in this instance.
 
-        At Polimec we needed to find a way to reduce the vesting schedules of our users after a slash was made, and after talking to @kianenigma at the Web3Summit, we realized there was no easy way to implement this with the current traits, so we came up with this solution.
+    At Polimec we needed to find a way to reduce the vesting schedules of our users after a slash was made, and after talking to @kianenigma at the Web3Summit, we realized there was no easy way to implement this with the current traits, so we came up with this solution.
 
-        I also have a working implementation of done_slash for pallet_vesting which I can add to this PR or another one.
+    I also have a working implementation of done_slash for pallet_vesting which I can add to this PR or another one.
 
-        How?
-        First we abstract the done_slash function of holds::Balanced to it's own trait that any pallet can implement.
-        Then we add a config type in pallet-balances that accepts a callback tuple of all the pallets that implement this trait.
-        Finally implement done_slash for pallet-balances such that it calls the config type.
-        Integration
-        The default implementation of done_slash is still an empty function, and the new config type of pallet-balances can be set to an empty tuple, so nothing changes by default.
+    How?
+    First we abstract the done_slash function of holds::Balanced to it's own trait that any pallet can implement.
+    Then we add a config type in pallet-balances that accepts a callback tuple of all the pallets that implement this trait.
+    Finally implement done_slash for pallet-balances such that it calls the config type.
+    Integration
+    The default implementation of done_slash is still an empty function, and the new config type of pallet-balances can be set to an empty tuple, so nothing changes by default.
+
+    Review Notes
+    I suggest to focus on the first commit which contains the main logic changes.
 
 crates:
   - name: frame-support
