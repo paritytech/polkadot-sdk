@@ -54,6 +54,7 @@ pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 /// Set balance that can be staked for `who`.
 ///
 /// This includes any balance that is already staked.
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
 	T::Currency::make_free_balance_be(who, value);
 }
@@ -88,7 +89,7 @@ pub fn slash<T: Config>(
 	T::Currency::slash(who, value)
 }
 
-/// Mint reward into an existing account.
+/// Mint `value` into an existing account `who`.
 ///
 /// This does not increase the total issuance.
 pub fn mint_existing<T: Config>(
