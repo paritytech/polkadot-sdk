@@ -20,9 +20,7 @@ use crate::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
 #[cfg(not(feature = "std"))]
 use alloc::format;
 use alloc::vec::Vec;
-use polkadot_primitives::{
-	vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId,
-};
+use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, SchedulerParams, ValidatorId};
 use rococo_runtime_constants::currency::UNITS as ROC;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;

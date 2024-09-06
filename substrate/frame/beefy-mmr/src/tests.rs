@@ -24,10 +24,7 @@ use sp_consensus_beefy::{
 	AncestryHelper, Commitment, Payload, ValidatorSet,
 };
 
-use sp_core::{
-	offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt},
-	H256,
-};
+use sp_core::H256;
 use sp_io::TestExternalities;
 use sp_runtime::{traits::Keccak256, DigestItem};
 
@@ -40,8 +37,6 @@ fn init_block(block: u64, maybe_parent_hash: Option<H256>) {
 	System::initialize(&block, &parent_hash, &Default::default());
 	Session::on_initialize(block);
 	Mmr::on_initialize(block);
-	Beefy::on_initialize(block);
-	BeefyMmr::on_initialize(block);
 }
 
 pub fn beefy_log(log: ConsensusLog<BeefyId>) -> DigestItem {
@@ -211,11 +206,6 @@ fn should_update_authorities() {
 fn extract_validation_context_should_work_correctly() {
 	let mut ext = new_test_ext(vec![1, 2]);
 
-	// Register offchain ext.
-	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
-	ext.register_extension(OffchainDbExt::new(offchain.clone()));
-	ext.register_extension(OffchainWorkerExt::new(offchain));
-
 	ext.execute_with(|| {
 		init_block(1, None);
 		let h1 = System::finalize();
@@ -262,13 +252,8 @@ fn is_non_canonical_should_work_correctly() {
 	});
 	ext.persist_offchain_overlay();
 
-	// Register offchain ext.
-	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
-	ext.register_extension(OffchainDbExt::new(offchain.clone()));
-	ext.register_extension(OffchainWorkerExt::new(offchain));
-
 	ext.execute_with(|| {
-		let valid_proof = Mmr::generate_ancestry_proof(250, None).unwrap();
+		let valid_proof = BeefyMmr::generate_proof(250, None).unwrap();
 		let mut invalid_proof = valid_proof.clone();
 		invalid_proof.items.push((300, Default::default()));
 
@@ -343,7 +328,7 @@ fn is_non_canonical_should_work_correctly() {
 		// - should return false, if the commitment is targeting the canonical chain
 		// - should return true if the commitment is NOT targeting the canonical chain
 		for prev_block_number in 1usize..=500 {
-			let proof = Mmr::generate_ancestry_proof(prev_block_number as u64, None).unwrap();
+			let proof = BeefyMmr::generate_proof(prev_block_number as u64, None).unwrap();
 
 			assert_eq!(
 				BeefyMmr::is_non_canonical(
