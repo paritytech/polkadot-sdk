@@ -373,19 +373,6 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
 	pub telemetry: Option<&'a mut Telemetry>,
 }
 
-// Wrapper for HTTP and WS servers that makes sure they are properly shut down.
-mod waiting {
-	pub struct Server(pub Option<jsonrpsee::server::ServerHandle>);
-
-	impl Drop for Server {
-		fn drop(&mut self) {
-			if let Some(server) = self.0.take() {
-				// This doesn't not wait for the server to be stopped but fires the signal.
-				let _ = server.stop();
-			}
-		}
-	}
-}
 /// Spawn the tasks that are required to run a node.
 pub fn spawn_tasks<TBl, TBackend, TExPool, TRpc, TCl>(
 	params: SpawnTasksParams<TBl, TCl, TExPool, TRpc, TBackend>,

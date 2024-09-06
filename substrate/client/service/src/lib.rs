@@ -452,7 +452,7 @@ where
 	match tokio::task::block_in_place(|| {
 		tokio_handle.block_on(sc_rpc_server::start_server(server_config))
 	}) {
-		Ok(server) => Ok(waiting::Server(Some(server))),
+		Ok(server) => Ok(server),
 		Err(e) => Err(Error::Application(e)),
 	}
 }

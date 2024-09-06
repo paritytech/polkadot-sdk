@@ -74,6 +74,13 @@ impl Server {
 	}
 }
 
+impl Drop for Server {
+	fn drop(&mut self) {
+		// This doesn't not wait for the server to be stopped but fires the signal.
+		let _ = self.handle.stop();
+	}
+}
+
 /// Trait for providing subscription IDs that can be cloned.
 pub trait SubscriptionIdProvider:
 	jsonrpsee::core::traits::IdProvider + dyn_clone::DynClone
