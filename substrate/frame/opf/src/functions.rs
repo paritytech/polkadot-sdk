@@ -133,6 +133,42 @@ impl<T: Config> Pallet<T> {
 		if Votes::<T>::contains_key(&project, &voter_id) {
 			let infos = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let amount = infos.amount;
+			let conviction = infos.conviction;
+			let is_fund = infos.is_fund;
+
+			let conviction_fund = amount.saturating_add(
+				amount.saturating_mul(<u8 as From<Conviction>>::from(conviction).into()),
+			);
+
+			// Update Round infos
+			let round_number = VotingRoundNumber::<T>::get().saturating_sub(1);
+			let mut round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
+			if is_fund {
+				round.total_positive_votes_amount =
+					round.total_positive_votes_amount.saturating_sub(conviction_fund);
+			} else {
+				round.total_negative_votes_amount =
+					round.total_negative_votes_amount.saturating_sub(conviction_fund);
+			}
+
+			VotingRounds::<T>::mutate(round_number, |val| {
+				*val = Some(round.clone());
+			});
+
+			// Update ProjectFund Storage
+
+			ProjectFunds::<T>::mutate(&project, |val| {
+				let mut val0 = val.clone().into_inner();
+				if is_fund {
+					val0[0] = val0[0 as usize].saturating_sub(conviction_fund);
+				} else {
+					val0[1] = val0[1 as usize].saturating_sub(conviction_fund);
+				}
+				*val = BoundedVec::<BalanceOf<T>, ConstU32<2>>::try_from(val0).expect("It works");
+			});
+
+			// Remove Vote Infos
+
 			Votes::<T>::remove(&project, &voter_id);
 
 			T::NativeBalance::release(
@@ -272,6 +308,8 @@ impl<T: Config> Pallet<T> {
 		// Create a new round when we reach the end of the current round.
 		if now == round_ending_block {
 			let _new_round = VotingRoundInfo::<T>::new();
+			// ToDo: Clear Votes storage
+
 			// Emmit events
 			Self::deposit_event(Event::<T>::VotingRoundEnded {
 				when: now,

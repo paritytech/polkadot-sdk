@@ -197,7 +197,7 @@ fn rewards_calculation_works() {
 		// Eve nominate project_102 with an amount of 5000*BSX with conviction 1x => equivalent to
 		// 10000*BSX locked
 		assert_ok!(Opf::vote(
-			RawOrigin::Signed(BOB).into(),
+			RawOrigin::Signed(EVE).into(),
 			102,
 			5000 * BSX,
 			true,
@@ -256,14 +256,24 @@ fn vote_removal_works() {
 		create_project_list();
 		next_block();
 
-		// Bob nominate project_102 with an amount of 1000
+		// Bob nominate project_102 with an amount of 1000  equivalent to
+		// 2000 locked
 		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true, Conviction::Locked1x));
+
+		// Eve nominate project_101 with an amount of 5000 with conviction 1x => equivalent to
+		// 10000 locked
+		assert_ok!(Opf::vote(RawOrigin::Signed(EVE).into(), 101, 5000, true, Conviction::Locked1x));
+
+		// ProjectFund is correctly updated
+		let project_fund_before = ProjectFunds::<Test>::get(101);
+		assert_eq!(project_fund_before[0], 12000);
 
 		// Voter's funds are locked
 		let locked_balance0 =
 			<<Test as pallet_distribution::Config>::NativeBalance as fungible::hold::Inspect<
 				u64,
 			>>::balance_on_hold(&pallet_distribution::HoldReason::FundsReserved.into(), &BOB);
+
 		// Vote is in storage and balance is locked
 		assert!(locked_balance0 > Zero::zero());
 		assert_eq!(Votes::<Test>::get(101, BOB).is_some(), true);
@@ -279,6 +289,10 @@ fn vote_removal_works() {
 		// No more votes in storage and balance is unlocked
 		assert_eq!(Votes::<Test>::get(101, BOB).is_some(), false);
 		assert_eq!(locked_balance1, Zero::zero());
+
+		// ProjectFund is correctly updated
+		let project_fund_after = ProjectFunds::<Test>::get(101);
+		assert_eq!(project_fund_after[0], 10000);
 	})
 }
 

@@ -282,11 +282,7 @@ pub mod pallet {
 
 			let when = T::BlockNumberProvider::current_block_number();
 
-			Self::deposit_event(Event::<T>::VoteCasted {
-				who: voter,
-				when,
-				project_id: project_id,
-			});
+			Self::deposit_event(Event::<T>::VoteCasted { who: voter, when, project_id });
 
 			Ok(())
 		}
@@ -319,11 +315,7 @@ pub mod pallet {
 			Self::try_remove_vote(voter.clone(), project_id.clone())?;
 
 			let when = T::BlockNumberProvider::current_block_number();
-			Self::deposit_event(Event::<T>::VoteRemoved {
-				who: voter,
-				when,
-				project_id: project_id,
-			});
+			Self::deposit_event(Event::<T>::VoteRemoved { who: voter, when, project_id });
 
 			Ok(())
 		}
