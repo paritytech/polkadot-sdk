@@ -242,13 +242,14 @@ pub mod pallet {
 				.hash_tree_root()
 				.map_err(|_| Error::<T>::SyncCommitteeHashTreeRootFailed)?;
 
+			let sync_committee_g_index = current_sync_committee_gindex_at_slot(update.header.slot);
 			// Verifies the sync committee in the Beacon state.
 			ensure!(
 				verify_merkle_branch(
 					sync_committee_root,
 					&update.current_sync_committee_branch,
-					config::CURRENT_SYNC_COMMITTEE_SUBTREE_INDEX,
-					config::CURRENT_SYNC_COMMITTEE_DEPTH,
+					subtree_index(sync_committee_g_index),
+					generalized_index_length(sync_committee_g_index),
 					update.header.state_root
 				),
 				Error::<T>::InvalidSyncCommitteeMerkleProof
@@ -599,6 +600,9 @@ pub mod pallet {
 
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
+			if epoch >= fork_versions.electra.epoch {
+				return fork_versions.electra.version
+			}
 			if epoch >= fork_versions.deneb.epoch {
 				return fork_versions.deneb.version
 			}
@@ -669,6 +673,61 @@ pub mod pallet {
 			}
 
 			Pays::Yes
+		}
+
+		pub fn finalized_root_gindex_at_slot(slot: u64) -> u64 {
+			let fork_versions = T::ForkVersions::get();
+			let epoch = compute_epoch_at_slot(slot);
+
+			if epoch >= fork_versions.electra.epoch {
+				config::electra::FINALIZED_ROOT_INDEX
+			}
+
+			config::altair::FINALIZED_ROOT_INDEX
+		}
+
+		pub fn current_sync_committee_gindex_at_slot(slot: u64) -> u64 {
+			let fork_versions = T::ForkVersions::get();
+			let epoch = compute_epoch_at_slot(slot);
+
+			if epoch >= fork_versions.electra.epoch {
+				config::electra::CURRENT_SYNC_COMMITTEE_INDEX
+			}
+
+			config::altair::CURRENT_SYNC_COMMITTEE_INDEX
+		}
+
+		pub fn next_sync_committee_gindex_at_slot(slot: u64) -> u64 {
+			let fork_versions = T::ForkVersions::get();
+			let epoch = compute_epoch_at_slot(slot);
+
+			if epoch >= fork_versions.electra.epoch {
+				config::electra::NEXT_SYNC_COMMITTEE_INDEX
+			}
+
+			config::altair::NEXT_SYNC_COMMITTEE_INDEX
+		}
+
+		pub fn block_roots_gindex_at_slot(slot: u64) -> u64 {
+			let fork_versions = T::ForkVersions::get();
+			let epoch = compute_epoch_at_slot(slot);
+
+			if epoch >= fork_versions.electra.epoch {
+				config::electra::BLOCK_ROOTS_INDEX
+			}
+
+			config::altair::BLOCK_ROOTS_INDEX
+		}
+
+		pub fn execution_header_gindex_at_slot(slot: u64) -> u64 {
+			let fork_versions = T::ForkVersions::get();
+			let epoch = compute_epoch_at_slot(slot);
+
+			if epoch >= fork_versions.electra.epoch {
+				config::electra::EXECUTION_HEADER_INDEX
+			}
+
+			config::altair::EXECUTION_HEADER_INDEX
 		}
 	}
 }
