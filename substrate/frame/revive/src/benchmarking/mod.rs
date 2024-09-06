@@ -94,7 +94,7 @@ where
 		data: Vec<u8>,
 	) -> Result<Contract<T>, &'static str> {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let salt = [0xffu8; 32];
+		let salt = Some([0xffu8; 32]);
 
 		let outcome = Contracts::<T>::bare_instantiate(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -344,7 +344,6 @@ mod benchmarks {
 
 	// `c`: Size of the code in bytes.
 	// `i`: Size of the input in bytes.
-	// `s`: Size of the salt in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
 		c: Linear<0, { T::MaxCodeLen::get() }>,
@@ -362,7 +361,7 @@ mod benchmarks {
 		let account_id = T::AddressMapper::to_account_id_contract(&addr);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
-		_(origin, value, Weight::MAX, storage_deposit, code, input, salt);
+		_(origin, value, Weight::MAX, storage_deposit, code, input, Some(salt));
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
@@ -378,7 +377,7 @@ mod benchmarks {
 	}
 
 	// `i`: Size of the input in bytes.
-	// `s`: Size of the salt in bytes.
+	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate(i: Linear<0, { limits::MEMORY_BYTES }>) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
@@ -403,7 +402,7 @@ mod benchmarks {
 			storage_deposit,
 			hash,
 			input,
-			salt,
+			Some(salt),
 		);
 
 		let deposit =
@@ -533,17 +532,17 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_caller() {
 		let len = H160::len_bytes();
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_caller(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_caller(memory.as_mut_slice(), 0);
 		}
 
 		assert_ok!(result);
 		assert_eq!(
-			<H160 as Decode>::decode(&mut &memory[4..]).unwrap(),
+			<H160 as Decode>::decode(&mut &memory[..]).unwrap(),
 			T::AddressMapper::to_address(&runtime.ext().caller().account_id().unwrap())
 		);
 	}
@@ -568,17 +567,17 @@ mod benchmarks {
 	fn seal_code_hash() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], contract.account_id.encode(), ]);
+		build_runtime!(runtime, memory: [vec![0u8; len as _], contract.account_id.encode(), ]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_code_hash(memory.as_mut_slice(), 4 + len, 4, 0);
+			result = runtime.bench_code_hash(memory.as_mut_slice(), len, 0);
 		}
 
 		assert_ok!(result);
 		assert_eq!(
-			<sp_core::H256 as Decode>::decode(&mut &memory[4..]).unwrap(),
+			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
 			contract.info().unwrap().code_hash
 		);
 	}
@@ -586,16 +585,16 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_own_code_hash() {
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, contract, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, contract, memory: [vec![0u8; len as _], ]);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_own_code_hash(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_own_code_hash(memory.as_mut_slice(), 0);
 		}
 
 		assert_ok!(result);
 		assert_eq!(
-			<sp_core::H256 as Decode>::decode(&mut &memory[4..]).unwrap(),
+			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
 			contract.info().unwrap().code_hash
 		);
 	}
@@ -630,15 +629,15 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_address() {
 		let len = H160::len_bytes();
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_address(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_address(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(<H160 as Decode>::decode(&mut &memory[4..]).unwrap(), runtime.ext().address());
+		assert_eq!(<H160 as Decode>::decode(&mut &memory[..]).unwrap(), runtime.ext().address());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1529,7 +1528,6 @@ mod benchmarks {
 
 	// t: value to transfer
 	// i: size of input in bytes
-	// s: size of salt in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn seal_instantiate(i: Linear<0, { limits::MEMORY_BYTES }>) -> Result<(), BenchmarkError> {
 		let code = WasmModule::dummy();
@@ -1583,11 +1581,9 @@ mod benchmarks {
 				offset(value_len),   // input_data_ptr
 				i,                   // input_data_len
 				SENTINEL,            // address_ptr
-				0,                   // address_len_ptr
 				SENTINEL,            // output_ptr
 				0,                   // output_len_ptr
 				offset(i),           // salt_ptr
-				32,                  // salt_len
 			);
 		}
 
