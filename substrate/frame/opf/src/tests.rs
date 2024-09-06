@@ -225,8 +225,8 @@ fn rewards_calculation_works() {
 
 		assert_eq!(pallet_distribution::Projects::<Test>::get().len() == 2, true);
 		let rewards = pallet_distribution::Projects::<Test>::get();
-		assert_eq!(rewards[0].project_account, 101);
-		assert_eq!(rewards[1].project_account, 102);
+		assert_eq!(rewards[0].project_id, 101);
+		assert_eq!(rewards[1].project_id, 102);
 		//assert_eq!(rewards[0].amount > rewards[1].amount, true);
 		//assert_eq!(rewards[0].amount, 76000);
 		assert_eq!(rewards[1].amount, 23000);

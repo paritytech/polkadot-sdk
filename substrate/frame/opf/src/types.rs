@@ -46,6 +46,7 @@ pub use sp_runtime::{
 pub use weights::WeightInfo;
 
 pub type RoundIndex = u32;
+pub type VoterId<T> = AccountIdOf<T>;
 
 #[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]

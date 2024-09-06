@@ -21,7 +21,7 @@ pub use super::*;
 impl<T: Config> Pallet<T> {
 	// Helper function for voting action. Existing votes are over-written, and Hold is adjusted
 	pub fn try_vote(
-		voter_id: AccountIdOf<T>,
+		voter_id: VoterId<T>,
 		project: ProjectId<T>,
 		amount: BalanceOf<T>,
 		is_fund: bool,
@@ -129,7 +129,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// Helper function for complete vote data removal from storage.
-	pub fn try_remove_vote(voter_id: AccountIdOf<T>, project: AccountIdOf<T>) -> DispatchResult {
+	pub fn try_remove_vote(voter_id: VoterId<T>, project: ProjectId<T>) -> DispatchResult {
 		if Votes::<T>::contains_key(&project, &voter_id) {
 			let infos = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let amount = infos.amount;
@@ -180,7 +180,7 @@ impl<T: Config> Pallet<T> {
 							.checked_add(&T::BufferPeriod::get())
 							.ok_or(Error::<T>::InvalidResult)?;
 						let project_info = ProjectInfo {
-							project_account: project.clone(),
+							project_id: project.clone(),
 							submission_block: now,
 							amount: final_amount,
 						};

@@ -125,7 +125,7 @@ pub mod pallet {
 		Blake2_128Concat,
 		ProjectId<T>,
 		Twox64Concat,
-		AccountIdOf<T>,
+		VoterId<T>,
 		VoteInfo<T>,
 		OptionQuery,
 	>;
@@ -137,24 +137,24 @@ pub mod pallet {
 		RewardsAssigned { when: BlockNumberFor<T> },
 
 		/// User's vote successfully submitted
-		VoteCasted { who: AccountIdOf<T>, when: BlockNumberFor<T>, project_id: AccountIdOf<T> },
+		VoteCasted { who: VoterId<T>, when: BlockNumberFor<T>, project_id: ProjectId<T> },
 
 		/// User's vote successfully removed
-		VoteRemoved { who: AccountIdOf<T>, when: BlockNumberFor<T>, project_id: AccountIdOf<T> },
+		VoteRemoved { who: VoterId<T>, when: BlockNumberFor<T>, project_id: ProjectId<T> },
 
 		/// Project removed from whitelisted projects list
-		ProjectUnlisted { when: BlockNumberFor<T>, project_id: AccountIdOf<T> },
+		ProjectUnlisted { when: BlockNumberFor<T>, project_id: ProjectId<T> },
 
 		/// Project Funding Accepted by voters
 		ProjectFundingAccepted {
-			project_id: AccountIdOf<T>,
+			project_id: ProjectId<T>,
 			when: BlockNumberFor<T>,
 			round_number: u32,
 			amount: BalanceOf<T>,
 		},
 
 		/// Project Funding rejected by voters
-		ProjectFundingRejected { when: BlockNumberFor<T>, project_id: AccountIdOf<T> },
+		ProjectFundingRejected { when: BlockNumberFor<T>, project_id: ProjectId<T> },
 
 		/// A new voting round started
 		VotingRoundStarted { when: BlockNumberFor<T>, round_number: u32 },
@@ -166,7 +166,7 @@ pub mod pallet {
 		VotingRoundEnded { when: BlockNumberFor<T>, round_number: u32 },
 
 		/// User's funds unlocked
-		FundsUnlocked { when: BlockNumberFor<T>, amount: BalanceOf<T>, project_id: AccountIdOf<T> },
+		FundsUnlocked { when: BlockNumberFor<T>, amount: BalanceOf<T>, project_id: ProjectId<T> },
 	}
 
 	#[pallet::error]
@@ -236,7 +236,7 @@ pub mod pallet {
 		/// votes.
 		///
 		/// ### Parameters
-		/// - `project_account`: The account that will receive the reward.
+		/// - `project_id`: The account that will receive the reward.
 		/// - `amount`: Amount that will be locked in user’s balance to nominate a project.
 		/// - `is_fund`: Parameter that defines if user’s vote is in favor (*true*), or against
 		///   (*false*)
@@ -250,7 +250,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::vote(T::MaxWhitelistedProjects::get()))]
 		pub fn vote(
 			origin: OriginFor<T>,
-			project_account: ProjectId<T>,
+			project_id: ProjectId<T>,
 			#[pallet::compact] amount: BalanceOf<T>,
 			is_fund: bool,
 			conviction: Conviction,
@@ -278,14 +278,14 @@ pub mod pallet {
 
 			// Vote action executed
 
-			Self::try_vote(voter.clone(), project_account.clone(), amount, is_fund, conviction)?;
+			Self::try_vote(voter.clone(), project_id.clone(), amount, is_fund, conviction)?;
 
 			let when = T::BlockNumberProvider::current_block_number();
 
 			Self::deposit_event(Event::<T>::VoteCasted {
 				who: voter,
 				when,
-				project_id: project_account,
+				project_id: project_id,
 			});
 
 			Ok(())
@@ -303,7 +303,7 @@ pub mod pallet {
 		/// vote-casting period.
 		///
 		/// ### Parameters
-		/// - `project_account`: The account that will receive the reward.
+		/// - `project_id`: The account that will receive the reward.
 		///
 		/// ### Errors
 		/// - [`Error::<T>::NotEnoughFunds`]: The user does not have enough balance to cast a vote
@@ -311,18 +311,18 @@ pub mod pallet {
 		/// ## Events
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::remove_vote(T::MaxWhitelistedProjects::get()))]
-		pub fn remove_vote(origin: OriginFor<T>, project_account: ProjectId<T>) -> DispatchResult {
+		pub fn remove_vote(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
 			// Get current voting round & check if we are in voting period or not
 			Self::period_check()?;
 			// Removal action executed
-			Self::try_remove_vote(voter.clone(), project_account.clone())?;
+			Self::try_remove_vote(voter.clone(), project_id.clone())?;
 
 			let when = T::BlockNumberProvider::current_block_number();
 			Self::deposit_event(Event::<T>::VoteRemoved {
 				who: voter,
 				when,
-				project_id: project_account,
+				project_id: project_id,
 			});
 
 			Ok(())
@@ -340,7 +340,7 @@ pub mod pallet {
 		/// provided the locking period (which is dependant of the conviction) has ended.
 		///
 		/// ### Parameters
-		/// - `project_account`: The account that will receive the reward.
+		/// - `project_id`: The account that will receive the reward.
 		///
 		/// ### Errors
 		/// - [`Error::<T>::NotEnoughFunds`]: The user does not have enough balance to cast a vote
@@ -348,7 +348,7 @@ pub mod pallet {
 		/// ## Events
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::unlock_funds(T::MaxWhitelistedProjects::get()))]
-		pub fn unlock_funds(origin: OriginFor<T>, project: AccountIdOf<T>) -> DispatchResult {
+		pub fn unlock_funds(origin: OriginFor<T>, project: ProjectId<T>) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
 			let infos = Votes::<T>::get(&project, &voter).ok_or(Error::<T>::NoVoteData)?;
 			let amount = infos.amount;
