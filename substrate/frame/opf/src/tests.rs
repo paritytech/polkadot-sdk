@@ -205,11 +205,10 @@ fn rewards_calculation_works() {
 		));
 
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
-		let mut now =
-			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
 
 		run_to_block(round_info.voting_locked_block);
-		now = <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
+		let mut now =
+			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
 
 		assert_eq!(now, round_info.voting_locked_block);
 

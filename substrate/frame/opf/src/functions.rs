@@ -308,8 +308,12 @@ impl<T: Config> Pallet<T> {
 		// Create a new round when we reach the end of the current round.
 		if now == round_ending_block {
 			let _new_round = VotingRoundInfo::<T>::new();
-			// ToDo: Clear Votes storage
-
+			// Clear WhiteListedProjectAccounts storage
+			WhiteListedProjectAccounts::<T>::kill();
+			// Clear Votes storage
+			Votes::<T>::drain();
+			// Clear ProjectFunds storage
+			ProjectFunds::<T>::drain();
 			// Emmit events
 			Self::deposit_event(Event::<T>::VotingRoundEnded {
 				when: now,
