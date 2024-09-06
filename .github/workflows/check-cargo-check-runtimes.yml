@@ -125,11 +125,6 @@ jobs:
           root: cumulus/parachains/runtimes/testing
 
   cargo-check-all-crate-macos:
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    # TODO: remove once migration is complete or this workflow is fully stable
-    if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
     runs-on: macOS
     needs: [set-image]
     strategy:
