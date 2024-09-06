@@ -86,6 +86,7 @@ pub trait WeightInfo {
 	fn transfer_all() -> Weight;
 	fn mint_distribution() -> Weight;
 	fn claim_distribution() -> Weight;
+	fn end_distribution() -> Weight;
 }
 
 /// Weights for `pallet_assets` using the Substrate node and recommended hardware.
@@ -552,6 +553,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::default()
 	}
 
+	fn end_distribution() -> Weight {
+		Weight::default()
+	}
+
 }
 
 // For backwards compatibility and tests.
@@ -1014,6 +1019,10 @@ impl WeightInfo for () {
 	}
 
 	fn claim_distribution() -> Weight {
+		Weight::default()
+	}
+
+	fn end_distribution() -> Weight {
 		Weight::default()
 	}
 }

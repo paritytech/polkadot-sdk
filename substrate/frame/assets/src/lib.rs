@@ -662,7 +662,13 @@ pub mod pallet {
 		/// Some assets were withdrawn from the account (e.g. for transaction fees).
 		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 		/// A distribution of assets were issued.
-		DistributionIssued { asset_id: T::AssetId, merkle_root: T::Hash },
+		DistributionIssued {
+			distribution_id: DistributionCounter,
+			asset_id: T::AssetId,
+			merkle_root: T::Hash,
+		},
+		/// A distribution has ended.
+		DistributionEnded { distribution_id: DistributionCounter },
 	}
 
 	#[pallet::error]
@@ -1838,7 +1844,6 @@ pub mod pallet {
 		/// Emits `DistributionIssued` event when successful.
 		///
 		/// Weight: `O(1)`
-		/// Modes: Pre-existing balance of `beneficiary`; Account pre-existence of `beneficiary`.
 		#[pallet::call_index(33)]
 		pub fn mint_distribution(
 			origin: OriginFor<T>,
@@ -1861,8 +1866,7 @@ pub mod pallet {
 		///
 		/// Emits `Issued` event when successful.
 		///
-		/// Weight: `O(1)`
-		/// Modes: Pre-existing balance of `beneficiary`; Account pre-existence of `beneficiary`.
+		/// Weight: `O(P)` where `P` is the size of the merkle proof.
 		#[pallet::call_index(34)]
 		pub fn claim_distribution(
 			origin: OriginFor<T>,
@@ -1873,6 +1877,25 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			Self::do_claim_distribution(distribution_id, beneficiary, amount, merkle_proof)?;
+			Ok(())
+		}
+
+		/// End the distribution of assets by distribution id.
+		///
+		/// The origin must be Signed and the sender must be the Issuer of the asset `id`.
+		///
+		/// - `distribution_id`: The identifier of the distribution.
+		///
+		/// Emits `DistributionEnded` event when successful.
+		///
+		/// Weight: `O(1)`
+		#[pallet::call_index(35)]
+		pub fn end_distribution(
+			origin: OriginFor<T>,
+			distribution_id: DistributionCounter,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			Self::do_end_distribution(distribution_id, Some(origin))?;
 			Ok(())
 		}
 	}

@@ -458,10 +458,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			active: true,
 		};
 
-		let distribution_count: u32 = MerklizedDistribution::<T, I>::count();
-		MerklizedDistribution::<T, I>::insert(&distribution_count, info);
+		let distribution_id: u32 = MerklizedDistribution::<T, I>::count();
+		MerklizedDistribution::<T, I>::insert(&distribution_id, info);
 
-		Self::deposit_event(Event::DistributionIssued { asset_id: id, merkle_root });
+		Self::deposit_event(Event::DistributionIssued {
+			distribution_id,
+			asset_id: id,
+			merkle_root,
+		});
 
 		Ok(())
 	}
@@ -496,6 +500,28 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		Self::do_mint(asset_id, &beneficiary, amount, None)?;
 		MerklizedDistributionTracker::<T, I>::insert(&distribution_id, &beneficiary, ());
+
+		Ok(())
+	}
+
+	/// Ends the asset distribution of `distribution_id`.
+	pub(super) fn do_end_distribution(
+		distribution_id: DistributionCounter,
+		maybe_check_issuer: Option<T::AccountId>,
+	) -> DispatchResult {
+		let mut info =
+			MerklizedDistribution::<T, I>::get(&distribution_id).ok_or(Error::<T, I>::Unknown)?;
+		let details = Asset::<T, I>::get(&info.asset_id).ok_or(Error::<T, I>::Unknown)?;
+
+		if let Some(check_issuer) = maybe_check_issuer {
+			ensure!(check_issuer == details.issuer, Error::<T, I>::NoPermission);
+		}
+
+		info.active = false;
+
+		MerklizedDistribution::<T, I>::insert(&distribution_id, info);
+
+		Self::deposit_event(Event::DistributionEnded { distribution_id });
 
 		Ok(())
 	}
