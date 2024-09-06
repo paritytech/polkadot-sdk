@@ -153,7 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 functions within the pallet.</p>
 </div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../../src/cumulus_pallet_parachain_system/lib.rs.html#502-655">source</a><a href="#impl-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait cumulus_pallet_parachain_system::pallet::Config">Config</a>&gt; <a class="struct" href="struct.Pallet.html" title="struct cumulus_pallet_parachain_system::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.set_validation_data" class="method"><a class="src rightside" href="../../src/cumulus_pallet_parachain_system/lib.rs.html#189">source</a><h4 class="code-header">pub fn <a href="#method.set_validation_data" class="fn">set_validation_data</a>(
     origin: OriginFor&lt;T&gt;,
-    data: <a class="struct" href="../../cumulus_primitives_parachain_inherent/struct.ParachainInherentData.html" title="struct cumulus_primitives_parachain_inherent::ParachainInherentData">ParachainInherentData</a>
+    data: ParachainInherentData
 ) -&gt; DispatchResultWithPostInfo</h4></section></summary><div class="docblock"><p>Set the current validation data.</p>
 <p>This should be invoked exactly once per block. It will panic at the finalization
 phase if the call was not invoked.</p>

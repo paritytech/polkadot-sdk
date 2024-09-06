@@ -1372,6 +1372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1220" id="1220">1220</a>
 <a href="#1221" id="1221">1221</a>
 <a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1421,7 +1422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
 	CandidateReceipt, ExecutorParams, Hash, OccupiedCoreAssumption, PersistedValidationData,
-	PvfExecKind, PvfPrepKind, SessionIndex, ValidationCode, ValidationCodeHash,
+	PvfExecKind, PvfPrepKind, SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
 };
 <span class="kw">use </span>sp_application_crypto::{AppCrypto, ByteArray};
 <span class="kw">use </span>sp_keystore::KeystorePtr;
@@ -1801,14 +1802,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.iter()
 		.any(|v| keystore.has_keys(<span class="kw-2">&amp;</span>[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]));
 
-	<span class="kw">let </span>is_present_authority = session_info
-		.discovery_keys
+	<span class="comment">// We could've checked discovery_keys but on Kusama validators.len() &lt; discovery_keys.len().
+	</span><span class="kw">let </span>is_present_validator = session_info
+		.validators
 		.iter()
-		.any(|v| keystore.has_keys(<span class="kw-2">&amp;</span>[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]));
+		.any(|v| keystore.has_keys(<span class="kw-2">&amp;</span>[(v.to_raw_vec(), ValidatorId::ID)]));
 
 	<span class="comment">// There is still a chance to be a previous session authority, but this extra work does not
 	// affect the finalization.
-	</span>is_past_present_or_future_authority &amp;&amp; !is_present_authority
+	</span>is_past_present_or_future_authority &amp;&amp; !is_present_validator
 }
 
 <span class="comment">// Sends PVF with unknown code hashes to the validation host returning the list of code hashes sent.
