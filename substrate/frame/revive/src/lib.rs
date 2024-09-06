@@ -824,7 +824,7 @@ pub mod pallet {
 		/// must be supplied.
 		#[pallet::call_index(1)]
 		#[pallet::weight(
-			T::WeightInfo::instantiate(data.len() as u32, 32).saturating_add(*gas_limit)
+			T::WeightInfo::instantiate(data.len() as u32).saturating_add(*gas_limit)
 		)]
 		pub fn instantiate(
 			origin: OriginFor<T>,
@@ -855,7 +855,7 @@ pub mod pallet {
 			dispatch_result(
 				output.result.map(|result| result.result),
 				output.gas_consumed,
-				T::WeightInfo::instantiate(data_len, 32),
+				T::WeightInfo::instantiate(data_len),
 			)
 		}
 
@@ -888,7 +888,7 @@ pub mod pallet {
 		/// - The `deploy` function is executed in the context of the newly-created account.
 		#[pallet::call_index(2)]
 		#[pallet::weight(
-			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32, 32)
+			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32)
 			.saturating_add(*gas_limit)
 		)]
 		pub fn instantiate_with_code(
@@ -921,7 +921,7 @@ pub mod pallet {
 			dispatch_result(
 				output.result.map(|result| result.result),
 				output.gas_consumed,
-				T::WeightInfo::instantiate_with_code(code_len, data_len, 32),
+				T::WeightInfo::instantiate_with_code(code_len, data_len),
 			)
 		}
 
