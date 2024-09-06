@@ -244,8 +244,6 @@ impl Discovery {
 		let (ping_config, ping_event_stream) = PingConfig::default();
 		let user_agent = format!("{} ({})", config.client_version, config.node_name);
 
-		// The public addresses are now are added on the litep2p object instead,
-		// using `litep2p.public_addresses` object.
 		let (identify_config, identify_event_stream) =
 			IdentifyConfig::new("/substrate/1.0".to_string(), Some(user_agent));
 

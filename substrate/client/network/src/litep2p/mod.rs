@@ -554,12 +554,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			.with_libp2p_ping(ping_config)
 			.with_libp2p_identify(identify_config)
 			.with_libp2p_kademlia(kademlia_config)
-			.with_connection_limits(
-				// By default litep2p accepts only two connections per peer.
-				ConnectionLimitsConfig::default().max_incoming_connections(Some(
-					crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING as usize,
-				)),
-			)
+			.with_connection_limits(ConnectionLimitsConfig::default().max_incoming_connections(
+				Some(crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING as usize),
+			))
 			.with_executor(executor);
 
 		if let Some(config) = maybe_mdns_config {
