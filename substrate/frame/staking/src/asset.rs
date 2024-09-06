@@ -96,6 +96,9 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 	T::Currency::set_on_hold(&HoldReason::Staking.into(), who, amount)
 }
 
+/// Release all staked amount to `who`.
+///
+/// Fails if there are consumers left on `who` that restricts it from being reaped.
 pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
 	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort)
 		.map(|_| ())?;
@@ -139,7 +142,7 @@ pub fn mint_existing<T: Config>(
 ///
 /// If value is below existential deposit, the account is not created.
 ///
-/// This does not increase the total issuance.
+/// Note: This does not increase the total issuance.
 pub fn mint_creating<T: Config>(who: &T::AccountId, value: BalanceOf<T>) -> PositiveImbalanceOf<T> {
 	T::Currency::deposit(who, value, Precision::BestEffort).unwrap_or_default()
 }
