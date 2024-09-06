@@ -31,14 +31,13 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		input: [u8; 4],
-		code_hash: [u8; 32],
+		code_hash: &[u8; 32],
 		deposit_limit: [u8; 8],
 	);
 
 	let value = 10_000u64.to_le_bytes();
-	let salt = [0u8; 0];
-	let mut address = [0u8; 32];
-	let address = &mut &mut address[..];
+	let salt = [0u8; 32];
+	let mut address = [0u8; 20];
 
 	api::instantiate(
 		code_hash,
@@ -47,12 +46,12 @@ pub extern "C" fn call() {
 		Some(deposit_limit),
 		&value,
 		input,
-		Some(address),
+		Some(&mut address),
 		None,
 		&salt,
 	)
 	.unwrap();
 
 	// Return the deployed contract address.
-	api::return_value(uapi::ReturnFlags::empty(), address);
+	api::return_value(uapi::ReturnFlags::empty(), &address);
 }

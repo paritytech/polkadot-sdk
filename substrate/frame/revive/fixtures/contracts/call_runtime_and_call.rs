@@ -31,7 +31,7 @@ pub extern "C" fn call() {
 	input!(
 		512,
 		callee_input: [u8; 4],
-		callee_addr: [u8; 32],
+		callee_addr: &[u8; 20],
 		call: [u8],
 	);
 
