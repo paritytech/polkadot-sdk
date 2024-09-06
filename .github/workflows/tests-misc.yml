@@ -398,8 +398,8 @@ jobs:
     steps:
       - run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          cat resultfile | grep '"result": "failure"'
-          if [ $? -eq 0 ]; then
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1
           else
