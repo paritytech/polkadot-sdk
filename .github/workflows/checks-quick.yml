@@ -200,7 +200,7 @@ jobs:
     steps:
       - run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          cat resultfile | grep '"result": "failure"'
+          cat resultfile | grep '"result": "failure"' || echo "All quick checks passed"
           if [ $? -eq 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1
