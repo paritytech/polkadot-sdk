@@ -733,17 +733,18 @@ pub mod pallet {
 			pays_fee: PaysFee<T>,
 		) -> Result<(), DispatchError> {
 			let bridge_location = Location::new(2, [GlobalConsensus(T::EthereumNetwork::get())]);
-			let mut location = location.clone();
-			location
-				.reanchor(&bridge_location, &T::UniversalLocation::get())
+			let location = location
+				.clone()
+				.reanchored(&bridge_location, &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationConversionFailed)?;
 
-			// Record the token id or fail if it has already been created
 			let token_id = TokenIdOf::convert_location(&location)
 				.ok_or(Error::<T>::LocationConversionFailed)?;
 
-			ForeignToNativeId::<T>::insert(token_id, location.clone());
-			NativeToForeignId::<T>::insert(location.clone(), token_id);
+			if (!ForeignToNativeId::<T>::contains_key(token_id)) {
+				ForeignToNativeId::<T>::insert(token_id, location.clone());
+				NativeToForeignId::<T>::insert(location.clone(), token_id);
+			}
 
 			let command = Command::RegisterForeignToken {
 				token_id,
