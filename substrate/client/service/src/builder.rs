@@ -802,8 +802,8 @@ where
 	pub block_announce_validator_builder: Option<
 		Box<dyn FnOnce(Arc<Client>) -> Box<dyn BlockAnnounceValidator<Block> + Send> + Send>,
 	>,
-	/// Optional warp sync config.
-	pub warp_sync_config: Option<WarpSyncConfig<Block>>,
+	/// Syncing strategy to use in syncing engine.
+	pub syncing_strategy: Box<dyn SyncingStrategy<Block>>,
 	/// User specified block relay params. If not specified, the default
 	/// block request handler will be used.
 	pub block_relay: Option<BlockRelayParams<Block, Net>>,
@@ -847,7 +847,7 @@ where
 		spawn_handle,
 		import_queue,
 		block_announce_validator_builder,
-		warp_sync_config,
+		syncing_strategy,
 		block_relay,
 		metrics,
 	} = params;
@@ -920,16 +920,6 @@ where
 	let peer_store = net_config.take_peer_store();
 	let peer_store_handle = peer_store.handle();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
-
-	let syncing_strategy = build_polkadot_syncing_strategy(
-		protocol_id.clone(),
-		config.chain_spec.fork_id(),
-		&mut net_config,
-		warp_sync_config,
-		client.clone(),
-		&spawn_handle,
-		config.prometheus_config.as_ref().map(|config| &config.registry),
-	)?;
 
 	let (engine, sync_service, block_announce_config) = SyncingEngine::new(
 		Roles::from(&config.role),
@@ -1057,7 +1047,8 @@ where
 	))
 }
 
-fn build_polkadot_syncing_strategy<Block, Client, Net>(
+/// Build standard polkadot syncing strategy
+pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	protocol_id: ProtocolId,
 	fork_id: Option<&str>,
 	net_config: &mut FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
