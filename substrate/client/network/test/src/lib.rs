@@ -71,7 +71,7 @@ use sc_network_sync::{
 			AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig,
 			WarpSyncProvider,
 		},
-		PolkadotSyncingStrategy, SyncingConfig,
+		PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig,
 	},
 	warp_request_handler,
 };
@@ -909,7 +909,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			<Block as BlockT>::Hash,
 		>>::register_notification_metrics(None);
 
-		let syncing_config = SyncingConfig {
+		let syncing_config = PolkadotSyncingStrategyConfig {
 			mode: network_config.sync_mode,
 			max_parallel_downloads: network_config.max_parallel_downloads,
 			max_blocks_per_request: network_config.max_blocks_per_request,

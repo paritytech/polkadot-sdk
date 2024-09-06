@@ -58,7 +58,7 @@ use sc_network_sync::{
 	engine::SyncingEngine,
 	service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
-	strategy::{PolkadotSyncingStrategy, SyncingConfig, SyncingStrategy},
+	strategy::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig, SyncingStrategy},
 	warp_request_handler::RequestHandler as WarpSyncRequestHandler,
 	SyncingService, WarpSyncConfig,
 };
@@ -1117,7 +1117,7 @@ where
 		net_config.add_request_response_protocol(config);
 	}
 
-	let syncing_config = SyncingConfig {
+	let syncing_config = PolkadotSyncingStrategyConfig {
 		mode: net_config.network_config.sync_mode,
 		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
 		max_blocks_per_request: net_config.network_config.max_blocks_per_request,

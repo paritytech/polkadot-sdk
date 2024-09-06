@@ -163,9 +163,9 @@ where
 	fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError>;
 }
 
-/// Syncing configuration containing data for all strategies.
+/// Syncing configuration containing data for [`PolkadotSyncingStrategy`].
 #[derive(Clone, Debug)]
-pub struct SyncingConfig {
+pub struct PolkadotSyncingStrategyConfig {
 	/// Syncing mode.
 	pub mode: SyncMode,
 	/// The number of parallel downloads to guard against slow peers.
@@ -233,7 +233,7 @@ impl<B: BlockT> SyncingAction<B> {
 /// Proxy to specific syncing strategies used in Polkadot.
 pub struct PolkadotSyncingStrategy<B: BlockT, Client> {
 	/// Initial syncing configuration.
-	config: SyncingConfig,
+	config: PolkadotSyncingStrategyConfig,
 	/// Client used by syncing strategies.
 	client: Arc<Client>,
 	/// Warp strategy.
@@ -497,7 +497,7 @@ where
 {
 	/// Initialize a new syncing strategy.
 	pub fn new(
-		mut config: SyncingConfig,
+		mut config: PolkadotSyncingStrategyConfig,
 		client: Arc<Client>,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
 		warp_sync_protocol_name: Option<ProtocolName>,
