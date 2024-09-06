@@ -75,6 +75,11 @@ where
 	MomentOf<T>: Into<U256>,
 	T::Hash: IsType<H256>,
 {
+	/// Returns the address of the contract.
+	fn address(&self) -> H160 {
+		T::AddressMapper::to_address(&self.account_id)
+	}
+
 	/// Create new contract and use a default account id as instantiator.
 	fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
 		Self::with_index(0, module, data)
@@ -218,12 +223,12 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 
 #[benchmarks(
 	where
-		<BalanceOf<T> as codec::HasCompact>::Type: Clone + Eq + PartialEq + core::fmt::Debug + scale_info::TypeInfo + codec::Encode,
-		T: Config + pallet_balances::Config,
-		BalanceOf<T>: From<<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance> + Into<U256> + TryFrom<U256>,
 		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+		BalanceOf<T>: From<<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance> + Into<U256> + TryFrom<U256>,
+		T: Config + pallet_balances::Config,
 		MomentOf<T>: Into<U256>,
-	T::Hash: IsType<H256>,
+		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
+		T::Hash: IsType<H256>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
 )]
 mod benchmarks {
@@ -816,7 +821,7 @@ mod benchmarks {
 		let topics_data =
 			topics.iter().flat_map(|hash| hash.as_bytes().to_vec()).collect::<Vec<u8>>();
 		let data = vec![42u8; n as _];
-		build_runtime!(runtime, memory: [ topics_data, data, ]);
+		build_runtime!(runtime, instance, memory: [ topics_data, data, ]);
 
 		let result;
 		#[block]
@@ -831,10 +836,16 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 
-		let event = System::<T>::events().into_iter().next().unwrap();
+		let events = System::<T>::events();
+		let record = &events[events.len() - 1];
+
 		assert_eq!(
+			record.event,
+			crate::Event::ContractEmitted { contract: instance.address(), data }.into(),
+		);
+		assert_eq!(
+			record.topics.iter().map(|t| H256::from_slice(t.as_ref())).collect::<Vec<_>>(),
 			topics,
-			event.topics.iter().map(|t| H256::from_slice(t.as_ref())).collect::<Vec<_>>()
 		);
 	}
 
