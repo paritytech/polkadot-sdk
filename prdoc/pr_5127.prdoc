@@ -1,0 +1,25 @@
+title: Add benchmark to check upcoming minimum required hw cores
+
+doc:
+  - audience: Node Operator
+    description: |
+      Add benchmark that checks hardware satisifies the minimum required hardware cores
+      for a validators. The new minimum requirements are schedule to come into effect 
+      in January 2025, for more details see: https://polkadot.subsquare.io/referenda/1051.
+ 
+
+crates:
+  - name: sc-sysinfo
+    bump: major
+  - name: frame-benchmarking-cli
+    bump: major
+  - name: staging-node-cli
+    bump: patch
+  - name: polkadot-service
+    bump: patch
+  - name: polkadot-parachain-lib
+    bump: patch
+  - name: polkadot-cli
+    bump: patch
+  - name: parachain-template-node
+    bump: patch
