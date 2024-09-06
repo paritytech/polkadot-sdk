@@ -1467,104 +1467,96 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 			continue
 		}
 
-		let scheduled_cores = scheduled.get_mut(&para_id);
-
-		// ParaIds without scheduled cores are silently filtered out.
-		if let Some(scheduled_cores) = scheduled_cores {
-			if scheduled_cores.len() == 0 {
-				log::debug!(
-					target: LOG_TARGET,
-					"Paraid: {:?} has no scheduled cores but {} candidates were supplied.",
-					para_id,
-					backed_candidates.len()
-				);
-
-			// Non-elastic scaling case. One core per para.
-			} else if scheduled_cores.len() == 1 && !core_index_enabled {
-				backed_candidates_with_core.insert(
-					para_id,
-					vec![(
-						// We need the first one here, as we assume candidates of a para are in
-						// dependency order.
-						backed_candidates.into_iter().next().expect("Length is at least 1"),
-						scheduled_cores.pop_first().expect("Length is 1"),
-					)],
-				);
-				continue;
-
-			// Elastic scaling case. We only allow candidates which have the right core
-			// indices injected.
-			} else if scheduled_cores.len() >= 1 && core_index_enabled {
-				// We must preserve the dependency order given in the input.
-				let mut temp_backed_candidates = Vec::with_capacity(scheduled_cores.len());
-
-				for candidate in backed_candidates {
-					if scheduled_cores.len() == 0 {
-						// We've got candidates for all of this para's assigned cores. Move on to
-						// the next para.
-						log::debug!(
-							target: LOG_TARGET,
-							"Found enough candidates for paraid: {:?}.",
-							candidate.descriptor().para_id()
-						);
-						break;
-					}
-
-					if let Some(core_index) = get_core_index::<T>(allowed_relay_parents, &candidate)
-					{
-						if scheduled_cores.remove(&core_index) {
-							temp_backed_candidates.push((candidate, core_index));
-						} else {
-							// if we got a candidate for a core index which is not scheduled, stop
-							// the work for this para. the already processed candidate chain in
-							// temp_backed_candidates is still fine though.
-							log::debug!(
-								target: LOG_TARGET,
-								"Found a backed candidate {:?} with core index {}, which is not scheduled for paraid {:?}.",
-								candidate.candidate().hash(),
-								core_index.0,
-								candidate.descriptor().para_id()
-							);
-
-							break;
-						}
-					} else {
-						// if we got a candidate which does not contain its core index, stop the
-						// work for this para. the already processed candidate chain in
-						// temp_backed_candidates is still fine though.
-
-						log::debug!(
-							target: LOG_TARGET,
-							"Found a backed candidate {:?} without core index informationm, but paraid {:?} has multiple scheduled cores.",
-							candidate.candidate().hash(),
-							candidate.descriptor().para_id()
-						);
-
-						break;
-					}
-				}
-
-				if !temp_backed_candidates.is_empty() {
-					backed_candidates_with_core
-						.entry(para_id)
-						.or_insert_with(|| vec![])
-						.extend(temp_backed_candidates);
-				}
-			} else {
-				log::warn!(
-					target: LOG_TARGET,
-					"Found a paraid {:?} which has multiple scheduled cores but ElasticScalingMVP feature is not enabled: {:?}",
-					para_id,
-					scheduled_cores
-				);
-			}
-		} else {
+		let Some(scheduled_cores) = scheduled.get_mut(&para_id) else {
 			log::debug!(
 				target: LOG_TARGET,
 				"Paraid: {:?} has no entry in scheduled cores but {} candidates were supplied.",
 				para_id,
 				backed_candidates.len()
 			);
+			continue
+		};
+
+		// ParaIds without scheduled cores are silently filtered out.
+		if scheduled_cores.len() == 0 {
+			log::debug!(
+				target: LOG_TARGET,
+				"Paraid: {:?} has no scheduled cores but {} candidates were supplied.",
+				para_id,
+				backed_candidates.len()
+			);
+			continue
+		}
+
+		// We must preserve the dependency order given in the input.
+		let mut temp_backed_candidates = Vec::with_capacity(scheduled_cores.len());
+
+		for candidate in backed_candidates {
+			if scheduled_cores.len() == 0 {
+				// We've got candidates for all of this para's assigned cores. Move on to
+				// the next para.
+				log::debug!(
+					target: LOG_TARGET,
+					"Found enough candidates for paraid: {:?}.",
+					candidate.descriptor().para_id()
+				);
+				break;
+			}
+
+			if let Some(core_index) =
+				get_core_index::<T>(core_index_enabled, allowed_relay_parents, &candidate)
+			{
+				if scheduled_cores.remove(&core_index) {
+					temp_backed_candidates.push((candidate, core_index));
+				} else {
+					// if we got a candidate for a core index which is not scheduled, stop
+					// the work for this para. the already processed candidate chain in
+					// temp_backed_candidates is still fine though.
+					log::debug!(
+						target: LOG_TARGET,
+						"Found a backed candidate {:?} with core index {}, which is not scheduled for paraid {:?}.",
+						candidate.candidate().hash(),
+						core_index.0,
+						candidate.descriptor().para_id()
+					);
+
+					break;
+				}
+			} else {
+				// No core index is fine, if para has just 1 core assigned.
+				if scheduled_cores.len() == 1 {
+					backed_candidates_with_core.insert(
+						para_id,
+						vec![(
+							// We need the first one here, as we assume candidates of a
+							// para are in dependency order.
+							candidate,
+							scheduled_cores.pop_first().expect("Length is 1"),
+						)],
+					);
+					break;
+				}
+
+				// if we got a candidate which does not contain its core index, stop the
+				// work for this para. the already processed candidate chain in
+				// temp_backed_candidates is still fine though.
+
+				log::debug!(
+					target: LOG_TARGET,
+					"Found a backed candidate {:?} without core index informationm, but paraid {:?} has multiple scheduled cores.",
+					candidate.candidate().hash(),
+					candidate.descriptor().para_id()
+				);
+
+				break;
+			}
+		}
+
+		if !temp_backed_candidates.is_empty() {
+			backed_candidates_with_core
+				.entry(para_id)
+				.or_insert_with(|| vec![])
+				.extend(temp_backed_candidates);
 		}
 	}
 
@@ -1573,24 +1565,25 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 
 // Must be called only for candidates that have been sanitized already.
 fn get_core_index<T: configuration::Config + scheduler::Config + inclusion::Config>(
+	core_index_enabled: bool,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	candidate: &BackedCandidate<T::Hash>,
 ) -> Option<CoreIndex> {
-	candidate
-		.candidate()
-		.descriptor
-		.core_index()
-		.or_else(|| get_injected_core_index::<T>(allowed_relay_parents, &candidate))
+	candidate.candidate().descriptor.core_index().or_else(|| {
+		get_injected_core_index::<T>(core_index_enabled, allowed_relay_parents, &candidate)
+	})
 }
 
 fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclusion::Config>(
+	core_index_enabled: bool,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	candidate: &BackedCandidate<T::Hash>,
 ) -> Option<CoreIndex> {
 	// After stripping the 8 bit extensions, the `validator_indices` field length is expected
 	// to be equal to backing group size. If these don't match, the `CoreIndex` is badly encoded,
 	// or not supported.
-	let (validator_indices, maybe_core_idx) = candidate.validator_indices_and_core_index(true);
+	let (validator_indices, maybe_core_idx) =
+		candidate.validator_indices_and_core_index(core_index_enabled);
 
 	let Some(core_idx) = maybe_core_idx else { return None };
 
