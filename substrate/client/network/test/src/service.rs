@@ -34,7 +34,7 @@ use sc_network_sync::{
 	engine::SyncingEngine,
 	service::network::{NetworkServiceHandle, NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
-	strategy::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
+	strategy::polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 };
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};

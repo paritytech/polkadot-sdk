@@ -67,11 +67,11 @@ use sc_network_sync::{
 	service::{network::NetworkServiceProvider, syncing_service::SyncingService},
 	state_request_handler::StateRequestHandler,
 	strategy::{
+		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		warp::{
 			AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig,
 			WarpSyncProvider,
 		},
-		PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig,
 	},
 	warp_request_handler,
 };

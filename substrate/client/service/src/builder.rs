@@ -58,7 +58,10 @@ use sc_network_sync::{
 	engine::SyncingEngine,
 	service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
-	strategy::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig, SyncingStrategy},
+	strategy::{
+		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
+		SyncingStrategy,
+	},
 	warp_request_handler::RequestHandler as WarpSyncRequestHandler,
 	SyncingService, WarpSyncConfig,
 };
