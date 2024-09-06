@@ -880,7 +880,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: T::Balance,
 	) -> DispatchResult {
 		let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(details.is_live(), Error::<T, I>::AssetNotLive);
+		ensure!(d.is_live(), Error::<T, I>::AssetNotLive);
 		Approvals::<T, I>::try_mutate(
 			(id.clone(), &owner, &delegate),
 			|maybe_approved| -> DispatchResult {
