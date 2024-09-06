@@ -187,8 +187,8 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          release="release-${{ needs.validate-inputs.outputs.RELEASE_ID }}" && \
-          echo "release=${release}" >> $GITHUB_OUTPUT
+          version="${{ needs.validate-inputs.outputs.VERSION }}" && \
+          echo "version=${version}" >> $GITHUB_OUTPUT
 
           commit=$(git rev-parse --short HEAD) && \
           echo "commit=${commit}" >> $GITHUB_OUTPUT
@@ -243,7 +243,15 @@ jobs:
           echo "Building container for $BINARY"
           ./docker/scripts/build-injected.sh
 
-      - name: Login to Dockerhub
+      - name: Login to Dockerhub to publish polkadot
+        if: ${{ env.BINARY == 'polkadot' }}
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          username: ${{ secrets.POLKADOT_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.POLKADOT_DOCKERHUB_TOKEN }}
+
+      - name: Login to Dockerhub to puiblish polkadot-parachain/chain-spec-builder
+        if: ${{ env.BINARY == 'polkadot-parachain' || env.BINARY == 'chain-spec-builder' }}
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           username: ${{ secrets.CUMULUS_DOCKERHUB_USERNAME }}
