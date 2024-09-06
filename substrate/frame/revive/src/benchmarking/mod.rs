@@ -75,11 +75,6 @@ where
 	MomentOf<T>: Into<U256>,
 	T::Hash: IsType<H256>,
 {
-	/// The address of the contract.
-	fn address(&self) -> H160 {
-		T::AddressMapper::to_address(&self.account_id)
-	}
-
 	/// Create new contract and use a default account id as instantiator.
 	fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
 		Self::with_index(0, module, data)
@@ -816,28 +811,31 @@ mod benchmarks {
 		t: Linear<0, { limits::NUM_EVENT_TOPICS as u32 }>,
 		n: Linear<0, { limits::PAYLOAD_BYTES }>,
 	) {
-		let topics = (0..t).map(|i| T::Hashing::hash_of(&i)).collect::<Vec<_>>().encode();
-		let topics_len = topics.len() as u32;
-
-		build_runtime!(runtime, memory: [
-			n.to_le_bytes(),
-			topics,
-			vec![0u8; n as _],
-		]);
+		let num_topic = t as u32;
+		let topics = (0..t).map(|i| H256::repeat_byte(i as u8)).collect::<Vec<_>>();
+		let topics_data =
+			topics.iter().flat_map(|hash| hash.as_bytes().to_vec()).collect::<Vec<u8>>();
+		let data = vec![42u8; n as _];
+		build_runtime!(runtime, memory: [ topics_data, data, ]);
 
 		let result;
 		#[block]
 		{
 			result = runtime.bench_deposit_event(
 				memory.as_mut_slice(),
-				4,              // topics_ptr
-				topics_len,     // topics_len
-				4 + topics_len, // data_ptr
-				0,              // data_len
+				0, // topics_ptr
+				num_topic,
+				topics_data.len() as u32, // data_ptr
+				n,                        // data_len
 			);
 		}
-
 		assert_ok!(result);
+
+		let event = System::<T>::events().into_iter().next().unwrap();
+		assert_eq!(
+			topics,
+			event.topics.iter().map(|t| H256::from_slice(t.as_ref())).collect::<Vec<_>>()
+		);
 	}
 
 	// Benchmark debug_message call
