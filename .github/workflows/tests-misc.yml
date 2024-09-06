@@ -180,7 +180,7 @@ jobs:
 
   node-bench-regression-guard:
     timeout-minutes: 20
-    if: always()
+    if: always() && !cancelled()
     runs-on: arc-runners-polkadot-sdk
     needs: [ set-image, cargo-check-benches ]
     steps:
