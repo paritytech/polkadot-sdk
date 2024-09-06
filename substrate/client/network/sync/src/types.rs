@@ -27,7 +27,7 @@ use sc_network_common::sync::message::BlockRequest;
 use sc_network_types::PeerId;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
-use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
+use std::{fmt, pin::Pin, sync::Arc};
 
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
@@ -110,30 +110,7 @@ impl std::error::Error for BadPeer {}
 #[derive(Debug)]
 pub enum PeerRequest<B: BlockT> {
 	Block(BlockRequest<B>),
-	State,
 	Generic,
-}
-
-/// Wrapper for implementation-specific state request.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueStateRequest(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueStateRequest {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueStateRequest").finish()
-	}
-}
-
-/// Wrapper for implementation-specific state response.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueStateResponse(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueStateResponse {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueStateResponse").finish()
-	}
 }
 
 /// Provides high-level status of syncing.

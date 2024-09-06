@@ -25,15 +25,12 @@ use crate::{
 	},
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
 	pending_responses::{PendingResponses, ResponseEvent},
-	schema::v1::{StateRequest, StateResponse},
 	service::{
 		self,
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
 	strategy::{StrategyKey, SyncingAction, SyncingStrategy},
-	types::{
-		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
-	},
+	types::{BadPeer, ExtendedPeerInfo, PeerRequest, SyncEvent},
 	LOG_TARGET,
 };
 
@@ -44,7 +41,6 @@ use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
-use prost::Message;
 use schnellru::{ByLength, LruMap};
 use tokio::time::{Interval, MissedTickBehavior};
 
@@ -616,14 +612,6 @@ where
 						"Processed {action:?}, response removed: {removed}.",
 					);
 				},
-				SyncingAction::SendStateRequest { peer_id, key, protocol_name, request } => {
-					self.send_state_request(peer_id, key, protocol_name, request);
-
-					trace!(
-						target: LOG_TARGET,
-						"Processed `ChainSyncAction::SendStateRequest` to {peer_id}.",
-					);
-				},
 				SyncingAction::SendGenericRequest { peer_id, key, protocol_name, request } => {
 					self.send_generic_request(peer_id, key, protocol_name, request);
 				},
@@ -1007,42 +995,6 @@ where
 		);
 	}
 
-	fn send_state_request(
-		&mut self,
-		peer_id: PeerId,
-		key: StrategyKey,
-		protocol_name: ProtocolName,
-		request: OpaqueStateRequest,
-	) {
-		if !self.peers.contains_key(&peer_id) {
-			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {peer_id}");
-			debug_assert!(false);
-			return;
-		}
-
-		let (tx, rx) = oneshot::channel();
-
-		self.pending_responses.insert(peer_id, key, PeerRequest::State, rx.boxed());
-
-		match Self::encode_state_request(&request) {
-			Ok(data) => {
-				self.network_service.start_request(
-					peer_id,
-					protocol_name,
-					data,
-					tx,
-					IfDisconnected::ImmediateError,
-				);
-			},
-			Err(err) => {
-				log::warn!(
-					target: LOG_TARGET,
-					"Failed to encode state request {request:?}: {err:?}",
-				);
-			},
-		}
-	}
-
 	fn send_generic_request(
 		&mut self,
 		peer_id: PeerId,
@@ -1070,23 +1022,6 @@ where
 			tx,
 			IfDisconnected::ImmediateError,
 		);
-	}
-
-	fn encode_state_request(request: &OpaqueStateRequest) -> Result<Vec<u8>, String> {
-		let request: &StateRequest = request.0.downcast_ref().ok_or_else(|| {
-			"Failed to downcast opaque state response during encoding, this is an \
-				implementation bug."
-				.to_string()
-		})?;
-
-		Ok(request.encode_to_vec())
-	}
-
-	fn decode_state_response(response: &[u8]) -> Result<OpaqueStateResponse, String> {
-		let response = StateResponse::decode(response)
-			.map_err(|error| format!("Failed to decode state response: {error}"))?;
-
-		Ok(OpaqueStateResponse(Box::new(response)))
 	}
 
 	fn process_response_event(&mut self, response_event: ResponseEvent<B>) {
@@ -1124,25 +1059,6 @@ where
 							return;
 						},
 					}
-				},
-				PeerRequest::State => {
-					let response = match Self::decode_state_response(&resp[..]) {
-						Ok(proto) => proto,
-						Err(e) => {
-							debug!(
-								target: LOG_TARGET,
-								"Failed to decode state response from peer {peer_id:?}: {e:?}.",
-							);
-							self.network_service.report_peer(peer_id, rep::BAD_MESSAGE);
-							self.network_service.disconnect_peer(
-								peer_id,
-								self.block_announce_protocol_name.clone(),
-							);
-							return;
-						},
-					};
-
-					self.strategy.on_state_response(peer_id, key, response);
 				},
 				PeerRequest::Generic => {
 					self.strategy.on_generic_response(&peer_id, key, resp);

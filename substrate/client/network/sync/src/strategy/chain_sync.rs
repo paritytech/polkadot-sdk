@@ -38,13 +38,14 @@ use crate::{
 		warp::{WarpSyncPhase, WarpSyncProgress},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
-	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
+	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
 
 use codec::Encode;
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
+use prost::Message;
 use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::ProtocolName;
@@ -63,6 +64,7 @@ use sp_runtime::{
 	EncodedJustification, Justifications,
 };
 
+use crate::schema::v1::StateRequest;
 use std::{
 	collections::{HashMap, HashSet},
 	ops::Range,
@@ -612,30 +614,20 @@ where
 		}
 	}
 
-	fn on_state_response(
-		&mut self,
-		peer_id: PeerId,
-		key: StrategyKey,
-		response: OpaqueStateResponse,
-	) {
-		if key != Self::STRATEGY_KEY {
-			error!(
-				target: LOG_TARGET,
-				"`on_state_response()` called with unexpected key {key:?} for chain sync",
-			);
-			debug_assert!(false);
+	fn on_generic_response(&mut self, peer_id: &PeerId, key: StrategyKey, response: Vec<u8>) {
+		match key {
+			Self::STRATEGY_KEY =>
+				if let Err(bad_peer) = self.on_state_data(&peer_id, &response) {
+					self.actions.push(SyncingAction::DropPeer(bad_peer));
+				},
+			key => {
+				warn!(
+					target: LOG_TARGET,
+					"Unexpected generic response strategy key: {key:?}",
+				);
+				debug_assert!(false);
+			},
 		}
-		if let Err(bad_peer) = self.on_state_data(&peer_id, response) {
-			self.actions.push(SyncingAction::DropPeer(bad_peer));
-		}
-	}
-
-	fn on_generic_response(&mut self, _peer_id: &PeerId, key: StrategyKey, _response: Vec<u8>) {
-		warn!(
-			target: LOG_TARGET,
-			"Unexpected generic response strategy key: {key:?}",
-		);
-		debug_assert!(false);
 	}
 
 	fn on_blocks_processed(
@@ -878,11 +870,16 @@ where
 		self.actions.extend(justification_requests);
 
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
-			SyncingAction::SendStateRequest {
+			trace!(
+				target: LOG_TARGET,
+				"Created `StrategyRequest` to {peer_id}.",
+			);
+
+			SyncingAction::SendGenericRequest {
 				peer_id,
 				key: Self::STRATEGY_KEY,
 				protocol_name: self.state_request_protocol_name.clone(),
-				request,
+				request: request.encode_to_vec(),
 			}
 		});
 		self.actions.extend(state_request);
@@ -1819,7 +1816,7 @@ where
 	}
 
 	/// Get a state request scheduled by sync to be sent out (if any).
-	fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
+	fn state_request(&mut self) -> Option<(PeerId, StateRequest)> {
 		if self.allowed_requests.is_empty() {
 			return None;
 		}
@@ -1843,7 +1840,7 @@ where
 					let request = sync.next_request();
 					trace!(target: LOG_TARGET, "New StateRequest for {}: {:?}", id, request);
 					self.allowed_requests.clear();
-					return Some((*id, OpaqueStateRequest(Box::new(request))));
+					return Some((*id, request));
 				}
 			}
 		}
@@ -1851,19 +1848,18 @@ where
 	}
 
 	#[must_use]
-	fn on_state_data(
-		&mut self,
-		peer_id: &PeerId,
-		response: OpaqueStateResponse,
-	) -> Result<(), BadPeer> {
-		let response: Box<StateResponse> = response.0.downcast().map_err(|_error| {
-			error!(
-				target: LOG_TARGET,
-				"Failed to downcast opaque state response, this is an implementation bug."
-			);
+	fn on_state_data(&mut self, peer_id: &PeerId, response: &[u8]) -> Result<(), BadPeer> {
+		let response = match StateResponse::decode(response) {
+			Ok(response) => response,
+			Err(error) => {
+				debug!(
+					target: LOG_TARGET,
+					"Failed to decode state response from peer {peer_id:?}: {error:?}.",
+				);
 
-			BadPeer(*peer_id, rep::BAD_RESPONSE)
-		})?;
+				return Err(BadPeer(*peer_id, rep::BAD_RESPONSE));
+			},
+		};
 
 		if let Some(peer) = self.peers.get_mut(peer_id) {
 			if let PeerSyncState::DownloadingState = peer.state {
@@ -1879,7 +1875,7 @@ where
 				response.entries.len(),
 				response.proof.len(),
 			);
-			sync.import(*response)
+			sync.import(response)
 		} else {
 			debug!(target: LOG_TARGET, "Ignored obsolete state response from {peer_id}");
 			return Err(BadPeer(*peer_id, rep::NOT_REQUESTED));

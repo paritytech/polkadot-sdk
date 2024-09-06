@@ -29,7 +29,7 @@ mod state;
 pub mod state_sync;
 pub mod warp;
 
-use crate::types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncStatus};
+use crate::types::{BadPeer, SyncStatus};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::ProtocolName;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockRequest};
@@ -90,14 +90,6 @@ where
 		blocks: Vec<BlockData<B>>,
 	);
 
-	/// Process state response.
-	fn on_state_response(
-		&mut self,
-		peer_id: PeerId,
-		key: StrategyKey,
-		response: OpaqueStateResponse,
-	);
-
 	/// Process generic response.
 	fn on_generic_response(&mut self, peer_id: &PeerId, key: StrategyKey, response: Vec<u8>);
 
@@ -153,13 +145,6 @@ impl StrategyKey {
 pub enum SyncingAction<B: BlockT> {
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendBlockRequest { peer_id: PeerId, key: StrategyKey, request: BlockRequest<B> },
-	/// Send state request to peer.
-	SendStateRequest {
-		peer_id: PeerId,
-		key: StrategyKey,
-		protocol_name: ProtocolName,
-		request: OpaqueStateRequest,
-	},
 	/// Send generic request to peer.
 	SendGenericRequest {
 		peer_id: PeerId,

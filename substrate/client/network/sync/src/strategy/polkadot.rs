@@ -27,7 +27,7 @@ use crate::{
 		warp::{EncodedProof, WarpSync, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
-	types::{OpaqueStateResponse, SyncStatus},
+	types::SyncStatus,
 	LOG_TARGET,
 };
 use log::{debug, error, info, warn};
@@ -197,30 +197,21 @@ where
 		}
 	}
 
-	fn on_state_response(
-		&mut self,
-		peer_id: PeerId,
-		key: StrategyKey,
-		response: OpaqueStateResponse,
-	) {
-		if let (StateStrategy::<B>::STRATEGY_KEY, Some(ref mut state)) = (key, &mut self.state) {
-			state.on_state_response(peer_id, response);
-		} else if let (ChainSync::<B, Client>::STRATEGY_KEY, Some(ref mut chain_sync)) =
-			(key, &mut self.chain_sync)
-		{
-			chain_sync.on_state_response(peer_id, key, response);
-		} else {
-			error!(
-				target: LOG_TARGET,
-				"`on_state_response()` called with unexpected key {key:?} \
-				 or corresponding strategy is not active.",
-			);
-			debug_assert!(false);
-		}
-	}
-
 	fn on_generic_response(&mut self, peer_id: &PeerId, key: StrategyKey, response: Vec<u8>) {
 		match key {
+			StateStrategy::<B>::STRATEGY_KEY =>
+				if let Some(state) = &mut self.state {
+					state.on_state_response(peer_id, response);
+				} else if let Some(chain_sync) = &mut self.chain_sync {
+					chain_sync.on_generic_response(peer_id, key, response);
+				} else {
+					error!(
+						target: LOG_TARGET,
+						"`on_state_response()` called with unexpected key {key:?} \
+						 or corresponding strategy is not active.",
+					);
+					debug_assert!(false);
+				},
 			WarpSync::<B, Client>::STRATEGY_KEY =>
 				if let Some(warp) = &mut self.warp {
 					warp.on_warp_proof_response(peer_id, EncodedProof(response));

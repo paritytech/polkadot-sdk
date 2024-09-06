@@ -19,16 +19,17 @@
 //! State sync strategy.
 
 use crate::{
-	schema::v1::StateResponse,
+	schema::v1::{StateRequest, StateResponse},
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
 		StrategyKey, SyncingAction,
 	},
-	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
+	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
 use log::{debug, error, trace};
+use prost::Message;
 use sc_client_api::ProofProvider;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::ProtocolName;
@@ -177,30 +178,32 @@ impl<B: BlockT> StateStrategy<B> {
 	}
 
 	/// Process state response.
-	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
-		if let Err(bad_peer) = self.on_state_response_inner(peer_id, response) {
+	pub fn on_state_response(&mut self, peer_id: &PeerId, response: Vec<u8>) {
+		if let Err(bad_peer) = self.on_state_response_inner(peer_id, &response) {
 			self.actions.push(SyncingAction::DropPeer(bad_peer));
 		}
 	}
 
 	fn on_state_response_inner(
 		&mut self,
-		peer_id: PeerId,
-		response: OpaqueStateResponse,
+		peer_id: &PeerId,
+		response: &[u8],
 	) -> Result<(), BadPeer> {
 		if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer.state = PeerState::Available;
 		}
 
-		let response: Box<StateResponse> = response.0.downcast().map_err(|_error| {
-			error!(
-				target: LOG_TARGET,
-				"Failed to downcast opaque state response, this is an implementation bug."
-			);
-			debug_assert!(false);
+		let response = match StateResponse::decode(response) {
+			Ok(response) => response,
+			Err(error) => {
+				debug!(
+					target: LOG_TARGET,
+					"Failed to decode state response from peer {peer_id:?}: {error:?}.",
+				);
 
-			BadPeer(peer_id, rep::BAD_RESPONSE)
-		})?;
+				return Err(BadPeer(*peer_id, rep::BAD_RESPONSE));
+			},
+		};
 
 		debug!(
 			target: LOG_TARGET,
@@ -210,7 +213,7 @@ impl<B: BlockT> StateStrategy<B> {
 			response.proof.len(),
 		);
 
-		match self.state_sync.import(*response) {
+		match self.state_sync.import(response) {
 			ImportResult::Import(hash, header, state, body, justifications) => {
 				let origin = BlockOrigin::NetworkInitialSync;
 				let block = IncomingBlock {
@@ -232,7 +235,7 @@ impl<B: BlockT> StateStrategy<B> {
 			ImportResult::Continue => Ok(()),
 			ImportResult::BadResponse => {
 				debug!(target: LOG_TARGET, "Bad state data received from {peer_id}");
-				Err(BadPeer(peer_id, rep::BAD_STATE))
+				Err(BadPeer(*peer_id, rep::BAD_STATE))
 			},
 		}
 	}
@@ -277,7 +280,7 @@ impl<B: BlockT> StateStrategy<B> {
 	}
 
 	/// Produce state request.
-	fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
+	fn state_request(&mut self) -> Option<(PeerId, StateRequest)> {
 		if self.state_sync.is_complete() {
 			return None
 		}
@@ -298,7 +301,7 @@ impl<B: BlockT> StateStrategy<B> {
 			target: LOG_TARGET,
 			"New state request to {peer_id}: {request:?}.",
 		);
-		Some((peer_id, OpaqueStateRequest(Box::new(request))))
+		Some((peer_id, request))
 	}
 
 	fn schedule_next_peer(
@@ -347,11 +350,11 @@ impl<B: BlockT> StateStrategy<B> {
 	#[must_use]
 	pub fn actions(&mut self) -> impl Iterator<Item = SyncingAction<B>> {
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
-			SyncingAction::SendStateRequest {
+			SyncingAction::SendGenericRequest {
 				peer_id,
 				key: Self::STRATEGY_KEY,
 				protocol_name: self.protocol_name.clone(),
-				request,
+				request: request.encode_to_vec(),
 			}
 		});
 		self.actions.extend(state_request);
@@ -571,8 +574,7 @@ mod test {
 			ProtocolName::Static(""),
 		);
 
-		let (_peer_id, mut opaque_request) = state_strategy.state_request().unwrap();
-		let request: &mut StateRequest = opaque_request.0.downcast_mut().unwrap();
+		let (_peer_id, request) = state_strategy.state_request().unwrap();
 		let hash = Hash::decode(&mut &*request.block).unwrap();
 
 		assert_eq!(hash, target_block.header().hash());
@@ -623,8 +625,8 @@ mod test {
 		// Manually set the peer's state.
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
-		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
-		state_strategy.on_state_response(peer_id, dummy_response);
+		let dummy_response = StateResponse::default().encode_to_vec();
+		state_strategy.on_state_response(&peer_id, dummy_response);
 
 		assert!(state_strategy.peers.get(&peer_id).unwrap().state.is_available());
 	}
@@ -643,10 +645,10 @@ mod test {
 		);
 		// Manually set the peer's state.
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
-		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
+		let dummy_response = StateResponse::default().encode_to_vec();
 		// Receiving response drops the peer.
 		assert!(matches!(
-			state_strategy.on_state_response_inner(peer_id, dummy_response),
+			state_strategy.on_state_response_inner(&peer_id, &dummy_response),
 			Err(BadPeer(id, _rep)) if id == peer_id,
 		));
 	}
@@ -666,8 +668,8 @@ mod test {
 		// Manually set the peer's state .
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
-		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
-		state_strategy.on_state_response(peer_id, dummy_response);
+		let dummy_response = StateResponse::default().encode_to_vec();
+		state_strategy.on_state_response(&peer_id, dummy_response);
 
 		// No actions generated.
 		assert_eq!(state_strategy.actions.len(), 0)
@@ -729,8 +731,8 @@ mod test {
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
 		// Receive response.
-		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
-		state_strategy.on_state_response(peer_id, dummy_response);
+		let dummy_response = StateResponse::default().encode_to_vec();
+		state_strategy.on_state_response(&peer_id, dummy_response);
 
 		assert_eq!(state_strategy.actions.len(), 1);
 		assert!(matches!(
