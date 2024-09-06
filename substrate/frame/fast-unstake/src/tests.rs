@@ -246,6 +246,7 @@ mod on_idle {
 			// given
 			// reserved balance prior to registering for fast unstake.
 			let pre_reserved = <T as Config>::Currency::reserved_balance(&1);
+
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(3)));
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(5)));

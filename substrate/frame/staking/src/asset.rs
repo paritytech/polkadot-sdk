@@ -127,7 +127,7 @@ pub fn slash<T: Config>(
 	T::Currency::slash(&HoldReason::Staking.into(), who, value)
 }
 
-/// Mint `value` into an existing account.
+/// Mint `value` into an existing account `who`.
 ///
 /// This does not increase the total issuance.
 pub fn mint_existing<T: Config>(
