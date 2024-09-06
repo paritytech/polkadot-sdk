@@ -977,6 +977,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#825" id="825">825</a>
 <a href="#826" id="826">826</a>
 <a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1004,10 +1035,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use crate</span>::{Database, DatabaseSource, DbHash};
 <span class="kw">use </span>codec::Decode;
+<span class="kw">use </span>sc_client_api::blockchain::{BlockGap, BlockGapType};
 <span class="kw">use </span>sp_database::Transaction;
 <span class="kw">use </span>sp_runtime::{
 	generic::BlockId,
-	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, UniqueSaturatedFrom, UniqueSaturatedInto, Zero},
+	traits::{
+		Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor, UniqueSaturatedFrom, UniqueSaturatedInto,
+		Zero,
+	},
 };
 <span class="kw">use </span>sp_trie::DBValue;
 
@@ -1016,6 +1051,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>NUM_COLUMNS: u32 = <span class="number">13</span>;
 <span class="doccomment">/// Meta column. The set of keys in the column is shared by full &amp;&amp; light storages.
 </span><span class="kw">pub const </span>COLUMN_META: u32 = <span class="number">0</span>;
+
+<span class="doccomment">/// Current block gap version.
+</span><span class="kw">pub const </span>BLOCK_GAP_CURRENT_VERSION: u32 = <span class="number">1</span>;
 
 <span class="doccomment">/// Keys of entries in COLUMN_META.
 </span><span class="kw">pub mod </span>meta_keys {
@@ -1029,6 +1067,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub const </span>FINALIZED_STATE: <span class="kw-2">&amp;</span>[u8; <span class="number">6</span>] = <span class="string">b"fstate"</span>;
 	<span class="doccomment">/// Block gap.
 	</span><span class="kw">pub const </span>BLOCK_GAP: <span class="kw-2">&amp;</span>[u8; <span class="number">3</span>] = <span class="string">b"gap"</span>;
+	<span class="doccomment">/// Block gap version.
+	</span><span class="kw">pub const </span>BLOCK_GAP_VERSION: <span class="kw-2">&amp;</span>[u8; <span class="number">7</span>] = <span class="string">b"gap_ver"</span>;
 	<span class="doccomment">/// Genesis block hash.
 	</span><span class="kw">pub const </span>GENESIS_HASH: <span class="kw-2">&amp;</span>[u8; <span class="number">3</span>] = <span class="string">b"gen"</span>;
 	<span class="doccomment">/// Leaves prefix list key.
@@ -1052,8 +1092,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>genesis_hash: H,
 	<span class="doccomment">/// Finalized state, if any
 	</span><span class="kw">pub </span>finalized_state: <span class="prelude-ty">Option</span>&lt;(H, N)&gt;,
-	<span class="doccomment">/// Block gap, start and end inclusive, if any.
-	</span><span class="kw">pub </span>block_gap: <span class="prelude-ty">Option</span>&lt;(N, N)&gt;,
+	<span class="doccomment">/// Block gap, if any.
+	</span><span class="kw">pub </span>block_gap: <span class="prelude-ty">Option</span>&lt;BlockGap&lt;N&gt;&gt;,
 }
 
 <span class="doccomment">/// A block lookup key: used for canonical lookup from block number to hash
@@ -1176,7 +1216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			open_kvdb_rocksdb::&lt;Block&gt;(path, db_type, create, <span class="kw-2">*</span>cache_size)<span class="question-mark">?</span>,
 		DatabaseSource::Custom { db, require_create_flag } =&gt; {
 			<span class="kw">if </span><span class="kw-2">*</span>require_create_flag &amp;&amp; !create {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(OpenDbError::DoesNotExist)
+				<span class="kw">return </span><span class="prelude-val">Err</span>(OpenDbError::DoesNotExist);
 			}
 			db.clone()
 		},
@@ -1343,7 +1383,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">Err</span>(OpenDbError::UnexpectedDbType {
 					expected: db_type,
 					found: stored_type.to_owned(),
-				})
+				});
 			},
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="kw">let </span><span class="kw-2">mut </span>transaction = Transaction::new();
@@ -1494,9 +1534,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	} <span class="kw">else </span>{
 		<span class="prelude-val">None
 	</span>};
-	<span class="kw">let </span>block_gap = db
-		.get(COLUMN_META, meta_keys::BLOCK_GAP)
-		.and_then(|d| Decode::decode(<span class="kw-2">&amp;mut </span>d.as_slice()).ok());
+	<span class="kw">let </span>block_gap = <span class="kw">match </span>db
+		.get(COLUMN_META, meta_keys::BLOCK_GAP_VERSION)
+		.and_then(|d| u32::decode(<span class="kw-2">&amp;mut </span>d.as_slice()).ok())
+	{
+		<span class="prelude-val">None </span>=&gt; {
+			<span class="kw">let </span>old_block_gap: <span class="prelude-ty">Option</span>&lt;(NumberFor&lt;Block&gt;, NumberFor&lt;Block&gt;)&gt; = db
+				.get(COLUMN_META, meta_keys::BLOCK_GAP)
+				.and_then(|d| Decode::decode(<span class="kw-2">&amp;mut </span>d.as_slice()).ok());
+
+			old_block_gap.map(|(start, end)| BlockGap {
+				start,
+				end,
+				gap_type: BlockGapType::MissingHeaderAndBody,
+			})
+		},
+		<span class="prelude-val">Some</span>(version) =&gt; <span class="kw">match </span>version {
+			BLOCK_GAP_CURRENT_VERSION =&gt; db
+				.get(COLUMN_META, meta_keys::BLOCK_GAP)
+				.and_then(|d| Decode::decode(<span class="kw-2">&amp;mut </span>d.as_slice()).ok()),
+			v =&gt;
+				<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::Backend(<span class="macro">format!</span>(
+					<span class="string">"Unsupported block gap DB version: {v}"
+				</span>))),
+		},
+	};
 	<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"block_gap={:?}"</span>, block_gap);
 
 	<span class="prelude-val">Ok</span>(Meta {

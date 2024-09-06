@@ -720,6 +720,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -739,7 +763,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Substrate blockchain trait
 
-</span><span class="kw">use </span>parking_lot::RwLock;
+</span><span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>parking_lot::RwLock;
 <span class="kw">use </span>sp_runtime::{
 	generic::BlockId,
 	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor, Zero},
@@ -831,8 +856,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">for </span>block <span class="kw">in </span>tree_route.retracted() {
 						expanded_forks.insert(block.hash);
 					}
-					<span class="kw">continue
-				</span>},
+					<span class="kw">continue</span>;
+				},
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
 					<span class="comment">// There are cases when blocks are missing (e.g. warp-sync).
 				</span>},
@@ -918,7 +943,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>info = <span class="self">self</span>.info();
 			<span class="kw">if </span>info.finalized_number &gt; <span class="kw-2">*</span>base_header.number() {
 				<span class="comment">// `base_header` is on a dead fork.
-				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
 			}
 			<span class="self">self</span>.leaves()<span class="question-mark">?
 		</span>};
@@ -929,7 +954,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// go backwards through the chain (via parent links)
 			</span><span class="kw">loop </span>{
 				<span class="kw">if </span>current_hash == base_hash {
-					<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(leaf_hash))
+					<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(leaf_hash));
 				}
 
 				<span class="kw">let </span>current_header = <span class="self">self
@@ -938,8 +963,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="comment">// stop search in this chain once we go below the target's block number
 				</span><span class="kw">if </span>current_header.number() &lt; base_header.number() {
-					<span class="kw">break
-				</span>}
+					<span class="kw">break</span>;
+				}
 
 				current_hash = <span class="kw-2">*</span>current_header.parent_hash();
 			}
@@ -988,7 +1013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// If we have only one leaf there are no forks, and we can return early.
 		</span><span class="kw">if </span>finalized_block_number == Zero::zero() || leaves.len() == <span class="number">1 </span>{
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(DisplacedLeavesAfterFinalization::default())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(DisplacedLeavesAfterFinalization::default());
 		}
 
 		<span class="comment">// Store hashes of finalized blocks for quick checking later, the last block is the
@@ -1054,8 +1079,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					elapsed = <span class="question-mark">?</span>now.elapsed(),
 					<span class="string">"Added genesis leaf to displaced leaves."
 				</span>);
-				<span class="kw">continue
-			</span>}
+				<span class="kw">continue</span>;
+			}
 
 			<span class="macro">debug!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
@@ -1261,6 +1286,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="doccomment">/// Represents the type of block gaps that may result from either warp sync or fast sync.
+</span><span class="attr">#[derive(Debug, Clone, Copy, Eq, PartialEq, Encode, Decode)]
+</span><span class="kw">pub enum </span>BlockGapType {
+	<span class="doccomment">/// Both the header and body are missing, as a result of warp sync.
+	</span>MissingHeaderAndBody,
+	<span class="doccomment">/// The block body is missing, as a result of fast sync.
+	</span>MissingBody,
+}
+
+<span class="doccomment">/// Represents the block gap resulted by warp sync or fast sync.
+///
+/// A block gap is a range of blocks where either the bodies, or both headers and bodies are
+/// missing.
+</span><span class="attr">#[derive(Debug, Clone, Copy, Eq, PartialEq, Encode, Decode)]
+</span><span class="kw">pub struct </span>BlockGap&lt;N&gt; {
+	<span class="doccomment">/// The starting block number of the gap (inclusive).
+	</span><span class="kw">pub </span>start: N,
+	<span class="doccomment">/// The ending block number of the gap (inclusive).
+	</span><span class="kw">pub </span>end: N,
+	<span class="doccomment">/// The type of gap.
+	</span><span class="kw">pub </span>gap_type: BlockGapType,
+}
+
 <span class="doccomment">/// Blockchain info
 </span><span class="attr">#[derive(Debug, Eq, PartialEq, Clone)]
 </span><span class="kw">pub struct </span>Info&lt;Block: BlockT&gt; {
@@ -1278,8 +1326,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>finalized_state: <span class="prelude-ty">Option</span>&lt;(Block::Hash, &lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header <span class="kw">as </span>HeaderT&gt;::Number)&gt;,
 	<span class="doccomment">/// Number of concurrent leave forks.
 	</span><span class="kw">pub </span>number_leaves: usize,
-	<span class="doccomment">/// Missing blocks after warp sync. (start, end).
-	</span><span class="kw">pub </span>block_gap: <span class="prelude-ty">Option</span>&lt;(NumberFor&lt;Block&gt;, NumberFor&lt;Block&gt;)&gt;,
+	<span class="doccomment">/// Missing blocks after warp sync or fast sync.
+	</span><span class="kw">pub </span>block_gap: <span class="prelude-ty">Option</span>&lt;BlockGap&lt;NumberFor&lt;Block&gt;&gt;&gt;,
 }
 
 <span class="doccomment">/// Block status.

@@ -2473,7 +2473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>log::{debug, error, info, trace, warn};
 <span class="kw">use </span>prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
-<span class="kw">use </span>sc_client_api::{BlockBackend, ProofProvider};
+<span class="kw">use </span>sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
 <span class="kw">use </span>sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 <span class="kw">use </span>sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
@@ -3810,7 +3810,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((start, end)) = info.block_gap {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(BlockGap { start, end, .. }) = info.block_gap {
 			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Starting gap sync #{start} - #{end}"</span>);
 			<span class="self">self</span>.gap_sync = <span class="prelude-val">Some</span>(GapSync {
 				best_queued_number: start - One::one(),

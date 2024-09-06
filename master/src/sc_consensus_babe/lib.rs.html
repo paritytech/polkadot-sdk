@@ -2087,6 +2087,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1935" id="1935">1935</a>
 <a href="#1936" id="1936">1936</a>
 <a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3235,7 +3237,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>info = <span class="self">self</span>.client.info();
 		<span class="kw">let </span>number = <span class="kw-2">*</span>block.header.number();
 
-		<span class="kw">if </span>info.block_gap.map_or(<span class="bool-val">false</span>, |(s, e)| s &lt;= number &amp;&amp; number &lt;= e) || block.with_state() {
+		<span class="kw">if </span>info.block_gap.map_or(<span class="bool-val">false</span>, |gap| gap.start &lt;= number &amp;&amp; number &lt;= gap.end) ||
+			block.with_state()
+		{
 			<span class="comment">// Verification for imported blocks is skipped in two cases:
 			// 1. When importing blocks below the last finalized block during network initial
 			//    synchronization.
@@ -3509,7 +3513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Skip babe logic if block already in chain or importing blocks during initial sync,
 		// otherwise the check for epoch changes will error because trying to re-import an
 		// epoch change or because of missing epoch data in the tree, respectively.
-		</span><span class="kw">if </span>info.block_gap.map_or(<span class="bool-val">false</span>, |(s, e)| s &lt;= number &amp;&amp; number &lt;= e) ||
+		</span><span class="kw">if </span>info.block_gap.map_or(<span class="bool-val">false</span>, |gap| gap.start &lt;= number &amp;&amp; number &lt;= gap.end) ||
 			block_status == BlockStatus::InChain
 		{
 			<span class="comment">// When re-importing existing block strip away intermediates.

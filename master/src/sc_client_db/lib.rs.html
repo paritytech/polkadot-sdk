@@ -4829,6 +4829,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#4677" id="4677">4677</a>
 <a href="#4678" id="4678">4678</a>
 <a href="#4679" id="4679">4679</a>
+<a href="#4680" id="4680">4680</a>
+<a href="#4681" id="4681">4681</a>
+<a href="#4682" id="4682">4682</a>
+<a href="#4683" id="4683">4683</a>
+<a href="#4684" id="4684">4684</a>
+<a href="#4685" id="4685">4685</a>
+<a href="#4686" id="4686">4686</a>
+<a href="#4687" id="4687">4687</a>
+<a href="#4688" id="4688">4688</a>
+<a href="#4689" id="4689">4689</a>
+<a href="#4690" id="4690">4690</a>
+<a href="#4691" id="4691">4691</a>
+<a href="#4692" id="4692">4692</a>
+<a href="#4693" id="4693">4693</a>
+<a href="#4694" id="4694">4694</a>
+<a href="#4695" id="4695">4695</a>
+<a href="#4696" id="4696">4696</a>
+<a href="#4697" id="4697">4697</a>
+<a href="#4698" id="4698">4698</a>
+<a href="#4699" id="4699">4699</a>
+<a href="#4700" id="4700">4700</a>
+<a href="#4701" id="4701">4701</a>
+<a href="#4702" id="4702">4702</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4892,6 +4915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>hash_db::Prefix;
 <span class="kw">use </span>sc_client_api::{
 	backend::NewBlockState,
+	blockchain::{BlockGap, BlockGapType},
 	leaves::{FinalizationOutcome, LeafSet},
 	utils::is_descendent_of,
 	IoInfo, MemoryInfo, MemorySize, UsageInfo,
@@ -4922,6 +4946,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	StorageValue, UsageInfo <span class="kw">as </span>StateUsageInfo,
 };
 <span class="kw">use </span>sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
+<span class="kw">use </span>utils::BLOCK_GAP_CURRENT_VERSION;
 
 <span class="comment">// Re-export the Database trait so that one can pass an implementation of it.
 </span><span class="kw">pub use </span>sc_state_db::PruningMode;
@@ -5353,7 +5378,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>update_block_gap(<span class="kw-2">&amp;</span><span class="self">self</span>, gap: <span class="prelude-ty">Option</span>&lt;(NumberFor&lt;Block&gt;, NumberFor&lt;Block&gt;)&gt;) {
+	<span class="kw">fn </span>update_block_gap(<span class="kw-2">&amp;</span><span class="self">self</span>, gap: <span class="prelude-ty">Option</span>&lt;BlockGap&lt;NumberFor&lt;Block&gt;&gt;&gt;) {
 		<span class="kw">let </span><span class="kw-2">mut </span>meta = <span class="self">self</span>.meta.write();
 		meta.block_gap = gap;
 	}
@@ -6502,35 +6527,56 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					);
 				}
 
-				<span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>start, end)) = block_gap {
-					<span class="kw">if </span>number == start {
-						start += One::one();
-						utils::insert_number_to_key_mapping(
-							<span class="kw-2">&amp;mut </span>transaction,
-							columns::KEY_LOOKUP,
-							number,
-							hash,
-						)<span class="question-mark">?</span>;
-						<span class="kw">if </span>start &gt; end {
-							transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-							block_gap = <span class="prelude-val">None</span>;
-							<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Removed block gap."</span>);
-						} <span class="kw">else </span>{
-							block_gap = <span class="prelude-val">Some</span>((start, end));
-							<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Update block gap. {block_gap:?}"</span>);
-							transaction.set(
-								columns::META,
-								meta_keys::BLOCK_GAP,
-								<span class="kw-2">&amp;</span>(start, end).encode(),
-							);
-						}
-						block_gap_updated = <span class="bool-val">true</span>;
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>gap) = block_gap {
+					<span class="kw">match </span>gap.gap_type {
+						BlockGapType::MissingHeaderAndBody =&gt;
+							<span class="kw">if </span>number == gap.start {
+								gap.start += One::one();
+								utils::insert_number_to_key_mapping(
+									<span class="kw-2">&amp;mut </span>transaction,
+									columns::KEY_LOOKUP,
+									number,
+									hash,
+								)<span class="question-mark">?</span>;
+								<span class="kw">if </span>gap.start &gt; gap.end {
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+									block_gap = <span class="prelude-val">None</span>;
+									<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Removed block gap."</span>);
+								} <span class="kw">else </span>{
+									block_gap = <span class="prelude-val">Some</span>(gap);
+									<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Update block gap. {block_gap:?}"</span>);
+									transaction.set(
+										columns::META,
+										meta_keys::BLOCK_GAP,
+										<span class="kw-2">&amp;</span>gap.encode(),
+									);
+									transaction.set(
+										columns::META,
+										meta_keys::BLOCK_GAP_VERSION,
+										<span class="kw-2">&amp;</span>BLOCK_GAP_CURRENT_VERSION.encode(),
+									);
+								}
+								block_gap_updated = <span class="bool-val">true</span>;
+							},
+						BlockGapType::MissingBody =&gt; {
+							<span class="macro">unreachable!</span>(<span class="string">"Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406"</span>)
+						},
 					}
 				} <span class="kw">else if </span>number &gt; best_num + One::one() &amp;&amp;
 					number &gt; One::one() &amp;&amp; <span class="self">self</span>.blockchain.header(parent_hash)<span class="question-mark">?</span>.is_none()
 				{
-					<span class="kw">let </span>gap = (best_num + One::one(), number - One::one());
+					<span class="kw">let </span>gap = BlockGap {
+						start: best_num + One::one(),
+						end: number - One::one(),
+						gap_type: BlockGapType::MissingHeaderAndBody,
+					};
 					transaction.set(columns::META, meta_keys::BLOCK_GAP, <span class="kw-2">&amp;</span>gap.encode());
+					transaction.set(
+						columns::META,
+						meta_keys::BLOCK_GAP_VERSION,
+						<span class="kw-2">&amp;</span>BLOCK_GAP_CURRENT_VERSION.encode(),
+					);
 					block_gap = <span class="prelude-val">Some</span>(gap);
 					block_gap_updated = <span class="bool-val">true</span>;
 					<span class="macro">debug!</span>(target: <span class="string">"db"</span>, <span class="string">"Detected block gap {block_gap:?}"</span>);

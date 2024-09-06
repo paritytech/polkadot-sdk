@@ -2281,7 +2281,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2129" id="2129">2129</a>
 <a href="#2130" id="2130">2130</a>
 <a href="#2131" id="2131">2131</a>
-<a href="#2132" id="2132">2132</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2888,9 +2887,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>info = <span class="self">self</span>.backend.blockchain().info();
-		<span class="kw">let </span>gap_block = info
-			.block_gap
-			.map_or(<span class="bool-val">false</span>, |(start, <span class="kw">_</span>)| <span class="kw-2">*</span>import_headers.post().number() == start);
+		<span class="kw">let </span>gap_block =
+			info.block_gap.map_or(<span class="bool-val">false</span>, |gap| <span class="kw-2">*</span>import_headers.post().number() == gap.start);
 
 		<span class="comment">// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
