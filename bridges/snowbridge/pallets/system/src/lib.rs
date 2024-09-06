@@ -269,12 +269,12 @@ pub mod pallet {
 	/// Lookup table for foreign to native token ID
 	#[pallet::storage]
 	pub type ForeignToNativeId<T: Config> =
-		StorageMap<_, Twox64Concat, TokenId, xcm::v4::Location, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, TokenId, xcm::v4::Location, OptionQuery>;
 
 	/// Lookup table for native to foreign token ID
 	#[pallet::storage]
 	pub type NativeToForeignId<T: Config> =
-		StorageMap<_, Twox64Concat, xcm::v4::Location, TokenId, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, xcm::v4::Location, TokenId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
