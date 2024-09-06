@@ -39,7 +39,6 @@ mod wasm;
 
 pub mod chain_extension;
 pub mod debug;
-pub mod migration;
 pub mod test_utils;
 pub mod weights;
 
@@ -57,7 +56,7 @@ use environmental::*;
 use frame_support::{
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
-		PostDispatchInfo, RawOrigin, WithPostDispatchInfo,
+		PostDispatchInfo, RawOrigin,
 	},
 	ensure,
 	traits::{
@@ -82,7 +81,6 @@ use sp_runtime::{
 pub use crate::{
 	address::{AddressMapper, DefaultAddressMapper},
 	debug::Tracing,
-	migration::{MigrateSequence, Migration, NoopMigration},
 	pallet::*,
 };
 pub use weights::WeightInfo;
@@ -275,25 +273,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
-		/// The sequence of migration steps that will be applied during a migration.
-		///
-		/// # Examples
-		/// ```ignore
-		/// use pallet_revive::migration::{v10, v11};
-		/// # struct Runtime {};
-		/// # struct Currency {};
-		/// type Migrations = (v10::Migration<Runtime, Currency>, v11::Migration<Runtime>);
-		/// ```
-		///
-		/// If you have a single migration step, you can use a tuple with a single element:
-		/// ```ignore
-		/// use pallet_revive::migration::v10;
-		/// # struct Runtime {};
-		/// # struct Currency {};
-		/// type Migrations = (v10::Migration<Runtime, Currency>,);
-		/// ```
-		type Migrations: MigrateSequence;
-
 		/// For most production chains, it's recommended to use the `()` implementation of this
 		/// trait. This implementation offers additional logging when the log target
 		/// "runtime::revive" is set to trace.
@@ -386,7 +365,6 @@ pub mod pallet {
 			type DepositPerByte = DepositPerByte;
 			type DepositPerItem = DepositPerItem;
 			type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
-			type Migrations = ();
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<AccountId>;
@@ -553,10 +531,6 @@ pub mod pallet {
 		/// A more detailed error can be found on the node console if debug messages are enabled
 		/// by supplying `-lruntime::revive=debug`.
 		CodeRejected,
-		/// A pending migration needs to complete before the extrinsic can be called.
-		MigrationInProgress,
-		/// Migrate dispatch call was attempted but no migration was performed.
-		NoMigrationPerformed,
 		/// The contract has reached its maximum number of delegate dependencies.
 		MaxDelegateDependenciesReached,
 		/// The dependency was not found in the contract's delegate dependencies.
@@ -611,12 +585,6 @@ pub mod pallet {
 	pub(crate) type DeletionQueueCounter<T: Config> =
 		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
 
-	/// A migration can span across multiple blocks. This storage defines a cursor to track the
-	/// progress of the migration, enabling us to resume from the last completed position.
-	#[pallet::storage]
-	pub(crate) type MigrationInProgress<T: Config> =
-		StorageValue<_, migration::Cursor, OptionQuery>;
-
 	#[pallet::extra_constants]
 	impl<T: Config> Pallet<T> {
 		#[pallet::constant_name(ApiVersion)]
@@ -631,29 +599,12 @@ pub mod pallet {
 		T::Hash: IsType<H256>,
 	{
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-			use migration::MigrateResult::*;
 			let mut meter = WeightMeter::with_limit(limit);
-
-			loop {
-				match Migration::<T>::migrate(&mut meter) {
-					// There is not enough weight to perform a migration.
-					// We can't do anything more, so we return the used weight.
-					NoMigrationPerformed | InProgress { steps_done: 0 } => return meter.consumed(),
-					// Migration is still in progress, we can start the next step.
-					InProgress { .. } => continue,
-					// Either no migration is in progress, or we are done with all migrations, we
-					// can do some more other work with the remaining weight.
-					Completed | NoMigrationInProgress => break,
-				}
-			}
-
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
 			meter.consumed()
 		}
 
 		fn integrity_test() {
-			Migration::<T>::integrity_test();
-
 			// Total runtime memory limit
 			let max_runtime_mem: u32 = T::RuntimeMemory::get();
 			// Memory limits for a single contract:
@@ -969,7 +920,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			code_hash: sp_core::H256,
 		) -> DispatchResultWithPostInfo {
-			Migration::<T>::ensure_migrated()?;
 			let origin = ensure_signed(origin)?;
 			<WasmBlob<T>>::remove(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
@@ -993,7 +943,6 @@ pub mod pallet {
 			dest: H160,
 			code_hash: sp_core::H256,
 		) -> DispatchResult {
-			Migration::<T>::ensure_migrated()?;
 			ensure_root(origin)?;
 			<ContractInfoOf<T>>::try_mutate(&dest, |contract| {
 				let contract = if let Some(contract) = contract {
@@ -1011,40 +960,6 @@ pub mod pallet {
 				contract.code_hash = code_hash;
 				Ok(())
 			})
-		}
-
-		/// When a migration is in progress, this dispatchable can be used to run migration steps.
-		/// Calls that contribute to advancing the migration have their fees waived, as it's helpful
-		/// for the chain. Note that while the migration is in progress, the pallet will also
-		/// leverage the `on_idle` hooks to run migration steps.
-		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::migrate().saturating_add(*weight_limit))]
-		pub fn migrate(origin: OriginFor<T>, weight_limit: Weight) -> DispatchResultWithPostInfo {
-			use migration::MigrateResult::*;
-			ensure_signed(origin)?;
-
-			let weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
-			let mut meter = WeightMeter::with_limit(weight_limit);
-			let result = Migration::<T>::migrate(&mut meter);
-
-			match result {
-				Completed => Ok(PostDispatchInfo {
-					actual_weight: Some(meter.consumed()),
-					pays_fee: Pays::No,
-				}),
-				InProgress { steps_done, .. } if steps_done > 0 => Ok(PostDispatchInfo {
-					actual_weight: Some(meter.consumed()),
-					pays_fee: Pays::No,
-				}),
-				InProgress { .. } => Ok(PostDispatchInfo {
-					actual_weight: Some(meter.consumed()),
-					pays_fee: Pays::Yes,
-				}),
-				NoMigrationInProgress | NoMigrationPerformed => {
-					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
-					Err(err.with_weight(meter.consumed()))
-				},
-			}
 		}
 	}
 }
@@ -1095,7 +1010,6 @@ where
 			None
 		};
 		let try_call = || {
-			Migration::<T>::ensure_migrated()?;
 			let origin = Origin::from_runtime_origin(origin)?;
 			let mut storage_meter = StorageMeter::new(&origin, storage_deposit_limit, value)?;
 			let result = ExecStack::<T, WasmBlob<T>>::run_call(
@@ -1148,7 +1062,6 @@ where
 		let mut debug_message =
 			if debug == DebugInfo::UnsafeDebug { Some(DebugBuffer::default()) } else { None };
 		let try_instantiate = || {
-			Migration::<T>::ensure_migrated()?;
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
 			let (executable, upload_deposit) = match code {
 				Code::Upload(code) => {
@@ -1209,7 +1122,6 @@ where
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
-		Migration::<T>::ensure_migrated()?;
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
 		let (module, deposit) = Self::try_upload_code(origin, code, storage_deposit_limit, None)?;
 		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
@@ -1217,9 +1129,6 @@ where
 
 	/// Query storage of a specified contract under a specified key.
 	pub fn get_storage(address: H160, key: [u8; 32]) -> GetStorageResult {
-		if Migration::<T>::in_progress() {
-			return Err(ContractAccessError::MigrationInProgress)
-		}
 		let contract_info =
 			ContractInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
 
