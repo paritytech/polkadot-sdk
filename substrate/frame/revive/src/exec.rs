@@ -61,9 +61,6 @@ pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
 pub type ExecResult = Result<ExecReturnValue, ExecError>;
 
-/// A type that represents a topic of an event. At the moment a hash is used.
-pub type TopicOf<T> = <T as frame_system::Config>::Hash;
-
 /// Type for variable sized storage key. Used for transparent hashing.
 type VarSizedKey = BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>;
 

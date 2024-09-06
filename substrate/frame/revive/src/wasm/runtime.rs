@@ -19,7 +19,7 @@
 
 use crate::{
 	address::AddressMapper,
-	exec::{ExecError, ExecResult, Ext, Key, TopicOf},
+	exec::{ExecError, ExecResult, Ext, Key},
 	gas::{ChargedAmount, Token},
 	limits,
 	primitives::ExecReturnValue,
@@ -1538,7 +1538,7 @@ pub mod env {
 		data_len: u32,
 	) -> Result<(), TrapReason> {
 		let num_topic = topics_len
-			.checked_div(core::mem::size_of::<TopicOf<E::T>>() as u32)
+			.checked_div(core::mem::size_of::<H256>() as u32)
 			.ok_or("Zero sized topics are not allowed")?;
 		self.charge_gas(RuntimeCosts::DepositEvent { num_topic, len: data_len })?;
 		if data_len > self.ext.max_value_size() {
