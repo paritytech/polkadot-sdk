@@ -124,7 +124,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 
 	/// Only used for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn migrate_to_direct_staker(agent: Agent<Self::AccountId>) {
+	fn force_kill_agent(agent: Agent<Self::AccountId>) {
 		<Agents<T>>::remove(agent.clone().get());
 		<Delegators<T>>::iter()
 			.filter(|(_, delegation)| delegation.agent == agent.clone().get())

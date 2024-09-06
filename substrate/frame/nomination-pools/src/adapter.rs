@@ -461,6 +461,6 @@ impl<
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn remove_as_agent(pool: Pool<Self::AccountId>) {
-		Delegation::migrate_to_direct_staker(pool.into())
+		Delegation::force_kill_agent(pool.into())
 	}
 }
