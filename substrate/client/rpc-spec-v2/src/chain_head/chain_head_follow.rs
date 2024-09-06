@@ -428,9 +428,12 @@ where
 	/// Generates new block events from the given finalized hashes.
 	///
 	/// It may be possible that the `Finalized` event fired before the `NewBlock`
-	/// event. In that case, for each finalized hash that was not reported yet
-	/// generate the `NewBlock` event. For the final finalized hash we must also
-	/// generate one `BestBlock` event.
+	/// event. Only in that case we generate:
+	/// - `NewBlock` event for all finalized hashes.
+	/// - `BestBlock` event for the last finalized hash.
+	///
+	/// This function returns an empty list if all finalized hashes were already reported
+	/// and are pinned.
 	fn generate_finalized_events(
 		&mut self,
 		finalized_block_hashes: &[Block::Hash],
@@ -454,34 +457,33 @@ where
 			}
 
 			// Generate `NewBlock` events for all blocks beside the last block in the list
-			if i + 1 != finalized_block_hashes.len() {
+			let is_last = i + 1 == finalized_block_hashes.len();
+			if !is_last {
 				// Generate only the `NewBlock` event for this block.
 				events.extend(self.generate_import_events(*hash, *parent, false));
-			} else {
+				continue;
+			}
+
+			if let Some(best_block_hash) = self.current_best_block {
+				let ancestor =
+					sp_blockchain::lowest_common_ancestor(&*self.client, *hash, best_block_hash)?;
+
 				// If we end up here and the `best_block` is a descendent of the finalized block
 				// (last block in the list), it means that there were skipped notifications.
-				// Otherwise `pin_block` would had returned `true`.
+				// Otherwise `pin_block` would had returned `false`.
 				//
 				// When the node falls out of sync and then syncs up to the tip of the chain, it can
 				// happen that we skip notifications. Then it is better to terminate the connection
 				// instead of trying to send notifications for all missed blocks.
-				if let Some(best_block_hash) = self.current_best_block {
-					let ancestor = sp_blockchain::lowest_common_ancestor(
-						&*self.client,
-						*hash,
-						best_block_hash,
-					)?;
-
-					if ancestor.hash == *hash {
-						return Err(SubscriptionManagementError::Custom(
-							"A descendent of the finalized block was already reported".into(),
-						))
-					}
+				if ancestor.hash == *hash {
+					return Err(SubscriptionManagementError::Custom(
+						"A descendent of the finalized block was already reported".into(),
+					))
 				}
-
-				// Let's generate the `NewBlock` and `NewBestBlock` events for the block.
-				events.extend(self.generate_import_events(*hash, *parent, true))
 			}
+
+			// Let's generate the `NewBlock` and `NewBestBlock` events for the block.
+			events.extend(self.generate_import_events(*hash, *parent, true))
 		}
 
 		Ok(events)
@@ -549,39 +551,32 @@ where
 		});
 
 		if let Some(current_best_block) = self.current_best_block {
-			// The best reported block is in the pruned list. Report a new best block.
+			// We need to generate a new best block if the best block is in the pruned list.
 			let is_in_pruned_list =
 				pruned_block_hashes.iter().any(|hash| *hash == current_best_block);
-			// The block is not the last finalized block.
-			//
-			// It can be either:
-			//  - a descendant of the last finalized block
-			//  - a block on a fork that will be pruned in the future.
-			//
-			// In those cases, we emit a new best block.
-			let is_not_last_finalized = current_best_block != last_finalized;
-
-			if is_in_pruned_list || is_not_last_finalized {
-				// We need to generate a best block event.
-				let best_block_hash = self.client.info().best_hash;
-
-				// Defensive check against state missmatch.
-				if best_block_hash == current_best_block {
-					// The client doest not have any new information about the best block.
-					// The information from `.info()` is updated from the DB as the last
-					// step of the finalization and it should be up to date.
-					// If the info is outdated, there is nothing the RPC can do for now.
-					debug!(
-						target: LOG_TARGET,
-						"[follow][id={:?}] Client does not contain different best block",
-						self.sub_id,
-					);
-				} else {
-					// The RPC needs to also submit a new best block changed before the
-					// finalized event.
-					self.current_best_block = Some(best_block_hash);
-					events
-						.push(FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash }));
+			if is_in_pruned_list {
+				self.current_best_block = Some(last_finalized);
+				events.push(FollowEvent::BestBlockChanged(BestBlockChanged {
+					best_block_hash: last_finalized,
+				}));
+			} else {
+				// The pruning logic ensures that when the finalized block is announced,
+				// all blocks on forks that have the common ancestor lower or equal
+				// to the finalized block are reported.
+				//
+				// However, we double check if the best block is a descendant of the last finalized
+				// block to ensure we don't miss any events.
+				let ancestor = sp_blockchain::lowest_common_ancestor(
+					&*self.client,
+					last_finalized,
+					current_best_block,
+				)?;
+				let is_descendant = ancestor.hash == last_finalized;
+				if !is_descendant {
+					self.current_best_block = Some(last_finalized);
+					events.push(FollowEvent::BestBlockChanged(BestBlockChanged {
+						best_block_hash: last_finalized,
+					}));
 				}
 			}
 		}

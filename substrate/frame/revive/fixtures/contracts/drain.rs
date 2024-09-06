@@ -39,6 +39,6 @@ pub extern "C" fn call() {
 
 	// Try to self-destruct by sending more balance to the 0 address.
 	// The call will fail because a contract transfer has a keep alive requirement.
-	let res = api::transfer(&[0u8; 32], &balance.to_le_bytes());
+	let res = api::transfer(&[0u8; 20], &balance.to_le_bytes());
 	assert!(matches!(res, Err(uapi::ReturnErrorCode::TransferFailed)));
 }

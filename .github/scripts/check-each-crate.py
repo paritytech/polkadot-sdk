@@ -9,6 +9,7 @@
 #
 # - `target_group`: Integer starting from 1, the group this script should execute.
 # - `groups_total`: Integer starting from 1, total number of groups.
+# - `disable_forklift`: Boolean, whether to disable forklift or not.
 
 import subprocess, sys
 
@@ -31,6 +32,9 @@ crates.sort()
 
 target_group = int(sys.argv[1]) - 1
 groups_total = int(sys.argv[2])
+disable_forklift = bool(sys.argv[3] if len(sys.argv) > 3 else False)
+
+print(f"Target group: {target_group}, Total groups: {groups_total}, Disable forklift: {disable_forklift}", file=sys.stderr)
 
 if len(crates) == 0:
 	print("No crates detected!", file=sys.stderr)
@@ -55,7 +59,11 @@ for i in range(0, crates_per_group + overflow_crates):
 
 	print(f"Checking {crates[crate][0]}", file=sys.stderr)
 
-	res = subprocess.run(["forklift", "cargo", "check", "--locked"], cwd = crates[crate][1])
+	cmd = ["cargo", "check", "--locked"]
+
+	cmd.insert(0, 'forklift') if not disable_forklift else None
+
+	res = subprocess.run(cmd, cwd = crates[crate][1])
 
 	if res.returncode != 0:
 		sys.exit(1)
