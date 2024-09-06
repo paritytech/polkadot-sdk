@@ -194,8 +194,8 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          version="${{ needs.validate-inputs.outputs.VERSION }}" && \
-          echo "version=${version}" >> $GITHUB_OUTPUT
+          release="${{ needs.validate-inputs.outputs.VERSION }}" && \
+          echo "release=${release}" >> $GITHUB_OUTPUT
 
           commit=$(git rev-parse --short HEAD) && \
           echo "commit=${commit}" >> $GITHUB_OUTPUT
