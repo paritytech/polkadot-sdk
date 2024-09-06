@@ -51,9 +51,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 
-#[cfg(any(test, feature = "try-runtime"))]
-use sp_runtime::{traits::CheckedAdd, ArithmeticError};
-
 pub use pallet::*;
 
 #[cfg(test)]
@@ -154,7 +151,10 @@ pub mod pallet {
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	#[cfg(any(test, feature = "try-runtime"))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		use sp_runtime::traits::{Saturating, Zero};
+		use sp_runtime::{
+			traits::{CheckedAdd, Zero},
+			ArithmeticError,
+		};
 
 		for (asset, who, balance_on_hold) in BalancesOnHold::<T, I>::iter() {
 			ensure!(balance_on_hold != Zero::zero(), "zero on hold must not be in state");
