@@ -35,7 +35,7 @@ pub extern "C" fn call() {
 		buffer,
 		len: u32,
 		input: [u8; 4],
-		callee: [u8; 20],
+		callee: &[u8; 20],
 	);
 
 	let rounds = len as usize / BUFFER.len();
