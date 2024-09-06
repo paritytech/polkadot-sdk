@@ -25,9 +25,6 @@ doc:
         Integration
         The default implementation of done_slash is still an empty function, and the new config type of pallet-balances can be set to an empty tuple, so nothing changes by default.
 
-        Review Notes
-        I suggest to focus on the first commit which contains the main logic changes.
-
 crates:
   - name: frame-support
     bump: major
