@@ -456,8 +456,8 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 
 impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Checks if descriptor core index is equal to the committed core index.
-	/// Input `claim_queue` must contain a snapshot of the claim queue at the
-	/// candidate relay parent.
+	/// Input `cores_per_para` is a claim queue snapshot stored as a mapping
+	/// between `ParaId` and the cores assigned per depth.
 	pub fn check_core_index(
 		&self,
 		cores_per_para: &BTreeMap<ParaId, VecDeque<BTreeSet<CoreIndex>>>,
