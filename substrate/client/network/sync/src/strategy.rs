@@ -47,9 +47,9 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	Justifications,
 };
-use state::{StateStrategy, StateStrategyAction};
+use state::StateStrategy;
 use std::{collections::HashMap, sync::Arc};
-use warp::{EncodedProof, WarpProofRequest, WarpSync, WarpSyncAction, WarpSyncConfig};
+use warp::{EncodedProof, WarpProofRequest, WarpSync, WarpSyncConfig};
 
 /// Corresponding `ChainSync` mode.
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
@@ -227,42 +227,6 @@ pub enum SyncingAction<B: BlockT> {
 impl<B: BlockT> SyncingAction<B> {
 	fn is_finished(&self) -> bool {
 		matches!(self, SyncingAction::Finished)
-	}
-}
-
-impl<B: BlockT> From<WarpSyncAction<B>> for SyncingAction<B> {
-	fn from(action: WarpSyncAction<B>) -> Self {
-		match action {
-			WarpSyncAction::SendWarpProofRequest { peer_id, protocol_name, request } =>
-				SyncingAction::SendWarpProofRequest {
-					peer_id,
-					key: StrategyKey::Warp,
-					protocol_name,
-					request,
-				},
-			WarpSyncAction::SendBlockRequest { peer_id, request } =>
-				SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::Warp, request },
-			WarpSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
-			WarpSyncAction::Finished => SyncingAction::Finished,
-		}
-	}
-}
-
-impl<B: BlockT> From<StateStrategyAction<B>> for SyncingAction<B> {
-	fn from(action: StateStrategyAction<B>) -> Self {
-		match action {
-			StateStrategyAction::SendStateRequest { peer_id, protocol_name, request } =>
-				SyncingAction::SendStateRequest {
-					peer_id,
-					key: StrategyKey::State,
-					protocol_name,
-					request,
-				},
-			StateStrategyAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
-			StateStrategyAction::ImportBlocks { origin, blocks } =>
-				SyncingAction::ImportBlocks { origin, blocks },
-			StateStrategyAction::Finished => SyncingAction::Finished,
-		}
 	}
 }
 

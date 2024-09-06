@@ -23,6 +23,7 @@ use crate::{
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
+		StrategyKey, SyncingAction,
 	},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 	LOG_TARGET,
@@ -50,18 +51,6 @@ mod rep {
 	pub const BAD_STATE: Rep = Rep::new(-(1 << 29), "Bad state");
 }
 
-/// Action that should be performed on [`StateStrategy`]'s behalf.
-pub enum StateStrategyAction<B: BlockT> {
-	/// Send state request to peer.
-	SendStateRequest { peer_id: PeerId, protocol_name: ProtocolName, request: OpaqueStateRequest },
-	/// Disconnect and report peer.
-	DropPeer(BadPeer),
-	/// Import blocks.
-	ImportBlocks { origin: BlockOrigin, blocks: Vec<IncomingBlock<B>> },
-	/// State sync has finished.
-	Finished,
-}
-
 enum PeerState {
 	Available,
 	DownloadingState,
@@ -83,7 +72,7 @@ pub struct StateStrategy<B: BlockT> {
 	state_sync: Box<dyn StateSyncProvider<B>>,
 	peers: HashMap<PeerId, Peer<B>>,
 	disconnected_peers: DisconnectedPeers,
-	actions: Vec<StateStrategyAction<B>>,
+	actions: Vec<SyncingAction<B>>,
 	protocol_name: ProtocolName,
 	succeeded: bool,
 }
@@ -157,7 +146,7 @@ impl<B: BlockT> StateStrategy<B> {
 				if let Some(bad_peer) =
 					self.disconnected_peers.on_disconnect_during_request(*peer_id)
 				{
-					self.actions.push(StateStrategyAction::DropPeer(bad_peer));
+					self.actions.push(SyncingAction::DropPeer(bad_peer));
 				}
 			}
 		}
@@ -187,7 +176,7 @@ impl<B: BlockT> StateStrategy<B> {
 	/// Process state response.
 	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
 		if let Err(bad_peer) = self.on_state_response_inner(peer_id, response) {
-			self.actions.push(StateStrategyAction::DropPeer(bad_peer));
+			self.actions.push(SyncingAction::DropPeer(bad_peer));
 		}
 	}
 
@@ -234,8 +223,7 @@ impl<B: BlockT> StateStrategy<B> {
 					state: Some(state),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
-				self.actions
-					.push(StateStrategyAction::ImportBlocks { origin, blocks: vec![block] });
+				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
 				Ok(())
 			},
 			ImportResult::Continue => Ok(()),
@@ -281,7 +269,7 @@ impl<B: BlockT> StateStrategy<B> {
 				);
 			});
 			self.succeeded |= results.into_iter().any(|result| result.is_ok());
-			self.actions.push(StateStrategyAction::Finished);
+			self.actions.push(SyncingAction::Finished);
 		}
 	}
 
@@ -354,10 +342,11 @@ impl<B: BlockT> StateStrategy<B> {
 
 	/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
 	#[must_use]
-	pub fn actions(&mut self) -> impl Iterator<Item = StateStrategyAction<B>> {
+	pub fn actions(&mut self) -> impl Iterator<Item = SyncingAction<B>> {
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
-			StateStrategyAction::SendStateRequest {
+			SyncingAction::SendStateRequest {
 				peer_id,
+				key: StrategyKey::State,
 				protocol_name: self.protocol_name.clone(),
 				request,
 			}
@@ -743,7 +732,7 @@ mod test {
 		assert_eq!(state_strategy.actions.len(), 1);
 		assert!(matches!(
 			&state_strategy.actions[0],
-			StateStrategyAction::ImportBlocks { origin, blocks }
+			SyncingAction::ImportBlocks { origin, blocks }
 				if *origin == expected_origin && *blocks == expected_blocks,
 		));
 	}
@@ -799,7 +788,7 @@ mod test {
 
 		// Strategy finishes.
 		assert_eq!(state_strategy.actions.len(), 1);
-		assert!(matches!(&state_strategy.actions[0], StateStrategyAction::Finished));
+		assert!(matches!(&state_strategy.actions[0], SyncingAction::Finished));
 	}
 
 	#[test]
@@ -826,7 +815,7 @@ mod test {
 
 		// Strategy finishes.
 		assert_eq!(state_strategy.actions.len(), 1);
-		assert!(matches!(&state_strategy.actions[0], StateStrategyAction::Finished));
+		assert!(matches!(&state_strategy.actions[0], SyncingAction::Finished));
 	}
 
 	#[test]
@@ -857,7 +846,7 @@ mod test {
 		// Strategy finishes.
 		let actions = state_strategy.actions().collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		assert!(matches!(&actions[0], StateStrategyAction::Finished));
+		assert!(matches!(&actions[0], SyncingAction::Finished));
 
 		// No more actions generated.
 		assert_eq!(state_strategy.actions().count(), 0);

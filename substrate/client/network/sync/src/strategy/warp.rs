@@ -21,7 +21,10 @@
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
-	strategy::{chain_sync::validate_blocks, disconnected_peers::DisconnectedPeers},
+	strategy::{
+		chain_sync::validate_blocks, disconnected_peers::DisconnectedPeers, StrategyKey,
+		SyncingAction,
+	},
 	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
@@ -186,22 +189,6 @@ struct Peer<B: BlockT> {
 	state: PeerState,
 }
 
-/// Action that should be performed on [`WarpSync`]'s behalf.
-pub enum WarpSyncAction<B: BlockT> {
-	/// Send warp proof request to peer.
-	SendWarpProofRequest {
-		peer_id: PeerId,
-		protocol_name: ProtocolName,
-		request: WarpProofRequest<B>,
-	},
-	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
-	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
-	/// Disconnect and report peer.
-	DropPeer(BadPeer),
-	/// Warp sync has finished.
-	Finished,
-}
-
 pub struct WarpSyncResult<B: BlockT> {
 	pub target_header: B::Header,
 	pub target_body: Option<Vec<B::Extrinsic>>,
@@ -217,7 +204,7 @@ pub struct WarpSync<B: BlockT, Client> {
 	peers: HashMap<PeerId, Peer<B>>,
 	disconnected_peers: DisconnectedPeers,
 	protocol_name: Option<ProtocolName>,
-	actions: Vec<WarpSyncAction<B>>,
+	actions: Vec<SyncingAction<B>>,
 	result: Option<WarpSyncResult<B>>,
 }
 
@@ -247,7 +234,7 @@ where
 				peers: HashMap::new(),
 				disconnected_peers: DisconnectedPeers::new(),
 				protocol_name,
-				actions: vec![WarpSyncAction::Finished],
+				actions: vec![SyncingAction::Finished],
 				result: None,
 			}
 		}
@@ -285,7 +272,7 @@ where
 				if let Some(bad_peer) =
 					self.disconnected_peers.on_disconnect_during_request(*peer_id)
 				{
-					self.actions.push(WarpSyncAction::DropPeer(bad_peer));
+					self.actions.push(SyncingAction::DropPeer(bad_peer));
 				}
 			}
 		}
@@ -340,7 +327,7 @@ where
 		else {
 			debug!(target: LOG_TARGET, "Unexpected warp proof response");
 			self.actions
-				.push(WarpSyncAction::DropPeer(BadPeer(*peer_id, rep::UNEXPECTED_RESPONSE)));
+				.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::UNEXPECTED_RESPONSE)));
 			return
 		};
 
@@ -348,7 +335,7 @@ where
 			Err(e) => {
 				debug!(target: LOG_TARGET, "Bad warp proof response: {}", e);
 				self.actions
-					.push(WarpSyncAction::DropPeer(BadPeer(*peer_id, rep::BAD_WARP_PROOF)))
+					.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_WARP_PROOF)))
 			},
 			Ok(VerificationResult::Partial(new_set_id, new_authorities, new_last_hash)) => {
 				log::debug!(target: LOG_TARGET, "Verified partial proof, set_id={:?}", new_set_id);
@@ -379,7 +366,7 @@ where
 		blocks: Vec<BlockData<B>>,
 	) {
 		if let Err(bad_peer) = self.on_block_response_inner(peer_id, request, blocks) {
-			self.actions.push(WarpSyncAction::DropPeer(bad_peer));
+			self.actions.push(SyncingAction::DropPeer(bad_peer));
 		}
 	}
 
@@ -449,7 +436,7 @@ where
 			target_justifications: block.justifications,
 		});
 		self.phase = Phase::Complete;
-		self.actions.push(WarpSyncAction::Finished);
+		self.actions.push(SyncingAction::Finished);
 		Ok(())
 	}
 
@@ -606,17 +593,22 @@ where
 
 	/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
 	#[must_use]
-	pub fn actions(&mut self) -> impl Iterator<Item = WarpSyncAction<B>> {
+	pub fn actions(&mut self) -> impl Iterator<Item = SyncingAction<B>> {
 		let warp_proof_request =
 			self.warp_proof_request().into_iter().map(|(peer_id, protocol_name, request)| {
-				WarpSyncAction::SendWarpProofRequest { peer_id, protocol_name, request }
+				SyncingAction::SendWarpProofRequest {
+					peer_id,
+					key: StrategyKey::Warp,
+					protocol_name,
+					request,
+				}
 			});
 		self.actions.extend(warp_proof_request);
 
-		let target_block_request = self
-			.target_block_request()
-			.into_iter()
-			.map(|(peer_id, request)| WarpSyncAction::SendBlockRequest { peer_id, request });
+		let target_block_request =
+			self.target_block_request().into_iter().map(|(peer_id, request)| {
+				SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::Warp, request }
+			});
 		self.actions.extend(target_block_request);
 
 		std::mem::take(&mut self.actions).into_iter()
@@ -721,7 +713,7 @@ mod test {
 		// Warp sync instantly finishes
 		let actions = warp_sync.actions().collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		assert!(matches!(actions[0], WarpSyncAction::Finished));
+		assert!(matches!(actions[0], SyncingAction::Finished));
 
 		// ... with no result.
 		assert!(warp_sync.take_result().is_none());
@@ -742,7 +734,7 @@ mod test {
 		// Warp sync instantly finishes
 		let actions = warp_sync.actions().collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		assert!(matches!(actions[0], WarpSyncAction::Finished));
+		assert!(matches!(actions[0], SyncingAction::Finished));
 
 		// ... with no result.
 		assert!(warp_sync.take_result().is_none());
@@ -1009,7 +1001,7 @@ mod test {
 		// Consume `SendWarpProofRequest` action.
 		let actions = warp_sync.actions().collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		let WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
+		let SyncingAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
 		else {
 			panic!("Invalid action");
 		};
@@ -1021,7 +1013,7 @@ mod test {
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(
 			actions[0],
-			WarpSyncAction::DropPeer(BadPeer(peer_id, _rep)) if peer_id == request_peer_id
+			SyncingAction::DropPeer(BadPeer(peer_id, _rep)) if peer_id == request_peer_id
 		));
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 	}
@@ -1050,7 +1042,7 @@ mod test {
 		// Consume `SendWarpProofRequest` action.
 		let actions = warp_sync.actions().collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		let WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
+		let SyncingAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
 		else {
 			panic!("Invalid action");
 		};
@@ -1094,7 +1086,7 @@ mod test {
 		// Consume `SendWarpProofRequest` action.
 		let actions = warp_sync.actions().collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		let WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
+		let SyncingAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
 		else {
 			panic!("Invalid action.");
 		};
@@ -1476,7 +1468,7 @@ mod test {
 		// Strategy finishes.
 		let actions = warp_sync.actions().collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		assert!(matches!(actions[0], WarpSyncAction::Finished));
+		assert!(matches!(actions[0], SyncingAction::Finished));
 
 		// With correct result.
 		let result = warp_sync.take_result().unwrap();
