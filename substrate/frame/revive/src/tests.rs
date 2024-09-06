@@ -746,7 +746,7 @@ mod run_tests {
 							contract: addr,
 							data: vec![1, 2, 3, 4]
 						}),
-						topics: vec![],
+						topics: vec![H256::repeat_byte(42)],
 					},
 					EventRecord {
 						phase: Phase::Initialization,

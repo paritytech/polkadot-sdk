@@ -25,7 +25,7 @@ use uapi::{HostFn, HostFnImpl as api};
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn deploy() {
 	let buffer = [1u8, 2, 3, 4];
-	let topics = [[0u8; 32]; 0];
+	let topics = [[42u8; 32]; 1];
 	api::deposit_event(&topics, &buffer);
 	api::return_value(uapi::ReturnFlags::empty(), &buffer);
 }
