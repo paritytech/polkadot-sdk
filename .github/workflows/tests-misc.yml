@@ -5,7 +5,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [ opened, synchronize, reopened, ready_for_review ]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -43,12 +43,12 @@ jobs:
             echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
           else
             echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-          fi  
-  
+          fi
+
   # more information about this job can be found here:
   # https://github.com/paritytech/substrate/pull/3778
   test-full-crypto-feature:
-    needs: [ set-image ]
+    needs: [set-image]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -72,7 +72,7 @@ jobs:
   test-frame-examples-compile-to-wasm:
     timeout-minutes: 20
     # into one job
-    needs: [ set-image, test-full-crypto-feature ]
+    needs: [set-image, test-full-crypto-feature]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -93,7 +93,7 @@ jobs:
 
   test-frame-ui:
     timeout-minutes: 60
-    needs: [ set-image, test-frame-examples-compile-to-wasm ]
+    needs: [set-image, test-frame-examples-compile-to-wasm]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -121,7 +121,7 @@ jobs:
 
   test-deterministic-wasm:
     timeout-minutes: 20
-    needs: [ set-image, test-frame-ui ]
+    needs: [set-image]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -143,8 +143,8 @@ jobs:
           sha256sum -c checksum.sha256
 
   cargo-check-benches-branches:
-    needs: [ set-image ]
-    if: ${{ github.event_name == 'pull_request' }}
+    needs: [set-image]
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
     timeout-minutes: 60
     outputs:
       branch: ${{ steps.branch.outputs.branch }}
@@ -156,7 +156,7 @@ jobs:
           echo "branch=['${{ github.base_ref }}', '${{ github.head_ref }}']" >> $GITHUB_OUTPUT
 
   cargo-check-benches:
-    needs: [ set-image, cargo-check-benches-branches ]
+    needs: [set-image, cargo-check-benches-branches]
     timeout-minutes: 60
     strategy:
       matrix:
@@ -191,7 +191,7 @@ jobs:
   node-bench-regression-guard:
     timeout-minutes: 20
     runs-on: arc-runners-polkadot-sdk
-    needs: [ set-image, cargo-check-benches ]
+    needs: [set-image, cargo-check-benches]
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.7
@@ -227,7 +227,7 @@ jobs:
           fi
 
   test-node-metrics:
-    needs: [ set-image ]
+    needs: [set-image]
     timeout-minutes: 30
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
@@ -260,7 +260,7 @@ jobs:
   # https://github.com/paritytech/substrate/pull/6916
   check-tracing:
     timeout-minutes: 20
-    needs: [ set-image, test-node-metrics ]
+    needs: [set-image, test-node-metrics]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -275,7 +275,7 @@ jobs:
 
   check-metadata-hash:
     timeout-minutes: 20
-    needs: [ set-image, check-tracing ]
+    needs: [set-image, check-tracing]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -289,7 +289,7 @@ jobs:
 
   cargo-hfuzz:
     timeout-minutes: 20
-    needs: [ set-image, check-metadata-hash ]
+    needs: [set-image, check-metadata-hash]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -329,7 +329,7 @@ jobs:
 
   cargo-check-each-crate:
     timeout-minutes: 140
-    needs: [ set-image ]
+    needs: [set-image]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -338,7 +338,7 @@ jobs:
       CI_JOB_NAME: cargo-check-each-crate
     strategy:
       matrix:
-        index: [ 1,2,3,4,5,6,7 ] # 7 parallel jobs
+        index: [1, 2, 3, 4, 5, 6, 7] # 7 parallel jobs
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.7
@@ -354,46 +354,30 @@ jobs:
           cp .forklift/config.toml /github/home/.forklift/config.toml
           PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
 
-  # TODO: enable when we have a macos Self-Hosted runners
-  #  cargo-check-each-crate-macos:
-  #    timeout-minutes: 120
-  #    needs: [ set-image ]
-  #    runs-on: macos-latest
-  #    env:
-  #      RUSTFLAGS: "-D warnings"
-  #      CI_JOB_NAME: cargo-check-each-crate
-  #      IMAGE: ${{ needs.set-image.outputs.IMAGE }}
-  #    strategy:
-  #      fail-fast: false
-  #      matrix:
-  #        index: [ 1,2,3,4,5,6,7,8,9,10 ] # 10 parallel jobs
-  #    steps:
-  #      - name: Checkout
-  #        uses: actions/checkout@v4.1.7
-  #
-  #      - run: |
-  #          VERSION=$(echo $IMAGE | sed -E 's/.*:bullseye-([^-]+)-.*/\1/')
-  #          echo $VERSION
-  #          echo "VERSION=$VERSION" >> $GITHUB_ENV
-  #
-  #      - run: |
-  #          rustup install $VERSION
-  #          rustup default $VERSION
-  #
-  #      - name: Check Rust
-  #        run: |
-  #          rustup show
-  #          rustup +nightly show
-  #
-  #      - name: MacOS Deps
-  #        run: |
-  #          brew install protobuf openssl pkg-config zlib xz zstd llvm jq curl gcc make cmake
-  #          rustup target add wasm32-unknown-unknown --toolchain $VERSION
-  #          rustup component add rust-src rustfmt clippy --toolchain $VERSION
-  #
-  #      - name: script
-  #        run: |
-  #          PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }} True
+  # cargo-check-each-crate-macos:
+  #   timeout-minutes: 120
+  #   needs: [ set-image ]
+  #   runs-on: macOS
+  #   env:
+  #     RUSTFLAGS: "-D warnings"
+  #     CI_JOB_NAME: cargo-check-each-crate
+  #     IMAGE: ${{ needs.set-image.outputs.IMAGE }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       index: [ 1,2,3,4,5,6,7,8,9,10 ] # 10 parallel jobs
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4.1.7
+
+  #     - name: Install dependencies
+  #       uses: ./.github/actions/set-up-mac
+  #       with:
+  #         IMAGE: ${{ needs.set-image.outputs.IMAGE }}
+
+  #     - name: script
+  #       run: |
+  #         PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }} True
 
   confirm-required-test-misc-jobs-passed:
     runs-on: ubuntu-latest
@@ -408,6 +392,16 @@ jobs:
       - test-node-metrics
       - check-tracing
       - cargo-check-each-crate
+      - test-deterministic-wasm
       # - cargo-hfuzz remove from required for now, as it's flaky
+    if: always() && !cancelled()
     steps:
-      - run: echo '### Good job! All the required tests passed 🚀' >> $GITHUB_STEP_SUMMARY
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi
