@@ -205,17 +205,17 @@ benchmarks! {
 	verify {
 		#[cfg(test)]
 		{
-		// make sure that all slashes have been applied
-		// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
-		// account endowed + some funds rescinded from issuance.
-		assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
-		// (n nominators + one validator) * slashed + Slash Reported
-		assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
-		// offence
-		assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
-		// reporter new account
-		assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
-			}
+			// make sure that all slashes have been applied
+			// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
+			// account endowed + some funds rescinded from issuance.
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
+			// (n nominators + one validator) * slashed + Slash Reported
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
+			// offence
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
+			// reporter new account
+			assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
+		}
 	}
 
 	report_offence_babe {
@@ -244,17 +244,17 @@ benchmarks! {
 	verify {
 		#[cfg(test)]
 		{
-		// make sure that all slashes have been applied
-		// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
-		// account endowed + some funds rescinded from issuance.
-		assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
-		// (n nominators + one validator) * slashed + Slash Reported
-		assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
-		// offence
-		assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
-		// reporter new account
-		assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
-			}
+			// make sure that all slashes have been applied
+			// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
+			// account endowed + some funds rescinded from issuance.
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
+			// (n nominators + one validator) * slashed + Slash Reported
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
+			// offence
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
+			// reporter new account
+			assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
+		}
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
