@@ -140,5 +140,5 @@ jobs:
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1
           else
-            echo '### Good job! All the required tests passed 🚀' >> $GITHUB_STEP_SUMMARY
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
           fi
