@@ -72,6 +72,7 @@ pub enum FromQueue {
 #[derive(Debug)]
 pub struct PendingExecutionRequest {
 	pub exec_timeout: Duration,
+	pub exec_deadline: Option<Instant>,
 	pub pvd: Arc<PersistedValidationData>,
 	pub pov: Arc<PoV>,
 	pub executor_params: ExecutorParams,
@@ -82,6 +83,7 @@ pub struct PendingExecutionRequest {
 struct ExecuteJob {
 	artifact: ArtifactPathId,
 	exec_timeout: Duration,
+	exec_deadline: Option<Instant>,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
@@ -279,6 +281,19 @@ impl Queue {
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
 
+		if let Some(deadline) = job.exec_deadline {
+			gum::warn!(
+				target: LOG_TARGET,
+				?priority,
+				?deadline,
+				"Job exceeded its deadline and was dropped without execution",
+			);
+			if Instant::now() > deadline {
+				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
+				return
+			}
+		}
+
 		if let Some(worker) = worker {
 			assign(self, worker, job);
 		} else {
@@ -308,6 +323,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	let ToQueue::Enqueue { artifact, pending_execution_request } = to_queue;
 	let PendingExecutionRequest {
 		exec_timeout,
+		exec_deadline,
 		pvd,
 		pov,
 		executor_params,
@@ -324,6 +340,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	let job = ExecuteJob {
 		artifact,
 		exec_timeout,
+		exec_deadline,
 		pvd,
 		pov,
 		executor_params,

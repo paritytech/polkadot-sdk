@@ -44,7 +44,7 @@ use std::{
 	collections::HashMap,
 	path::PathBuf,
 	sync::Arc,
-	time::{Duration, SystemTime},
+	time::{Duration, Instant, SystemTime},
 };
 
 /// The time period after which a failed preparation artifact is considered ready to be retried.
@@ -111,6 +111,7 @@ impl ValidationHost {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
+		exec_deadline: Option<Instant>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		priority: Priority,
@@ -121,6 +122,7 @@ impl ValidationHost {
 			.send(ToHost::ExecutePvf(ExecutePvfInputs {
 				pvf,
 				exec_timeout,
+				exec_deadline,
 				pvd,
 				pov,
 				priority,
@@ -154,6 +156,7 @@ enum ToHost {
 struct ExecutePvfInputs {
 	pvf: PvfPrepData,
 	exec_timeout: Duration,
+	exec_deadline: Option<Instant>,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	priority: Priority,
@@ -548,8 +551,16 @@ async fn handle_execute_pvf(
 	awaiting_prepare: &mut AwaitingPrepare,
 	inputs: ExecutePvfInputs,
 ) -> Result<(), Fatal> {
-	let ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, execute_priority, result_tx } =
-		inputs;
+	let ExecutePvfInputs {
+		pvf,
+		exec_timeout,
+		exec_deadline,
+		pvd,
+		pov,
+		priority,
+		execute_priority,
+		result_tx,
+	} = inputs;
 	let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
 	let executor_params = (*pvf.executor_params()).clone();
 
@@ -568,6 +579,7 @@ async fn handle_execute_pvf(
 							artifact: ArtifactPathId::new(artifact_id, path),
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
+								exec_deadline,
 								pvd,
 								pov,
 								executor_params,
@@ -599,6 +611,7 @@ async fn handle_execute_pvf(
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
+							exec_deadline,
 							pvd,
 							pov,
 							executor_params,
@@ -614,6 +627,7 @@ async fn handle_execute_pvf(
 					artifact_id,
 					PendingExecutionRequest {
 						exec_timeout,
+						exec_deadline,
 						pvd,
 						pov,
 						executor_params,
@@ -648,6 +662,7 @@ async fn handle_execute_pvf(
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
+							exec_deadline,
 							pvd,
 							pov,
 							executor_params,
@@ -673,6 +688,7 @@ async fn handle_execute_pvf(
 			artifact_id,
 			PendingExecutionRequest {
 				exec_timeout,
+				exec_deadline,
 				pvd,
 				pov,
 				executor_params,
@@ -802,6 +818,7 @@ async fn handle_prepare_done(
 	let pending_requests = awaiting_prepare.take(&artifact_id);
 	for PendingExecutionRequest {
 		exec_timeout,
+		exec_deadline,
 		pvd,
 		pov,
 		executor_params,
@@ -829,6 +846,7 @@ async fn handle_prepare_done(
 				artifact: ArtifactPathId::new(artifact_id.clone(), &path),
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
+					exec_deadline,
 					pvd,
 					pov,
 					executor_params,

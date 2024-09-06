@@ -869,6 +869,7 @@ async fn validate_candidate_exhaustive(
 				.validate_candidate(
 					pvf,
 					exec_timeout,
+					pvf_exec_deadline(),
 					persisted_validation_data.clone(),
 					pov,
 					exec_kind.into(),
@@ -881,6 +882,7 @@ async fn validate_candidate_exhaustive(
 				.validate_candidate_with_retry(
 					validation_code.0,
 					pvf_exec_timeout(&executor_params, exec_kind.into()),
+					pvf_exec_deadline(),
 					persisted_validation_data.clone(),
 					pov,
 					executor_params,
@@ -933,6 +935,15 @@ async fn validate_candidate_exhaustive(
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
+		Err(e @ ValidationError::ExecutionDeadline) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?para_id,
+				?e,
+				"Job assigned too late, execution queue probably overloaded",
+			);
+			Err(ValidationFailed(e.to_string()))
+		},
 		Ok(res) =>
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head {
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
@@ -970,6 +981,7 @@ trait ValidationBackend {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
+		exec_deadline: Option<Instant>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
@@ -990,6 +1002,7 @@ trait ValidationBackend {
 		&mut self,
 		code: Vec<u8>,
 		exec_timeout: Duration,
+		exec_deadline: Option<Instant>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		executor_params: ExecutorParams,
@@ -1016,6 +1029,7 @@ trait ValidationBackend {
 			.validate_candidate(
 				pvf.clone(),
 				exec_timeout,
+				exec_deadline,
 				pvd.clone(),
 				pov.clone(),
 				prepare_priority,
@@ -1071,7 +1085,12 @@ trait ValidationBackend {
 					retry_immediately = true;
 				},
 
-				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
+				Ok(_) |
+				Err(
+					ValidationError::Invalid(_) |
+					ValidationError::Preparation(_) |
+					ValidationError::ExecutionDeadline,
+				) => break,
 			}
 
 			// If we got a possibly transient error, retry once after a brief delay, on the
@@ -1097,6 +1116,7 @@ trait ValidationBackend {
 					.validate_candidate(
 						pvf.clone(),
 						new_timeout,
+						exec_deadline,
 						pvd.clone(),
 						pov.clone(),
 						prepare_priority,
@@ -1121,6 +1141,7 @@ impl ValidationBackend for ValidationHost {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
+		exec_deadline: Option<Instant>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
@@ -1130,7 +1151,16 @@ impl ValidationBackend for ValidationHost {
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
 		if let Err(err) = self
-			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, execute_priority, tx)
+			.execute_pvf(
+				pvf,
+				exec_timeout,
+				exec_deadline,
+				pvd,
+				pov,
+				prepare_priority,
+				execute_priority,
+				tx,
+			)
 			.await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(
@@ -1231,4 +1261,8 @@ fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: PvfExecKind) -> Dura
 		PvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		PvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
 	}
+}
+
+fn pvf_exec_deadline() -> Option<Instant> {
+	None
 }
