@@ -142,25 +142,13 @@ jobs:
           # confirm checksum
           sha256sum -c checksum.sha256
 
-  cargo-check-benches-branches:
+  cargo-check-benches:
     needs: [ set-image ]
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
     timeout-minutes: 60
-    outputs:
-      branch: ${{ steps.branch.outputs.branch }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Branch
-        id: branch
-        run: |
-          echo "branch=['${{ github.base_ref }}', '${{ github.head_ref }}']" >> $GITHUB_OUTPUT
-
-  cargo-check-benches:
-    needs: [ set-image, cargo-check-benches-branches ]
-    timeout-minutes: 60
     strategy:
       matrix:
-        branch: ${{ fromJSON(needs.cargo-check-benches-branches.outputs.branch) }}
+        branch: [ master, current ]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -168,7 +156,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.branch }}
+          # if branch is master, use the branch, otherwise set empty string, so it uses the current context
+          # either PR (including forks) or merge group (main repo)
+          ref: ${{ matrix.branch == 'master' && matrix.branch || '' }} 
 
       - name: script
         run: |
@@ -190,6 +180,7 @@ jobs:
 
   node-bench-regression-guard:
     timeout-minutes: 20
+    if: always()
     runs-on: arc-runners-polkadot-sdk
     needs: [ set-image, cargo-check-benches ]
     steps:
@@ -199,13 +190,13 @@ jobs:
       - name: Download artifact (master run)
         uses: actions/download-artifact@v4.1.8
         with:
-          name: cargo-check-benches-${{ github.base_ref }}-${{ github.sha }}
+          name: cargo-check-benches-master-${{ github.sha }}
           path: ./artifacts/master
 
       - name: Download artifact (current run)
         uses: actions/download-artifact@v4.1.8
         with:
-          name: cargo-check-benches-${{ github.head_ref }}-${{ github.sha }}
+          name: cargo-check-benches-current-${{ github.sha }}
           path: ./artifacts/current
 
       - name: script
