@@ -437,15 +437,16 @@ fn new_partial_basics(
 		.transpose()?;
 
 	let heap_pages = config
+		.executor
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
 	let executor = WasmExecutor::builder()
-		.with_execution_method(config.wasm_method)
+		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
-		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
@@ -762,9 +763,10 @@ pub fn new_full<
 	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 	use polkadot_node_network_protocol::request_response::IncomingRequest;
 	use sc_network_sync::WarpSyncConfig;
+	use sc_sysinfo::Metric;
 
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
-	let role = config.role.clone();
+	let role = config.role;
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks = if !force_authoring_backoff &&
 		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
@@ -1079,13 +1081,31 @@ pub fn new_full<
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, role.is_authority()) {
 			Err(err) if role.is_authority() => {
-				log::warn!(
-				"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
-				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
-				err
-			);
+				if err
+					.0
+					.iter()
+					.any(|failure| matches!(failure.metric, Metric::Blake2256Parallel { .. }))
+				{
+					log::warn!(
+						"⚠️  Starting January 2025 the hardware will fail the minimal physical CPU cores requirements {} for role 'Authority',\n\
+						    find out more when this will become mandatory at:\n\
+						    https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+						err
+					);
+				}
+				if err
+					.0
+					.iter()
+					.any(|failure| !matches!(failure.metric, Metric::Blake2256Parallel { .. }))
+				{
+					log::warn!(
+						"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+						https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+						err
+					);
+				}
 			},
 			_ => {},
 		}

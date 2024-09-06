@@ -16,6 +16,12 @@
 
 //! Types relevant for approval.
 
+/// Criteria for assignment.
+pub mod criteria;
+
+/// Time utilities for approval voting.
+pub mod time;
+
 /// A list of primitives introduced in v1.
 pub mod v1 {
 	use sp_consensus_babe as babe_primitives;
@@ -25,8 +31,8 @@ pub mod v1 {
 
 	use codec::{Decode, Encode};
 	use polkadot_primitives::{
-		BlockNumber, CandidateHash, CandidateIndex, CoreIndex, Hash, Header, SessionIndex,
-		ValidatorIndex, ValidatorSignature,
+		BlockNumber, CandidateHash, CandidateIndex, CoreIndex, GroupIndex, Hash, Header,
+		SessionIndex, ValidatorIndex, ValidatorSignature,
 	};
 	use sp_application_crypto::ByteArray;
 
@@ -128,11 +134,13 @@ pub mod v1 {
 		pub parent_hash: Hash,
 		/// The candidates included by the block.
 		/// Note that these are not the same as the candidates that appear within the block body.
-		pub candidates: Vec<CandidateHash>,
+		pub candidates: Vec<(CandidateHash, CoreIndex, GroupIndex)>,
 		/// The consensus slot of the block.
 		pub slot: Slot,
 		/// The session of the block.
 		pub session: SessionIndex,
+		/// The vrf story.
+		pub vrf_story: RelayVRFStory,
 	}
 
 	/// Errors that can occur during the approvals protocol.
