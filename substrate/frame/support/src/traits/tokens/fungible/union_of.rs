@@ -844,8 +844,8 @@ impl<
 }
 
 impl<
-		Left: fungible::BalancedHold<AccountId>,
-		Right: fungibles::BalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>,
+		Left: fungible::BalancedHold<AccountId> + fungible::hold::DoneSlash<Self::Reason, AccountId, Self::Balance>,
+		Right: fungibles::BalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason> + fungibles::hold::DoneSlash<AssetKind, Left::Reason, AccountId, Left::Balance>,
 		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
 		AssetKind: AssetId,
 		AccountId,
@@ -867,6 +867,26 @@ impl<
 				let (credit, amount) =
 					<Right as fungibles::BalancedHold<AccountId>>::slash(a, reason, who, amount);
 				(fungibles::imbalance::from_fungibles(credit, asset), amount)
+			},
+		}
+	}
+}
+impl<
+	Reason,
+	Balance,
+	Left: fungible::hold::DoneSlash<Reason, AccountId, Balance>,
+	Right: fungibles::hold::DoneSlash<Right::AssetId, Reason, AccountId, Balance> + fungibles::Inspect<AccountId>,
+	Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
+	AssetKind: AssetId,
+	AccountId,
+> fungibles::hold::DoneSlash<AssetKind, Reason, AccountId, Balance> for UnionOf<Left, Right, Criterion, AssetKind, AccountId> {
+	fn done_slash(asset: AssetKind, reason: &Reason, who: &AccountId, amount: Balance) {
+		match Criterion::convert(asset.clone()) {
+			Left(()) => {
+					Left::done_slash(reason, who, amount);
+			},
+			Right(a) => {
+					Right::done_slash(a, reason, who, amount);
 			},
 		}
 	}

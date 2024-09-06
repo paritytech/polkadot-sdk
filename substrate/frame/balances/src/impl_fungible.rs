@@ -363,6 +363,12 @@ impl<T: Config<I>, I: 'static> fungible::Balanced<T::AccountId> for Pallet<T, I>
 
 impl<T: Config<I>, I: 'static> fungible::BalancedHold<T::AccountId> for Pallet<T, I> {}
 
+impl<T: Config<I>, I: 'static> fungible::hold::DoneSlash<T::RuntimeHoldReason, T::AccountId, T::Balance> for Pallet<T, I> {
+	fn done_slash(reason: &T::RuntimeHoldReason, who: &T::AccountId, amount: T::Balance) {
+		T::DoneSlashHandler::done_slash(reason, who, amount);
+	}
+}
+
 impl<T: Config<I>, I: 'static> AccountTouch<(), T::AccountId> for Pallet<T, I> {
 	type Balance = T::Balance;
 	fn deposit_required(_: ()) -> Self::Balance {

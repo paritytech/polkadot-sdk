@@ -234,6 +234,7 @@ pub mod pallet {
 			type MaxFreezes = VariantCountOf<Self::RuntimeFreezeReason>;
 
 			type WeightInfo = ();
+			type DoneSlashHandler = ();
 		}
 	}
 
@@ -312,6 +313,8 @@ pub mod pallet {
 		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
+
+		type DoneSlashHandler: fungible::hold::DoneSlash<Self::RuntimeHoldReason, Self::AccountId, Self::Balance>;
 	}
 
 	/// The in-code storage version.
