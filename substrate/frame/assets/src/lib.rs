@@ -707,6 +707,8 @@ pub mod pallet {
 		DestroyingAsset,
 		/// Operation fails because the asset status is `LiveAndNoPrivileges`.
 		LiveAndNoPrivileges,
+		/// Internal error, an operation unexpectedly failed.
+		InternalError,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -1145,7 +1147,7 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let d = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				Self::ensure_live_asset(&d)?;
+				ensure!(d.is_live(), Error::<T, I>::AssetNotLive);
 				ensure!(d.freezer() == Some(&origin), Error::<T, I>::NoPermission);
 
 				d.status = AssetStatus::Frozen;
@@ -1203,7 +1205,7 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				Self::ensure_live_asset(&details)?;
+				ensure!(details.is_live(), Error::<T, I>::AssetNotLive);
 				let old_owner = details.owner().ok_or(Error::<T, I>::NoPermission)?;
 				ensure!(old_owner == &origin, Error::<T, I>::NoPermission);
 				if old_owner == &owner {
@@ -1216,14 +1218,16 @@ pub mod pallet {
 				// Move the deposit to the new owner.
 				T::Currency::repatriate_reserved(&old_owner, &owner, deposit, Reserved)?;
 
-				match details.try_set_owner(&owner) {
-					Ok(()) => (),
-					Err(SetTeamError::AssetStatusLiveAndNoPrivileges) => log::error!(
-						target: LOG_TARGET,
-						"Operation failed because status is `LiveAndNoPrivileges`, but there is
-						an owner so status cannot be `LiveAndNoPrivileges`; qed"
-					),
-				}
+				details.try_set_owner(&owner).map_err(|e| match e {
+					SetTeamError::AssetStatusLiveAndNoPrivileges => {
+						log::error!(
+							target: LOG_TARGET,
+							"Operation failed because status is `LiveAndNoPrivileges`, but \
+							there is an owner so status cannot be `LiveAndNoPrivileges`; qed"
+						);
+						Error::<T, I>::InternalError
+					},
+				})?;
 
 				Self::deposit_event(Event::OwnerChanged { asset_id: id, owner });
 				Ok(())
@@ -1258,7 +1262,7 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				Self::ensure_live_asset(&details)?;
+				ensure!(details.is_live(), Error::<T, I>::AssetNotLive);
 				let owner = details.owner().ok_or(Error::<T, I>::NoPermission)?;
 				ensure!(owner == &origin, Error::<T, I>::NoPermission);
 
@@ -1323,7 +1327,7 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			Self::ensure_live_asset(&d)?;
+			ensure!(d.is_live(), Error::<T, I>::AssetNotLive);
 			let owner = d.owner().ok_or_else(|| Error::<T, I>::NoPermission)?;
 			ensure!(owner == &origin, Error::<T, I>::NoPermission);
 
@@ -1467,20 +1471,24 @@ pub mod pallet {
 				} else {
 					asset.status = AssetStatus::Live;
 				}
-				let res = asset.try_set_team(
-					&T::Lookup::lookup(owner)?,
-					&T::Lookup::lookup(issuer)?,
-					&T::Lookup::lookup(admin)?,
-					&T::Lookup::lookup(freezer)?,
-				);
-				match res {
-					Ok(()) => (),
-					Err(SetTeamError::AssetStatusLiveAndNoPrivileges) => log::error!(
-						target: LOG_TARGET,
-						"Operation failed because status is `LiveAndNoPrivileges`, but it was
-						set to `Live` or `Frozen` before; qed"
-					),
-				}
+				asset
+					.try_set_team(
+						&T::Lookup::lookup(owner)?,
+						&T::Lookup::lookup(issuer)?,
+						&T::Lookup::lookup(admin)?,
+						&T::Lookup::lookup(freezer)?,
+					)
+					.map_err(|e| match e {
+						SetTeamError::AssetStatusLiveAndNoPrivileges => {
+							log::error!(
+								target: LOG_TARGET,
+								"Operation failed because status is `LiveAndNoPrivileges`, but it \
+								was set to `Live` or `Frozen` before; qed"
+							);
+							Error::<T, I>::InternalError
+						},
+					})?;
+
 				*maybe_asset = Some(asset);
 
 				Self::deposit_event(Event::AssetStatusChanged { asset_id: id });
@@ -1544,7 +1552,7 @@ pub mod pallet {
 			let delegate = T::Lookup::lookup(delegate)?;
 			let id: T::AssetId = id.into();
 			let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			Self::ensure_live_asset(&d)?;
+			ensure!(d.is_live(), Error::<T, I>::AssetNotLive);
 
 			let approval = Approvals::<T, I>::take((id.clone(), &owner, &delegate))
 				.ok_or(Error::<T, I>::Unknown)?;
@@ -1579,7 +1587,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let id: T::AssetId = id.into();
 			let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			Self::ensure_live_asset(&d)?;
+			ensure!(d.is_live(), Error::<T, I>::AssetNotLive);
 			T::ForceOrigin::try_origin(origin)
 				.map(|_| ())
 				.or_else(|origin| -> DispatchResult {
@@ -1873,7 +1881,7 @@ pub mod pallet {
 				Err(origin) => Some(ensure_signed(origin)?),
 			};
 			let id: T::AssetId = id.into();
-			let mut asset = Asset::<T, I>::get(id.clone()).ok_or(Error::<T, I>::Unknown)?;
+			let mut asset = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 
 			if let Some(owner) = maybe_owner_origin.as_ref() {
 				ensure!(asset.owner() == Some(&owner), Error::<T, I>::NoPermission);

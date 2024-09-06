@@ -9858,7 +9858,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "30.0.0"
+version = "29.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",

@@ -223,7 +223,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		keep_alive: bool,
 	) -> Result<T::Balance, DispatchError> {
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		Self::ensure_live_asset(&details)?;
+		ensure!(details.is_live(), Error::<T, I>::AssetNotLive);
 
 		let account = Account::<T, I>::get(&id, who).ok_or(Error::<T, I>::NoAccount)?;
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
@@ -324,7 +324,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(!Account::<T, I>::contains_key(&id, &who), Error::<T, I>::AlreadyExists);
 		let deposit = T::AssetAccountDeposit::get();
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		Self::ensure_live_asset(&details)?;
+		ensure!(details.is_live(), Error::<T, I>::AssetNotLive);
 		if check_depositor {
 			ensure!(
 				details.admin() == Some(&depositor) || details.freezer() == Some(&depositor),
@@ -390,7 +390,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let (depositor, deposit) =
 			account.reason.take_deposit_from().ok_or(Error::<T, I>::NoDeposit)?;
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		Self::ensure_live_asset(&details)?;
+		ensure!(details.is_live(), Error::<T, I>::AssetNotLive);
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
 		if let Some(caller) = maybe_check_caller {
 			ensure!(
@@ -464,7 +464,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::can_increase(id.clone(), beneficiary, amount, true).into_result()?;
 		Asset::<T, I>::try_mutate(&id, |maybe_details| -> DispatchResult {
 			let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-			Self::ensure_live_asset(&details)?;
+			ensure!(details.is_live(), Error::<T, I>::AssetNotLive);
 			check(details)?;
 
 			Account::<T, I>::try_mutate(&id, beneficiary, |maybe_account| -> DispatchResult {
@@ -546,7 +546,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		Self::ensure_live_asset(&details)?;
+		ensure!(details.is_live(), Error::<T, I>::AssetNotLive);
 
 		let actual = Self::prep_debit(id.clone(), target, amount, f)?;
 		let mut target_died: Option<DeadConsequence> = None;
@@ -621,7 +621,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			return Ok((amount, None))
 		}
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		Self::ensure_live_asset(&details)?;
+		ensure!(details.is_live(), Error::<T, I>::AssetNotLive);
 
 		// Figure out the debit and credit, together with side-effects.
 		let debit = Self::prep_debit(id.clone(), source, amount, f.into())?;
@@ -880,7 +880,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: T::Balance,
 	) -> DispatchResult {
 		let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		Self::ensure_live_asset(&d)?;
+		ensure!(details.is_live(), Error::<T, I>::AssetNotLive);
 		Approvals::<T, I>::try_mutate(
 			(id.clone(), &owner, &delegate),
 			|maybe_approved| -> DispatchResult {
@@ -931,7 +931,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let mut owner_died: Option<DeadConsequence> = None;
 
 		let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		Self::ensure_live_asset(&d)?;
+		ensure!(d.is_live(), Error::<T, I>::AssetNotLive);
 
 		Approvals::<T, I>::try_mutate_exists(
 			(id.clone(), &owner, delegate),
@@ -980,7 +980,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			symbol.clone().try_into().map_err(|_| Error::<T, I>::BadMetadata)?;
 
 		let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		Self::ensure_live_asset(&d)?;
+		ensure!(d.is_live(), Error::<T, I>::AssetNotLive);
 		ensure!(d.owner() == Some(&from), Error::<T, I>::NoPermission);
 
 		Metadata::<T, I>::try_mutate_exists(id.clone(), |metadata| {
@@ -1030,17 +1030,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.collect::<Vec<_>>()
 	}
 
-	/// Ensure the asset is live or live and with no privileges.
-	pub(super) fn ensure_live_asset(
-		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
-	) -> DispatchResult {
-		ensure!(
-			d.status == AssetStatus::Live || d.status == AssetStatus::LiveAndNoPrivileges,
-			Error::<T, I>::AssetNotLive
-		);
-		Ok(())
-	}
-
 	/// Reset the team for the asset with the given `id`.
 	///
 	/// If the asset status is `LiveAndNoPrivileges` then it is changed to `Live`.
@@ -1062,14 +1051,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if d.status == AssetStatus::LiveAndNoPrivileges {
 			d.status = AssetStatus::Live
 		}
-		match d.try_set_team(&owner, &issuer, &admin, &freezer) {
-			Ok(()) => (),
-			Err(SetTeamError::AssetStatusLiveAndNoPrivileges) => log::error!(
-				target: LOG_TARGET,
-				"Operation failed because status is `LiveAndNoPrivileges`, but it was set to
-				`Live` before; qed"
-			),
-		}
+		d.try_set_team(&owner, &issuer, &admin, &freezer).map_err(|e| match e {
+			SetTeamError::AssetStatusLiveAndNoPrivileges => {
+				log::error!(
+					target: LOG_TARGET,
+					"Operation failed because status is `LiveAndNoPrivileges`, but it was set \
+					to `Live` before; qed"
+				);
+				Error::<T, I>::InternalError
+			},
+		})?;
 		Asset::<T, I>::insert(&id, d);
 
 		Self::deposit_event(Event::TeamChanged { asset_id: id.clone(), issuer, admin, freezer });

@@ -183,6 +183,14 @@ impl<Balance, AccountId: Clone, DepositBalance> AssetDetails<Balance, AccountId,
 			Ok(())
 		}
 	}
+
+	/// Is the asset live or live with no privileges.
+	pub(super) fn is_live(&self) -> bool {
+		match self.status {
+			AssetStatus::Live | AssetStatus::LiveAndNoPrivileges => true,
+			AssetStatus::Frozen | AssetStatus::Destroying => false,
+		}
+	}
 }
 
 /// Data concerning an approval.
