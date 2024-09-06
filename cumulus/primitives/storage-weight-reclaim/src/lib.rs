@@ -184,14 +184,14 @@ where
 				log::error!(
 					target: LOG_TARGET,
 					"Benchmarked storage weight smaller than consumed storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}",
-					frame_system::Pallet::<T>::extrinsic_count()
+					frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0)
 				);
 				current.accrue(Weight::from_parts(0, storage_size_diff), info.class)
 			} else {
 				log::trace!(
 					target: LOG_TARGET,
 					"Reclaiming storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}",
-					frame_system::Pallet::<T>::extrinsic_count()
+					frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0)
 				);
 				current.reduce(Weight::from_parts(0, storage_size_diff), info.class)
 			}
