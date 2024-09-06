@@ -63,7 +63,6 @@ pub type XcmAsPlainPayload = sp_std::vec::Vec<u8>;
 	Ord,
 	PartialOrd,
 	PartialEq,
-	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
 	Serialize,
@@ -87,6 +86,12 @@ impl BridgeId {
 				.using_encoded(blake2_256)
 				.into(),
 		)
+	}
+}
+
+impl core::fmt::Debug for BridgeId {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::Debug::fmt(&self.0, f)
 	}
 }
 
