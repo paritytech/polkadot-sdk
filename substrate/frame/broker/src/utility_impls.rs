@@ -24,7 +24,6 @@ use frame_support::{
 		OnUnbalanced,
 	},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use sp_arithmetic::{
 	traits::{SaturatedConversion, Saturating},
 	FixedPointNumber, FixedU64,
@@ -60,7 +59,7 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_account_truncating()
 	}
 
-	pub fn sale_price(sale: &SaleInfoRecordOf<T>, now: BlockNumberFor<T>) -> BalanceOf<T> {
+	pub fn sale_price(sale: &SaleInfoRecordOf<T>, now: RelayBlockNumberOf<T>) -> BalanceOf<T> {
 		let num = now.saturating_sub(sale.sale_start).min(sale.leadin_length).saturated_into();
 		let through = FixedU64::from_rational(num, sale.leadin_length.saturated_into());
 		T::PriceAdapter::leadin_factor_at(through).saturating_mul_int(sale.end_price)
@@ -125,7 +124,7 @@ impl<T: Config> Pallet<T> {
 			region_id.begin = last_committed_timeslice + 1;
 			if region_id.begin >= region.end {
 				Self::deposit_event(Event::RegionDropped { region_id, duration });
-				return Ok(None)
+				return Ok(None);
 			}
 		} else {
 			Workplan::<T>::mutate_extant((region_id.begin, region_id.core), |p| {
@@ -137,5 +136,10 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(Some((region_id, region)))
+	}
+
+	/// Returns the current block number of Relay Chain
+	pub(crate) fn relay_height() -> RelayBlockNumberOf<T> {
+		<<<T as crate::Config>::Coretime as CoretimeInterface>::RelayChainBlockNumberProvider as BlockNumberProvider>::current_block_number()
 	}
 }

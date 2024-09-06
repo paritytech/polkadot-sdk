@@ -130,7 +130,13 @@ mod v2 {
 
 mod v3 {
 	use super::*;
+	use codec::MaxEncodedLen;
+	use frame_support::{
+		pallet_prelude::{OptionQuery, RuntimeDebug, TypeInfo},
+		storage_alias,
+	};
 	use frame_system::Pallet as System;
+	use sp_arithmetic::Perbill;
 
 	pub struct MigrateToV3Impl<T>(PhantomData<T>);
 
@@ -156,6 +162,223 @@ mod v3 {
 			Ok(())
 		}
 	}
+
+	#[storage_alias]
+	pub type Configuration<T: Config> = StorageValue<Pallet<T>, ConfigRecordOf<T>, OptionQuery>;
+
+	// types added here for v4 migration
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub struct ConfigRecord<BlockNumber, RelayBlockNumber> {
+		/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
+		/// `Coretime::assign` API used to inform the Relay-chain.
+		pub advance_notice: RelayBlockNumber,
+		/// The length in blocks of the Interlude Period for forthcoming sales.
+		pub interlude_length: BlockNumber,
+		/// The length in blocks of the Leadin Period for forthcoming sales.
+		pub leadin_length: BlockNumber,
+		/// The length in timeslices of Regions which are up for sale in forthcoming sales.
+		pub region_length: Timeslice,
+		/// The proportion of cores available for sale which should be sold in order for the price
+		/// to remain the same in the next sale.
+		pub ideal_bulk_proportion: Perbill,
+		/// An artificial limit to the number of cores which are allowed to be sold. If `Some` then
+		/// no more cores will be sold than this.
+		pub limit_cores_offered: Option<CoreIndex>,
+		/// The amount by which the renewal price increases each sale period.
+		pub renewal_bump: Perbill,
+		/// The duration by which rewards for contributions to the InstaPool must be collected.
+		pub contribution_timeout: Timeslice,
+	}
+
+	#[storage_alias]
+	pub type SaleInfo<T: Config> = StorageValue<Pallet<T>, SaleInfoRecordOf<T>, OptionQuery>;
+	pub type SaleInfoRecordOf<T> =
+		SaleInfoRecord<BalanceOf<T>, frame_system::pallet_prelude::BlockNumberFor<T>>;
+
+	/// The status of a Bulk Coretime Sale.
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub struct SaleInfoRecord<Balance, BlockNumber> {
+		/// The relay block number at which the sale will/did start.
+		pub sale_start: BlockNumber,
+		/// The length in relay chain blocks of the Leadin Period (where the price is decreasing).
+		pub leadin_length: BlockNumber,
+		/// The price of Bulk Coretime after the Leadin Period.
+		pub price: Balance,
+		/// The first timeslice of the Regions which are being sold in this sale.
+		pub region_begin: Timeslice,
+		/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e.
+		/// One after the last timeslice which the Regions control.)
+		pub region_end: Timeslice,
+		/// The number of cores we want to sell, ideally. Selling this amount would result in no
+		/// change to the price for the next sale.
+		pub ideal_cores_sold: CoreIndex,
+		/// Number of cores which are/have been offered for sale.
+		pub cores_offered: CoreIndex,
+		/// The index of the first core which is for sale. Core of Regions which are sold have
+		/// incrementing indices from this.
+		pub first_core: CoreIndex,
+		/// The latest price at which Bulk Coretime was purchased until surpassing the ideal number
+		/// of cores were sold.
+		pub sellout_price: Option<Balance>,
+		/// Number of cores which have been sold; never more than cores_offered.
+		pub cores_sold: CoreIndex,
+	}
+}
+
+mod v4 {
+	use super::*;
+
+	pub struct MigrateToV4Impl<T>(PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV4Impl<T>
+	where
+		RelayBlockNumberOf<T>: TryFrom<frame_system::pallet_prelude::BlockNumberFor<T>>,
+	{
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let (interlude_length, configuration_leadin_length) =
+				if let Some(config_record) = v3::Configuration::<T>::get() {
+					(config_record.interlude_length, config_record.leadin_length)
+				} else {
+					((0 as u32).into(), (0 as u32).into())
+				};
+
+			log::info!(target: LOG_TARGET, "Configuration Pre-Migration: Interlude Length {:?} Leading Length {:?} ", interlude_length, configuration_leadin_length);
+
+			let (sale_start, sale_info_leadin_length) =
+				if let Some(sale_info_record) = v3::SaleInfo::<T>::get() {
+					(sale_info_record.sale_start, sale_info_record.leadin_length)
+				} else {
+					((0 as u32).into(), (0 as u32).into())
+				};
+
+			log::info!(target: LOG_TARGET, "SaleInfo Pre-Migration: Sale Start {:?} Interlude Length {:?}  ", sale_start, sale_info_leadin_length);
+
+			Ok((interlude_length, configuration_leadin_length, sale_start, sale_info_leadin_length)
+				.encode())
+		}
+
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+
+			// using a u32::MAX as sentinel value in case TryFrom fails.
+			// Ref: https://github.com/paritytech/polkadot-sdk/pull/3331#discussion_r1499014975
+
+			if let Some(config_record) = v3::Configuration::<T>::take() {
+				log::info!(target: LOG_TARGET, "migrating Configuration record");
+
+				let updated_interlude_length: RelayBlockNumberOf<T> =
+					match TryFrom::try_from(config_record.interlude_length) {
+						Ok(val) => val,
+						Err(_) => u32::MAX.into(),
+					};
+
+				let updated_leadin_length: RelayBlockNumberOf<T> =
+					match TryFrom::try_from(config_record.leadin_length) {
+						Ok(val) => val,
+						Err(_) => u32::MAX.into(),
+					};
+
+				let updated_config_record = ConfigRecord {
+					interlude_length: updated_interlude_length,
+					leadin_length: updated_leadin_length,
+					advance_notice: config_record.advance_notice,
+					region_length: config_record.region_length,
+					ideal_bulk_proportion: config_record.ideal_bulk_proportion,
+					limit_cores_offered: config_record.limit_cores_offered,
+					renewal_bump: config_record.renewal_bump,
+					contribution_timeout: config_record.contribution_timeout,
+				};
+				Configuration::<T>::put(updated_config_record);
+			}
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+			if let Some(sale_info) = v3::SaleInfo::<T>::take() {
+				log::info!(target: LOG_TARGET, "migrating SaleInfo record");
+
+				let updated_sale_start: RelayBlockNumberOf<T> =
+					match TryFrom::try_from(sale_info.sale_start) {
+						Ok(val) => val,
+						Err(_) => u32::MAX.into(),
+					};
+
+				let updated_leadin_length: RelayBlockNumberOf<T> =
+					match TryFrom::try_from(sale_info.leadin_length) {
+						Ok(val) => val,
+						Err(_) => u32::MAX.into(),
+					};
+
+				let updated_sale_info = SaleInfoRecord {
+					sale_start: updated_sale_start,
+					leadin_length: updated_leadin_length,
+					end_price: sale_info.price,
+					region_begin: sale_info.region_begin,
+					region_end: sale_info.region_end,
+					ideal_cores_sold: sale_info.ideal_cores_sold,
+					cores_offered: sale_info.cores_offered,
+					first_core: sale_info.first_core,
+					sellout_price: sale_info.sellout_price,
+					cores_sold: sale_info.cores_sold,
+				};
+				SaleInfo::<T>::put(updated_sale_info);
+			}
+
+			weight.saturating_add(T::DbWeight::get().reads_writes(1, 2))
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let (
+				old_interlude_length,
+				old_configuration_leadin_length,
+				old_sale_start,
+				old_sale_info_leadin_length,
+			): (BlockNumberFor<T>, BlockNumberFor<T>, BlockNumberFor<T>, BlockNumberFor<T>) =
+				Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
+
+			if let Some(config_record) = Configuration::<T>::get() {
+				ensure!(
+					verify_updated::<T>(
+						old_configuration_leadin_length,
+						config_record.leadin_length
+					),
+					"must migrate configuration leadin_length"
+				);
+
+				ensure!(
+					verify_updated::<T>(old_interlude_length, config_record.interlude_length),
+					"must migrate configuration interlude_length"
+				);
+			}
+
+			if let Some(sale_info) = SaleInfo::<T>::get() {
+				ensure!(
+					verify_updated::<T>(old_sale_start, sale_info.sale_start),
+					"must migrate sale info sale_start"
+				);
+
+				ensure!(
+					verify_updated::<T>(old_sale_info_leadin_length, sale_info.leadin_length),
+					"must migrate sale info leadin_length"
+				);
+			}
+
+			Ok(())
+		}
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn verify_updated<T>(old_value: BlockNumberFor<T>, new_value: RelayBlockNumberOf<T>) -> bool
+	where
+		T: Config,
+		RelayBlockNumberOf<T>: TryFrom<BlockNumberFor<T>>,
+	{
+		let val: RelayBlockNumberOf<T> = match TryFrom::try_from(old_value) {
+			Ok(val) => val,
+			Err(_) => u32::MAX.into(),
+		};
+
+		val == new_value
+	}
 }
 
 /// Migrate the pallet storage from `0` to `1`.
@@ -179,6 +402,13 @@ pub type MigrateV2ToV3<T> = frame_support::migrations::VersionedMigration<
 	2,
 	3,
 	v3::MigrateToV3Impl<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+pub type MigrateV3ToV4<T> = frame_support::migrations::VersionedMigration<
+	3,
+	4,
+	v4::MigrateToV4Impl<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;

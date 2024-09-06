@@ -21,7 +21,7 @@ use crate::{
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
-use frame_system::{pallet_prelude::BlockNumberFor, Config as SConfig};
+use frame_system::Config as SConfig;
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, RuntimeDebug};
@@ -208,11 +208,11 @@ pub struct PoolIoRecord {
 
 /// The status of a Bulk Coretime Sale.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct SaleInfoRecord<Balance, BlockNumber> {
-	/// The local block number at which the sale will/did start.
-	pub sale_start: BlockNumber,
+pub struct SaleInfoRecord<Balance, RelayBlockNumber> {
+	/// The relay block number at which the sale will/did start.
+	pub sale_start: RelayBlockNumber,
 	/// The length in blocks of the Leadin Period (where the price is decreasing).
-	pub leadin_length: BlockNumber,
+	pub leadin_length: RelayBlockNumber,
 	/// The price of Bulk Coretime after the Leadin Period.
 	pub end_price: Balance,
 	/// The first timeslice of the Regions which are being sold in this sale.
@@ -235,7 +235,7 @@ pub struct SaleInfoRecord<Balance, BlockNumber> {
 	/// Number of cores which have been sold; never more than cores_offered.
 	pub cores_sold: CoreIndex,
 }
-pub type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, BlockNumberFor<T>>;
+pub type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
 
 /// Record for Polkadot Core reservations (generally tasked with the maintenance of System
 /// Chains).
@@ -272,14 +272,14 @@ pub type OnDemandRevenueRecordOf<T> =
 
 /// Configuration of this pallet.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct ConfigRecord<BlockNumber, RelayBlockNumber> {
+pub struct ConfigRecord<RelayBlockNumber> {
 	/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
 	/// `Coretime::assign` API used to inform the Relay-chain.
 	pub advance_notice: RelayBlockNumber,
 	/// The length in blocks of the Interlude Period for forthcoming sales.
-	pub interlude_length: BlockNumber,
+	pub interlude_length: RelayBlockNumber,
 	/// The length in blocks of the Leadin Period for forthcoming sales.
-	pub leadin_length: BlockNumber,
+	pub leadin_length: RelayBlockNumber,
 	/// The length in timeslices of Regions which are up for sale in forthcoming sales.
 	pub region_length: Timeslice,
 	/// The proportion of cores available for sale which should be sold.
@@ -296,16 +296,16 @@ pub struct ConfigRecord<BlockNumber, RelayBlockNumber> {
 	/// The duration by which rewards for contributions to the InstaPool must be collected.
 	pub contribution_timeout: Timeslice,
 }
-pub type ConfigRecordOf<T> = ConfigRecord<BlockNumberFor<T>, RelayBlockNumberOf<T>>;
+pub type ConfigRecordOf<T> = ConfigRecord<RelayBlockNumberOf<T>>;
 
-impl<BlockNumber, RelayBlockNumber> ConfigRecord<BlockNumber, RelayBlockNumber>
+impl<RelayBlockNumber> ConfigRecord<RelayBlockNumber>
 where
-	BlockNumber: sp_arithmetic::traits::Zero,
+	RelayBlockNumber: sp_arithmetic::traits::Zero,
 {
 	/// Check the config for basic validity constraints.
 	pub(crate) fn validate(&self) -> Result<(), ()> {
 		if self.leadin_length.is_zero() {
-			return Err(())
+			return Err(());
 		}
 
 		Ok(())
