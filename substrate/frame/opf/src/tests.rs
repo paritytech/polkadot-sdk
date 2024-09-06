@@ -359,7 +359,7 @@ fn vote_move_works() {
 		let now =
 			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
 
-		// Bob nominate project_101 with an amount of 1000
+		// Bob nominate project_101 with an amount of 1000 with a conviction of 2 => amount+amount*2 is the amount allocated to the project
 		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true, Conviction::Locked2x));
 
 		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted {
@@ -368,8 +368,16 @@ fn vote_move_works() {
 			project_id: 101,
 		})]);
 
-		// Bob nominate project_103 with an amount of 5000
+		// 3000 is allocated to project 101
+		let mut funds = ProjectFunds::<Test>::get(101);
+		assert_eq!(funds[0],3000);
+
+		// Bob nominate project_103 with an amount of 5000 with a conviction of 1 => amount+amount*1 is the amount allocated to the project
 		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 5000, true, Conviction::Locked1x));
+
+		// 10000 is allocated to project 103
+		funds = ProjectFunds::<Test>::get(103);
+		assert_eq!(funds[0],10000);
 
 		// Voter's funds are locked
 		let mut locked_balance0 =
@@ -382,6 +390,10 @@ fn vote_move_works() {
 
 		// Bob changes amount in project_103 to 4500
 		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 4500, true, Conviction::Locked2x));
+
+		// Allocated amount to project 103 is now 13500 
+		funds = ProjectFunds::<Test>::get(103);
+		assert_eq!(funds[0],13500);
 
 		// Storage was correctly updated
 		let vote_info = Votes::<Test>::get(103, BOB).unwrap();

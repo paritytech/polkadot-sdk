@@ -75,8 +75,9 @@ impl<T: Config> Pallet<T> {
 		if Votes::<T>::contains_key(&project, &voter_id) {
 			let old_vote = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let old_amount = old_vote.amount;
+			let old_conviction = old_vote.conviction;
 			let old_conviction_amount = old_amount.saturating_add(
-				old_amount.saturating_mul(<u8 as From<Conviction>>::from(conviction).into()),
+				old_amount.saturating_mul(<u8 as From<Conviction>>::from(old_conviction).into()),
 			);
 			ProjectFunds::<T>::mutate(&project, |val| {
 				let mut val0 = val.clone().into_inner();
