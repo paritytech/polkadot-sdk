@@ -2,8 +2,7 @@ name: Check Cargo Check Runtimes
 
 on:
   pull_request:
-    types: [ opened, synchronize, reopened, ready_for_review, labeled ]
-
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
@@ -132,5 +131,14 @@ jobs:
       - check-runtime-contracts
       - check-runtime-starters
       - check-runtime-testing
+    if: always() && !cancelled()
     steps:
-      - run: echo '### Good job! All the tests passed 🚀' >> $GITHUB_STEP_SUMMARY
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          cat resultfile | grep '"result": "failure"'
+          if [ $? -eq 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required tests passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi
