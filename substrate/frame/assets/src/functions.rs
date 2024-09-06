@@ -452,11 +452,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(check_issuer == details.issuer, Error::<T, I>::NoPermission);
 		}
 
+		let info = DistributionInfo {
+			asset_id: id.clone(),
+			merkle_root: merkle_root.clone(),
+			active: true,
+		};
+
 		let distribution_count: u32 = MerklizedDistribution::<T, I>::count();
-		MerklizedDistribution::<T, I>::insert(
-			&distribution_count,
-			(id.clone(), merkle_root.clone()),
-		);
+		MerklizedDistribution::<T, I>::insert(&distribution_count, info);
 
 		Self::deposit_event(Event::DistributionIssued { asset_id: id, merkle_root });
 
@@ -475,9 +478,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			return Err(Error::<T, I>::BalanceLow.into())
 		}
 
-		let (asset_id, merkle_root) =
+		let DistributionInfo { asset_id, merkle_root, active } =
 			MerklizedDistribution::<T, I>::get(distribution_id).ok_or(Error::<T, I>::Unknown)?;
 
+		ensure!(active, Error::<T, I>::DistributionEnded);
 		ensure!(
 			!MerklizedDistributionTracker::<T, I>::contains_key(distribution_id, &beneficiary),
 			Error::<T, I>::AlreadyClaimed

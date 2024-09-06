@@ -456,16 +456,13 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	pub type DistributionCounter = u32;
-	pub type DistributionProof = Vec<Vec<u8>>;
-
 	#[pallet::storage]
 	/// Merklized distribution of an asset.
 	pub(super) type MerklizedDistribution<T: Config<I>, I: 'static = ()> = CountedStorageMap<
 		_,
 		Blake2_128Concat,
 		DistributionCounter,
-		(T::AssetId, T::Hash),
+		DistributionInfo<T::AssetId, T::Hash>,
 		OptionQuery,
 	>;
 
@@ -717,6 +714,8 @@ pub mod pallet {
 		BadAssetId,
 		/// The asset distribution was already claimed!
 		AlreadyClaimed,
+		/// THe asset distribution is no longer active.
+		DistributionEnded,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
