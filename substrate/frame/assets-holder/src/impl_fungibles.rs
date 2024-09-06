@@ -39,16 +39,22 @@ impl<T: Config<I>, I: 'static> BalanceOnHold<T::AssetId, T::AccountId, T::Balanc
 		BalancesOnHold::<T, I>::get(asset, who)
 	}
 
-	fn died(asset: T::AssetId, who: &T::AccountId) -> DispatchResult {
-		Holds::<T, I>::try_mutate(asset.clone(), who, |holds| {
-			for l in holds.iter() {
-				Self::burn_all_held(asset.clone(), &l.id, who, Precision::Exact, Fortitude::Force)?;
-			}
+	fn died(asset: T::AssetId, who: &T::AccountId) {
+		if pallet_assets::Pallet::<T, I>::can_withdraw(asset.clone(), who, Zero::zero()) ==
+			WithdrawConsequence::Success
+		{
+			defensive_assert!(
+				Holds::<T, I>::get(asset.clone(), who).is_empty(),
+				"The list of Holds should be empty before allowing an account to die"
+			);
+			defensive_assert!(
+				BalancesOnHold::<T, I>::get(asset.clone(), who).is_none(),
+				"The should not be a balance on hold before allowing to die"
+			);
+		}
 
-			*holds = BoundedVec::new();
-			BalancesOnHold::<T, I>::remove(asset.clone(), who);
-			Ok(())
-		})
+		Holds::<T, I>::remove(asset.clone(), who);
+		BalancesOnHold::<T, I>::remove(asset, who);
 	}
 }
 

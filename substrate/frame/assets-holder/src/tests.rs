@@ -77,10 +77,20 @@ mod impl_balance_on_hold {
 	}
 
 	#[test]
+	#[should_panic = "The list of Holds should be empty before allowing an account to die"]
+	fn died_fails_if_holds_exist() {
+		new_test_ext(|| {
+			test_hold(DummyHoldReason::Governance, 1);
+			AssetsHolder::died(ASSET_ID, &WHO);
+		});
+	}
+
+	#[test]
 	fn died_works() {
 		new_test_ext(|| {
 			test_hold(DummyHoldReason::Governance, 1);
-			assert_ok!(AssetsHolder::died(ASSET_ID, &WHO));
+			test_release(DummyHoldReason::Governance);
+			AssetsHolder::died(ASSET_ID, &WHO);
 			assert!(BalancesOnHold::<Test>::get(ASSET_ID, WHO).is_none());
 			assert!(Holds::<Test>::get(ASSET_ID, WHO).is_empty());
 		});

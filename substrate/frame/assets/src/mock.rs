@@ -125,9 +125,8 @@ impl BalanceOnHold<u32, u64, u64> for TestHolder {
 		Held::get().get(&(asset, *who)).cloned()
 	}
 
-	fn died(_asset: u32, _who: &u64) -> DispatchResult {
+	fn died(_asset: u32, _who: &u64) {
 		// TODO: Connect with existing hooks list
-		Ok(())
 	}
 }
 
