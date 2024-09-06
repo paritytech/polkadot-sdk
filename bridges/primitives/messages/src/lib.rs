@@ -35,10 +35,10 @@ use sp_core::RuntimeDebug;
 use sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::*};
 
 pub use call_info::{
-	BaseMessagesProofInfo, BridgeMessagesCall, BridgeMessagesCallOf, MessagesCallInfo,
-	ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
+	BaseMessagesProofInfo, BridgeMessagesCall, MessagesCallInfo, ReceiveMessagesDeliveryProofInfo,
+	ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
 };
-pub use lane::{LaneId, LaneIdBytes, LaneState};
+pub use lane::{HashedLaneId, LaneIdType, LaneState, LegacyLaneId};
 
 mod call_info;
 mod lane;
@@ -181,7 +181,7 @@ pub type MessagePayload = Vec<u8>;
 
 /// Message key (unique message identifier) as it is stored in the storage.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct MessageKey {
+pub struct MessageKey<LaneId: Encode> {
 	/// ID of the message lane.
 	pub lane_id: LaneId,
 	/// Message nonce.
@@ -190,9 +190,9 @@ pub struct MessageKey {
 
 /// Message as it is stored in the storage.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-pub struct Message {
+pub struct Message<LaneId: Encode> {
 	/// Message key.
-	pub key: MessageKey,
+	pub key: MessageKey<LaneId>,
 	/// Message payload.
 	pub payload: MessagePayload,
 }
@@ -337,14 +337,14 @@ pub struct UnrewardedRelayer<RelayerId> {
 
 /// Received messages with their dispatch result.
 #[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
-pub struct ReceivedMessages<DispatchLevelResult> {
+pub struct ReceivedMessages<DispatchLevelResult, LaneId> {
 	/// Id of the lane which is receiving messages.
-	pub lane: LaneIdBytes,
+	pub lane: LaneId,
 	/// Result of messages which we tried to dispatch
 	pub receive_results: Vec<(MessageNonce, ReceptionResult<DispatchLevelResult>)>,
 }
 
-impl<DispatchLevelResult> ReceivedMessages<DispatchLevelResult> {
+impl<DispatchLevelResult, LaneId> ReceivedMessages<DispatchLevelResult, LaneId> {
 	/// Creates new `ReceivedMessages` structure from given results.
 	pub fn new(
 		lane: LaneId,

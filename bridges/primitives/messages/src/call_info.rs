@@ -16,21 +16,13 @@
 
 //! Defines structures related to calls of the `pallet-bridge-messages` pallet.
 
-use crate::{source_chain, target_chain, LaneId, MessageNonce, UnrewardedRelayersState};
+use crate::{MessageNonce, UnrewardedRelayersState};
 
-use bp_runtime::{AccountIdOf, HashOf};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 use sp_std::ops::RangeInclusive;
-
-/// The `BridgeMessagesCall` used to bridge with a given chain.
-pub type BridgeMessagesCallOf<C> = BridgeMessagesCall<
-	AccountIdOf<C>,
-	target_chain::FromBridgedChainMessagesProof<HashOf<C>>,
-	source_chain::FromBridgedChainMessagesDeliveryProof<HashOf<C>>,
->;
 
 /// A minimized version of `pallet-bridge-messages::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
@@ -60,7 +52,7 @@ pub enum BridgeMessagesCall<AccountId, MessagesProof, MessagesDeliveryProof> {
 
 /// Generic info about a messages delivery/confirmation proof.
 #[derive(PartialEq, RuntimeDebug)]
-pub struct BaseMessagesProofInfo {
+pub struct BaseMessagesProofInfo<LaneId> {
 	/// Message lane, used by the call.
 	pub lane_id: LaneId,
 	/// Nonces of messages, included in the call.
@@ -75,7 +67,7 @@ pub struct BaseMessagesProofInfo {
 	pub best_stored_nonce: MessageNonce,
 }
 
-impl BaseMessagesProofInfo {
+impl<LaneId> BaseMessagesProofInfo<LaneId> {
 	/// Returns true if `bundled_range` continues the `0..=best_stored_nonce` range.
 	pub fn appends_to_stored_nonce(&self) -> bool {
 		Some(*self.bundled_range.start()) == self.best_stored_nonce.checked_add(1)
@@ -94,14 +86,14 @@ pub struct UnrewardedRelayerOccupation {
 
 /// Info about a `ReceiveMessagesProof` call which tries to update a single lane.
 #[derive(PartialEq, RuntimeDebug)]
-pub struct ReceiveMessagesProofInfo {
+pub struct ReceiveMessagesProofInfo<LaneId> {
 	/// Base messages proof info
-	pub base: BaseMessagesProofInfo,
+	pub base: BaseMessagesProofInfo<LaneId>,
 	/// State of unrewarded relayers vector.
 	pub unrewarded_relayers: UnrewardedRelayerOccupation,
 }
 
-impl ReceiveMessagesProofInfo {
+impl<LaneId> ReceiveMessagesProofInfo<LaneId> {
 	/// Returns true if:
 	///
 	/// - either inbound lane is ready to accept bundled messages;
@@ -134,9 +126,9 @@ impl ReceiveMessagesProofInfo {
 
 /// Info about a `ReceiveMessagesDeliveryProof` call which tries to update a single lane.
 #[derive(PartialEq, RuntimeDebug)]
-pub struct ReceiveMessagesDeliveryProofInfo(pub BaseMessagesProofInfo);
+pub struct ReceiveMessagesDeliveryProofInfo<LaneId>(pub BaseMessagesProofInfo<LaneId>);
 
-impl ReceiveMessagesDeliveryProofInfo {
+impl<LaneId> ReceiveMessagesDeliveryProofInfo<LaneId> {
 	/// Returns true if outbound lane is ready to accept confirmations of bundled messages.
 	pub fn is_obsolete(&self) -> bool {
 		self.0.bundled_range.is_empty() || !self.0.appends_to_stored_nonce()
@@ -146,19 +138,19 @@ impl ReceiveMessagesDeliveryProofInfo {
 /// Info about a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call
 /// which tries to update a single lane.
 #[derive(PartialEq, RuntimeDebug)]
-pub enum MessagesCallInfo {
+pub enum MessagesCallInfo<LaneId> {
 	/// Messages delivery call info.
-	ReceiveMessagesProof(ReceiveMessagesProofInfo),
+	ReceiveMessagesProof(ReceiveMessagesProofInfo<LaneId>),
 	/// Messages delivery confirmation call info.
-	ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo),
+	ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo<LaneId>),
 }
 
-impl MessagesCallInfo {
+impl<LaneId> MessagesCallInfo<LaneId> {
 	/// Returns lane, used by the call.
-	pub fn lane_id(&self) -> LaneId {
+	pub fn lane_id(&self) -> &LaneId {
 		match *self {
-			Self::ReceiveMessagesProof(ref info) => info.base.lane_id,
-			Self::ReceiveMessagesDeliveryProof(ref info) => info.0.lane_id,
+			Self::ReceiveMessagesProof(ref info) => &info.base.lane_id,
+			Self::ReceiveMessagesDeliveryProof(ref info) => &info.0.lane_id,
 		}
 	}
 
