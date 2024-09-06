@@ -532,17 +532,17 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_caller() {
 		let len = H160::len_bytes();
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_caller(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_caller(memory.as_mut_slice(), 0);
 		}
 
 		assert_ok!(result);
 		assert_eq!(
-			<H160 as Decode>::decode(&mut &memory[4..]).unwrap(),
+			<H160 as Decode>::decode(&mut &memory[..]).unwrap(),
 			T::AddressMapper::to_address(&runtime.ext().caller().account_id().unwrap())
 		);
 	}
@@ -567,17 +567,17 @@ mod benchmarks {
 	fn seal_code_hash() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], contract.account_id.encode(), ]);
+		build_runtime!(runtime, memory: [vec![0u8; len as _], contract.account_id.encode(), ]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_code_hash(memory.as_mut_slice(), 4 + len, 4, 0);
+			result = runtime.bench_code_hash(memory.as_mut_slice(), len, 0);
 		}
 
 		assert_ok!(result);
 		assert_eq!(
-			<sp_core::H256 as Decode>::decode(&mut &memory[4..]).unwrap(),
+			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
 			contract.info().unwrap().code_hash
 		);
 	}
@@ -585,16 +585,16 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_own_code_hash() {
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, contract, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, contract, memory: [vec![0u8; len as _], ]);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_own_code_hash(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_own_code_hash(memory.as_mut_slice(), 0);
 		}
 
 		assert_ok!(result);
 		assert_eq!(
-			<sp_core::H256 as Decode>::decode(&mut &memory[4..]).unwrap(),
+			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
 			contract.info().unwrap().code_hash
 		);
 	}
@@ -629,15 +629,15 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_address() {
 		let len = H160::len_bytes();
-		build_runtime!(runtime, memory: [len.to_le_bytes(), vec![0u8; len as _], ]);
+		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_address(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_address(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(<H160 as Decode>::decode(&mut &memory[4..]).unwrap(), runtime.ext().address());
+		assert_eq!(<H160 as Decode>::decode(&mut &memory[..]).unwrap(), runtime.ext().address());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1581,11 +1581,9 @@ mod benchmarks {
 				offset(value_len),   // input_data_ptr
 				i,                   // input_data_len
 				SENTINEL,            // address_ptr
-				0,                   // address_len_ptr
 				SENTINEL,            // output_ptr
 				0,                   // output_len_ptr
 				offset(i),           // salt_ptr
-				32,                  // salt_len
 			);
 		}
 
