@@ -245,7 +245,6 @@ members = [
 	"substrate/bin/node/testing",
 	"substrate/bin/utils/chain-spec-builder",
 	"substrate/bin/utils/subkey",
-	"substrate/bin/utils/dev-omni-node",
 	"substrate/client/allocator",
 	"substrate/client/api",
 	"substrate/client/authority-discovery",

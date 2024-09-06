@@ -4908,55 +4908,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dev-omni-node"
-version = "1.0.0"
-dependencies = [
- "assert_cmd",
- "clap 4.5.11",
- "docify",
- "frame-system-rpc-runtime-api",
- "futures",
- "futures-timer",
- "jsonrpsee",
- "log",
- "nix 0.28.0",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "sc-basic-authorship",
- "sc-chain-spec",
- "sc-cli",
- "sc-client-api",
- "sc-consensus",
- "sc-consensus-manual-seal",
- "sc-executor",
- "sc-network",
- "sc-offchain",
- "sc-rpc-api",
- "sc-service",
- "sc-telemetry",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
- "serde_json",
- "sp-api",
- "sp-block-builder",
- "sp-blockchain",
- "sp-consensus-aura",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-inherents",
- "sp-io",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-timestamp",
- "sp-transaction-pool",
- "sp-version",
- "sp-weights",
- "substrate-build-script-utils",
- "substrate-frame-rpc-system",
-]
-
-[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
