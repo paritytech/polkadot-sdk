@@ -282,8 +282,8 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `topics`: The topics list encoded as `Vec<T::Hash>`. It can't contain duplicates.
-	fn deposit_event(topics: &[u8], data: &[u8]);
+	/// - `topics`: The topics list. It can't contain duplicates.
+	fn deposit_event(topics: &[[u8; 32]], data: &[u8]);
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
 	///

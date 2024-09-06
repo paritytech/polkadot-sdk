@@ -1533,32 +1533,35 @@ pub mod env {
 		&mut self,
 		memory: &mut M,
 		topics_ptr: u32,
-		topics_len: u32,
+		num_topic: u32,
 		data_ptr: u32,
 		data_len: u32,
 	) -> Result<(), TrapReason> {
-		let num_topic = topics_len
-			.checked_div(core::mem::size_of::<H256>() as u32)
-			.ok_or("Zero sized topics are not allowed")?;
 		self.charge_gas(RuntimeCosts::DepositEvent { num_topic, len: data_len })?;
+
+		if num_topic > limits::NUM_EVENT_TOPICS {
+			return Err(Error::<E::T>::TooManyTopics.into());
+		}
+
 		if data_len > self.ext.max_value_size() {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let topics: Vec<H256> = match topics_len {
+		let topics: Vec<H256> = match num_topic {
 			0 => Vec::new(),
-			_ => memory.read_as_unbounded(topics_ptr, topics_len)?,
+			_ => {
+				let mut v = Vec::with_capacity(num_topic as usize);
+				let topics_len = num_topic * core::mem::size_of::<H256>() as u32;
+				let buf = memory.read(topics_ptr, topics_len)?;
+				for chunk in buf.chunks_exact(core::mem::size_of::<H256>()) {
+					v.push(H256::from_slice(chunk));
+				}
+				v
+			},
 		};
 
-		// If there are more than `event_topics`, then trap.
-		if topics.len() as u32 > limits::NUM_EVENT_TOPICS {
-			return Err(Error::<E::T>::TooManyTopics.into());
-		}
-
 		let event_data = memory.read(data_ptr, data_len)?;
-
 		self.ext.deposit_event(topics, event_data);
-
 		Ok(())
 	}
 

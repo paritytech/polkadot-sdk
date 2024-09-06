@@ -86,8 +86,8 @@ mod sys {
 		pub fn now(out_ptr: *mut u8);
 		pub fn minimum_balance(out_ptr: *mut u8);
 		pub fn deposit_event(
-			topics_ptr: *const u8,
-			topics_len: u32,
+			topics_ptr: *const [u8; 32],
+			num_topic: u32,
 			data_ptr: *const u8,
 			data_len: u32,
 		);
@@ -326,7 +326,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn deposit_event(topics: &[u8], data: &[u8]) {
+	fn deposit_event(topics: &[[u8; 32]], data: &[u8]) {
 		unsafe {
 			sys::deposit_event(
 				topics.as_ptr(),

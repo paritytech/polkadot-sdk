@@ -75,6 +75,11 @@ where
 	MomentOf<T>: Into<U256>,
 	T::Hash: IsType<H256>,
 {
+	/// The address of the contract.
+	fn address(&self) -> H160 {
+		T::AddressMapper::to_address(&self.account_id)
+	}
+
 	/// Create new contract and use a default account id as instantiator.
 	fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
 		Self::with_index(0, module, data)
