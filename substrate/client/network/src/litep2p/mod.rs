@@ -54,7 +54,7 @@ use libp2p::kad::{PeerRecord, Record as P2PRecord, RecordKey};
 use litep2p::{
 	config::ConfigBuilder,
 	crypto::ed25519::Keypair,
-	error::DialError,
+	error::{DialError, NegotiationError},
 	executor::Executor,
 	protocol::{
 		libp2p::{
@@ -1022,15 +1022,19 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 						if let Some(metrics) = &self.metrics {
 							let reason = match error {
-								DialError::Timeout => "timeout".to_string(),
-								DialError::AddressError(_) => "invalid-address".to_string(),
-								DialError::DnsError(_) => "cannot-resolve-dns".to_string(),
+								DialError::Timeout => "timeout",
+								DialError::AddressError(_) => "invalid-address",
+								DialError::DnsError(_) => "cannot-resolve-dns",
 								DialError::NegotiationError(error) => match error {
-										litep2p::error::NegotiationError::Timeout => "timeout".to_string(),
-										litep2p::error::NegotiationError::PeerIdMissing => "missing-peer-id".to_string(),
-										litep2p::error::NegotiationError::StateMismatch => "state-mismatch".to_string(),
-										litep2p::error::NegotiationError::PeerIdMismatch(_, _) => "peer-id-missmatch".to_string(),
-										error => format!("negotiation-error-{:?}", error),
+									NegotiationError::Timeout => "timeout",
+									NegotiationError::PeerIdMissing => "missing-peer-id",
+									NegotiationError::StateMismatch => "state-mismatch",
+									NegotiationError::PeerIdMismatch(_,_) => "peer-id-missmatch",
+									NegotiationError::MultistreamSelectError(_) => "multistream-select-error",
+									NegotiationError::SnowError(_) => "noise-error",
+									NegotiationError::ParseError(_) => "parse-error",
+									NegotiationError::IoError(_) => "io-error",
+									NegotiationError::WebSocket(_) => "webscoket-error",
 								}
 							};
 
