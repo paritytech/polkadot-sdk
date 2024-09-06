@@ -31,7 +31,8 @@
 use crate::{
 	blocks::BlockCollection,
 	justification_requests::ExtraRequests,
-	schema::v1::StateResponse,
+	schema::v1::{StateRequest, StateResponse},
+	service::network::NetworkServiceHandle,
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
@@ -43,12 +44,13 @@ use crate::{
 };
 
 use codec::Encode;
+use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
 use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
-use sc_network::ProtocolName;
+use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
@@ -64,7 +66,6 @@ use sp_runtime::{
 	EncodedJustification, Justifications,
 };
 
-use crate::schema::v1::StateRequest;
 use std::{
 	collections::{HashMap, HashSet},
 	ops::Range,
@@ -327,7 +328,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	downloaded_blocks: usize,
 	/// State sync in progress, if any.
 	state_sync: Option<StateSync<B, Client>>,
-	/// Enable importing existing blocks. This is used used after the state download to
+	/// Enable importing existing blocks. This is used after the state download to
 	/// catch up to the latest state while re-importing blocks.
 	import_existing: bool,
 	/// Gap download process.
@@ -851,14 +852,17 @@ where
 			.count()
 	}
 
-	fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError> {
-		if !self.peers.is_empty() && self.queue_blocks.is_empty() {
-			if let Some((hash, number, skip_proofs)) = self.pending_state_sync_attempt.take() {
-				self.attempt_state_sync(hash, number, skip_proofs);
-			}
-		}
+	fn actions(
+		&mut self,
+		network_service: &NetworkServiceHandle,
+	) -> Result<Vec<SyncingAction<B>>, ClientError> {
+        if !self.peers.is_empty() && self.queue_blocks.is_empty() {
+            if let Some((hash, number, skip_proofs)) = self.pending_state_sync_attempt.take() {
+                self.attempt_state_sync(hash, number, skip_proofs);
+            }
+        }
 
-		let block_requests = self.block_requests().into_iter().map(|(peer_id, request)| {
+        let block_requests = self.block_requests().into_iter().map(|(peer_id, request)| {
 			SyncingAction::SendBlockRequest { peer_id, key: Self::STRATEGY_KEY, request }
 		});
 		self.actions.extend(block_requests);
@@ -875,12 +879,17 @@ where
 				"Created `StrategyRequest` to {peer_id}.",
 			);
 
-			SyncingAction::SendGenericRequest {
+			let (tx, rx) = oneshot::channel();
+
+			network_service.start_request(
 				peer_id,
-				key: Self::STRATEGY_KEY,
-				protocol_name: self.state_request_protocol_name.clone(),
-				request: request.encode_to_vec(),
-			}
+				self.state_request_protocol_name.clone(),
+				request.encode_to_vec(),
+				tx,
+				IfDisconnected::ImmediateError,
+			);
+
+			SyncingAction::StartRequest { peer_id, key: Self::STRATEGY_KEY, request: rx.boxed() }
 		});
 		self.actions.extend(state_request);
 

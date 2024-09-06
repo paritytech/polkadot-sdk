@@ -20,6 +20,7 @@
 
 use crate::{
 	schema::v1::{StateRequest, StateResponse},
+	service::network::NetworkServiceHandle,
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
@@ -28,11 +29,12 @@ use crate::{
 	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
+use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::ProofProvider;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
-use sc_network::ProtocolName;
+use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::BlockAnnounce;
 use sc_network_types::PeerId;
 use sp_consensus::BlockOrigin;
@@ -348,14 +350,22 @@ impl<B: BlockT> StateStrategy<B> {
 
 	/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
 	#[must_use]
-	pub fn actions(&mut self) -> impl Iterator<Item = SyncingAction<B>> {
+	pub fn actions(
+		&mut self,
+		network_service: &NetworkServiceHandle,
+	) -> impl Iterator<Item = SyncingAction<B>> {
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
-			SyncingAction::SendGenericRequest {
+			let (tx, rx) = oneshot::channel();
+
+			network_service.start_request(
 				peer_id,
-				key: Self::STRATEGY_KEY,
-				protocol_name: self.protocol_name.clone(),
-				request: request.encode_to_vec(),
-			}
+				self.protocol_name.clone(),
+				request.encode_to_vec(),
+				tx,
+				IfDisconnected::ImmediateError,
+			);
+
+			SyncingAction::StartRequest { peer_id, key: Self::STRATEGY_KEY, request: rx.boxed() }
 		});
 		self.actions.extend(state_request);
 
@@ -374,6 +384,7 @@ mod test {
 	use super::*;
 	use crate::{
 		schema::v1::{StateRequest, StateResponse},
+		service::network::NetworkServiceProvider,
 		strategy::state_sync::{ImportResult, StateSyncProgress, StateSyncProvider},
 	};
 	use codec::Decode;
@@ -848,12 +859,14 @@ mod test {
 			)],
 		);
 
+		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+
 		// Strategy finishes.
-		let actions = state_strategy.actions().collect::<Vec<_>>();
+		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(&actions[0], SyncingAction::Finished));
 
 		// No more actions generated.
-		assert_eq!(state_strategy.actions().count(), 0);
+		assert_eq!(state_strategy.actions(&network_handle).count(), 0);
 	}
 }

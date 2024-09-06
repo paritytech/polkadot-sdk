@@ -49,7 +49,7 @@ use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
 use sc_network::{
 	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
 	peer_store::PeerStoreProvider,
-	request_responses::{IfDisconnected, RequestFailure},
+	request_responses::RequestFailure,
 	service::{
 		traits::{Direction, NotificationConfig, NotificationEvent, ValidationResult},
 		NotificationMetrics,
@@ -577,7 +577,7 @@ where
 	}
 
 	fn process_strategy_actions(&mut self) -> Result<(), ClientError> {
-		for action in self.strategy.actions()? {
+		for action in self.strategy.actions(&self.network_service)? {
 			match action {
 				SyncingAction::SendBlockRequest { peer_id, key, request } => {
 					// Sending block request implies dropping obsolete pending response as we are
@@ -604,16 +604,26 @@ where
 						)
 					}
 				},
+				SyncingAction::StartRequest { peer_id, key, request } => {
+					if !self.peers.contains_key(&peer_id) {
+						trace!(
+							target: LOG_TARGET,
+							"Cannot start request with strategy key {key:?} to unknown peer \
+							{peer_id}",
+						);
+						debug_assert!(false);
+						continue;
+					}
+
+					self.pending_responses.insert(peer_id, key, PeerRequest::Generic, request);
+				},
 				SyncingAction::CancelRequest { peer_id, key } => {
 					let removed = self.pending_responses.remove(peer_id, key);
 
 					trace!(
 						target: LOG_TARGET,
-						"Processed {action:?}, response removed: {removed}.",
+						"Processed `SyncingAction::CancelRequest`, response removed: {removed}.",
 					);
-				},
-				SyncingAction::SendGenericRequest { peer_id, key, protocol_name, request } => {
-					self.send_generic_request(peer_id, key, protocol_name, request);
 				},
 				SyncingAction::DropPeer(BadPeer(peer_id, rep)) => {
 					self.pending_responses.remove_all(&peer_id);
@@ -992,35 +1002,6 @@ where
 			key,
 			PeerRequest::Block(request.clone()),
 			async move { downloader.download_blocks(peer_id, request).await }.boxed(),
-		);
-	}
-
-	fn send_generic_request(
-		&mut self,
-		peer_id: PeerId,
-		key: StrategyKey,
-		protocol_name: ProtocolName,
-		request: Vec<u8>,
-	) {
-		if !self.peers.contains_key(&peer_id) {
-			trace!(
-				target: LOG_TARGET,
-				"Cannot send generic request with strategy key {key:?} to unknown peer {peer_id}",
-			);
-			debug_assert!(false);
-			return;
-		}
-
-		let (tx, rx) = oneshot::channel();
-
-		self.pending_responses.insert(peer_id, key, PeerRequest::Generic, rx.boxed());
-
-		self.network_service.start_request(
-			peer_id,
-			protocol_name,
-			request,
-			tx,
-			IfDisconnected::ImmediateError,
 		);
 	}
 

@@ -38,7 +38,7 @@ use tokio_stream::StreamMap;
 type ResponseResult = Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>;
 
 /// A future yielding [`ResponseResult`].
-type ResponseFuture = BoxFuture<'static, ResponseResult>;
+pub(crate) type ResponseFuture = BoxFuture<'static, ResponseResult>;
 
 /// An event we receive once a pending response future resolves.
 pub(crate) struct ResponseEvent<B: BlockT> {

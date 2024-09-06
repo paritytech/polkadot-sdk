@@ -21,6 +21,7 @@
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
+	service::network::NetworkServiceHandle,
 	strategy::{
 		chain_sync::validate_blocks, disconnected_peers::DisconnectedPeers, StrategyKey,
 		SyncingAction,
@@ -29,8 +30,9 @@ use crate::{
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
+use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, trace, warn};
-use sc_network::ProtocolName;
+use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
@@ -596,7 +598,10 @@ where
 
 	/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
 	#[must_use]
-	pub fn actions(&mut self) -> impl Iterator<Item = SyncingAction<B>> {
+	pub fn actions(
+		&mut self,
+		network_service: &NetworkServiceHandle,
+	) -> impl Iterator<Item = SyncingAction<B>> {
 		let warp_proof_request =
 			self.warp_proof_request().into_iter().map(|(peer_id, protocol_name, request)| {
 				trace!(
@@ -606,11 +611,20 @@ where
 					request,
 				);
 
-				SyncingAction::SendGenericRequest {
+				let (tx, rx) = oneshot::channel();
+
+				network_service.start_request(
+					peer_id,
+					protocol_name,
+					request.encode(),
+					tx,
+					IfDisconnected::ImmediateError,
+				);
+
+				SyncingAction::StartRequest {
 					peer_id,
 					key: Self::STRATEGY_KEY,
-					protocol_name,
-					request: request.encode(),
+					request: rx.boxed(),
 				}
 			});
 		self.actions.extend(warp_proof_request);
@@ -634,6 +648,7 @@ where
 #[cfg(test)]
 mod test {
 	use super::*;
+	use crate::service::network::NetworkServiceProvider;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
 	use sp_consensus_grandpa::{AuthorityList, SetId};
@@ -720,8 +735,10 @@ mod test {
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
+		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+
 		// Warp sync instantly finishes
-		let actions = warp_sync.actions().collect::<Vec<_>>();
+		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(actions[0], SyncingAction::Finished));
 
@@ -741,8 +758,10 @@ mod test {
 		));
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
+		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+
 		// Warp sync instantly finishes
-		let actions = warp_sync.actions().collect::<Vec<_>>();
+		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(actions[0], SyncingAction::Finished));
 
@@ -757,8 +776,10 @@ mod test {
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
+		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+
 		// No actions are emitted.
-		assert_eq!(warp_sync.actions().count(), 0)
+		assert_eq!(warp_sync.actions(&network_handle).count(), 0)
 	}
 
 	#[test]
@@ -773,8 +794,10 @@ mod test {
 		));
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
+		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+
 		// No actions are emitted.
-		assert_eq!(warp_sync.actions().count(), 0)
+		assert_eq!(warp_sync.actions(&network_handle).count(), 0)
 	}
 
 	#[test]
@@ -1008,10 +1031,12 @@ mod test {
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
+		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+
 		// Consume `SendWarpProofRequest` action.
-		let actions = warp_sync.actions().collect::<Vec<_>>();
+		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		let SyncingAction::SendGenericRequest { peer_id: request_peer_id, .. } = actions[0] else {
+		let SyncingAction::StartRequest { peer_id: request_peer_id, .. } = actions[0] else {
 			panic!("Invalid action");
 		};
 
@@ -1048,10 +1073,12 @@ mod test {
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
+		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+
 		// Consume `SendWarpProofRequest` action.
-		let actions = warp_sync.actions().collect::<Vec<_>>();
+		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		let SyncingAction::SendGenericRequest { peer_id: request_peer_id, .. } = actions[0] else {
+		let SyncingAction::StartRequest { peer_id: request_peer_id, .. } = actions[0] else {
 			panic!("Invalid action");
 		};
 
@@ -1091,10 +1118,12 @@ mod test {
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
+		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+
 		// Consume `SendWarpProofRequest` action.
-		let actions = warp_sync.actions().collect::<Vec<_>>();
+		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		let SyncingAction::SendGenericRequest { peer_id: request_peer_id, .. } = actions[0] else {
+		let SyncingAction::StartRequest { peer_id: request_peer_id, .. } = actions[0] else {
 			panic!("Invalid action.");
 		};
 
@@ -1472,8 +1501,10 @@ mod test {
 
 		assert!(warp_sync.on_block_response_inner(peer_id, request, response).is_ok());
 
+		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+
 		// Strategy finishes.
-		let actions = warp_sync.actions().collect::<Vec<_>>();
+		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(actions[0], SyncingAction::Finished));
 

@@ -21,6 +21,7 @@
 
 use crate::{
 	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
+	service::network::NetworkServiceHandle,
 	strategy::{
 		chain_sync::{ChainSync, ChainSyncMode},
 		state::StateStrategy,
@@ -298,15 +299,18 @@ where
 		self.chain_sync.as_ref().map_or(0, |chain_sync| chain_sync.num_sync_requests())
 	}
 
-	fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError> {
+	fn actions(
+		&mut self,
+		network_service: &NetworkServiceHandle,
+	) -> Result<Vec<SyncingAction<B>>, ClientError> {
 		// This function presumes that strategies are executed serially and must be refactored once
 		// we have parallel strategies.
 		let actions: Vec<_> = if let Some(ref mut warp) = self.warp {
-			warp.actions().map(Into::into).collect()
+			warp.actions(network_service).map(Into::into).collect()
 		} else if let Some(ref mut state) = self.state {
-			state.actions().map(Into::into).collect()
+			state.actions(network_service).map(Into::into).collect()
 		} else if let Some(ref mut chain_sync) = self.chain_sync {
-			chain_sync.actions()?
+			chain_sync.actions(network_service)?
 		} else {
 			unreachable!("At least one syncing strategy is always active; qed")
 		};

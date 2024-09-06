@@ -29,9 +29,12 @@ mod state;
 pub mod state_sync;
 pub mod warp;
 
-use crate::types::{BadPeer, SyncStatus};
+use crate::{
+	pending_responses::ResponseFuture,
+	service::network::NetworkServiceHandle,
+	types::{BadPeer, SyncStatus},
+};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
-use sc_network::ProtocolName;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockRequest};
 use sc_network_types::PeerId;
 use sp_blockchain::Error as ClientError;
@@ -127,7 +130,11 @@ where
 
 	/// Get actions that should be performed by the owner on the strategy's behalf
 	#[must_use]
-	fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError>;
+	fn actions(
+		&mut self,
+		// TODO: Consider making this internal property of the strategy
+		network_service: &NetworkServiceHandle,
+	) -> Result<Vec<SyncingAction<B>>, ClientError>;
 }
 
 /// The key identifying a specific strategy for responses routing.
@@ -141,17 +148,11 @@ impl StrategyKey {
 	}
 }
 
-#[derive(Debug)]
 pub enum SyncingAction<B: BlockT> {
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendBlockRequest { peer_id: PeerId, key: StrategyKey, request: BlockRequest<B> },
-	/// Send generic request to peer.
-	SendGenericRequest {
-		peer_id: PeerId,
-		key: StrategyKey,
-		protocol_name: ProtocolName,
-		request: Vec<u8>,
-	},
+	/// Start request to peer.
+	StartRequest { peer_id: PeerId, key: StrategyKey, request: ResponseFuture },
 	/// Drop stale request.
 	CancelRequest { peer_id: PeerId, key: StrategyKey },
 	/// Peer misbehaved. Disconnect, report it and cancel any requests to it.
@@ -172,5 +173,18 @@ pub enum SyncingAction<B: BlockT> {
 impl<B: BlockT> SyncingAction<B> {
 	fn is_finished(&self) -> bool {
 		matches!(self, SyncingAction::Finished)
+	}
+
+	#[cfg(test)]
+	pub(crate) fn name(&self) -> &'static str {
+		match self {
+			Self::SendBlockRequest { .. } => "SendBlockRequest",
+			Self::StartRequest { .. } => "StartRequest",
+			Self::CancelRequest { .. } => "CancelRequest",
+			Self::DropPeer(_) => "DropPeer",
+			Self::ImportBlocks { .. } => "ImportBlocks",
+			Self::ImportJustifications { .. } => "ImportJustifications",
+			Self::Finished => "Finished",
+		}
 	}
 }

@@ -19,6 +19,7 @@
 //! Tests of [`ChainSync`].
 
 use super::*;
+use crate::service::network::NetworkServiceProvider;
 use futures::executor::block_on;
 use sc_block_builder::BlockBuilderBuilder;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
@@ -140,9 +141,11 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	sync.add_peer(peer_id1, Hash::random(), 42);
 	sync.add_peer(peer_id2, Hash::random(), 10);
 
+	let (_network_provider, network_handle) = NetworkServiceProvider::new();
+
 	// we wil send block requests to these peers
 	// for these blocks we don't know about
-	let actions = sync.actions().unwrap();
+	let actions = sync.actions(&network_handle).unwrap();
 	assert_eq!(actions.len(), 2);
 	assert!(actions.iter().all(|action| match action {
 		SyncingAction::SendBlockRequest { peer_id, .. } =>
@@ -176,7 +179,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	sync.restart();
 
 	// which should make us cancel and send out again block requests to the first two peers
-	let actions = sync.actions().unwrap();
+	let actions = sync.actions(&network_handle).unwrap();
 	assert_eq!(actions.len(), 4);
 	let mut cancelled_first = HashSet::new();
 	assert!(actions.iter().all(|action| match action {
@@ -505,7 +508,7 @@ fn can_sync_huge_fork() {
 			assert_eq!(actions.len(), 1);
 			match &actions[0] {
 				SyncingAction::SendBlockRequest { peer_id: _, request, key: _ } => request.clone(),
-				action @ _ => panic!("Unexpected action: {action:?}"),
+				action @ _ => panic!("Unexpected action: {}", action.name()),
 			}
 		};
 
@@ -646,7 +649,7 @@ fn syncs_fork_without_duplicate_requests() {
 			assert_eq!(actions.len(), 1);
 			match &actions[0] {
 				SyncingAction::SendBlockRequest { peer_id: _, request, key: _ } => request.clone(),
-				action @ _ => panic!("Unexpected action: {action:?}"),
+				action @ _ => panic!("Unexpected action: {}", action.name()),
 			}
 		};
 
@@ -903,7 +906,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 				// the `assert!` below
 				pending_responses.remove(&peer_id);
 			},
-			action @ _ => panic!("Unexpected action: {action:?}"),
+			action @ _ => panic!("Unexpected action: {}", action.name()),
 		}
 	}
 	assert!(actions.iter().any(|action| {
