@@ -13,7 +13,7 @@ documentation = "https://docs.rs/sc-network-types"
 bs58 = { workspace = true, default-features = true }
 ed25519-dalek = { workspace = true, default-features = true }
 libp2p-identity = { features = ["ed25519", "peerid", "rand"], workspace = true }
-litep2p = { workspace = true, features = ["websocket"] }
+litep2p = { workspace = true }
 log = { workspace = true, default-features = true }
 multiaddr = { workspace = true }
 multihash = { workspace = true }

@@ -59,7 +59,7 @@ sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 wasm-timer = { workspace = true }
-litep2p = { workspace = true, features = ["websocket"] }
+litep2p = { workspace = true }
 once_cell = { workspace = true }
 void = { workspace = true }
 schnellru = { workspace = true }
