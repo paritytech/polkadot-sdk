@@ -280,13 +280,14 @@ fn extra_balance_should_transfer() {
 		// Account 1 has only 5 units vested at block 1 (plus 150 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		assert_ok!(Vesting::vest(Some(1).into()));
-		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 3, 155)); // Account 1 can send extra units gained
+		// Account 1 can send extra units gained
+		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 3, 155));
 
 		// Account 2 has no units vested at block 1, but gained 100
 		assert_eq!(Vesting::vesting_balance(&2), Some(200));
 		assert_ok!(Vesting::vest(Some(2).into()));
-		assert_ok!(Balances::transfer_allow_death(Some(2).into(), 3, 100)); // Account 2 can send extra
-		                                                            // units gained
+		// Account 2 can send extra units gained
+		assert_ok!(Balances::transfer_allow_death(Some(2).into(), 3, 100));
 	});
 }
 
@@ -295,14 +296,16 @@ fn liquid_funds_should_transfer_with_delayed_vesting() {
 	ExtBuilder::default().existential_deposit(256).build().execute_with(|| {
 		let user12_free_balance = Balances::free_balance(&12);
 
-		assert_eq!(user12_free_balance, 2560); // Account 12 has free balance
-									   // Account 12 has liquid funds
+		// Account 12 has free balance
+		assert_eq!(user12_free_balance, 2560);
+		// Account 12 has liquid funds
 		assert_eq!(Vesting::vesting_balance(&12), Some(user12_free_balance - 256 * 5));
 
 		// Account 12 has delayed vesting
 		let user12_vesting_schedule = VestingInfo::new(
 			256 * 5,
-			64, // Vesting over 20 blocks
+			// Vesting over 20 blocks
+			64,
 			10,
 		);
 		assert_eq!(VestingStorage::<Test>::get(&12).unwrap(), vec![user12_vesting_schedule]);
@@ -630,8 +633,10 @@ fn merge_ongoing_schedules() {
 
 		let sched1 = VestingInfo::new(
 			ED * 10,
-			ED,                          // Vest over 10 blocks.
-			sched0.starting_block() + 5, // Start at block 15.
+			// Vest over 10 blocks.
+			ED,
+			// Start at block 15.
+			sched0.starting_block() + 5,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(4).into(), 2, sched1));
 		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched1]);
