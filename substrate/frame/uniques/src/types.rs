@@ -131,3 +131,7 @@ pub struct ItemMetadata<DepositBalance, StringLimit: Get<u32>> {
 	/// Whether the item metadata may be changed by a non Force origin.
 	pub(super) is_frozen: bool,
 }
+
+pub mod asset_strategies {
+	pub struct Attribute<'a>(pub &'a [u8]);
+}
