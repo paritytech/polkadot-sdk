@@ -112,3 +112,36 @@ pub trait VestingSchedule<AccountId> {
 	/// NOTE: This doesn't alter the free balance of the account.
 	fn remove_vesting_schedule(who: &AccountId, schedule_index: u32) -> DispatchResult;
 }
+
+/// A vested transfer over a currency. This allows a transferred amount to vest over time.
+pub trait VestedTransfer<AccountId> {
+	/// The quantity used to denote time; usually just a `BlockNumber`.
+	type Moment;
+
+	/// The currency that this schedule applies to.
+	type Currency: Currency<AccountId>;
+
+	// Execute a vested transfer from `source` to `target` with the given `schedule`.
+	fn vested_transfer(
+		source: &AccountId,
+		target: &AccountId,
+		locked: <Self::Currency as Currency<AccountId>>::Balance,
+		per_block: <Self::Currency as Currency<AccountId>>::Balance,
+		starting_block: Self::Moment,
+	) -> DispatchResult;
+}
+
+impl<AccountId> VestedTransfer<AccountId> for () {
+	type Moment = ();
+	type Currency = ();
+
+	fn vested_transfer(
+		_source: &AccountId,
+		_target: &AccountId,
+		_locked: <Self::Currency as Currency<AccountId>>::Balance,
+		_per_block: <Self::Currency as Currency<AccountId>>::Balance,
+		_starting_block: Self::Moment,
+	) -> DispatchResult {
+		Err(sp_runtime::DispatchError::Unavailable.into())
+	}
+}
