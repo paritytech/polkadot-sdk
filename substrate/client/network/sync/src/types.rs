@@ -111,24 +111,7 @@ impl std::error::Error for BadPeer {}
 pub enum PeerRequest<B: BlockT> {
 	Block(BlockRequest<B>),
 	State,
-	WarpProof,
-}
-
-#[derive(Debug)]
-pub enum PeerRequestType {
-	Block,
-	State,
-	WarpProof,
-}
-
-impl<B: BlockT> PeerRequest<B> {
-	pub fn get_type(&self) -> PeerRequestType {
-		match self {
-			PeerRequest::Block(_) => PeerRequestType::Block,
-			PeerRequest::State => PeerRequestType::State,
-			PeerRequest::WarpProof => PeerRequestType::WarpProof,
-		}
-	}
+	Generic,
 }
 
 /// Wrapper for implementation-specific state request.

@@ -40,7 +40,6 @@ use sp_runtime::{
 	traits::{Block as BlockT, NumberFor},
 	Justifications,
 };
-use warp::{EncodedProof, WarpProofRequest};
 
 /// Syncing strategy for syncing engine to use
 pub trait SyncingStrategy<B: BlockT>: Send
@@ -99,13 +98,8 @@ where
 		response: OpaqueStateResponse,
 	);
 
-	/// Process warp proof response.
-	fn on_warp_proof_response(
-		&mut self,
-		peer_id: &PeerId,
-		key: StrategyKey,
-		response: EncodedProof,
-	);
+	/// Process generic response.
+	fn on_generic_response(&mut self, peer_id: &PeerId, key: StrategyKey, response: Vec<u8>);
 
 	/// A batch of blocks that have been processed, with or without errors.
 	///
@@ -166,12 +160,12 @@ pub enum SyncingAction<B: BlockT> {
 		protocol_name: ProtocolName,
 		request: OpaqueStateRequest,
 	},
-	/// Send warp proof request to peer.
-	SendWarpProofRequest {
+	/// Send generic request to peer.
+	SendGenericRequest {
 		peer_id: PeerId,
 		key: StrategyKey,
 		protocol_name: ProtocolName,
-		request: WarpProofRequest<B>,
+		request: Vec<u8>,
 	},
 	/// Drop stale request.
 	CancelRequest { peer_id: PeerId, key: StrategyKey },

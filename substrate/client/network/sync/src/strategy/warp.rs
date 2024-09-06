@@ -599,11 +599,18 @@ where
 	pub fn actions(&mut self) -> impl Iterator<Item = SyncingAction<B>> {
 		let warp_proof_request =
 			self.warp_proof_request().into_iter().map(|(peer_id, protocol_name, request)| {
-				SyncingAction::SendWarpProofRequest {
+				trace!(
+					target: LOG_TARGET,
+					"Created `WarpProofRequest` to {}, request: {:?}.",
+					peer_id,
+					request,
+				);
+
+				SyncingAction::SendGenericRequest {
 					peer_id,
 					key: Self::STRATEGY_KEY,
 					protocol_name,
-					request,
+					request: request.encode(),
 				}
 			});
 		self.actions.extend(warp_proof_request);
@@ -1004,8 +1011,7 @@ mod test {
 		// Consume `SendWarpProofRequest` action.
 		let actions = warp_sync.actions().collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		let SyncingAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
-		else {
+		let SyncingAction::SendGenericRequest { peer_id: request_peer_id, .. } = actions[0] else {
 			panic!("Invalid action");
 		};
 
@@ -1045,8 +1051,7 @@ mod test {
 		// Consume `SendWarpProofRequest` action.
 		let actions = warp_sync.actions().collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		let SyncingAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
-		else {
+		let SyncingAction::SendGenericRequest { peer_id: request_peer_id, .. } = actions[0] else {
 			panic!("Invalid action");
 		};
 
@@ -1089,8 +1094,7 @@ mod test {
 		// Consume `SendWarpProofRequest` action.
 		let actions = warp_sync.actions().collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		let SyncingAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
-		else {
+		let SyncingAction::SendGenericRequest { peer_id: request_peer_id, .. } = actions[0] else {
 			panic!("Invalid action.");
 		};
 

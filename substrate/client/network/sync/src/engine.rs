@@ -30,10 +30,7 @@ use crate::{
 		self,
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
-	strategy::{
-		warp::{EncodedProof, WarpProofRequest},
-		StrategyKey, SyncingAction, SyncingStrategy,
-	},
+	strategy::{StrategyKey, SyncingAction, SyncingStrategy},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
 	},
@@ -627,15 +624,8 @@ where
 						"Processed `ChainSyncAction::SendStateRequest` to {peer_id}.",
 					);
 				},
-				SyncingAction::SendWarpProofRequest { peer_id, key, protocol_name, request } => {
-					self.send_warp_proof_request(peer_id, key, protocol_name, request.clone());
-
-					trace!(
-						target: LOG_TARGET,
-						"Processed `ChainSyncAction::SendWarpProofRequest` to {}, request: {:?}.",
-						peer_id,
-						request,
-					);
+				SyncingAction::SendGenericRequest { peer_id, key, protocol_name, request } => {
+					self.send_generic_request(peer_id, key, protocol_name, request);
 				},
 				SyncingAction::DropPeer(BadPeer(peer_id, rep)) => {
 					self.pending_responses.remove_all(&peer_id);
@@ -1053,27 +1043,30 @@ where
 		}
 	}
 
-	fn send_warp_proof_request(
+	fn send_generic_request(
 		&mut self,
 		peer_id: PeerId,
 		key: StrategyKey,
 		protocol_name: ProtocolName,
-		request: WarpProofRequest<B>,
+		request: Vec<u8>,
 	) {
 		if !self.peers.contains_key(&peer_id) {
-			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {peer_id}");
+			trace!(
+				target: LOG_TARGET,
+				"Cannot send generic request with strategy key {key:?} to unknown peer {peer_id}",
+			);
 			debug_assert!(false);
 			return;
 		}
 
 		let (tx, rx) = oneshot::channel();
 
-		self.pending_responses.insert(peer_id, key, PeerRequest::WarpProof, rx.boxed());
+		self.pending_responses.insert(peer_id, key, PeerRequest::Generic, rx.boxed());
 
 		self.network_service.start_request(
 			peer_id,
 			protocol_name,
-			request.encode(),
+			request,
 			tx,
 			IfDisconnected::ImmediateError,
 		);
@@ -1151,8 +1144,8 @@ where
 
 					self.strategy.on_state_response(peer_id, key, response);
 				},
-				PeerRequest::WarpProof => {
-					self.strategy.on_warp_proof_response(&peer_id, key, EncodedProof(resp));
+				PeerRequest::Generic => {
+					self.strategy.on_generic_response(&peer_id, key, resp);
 				},
 			},
 			Ok(Err(e)) => {

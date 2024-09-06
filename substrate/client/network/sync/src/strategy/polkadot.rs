@@ -30,7 +30,7 @@ use crate::{
 	types::{OpaqueStateResponse, SyncStatus},
 	LOG_TARGET,
 };
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus};
@@ -219,21 +219,26 @@ where
 		}
 	}
 
-	fn on_warp_proof_response(
-		&mut self,
-		peer_id: &PeerId,
-		key: StrategyKey,
-		response: EncodedProof,
-	) {
-		if let (WarpSync::<B, Client>::STRATEGY_KEY, Some(ref mut warp)) = (key, &mut self.warp) {
-			warp.on_warp_proof_response(peer_id, response);
-		} else {
-			error!(
-				target: LOG_TARGET,
-				"`on_warp_proof_response()` called with unexpected key {key:?} \
-				 or warp strategy is not active",
-			);
-			debug_assert!(false);
+	fn on_generic_response(&mut self, peer_id: &PeerId, key: StrategyKey, response: Vec<u8>) {
+		match key {
+			WarpSync::<B, Client>::STRATEGY_KEY =>
+				if let Some(warp) = &mut self.warp {
+					warp.on_warp_proof_response(peer_id, EncodedProof(response));
+				} else {
+					error!(
+						target: LOG_TARGET,
+						"`on_warp_proof_response()` called with unexpected key {key:?} \
+						 or warp strategy is not active",
+					);
+					debug_assert!(false);
+				},
+			key => {
+				warn!(
+					target: LOG_TARGET,
+					"Unexpected generic response strategy key: {key:?}",
+				);
+				debug_assert!(false);
+			},
 		}
 	}
 

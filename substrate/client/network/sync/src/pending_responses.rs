@@ -69,8 +69,6 @@ impl<B: BlockT> PendingResponses<B> {
 		request: PeerRequest<B>,
 		response_future: ResponseFuture,
 	) {
-		let request_type = request.get_type();
-
 		if self
 			.pending_responses
 			.insert(
@@ -81,7 +79,7 @@ impl<B: BlockT> PendingResponses<B> {
 		{
 			error!(
 				target: LOG_TARGET,
-				"Discarded pending response from peer {peer_id}, request type: {request_type:?}.",
+				"Discarded pending response from peer {peer_id}, strategy key: {key:?}.",
 			);
 			debug_assert!(false);
 		}

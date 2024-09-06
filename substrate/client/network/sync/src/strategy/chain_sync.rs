@@ -35,7 +35,7 @@ use crate::{
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
-		warp::{EncodedProof, WarpSyncPhase, WarpSyncProgress},
+		warp::{WarpSyncPhase, WarpSyncProgress},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
@@ -630,15 +630,10 @@ where
 		}
 	}
 
-	fn on_warp_proof_response(
-		&mut self,
-		_peer_id: &PeerId,
-		_key: StrategyKey,
-		_response: EncodedProof,
-	) {
-		error!(
+	fn on_generic_response(&mut self, _peer_id: &PeerId, key: StrategyKey, _response: Vec<u8>) {
+		warn!(
 			target: LOG_TARGET,
-			"`on_warp_proof_response()` called for chain sync strategy",
+			"Unexpected generic response strategy key: {key:?}",
 		);
 		debug_assert!(false);
 	}
