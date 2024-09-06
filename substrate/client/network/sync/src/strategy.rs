@@ -180,13 +180,13 @@ pub struct SyncingConfig {
 
 /// The key identifying a specific strategy for responses routing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum StrategyKey {
-	/// Warp sync initiated this request.
-	Warp,
-	/// State sync initiated this request.
-	State,
-	/// `ChainSync` initiated this request.
-	ChainSync,
+pub struct StrategyKey(&'static str);
+
+impl StrategyKey {
+	/// Instantiate opaque strategy key.
+	pub const fn new(key: &'static str) -> Self {
+		Self(key)
+	}
 }
 
 #[derive(Debug)]
@@ -342,9 +342,9 @@ where
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
 	) {
-		if let (StrategyKey::Warp, Some(ref mut warp)) = (key, &mut self.warp) {
+		if let (WarpSync::<B, Client>::STRATEGY_KEY, Some(ref mut warp)) = (key, &mut self.warp) {
 			warp.on_block_response(peer_id, request, blocks);
-		} else if let (StrategyKey::ChainSync, Some(ref mut chain_sync)) =
+		} else if let (ChainSync::<B, Client>::STRATEGY_KEY, Some(ref mut chain_sync)) =
 			(key, &mut self.chain_sync)
 		{
 			chain_sync.on_block_response(peer_id, key, request, blocks);
@@ -364,9 +364,9 @@ where
 		key: StrategyKey,
 		response: OpaqueStateResponse,
 	) {
-		if let (StrategyKey::State, Some(ref mut state)) = (key, &mut self.state) {
+		if let (StateStrategy::<B>::STRATEGY_KEY, Some(ref mut state)) = (key, &mut self.state) {
 			state.on_state_response(peer_id, response);
-		} else if let (StrategyKey::ChainSync, Some(ref mut chain_sync)) =
+		} else if let (ChainSync::<B, Client>::STRATEGY_KEY, Some(ref mut chain_sync)) =
 			(key, &mut self.chain_sync)
 		{
 			chain_sync.on_state_response(peer_id, key, response);
@@ -386,7 +386,7 @@ where
 		key: StrategyKey,
 		response: EncodedProof,
 	) {
-		if let (StrategyKey::Warp, Some(ref mut warp)) = (key, &mut self.warp) {
+		if let (WarpSync::<B, Client>::STRATEGY_KEY, Some(ref mut warp)) = (key, &mut self.warp) {
 			warp.on_warp_proof_response(peer_id, response);
 		} else {
 			error!(

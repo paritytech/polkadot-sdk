@@ -78,6 +78,9 @@ pub struct StateStrategy<B: BlockT> {
 }
 
 impl<B: BlockT> StateStrategy<B> {
+	/// Strategy key used by state sync.
+	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("State");
+
 	/// Create a new instance.
 	pub fn new<Client>(
 		client: Arc<Client>,
@@ -346,7 +349,7 @@ impl<B: BlockT> StateStrategy<B> {
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
 			SyncingAction::SendStateRequest {
 				peer_id,
-				key: StrategyKey::State,
+				key: Self::STRATEGY_KEY,
 				protocol_name: self.protocol_name.clone(),
 				request,
 			}

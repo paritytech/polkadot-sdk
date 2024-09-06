@@ -351,7 +351,7 @@ where
 		match self.add_peer_inner(peer_id, best_hash, best_number) {
 			Ok(Some(request)) => self.actions.push(SyncingAction::SendBlockRequest {
 				peer_id,
-				key: StrategyKey::ChainSync,
+				key: Self::STRATEGY_KEY,
 				request,
 			}),
 			Ok(None) => {},
@@ -572,7 +572,7 @@ where
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
 	) {
-		if key != StrategyKey::ChainSync {
+		if key != Self::STRATEGY_KEY {
 			error!(
 				target: LOG_TARGET,
 				"`on_block_response()` called with unexpected key {key:?} for chain sync",
@@ -618,7 +618,7 @@ where
 		key: StrategyKey,
 		response: OpaqueStateResponse,
 	) {
-		if key != StrategyKey::ChainSync {
+		if key != Self::STRATEGY_KEY {
 			error!(
 				target: LOG_TARGET,
 				"`on_state_response()` called with unexpected key {key:?} for chain sync",
@@ -872,20 +872,20 @@ where
 		}
 
 		let block_requests = self.block_requests().into_iter().map(|(peer_id, request)| {
-			SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::ChainSync, request }
+			SyncingAction::SendBlockRequest { peer_id, key: Self::STRATEGY_KEY, request }
 		});
 		self.actions.extend(block_requests);
 
 		let justification_requests =
 			self.justification_requests().into_iter().map(|(peer_id, request)| {
-				SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::ChainSync, request }
+				SyncingAction::SendBlockRequest { peer_id, key: Self::STRATEGY_KEY, request }
 			});
 		self.actions.extend(justification_requests);
 
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
 			SyncingAction::SendStateRequest {
 				peer_id,
-				key: StrategyKey::ChainSync,
+				key: Self::STRATEGY_KEY,
 				protocol_name: self.state_request_protocol_name.clone(),
 				request,
 			}
@@ -907,6 +907,9 @@ where
 		+ Sync
 		+ 'static,
 {
+	/// Strategy key used by chain sync.
+	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("ChainSync");
+
 	/// Create a new instance.
 	pub fn new(
 		mode: ChainSyncMode,
@@ -1251,7 +1254,7 @@ where
 							let request = ancestry_request::<B>(next_num);
 							self.actions.push(SyncingAction::SendBlockRequest {
 								peer_id: *peer_id,
-								key: StrategyKey::ChainSync,
+								key: Self::STRATEGY_KEY,
 								request,
 							});
 							return Ok(());
@@ -1549,10 +1552,8 @@ where
 				PeerSyncState::DownloadingGap(_) |
 				PeerSyncState::DownloadingState => {
 					// Cancel a request first, as `add_peer` may generate a new request.
-					self.actions.push(SyncingAction::CancelRequest {
-						peer_id,
-						key: StrategyKey::ChainSync,
-					});
+					self.actions
+						.push(SyncingAction::CancelRequest { peer_id, key: Self::STRATEGY_KEY });
 					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
 				},
 				PeerSyncState::DownloadingJustification(_) => {

@@ -213,6 +213,9 @@ where
 	B: BlockT,
 	Client: HeaderBackend<B> + 'static,
 {
+	/// Strategy key used by warp sync.
+	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("Warp");
+
 	/// Create a new instance. When passing a warp sync provider we will be checking for proof and
 	/// authorities. Alternatively we can pass a target block when we want to skip downloading
 	/// proofs, in this case we will continue polling until the target block is known.
@@ -598,7 +601,7 @@ where
 			self.warp_proof_request().into_iter().map(|(peer_id, protocol_name, request)| {
 				SyncingAction::SendWarpProofRequest {
 					peer_id,
-					key: StrategyKey::Warp,
+					key: Self::STRATEGY_KEY,
 					protocol_name,
 					request,
 				}
@@ -607,7 +610,7 @@ where
 
 		let target_block_request =
 			self.target_block_request().into_iter().map(|(peer_id, request)| {
-				SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::Warp, request }
+				SyncingAction::SendBlockRequest { peer_id, key: Self::STRATEGY_KEY, request }
 			});
 		self.actions.extend(target_block_request);
 
