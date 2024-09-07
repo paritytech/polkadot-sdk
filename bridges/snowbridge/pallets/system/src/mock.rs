@@ -171,6 +171,7 @@ parameter_types! {
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(1013)].into();
 	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
+	pub EthereumDestination: Location = Location::new(2,[GlobalConsensus(EthereumNetwork::get())]);
 }
 
 pub const DOT: u128 = 10_000_000_000;

@@ -633,161 +633,6 @@ fn no_genesis_build_is_uninitialized() {
 }
 
 #[test]
-fn register_token_with_root_yields_success() {
-	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::root();
-		let location = Location::new(1, []);
-		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
-		let asset_metadata = AssetMetadata {
-			decimals: 10,
-			name: b"Dot".to_vec().try_into().unwrap(),
-			symbol: b"DOT".to_vec().try_into().unwrap(),
-		};
-
-		assert_ok!(EthereumSystem::register_token(origin, versioned_location, asset_metadata));
-
-		let expected_token_id =
-			hex!("4e241583d94b5d48a27a22064cd49b2ed6f5231d2d950e432f9b7c2e0ade52b2").into();
-		let expected_location = Location::new(1, [GlobalConsensus(Polkadot)]);
-
-		System::assert_last_event(RuntimeEvent::EthereumSystem(
-			crate::Event::<Test>::RegisterToken {
-				location: expected_location.into(),
-				foreign_token_id: expected_token_id,
-			},
-		));
-	});
-}
-
-#[test]
-fn register_token_with_relative_address_reanchors_to_ethereum_and_succeeds() {
-	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::root();
-		let location = Location::new(1, []);
-		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
-		let asset_metadata = AssetMetadata {
-			decimals: 10,
-			name: b"Dot".to_vec().try_into().unwrap(),
-			symbol: b"DOT".to_vec().try_into().unwrap(),
-		};
-
-		assert_ok!(EthereumSystem::register_token(origin, versioned_location, asset_metadata));
-
-		let expected_token_id =
-			hex!("4e241583d94b5d48a27a22064cd49b2ed6f5231d2d950e432f9b7c2e0ade52b2").into();
-		let expected_location = Location::new(1, [GlobalConsensus(Polkadot)]);
-
-		System::assert_last_event(RuntimeEvent::EthereumSystem(
-			crate::Event::<Test>::RegisterToken {
-				location: expected_location.into(),
-				foreign_token_id: expected_token_id,
-			},
-		));
-	});
-}
-
-#[test]
-fn register_token_with_complex_location_simplifies_and_succeeds() {
-	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::root();
-		let location = Location::new(2, [GlobalConsensus(Kusama)]);
-		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
-		let asset_metadata = AssetMetadata {
-			decimals: 10,
-			name: b"Dot".to_vec().try_into().unwrap(),
-			symbol: b"DOT".to_vec().try_into().unwrap(),
-		};
-
-		assert_ok!(EthereumSystem::register_token(origin, versioned_location, asset_metadata));
-
-		let expected_token_id =
-			hex!("03b6054d0c576dd8391e34e1609cf398f68050c23009d19ce93c000922bcd852").into();
-		let expected_location = Location::new(1, [GlobalConsensus(Kusama)]);
-
-		System::assert_last_event(RuntimeEvent::EthereumSystem(
-			crate::Event::<Test>::RegisterToken {
-				location: expected_location.into(),
-				foreign_token_id: expected_token_id,
-			},
-		));
-	});
-}
-
-#[test]
-fn register_token_with_doubled_bridged_polkadot_location_succeeds() {
-	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::root();
-		let location = Location::new(2, [GlobalConsensus(Rococo)]);
-		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
-		let asset_metadata = AssetMetadata {
-			decimals: 10,
-			name: b"Dot".to_vec().try_into().unwrap(),
-			symbol: b"DOT".to_vec().try_into().unwrap(),
-		};
-
-		assert_ok!(EthereumSystem::register_token(origin, versioned_location, asset_metadata));
-
-		let expected_token_id =
-			hex!("62e8f33b7fb0e7e2d2276564061a2f3c7bcb612e733b8bf5733ea16cee0ecba6").into();
-		let expected_location = Location::new(1, [GlobalConsensus(Rococo)]);
-
-		System::assert_last_event(RuntimeEvent::EthereumSystem(
-			crate::Event::<Test>::RegisterToken {
-				location: expected_location.into(),
-				foreign_token_id: expected_token_id,
-			},
-		));
-	});
-}
-
-#[test]
-fn register_token_with_ethereum_address_reanchors_to_relative_and_fails() {
-	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::root();
-		let location = Location::new(2, [GlobalConsensus(Ethereum { chain_id: 11155111 })]);
-		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
-		let asset_metadata = AssetMetadata {
-			decimals: 10,
-			name: b"Dot".to_vec().try_into().unwrap(),
-			symbol: b"DOT".to_vec().try_into().unwrap(),
-		};
-
-		assert_noop!(
-			EthereumSystem::register_token(origin, versioned_location, asset_metadata),
-			Error::<Test>::LocationConversionFailed
-		);
-	});
-}
-
-#[test]
-fn register_token_with_double_bridged_ethereum_address_succeeds() {
-	new_test_ext(true).execute_with(|| {
-		let origin = RuntimeOrigin::root();
-		const NETWORK: NetworkId = Ethereum { chain_id: 1 };
-		let location = Location::new(2, [GlobalConsensus(NETWORK)]);
-		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
-		let asset_metadata = AssetMetadata {
-			decimals: 10,
-			name: b"Dot".to_vec().try_into().unwrap(),
-			symbol: b"DOT".to_vec().try_into().unwrap(),
-		};
-
-		assert_ok!(EthereumSystem::register_token(origin, versioned_location, asset_metadata));
-
-		let expected_token_id: H256 =
-			hex!("37fd94739deb1c2a8929b45a4f70ffcb52de8b54791609ee13ee0a2b33730269").into();
-		let expected_location = Location::new(1, [GlobalConsensus(NETWORK)]);
-
-		System::assert_last_event(RuntimeEvent::EthereumSystem(
-			crate::Event::<Test>::RegisterToken {
-				location: expected_location.into(),
-				foreign_token_id: expected_token_id,
-			},
-		));
-	});
-}
-
-#[test]
 fn register_token_with_signed_yeilds_bad_origin() {
 	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::signed([14; 32].into());
@@ -804,4 +649,102 @@ fn register_token_with_signed_yeilds_bad_origin() {
 			BadOrigin
 		);
 	});
+}
+
+pub struct TokenInfo {
+	pub location: Location,
+	pub metadata: AssetMetadata,
+	pub foreign_token_id: TokenId,
+}
+
+#[test]
+fn register_all_tokens_succeeds() {
+	let assets = vec![
+		// DOT
+		TokenInfo {
+			location: Location::parent(),
+			metadata: AssetMetadata {
+				decimals: 10,
+				name: b"DOT".to_vec().try_into().unwrap(),
+				symbol: b"DOT".to_vec().try_into().unwrap(),
+			},
+			foreign_token_id: hex!(
+				"4e241583d94b5d48a27a22064cd49b2ed6f5231d2d950e432f9b7c2e0ade52b2"
+			)
+			.into(),
+		},
+		// GLMR (Some Polkadot parachain currency)
+		TokenInfo {
+			location: Location::new(1, [Parachain(2004)]),
+			metadata: AssetMetadata {
+				decimals: 10,
+				name: b"GLMR".to_vec().try_into().unwrap(),
+				symbol: b"GLMR".to_vec().try_into().unwrap(),
+			},
+			foreign_token_id: hex!(
+				"34c08fc90409b6924f0e8eabb7c2aaa0c749e23e31adad9f6d217b577737fafb"
+			)
+			.into(),
+		},
+		// USDT
+		TokenInfo {
+			location: Location::new(1, [Parachain(1000), PalletInstance(50), GeneralIndex(1084)]),
+			metadata: AssetMetadata {
+				decimals: 10,
+				name: b"USDT".to_vec().try_into().unwrap(),
+				symbol: b"USDT".to_vec().try_into().unwrap(),
+			},
+			foreign_token_id: hex!(
+				"d49fe2118be0cca618e4d171e60ffea98b7b648dd80dc37d6342116b910b7aa5"
+			)
+			.into(),
+		},
+		// KSM
+		TokenInfo {
+			location: Location::new(2, [GlobalConsensus(Kusama)]),
+			metadata: AssetMetadata {
+				decimals: 12,
+				name: b"KSM".to_vec().try_into().unwrap(),
+				symbol: b"KSM".to_vec().try_into().unwrap(),
+			},
+			foreign_token_id: hex!(
+				"03b6054d0c576dd8391e34e1609cf398f68050c23009d19ce93c000922bcd852"
+			)
+			.into(),
+		},
+		// KAR (Some Kusama parachain currency)
+		TokenInfo {
+			location: Location::new(2, [GlobalConsensus(Kusama), Parachain(2000)]),
+			metadata: AssetMetadata {
+				decimals: 12,
+				name: b"KAR".to_vec().try_into().unwrap(),
+				symbol: b"KAR".to_vec().try_into().unwrap(),
+			},
+			foreign_token_id: hex!(
+				"d3e39ad6ea4cee68c9741181e94098823b2ea34a467577d0875c036f0fce5be0"
+			)
+			.into(),
+		},
+	];
+	for asset in assets.iter() {
+		new_test_ext(true).execute_with(|| {
+			let origin = RuntimeOrigin::root();
+			let versioned_location: Box<VersionedLocation> =
+				Box::new(asset.location.clone().into());
+			let asset_metadata = asset.metadata.clone();
+
+			assert_ok!(EthereumSystem::register_token(origin, versioned_location, asset_metadata));
+
+			let location = asset
+				.location
+				.clone()
+				.reanchored(&EthereumDestination::get(), &UniversalLocation::get())
+				.unwrap();
+
+			System::assert_last_event(RuntimeEvent::EthereumSystem(Event::<Test>::RegisterToken {
+				location: location.into(),
+				foreign_token_id: asset.foreign_token_id,
+			}));
+		});
+	}
 }
