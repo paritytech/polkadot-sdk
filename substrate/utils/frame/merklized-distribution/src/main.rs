@@ -47,7 +47,7 @@ fn read_csv_and_process(file_path: &str) -> Result<(), Box<dyn Error>> {
 		.map_err(|e| Box::<dyn Error>::from(<&'static str>::from(e)))?;
 
 	for account in proofs.into_iter() {
-		println!("Creating proof for account: {}", account);
+		println!("\n\nCreating proof for account: {}", account);
 		let balance = distribution_trie
 			.query(account.clone())
 			.ok_or("failed to find account in trie")?;
