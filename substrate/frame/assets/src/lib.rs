@@ -1879,10 +1879,11 @@ pub mod pallet {
 			distribution_id: DistributionCounter,
 			beneficiary: T::AccountId,
 			amount: T::Balance,
-			merkle_proof: DistributionProof,
+			merkle_proof: Vec<u8>, // TODO temp
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			Self::do_claim_distribution(distribution_id, beneficiary, amount, merkle_proof)?;
+			let proof: DistributionProof = Decode::decode(&mut &merkle_proof[..]).map_err(|_| Error::<T, I>::BadAssetId)?;
+			Self::do_claim_distribution(distribution_id, beneficiary, amount, proof)?;
 			Ok(())
 		}
 
