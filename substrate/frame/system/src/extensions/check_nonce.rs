@@ -366,22 +366,22 @@ mod tests {
 	}
 
 	#[test]
-	fn check_nonce_skipped_and_refund() {
+	fn check_nonce_skipped_and_refund_for_other_origins() {
 		new_test_ext().execute_with(|| {
 			let ext = CheckNonce::<Test>(1u64.into());
 
 			let mut info = CALL.get_dispatch_info();
 			info.extension_weight = ext.weight(CALL);
 
+			// Ensure we test the refund.
 			assert!(info.extension_weight != Weight::zero());
 
 			let len = CALL.encoded_size();
 
-			let (pre, origin) = CheckNonce::<Test>(1u64.into())
-				.validate_and_prepare(None.into(), CALL, &info, len)
-				.unwrap();
+			let origin = crate::RawOrigin::Root.into();
+			let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len).unwrap();
 
-			assert!(origin.as_system_ref().unwrap().is_none());
+			assert!(origin.as_system_ref().unwrap().is_root());
 
 			let pd_res = Ok(());
 			let mut post_info = frame_support::dispatch::PostDispatchInfo {

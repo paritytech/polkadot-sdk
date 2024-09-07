@@ -56,6 +56,7 @@ use frame_support::{
 	},
 	traits::{Defensive, EstimateCallFee, Get},
 	weights::{Weight, WeightToFee},
+	RuntimeDebugNoBound,
 };
 pub use pallet::*;
 pub use payment::*;
@@ -856,6 +857,7 @@ impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
 }
 
 /// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
+#[derive(RuntimeDebugNoBound)]
 pub enum Val<T: Config> {
 	Charge {
 		tip: BalanceOf<T>,
@@ -881,6 +883,23 @@ pub enum Pre<T: Config> {
 		// weight used by the extension
 		weight: Weight,
 	},
+}
+
+impl<T: Config> core::fmt::Debug for Pre<T> {
+	#[cfg(feature = "std")]
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		match self {
+			Pre::Charge { tip, who, imbalance: _ } => {
+				write!(f, "Charge {{ tip: {:?}, who: {:?}, imbalance: <stripped> }}", tip, who)
+			},
+			Pre::NoCharge { weight } => write!(f, "NoCharge {{ weight: {:?} }}", weight),
+		}
+	}
+
+	#[cfg(not(feature = "std"))]
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
+		fmt.write_str("<wasm:stripped>")
+	}
 }
 
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>

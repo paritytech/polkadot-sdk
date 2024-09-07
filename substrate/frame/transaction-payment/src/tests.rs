@@ -33,6 +33,7 @@ use frame_support::{
 	traits::Currency,
 	weights::Weight,
 };
+use frame_support::traits::OriginTrait;
 use frame_system as system;
 use mock::*;
 use pallet_balances::Call as BalancesCall;
@@ -804,4 +805,41 @@ fn genesis_default_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(NextFeeMultiplier::<Runtime>::get(), Multiplier::saturating_from_integer(1));
 	});
+}
+
+#[test]
+fn no_fee_and_no_weight_for_other_origins() {
+	ExtBuilder::default().build().execute_with(|| {
+		let ext = Ext::from(0);
+
+		let mut info = CALL.get_dispatch_info();
+		info.extension_weight = ext.weight(CALL);
+
+		// Ensure we test the refund.
+		assert!(info.extension_weight != Weight::zero());
+
+		let len = CALL.encoded_size();
+
+		let origin = frame_system::RawOrigin::Root.into();
+		let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len).unwrap();
+
+		assert!(origin.as_system_ref().unwrap().is_root());
+
+		let pd_res = Ok(());
+		let mut post_info = frame_support::dispatch::PostDispatchInfo {
+			actual_weight: Some(info.total_weight()),
+			pays_fee: Default::default(),
+		};
+
+		<Ext as TransactionExtension<RuntimeCall>>::post_dispatch(
+			pre,
+			&info,
+			&mut post_info,
+			len,
+			&pd_res,
+		)
+		.unwrap();
+
+		assert_eq!(post_info.actual_weight, Some(info.call_weight));
+	})
 }
