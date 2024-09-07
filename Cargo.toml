@@ -519,6 +519,7 @@ members = [
 	"substrate/utils/frame/benchmarking-cli",
 	"substrate/utils/frame/generate-bags",
 	"substrate/utils/frame/generate-bags/node-runtime",
+	"substrate/utils/frame/merklized-distribution",
 	"substrate/utils/frame/omni-bencher",
 	"substrate/utils/frame/remote-externalities",
 	"substrate/utils/frame/rpc/client",
