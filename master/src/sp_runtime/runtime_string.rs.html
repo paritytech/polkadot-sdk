@@ -370,7 +370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span>{
-			sp_runtime::RuntimeString::Owned(<span class="macro">alloc::format!</span>($(<span class="macro-nonterminal">$args</span>)<span class="kw-2">*</span>).as_bytes().to_vec())
+			sp_runtime::RuntimeString::Owned(<span class="macro-nonterminal">$</span><span class="macro">crate::format!</span>($(<span class="macro-nonterminal">$args</span>)<span class="kw-2">*</span>).as_bytes().to_vec())
 		}
 	}};
 }

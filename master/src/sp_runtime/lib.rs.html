@@ -1338,8 +1338,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1186" id="1186">1186</a>
 <a href="#1187" id="1187">1187</a>
 <a href="#1188" id="1188">1188</a>
-<a href="#1189" id="1189">1189</a>
-<a href="#1190" id="1190">1190</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1391,7 +1389,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">extern crate </span>alloc;
 
 <span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>alloc::vec::Vec;
+</span><span class="kw">pub use </span>alloc::{format, vec::Vec};
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>codec;
 <span class="attr">#[doc(hidden)]
@@ -1421,8 +1419,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	sr25519,
 };
 
-<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
-</span><span class="kw">use </span>alloc::format;
 <span class="kw">use </span>alloc::vec;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
