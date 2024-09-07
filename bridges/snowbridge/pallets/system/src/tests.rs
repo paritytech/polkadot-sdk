@@ -633,7 +633,7 @@ fn no_genesis_build_is_uninitialized() {
 }
 
 #[test]
-fn register_token_with_root_yeilds_success() {
+fn register_token_with_root_yields_success() {
 	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
 		let location = Location::new(1, []);
