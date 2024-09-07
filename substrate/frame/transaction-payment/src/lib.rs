@@ -65,9 +65,7 @@ use sp_runtime::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
 		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
 	},
-	transaction_validity::{
-		TransactionPriority, TransactionValidityError, ValidTransaction,
-	},
+	transaction_validity::{TransactionPriority, TransactionValidityError, ValidTransaction},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};

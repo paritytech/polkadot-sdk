@@ -367,7 +367,7 @@ where
 					who,
 					initial_payment,
 					asset_id: self.asset_id,
-					weight: self.weight(call)
+					weight: self.weight(call),
 				})
 			},
 			Val::NoCharge => Ok(Pre::NoCharge { weight: self.weight(call) }),
@@ -399,7 +399,11 @@ where
 				let mut actual_post_info = *post_info;
 				actual_post_info.refund(unspent_weight);
 				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
-					pallet_transaction_payment::Pre::Charge { tip, who, imbalance: already_withdrawn },
+					pallet_transaction_payment::Pre::Charge {
+						tip,
+						who,
+						imbalance: already_withdrawn,
+					},
 					info,
 					&actual_post_info,
 					len,

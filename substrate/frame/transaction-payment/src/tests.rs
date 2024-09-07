@@ -30,10 +30,9 @@ use sp_runtime::{
 use frame_support::{
 	assert_ok,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-	traits::Currency,
+	traits::{Currency, OriginTrait},
 	weights::Weight,
 };
-use frame_support::traits::OriginTrait;
 use frame_system as system;
 use mock::*;
 use pallet_balances::Call as BalancesCall;

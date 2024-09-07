@@ -17,9 +17,9 @@ use super::*;
 
 use frame_support::{
 	assert_ok,
-	dispatch::{DispatchInfo, PostDispatchInfo},
+	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::fungibles::Mutate,
+	traits::{fungibles::Mutate, OriginTrait},
 	weights::Weight,
 };
 use frame_system as system;
@@ -29,8 +29,6 @@ use sp_runtime::{
 	traits::{DispatchTransaction, StaticLookup},
 	BuildStorage,
 };
-use frame_support::dispatch::GetDispatchInfo;
-use frame_support::traits::OriginTrait;
 
 const CALL: &<Runtime as frame_system::Config>::RuntimeCall =
 	&RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 2, value: 69 });

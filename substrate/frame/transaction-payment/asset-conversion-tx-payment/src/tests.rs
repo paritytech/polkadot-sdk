@@ -17,17 +17,16 @@ use super::*;
 
 use frame_support::{
 	assert_ok,
-	dispatch::{DispatchInfo, PostDispatchInfo},
+	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
 	traits::{
 		fungible::{Inspect, NativeOrWithId},
 		fungibles::{Inspect as FungiblesInspect, Mutate},
 		tokens::{Fortitude, Precision, Preservation},
+		OriginTrait,
 	},
 	weights::Weight,
 };
-use frame_support::traits::OriginTrait;
-use frame_support::dispatch::GetDispatchInfo;
 use frame_system as system;
 use mock::{ExtrinsicBaseWeight, *};
 use pallet_balances::Call as BalancesCall;

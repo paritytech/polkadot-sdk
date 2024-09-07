@@ -341,16 +341,9 @@ where
 			Val::Charge { tip, who, fee } => {
 				// Mutating call of `withdraw_fee` to actually charge for the transaction.
 				let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
-				Ok(Pre::Charge {
-					tip,
-					who,
-					initial_payment,
-					weight: self.weight(call),
-				})
+				Ok(Pre::Charge { tip, who, initial_payment, weight: self.weight(call) })
 			},
-			Val::NoCharge => {
-				Ok(Pre::NoCharge { weight: self.weight(call) })
-			},
+			Val::NoCharge => Ok(Pre::NoCharge { weight: self.weight(call) }),
 		}
 	}
 
@@ -362,7 +355,8 @@ where
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		let (tip, who, initial_payment, extension_weight) = match pre {
-			Pre::Charge { tip, who, initial_payment, weight } => (tip, who, initial_payment, weight),
+			Pre::Charge { tip, who, initial_payment, weight } =>
+				(tip, who, initial_payment, weight),
 			Pre::NoCharge { weight } => {
 				// No-op: Refund everything
 				return Ok(weight)
