@@ -1034,6 +1034,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#882" id="882">882</a>
 <a href="#883" id="883">883</a>
 <a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1219,14 +1221,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>consumed_weight &gt; benchmarked_weight {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">"Benchmarked storage weight smaller than consumed storage weight. benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}"
-				</span>);
+					<span class="string">"Benchmarked storage weight smaller than consumed storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}"</span>,
+					frame_system::Pallet::&lt;T&gt;::extrinsic_index().unwrap_or(<span class="number">0</span>)
+				);
 				current.accrue(Weight::from_parts(<span class="number">0</span>, storage_size_diff), info.class)
 			} <span class="kw">else </span>{
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: {consumed_weight} unspent: {unspent}"
-				</span>);
+					<span class="string">"Reclaiming storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}"</span>,
+					frame_system::Pallet::&lt;T&gt;::extrinsic_index().unwrap_or(<span class="number">0</span>)
+				);
 				current.reduce(Weight::from_parts(<span class="number">0</span>, storage_size_diff), info.class)
 			}
 
