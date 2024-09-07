@@ -99,7 +99,7 @@ where
 	type Pre = Pre;
 
 	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
-		dbg!(<T::ExtensionsWeightInfo as super::WeightInfo>::check_nonce())
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_nonce()
 	}
 
 	fn validate(
@@ -172,7 +172,7 @@ where
 	) -> Result<Weight, TransactionValidityError> {
 		match pre {
 			Pre::NonceChecked => Ok(Weight::zero()),
-			Pre::Refund(weight) => Ok(dbg!(weight)),
+			Pre::Refund(weight) => Ok(weight),
 		}
 	}
 }
