@@ -669,6 +669,10 @@ pub mod pallet {
 		},
 		/// A distribution has ended.
 		DistributionEnded { distribution_id: DistributionCounter },
+		/// A distribution has been partially cleaned. There are still more items to clean up.
+		DistributionPartiallyCleaned { distribution_id: DistributionCounter },
+		/// A distribution has been fully cleaned.
+		DistributionCleaned { distribution_id: DistributionCounter },
 	}
 
 	#[pallet::error]
@@ -720,8 +724,10 @@ pub mod pallet {
 		BadAssetId,
 		/// The asset distribution was already claimed!
 		AlreadyClaimed,
-		/// THe asset distribution is no longer active.
+		/// The asset distribution is no longer active.
 		DistributionEnded,
+		/// The asset distribution is still active.
+		DistributionActive,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -1897,6 +1903,28 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			Self::do_end_distribution(distribution_id, Some(origin))?;
 			Ok(())
+		}
+
+		/// Clean up the distribution tracker of an ended distribution. This function might need to
+		/// be called multiple times to remove all the items from the distribution tracker.
+		///
+		/// Any signed origin may call this function.
+		///
+		/// - `distribution_id`: The identifier of the distribution to clean. It cannot be active.
+		///
+		/// Emits `DistributionPartiallyCleaned` event when some elements have been removed, but
+		/// there are still some left. Emits `DistributionCleaned` when all of the distribution
+		/// history has been removed.
+		///
+		/// Weight: `O(N)` where `N` is the maximum number of elements that can be removed at once.
+		#[pallet::call_index(36)]
+		#[pallet::weight(T::WeightInfo::clean_distribution(100u32))] // TODO
+		pub fn clean_distribution(
+			origin: OriginFor<T>,
+			distribution_id: DistributionCounter,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			Self::do_clean_distribution(distribution_id)
 		}
 	}
 

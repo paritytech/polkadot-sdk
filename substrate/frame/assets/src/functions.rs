@@ -526,6 +526,43 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
+	/// Ends the asset distribution of `distribution_id`.
+	pub(super) fn do_clean_distribution(
+		distribution_id: DistributionCounter,
+	) -> DispatchResultWithPostInfo {
+		let info =
+			MerklizedDistribution::<T, I>::get(&distribution_id).ok_or(Error::<T, I>::Unknown)?;
+
+		ensure!(!info.active, Error::<T, I>::DistributionActive);
+
+		let mut refund_count = 0u32;
+		let distribution_iterator =
+			MerklizedDistributionTracker::<T, I>::iter_key_prefix(&distribution_id);
+
+		let mut all_refunded = true;
+		for who in distribution_iterator {
+			if refund_count >= 100 {
+				// TODO: T::RemoveKeysLimit::get() {
+				// Not everyone was able to be refunded this time around.
+				all_refunded = false;
+				break
+			}
+
+			MerklizedDistributionTracker::<T, I>::remove(&distribution_id, &who);
+			refund_count += 1;
+		}
+
+		if all_refunded {
+			Self::deposit_event(Event::<T, I>::DistributionPartiallyCleaned { distribution_id });
+			// Refund weight only the amount we actually used.
+			Ok(Some(T::WeightInfo::clean_distribution(refund_count)).into())
+		} else {
+			Self::deposit_event(Event::<T, I>::DistributionCleaned { distribution_id });
+			// No weight to refund since we did not finish the loop.
+			Ok(().into())
+		}
+	}
+
 	/// Increases the asset `id` balance of `beneficiary` by `amount`.
 	///
 	/// LOW-LEVEL: Does not alter the supply of asset or emit an event. Use `do_mint` if you need
