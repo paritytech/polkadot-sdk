@@ -677,7 +677,7 @@ fn register_all_tokens_succeeds() {
 		TokenInfo {
 			location: Location::new(1, [Parachain(2004)]),
 			metadata: AssetMetadata {
-				decimals: 10,
+				decimals: 12,
 				name: b"GLMR".to_vec().try_into().unwrap(),
 				symbol: b"GLMR".to_vec().try_into().unwrap(),
 			},
@@ -690,7 +690,7 @@ fn register_all_tokens_succeeds() {
 		TokenInfo {
 			location: Location::new(1, [Parachain(1000), PalletInstance(50), GeneralIndex(1084)]),
 			metadata: AssetMetadata {
-				decimals: 10,
+				decimals: 6,
 				name: b"USDT".to_vec().try_into().unwrap(),
 				symbol: b"USDT".to_vec().try_into().unwrap(),
 			},
@@ -747,4 +747,32 @@ fn register_all_tokens_succeeds() {
 			}));
 		});
 	}
+}
+
+#[test]
+fn register_ethereum_native_token_fails() {
+	new_test_ext(true).execute_with(|| {
+		let origin = RuntimeOrigin::root();
+		let location = Location::new(
+			2,
+			[
+				GlobalConsensus(Ethereum { chain_id: 11155111 }),
+				AccountKey20 {
+					network: None,
+					key: hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d"),
+				},
+			],
+		);
+		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
+		let asset_metadata = AssetMetadata {
+			decimals: 18,
+			name: b"WETH".to_vec().try_into().unwrap(),
+			symbol: b"WETH".to_vec().try_into().unwrap(),
+		};
+
+		assert_noop!(
+			EthereumSystem::register_token(origin, versioned_location, asset_metadata),
+			Error::<Test>::LocationConversionFailed
+		);
+	});
 }
