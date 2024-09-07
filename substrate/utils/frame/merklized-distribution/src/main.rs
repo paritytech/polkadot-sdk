@@ -46,6 +46,8 @@ fn read_csv_and_process(file_path: &str) -> Result<(), Box<dyn Error>> {
 	let distribution_trie = DistributionTrie::generate_for(distribution)
 		.map_err(|e| Box::<dyn Error>::from(<&'static str>::from(e)))?;
 
+	println!("\n\nTrie Root: {:?}", distribution_trie.root());
+
 	for account in proofs.into_iter() {
 		println!("\n\nCreating proof for account: {}", account);
 		let balance = distribution_trie
