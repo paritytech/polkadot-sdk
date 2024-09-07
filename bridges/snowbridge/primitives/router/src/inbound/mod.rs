@@ -479,6 +479,7 @@ impl<
 		// Forward message id to Asset Hub.
 		instructions.push(SetTopic(message_id.into()));
 
+		// `total_fees` to burn on this chain when sending `instructions` to run on AH (which also teleport fees) 
 		Ok((instructions.into(), total_fees.into()))
 	}
 }
