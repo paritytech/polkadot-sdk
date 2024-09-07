@@ -49,7 +49,7 @@
 extern crate alloc;
 
 #[doc(hidden)]
-pub use alloc::vec::Vec;
+pub use alloc::{format, vec::Vec};
 #[doc(hidden)]
 pub use codec;
 #[doc(hidden)]
@@ -79,8 +79,6 @@ use sp_core::{
 	sr25519,
 };
 
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use alloc::format;
 use alloc::vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
