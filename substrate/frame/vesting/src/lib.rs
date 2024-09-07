@@ -351,8 +351,8 @@ pub mod pallet {
 			schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 		) -> DispatchResult {
 			let transactor = ensure_signed(origin)?;
-			let transactor = <T::Lookup as StaticLookup>::unlookup(transactor);
-			Self::do_vested_transfer(transactor, target, schedule)
+			let target = T::Lookup::lookup(target)?;
+			Self::do_vested_transfer(&transactor, &target, schedule)
 		}
 
 		/// Force a vested transfer.
@@ -380,7 +380,9 @@ pub mod pallet {
 			schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_vested_transfer(source, target, schedule)
+			let target = T::Lookup::lookup(target)?;
+			let source = T::Lookup::lookup(source)?;
+			Self::do_vested_transfer(&source, &target, schedule)
 		}
 
 		/// Merge two vesting schedules together, creating a new vesting schedule that unlocks over
@@ -525,8 +527,8 @@ impl<T: Config> Pallet<T> {
 
 	// Execute a vested transfer from `source` to `target` with the given `schedule`.
 	fn do_vested_transfer(
-		source: AccountIdLookupOf<T>,
-		target: AccountIdLookupOf<T>,
+		source: &T::AccountId,
+		target: &T::AccountId,
 		schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 	) -> DispatchResult {
 		// Validate user inputs.
@@ -535,20 +537,12 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::InvalidScheduleParams.into())
 		};
 
-		let target = T::Lookup::lookup(target)?;
-		let source = T::Lookup::lookup(source)?;
-
-		T::Currency::transfer(
-			&source,
-			&target,
-			schedule.locked(),
-			ExistenceRequirement::AllowDeath,
-		)?;
+		T::Currency::transfer(source, target, schedule.locked(), ExistenceRequirement::AllowDeath)?;
 
 		// If adding this vesting schedule fails, all storage changes are undone due to FRAME's
 		// default transactional layers.
 		Self::add_vesting_schedule(
-			&target,
+			target,
 			schedule.locked(),
 			schedule.per_block(),
 			schedule.starting_block(),
@@ -792,8 +786,6 @@ where
 		starting_block: BlockNumberFor<T>,
 	) -> DispatchResult {
 		let schedule = VestingInfo::new(locked, per_block, starting_block);
-		let source = <T::Lookup as StaticLookup>::unlookup(source.clone());
-		let target = <T::Lookup as StaticLookup>::unlookup(target.clone());
 		Self::do_vested_transfer(source, target, schedule)
 	}
 }
