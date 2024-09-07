@@ -49,7 +49,7 @@
 extern crate alloc;
 
 #[doc(hidden)]
-pub use alloc::vec::Vec;
+pub use alloc::{vec::Vec, format};
 #[doc(hidden)]
 pub use codec;
 #[doc(hidden)]
@@ -71,11 +71,6 @@ pub use sp_application_crypto as app_crypto;
 pub use sp_core::storage::StateVersion;
 #[cfg(feature = "std")]
 pub use sp_core::storage::{Storage, StorageChild};
-
-// `format!` is used in a runtime_string.rs macro.
-// Hence, we re-export it at the crate root for
-// proper macro hygene.
-pub use alloc::format;
 
 use sp_core::{
 	crypto::{self, ByteArray, FromEntropy},
