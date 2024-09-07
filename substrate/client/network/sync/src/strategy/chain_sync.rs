@@ -254,6 +254,14 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// A set of hashes of blocks that are being downloaded or have been
 	/// downloaded and are queued for import.
 	queue_blocks: HashSet<B::Hash>,
+	/// A pending attempt to start the state sync.
+	///
+	/// The initiation of state sync may be deferred in cases where other conditions
+	/// are not yet met when the finalized block notification is received, such as
+	/// when `queue_blocks` is not empty or there are no peers. This field holds the
+	/// necessary information to attempt the state sync at a later point when
+	/// conditions are satisfied.
+	pending_state_sync_attempt: Option<(B::Hash, NumberFor<B>, bool)>,
 	/// Fork sync targets.
 	fork_targets: HashMap<B::Hash, ForkTarget<B>>,
 	/// A set of peers for which there might be potential block requests
@@ -376,6 +384,7 @@ where
 			extra_justifications: ExtraRequests::new("justification", metrics_registry),
 			mode,
 			queue_blocks: Default::default(),
+			pending_state_sync_attempt: None,
 			fork_targets: Default::default(),
 			allowed_requests: Default::default(),
 			max_parallel_downloads,
@@ -1013,8 +1022,12 @@ where
 		});
 
 		if let ChainSyncMode::LightState { skip_proofs, .. } = &self.mode {
-			if self.state_sync.is_none() && !self.peers.is_empty() && self.queue_blocks.is_empty() {
-				self.attempt_state_sync(*hash, number, *skip_proofs)
+			if self.state_sync.is_none() {
+				if !self.peers.is_empty() && self.queue_blocks.is_empty() {
+					self.attempt_state_sync(*hash, number, *skip_proofs);
+				} else {
+					self.pending_state_sync_attempt.replace((*hash, number, *skip_proofs));
+				}
 			}
 		}
 
@@ -1886,6 +1899,12 @@ where
 	/// Get pending actions to perform.
 	#[must_use]
 	pub fn actions(&mut self) -> impl Iterator<Item = ChainSyncAction<B>> {
+		if !self.peers.is_empty() && self.queue_blocks.is_empty() {
+			if let Some((hash, number, skip_proofs)) = self.pending_state_sync_attempt.take() {
+				self.attempt_state_sync(hash, number, skip_proofs);
+			}
+		}
+
 		let block_requests = self
 			.block_requests()
 			.into_iter()
