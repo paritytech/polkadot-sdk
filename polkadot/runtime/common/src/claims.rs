@@ -657,7 +657,7 @@ where
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let Some(who) = origin.as_system_origin_signer()  else {
+		let Some(who) = origin.as_system_origin_signer() else {
 			return Ok((ValidTransaction::default(), (), origin));
 		};
 
