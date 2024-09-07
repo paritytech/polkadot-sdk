@@ -633,7 +633,7 @@ fn no_genesis_build_is_uninitialized() {
 }
 
 #[test]
-fn register_token_with_signed_yeilds_bad_origin() {
+fn register_token_with_signed_yields_bad_origin() {
 	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::signed([14; 32].into());
 		let location = Location::new(1, [Parachain(2000)]);
