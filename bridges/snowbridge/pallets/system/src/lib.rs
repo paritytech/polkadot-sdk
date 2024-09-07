@@ -732,10 +732,11 @@ pub mod pallet {
 			metadata: AssetMetadata,
 			pays_fee: PaysFee<T>,
 		) -> Result<(), DispatchError> {
-			let bridge_location = Location::new(2, [GlobalConsensus(T::EthereumNetwork::get())]);
+			let ethereum_location = Location::new(2, [GlobalConsensus(T::EthereumNetwork::get())]);
+			// reanchor to Ethereum context
 			let location = location
 				.clone()
-				.reanchored(&bridge_location, &T::UniversalLocation::get())
+				.reanchored(&ethereum_location, &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationConversionFailed)?;
 
 			let token_id = TokenIdOf::convert_location(&location)
