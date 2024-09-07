@@ -107,10 +107,9 @@ impl FetchChunks {
 		state: &mut State,
 		common_params: &RecoveryParams,
 	) -> Result<AvailableData, RecoveryError> {
-		let recovery_duration =
-			common_params
-				.metrics
-				.time_erasure_recovery(RecoveryStrategy::<Sender>::strategy_type(self));
+		let recovery_duration = common_params
+			.metrics
+			.time_erasure_recovery(RecoveryStrategy::<Sender>::strategy_type(self));
 
 		// Send request to reconstruct available data from chunks.
 		let (avilable_data_tx, available_data_rx) = oneshot::channel();

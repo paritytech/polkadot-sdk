@@ -56,7 +56,7 @@ use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
 use sc_network::{
 	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
 	peer_store::PeerStoreProvider,
-	request_responses::{CustomOutboundFailure, IfDisconnected, RequestFailure},
+	request_responses::{IfDisconnected, RequestFailure, CustomOutboundFailure},
 	service::{
 		traits::{Direction, NotificationConfig, NotificationEvent, ValidationResult},
 		NotificationMetrics,
@@ -844,8 +844,7 @@ where
 		}
 
 		if !self.default_peers_set_no_slot_connected_peers.remove(&peer_id) &&
-			info.inbound &&
-			info.info.roles.is_full()
+			info.inbound && info.info.roles.is_full()
 		{
 			match self.num_in_peers.checked_sub(1) {
 				Some(value) => {

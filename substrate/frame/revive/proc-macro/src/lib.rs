@@ -349,19 +349,18 @@ where
 		let Some(ident) = path.path.get_ident() else {
 			panic!("Type needs to be ident");
 		};
-		let size = if ident == "i8" ||
-			ident == "i16" ||
-			ident == "i32" ||
-			ident == "u8" ||
-			ident == "u16" ||
-			ident == "u32"
-		{
-			1
-		} else if ident == "i64" || ident == "u64" {
-			2
-		} else {
-			panic!("Pass by value only supports primitives");
-		};
+		let size =
+			if ident == "i8" ||
+				ident == "i16" || ident == "i32" ||
+				ident == "u8" || ident == "u16" ||
+				ident == "u32"
+			{
+				1
+			} else if ident == "i64" || ident == "u64" {
+				2
+			} else {
+				panic!("Pass by value only supports primitives");
+			};
 		registers_used += size;
 		if registers_used > ALLOWED_REGISTERS {
 			return quote! {
