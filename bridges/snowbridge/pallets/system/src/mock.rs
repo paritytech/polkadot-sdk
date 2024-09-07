@@ -166,7 +166,7 @@ impl snowbridge_pallet_outbound_queue::Config for Test {
 parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Kusama);
+	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
 	pub const RelayLocation: Location = Location::parent();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(1013)].into();

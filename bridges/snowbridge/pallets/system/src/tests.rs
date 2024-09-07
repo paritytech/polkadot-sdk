@@ -647,8 +647,8 @@ fn register_token_with_root_yeilds_success() {
 		assert_ok!(EthereumSystem::register_token(origin, versioned_location, asset_metadata));
 
 		let expected_token_id =
-			hex!("03b6054d0c576dd8391e34e1609cf398f68050c23009d19ce93c000922bcd852").into();
-		let expected_location = Location::new(1, [GlobalConsensus(Kusama)]);
+			hex!("4e241583d94b5d48a27a22064cd49b2ed6f5231d2d950e432f9b7c2e0ade52b2").into();
+		let expected_location = Location::new(1, [GlobalConsensus(Polkadot)]);
 
 		System::assert_last_event(RuntimeEvent::EthereumSystem(
 			crate::Event::<Test>::RegisterToken {
@@ -674,8 +674,8 @@ fn register_token_with_relative_address_reanchors_to_ethereum_and_succeeds() {
 		assert_ok!(EthereumSystem::register_token(origin, versioned_location, asset_metadata));
 
 		let expected_token_id =
-			hex!("03b6054d0c576dd8391e34e1609cf398f68050c23009d19ce93c000922bcd852").into();
-		let expected_location = Location::new(1, [GlobalConsensus(Kusama)]);
+			hex!("4e241583d94b5d48a27a22064cd49b2ed6f5231d2d950e432f9b7c2e0ade52b2").into();
+		let expected_location = Location::new(1, [GlobalConsensus(Polkadot)]);
 
 		System::assert_last_event(RuntimeEvent::EthereumSystem(
 			crate::Event::<Test>::RegisterToken {
