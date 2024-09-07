@@ -266,12 +266,12 @@ pub mod pallet {
 	pub type PricingParameters<T: Config> =
 		StorageValue<_, PricingParametersOf<T>, ValueQuery, T::DefaultPricingParameters>;
 
-	/// Lookup table for foreign to native token ID
+	/// Lookup table for foreign token ID to native location relative to ethereum
 	#[pallet::storage]
 	pub type ForeignToNativeId<T: Config> =
 		StorageMap<_, Blake2_128Concat, TokenId, xcm::v4::Location, OptionQuery>;
 
-	/// Lookup table for native to foreign token ID
+	/// Lookup table for native location relative to ethereum to foreign token ID
 	#[pallet::storage]
 	pub type NativeToForeignId<T: Config> =
 		StorageMap<_, Blake2_128Concat, xcm::v4::Location, TokenId, OptionQuery>;
