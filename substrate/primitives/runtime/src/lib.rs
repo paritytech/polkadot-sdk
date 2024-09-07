@@ -72,6 +72,10 @@ pub use sp_core::storage::StateVersion;
 #[cfg(feature = "std")]
 pub use sp_core::storage::{Storage, StorageChild};
 
+// format is used in a runtime_string.rs macro.
+// Hence, we re-export it for proper macro hygene.
+pub use alloc::format;
+
 use sp_core::{
 	crypto::{self, ByteArray, FromEntropy},
 	ecdsa, ed25519,
@@ -79,8 +83,6 @@ use sp_core::{
 	sr25519,
 };
 
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use alloc::format;
 use alloc::vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
