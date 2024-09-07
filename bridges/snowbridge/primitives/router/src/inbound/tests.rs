@@ -40,68 +40,35 @@ fn test_contract_location_with_incorrect_location_fails_convert() {
 }
 
 #[test]
-fn test_reanchor_relay_token() {
-	let asset_id: Location = Location::parent();
-	let ah_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1000)].into();
-	let ethereum = Location::new(2, [GlobalConsensus(Ethereum { chain_id: 1 })]);
-	let mut reanchored_asset = asset_id.clone();
-	assert_ok!(reanchored_asset.reanchor(&ethereum, &ah_context));
-	assert_eq!(
-		reanchored_asset,
-		Location { parents: 1, interior: [GlobalConsensus(Westend)].into() }
-	);
-	let bh_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1002)].into();
-	let ah = Location::new(1, [GlobalConsensus(Westend), Parachain(1000)]);
-	let mut reanchored_asset = reanchored_asset.clone();
-	assert_ok!(reanchored_asset.reanchor(&ah, &bh_context));
-	assert_eq!(reanchored_asset, asset_id);
-}
-
-#[test]
-fn test_reanchor_pna_from_ah() {
-	let asset_id_in_ah: Location =
-		Location { parents: 0, interior: [PalletInstance(50), GeneralIndex(2)].into() };
-	let asset_id: Location = Location {
-		parents: 1,
-		interior: [Parachain(1000), PalletInstance(50), GeneralIndex(2)].into(),
-	};
-	let bh_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1002)].into();
-	let ethereum = Location::new(2, [GlobalConsensus(Ethereum { chain_id: 1 })]);
-	let mut reanchored_asset = asset_id.clone();
-	assert_ok!(reanchored_asset.reanchor(&ethereum, &bh_context));
-	assert_eq!(
-		reanchored_asset,
-		Location {
-			parents: 1,
-			interior: [
-				GlobalConsensus(Westend),
-				Parachain(1000),
-				PalletInstance(50),
-				GeneralIndex(2)
-			]
-			.into()
-		}
-	);
-	let ah = Location::new(1, [GlobalConsensus(Westend), Parachain(1000)]);
-	let mut reanchored_asset = reanchored_asset.clone();
-	assert_ok!(reanchored_asset.reanchor(&ah, &bh_context));
-	assert_eq!(reanchored_asset, asset_id_in_ah);
-}
-
-#[test]
-fn test_reanchor_pna_from_para() {
-	let asset_id_in_ah: Location = Location { parents: 1, interior: [Parachain(2000)].into() };
-	let asset_id: Location = Location { parents: 1, interior: [Parachain(2000)].into() };
-	let bh_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1002)].into();
-	let ethereum = Location::new(2, [GlobalConsensus(Ethereum { chain_id: 1 })]);
-	let mut reanchored_asset = asset_id.clone();
-	assert_ok!(reanchored_asset.reanchor(&ethereum, &bh_context));
-	assert_eq!(
-		reanchored_asset,
-		Location { parents: 1, interior: [GlobalConsensus(Westend), Parachain(2000)].into() }
-	);
-	let ah = Location::new(1, [GlobalConsensus(Westend), Parachain(1000)]);
-	let mut reanchored_asset = reanchored_asset.clone();
-	assert_ok!(reanchored_asset.reanchor(&ah, &bh_context));
-	assert_eq!(reanchored_asset, asset_id_in_ah);
+fn test_reanchor_all_assets() {
+	let ethereum_context: InteriorLocation = [GlobalConsensus(Ethereum { chain_id: 1 })].into();
+	let ethereum = Location::new(2, ethereum_context.clone());
+	let ah_context: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1000)].into();
+	let global_ah = Location::new(1, ah_context.clone());
+	let bh_context: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1002)].into();
+	let assets = vec![
+		// DOT
+		Location::new(1, []),
+		// GLMR (Some Polkadot parachain currency)
+		Location::new(1, [Parachain(2004)]),
+		// AH asset
+		Location::new(0, [PalletInstance(50), GeneralIndex(42)]),
+		// KSM
+		Location::new(2, [GlobalConsensus(Kusama)]),
+		// KAR (Some Kusama parachain currency)
+		Location::new(2, [GlobalConsensus(Kusama), Parachain(2000)]),
+	];
+	for asset in assets.iter() {
+		// reanchor logic in pallet_xcm on AH
+		let mut reanchored_asset = asset.clone();
+		assert_ok!(reanchored_asset.reanchor(&ethereum, &ah_context));
+		// reanchor back to original location in context of Ethereum
+		let mut reanchored_asset_with_ethereum_context = reanchored_asset.clone();
+		assert_ok!(reanchored_asset_with_ethereum_context.reanchor(&global_ah, &ethereum_context));
+		assert_eq!(reanchored_asset_with_ethereum_context, asset.clone());
+		// reanchor back to original location in context of BH
+		let mut reanchored_asset_with_bh_context = reanchored_asset.clone();
+		assert_ok!(reanchored_asset_with_bh_context.reanchor(&global_ah, &bh_context));
+		assert_eq!(reanchored_asset_with_bh_context, asset.clone());
+	}
 }

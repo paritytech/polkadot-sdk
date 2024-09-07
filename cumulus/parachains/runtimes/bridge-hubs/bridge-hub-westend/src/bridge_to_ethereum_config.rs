@@ -42,7 +42,7 @@ use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
 	FixedU128,
 };
-use xcm::prelude::{GlobalConsensus, Location, Parachain};
+use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain};
 
 pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
 
@@ -70,8 +70,8 @@ parameter_types! {
 		multiplier: FixedU128::from_rational(1, 1),
 	};
 	pub GlobalAssetHub: Location = Location::new(1,[GlobalConsensus(RelayNetwork::get()),Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
+	pub EthereumUniversalLocation: InteriorLocation = [GlobalConsensus(EthereumNetwork::get())].into();
 }
-
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
@@ -91,7 +91,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 		AccountId,
 		Balance,
 		EthereumSystem,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHub,
 	>;
 	type WeightToFee = WeightToFee;
