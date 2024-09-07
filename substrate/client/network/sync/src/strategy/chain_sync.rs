@@ -44,7 +44,7 @@ use crate::{
 use codec::Encode;
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
-use sc_client_api::{BlockBackend, ProofProvider};
+use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
@@ -1381,7 +1381,7 @@ where
 			}
 		}
 
-		if let Some((start, end)) = info.block_gap {
+		if let Some(BlockGap { start, end, .. }) = info.block_gap {
 			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end}");
 			self.gap_sync = Some(GapSync {
 				best_queued_number: start - One::one(),
