@@ -72,8 +72,9 @@ pub use sp_core::storage::StateVersion;
 #[cfg(feature = "std")]
 pub use sp_core::storage::{Storage, StorageChild};
 
-// format is used in a runtime_string.rs macro.
-// Hence, we re-export it for proper macro hygene.
+// `format!` is used in a runtime_string.rs macro.
+// Hence, we re-export it at the crate root for
+// proper macro hygene.
 pub use alloc::format;
 
 use sp_core::{
