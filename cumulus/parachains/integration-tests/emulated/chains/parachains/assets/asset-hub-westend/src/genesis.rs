@@ -86,7 +86,7 @@ pub fn genesis() -> Storage {
 				(
 					PenpalBTeleportableAssetLocation::get(),
 					PenpalBSiblingSovereignAccount::get(),
-					true,
+					false,
 					ED,
 				),
 			],
