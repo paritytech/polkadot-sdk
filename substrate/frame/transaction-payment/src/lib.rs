@@ -895,8 +895,8 @@ impl<T: Config> core::fmt::Debug for Pre<T> {
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
-		fmt.write_str("<wasm:stripped>")
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		f.write_str("<wasm:stripped>")
 	}
 }
 
