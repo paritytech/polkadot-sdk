@@ -49,7 +49,7 @@
 extern crate alloc;
 
 #[doc(hidden)]
-pub use alloc::{vec::Vec, format};
+pub use alloc::{format, vec::Vec};
 #[doc(hidden)]
 pub use codec;
 #[doc(hidden)]
