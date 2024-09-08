@@ -44,6 +44,13 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
 
+/// Encode a `U256` into a 32 byte buffer.
+fn as_bytes(u: U256) -> [u8; 32] {
+	let mut bytes = [0u8; 32];
+	u.to_little_endian(&mut bytes);
+	bytes
+}
+
 #[derive(Clone, Copy)]
 pub enum ApiVersion {
 	/// Expose all APIs even unversioned ones. Only used for testing and benchmarking.
@@ -82,6 +89,32 @@ pub trait Memory<T: Config> {
 		let mut buf = vec![0u8; len as usize];
 		self.read_into_buf(ptr, buf.as_mut_slice())?;
 		Ok(buf)
+	}
+
+	/// Same as `read` but reads into a fixed size buffer.
+	fn read_array<const N: usize>(&self, ptr: u32) -> Result<[u8; N], DispatchError> {
+		let mut buf = [0u8; N];
+		self.read_into_buf(ptr, &mut buf)?;
+		Ok(buf)
+	}
+
+	/// Read a `u32` from the sandbox memory.
+	fn read_u32(&self, ptr: u32) -> Result<u32, DispatchError> {
+		let buf: [u8; 4] = self.read_array(ptr)?;
+		Ok(u32::from_le_bytes(buf))
+	}
+
+	/// Read a `U256` from the sandbox memory.
+	fn read_u256(&self, ptr: u32) -> Result<U256, DispatchError> {
+		let buf: [u8; 32] = self.read_array(ptr)?;
+		Ok(U256::from_little_endian(&buf))
+	}
+
+	/// Read a `H256` from the sandbox memory.
+	fn read_h256(&self, ptr: u32) -> Result<H256, DispatchError> {
+		let mut code_hash = H256::default();
+		self.read_into_buf(ptr, code_hash.as_bytes_mut())?;
+		Ok(code_hash)
 	}
 
 	/// Read designated chunk from the sandbox memory and attempt to decode into the specified type.
@@ -647,7 +680,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 
 		let buf_len = buf.len() as u32;
-		let len: u32 = memory.read_as(out_len_ptr)?;
+		let len = memory.read_u32(out_len_ptr)?;
 
 		if len < buf_len {
 			return Err(Error::<E::T>::OutputBufferTooSmall.into())
@@ -963,13 +996,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			CallType::Call { callee_ptr, value_ptr, deposit_ptr, weight } => {
 				let mut callee = H160::zero();
 				memory.read_into_buf(callee_ptr, callee.as_bytes_mut())?;
-				let deposit_limit: U256 = if deposit_ptr == SENTINEL {
+				let deposit_limit = if deposit_ptr == SENTINEL {
 					U256::zero()
 				} else {
-					memory.read_as(deposit_ptr)?
+					memory.read_u256(deposit_ptr)?
 				};
 				let read_only = flags.contains(CallFlags::READ_ONLY);
-				let value: U256 = memory.read_as(value_ptr)?;
+				let value = memory.read_u256(value_ptr)?;
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
 					// error.
@@ -992,7 +1025,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into())
 				}
-				let code_hash = memory.read_as(code_hash_ptr)?;
+
+				let code_hash = memory.read_h256(code_hash_ptr)?;
 				self.ext.delegate_call(code_hash, input_data)
 			},
 		};
@@ -1037,15 +1071,14 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Instantiate { input_data_len })?;
 		let deposit_limit: U256 =
-			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_as(deposit_ptr)? };
-		let value: U256 = memory.read_as(value_ptr)?;
-		let code_hash: H256 = memory.read_as(code_hash_ptr)?;
+			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
+		let value = memory.read_u256(value_ptr)?;
+		let code_hash = memory.read_h256(code_hash_ptr)?;
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
 		let salt = if salt_ptr == SENTINEL {
 			None
 		} else {
-			let mut salt = [0u8; 32];
-			memory.read_into_buf(salt_ptr, salt.as_mut_slice())?;
+			let salt: [u8; 32] = memory.read_array(salt_ptr)?;
 			Some(salt)
 		};
 		let instantiate_outcome = self.ext.instantiate(
@@ -1191,7 +1224,7 @@ pub mod env {
 		self.charge_gas(RuntimeCosts::Transfer)?;
 		let mut callee = H160::zero();
 		memory.read_into_buf(address_ptr, callee.as_bytes_mut())?;
-		let value: U256 = memory.read_as(value_ptr)?;
+		let value: U256 = memory.read_u256(value_ptr)?;
 		let result = self.ext.transfer(&callee, value);
 		match result {
 			Ok(()) => Ok(ReturnErrorCode::Success),
@@ -1371,7 +1404,7 @@ pub mod env {
 			self.write_fixed_sandbox_output(
 				memory,
 				out_ptr,
-				&value.encode(),
+				&value.as_bytes(),
 				false,
 				already_charged,
 			)?;
@@ -1386,11 +1419,11 @@ pub mod env {
 	#[api_version(0)]
 	fn own_code_hash(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::OwnCodeHash)?;
-		let code_hash_encoded = &self.ext.own_code_hash().encode();
+		let code_hash = *self.ext.own_code_hash();
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			code_hash_encoded,
+			code_hash.as_bytes(),
 			false,
 			already_charged,
 		)?)
@@ -1477,7 +1510,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&self.ext.balance().encode(),
+			&as_bytes(self.ext.balance()),
 			false,
 			already_charged,
 		)?)
@@ -1491,7 +1524,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&self.ext.value_transferred().encode(),
+			&as_bytes(self.ext.value_transferred()),
 			false,
 			already_charged,
 		)?)
@@ -1505,7 +1538,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&self.ext.now().encode(),
+			&as_bytes(self.ext.now()),
 			false,
 			already_charged,
 		)?)
@@ -1519,7 +1552,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&self.ext.minimum_balance().encode(),
+			&as_bytes(self.ext.minimum_balance()),
 			false,
 			already_charged,
 		)?)
@@ -1551,9 +1584,9 @@ pub mod env {
 			0 => Vec::new(),
 			_ => {
 				let mut v = Vec::with_capacity(num_topic as usize);
-				let topics_len = num_topic * core::mem::size_of::<H256>() as u32;
+				let topics_len = num_topic * H256::len_bytes() as u32;
 				let buf = memory.read(topics_ptr, topics_len)?;
-				for chunk in buf.chunks_exact(core::mem::size_of::<H256>()) {
+				for chunk in buf.chunks_exact(H256::len_bytes()) {
 					v.push(H256::from_slice(chunk));
 				}
 				v
@@ -1573,7 +1606,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&self.ext.block_number().encode(),
+			&as_bytes(self.ext.block_number()),
 			false,
 			already_charged,
 		)?)
@@ -1857,7 +1890,7 @@ pub mod env {
 		code_hash_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::SetCodeHash)?;
-		let code_hash: H256 = memory.read_as(code_hash_ptr)?;
+		let code_hash: H256 = memory.read_h256(code_hash_ptr)?;
 		match self.ext.set_code_hash(code_hash) {
 			Err(err) => {
 				let code = Self::err_into_return_code(err)?;
@@ -1899,7 +1932,7 @@ pub mod env {
 		code_hash_ptr: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::LockDelegateDependency)?;
-		let code_hash = memory.read_as(code_hash_ptr)?;
+		let code_hash = memory.read_h256(code_hash_ptr)?;
 		self.ext.lock_delegate_dependency(code_hash)?;
 		Ok(())
 	}
@@ -1914,7 +1947,7 @@ pub mod env {
 		code_hash_ptr: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::UnlockDelegateDependency)?;
-		let code_hash = memory.read_as(code_hash_ptr)?;
+		let code_hash = memory.read_h256(code_hash_ptr)?;
 		self.ext.unlock_delegate_dependency(&code_hash)?;
 		Ok(())
 	}
