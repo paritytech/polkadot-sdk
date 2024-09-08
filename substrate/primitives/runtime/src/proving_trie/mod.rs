@@ -18,6 +18,7 @@
 //! Types for creating a proving trie.
 
 pub mod compact_base16;
+pub mod base2;
 
 use crate::{Decode, Encode, MaxEncodedLen, TypeInfo};
 #[cfg(feature = "serde")]

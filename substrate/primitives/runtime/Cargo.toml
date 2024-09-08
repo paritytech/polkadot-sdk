@@ -36,6 +36,7 @@ sp-trie = { workspace = true }
 sp-weights = { workspace = true }
 docify = { workspace = true }
 tracing = { workspace = true, features = ["log"], default-features = false }
+binary-merkle-tree = { workspace = true }
 
 simple-mermaid = { version = "0.1.1", optional = true }
 
