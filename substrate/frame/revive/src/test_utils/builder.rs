@@ -54,6 +54,9 @@ macro_rules! builder {
 		impl<T: Config> $name<T>
 		where
 			<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+			BalanceOf<T>: Into<sp_core::U256> + TryFrom<sp_core::U256>,
+			crate::MomentOf<T>: Into<sp_core::U256>,
+			T::Hash: frame_support::traits::IsType<sp_core::H256>,
 		{
 			$(
 				#[doc = concat!("Set the ", stringify!($field))]
