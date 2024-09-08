@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-runtime-common"
 description = "Snowbridge Runtime Common"
-version = "0.0.0"
+version = "0.2.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -13,16 +13,15 @@ workspace = true
 
 [dependencies]
 log = { workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false }
+codec = { workspace = true }
+frame-support = { workspace = true }
+sp-std = { workspace = true }
+sp-arithmetic = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
 
-snowbridge-core = { path = "../../primitives/core", default-features = false }
+snowbridge-core = { workspace = true }
 
 [dev-dependencies]
 
@@ -31,7 +30,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",
-	"frame-system/std",
 	"log/std",
 	"snowbridge-core/std",
 	"sp-arithmetic/std",
@@ -42,7 +40,6 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

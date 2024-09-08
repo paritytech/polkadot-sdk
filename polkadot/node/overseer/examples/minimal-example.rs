@@ -23,7 +23,6 @@ use futures_timer::Delay;
 use orchestra::async_trait;
 use std::time::Duration;
 
-use ::test_helpers::{dummy_candidate_descriptor, dummy_hash};
 use polkadot_node_primitives::{BlockData, PoV};
 use polkadot_node_subsystem_types::messages::CandidateValidationMessage;
 use polkadot_overseer::{
@@ -33,6 +32,7 @@ use polkadot_overseer::{
 	HeadSupportsParachains, SubsystemError,
 };
 use polkadot_primitives::{CandidateReceipt, Hash, PvfExecKind};
+use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
 
 struct AlwaysSupportsParachains;
 

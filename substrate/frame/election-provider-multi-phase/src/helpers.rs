@@ -21,14 +21,14 @@ use crate::{
 	unsigned::{MinerConfig, MinerVoterOf},
 	SolutionTargetIndexOf, SolutionVoterIndexOf, VoteWeight,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[macro_export]
 macro_rules! log {
 	($level:tt, $pattern:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
 			target: $crate::LOG_TARGET,
-			concat!("[#{:?}] 🗳  ", $pattern), <frame_system::Pallet<T>>::block_number() $(, $values)*
+			concat!("[#{:?}] 🗳  ", $pattern), frame_system::Pallet::<T>::block_number() $(, $values)*
 		)
 	};
 }
@@ -160,7 +160,7 @@ pub fn target_index_fn_linear<T: MinerConfig>(
 }
 
 /// Create a function that can map a voter index ([`SolutionVoterIndexOf`]) to the actual voter
-/// account using a linearly indexible snapshot.
+/// account using a linearly indexable snapshot.
 pub fn voter_at_fn<T: MinerConfig>(
 	snapshot: &Vec<MinerVoterOf<T>>,
 ) -> impl Fn(SolutionVoterIndexOf<T>) -> Option<T::AccountId> + '_ {
@@ -172,7 +172,7 @@ pub fn voter_at_fn<T: MinerConfig>(
 }
 
 /// Create a function that can map a target index ([`SolutionTargetIndexOf`]) to the actual target
-/// account using a linearly indexible snapshot.
+/// account using a linearly indexable snapshot.
 pub fn target_at_fn<T: MinerConfig>(
 	snapshot: &Vec<T::AccountId>,
 ) -> impl Fn(SolutionTargetIndexOf<T>) -> Option<T::AccountId> + '_ {

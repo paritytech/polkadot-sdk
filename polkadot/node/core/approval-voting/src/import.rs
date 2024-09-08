@@ -45,8 +45,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{determine_new_blocks, runtime::RuntimeInfo};
 use polkadot_primitives::{
-	vstaging::node_features, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt,
-	ConsensusLog, CoreIndex, GroupIndex, Hash, Header, SessionIndex,
+	node_features, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ConsensusLog,
+	CoreIndex, GroupIndex, Hash, Header, SessionIndex,
 };
 use sc_keystore::LocalKeystore;
 use sp_consensus_slots::Slot;
@@ -62,8 +62,9 @@ use crate::{
 	criteria::{AssignmentCriteria, OurAssignment},
 	get_extended_session_info, get_session_info,
 	persisted_entries::CandidateEntry,
-	time::{slot_number_to_tick, Tick},
 };
+
+use polkadot_node_primitives::approval::time::{slot_number_to_tick, Tick};
 
 use super::{State, LOG_TARGET};
 
@@ -91,7 +92,7 @@ enum ImportedBlockInfoError {
 	#[error(transparent)]
 	RuntimeError(RuntimeApiError),
 
-	#[error("future cancalled while requesting {0}")]
+	#[error("future cancelled while requesting {0}")]
 	FutureCancelled(&'static str, futures::channel::oneshot::Canceled),
 
 	#[error(transparent)]
@@ -574,9 +575,13 @@ pub(crate) async fn handle_new_head<Context, B: Backend>(
 			hash: block_hash,
 			number: block_header.number,
 			parent_hash: block_header.parent_hash,
-			candidates: included_candidates.iter().map(|(hash, _, _, _)| *hash).collect(),
+			candidates: included_candidates
+				.iter()
+				.map(|(hash, _, core_index, group_index)| (*hash, *core_index, *group_index))
+				.collect(),
 			slot,
 			session: session_index,
+			vrf_story: relay_vrf_story,
 		});
 
 		imported_candidates.push(BlockImportedCandidates {
@@ -607,9 +612,9 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::{
 		approval_db::common::{load_block_entry, DbBackend},
-		RuntimeInfo, RuntimeInfoConfig,
+		RuntimeInfo, RuntimeInfoConfig, MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 	};
-	use ::test_helpers::{dummy_candidate_receipt, dummy_hash};
+	use approval_types::time::Clock;
 	use assert_matches::assert_matches;
 	use polkadot_node_primitives::{
 		approval::v1::{VrfSignature, VrfTranscript},
@@ -619,9 +624,11 @@ pub(crate) mod tests {
 	use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 	use polkadot_node_subsystem_util::database::Database;
 	use polkadot_primitives::{
-		vstaging::{node_features::FeatureIndex, NodeFeatures},
-		ExecutorParams, Id as ParaId, IndexedVec, SessionInfo, ValidatorId, ValidatorIndex,
+		node_features::FeatureIndex, ExecutorParams, Id as ParaId, IndexedVec, NodeFeatures,
+		SessionInfo, ValidatorId, ValidatorIndex,
 	};
+	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+	use schnellru::{ByLength, LruMap};
 	pub(crate) use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
 		AllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
@@ -641,7 +648,7 @@ pub(crate) mod tests {
 	#[derive(Default)]
 	struct MockClock;
 
-	impl crate::time::Clock for MockClock {
+	impl Clock for MockClock {
 		fn tick_now(&self) -> Tick {
 			42 // chosen by fair dice roll
 		}
@@ -658,6 +665,10 @@ pub(crate) mod tests {
 			clock: Box::new(MockClock::default()),
 			assignment_criteria: Box::new(MockAssignmentCriteria::default()),
 			spans: HashMap::new(),
+			per_block_assignments_gathering_times: LruMap::new(ByLength::new(
+				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+			)),
+			no_show_stats: Default::default(),
 		}
 	}
 

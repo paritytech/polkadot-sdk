@@ -21,7 +21,8 @@
 #![warn(missing_docs)]
 
 use bp_relayers::{
-	PaymentProcedure, Registration, RelayerRewardsKeyProvider, RewardsAccountParams, StakeAndSlash,
+	ExplicitOrAccountParams, PaymentProcedure, Registration, RelayerRewardsKeyProvider,
+	RewardsAccountParams, StakeAndSlash,
 };
 use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::fail;
@@ -35,13 +36,13 @@ pub use stake_adapter::StakeAndSlashNamed;
 pub use weights::WeightInfo;
 pub use weights_ext::WeightInfoExt;
 
-pub mod benchmarking;
-
 mod mock;
 mod payment_adapter;
 mod stake_adapter;
 mod weights_ext;
 
+pub mod benchmarking;
+pub mod extension;
 pub mod weights;
 
 /// The target that will be used when publishing logs related to this pallet.
@@ -62,7 +63,7 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Type of relayer reward.
-		type Reward: AtLeast32BitUnsigned + Copy + Parameter + MaxEncodedLen;
+		type Reward: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
 		/// Pay rewards scheme.
 		type PaymentProcedure: PaymentProcedure<Self::AccountId, Self::Reward>;
 		/// Stake and slash scheme.
@@ -242,7 +243,7 @@ pub mod pallet {
 		/// It may fail inside, but error is swallowed and we only log it.
 		pub fn slash_and_deregister(
 			relayer: &T::AccountId,
-			slash_destination: RewardsAccountParams,
+			slash_destination: ExplicitOrAccountParams<T::AccountId>,
 		) {
 			let registration = match RegisteredRelayers::<T>::take(relayer) {
 				Some(registration) => registration,
@@ -259,7 +260,7 @@ pub mod pallet {
 
 			match T::StakeAndSlash::repatriate_reserved(
 				relayer,
-				slash_destination,
+				slash_destination.clone(),
 				registration.stake,
 			) {
 				Ok(failed_to_slash) if failed_to_slash.is_zero() => {
@@ -491,7 +492,7 @@ mod tests {
 			get_ready_for_events();
 
 			Pallet::<TestRuntime>::register_relayer_reward(
-				TEST_REWARDS_ACCOUNT_PARAMS,
+				test_reward_account_param(),
 				&REGULAR_RELAYER,
 				100,
 			);
@@ -501,9 +502,9 @@ mod tests {
 				System::<TestRuntime>::events().last(),
 				Some(&EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::Relayers(RewardRegistered {
+					event: TestEvent::BridgeRelayers(RewardRegistered {
 						relayer: REGULAR_RELAYER,
-						rewards_account_params: TEST_REWARDS_ACCOUNT_PARAMS,
+						rewards_account_params: test_reward_account_param(),
 						reward: 100
 					}),
 					topics: vec![],
@@ -518,7 +519,7 @@ mod tests {
 			assert_noop!(
 				Pallet::<TestRuntime>::claim_rewards(
 					RuntimeOrigin::root(),
-					TEST_REWARDS_ACCOUNT_PARAMS
+					test_reward_account_param()
 				),
 				DispatchError::BadOrigin,
 			);
@@ -531,7 +532,7 @@ mod tests {
 			assert_noop!(
 				Pallet::<TestRuntime>::claim_rewards(
 					RuntimeOrigin::signed(REGULAR_RELAYER),
-					TEST_REWARDS_ACCOUNT_PARAMS
+					test_reward_account_param()
 				),
 				Error::<TestRuntime>::NoRewardForRelayer,
 			);
@@ -543,13 +544,13 @@ mod tests {
 		run_test(|| {
 			RelayerRewards::<TestRuntime>::insert(
 				FAILING_RELAYER,
-				TEST_REWARDS_ACCOUNT_PARAMS,
+				test_reward_account_param(),
 				100,
 			);
 			assert_noop!(
 				Pallet::<TestRuntime>::claim_rewards(
 					RuntimeOrigin::signed(FAILING_RELAYER),
-					TEST_REWARDS_ACCOUNT_PARAMS
+					test_reward_account_param()
 				),
 				Error::<TestRuntime>::FailedToPayReward,
 			);
@@ -563,15 +564,15 @@ mod tests {
 
 			RelayerRewards::<TestRuntime>::insert(
 				REGULAR_RELAYER,
-				TEST_REWARDS_ACCOUNT_PARAMS,
+				test_reward_account_param(),
 				100,
 			);
 			assert_ok!(Pallet::<TestRuntime>::claim_rewards(
 				RuntimeOrigin::signed(REGULAR_RELAYER),
-				TEST_REWARDS_ACCOUNT_PARAMS
+				test_reward_account_param()
 			));
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(REGULAR_RELAYER, TEST_REWARDS_ACCOUNT_PARAMS),
+				RelayerRewards::<TestRuntime>::get(REGULAR_RELAYER, test_reward_account_param()),
 				None
 			);
 
@@ -580,9 +581,9 @@ mod tests {
 				System::<TestRuntime>::events().last(),
 				Some(&EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::Relayers(RewardPaid {
+					event: TestEvent::BridgeRelayers(RewardPaid {
 						relayer: REGULAR_RELAYER,
-						rewards_account_params: TEST_REWARDS_ACCOUNT_PARAMS,
+						rewards_account_params: test_reward_account_param(),
 						reward: 100
 					}),
 					topics: vec![],
@@ -594,16 +595,17 @@ mod tests {
 	#[test]
 	fn pay_reward_from_account_actually_pays_reward() {
 		type Balances = pallet_balances::Pallet<TestRuntime>;
-		type PayLaneRewardFromAccount = bp_relayers::PayRewardFromAccount<Balances, AccountId>;
+		type PayLaneRewardFromAccount =
+			bp_relayers::PayRewardFromAccount<Balances, ThisChainAccountId>;
 
 		run_test(|| {
 			let in_lane_0 = RewardsAccountParams::new(
-				LaneId([0, 0, 0, 0]),
+				LaneId::new(1, 2),
 				*b"test",
 				RewardsAccountOwner::ThisChain,
 			);
 			let out_lane_1 = RewardsAccountParams::new(
-				LaneId([0, 0, 0, 1]),
+				LaneId::new(1, 3),
 				*b"test",
 				RewardsAccountOwner::BridgedChain,
 			);
@@ -675,7 +677,7 @@ mod tests {
 				System::<TestRuntime>::events().last(),
 				Some(&EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::Relayers(Event::RegistrationUpdated {
+					event: TestEvent::BridgeRelayers(Event::RegistrationUpdated {
 						relayer: REGISTER_RELAYER,
 						registration: Registration { valid_till: 150, stake: Stake::get() },
 					}),
@@ -743,7 +745,7 @@ mod tests {
 				System::<TestRuntime>::events().last(),
 				Some(&EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::Relayers(Event::RegistrationUpdated {
+					event: TestEvent::BridgeRelayers(Event::RegistrationUpdated {
 						relayer: REGISTER_RELAYER,
 						registration: Registration { valid_till: 150, stake: Stake::get() }
 					}),
@@ -807,7 +809,7 @@ mod tests {
 				System::<TestRuntime>::events().last(),
 				Some(&EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::Relayers(Event::RegistrationUpdated {
+					event: TestEvent::BridgeRelayers(Event::RegistrationUpdated {
 						relayer: REGISTER_RELAYER,
 						registration: Registration { valid_till: 150, stake: Stake::get() }
 					}),
@@ -869,7 +871,9 @@ mod tests {
 				System::<TestRuntime>::events().last(),
 				Some(&EventRecord {
 					phase: Phase::Initialization,
-					event: TestEvent::Relayers(Event::Deregistered { relayer: REGISTER_RELAYER }),
+					event: TestEvent::BridgeRelayers(Event::Deregistered {
+						relayer: REGISTER_RELAYER
+					}),
 					topics: vec![],
 				}),
 			);

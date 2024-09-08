@@ -6,7 +6,7 @@ on:
   merge_group:
 
 env:
-  IMAGE: docker.io/paritytech/prdoc:v0.0.7
+  IMAGE: docker.io/paritytech/prdoc:v0.0.8
   API_BASE: https://api.github.com/repos
   REPO: ${{ github.repository }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -20,7 +20,7 @@ jobs:
     if: github.event.pull_request.number != ''
     steps:
       - name: Checkout repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 #v4.1.7
       # we cannot show the version in this step (ie before checking out the repo)
       # due to https://github.com/paritytech/prdoc/issues/15
       - name: Check if PRdoc is required
@@ -57,3 +57,11 @@ jobs:
           echo "Checking for PR#${GITHUB_PR}"
           echo "You can find more information about PRDoc at $PRDOC_DOC"
           $ENGINE run --rm -v $PWD:/repo -e RUST_LOG=info $IMAGE check -n ${GITHUB_PR}
+
+      - name: Validate prdoc for PR#${{ github.event.pull_request.number }}
+        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          echo "Validating PR#${GITHUB_PR}"
+          python3 --version
+          python3 -m pip install cargo-workspace==1.2.1
+          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${GITHUB_PR}.prdoc

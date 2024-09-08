@@ -3,16 +3,13 @@
 
 publish-rustdoc:
   stage: publish
-  extends: .kubernetes-env
+  extends:
+    - .kubernetes-env
+    - .publish-gh-pages-refs
   variables:
     CI_IMAGE: node:18
     GIT_DEPTH: 100
     RUSTDOCS_DEPLOY_REFS: "master"
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_REF_NAME == "master"
-    - if: $CI_COMMIT_REF_NAME == "master"
   needs:
     - job: build-rustdoc
       artifacts: true
@@ -60,6 +57,8 @@ publish-rustdoc:
     - git commit -m "___Updated docs for ${CI_COMMIT_REF_NAME}___" ||
       echo "___Nothing to commit___"
     - git push origin gh-pages --force
+    # artificial sleep to publish gh-pages
+    - sleep 300
   after_script:
     - rm -rf .git/ ./*
 

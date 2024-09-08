@@ -25,7 +25,7 @@ use crate::{
 	},
 	LOG_TARGET,
 };
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult, PrepareWorkerResult},
 	prepare::{PrepareStats, PrepareSuccess, PrepareWorkerSuccess},
@@ -211,7 +211,7 @@ async fn handle_response(
 	//       https://github.com/paritytech/polkadot-sdk/issues/2399
 	let PrepareWorkerSuccess {
 		checksum: _,
-		stats: PrepareStats { cpu_time_elapsed, memory_stats },
+		stats: PrepareStats { cpu_time_elapsed, memory_stats, observed_wasm_code_len },
 	} = match result.clone() {
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
@@ -220,6 +220,8 @@ async fn handle_response(
 		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 		Err(err) => return Outcome::Concluded { worker, result: Err(err) },
 	};
+
+	metrics.observe_code_size(observed_wasm_code_len as usize);
 
 	if cpu_time_elapsed > preparation_timeout {
 		// The job didn't complete within the timeout.
@@ -233,6 +235,19 @@ async fn handle_response(
 		);
 		return Outcome::TimedOut
 	}
+
+	let size = match tokio::fs::metadata(cache_path).await {
+		Ok(metadata) => metadata.len(),
+		Err(err) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?cache_path,
+				"failed to read size of the artifact: {}",
+				err,
+			);
+			return Outcome::IoErr(err.to_string())
+		},
+	};
 
 	// The file name should uniquely identify the artifact even across restarts. In case the cache
 	// for some reason is not cleared correctly, we cannot
@@ -253,7 +268,12 @@ async fn handle_response(
 			worker,
 			result: Ok(PrepareSuccess {
 				path: artifact_path,
-				stats: PrepareStats { cpu_time_elapsed, memory_stats: memory_stats.clone() },
+				size,
+				stats: PrepareStats {
+					cpu_time_elapsed,
+					memory_stats: memory_stats.clone(),
+					observed_wasm_code_len,
+				},
 			}),
 		},
 		Err(err) => {

@@ -16,7 +16,7 @@
 
 //! A queue that handles requests for PVF execution.
 
-use super::worker_interface::Outcome;
+use super::worker_interface::{Error as WorkerInterfaceError, Response as WorkerInterfaceResponse};
 use crate::{
 	artifacts::{ArtifactId, ArtifactPathId},
 	host::ResultSender,
@@ -25,18 +25,23 @@ use crate::{
 	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 use futures::{
-	channel::mpsc,
+	channel::{mpsc, oneshot},
 	future::BoxFuture,
 	stream::{FuturesUnordered, StreamExt as _},
 	Future, FutureExt,
 };
-use polkadot_node_core_pvf_common::SecurityStatus;
-use polkadot_primitives::{ExecutorParams, ExecutorParamsHash};
+use polkadot_node_core_pvf_common::{
+	execute::{JobResponse, WorkerError, WorkerResponse},
+	SecurityStatus,
+};
+use polkadot_node_primitives::PoV;
+use polkadot_primitives::{ExecutorParams, ExecutorParamsHash, PersistedValidationData};
 use slotmap::HopSlotMap;
 use std::{
 	collections::VecDeque,
 	fmt,
 	path::PathBuf,
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -54,12 +59,19 @@ pub enum ToQueue {
 	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
 }
 
+/// A response from queue.
+#[derive(Debug)]
+pub enum FromQueue {
+	RemoveArtifact { artifact: ArtifactId, reply_to: oneshot::Sender<()> },
+}
+
 /// An execution request that should execute the PVF (known in the context) and send the results
 /// to the given result sender.
 #[derive(Debug)]
 pub struct PendingExecutionRequest {
 	pub exec_timeout: Duration,
-	pub params: Vec<u8>,
+	pub pvd: Arc<PersistedValidationData>,
+	pub pov: Arc<PoV>,
 	pub executor_params: ExecutorParams,
 	pub result_tx: ResultSender,
 }
@@ -67,7 +79,8 @@ pub struct PendingExecutionRequest {
 struct ExecuteJob {
 	artifact: ArtifactPathId,
 	exec_timeout: Duration,
-	params: Vec<u8>,
+	pvd: Arc<PersistedValidationData>,
+	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
 	result_tx: ResultSender,
 	waiting_since: Instant,
@@ -127,7 +140,12 @@ impl Workers {
 
 enum QueueEvent {
 	Spawn(IdleWorker, WorkerHandle, ExecuteJob),
-	StartWork(Worker, Outcome, ArtifactId, ResultSender),
+	StartWork(
+		Worker,
+		Result<WorkerInterfaceResponse, WorkerInterfaceError>,
+		ArtifactId,
+		ResultSender,
+	),
 }
 
 type Mux = FuturesUnordered<BoxFuture<'static, QueueEvent>>;
@@ -137,6 +155,8 @@ struct Queue {
 
 	/// The receiver that receives messages to the pool.
 	to_queue_rx: mpsc::Receiver<ToQueue>,
+	/// The sender to send messages back to validation host.
+	from_queue_tx: mpsc::UnboundedSender<FromQueue>,
 
 	// Some variables related to the current session.
 	program_path: PathBuf,
@@ -161,6 +181,7 @@ impl Queue {
 		node_version: Option<String>,
 		security_status: SecurityStatus,
 		to_queue_rx: mpsc::Receiver<ToQueue>,
+		from_queue_tx: mpsc::UnboundedSender<FromQueue>,
 	) -> Self {
 		Self {
 			metrics,
@@ -170,6 +191,7 @@ impl Queue {
 			node_version,
 			security_status,
 			to_queue_rx,
+			from_queue_tx,
 			queue: VecDeque::new(),
 			mux: Mux::new(),
 			workers: Workers {
@@ -275,18 +297,20 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 
 fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	let ToQueue::Enqueue { artifact, pending_execution_request } = to_queue;
-	let PendingExecutionRequest { exec_timeout, params, executor_params, result_tx } =
+	let PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx } =
 		pending_execution_request;
 	gum::debug!(
 		target: LOG_TARGET,
 		validation_code_hash = ?artifact.id.code_hash,
 		"enqueueing an artifact for execution",
 	);
+	queue.metrics.observe_pov_size(pov.block_data.0.len(), true);
 	queue.metrics.execute_enqueued();
 	let job = ExecuteJob {
 		artifact,
 		exec_timeout,
-		params,
+		pvd,
+		pov,
 		executor_params,
 		result_tx,
 		waiting_since: Instant::now(),
@@ -301,7 +325,7 @@ async fn handle_mux(queue: &mut Queue, event: QueueEvent) {
 			handle_worker_spawned(queue, idle, handle, job);
 		},
 		QueueEvent::StartWork(worker, outcome, artifact_id, result_tx) => {
-			handle_job_finish(queue, worker, outcome, artifact_id, result_tx);
+			handle_job_finish(queue, worker, outcome, artifact_id, result_tx).await;
 		},
 	}
 }
@@ -327,45 +351,110 @@ fn handle_worker_spawned(
 
 /// If there are pending jobs in the queue, schedules the next of them onto the just freed up
 /// worker. Otherwise, puts back into the available workers list.
-fn handle_job_finish(
+async fn handle_job_finish(
 	queue: &mut Queue,
 	worker: Worker,
-	outcome: Outcome,
+	worker_result: Result<WorkerInterfaceResponse, WorkerInterfaceError>,
 	artifact_id: ArtifactId,
 	result_tx: ResultSender,
 ) {
-	let (idle_worker, result, duration) = match outcome {
-		Outcome::Ok { result_descriptor, duration, idle_worker } => {
+	let (idle_worker, result, duration, sync_channel, pov_size) = match worker_result {
+		Ok(WorkerInterfaceResponse {
+			worker_response:
+				WorkerResponse {
+					job_response: JobResponse::Ok { result_descriptor },
+					duration,
+					pov_size,
+				},
+			idle_worker,
+		}) => {
 			// TODO: propagate the soft timeout
 
-			(Some(idle_worker), Ok(result_descriptor), Some(duration))
+			(Some(idle_worker), Ok(result_descriptor), Some(duration), None, Some(pov_size))
 		},
-		Outcome::InvalidCandidate { err, idle_worker } => (
+		Ok(WorkerInterfaceResponse {
+			worker_response: WorkerResponse { job_response: JobResponse::InvalidCandidate(err), .. },
+			idle_worker,
+		}) => (
 			Some(idle_worker),
 			Err(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
 			None,
+			None,
+			None,
 		),
-		Outcome::InternalError { err } => (None, Err(ValidationError::Internal(err)), None),
+		Ok(WorkerInterfaceResponse {
+			worker_response:
+				WorkerResponse { job_response: JobResponse::PoVDecompressionFailure, .. },
+			idle_worker,
+		}) => (
+			Some(idle_worker),
+			Err(ValidationError::Invalid(InvalidCandidate::PoVDecompressionFailure)),
+			None,
+			None,
+			None,
+		),
+		Ok(WorkerInterfaceResponse {
+			worker_response:
+				WorkerResponse { job_response: JobResponse::RuntimeConstruction(err), .. },
+			idle_worker,
+		}) => {
+			// The task for artifact removal is executed concurrently with
+			// the message to the host on the execution result.
+			let (result_tx, result_rx) = oneshot::channel();
+			queue
+				.from_queue_tx
+				.unbounded_send(FromQueue::RemoveArtifact {
+					artifact: artifact_id.clone(),
+					reply_to: result_tx,
+				})
+				.expect("from execute queue receiver is listened by the host; qed");
+			(
+				Some(idle_worker),
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(
+					err,
+				))),
+				None,
+				Some(result_rx),
+				None,
+			)
+		},
+
+		Err(WorkerInterfaceError::InternalError(err)) |
+		Err(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) =>
+			(None, Err(ValidationError::Internal(err)), None, None, None),
 		// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there's no time left for a retry.
-		Outcome::HardTimeout =>
-			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None),
+		Err(WorkerInterfaceError::HardTimeout) |
+		Err(WorkerInterfaceError::WorkerError(WorkerError::JobTimedOut)) =>
+			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None, None, None),
 		// "Maybe invalid" errors (will retry).
-		Outcome::WorkerIntfErr => (
+		Err(WorkerInterfaceError::CommunicationErr(_err)) => (
 			None,
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			None,
+			None,
+			None,
 		),
-		Outcome::JobDied { err } => (
+		Err(WorkerInterfaceError::WorkerError(WorkerError::JobDied { err, .. })) => (
 			None,
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
 			None,
+			None,
+			None,
 		),
-		Outcome::JobError { err } =>
-			(None, Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))), None),
+		Err(WorkerInterfaceError::WorkerError(WorkerError::JobError(err))) => (
+			None,
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err.to_string()))),
+			None,
+			None,
+			None,
+		),
 	};
 
 	queue.metrics.execute_finished();
+	if let Some(pov_size) = pov_size {
+		queue.metrics.observe_pov_size(pov_size as usize, false)
+	}
 	if let Err(ref err) = result {
 		gum::warn!(
 			target: LOG_TARGET,
@@ -384,6 +473,12 @@ fn handle_job_finish(
 			?duration,
 			"execute worker concluded successfully",
 		);
+	}
+
+	if let Some(sync_channel) = sync_channel {
+		// err means the sender is dropped (the artifact is already removed from the cache)
+		// so that's legitimate to ignore the result
+		let _ = sync_channel.await;
 	}
 
 	// First we send the result. It may fail due to the other end of the channel being dropped,
@@ -496,18 +591,22 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 			thus claim_idle cannot return None;
 			qed.",
 	);
+	queue
+		.metrics
+		.observe_execution_queued_time(job.waiting_since.elapsed().as_millis() as u32);
 	let execution_timer = queue.metrics.time_execution();
 	queue.mux.push(
 		async move {
 			let _timer = execution_timer;
-			let outcome = super::worker_interface::start_work(
+			let result = super::worker_interface::start_work(
 				idle,
 				job.artifact.clone(),
 				job.exec_timeout,
-				job.params,
+				job.pvd,
+				job.pov,
 			)
 			.await;
-			QueueEvent::StartWork(worker, outcome, job.artifact.id, job.result_tx)
+			QueueEvent::StartWork(worker, result, job.artifact.id, job.result_tx)
 		}
 		.boxed(),
 	);
@@ -521,8 +620,10 @@ pub fn start(
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
-) -> (mpsc::Sender<ToQueue>, impl Future<Output = ()>) {
+) -> (mpsc::Sender<ToQueue>, mpsc::UnboundedReceiver<FromQueue>, impl Future<Output = ()>) {
 	let (to_queue_tx, to_queue_rx) = mpsc::channel(20);
+	let (from_queue_tx, from_queue_rx) = mpsc::unbounded();
+
 	let run = Queue::new(
 		metrics,
 		program_path,
@@ -532,7 +633,8 @@ pub fn start(
 		node_version,
 		security_status,
 		to_queue_rx,
+		from_queue_tx,
 	)
 	.run();
-	(to_queue_tx, run)
+	(to_queue_tx, from_queue_rx, run)
 }

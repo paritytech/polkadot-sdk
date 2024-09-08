@@ -18,12 +18,14 @@ use futures::{future::Either, FutureExt, StreamExt, TryFutureExt};
 
 use sp_keystore::KeystorePtr;
 
-use polkadot_node_network_protocol::request_response::{v1, IncomingRequestReceiver};
+use polkadot_node_network_protocol::request_response::{
+	v1, v2, IncomingRequestReceiver, ReqProtocolNames,
+};
 use polkadot_node_subsystem::{
 	jaeger, messages::AvailabilityDistributionMessage, overseer, FromOrchestra, OverseerSignal,
 	SpawnedSubsystem, SubsystemError,
 };
-use polkadot_primitives::Hash;
+use polkadot_primitives::{BlockNumber, Hash};
 use std::collections::HashMap;
 
 /// Error and [`Result`] type for this subsystem.
@@ -41,7 +43,7 @@ mod pov_requester;
 
 /// Responding to erasure chunk requests:
 mod responder;
-use responder::{run_chunk_receiver, run_pov_receiver};
+use responder::{run_chunk_receivers, run_pov_receiver};
 
 mod metrics;
 /// Prometheus `Metrics` for availability distribution.
@@ -58,6 +60,8 @@ pub struct AvailabilityDistributionSubsystem {
 	runtime: RuntimeInfo,
 	/// Receivers to receive messages from.
 	recvs: IncomingRequestReceivers,
+	/// Mapping of the req-response protocols to the full protocol names.
+	req_protocol_names: ReqProtocolNames,
 	/// Prometheus metrics.
 	metrics: Metrics,
 }
@@ -66,8 +70,10 @@ pub struct AvailabilityDistributionSubsystem {
 pub struct IncomingRequestReceivers {
 	/// Receiver for incoming PoV requests.
 	pub pov_req_receiver: IncomingRequestReceiver<v1::PoVFetchingRequest>,
-	/// Receiver for incoming availability chunk requests.
-	pub chunk_req_receiver: IncomingRequestReceiver<v1::ChunkFetchingRequest>,
+	/// Receiver for incoming v1 availability chunk requests.
+	pub chunk_req_v1_receiver: IncomingRequestReceiver<v1::ChunkFetchingRequest>,
+	/// Receiver for incoming v2 availability chunk requests.
+	pub chunk_req_v2_receiver: IncomingRequestReceiver<v2::ChunkFetchingRequest>,
 }
 
 #[overseer::subsystem(AvailabilityDistribution, error=SubsystemError, prefix=self::overseer)]
@@ -85,18 +91,27 @@ impl<Context> AvailabilityDistributionSubsystem {
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
 impl AvailabilityDistributionSubsystem {
 	/// Create a new instance of the availability distribution.
-	pub fn new(keystore: KeystorePtr, recvs: IncomingRequestReceivers, metrics: Metrics) -> Self {
+	pub fn new(
+		keystore: KeystorePtr,
+		recvs: IncomingRequestReceivers,
+		req_protocol_names: ReqProtocolNames,
+		metrics: Metrics,
+	) -> Self {
 		let runtime = RuntimeInfo::new(Some(keystore));
-		Self { runtime, recvs, metrics }
+		Self { runtime, recvs, req_protocol_names, metrics }
 	}
 
 	/// Start processing work as passed on from the Overseer.
 	async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
-		let Self { mut runtime, recvs, metrics } = self;
-		let mut spans: HashMap<Hash, jaeger::PerLeafSpan> = HashMap::new();
+		let Self { mut runtime, recvs, metrics, req_protocol_names } = self;
+		let mut spans: HashMap<Hash, (BlockNumber, jaeger::PerLeafSpan)> = HashMap::new();
 
-		let IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver } = recvs;
-		let mut requester = Requester::new(metrics.clone()).fuse();
+		let IncomingRequestReceivers {
+			pov_req_receiver,
+			chunk_req_v1_receiver,
+			chunk_req_v2_receiver,
+		} = recvs;
+		let mut requester = Requester::new(req_protocol_names, metrics.clone()).fuse();
 		let mut warn_freq = gum::Freq::new();
 
 		{
@@ -109,7 +124,13 @@ impl AvailabilityDistributionSubsystem {
 
 			ctx.spawn(
 				"chunk-receiver",
-				run_chunk_receiver(sender, chunk_req_receiver, metrics.clone()).boxed(),
+				run_chunk_receivers(
+					sender,
+					chunk_req_v1_receiver,
+					chunk_req_v2_receiver,
+					metrics.clone(),
+				)
+				.boxed(),
 			)
 			.map_err(FatalError::SpawnTask)?;
 		}
@@ -141,7 +162,7 @@ impl AvailabilityDistributionSubsystem {
 					};
 					let span =
 						jaeger::PerLeafSpan::new(cloned_leaf.span, "availability-distribution");
-					spans.insert(cloned_leaf.hash, span);
+					spans.insert(cloned_leaf.hash, (cloned_leaf.number, span));
 					log_error(
 						requester
 							.get_mut()
@@ -151,8 +172,8 @@ impl AvailabilityDistributionSubsystem {
 						&mut warn_freq,
 					)?;
 				},
-				FromOrchestra::Signal(OverseerSignal::BlockFinalized(hash, _)) => {
-					spans.remove(&hash);
+				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, finalized_number)) => {
+					spans.retain(|_hash, (block_number, _span)| *block_number > finalized_number);
 				},
 				FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 				FromOrchestra::Communication {
@@ -168,7 +189,7 @@ impl AvailabilityDistributionSubsystem {
 				} => {
 					let span = spans
 						.get(&relay_parent)
-						.map(|span| span.child("fetch-pov"))
+						.map(|(_, span)| span.child("fetch-pov"))
 						.unwrap_or_else(|| jaeger::Span::new(&relay_parent, "fetch-pov"))
 						.with_trace_id(candidate_hash)
 						.with_candidate(candidate_hash)

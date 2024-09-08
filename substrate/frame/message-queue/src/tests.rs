@@ -90,7 +90,7 @@ fn queue_priority_retains() {
 		MessageQueue::enqueue_message(msg("d"), Everywhere(2));
 		assert_ring(&[Everywhere(1), Everywhere(2), Everywhere(3)]);
 		// service head is 1, it will process a, leaving service head at 2. it also processes b but
-		// doees not empty queue 2, so service head will end at 2.
+		// does not empty queue 2, so service head will end at 2.
 		assert_eq!(MessageQueue::service_queues(2.into_weight()), 2.into_weight());
 		assert_eq!(
 			MessagesProcessed::take(),
@@ -174,9 +174,10 @@ fn service_queues_failing_messages_works() {
 		MessageQueue::enqueue_message(msg("badformat"), Here);
 		MessageQueue::enqueue_message(msg("corrupt"), Here);
 		MessageQueue::enqueue_message(msg("unsupported"), Here);
+		MessageQueue::enqueue_message(msg("stacklimitreached"), Here);
 		MessageQueue::enqueue_message(msg("yield"), Here);
 		// Starts with four pages.
-		assert_pages(&[0, 1, 2, 3]);
+		assert_pages(&[0, 1, 2, 3, 4]);
 
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
 		assert_last_event::<Test>(
@@ -206,9 +207,9 @@ fn service_queues_failing_messages_works() {
 			.into(),
 		);
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
-		assert_eq!(System::events().len(), 3);
+		assert_eq!(System::events().len(), 4);
 		// Last page with the `yield` stays in.
-		assert_pages(&[3]);
+		assert_pages(&[4]);
 	});
 }
 
@@ -1064,13 +1065,13 @@ fn footprint_num_pages_works() {
 		MessageQueue::enqueue_message(msg("weight=2"), Here);
 		MessageQueue::enqueue_message(msg("weight=3"), Here);
 
-		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 2, 16));
 
 		// Mark the messages as overweight.
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 0.into_weight());
 		assert_eq!(System::events().len(), 2);
-		// Overweight does not change the footprint.
-		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+		// `ready_pages` decreases but `page` count does not.
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 0, 2, 16));
 
 		// Now execute the second message.
 		assert_eq!(
@@ -1078,7 +1079,7 @@ fn footprint_num_pages_works() {
 				.unwrap(),
 			3.into_weight()
 		);
-		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 8));
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 0, 1, 8));
 		// And the first one:
 		assert_eq!(
 			<MessageQueue as ServiceQueues>::execute_overweight(2.into_weight(), (Here, 0, 0))
@@ -1086,6 +1087,11 @@ fn footprint_num_pages_works() {
 			2.into_weight()
 		);
 		assert_eq!(MessageQueue::footprint(Here), Default::default());
+		assert_eq!(MessageQueue::footprint(Here), fp(0, 0, 0, 0));
+
+		// `ready_pages` and normal `pages` increases again:
+		MessageQueue::enqueue_message(msg("weight=3"), Here);
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 1, 8));
 	})
 }
 
@@ -1669,6 +1675,7 @@ fn regression_issue_2319() {
 	build_and_execute::<Test>(|| {
 		Callback::set(Box::new(|_, _| {
 			MessageQueue::enqueue_message(mock_helpers::msg("anothermessage"), There);
+			Ok(())
 		}));
 
 		use MessageOrigin::*;
@@ -1689,23 +1696,26 @@ fn regression_issue_2319() {
 #[test]
 fn recursive_enqueue_works() {
 	build_and_execute::<Test>(|| {
-		Callback::set(Box::new(|o, i| match i {
-			0 => {
-				MessageQueue::enqueue_message(msg(&format!("callback={}", 1)), *o);
-			},
-			1 => {
-				for _ in 0..100 {
-					MessageQueue::enqueue_message(msg(&format!("callback={}", 2)), *o);
-				}
-				for i in 0..100 {
-					MessageQueue::enqueue_message(msg(&format!("callback={}", 3)), i.into());
-				}
-			},
-			2 | 3 => {
-				MessageQueue::enqueue_message(msg(&format!("callback={}", 4)), *o);
-			},
-			4 => (),
-			_ => unreachable!(),
+		Callback::set(Box::new(|o, i| {
+			match i {
+				0 => {
+					MessageQueue::enqueue_message(msg(&format!("callback={}", 1)), *o);
+				},
+				1 => {
+					for _ in 0..100 {
+						MessageQueue::enqueue_message(msg(&format!("callback={}", 2)), *o);
+					}
+					for i in 0..100 {
+						MessageQueue::enqueue_message(msg(&format!("callback={}", 3)), i.into());
+					}
+				},
+				2 | 3 => {
+					MessageQueue::enqueue_message(msg(&format!("callback={}", 4)), *o);
+				},
+				4 => (),
+				_ => unreachable!(),
+			};
+			Ok(())
 		}));
 
 		MessageQueue::enqueue_message(msg("callback=0"), MessageOrigin::Here);
@@ -1729,6 +1739,7 @@ fn recursive_service_is_forbidden() {
 			// This call will fail since it is recursive. But it will not mess up the state.
 			assert_storage_noop!(MessageQueue::service_queues(10.into_weight()));
 			MessageQueue::enqueue_message(msg("m2"), There);
+			Ok(())
 		}));
 
 		for _ in 0..5 {
@@ -1772,6 +1783,7 @@ fn recursive_overweight_while_service_is_forbidden() {
 				),
 				ExecuteOverweightError::RecursiveDisallowed
 			);
+			Ok(())
 		}));
 
 		MessageQueue::enqueue_message(msg("weight=10"), There);
@@ -1794,6 +1806,7 @@ fn recursive_reap_page_is_forbidden() {
 		Callback::set(Box::new(|_, _| {
 			// This call will fail since it is recursive. But it will not mess up the state.
 			assert_noop!(MessageQueue::do_reap_page(&Here, 0), Error::<Test>::RecursiveDisallowed);
+			Ok(())
 		}));
 
 		// Create 10 pages more than the stale limit.
@@ -1832,4 +1845,192 @@ fn with_service_mutex_works() {
 	// Still works.
 	with_service_mutex(|| called = 3).unwrap();
 	assert_eq!(called, 3);
+}
+
+#[test]
+fn process_enqueued_on_idle() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		// Some messages enqueued on previous block.
+		MessageQueue::enqueue_messages(vec![msg("a"), msg("ab"), msg("abc")].into_iter(), Here);
+		assert_eq!(BookStateFor::<Test>::iter().count(), 1);
+
+		// Process enqueued messages from previous block.
+		Pallet::<Test>::on_initialize(1);
+		assert_eq!(
+			MessagesProcessed::take(),
+			vec![(b"a".to_vec(), Here), (b"ab".to_vec(), Here), (b"abc".to_vec(), Here),]
+		);
+
+		MessageQueue::enqueue_messages(vec![msg("x"), msg("xy"), msg("xyz")].into_iter(), There);
+		assert_eq!(BookStateFor::<Test>::iter().count(), 2);
+
+		// Enough weight to process on idle.
+		Pallet::<Test>::on_idle(1, Weight::from_parts(100, 100));
+		assert_eq!(
+			MessagesProcessed::take(),
+			vec![(b"x".to_vec(), There), (b"xy".to_vec(), There), (b"xyz".to_vec(), There)]
+		);
+	})
+}
+
+#[test]
+fn process_enqueued_on_idle_requires_enough_weight() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		Pallet::<Test>::on_initialize(1);
+
+		MessageQueue::enqueue_messages(vec![msg("x"), msg("xy"), msg("xyz")].into_iter(), There);
+		assert_eq!(BookStateFor::<Test>::iter().count(), 1);
+
+		// Not enough weight to process on idle.
+		Pallet::<Test>::on_idle(1, Weight::from_parts(0, 0));
+		assert_eq!(MessagesProcessed::take(), vec![]);
+	})
+}
+
+/// A message that reports `StackLimitReached` will not be put into the overweight queue when
+/// executed from the top level.
+#[test]
+fn process_discards_stack_ov_message() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		MessageQueue::enqueue_message(msg("stacklimitreached"), Here);
+
+		MessageQueue::service_queues(10.into_weight());
+
+		assert_last_event::<Test>(
+			Event::ProcessingFailed {
+				id: blake2_256(b"stacklimitreached").into(),
+				origin: MessageOrigin::Here,
+				error: ProcessMessageError::StackLimitReached,
+			}
+			.into(),
+		);
+
+		assert!(MessagesProcessed::take().is_empty());
+		// Message is gone and not overweight:
+		assert_pages(&[]);
+	});
+}
+
+/// A message that reports `StackLimitReached` will stay in the overweight queue when it is executed
+/// by `execute_overweight`.
+#[test]
+fn execute_overweight_keeps_stack_ov_message() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		// We need to create a mocked message that first reports insufficient weight, and then
+		// `StackLimitReached`:
+		IgnoreStackOvError::set(true);
+		MessageQueue::enqueue_message(msg("stacklimitreached"), Here);
+		MessageQueue::service_queues(0.into_weight());
+
+		assert_last_event::<Test>(
+			Event::OverweightEnqueued {
+				id: blake2_256(b"stacklimitreached"),
+				origin: MessageOrigin::Here,
+				message_index: 0,
+				page_index: 0,
+			}
+			.into(),
+		);
+		// Does not count as 'processed':
+		assert!(MessagesProcessed::take().is_empty());
+		assert_pages(&[0]);
+
+		// Now let it return `StackLimitReached`. Note that this case would normally not happen,
+		// since we assume that the top-level execution is the one with the most remaining stack
+		// depth.
+		IgnoreStackOvError::set(false);
+		// Ensure that trying to execute the message does not change any state (besides events).
+		System::reset_events();
+		let storage_noop = StorageNoopGuard::new();
+		assert_eq!(
+			<MessageQueue as ServiceQueues>::execute_overweight(3.into_weight(), (Here, 0, 0)),
+			Err(ExecuteOverweightError::Other)
+		);
+		assert_last_event::<Test>(
+			Event::ProcessingFailed {
+				id: blake2_256(b"stacklimitreached").into(),
+				origin: MessageOrigin::Here,
+				error: ProcessMessageError::StackLimitReached,
+			}
+			.into(),
+		);
+		System::reset_events();
+		drop(storage_noop);
+
+		// Now let's process it normally:
+		IgnoreStackOvError::set(true);
+		assert_eq!(
+			<MessageQueue as ServiceQueues>::execute_overweight(1.into_weight(), (Here, 0, 0))
+				.unwrap(),
+			1.into_weight()
+		);
+
+		assert_last_event::<Test>(
+			Event::Processed {
+				id: blake2_256(b"stacklimitreached").into(),
+				origin: MessageOrigin::Here,
+				weight_used: 1.into_weight(),
+				success: true,
+			}
+			.into(),
+		);
+		assert_pages(&[]);
+		System::reset_events();
+	});
+}
+
+#[test]
+fn process_message_error_reverts_storage_changes() {
+	build_and_execute::<Test>(|| {
+		assert!(!sp_io::storage::exists(b"key"), "Key should not exist");
+
+		Callback::set(Box::new(|_, _| {
+			sp_io::storage::set(b"key", b"value");
+			Err(())
+		}));
+
+		MessageQueue::enqueue_message(msg("callback=0"), MessageOrigin::Here);
+		MessageQueue::service_queues(10.into_weight());
+
+		assert!(!sp_io::storage::exists(b"key"), "Key should have been rolled back");
+	});
+}
+
+#[test]
+fn process_message_ok_false_keeps_storage_changes() {
+	build_and_execute::<Test>(|| {
+		assert!(!sp_io::storage::exists(b"key"), "Key should not exist");
+
+		Callback::set(Box::new(|_, _| {
+			sp_io::storage::set(b"key", b"value");
+			Ok(())
+		}));
+
+		// 000 will make it return `Ok(false)`
+		MessageQueue::enqueue_message(msg("callback=000"), MessageOrigin::Here);
+		MessageQueue::service_queues(10.into_weight());
+
+		assert_eq!(sp_io::storage::exists(b"key"), true);
+	});
+}
+
+#[test]
+fn process_message_ok_true_keeps_storage_changes() {
+	build_and_execute::<Test>(|| {
+		assert!(!sp_io::storage::exists(b"key"), "Key should not exist");
+
+		Callback::set(Box::new(|_, _| {
+			sp_io::storage::set(b"key", b"value");
+			Ok(())
+		}));
+
+		MessageQueue::enqueue_message(msg("callback=0"), MessageOrigin::Here);
+		MessageQueue::service_queues(10.into_weight());
+
+		assert_eq!(sp_io::storage::exists(b"key"), true);
+	});
 }

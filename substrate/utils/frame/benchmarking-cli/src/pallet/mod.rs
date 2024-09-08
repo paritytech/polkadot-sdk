@@ -16,9 +16,10 @@
 // limitations under the License.
 
 mod command;
+mod types;
 mod writer;
 
-use crate::shared::HostInfoParams;
+use crate::{pallet::types::GenesisBuilder, shared::HostInfoParams};
 use clap::ValueEnum;
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
@@ -166,6 +167,20 @@ pub struct PalletCmd {
 	)]
 	pub wasmtime_instantiation_strategy: WasmtimeInstantiationStrategy,
 
+	/// Optional runtime blob to use instead of the one from the genesis config.
+	#[arg(long, conflicts_with = "chain")]
+	pub runtime: Option<PathBuf>,
+
+	/// Do not fail if there are unknown but also unused host functions in the runtime.
+	#[arg(long)]
+	pub allow_missing_host_functions: bool,
+
+	/// How to construct the genesis state.
+	///
+	/// Uses `GenesisBuilder::Spec` by default and  `GenesisBuilder::Runtime` if `runtime` is set.
+	#[arg(long, value_enum)]
+	pub genesis_builder: Option<GenesisBuilder>,
+
 	/// DEPRECATED: This argument has no effect.
 	#[arg(long = "execution")]
 	pub execution: Option<String>,
@@ -221,4 +236,20 @@ pub struct PalletCmd {
 	/// This exists only to restore legacy behaviour. It should never actually be needed.
 	#[arg(long)]
 	pub unsafe_overwrite_results: bool,
+
+	/// Do not print a summary at the end of the run.
+	///
+	/// These summaries can be very long when benchmarking multiple pallets at once. For CI
+	/// use-cases, this option reduces the noise.
+	#[arg(long)]
+	quiet: bool,
+
+	/// Do not enable proof recording during time benchmarking.
+	///
+	/// By default, proof recording is enabled during benchmark execution. This can slightly
+	/// inflate the resulting time weights. For parachains using PoV-reclaim, this is typically the
+	/// correct setting. Chains that ignore the proof size dimension of weight (e.g. relay chain,
+	/// solo-chains) can disable proof recording to get more accurate results.
+	#[arg(long)]
+	disable_proof_recording: bool,
 }

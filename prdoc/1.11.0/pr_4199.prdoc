@@ -1,0 +1,29 @@
+title: "Remove XCM SafeCallFilter for chains using Weights::v3"
+
+doc:
+  - audience: Runtime User
+    description: |
+      `SafeCallFilter` was removed from Rococo and Westend relay and system chains as they
+      all now use Weights::v3 which already accounts for call PoV size.
+      This effectively removes artificial limitations on what users can `XCM::Transact` on
+      these chains (blockspace limitations are still upheld).
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor

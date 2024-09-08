@@ -17,7 +17,6 @@
 
 //! Inherents for BABE
 
-use core::result::Result;
 use sp_inherents::{Error, InherentData, InherentIdentifier};
 
 /// The BABE inherent identifier.

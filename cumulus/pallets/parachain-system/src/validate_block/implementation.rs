@@ -26,6 +26,7 @@ use polkadot_parachain_primitives::primitives::{
 	HeadData, RelayChainBlockNumber, ValidationResult,
 };
 
+use alloc::vec::Vec;
 use codec::Encode;
 
 use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
@@ -33,7 +34,6 @@ use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
-use sp_std::prelude::*;
 use sp_trie::{MemoryDB, ProofSizeProvider};
 use trie_recorder::SizeOnlyRecorderProvider;
 
@@ -80,6 +80,7 @@ environmental::environmental!(recorder: trait ProofSizeProvider);
 /// ensuring that the final storage root matches the storage root in the header of the block. In the
 /// end we return back the [`ValidationResult`] with all the required information for the validator.
 #[doc(hidden)]
+#[allow(deprecated)]
 pub fn validate_block<
 	B: BlockT,
 	E: ExecuteBlock<B>,
@@ -123,7 +124,7 @@ where
 		Err(_) => panic!("Compact proof decoding failure."),
 	};
 
-	sp_std::mem::drop(storage_proof);
+	core::mem::drop(storage_proof);
 
 	let mut recorder = SizeOnlyRecorderProvider::new();
 	let cache_provider = trie_cache::CacheProvider::new();
@@ -186,6 +187,7 @@ where
 		)
 		.expect("Invalid relay chain state proof");
 
+		#[allow(deprecated)]
 		let res = CI::check_inherents(&block, &relay_chain_proof);
 
 		if !res.ok() {
@@ -292,7 +294,7 @@ fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Opt
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = sp_std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			Some(value.len() as u32)
 		},
@@ -366,7 +368,7 @@ fn host_default_child_storage_read(
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = sp_std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			Some(value.len() as u32)
 		},

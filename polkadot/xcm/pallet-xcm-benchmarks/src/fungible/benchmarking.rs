@@ -16,6 +16,7 @@
 
 use super::*;
 use crate::{account_and_location, new_executor, AssetTransactorOf, EnsureDelivery, XcmCallOf};
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError, BenchmarkResult};
 use frame_support::{
 	pallet_prelude::Get,
@@ -23,7 +24,6 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_runtime::traits::{Bounded, Zero};
-use sp_std::{prelude::*, vec};
 use xcm::latest::{prelude::*, MAX_ITEMS_IN_ASSETS};
 use xcm_executor::traits::{ConvertLocation, FeeReason, TransactAsset};
 
@@ -37,7 +37,7 @@ benchmarks_instance_pallet! {
 			>::Balance
 			as
 			TryInto<u128>
-		>::Error: sp_std::fmt::Debug,
+		>::Error: core::fmt::Debug,
 	}
 
 	withdraw_asset {
@@ -146,8 +146,6 @@ benchmarks_instance_pallet! {
 
 	initiate_reserve_withdraw {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
-		let holding = T::worst_case_holding(1);
-		let assets_filter = AssetFilter::Definite(holding.clone().into_inner().into_iter().take(MAX_ITEMS_IN_ASSETS).collect::<Vec<_>>().into());
 		let reserve = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
 
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
@@ -157,15 +155,29 @@ benchmarks_instance_pallet! {
 		);
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
+		// generate holding and add possible required fees
+		let holding = if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			let mut holding = T::worst_case_holding(1 + expected_assets_in_holding.len() as u32);
+			for a in expected_assets_in_holding.into_inner() {
+				holding.push(a);
+			}
+			holding
+		} else {
+			T::worst_case_holding(1)
+		};
+
 		let mut executor = new_executor::<T>(sender_location);
-		executor.set_holding(holding.into());
+		executor.set_holding(holding.clone().into());
 		if let Some(expected_fees_mode) = expected_fees_mode {
 			executor.set_fees_mode(expected_fees_mode);
 		}
-		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
-		}
-		let instruction = Instruction::InitiateReserveWithdraw { assets: assets_filter, reserve, xcm: Xcm(vec![]) };
+
+		let instruction = Instruction::InitiateReserveWithdraw {
+			// Worst case is looking through all holdings for every asset explicitly - respecting the limit `MAX_ITEMS_IN_ASSETS`.
+			assets: Definite(holding.into_inner().into_iter().take(MAX_ITEMS_IN_ASSETS).collect::<Vec<_>>().into()),
+			reserve,
+			xcm: Xcm(vec![])
+		};
 		let xcm = Xcm(vec![instruction]);
 	}: {
 		executor.bench_process(xcm)?;

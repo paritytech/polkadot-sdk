@@ -46,15 +46,16 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	initializer, FeeTracker,
 };
+use alloc::vec::Vec;
+use core::fmt;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{DownwardMessage, Hash, Id as ParaId, InboundDownwardMessage};
+use polkadot_primitives::{DownwardMessage, Hash, Id as ParaId, InboundDownwardMessage};
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash as HashT, SaturatedConversion},
 	FixedU128, Saturating,
 };
-use sp_std::{fmt, prelude::*};
 use xcm::latest::SendError;
 
 pub use pallet::*;
@@ -119,7 +120,7 @@ pub mod pallet {
 
 	/// The downward messages addressed for a certain para.
 	#[pallet::storage]
-	pub(crate) type DownwardMessageQueues<T: Config> = StorageMap<
+	pub type DownwardMessageQueues<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ParaId,
@@ -226,7 +227,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let inbound =
-			InboundDownwardMessage { msg, sent_at: <frame_system::Pallet<T>>::block_number() };
+			InboundDownwardMessage { msg, sent_at: frame_system::Pallet::<T>::block_number() };
 
 		// obtain the new link in the MQC and update the head.
 		DownwardMessageQueueHeads::<T>::mutate(para, |head| {
@@ -286,7 +287,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Prunes the specified number of messages from the downward message queue of the given para.
-	pub(crate) fn prune_dmq(para: ParaId, processed_downward_messages: u32) -> Weight {
+	pub(crate) fn prune_dmq(para: ParaId, processed_downward_messages: u32) {
 		let q_len = DownwardMessageQueues::<T>::mutate(para, |q| {
 			let processed_downward_messages = processed_downward_messages as usize;
 			if processed_downward_messages > q.len() {
@@ -305,7 +306,6 @@ impl<T: Config> Pallet<T> {
 		if q_len <= (threshold as usize) {
 			Self::decrease_fee_factor(para);
 		}
-		T::DbWeight::get().reads_writes(1, 1)
 	}
 
 	/// Returns the Head of Message Queue Chain for the given para or `None` if there is none
@@ -346,14 +346,14 @@ impl<T: Config> FeeTracker for Pallet<T> {
 	}
 
 	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+		DeliveryFeeFactor::<T>::mutate(id, |f| {
 			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
 			*f
 		})
 	}
 
 	fn decrease_fee_factor(id: Self::Id) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+		DeliveryFeeFactor::<T>::mutate(id, |f| {
 			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
 			*f
 		})

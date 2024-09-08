@@ -7,13 +7,12 @@ use frame_support::{
 	traits::{fungible::Mutate, OnFinalize, OnInitialize},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom,
 };
 use snowbridge_core::{ChannelId, ParaId};
 use snowbridge_pallet_ethereum_client_fixtures::*;
-use sp_core::{H160, U256};
+use sp_core::{Get, H160, U256};
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header, AccountId32, DigestItem, SaturatedConversion, Saturating};
 use xcm::{
@@ -40,6 +39,7 @@ where
 }
 
 pub fn send_transfer_token_message<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	assethub_parachain_id: u32,
 	weth_contract_address: H160,
 	destination_address: H160,
@@ -89,7 +89,7 @@ where
 		WithdrawAsset(Assets::from(vec![fee.clone()])),
 		BuyExecution { fees: fee, weight_limit: Unlimited },
 		ExportMessage {
-			network: Ethereum { chain_id: 11155111 },
+			network: Ethereum { chain_id: ethereum_chain_id },
 			destination: Here,
 			xcm: inner_xcm,
 		},
@@ -107,6 +107,7 @@ where
 }
 
 pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -149,6 +150,7 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 			initial_fund::<Runtime>(assethub_parachain_id, 5_000_000_000_000);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,
@@ -205,6 +207,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
 	XcmConfig,
 	AllPalletsWithoutSystem,
 >(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -249,6 +252,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
 			initial_fund::<Runtime>(assethub_parachain_id, 5_000_000_000_000);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,
@@ -290,6 +294,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works<
 }
 
 pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -353,7 +358,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 			let xcm = Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				ExportMessage {
-					network: Ethereum { chain_id: 11155111 },
+					network: Ethereum { chain_id: ethereum_chain_id },
 					destination: Here,
 					xcm: inner_xcm,
 				},
@@ -375,6 +380,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 
 #[allow(clippy::too_many_arguments)]
 pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
@@ -414,6 +420,7 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 			initial_fund::<Runtime>(assethub_parachain_id, initial_amount);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				ethereum_chain_id,
 				assethub_parachain_id,
 				weth_contract_address,
 				destination_address,
@@ -459,24 +466,37 @@ pub fn ethereum_extrinsic<Runtime>(
 			let initial_checkpoint = make_checkpoint();
 			let update = make_finalized_header_update();
 			let sync_committee_update = make_sync_committee_update();
-			let execution_header_update = make_execution_header_update();
+			let mut invalid_update = make_finalized_header_update();
+			let mut invalid_sync_committee_update = make_sync_committee_update();
+			invalid_update.finalized_header.slot = 4354;
+			invalid_sync_committee_update.finalized_header.slot = 4354;
 
 			let alice = Alice;
 			let alice_account = alice.to_account_id();
 			<pallet_balances::Pallet<Runtime>>::mint_into(
-				&alice_account.into(),
+				&alice_account.clone().into(),
 				10_000_000_000_000_u128.saturated_into::<BalanceOf<Runtime>>(),
 			)
 			.unwrap();
+			let balance_before =
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account.clone().into());
 
 			assert_ok!(<snowbridge_pallet_ethereum_client::Pallet<Runtime>>::force_checkpoint(
 				RuntimeHelper::<Runtime>::root_origin(),
-				initial_checkpoint,
+				initial_checkpoint.clone(),
 			));
+			let balance_after_checkpoint =
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account.clone().into());
 
 			let update_call: <Runtime as pallet_utility::Config>::RuntimeCall =
 				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit {
-					update: Box::new(*update),
+					update: Box::new(*update.clone()),
+				}
+				.into();
+
+			let invalid_update_call: <Runtime as pallet_utility::Config>::RuntimeCall =
+				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit {
+					update: Box::new(*invalid_update),
 				}
 				.into();
 
@@ -486,22 +506,63 @@ pub fn ethereum_extrinsic<Runtime>(
 				}
 				.into();
 
-			let execution_header_call: <Runtime as pallet_utility::Config>::RuntimeCall =
-				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit_execution_header {
-					update: Box::new(*execution_header_update),
+			let invalid_update_sync_committee_call: <Runtime as pallet_utility::Config>::RuntimeCall =
+				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit {
+					update: Box::new(*invalid_sync_committee_update),
 				}
-				.into();
+					.into();
 
+			// Finalized header update
 			let update_outcome = construct_and_apply_extrinsic(alice, update_call.into());
 			assert_ok!(update_outcome);
+			let balance_after_update =
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account.clone().into());
 
+			// Invalid finalized header update
+			let invalid_update_outcome =
+				construct_and_apply_extrinsic(alice, invalid_update_call.into());
+			assert_err!(
+				invalid_update_outcome,
+				snowbridge_pallet_ethereum_client::Error::<Runtime>::InvalidUpdateSlot
+			);
+			let balance_after_invalid_update =
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account.clone().into());
+
+			// Sync committee update
 			let sync_committee_outcome =
 				construct_and_apply_extrinsic(alice, update_sync_committee_call.into());
 			assert_ok!(sync_committee_outcome);
+			let balance_after_sync_com_update =
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account.clone().into());
 
-			let execution_header_outcome =
-				construct_and_apply_extrinsic(alice, execution_header_call.into());
-			assert_ok!(execution_header_outcome);
+			// Invalid sync committee update
+			let invalid_sync_committee_outcome =
+				construct_and_apply_extrinsic(alice, invalid_update_sync_committee_call.into());
+			assert_err!(
+				invalid_sync_committee_outcome,
+				snowbridge_pallet_ethereum_client::Error::<Runtime>::InvalidUpdateSlot
+			);
+			let balance_after_invalid_sync_com_update =
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account.clone().into());
+
+			// Assert paid operations are charged and free operations are free
+			// Checkpoint is a free operation
+			assert!(balance_before == balance_after_checkpoint);
+			let gap =
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::FreeHeadersInterval::get();
+			// Large enough header gap is free
+			if update.finalized_header.slot >= initial_checkpoint.header.slot + gap as u64 {
+				assert!(balance_after_checkpoint == balance_after_update);
+			} else {
+				// Otherwise paid
+				assert!(balance_after_checkpoint > balance_after_update);
+			}
+			// An invalid update is paid
+			assert!(balance_after_update > balance_after_invalid_update);
+			// A successful sync committee update is free
+			assert!(balance_after_invalid_update == balance_after_sync_com_update);
+			// An invalid sync committee update is paid
+			assert!(balance_after_sync_com_update > balance_after_invalid_sync_com_update);
 		});
 }
 
@@ -540,7 +601,6 @@ pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 		.execute_with(|| {
 			let initial_checkpoint = make_checkpoint();
 			let sync_committee_update = make_sync_committee_update();
-			let execution_header_update = make_execution_header_update();
 
 			let alice = Alice;
 			let alice_account = alice.to_account_id();
@@ -561,18 +621,8 @@ pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 				}
 				.into();
 
-			let execution_header_call: <Runtime as pallet_utility::Config>::RuntimeCall =
-				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit_execution_header {
-					update: Box::new(*execution_header_update),
-				}
-				.into();
-
 			let sync_committee_outcome =
 				construct_and_apply_extrinsic(alice, update_sync_committee_call.into());
 			assert_ok!(sync_committee_outcome);
-
-			let execution_header_outcome =
-				construct_and_apply_extrinsic(alice, execution_header_call.into());
-			assert_ok!(execution_header_outcome);
 		});
 }

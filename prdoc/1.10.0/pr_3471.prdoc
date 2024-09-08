@@ -1,0 +1,33 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: removed `pallet::getter` from cumulus pallets
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes all the `pallet::getter` usages from cumulus pallets, and updates depdendant runtimes accordingly.
+      The ParaId can be retrieved using `<ParachainInfo as Get<ParaId>>::get()`.
+      For other storage items, the syntax `StorageItem::<T, I>::get()` should be used instead. 
+
+crates:
+  - name: cumulus-pallet-aura-ext
+  - name: pallet-collator-selection
+  - name: cumulus-pallet-parachain-system
+  - name: staging-parachain-info
+  - name: parachain-template-runtime
+  - name: asset-hub-rococo-runtime
+  - name: asset-hub-westend-runtime
+  - name: bridge-hub-rococo-runtime
+  - name: bridge-hub-westend-runtime
+  - name: collectives-westend-runtime
+  - name: contracts-rococo-runtime
+  - name: coretime-rococo-runtime
+  - name: coretime-westend-runtime  
+  - name: glutton-westend-runtime
+  - name: people-rococo-runtime
+  - name: people-westend-runtime 
+  - name: shell-runtime
+  - name: penpal-runtime
+  - name: rococo-parachain-runtime
+  

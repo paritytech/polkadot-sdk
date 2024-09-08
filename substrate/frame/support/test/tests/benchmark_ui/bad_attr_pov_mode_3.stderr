@@ -1,0 +1,5 @@
+error: expected `=`
+  --> tests/benchmark_ui/bad_attr_pov_mode_3.rs:24:22
+   |
+24 |     #[benchmark(pov_mode)]
+   |                         ^

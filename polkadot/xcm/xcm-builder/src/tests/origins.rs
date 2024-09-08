@@ -80,8 +80,8 @@ fn universal_origin_should_work() {
 fn export_message_should_work() {
 	// Bridge chain (assumed to be Relay) lets Parachain #1 have message execution for free.
 	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
-	// Local parachain #1 issues a transfer asset on Polkadot Relay-chain, transfering 100 Planck to
-	// Polkadot parachain #2.
+	// Local parachain #1 issues a transfer asset on Polkadot Relay-chain, transferring 100 Planck
+	// to Polkadot parachain #2.
 	let expected_message = Xcm(vec![TransferAsset {
 		assets: (Here, 100u128).into(),
 		beneficiary: Parachain(2).into(),

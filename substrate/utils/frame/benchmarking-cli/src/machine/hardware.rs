@@ -51,17 +51,36 @@ mod tests {
 		assert_eq!(
 			*SUBSTRATE_REFERENCE_HARDWARE,
 			Requirements(vec![
-				Requirement { metric: Metric::Blake2256, minimum: Throughput::from_mibs(783.27) },
+				Requirement {
+					metric: Metric::Blake2256,
+					minimum: Throughput::from_mibs(1000.00),
+					validator_only: false
+				},
+				Requirement {
+					metric: Metric::Blake2256Parallel { num_cores: 8 },
+					minimum: Throughput::from_mibs(1000.00),
+					validator_only: true,
+				},
 				Requirement {
 					metric: Metric::Sr25519Verify,
-					minimum: Throughput::from_kibs(560.670000128),
+					minimum: Throughput::from_kibs(637.619999744),
+					validator_only: false
 				},
 				Requirement {
 					metric: Metric::MemCopy,
 					minimum: Throughput::from_gibs(11.4925205078125003),
+					validator_only: false,
 				},
-				Requirement { metric: Metric::DiskSeqWrite, minimum: Throughput::from_mibs(950.0) },
-				Requirement { metric: Metric::DiskRndWrite, minimum: Throughput::from_mibs(420.0) },
+				Requirement {
+					metric: Metric::DiskSeqWrite,
+					minimum: Throughput::from_mibs(950.0),
+					validator_only: false,
+				},
+				Requirement {
+					metric: Metric::DiskRndWrite,
+					minimum: Throughput::from_mibs(420.0),
+					validator_only: false
+				},
 			])
 		);
 	}

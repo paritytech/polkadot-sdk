@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Ignore mandatory extrinsics in total PoV size check
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `CheckWeight` extension is checking that extrinsic length and used storage proof
+      weight together do not exceed the PoV size limit. This lead to problems when
+      the PoV size was already reached before mandatory extrinsics were applied.The `CheckWeight`
+      extension will now allow extrinsics of `DispatchClass::Mandatory` to be applied even if
+      the limit is reached.
+
+crates:
+  - name: frame-system
+    bump: minor
+  - name: polkadot-sdk
+    bump: minor

@@ -121,7 +121,7 @@ impl Inclusions {
 				Entry::Vacant(_) => {
 					// Rare case where same candidate was present on multiple heights, but all are
 					// pruned at the same time. This candidate was already pruned in the previous
-					// occurence so it is skipped now.
+					// occurrence so it is skipped now.
 				},
 				Entry::Occupied(mut e) => {
 					let mut blocks_including = std::mem::take(e.get_mut());

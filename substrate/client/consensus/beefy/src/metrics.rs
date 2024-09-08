@@ -20,7 +20,7 @@
 
 use crate::LOG_TARGET;
 use log::{debug, error};
-use prometheus::{register, Counter, Gauge, PrometheusError, Registry, U64};
+use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, Registry, U64};
 
 /// Helper trait for registering BEEFY metrics to Prometheus registry.
 pub(crate) trait PrometheusRegister<T: Sized = Self>: Sized {
@@ -282,7 +282,7 @@ impl PrometheusRegister for OnDemandOutgoingRequestsMetrics {
 }
 
 pub(crate) fn register_metrics<T: PrometheusRegister>(
-	prometheus_registry: Option<prometheus::Registry>,
+	prometheus_registry: Option<prometheus_endpoint::Registry>,
 ) -> Option<T> {
 	prometheus_registry.as_ref().map(T::register).and_then(|result| match result {
 		Ok(metrics) => {

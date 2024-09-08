@@ -10,13 +10,11 @@
 //!
 //! * [`Call::force_checkpoint`]: Set the initial trusted consensus checkpoint.
 //! * [`Call::set_operating_mode`]: Set the operating mode of the pallet. Can be used to disable
-//!   processing of conensus updates.
+//!   processing of consensus updates.
 //!
 //! ## Consensus Updates
 //!
 //! * [`Call::submit`]: Submit a finalized beacon header with an optional sync committee update
-//! * [`Call::submit_execution_header`]: Submit an execution header together with an ancestry proof
-//!   that can be verified against an already imported finalized beacon header.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod config;
@@ -35,13 +33,15 @@ mod tests;
 mod benchmarking;
 
 use frame_support::{
-	dispatch::DispatchResult, pallet_prelude::OptionQuery, traits::Get, transactional,
+	dispatch::{DispatchResult, PostDispatchInfo},
+	pallet_prelude::OptionQuery,
+	traits::Get,
+	transactional,
 };
 use frame_system::ensure_signed;
-use primitives::{
+use snowbridge_beacon_primitives::{
 	fast_aggregate_verify, verify_merkle_branch, verify_receipt_proof, BeaconHeader, BlsError,
-	CompactBeaconState, CompactExecutionHeader, ExecutionHeaderState, ForkData, ForkVersion,
-	ForkVersions, PublicKeyPrepared, SigningData,
+	CompactBeaconState, ForkData, ForkVersion, ForkVersions, PublicKeyPrepared, SigningData,
 };
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;
@@ -51,11 +51,7 @@ pub use weights::WeightInfo;
 use functions::{
 	compute_epoch, compute_period, decompress_sync_committee_bits, sync_committee_sum,
 };
-pub use types::ExecutionHeaderBuffer;
-use types::{
-	CheckpointUpdate, ExecutionHeaderUpdate, FinalizedBeaconStateBuffer, SyncCommitteePrepared,
-	Update,
-};
+use types::{CheckpointUpdate, FinalizedBeaconStateBuffer, SyncCommitteePrepared, Update};
 
 pub use pallet::*;
 
@@ -76,10 +72,7 @@ pub mod pallet {
 	pub struct MaxFinalizedHeadersToKeep<T: Config>(PhantomData<T>);
 	impl<T: Config> Get<u32> for MaxFinalizedHeadersToKeep<T> {
 		fn get() -> u32 {
-			// Consider max latency allowed between LatestFinalizedState and LatestExecutionState is
-			// the total slots in one sync_committee_period so 1 should be fine we keep 2 periods
-			// here for redundancy.
-			const MAX_REDUNDANCY: u32 = 2;
+			const MAX_REDUNDANCY: u32 = 20;
 			config::EPOCHS_PER_SYNC_COMMITTEE_PERIOD as u32 * MAX_REDUNDANCY
 		}
 	}
@@ -92,9 +85,9 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		#[pallet::constant]
 		type ForkVersions: Get<ForkVersions>;
-		/// Maximum number of execution headers to keep
+		/// Minimum gap between finalized headers for an update to be free.
 		#[pallet::constant]
-		type MaxExecutionHeadersToKeep: Get<u32>;
+		type FreeHeadersInterval: Get<u32>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -104,10 +97,6 @@ pub mod pallet {
 		BeaconHeaderImported {
 			block_hash: H256,
 			slot: u64,
-		},
-		ExecutionHeaderImported {
-			block_hash: H256,
-			block_number: u64,
 		},
 		SyncCommitteeUpdated {
 			period: u64,
@@ -121,6 +110,7 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		SkippedSyncCommitteePeriod,
+		SyncCommitteeUpdateRequired,
 		/// Attested header is older than latest finalized header.
 		IrrelevantUpdate,
 		NotBootstrapped,
@@ -130,6 +120,10 @@ pub mod pallet {
 		InvalidExecutionHeaderProof,
 		InvalidAncestryMerkleProof,
 		InvalidBlockRootsRootMerkleProof,
+		/// The gap between the finalized headers is larger than the sync committee period,
+		/// rendering execution headers unprovable using ancestry proofs (blocks root size is
+		/// the same as the sync committee period slots).
+		InvalidFinalizedHeaderGap,
 		HeaderNotFinalized,
 		BlockBodyHashTreeRootFailed,
 		HeaderHashTreeRootFailed,
@@ -151,60 +145,39 @@ pub mod pallet {
 	/// Latest imported checkpoint root
 	#[pallet::storage]
 	#[pallet::getter(fn initial_checkpoint_root)]
-	pub(super) type InitialCheckpointRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
+	pub type InitialCheckpointRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Latest imported finalized block root
 	#[pallet::storage]
 	#[pallet::getter(fn latest_finalized_block_root)]
-	pub(super) type LatestFinalizedBlockRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
+	pub type LatestFinalizedBlockRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Beacon state by finalized block root
 	#[pallet::storage]
 	#[pallet::getter(fn finalized_beacon_state)]
-	pub(super) type FinalizedBeaconState<T: Config> =
+	pub type FinalizedBeaconState<T: Config> =
 		StorageMap<_, Identity, H256, CompactBeaconState, OptionQuery>;
 
 	/// Finalized Headers: Current position in ring buffer
 	#[pallet::storage]
-	pub(crate) type FinalizedBeaconStateIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type FinalizedBeaconStateIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Finalized Headers: Mapping of ring buffer index to a pruning candidate
 	#[pallet::storage]
-	pub(crate) type FinalizedBeaconStateMapping<T: Config> =
+	pub type FinalizedBeaconStateMapping<T: Config> =
 		StorageMap<_, Identity, u32, H256, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn validators_root)]
-	pub(super) type ValidatorsRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
+	pub type ValidatorsRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Sync committee for current period
 	#[pallet::storage]
-	pub(super) type CurrentSyncCommittee<T: Config> =
-		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
+	pub type CurrentSyncCommittee<T: Config> = StorageValue<_, SyncCommitteePrepared, ValueQuery>;
 
 	/// Sync committee for next period
 	#[pallet::storage]
-	pub(super) type NextSyncCommittee<T: Config> =
-		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
-
-	/// Latest imported execution header
-	#[pallet::storage]
-	#[pallet::getter(fn latest_execution_state)]
-	pub(super) type LatestExecutionState<T: Config> =
-		StorageValue<_, ExecutionHeaderState, ValueQuery>;
-
-	/// Execution Headers
-	#[pallet::storage]
-	pub type ExecutionHeaders<T: Config> =
-		StorageMap<_, Identity, H256, CompactExecutionHeader, OptionQuery>;
-
-	/// Execution Headers: Current position in ring buffer
-	#[pallet::storage]
-	pub type ExecutionHeaderIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
-
-	/// Execution Headers: Mapping of ring buffer index to a pruning candidate
-	#[pallet::storage]
-	pub type ExecutionHeaderMapping<T: Config> = StorageMap<_, Identity, u32, H256, ValueQuery>;
+	pub type NextSyncCommittee<T: Config> = StorageValue<_, SyncCommitteePrepared, ValueQuery>;
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
@@ -237,26 +210,10 @@ pub mod pallet {
 		#[transactional]
 		/// Submits a new finalized beacon header update. The update may contain the next
 		/// sync committee.
-		pub fn submit(origin: OriginFor<T>, update: Box<Update>) -> DispatchResult {
+		pub fn submit(origin: OriginFor<T>, update: Box<Update>) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
-			Self::process_update(&update)?;
-			Ok(())
-		}
-
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::submit_execution_header())]
-		#[transactional]
-		/// Submits a new execution header update. The relevant related beacon header
-		/// is also included to prove the execution header, as well as ancestry proof data.
-		pub fn submit_execution_header(
-			origin: OriginFor<T>,
-			update: Box<ExecutionHeaderUpdate>,
-		) -> DispatchResult {
-			ensure_signed(origin)?;
-			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
-			Self::process_execution_header_update(&update)?;
-			Ok(())
+			Self::process_update(&update)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.
@@ -321,39 +278,16 @@ pub mod pallet {
 			<CurrentSyncCommittee<T>>::set(sync_committee_prepared);
 			<NextSyncCommittee<T>>::kill();
 			InitialCheckpointRoot::<T>::set(header_root);
-			<LatestExecutionState<T>>::kill();
 
 			Self::store_validators_root(update.validators_root);
-			Self::store_finalized_header(header_root, update.header, update.block_roots_root)?;
+			Self::store_finalized_header(update.header, update.block_roots_root)?;
 
 			Ok(())
 		}
 
-		pub(crate) fn process_update(update: &Update) -> DispatchResult {
-			Self::cross_check_execution_state()?;
+		pub(crate) fn process_update(update: &Update) -> DispatchResultWithPostInfo {
 			Self::verify_update(update)?;
-			Self::apply_update(update)?;
-			Ok(())
-		}
-
-		/// Cross check to make sure that execution header import does not fall too far behind
-		/// finalised beacon header import. If that happens just return an error and pause
-		/// processing until execution header processing has caught up.
-		pub(crate) fn cross_check_execution_state() -> DispatchResult {
-			let latest_finalized_state =
-				FinalizedBeaconState::<T>::get(LatestFinalizedBlockRoot::<T>::get())
-					.ok_or(Error::<T>::NotBootstrapped)?;
-			let latest_execution_state = Self::latest_execution_state();
-			// The execution header import should be at least within the slot range of a sync
-			// committee period.
-			let max_latency = config::EPOCHS_PER_SYNC_COMMITTEE_PERIOD * config::SLOTS_PER_EPOCH;
-			ensure!(
-				latest_execution_state.beacon_slot == 0 ||
-					latest_finalized_state.slot <
-						latest_execution_state.beacon_slot + max_latency as u64,
-				Error::<T>::ExecutionHeaderTooFarBehind
-			);
-			Ok(())
+			Self::apply_update(update)
 		}
 
 		/// References and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update>
@@ -389,6 +323,7 @@ pub mod pallet {
 
 			// Verify update is relevant.
 			let update_attested_period = compute_period(update.attested_header.slot);
+			let update_finalized_period = compute_period(update.finalized_header.slot);
 			let update_has_next_sync_committee = !<NextSyncCommittee<T>>::exists() &&
 				(update.next_sync_committee_update.is_some() &&
 					update_attested_period == store_period);
@@ -396,6 +331,17 @@ pub mod pallet {
 				update.attested_header.slot > latest_finalized_state.slot ||
 					update_has_next_sync_committee,
 				Error::<T>::IrrelevantUpdate
+			);
+
+			// Verify the finalized header gap between the current finalized header and new imported
+			// header is not larger than the sync committee period, otherwise we cannot do
+			// ancestry proofs for execution headers in the gap.
+			ensure!(
+				latest_finalized_state
+					.slot
+					.saturating_add(config::SLOTS_PER_HISTORICAL_ROOT as u64) >=
+					update.finalized_header.slot,
+				Error::<T>::InvalidFinalizedHeaderGap
 			);
 
 			// Verify that the `finality_branch`, if present, confirms `finalized_header` to match
@@ -453,6 +399,11 @@ pub mod pallet {
 					),
 					Error::<T>::InvalidSyncCommitteeMerkleProof
 				);
+			} else {
+				ensure!(
+					update_finalized_period == store_period,
+					Error::<T>::SyncCommitteeUpdateRequired
+				);
 			}
 
 			// Verify sync committee aggregate signature.
@@ -485,8 +436,9 @@ pub mod pallet {
 		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 		/// Applies a finalized beacon header update to the beacon client. If a next sync committee
 		/// is present in the update, verify the sync committee by converting it to a
-		/// SyncCommitteePrepared type. Stores the provided finalized header.
-		fn apply_update(update: &Update) -> DispatchResult {
+		/// SyncCommitteePrepared type. Stores the provided finalized header. Updates are free
+		/// if the certain conditions specified in `check_refundable` are met.
+		fn apply_update(update: &Update) -> DispatchResultWithPostInfo {
 			let latest_finalized_state =
 				FinalizedBeaconState::<T>::get(LatestFinalizedBlockRoot::<T>::get())
 					.ok_or(Error::<T>::NotBootstrapped)?;
@@ -518,129 +470,17 @@ pub mod pallet {
 				});
 			};
 
+			let pays_fee = Self::check_refundable(update, latest_finalized_state.slot);
+			let actual_weight = match update.next_sync_committee_update {
+				None => T::WeightInfo::submit(),
+				Some(_) => T::WeightInfo::submit_with_sync_committee(),
+			};
+
 			if update.finalized_header.slot > latest_finalized_state.slot {
-				let finalized_block_root: H256 = update
-					.finalized_header
-					.hash_tree_root()
-					.map_err(|_| Error::<T>::HeaderHashTreeRootFailed)?;
-				Self::store_finalized_header(
-					finalized_block_root,
-					update.finalized_header,
-					update.block_roots_root,
-				)?;
+				Self::store_finalized_header(update.finalized_header, update.block_roots_root)?;
 			}
 
-			Ok(())
-		}
-
-		/// Validates an execution header for import. The beacon header containing the execution
-		/// header is sent, plus the execution header, along with a proof that the execution header
-		/// is rooted in the beacon header body.
-		pub(crate) fn process_execution_header_update(
-			update: &ExecutionHeaderUpdate,
-		) -> DispatchResult {
-			let latest_finalized_state =
-				FinalizedBeaconState::<T>::get(LatestFinalizedBlockRoot::<T>::get())
-					.ok_or(Error::<T>::NotBootstrapped)?;
-			// Checks that the header is an ancestor of a finalized header, using slot number.
-			ensure!(
-				update.header.slot <= latest_finalized_state.slot,
-				Error::<T>::HeaderNotFinalized
-			);
-
-			// Checks that we don't skip execution headers, they need to be imported sequentially.
-			let latest_execution_state: ExecutionHeaderState = Self::latest_execution_state();
-			ensure!(
-				latest_execution_state.block_number == 0 ||
-					update.execution_header.block_number() ==
-						latest_execution_state.block_number + 1,
-				Error::<T>::ExecutionHeaderSkippedBlock
-			);
-
-			// Gets the hash tree root of the execution header, in preparation for the execution
-			// header proof (used to check that the execution header is rooted in the beacon
-			// header body.
-			let execution_header_root: H256 = update
-				.execution_header
-				.hash_tree_root()
-				.map_err(|_| Error::<T>::BlockBodyHashTreeRootFailed)?;
-
-			ensure!(
-				verify_merkle_branch(
-					execution_header_root,
-					&update.execution_branch,
-					config::EXECUTION_HEADER_SUBTREE_INDEX,
-					config::EXECUTION_HEADER_DEPTH,
-					update.header.body_root
-				),
-				Error::<T>::InvalidExecutionHeaderProof
-			);
-
-			let block_root: H256 = update
-				.header
-				.hash_tree_root()
-				.map_err(|_| Error::<T>::HeaderHashTreeRootFailed)?;
-
-			match &update.ancestry_proof {
-				Some(proof) => {
-					Self::verify_ancestry_proof(
-						block_root,
-						update.header.slot,
-						&proof.header_branch,
-						proof.finalized_block_root,
-					)?;
-				},
-				None => {
-					// If the ancestry proof is not provided, we expect this header to be a
-					// finalized header. We need to check that the header hash matches the finalized
-					// header root at the expected slot.
-					let state = <FinalizedBeaconState<T>>::get(block_root)
-						.ok_or(Error::<T>::ExpectedFinalizedHeaderNotStored)?;
-					if update.header.slot != state.slot {
-						return Err(Error::<T>::ExpectedFinalizedHeaderNotStored.into())
-					}
-				},
-			}
-
-			Self::store_execution_header(
-				update.execution_header.block_hash(),
-				update.execution_header.clone().into(),
-				update.header.slot,
-				block_root,
-			);
-
-			Ok(())
-		}
-
-		/// Verify that `block_root` is an ancestor of `finalized_block_root` Used to prove that
-		/// an execution header is an ancestor of a finalized header (i.e. the blocks are
-		/// on the same chain).
-		fn verify_ancestry_proof(
-			block_root: H256,
-			block_slot: u64,
-			block_root_proof: &[H256],
-			finalized_block_root: H256,
-		) -> DispatchResult {
-			let state = <FinalizedBeaconState<T>>::get(finalized_block_root)
-				.ok_or(Error::<T>::ExpectedFinalizedHeaderNotStored)?;
-
-			ensure!(block_slot < state.slot, Error::<T>::HeaderNotFinalized);
-
-			let index_in_array = block_slot % (SLOTS_PER_HISTORICAL_ROOT as u64);
-			let leaf_index = (SLOTS_PER_HISTORICAL_ROOT as u64) + index_in_array;
-
-			ensure!(
-				verify_merkle_branch(
-					block_root,
-					block_root_proof,
-					leaf_index as usize,
-					config::BLOCK_ROOT_AT_INDEX_DEPTH,
-					state.block_roots_root
-				),
-				Error::<T>::InvalidAncestryMerkleProof
-			);
-
-			Ok(())
+			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
 
 		/// Computes the signing root for a given beacon header and domain. The hash tree root
@@ -664,12 +504,14 @@ pub mod pallet {
 		/// Stores a compacted (slot and block roots root (hash of the `block_roots` beacon state
 		/// field, used for ancestry proof)) beacon state in a ring buffer map, with the header root
 		/// as map key.
-		fn store_finalized_header(
-			header_root: H256,
+		pub fn store_finalized_header(
 			header: BeaconHeader,
 			block_roots_root: H256,
 		) -> DispatchResult {
 			let slot = header.slot;
+
+			let header_root: H256 =
+				header.hash_tree_root().map_err(|_| Error::<T>::HeaderHashTreeRootFailed)?;
 
 			<FinalizedBeaconStateBuffer<T>>::insert(
 				header_root,
@@ -687,36 +529,6 @@ pub mod pallet {
 			Self::deposit_event(Event::BeaconHeaderImported { block_hash: header_root, slot });
 
 			Ok(())
-		}
-
-		/// Stores the provided execution header in pallet storage. The header is stored
-		/// in a ring buffer map, with the block hash as map key. The last imported execution
-		/// header is also kept in storage, for the relayer to check import progress.
-		pub fn store_execution_header(
-			block_hash: H256,
-			header: CompactExecutionHeader,
-			beacon_slot: u64,
-			beacon_block_root: H256,
-		) {
-			let block_number = header.block_number;
-
-			<ExecutionHeaderBuffer<T>>::insert(block_hash, header);
-
-			log::trace!(
-				target: LOG_TARGET,
-				"💫 Updated latest execution block at {} to number {}.",
-				block_hash,
-				block_number
-			);
-
-			LatestExecutionState::<T>::mutate(|s| {
-				s.beacon_block_root = beacon_block_root;
-				s.beacon_slot = beacon_slot;
-				s.block_hash = block_hash;
-				s.block_number = block_number;
-			});
-
-			Self::deposit_event(Event::ExecutionHeaderImported { block_hash, block_number });
 		}
 
 		/// Stores the validators root in storage. Validators root is the hash tree root of all the
@@ -833,11 +645,31 @@ pub mod pallet {
 				config::SLOTS_PER_EPOCH as u64,
 			));
 			let domain_type = config::DOMAIN_SYNC_COMMITTEE.to_vec();
-			// Domains are used for for seeds, for signatures, and for selecting aggregators.
+			// Domains are used for seeds, for signatures, and for selecting aggregators.
 			let domain = Self::compute_domain(domain_type, fork_version, validators_root)?;
 			// Hash tree root of SigningData - object root + domain
 			let signing_root = Self::compute_signing_root(header, domain)?;
 			Ok(signing_root)
+		}
+
+		/// Updates are free if the update is successful and the interval between the latest
+		/// finalized header in storage and the newly imported header is large enough. All
+		/// successful sync committee updates are free.
+		pub(super) fn check_refundable(update: &Update, latest_slot: u64) -> Pays {
+			// If the sync committee was successfully updated, the update may be free.
+			if update.next_sync_committee_update.is_some() {
+				return Pays::No;
+			}
+
+			// If the latest finalized header is larger than the minimum slot interval, the header
+			// import transaction is free.
+			if update.finalized_header.slot >=
+				latest_slot.saturating_add(T::FreeHeadersInterval::get() as u64)
+			{
+				return Pays::No;
+			}
+
+			Pays::Yes
 		}
 	}
 }

@@ -6,28 +6,31 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [lints]
 workspace = true
 
 [dependencies]
-smallvec = "1.8.0"
+smallvec = { workspace = true, default-features = true }
 
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-primitives = { package = "polkadot-primitives", path = "../../../primitives", default-features = false }
-runtime-common = { package = "polkadot-runtime-common", path = "../../common", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-sp-weights = { path = "../../../../substrate/primitives/weights", default-features = false }
-sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
+frame-support = { workspace = true }
+polkadot-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
+sp-runtime = { workspace = true }
+sp-weights = { workspace = true }
+sp-core = { workspace = true }
 
-xcm = { package = "staging-xcm", path = "../../../xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../xcm/xcm-builder", default-features = false }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"frame-support/std",
-	"primitives/std",
-	"runtime-common/std",
+	"polkadot-primitives/std",
+	"polkadot-runtime-common/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-weights/std",

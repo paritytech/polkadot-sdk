@@ -30,7 +30,6 @@ struct MetricsInner {
 	aggression_l2_messages_total: prometheus::Counter<prometheus::U64>,
 	time_unify_with_peer: prometheus::Histogram,
 	time_import_pending_now_known: prometheus::Histogram,
-	time_awaiting_approval_voting: prometheus::Histogram,
 	assignments_received_result: prometheus::CounterVec<prometheus::U64>,
 	approvals_received_result: prometheus::CounterVec<prometheus::U64>,
 }
@@ -206,14 +205,6 @@ impl Metrics {
 		}
 	}
 
-	pub(crate) fn time_awaiting_approval_voting(
-		&self,
-	) -> Option<prometheus::prometheus::HistogramTimer> {
-		self.0
-			.as_ref()
-			.map(|metrics| metrics.time_awaiting_approval_voting.start_timer())
-	}
-
 	pub(crate) fn on_aggression_l1(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.aggression_l1_messages_total.inc();
@@ -288,18 +279,11 @@ impl MetricsTrait for Metrics {
 				).buckets(vec![0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768, 4.9152, 6.5536,]))?,
 				registry,
 			)?,
-			time_awaiting_approval_voting: prometheus::register(
-				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
-					"polkadot_parachain_time_awaiting_approval_voting",
-					"Time spent awaiting a reply from the Approval Voting Subsystem.",
-				).buckets(vec![0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768, 4.9152, 6.5536,]))?,
-				registry,
-			)?,
 			assignments_received_result: prometheus::register(
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
 						"polkadot_parachain_assignments_received_result",
-						"Result of a processed assignement",
+						"Result of a processed assignment",
 					),
 					&["status"]
 				)?,

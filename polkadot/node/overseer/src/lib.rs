@@ -71,8 +71,8 @@ use std::{
 
 use futures::{channel::oneshot, future::BoxFuture, select, Future, FutureExt, StreamExt};
 
-use client::{BlockImportNotification, BlockchainEvents, FinalityNotification};
 use polkadot_primitives::{Block, BlockNumber, Hash};
+use sc_client_api::{BlockImportNotification, BlockchainEvents, FinalityNotification};
 
 use self::messages::{BitfieldSigningMessage, PvfCheckerMessage};
 use polkadot_node_subsystem_types::messages::{
@@ -105,10 +105,11 @@ pub use polkadot_node_metrics::{
 
 pub use orchestra as gen;
 pub use orchestra::{
-	contextbounds, orchestra, subsystem, FromOrchestra, MapSubsystem, MessagePacket,
-	OrchestraError as OverseerError, SignalsReceived, Spawner, Subsystem, SubsystemContext,
-	SubsystemIncomingMessages, SubsystemInstance, SubsystemMeterReadouts, SubsystemMeters,
-	SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
+	contextbounds, orchestra, subsystem, FromOrchestra, HighPriority, MapSubsystem, MessagePacket,
+	NormalPriority, OrchestraError as OverseerError, Priority, PriorityLevel, SignalsReceived,
+	Spawner, Subsystem, SubsystemContext, SubsystemIncomingMessages, SubsystemInstance,
+	SubsystemMeterReadouts, SubsystemMeters, SubsystemSender, TimeoutExt, ToOrchestra,
+	TrySendError,
 };
 
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
@@ -465,7 +466,7 @@ pub async fn forward_events<P: BlockchainEvents<Block>>(client: Arc<P>, mut hand
 	message_capacity=2048,
 )]
 pub struct Overseer<SupportsParachains> {
-	#[subsystem(blocking, CandidateValidationMessage, sends: [
+	#[subsystem(CandidateValidationMessage, sends: [
 		RuntimeApiMessage,
 	])]
 	candidate_validation: CandidateValidation,
@@ -495,7 +496,7 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 		ProspectiveParachainsMessage,
 		ChainApiMessage,
-	])]
+	], can_receive_priority_messages)]
 	statement_distribution: StatementDistribution,
 
 	#[subsystem(AvailabilityDistributionMessage, sends: [
@@ -524,7 +525,7 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 		ProvisionerMessage,
-	])]
+	], can_receive_priority_messages)]
 	bitfield_distribution: BitfieldDistribution,
 
 	#[subsystem(ProvisionerMessage, sends: [
@@ -580,7 +581,8 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(blocking, message_capacity: 64000, ApprovalDistributionMessage, sends: [
 		NetworkBridgeTxMessage,
 		ApprovalVotingMessage,
-	])]
+		RuntimeApiMessage,
+	], can_receive_priority_messages)]
 	approval_distribution: ApprovalDistribution,
 
 	#[subsystem(blocking, ApprovalVotingMessage, sends: [
@@ -599,7 +601,7 @@ pub struct Overseer<SupportsParachains> {
 		NetworkBridgeRxMessage, // TODO <https://github.com/paritytech/polkadot/issues/5626>
 		RuntimeApiMessage,
 		ChainSelectionMessage,
-	])]
+	], can_receive_priority_messages)]
 	gossip_support: GossipSupport,
 
 	#[subsystem(blocking, message_capacity: 32000, DisputeCoordinatorMessage, sends: [
@@ -871,7 +873,7 @@ where
 			gum::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
-				"Leaf got activated, notifying exterinal listeners"
+				"Leaf got activated, notifying external listeners"
 			);
 			for listener in listeners {
 				// it's fine if the listener is no longer interested

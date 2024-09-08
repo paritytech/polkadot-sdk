@@ -1,0 +1,12 @@
+title: Collator side changes for elastic scaling
+
+doc:
+  - audience: Node Dev
+    description: |
+      Parachain teams wishing to utilize the benefits of
+      elastic scaling will need to upgrade their collator
+      code to include these changes.
+
+crates:
+- name: polkadot-collator-protocol
+  bump: minor

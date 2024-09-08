@@ -20,6 +20,7 @@
 //! and specific syncing algorithms.
 
 pub mod chain_sync;
+mod disconnected_peers;
 mod state;
 pub mod state_sync;
 pub mod warp;
@@ -29,7 +30,6 @@ use crate::{
 	LOG_TARGET,
 };
 use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
-use libp2p::PeerId;
 use log::{debug, error, info};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
@@ -38,6 +38,7 @@ use sc_network_common::sync::{
 	message::{BlockAnnounce, BlockData, BlockRequest},
 	SyncMode,
 };
+use sc_network_types::PeerId;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
@@ -159,7 +160,7 @@ impl<B: BlockT> From<ChainSyncAction<B>> for SyncingAction<B> {
 
 /// Proxy to specific syncing strategies.
 pub struct SyncingStrategy<B: BlockT, Client> {
-	/// Syncing configuration.
+	/// Initial syncing configuration.
 	config: SyncingConfig,
 	/// Client used by syncing strategies.
 	client: Arc<Client>,
@@ -185,7 +186,7 @@ where
 		+ Sync
 		+ 'static,
 {
-	/// Initialize a new syncing startegy.
+	/// Initialize a new syncing strategy.
 	pub fn new(
 		config: SyncingConfig,
 		client: Arc<Client>,
@@ -209,7 +210,7 @@ where
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
-				config.metrics_registry.clone(),
+				config.metrics_registry.as_ref(),
 				std::iter::empty(),
 			)?;
 			Ok(Self {
@@ -418,7 +419,7 @@ where
 			self.state.is_some() ||
 			match self.chain_sync {
 				Some(ref s) => s.status().state.is_major_syncing(),
-				None => unreachable!("At least one syncing startegy is active; qed"),
+				None => unreachable!("At least one syncing strategy is active; qed"),
 			}
 	}
 
@@ -429,7 +430,7 @@ where
 
 	/// Returns the current sync status.
 	pub fn status(&self) -> SyncStatus<B> {
-		// This function presumes that startegies are executed serially and must be refactored
+		// This function presumes that strategies are executed serially and must be refactored
 		// once we have parallel strategies.
 		if let Some(ref warp) = self.warp {
 			warp.status()
@@ -438,7 +439,7 @@ where
 		} else if let Some(ref chain_sync) = self.chain_sync {
 			chain_sync.status()
 		} else {
-			unreachable!("At least one syncing startegy is always active; qed")
+			unreachable!("At least one syncing strategy is always active; qed")
 		}
 	}
 
@@ -452,34 +453,6 @@ where
 	/// Get an estimate of the number of parallel sync requests.
 	pub fn num_sync_requests(&self) -> usize {
 		self.chain_sync.as_ref().map_or(0, |chain_sync| chain_sync.num_sync_requests())
-	}
-
-	/// Report Prometheus metrics
-	pub fn report_metrics(&self) {
-		if let Some(ref chain_sync) = self.chain_sync {
-			chain_sync.report_metrics();
-		}
-	}
-
-	/// Let `WarpSync` know about target block header
-	pub fn set_warp_sync_target_block_header(
-		&mut self,
-		target_header: B::Header,
-	) -> Result<(), ()> {
-		match self.warp {
-			Some(ref mut warp) => {
-				warp.set_target_block(target_header);
-				Ok(())
-			},
-			None => {
-				error!(
-					target: LOG_TARGET,
-					"Cannot set warp sync target block: no warp sync strategy is active."
-				);
-				debug_assert!(false);
-				Err(())
-			},
-		}
 	}
 
 	/// Get actions that should be performed by the owner on the strategy's behalf
@@ -506,7 +479,7 @@ where
 
 	/// Proceed with the next strategy if the active one finished.
 	pub fn proceed_to_next(&mut self) -> Result<(), ClientError> {
-		// The strategies are switched as `WarpSync` -> `StateStartegy` -> `ChainSync`.
+		// The strategies are switched as `WarpSync` -> `StateStrategy` -> `ChainSync`.
 		if let Some(ref mut warp) = self.warp {
 			match warp.take_result() {
 				Some(res) => {
@@ -539,7 +512,7 @@ where
 						self.client.clone(),
 						self.config.max_parallel_downloads,
 						self.config.max_blocks_per_request,
-						self.config.metrics_registry.clone(),
+						self.config.metrics_registry.as_ref(),
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(*peer_id, *best_hash, *best_number)
 						}),
@@ -557,7 +530,7 @@ where
 				},
 			}
 		} else if let Some(state) = &self.state {
-			if state.is_succeded() {
+			if state.is_succeeded() {
 				info!(target: LOG_TARGET, "State sync is complete, continuing with block sync.");
 			} else {
 				error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");
@@ -567,7 +540,7 @@ where
 				self.client.clone(),
 				self.config.max_parallel_downloads,
 				self.config.max_blocks_per_request,
-				self.config.metrics_registry.clone(),
+				self.config.metrics_registry.as_ref(),
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(*peer_id, *best_hash, *best_number)
 				}),

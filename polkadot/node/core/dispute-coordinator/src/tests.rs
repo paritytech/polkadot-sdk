@@ -51,7 +51,6 @@ use sp_core::{sr25519::Pair, testing::TaskExecutor, Pair as PairT};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 
-use ::test_helpers::{dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash};
 use polkadot_node_primitives::{Timestamp, ACTIVE_DURATION_SECS};
 use polkadot_node_subsystem::{
 	messages::{AllMessages, BlockDescription, RuntimeApiMessage, RuntimeApiRequest},
@@ -61,12 +60,13 @@ use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	vstaging::NodeFeatures, ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash,
-	HeadData, Header, IndexedVec, MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex,
+	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash, HeadData,
+	Header, IndexedVec, MultiDisputeStatementSet, NodeFeatures, ScrapedOnChainVotes, SessionIndex,
 	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
+use polkadot_primitives_test_helpers::{dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash};
 
 use crate::{
 	backend::Backend,
@@ -2226,7 +2226,7 @@ fn resume_dispute_without_local_statement() {
 			test_state
 		})
 	})
-	// Alice should send a DisputeParticiationMessage::Participate on restart since she has no
+	// Alice should send a DisputeParticipationMessage::Participate on restart since she has no
 	// local statement for the active dispute.
 	.resume(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
@@ -2390,7 +2390,7 @@ fn resume_dispute_with_local_statement() {
 			test_state
 		})
 	})
-	// Alice should not send a DisputeParticiationMessage::Participate on restart since she has a
+	// Alice should not send a DisputeParticipationMessage::Participate on restart since she has a
 	// local statement for the active dispute, instead she should try to (re-)send her vote.
 	.resume(|mut test_state, mut virtual_overseer| {
 		let candidate_receipt = make_valid_candidate_receipt();
@@ -2495,7 +2495,7 @@ fn resume_dispute_without_local_statement_or_local_key() {
 				test_state
 			})
 		})
-		// Two should not send a DisputeParticiationMessage::Participate on restart since she is no
+		// Two should not send a DisputeParticipationMessage::Participate on restart since she is no
 		// validator in that dispute.
 		.resume(|mut test_state, mut virtual_overseer| {
 			Box::pin(async move {

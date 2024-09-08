@@ -22,6 +22,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{self, AccountInfo, EventRecord, Phase};
+use polkadot_sdk::*;
 use sp_core::{storage::well_known_keys, traits::Externalities};
 use sp_runtime::{
 	traits::Hash as HashT, transaction_validity::InvalidTransaction, ApplyExtrinsicResult,
@@ -34,6 +35,7 @@ use kitchensink_runtime::{
 };
 use node_primitives::{Balance, Hash};
 use node_testing::keyring::*;
+use pretty_assertions::assert_eq;
 use wat;
 
 pub mod common;
@@ -381,6 +383,13 @@ fn full_native_block_import_works() {
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
+				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
+					amount: fees * 2 / 10,
+				}),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::TransactionPayment(
 					pallet_transaction_payment::Event::TransactionFeePaid {
 						who: alice().into(),
@@ -466,6 +475,13 @@ fn full_native_block_import_works() {
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
+				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
+					amount: fees - fees * 8 / 10,
+				}),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::TransactionPayment(
 					pallet_transaction_payment::Event::TransactionFeePaid {
 						who: bob().into(),
@@ -511,6 +527,13 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
 					value: fees * 8 / 10,
+				}),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(2),
+				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
+					amount: fees - fees * 8 / 10,
 				}),
 				topics: vec![],
 			},
@@ -827,7 +850,7 @@ fn should_import_block_with_test_client() {
 		sp_consensus::BlockOrigin, ClientBlockImportExt, TestClientBuilder, TestClientBuilderExt,
 	};
 
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 	let block1 = changes_trie_block();
 	let block_data = block1.0;
 	let block = node_primitives::Block::decode(&mut &block_data[..]).unwrap();
@@ -838,10 +861,16 @@ fn should_import_block_with_test_client() {
 #[test]
 fn default_config_as_json_works() {
 	let mut t = new_test_ext(compact_code_unwrap());
-	let r = executor_call(&mut t, "GenesisBuilder_create_default_config", &vec![])
-		.0
-		.unwrap();
-	let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
+	let r = executor_call(
+		&mut t,
+		"GenesisBuilder_get_preset",
+		&None::<&sp_genesis_builder::PresetId>.encode(),
+	)
+	.0
+	.unwrap();
+	let r = Option::<Vec<u8>>::decode(&mut &r[..])
+		.unwrap()
+		.expect("default config is there");
 	let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 	let expected = include_str!("res/default_genesis_config.json").to_string();
 

@@ -102,7 +102,10 @@ impl<'a> DummyCrate<'a> {
 			"#,
 		);
 
-		write_file_if_changed(project_dir.join("src/main.rs"), "fn main() {}");
+		write_file_if_changed(
+			project_dir.join("src/main.rs"),
+			"#![allow(missing_docs)] fn main() {}",
+		);
 		DummyCrate { cargo_command, temp, manifest_path, target }
 	}
 
@@ -149,6 +152,14 @@ impl<'a> DummyCrate<'a> {
 		sysroot_cmd.output().ok().and_then(|o| String::from_utf8(o.stdout).ok())
 	}
 
+	fn get_toolchain(&self) -> Option<String> {
+		let sysroot = self.get_sysroot()?;
+		Path::new(sysroot.trim())
+			.file_name()
+			.and_then(|s| s.to_str())
+			.map(|s| s.to_string())
+	}
+
 	fn try_build(&self) -> Result<(), Option<String>> {
 		let Ok(result) = self.prepare_command("build").output() else { return Err(None) };
 		if !result.status.success() {
@@ -164,14 +175,15 @@ fn check_wasm_toolchain_installed(
 	let dummy_crate = DummyCrate::new(&cargo_command, RuntimeTarget::Wasm);
 
 	if let Err(error) = dummy_crate.try_build() {
+		let toolchain = dummy_crate.get_toolchain().unwrap_or("<unknown>".to_string());
 		let basic_error_message = colorize_error_message(
-			"Rust WASM toolchain is not properly installed; please install it!",
+			&format!("Rust WASM target for toolchain {toolchain} is not properly installed; please install it!")
 		);
 		return match error {
 			None => Err(basic_error_message),
 			Some(error) if error.contains("the `wasm32-unknown-unknown` target may not be installed") => {
-				Err(colorize_error_message("Cannot compile the WASM runtime: the `wasm32-unknown-unknown` target is not installed!\n\
-				                         You can install it with `rustup target add wasm32-unknown-unknown` if you're using `rustup`."))
+				Err(colorize_error_message(&format!("Cannot compile the WASM runtime: the `wasm32-unknown-unknown` target is not installed!\n\
+				                         You can install it with `rustup target add wasm32-unknown-unknown --toolchain {toolchain}` if you're using `rustup`.")))
 			},
 			// Apparently this can happen when we're running on a non Tier 1 platform.
 			Some(ref error) if error.contains("linker `rust-lld` not found") =>
@@ -193,9 +205,10 @@ fn check_wasm_toolchain_installed(
 			let src_path =
 				Path::new(sysroot.trim()).join("lib").join("rustlib").join("src").join("rust");
 			if !src_path.exists() {
+				let toolchain = dummy_crate.get_toolchain().unwrap_or("<toolchain>".to_string());
 				return Err(colorize_error_message(
-					"Cannot compile the WASM runtime: no standard library sources found!\n\
-					 You can install them with `rustup component add rust-src` if you're using `rustup`.",
+					&format!("Cannot compile the WASM runtime: no standard library sources found at {}!\n\
+					 You can install them with `rustup component add rust-src --toolchain {toolchain}` if you're using `rustup`.", src_path.display()),
 				))
 			}
 		}

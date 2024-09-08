@@ -28,9 +28,6 @@ mod envelope;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_beacon_primitives::CompactExecutionHeader;
-
 pub mod weights;
 
 #[cfg(test)]
@@ -44,7 +41,7 @@ use envelope::Envelope;
 use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::Preservation,
+		tokens::{Fortitude, Preservation},
 	},
 	weights::WeightToFee,
 	PalletError,
@@ -52,7 +49,8 @@ use frame_support::{
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
-use sp_std::{convert::TryFrom, vec};
+use sp_runtime::traits::Zero;
+use sp_std::vec;
 use xcm::prelude::{
 	send_xcm, Instruction::SetTopic, Junction::*, Location, SendError as XcmpSendError, SendXcm,
 	Xcm, XcmContext, XcmHash,
@@ -71,6 +69,9 @@ use snowbridge_router_primitives::{
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
 pub use weights::WeightInfo;
+
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_beacon_primitives::BeaconHeader;
 
 type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -91,7 +92,7 @@ pub mod pallet {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<T> {
-		fn initialize_storage(block_hash: H256, header: CompactExecutionHeader);
+		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
 	}
 
 	#[pallet::config]
@@ -261,11 +262,19 @@ pub mod pallet {
 				}
 			})?;
 
-			// Reward relayer from the sovereign account of the destination parachain
-			// Expected to fail if sovereign account has no funds
+			// Reward relayer from the sovereign account of the destination parachain, only if funds
+			// are available
 			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
 			let delivery_cost = Self::calculate_delivery_cost(message.encode().len() as u32);
-			T::Token::transfer(&sovereign_account, &who, delivery_cost, Preservation::Preserve)?;
+			let amount = T::Token::reducible_balance(
+				&sovereign_account,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			)
+			.min(delivery_cost);
+			if !amount.is_zero() {
+				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
+			}
 
 			// Decode message into XCM
 			let (xcm, fee) =

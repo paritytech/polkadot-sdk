@@ -284,9 +284,9 @@ where
 }
 
 /// The signature payload of a `TestXt`.
-type TxSingaturePayload<Extra> = (u64, Extra);
+type TxSignaturePayload<Extra> = (u64, Extra);
 
-impl<Extra: TypeInfo> SignaturePayload for TxSingaturePayload<Extra> {
+impl<Extra: TypeInfo> SignaturePayload for TxSignaturePayload<Extra> {
 	type SignatureAddress = u64;
 	type Signature = ();
 	type SignatureExtra = Extra;
@@ -299,7 +299,7 @@ impl<Extra: TypeInfo> SignaturePayload for TxSingaturePayload<Extra> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
 pub struct TestXt<Call, Extra> {
 	/// Signature of the extrinsic.
-	pub signature: Option<TxSingaturePayload<Extra>>,
+	pub signature: Option<TxSignaturePayload<Extra>>,
 	/// Call of the extrinsic.
 	pub call: Call,
 }
@@ -348,7 +348,7 @@ impl<Call: Codec + Sync + Send + TypeInfo, Extra: TypeInfo> traits::Extrinsic
 	for TestXt<Call, Extra>
 {
 	type Call = Call;
-	type SignaturePayload = TxSingaturePayload<Extra>;
+	type SignaturePayload = TxSignaturePayload<Extra>;
 
 	fn is_signed(&self) -> Option<bool> {
 		Some(self.signature.is_some())

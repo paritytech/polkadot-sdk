@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Avoid using `para_backing_state` if runtime doesn't support async backing
+
+doc:
+  - audience: Node Operator
+    description: |
+      Fixes https://github.com/paritytech/polkadot-sdk/issues/4067 which prevents collators to 
+      upgrade to latest release (v1.10.0)
+
+crates: [ ]

@@ -122,7 +122,7 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 
 use frame_support::traits::{
-	dynamic_params::{AggregratedKeyValue, IntoKey, Key, RuntimeParameterStore, TryIntoKey},
+	dynamic_params::{AggregatedKeyValue, IntoKey, Key, RuntimeParameterStore, TryIntoKey},
 	EnsureOriginWithArg,
 };
 
@@ -135,10 +135,10 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 /// The key type of a parameter.
-type KeyOf<T> = <<T as Config>::RuntimeParameters as AggregratedKeyValue>::Key;
+type KeyOf<T> = <<T as Config>::RuntimeParameters as AggregatedKeyValue>::Key;
 
 /// The value type of a parameter.
-type ValueOf<T> = <<T as Config>::RuntimeParameters as AggregratedKeyValue>::Value;
+type ValueOf<T> = <<T as Config>::RuntimeParameters as AggregatedKeyValue>::Value;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -154,7 +154,7 @@ pub mod pallet {
 		///
 		/// Usually created by [`frame_support::dynamic_params`] or equivalent.
 		#[pallet::no_default_bounds]
-		type RuntimeParameters: AggregratedKeyValue;
+		type RuntimeParameters: AggregatedKeyValue;
 
 		/// The origin which may update a parameter.
 		///
@@ -175,11 +175,11 @@ pub mod pallet {
 		/// Is also emitted when the value was not changed.
 		Updated {
 			/// The key that was updated.
-			key: <T::RuntimeParameters as AggregratedKeyValue>::Key,
+			key: <T::RuntimeParameters as AggregatedKeyValue>::Key,
 			/// The old value before this call.
-			old_value: Option<<T::RuntimeParameters as AggregratedKeyValue>::Value>,
+			old_value: Option<<T::RuntimeParameters as AggregatedKeyValue>::Value>,
 			/// The new value after this call.
-			new_value: Option<<T::RuntimeParameters as AggregratedKeyValue>::Value>,
+			new_value: Option<<T::RuntimeParameters as AggregatedKeyValue>::Value>,
 		},
 	}
 
@@ -225,7 +225,7 @@ pub mod pallet {
 		/// A configuration for testing.
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -245,23 +245,23 @@ pub mod pallet {
 }
 
 impl<T: Config> RuntimeParameterStore for Pallet<T> {
-	type AggregratedKeyValue = T::RuntimeParameters;
+	type AggregatedKeyValue = T::RuntimeParameters;
 
 	fn get<KV, K>(key: K) -> Option<K::Value>
 	where
-		KV: AggregratedKeyValue,
-		K: Key + Into<<KV as AggregratedKeyValue>::Key>,
-		<KV as AggregratedKeyValue>::Key: IntoKey<
-			<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::Key,
+		KV: AggregatedKeyValue,
+		K: Key + Into<<KV as AggregatedKeyValue>::Key>,
+		<KV as AggregatedKeyValue>::Key: IntoKey<
+			<<Self as RuntimeParameterStore>::AggregatedKeyValue as AggregatedKeyValue>::Key,
 		>,
-		<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::Value:
-			TryIntoKey<<KV as AggregratedKeyValue>::Value>,
-		<KV as AggregratedKeyValue>::Value: TryInto<K::WrappedValue>,
+		<<Self as RuntimeParameterStore>::AggregatedKeyValue as AggregatedKeyValue>::Value:
+			TryIntoKey<<KV as AggregatedKeyValue>::Value>,
+		<KV as AggregatedKeyValue>::Value: TryInto<K::WrappedValue>,
 	{
-		let key: <KV as AggregratedKeyValue>::Key = key.into();
+		let key: <KV as AggregatedKeyValue>::Key = key.into();
 		let val = Parameters::<T>::get(key.into_key());
 		val.and_then(|v| {
-			let val: <KV as AggregratedKeyValue>::Value = v.try_into_key().ok()?;
+			let val: <KV as AggregatedKeyValue>::Value = v.try_into_key().ok()?;
 			let val: K::WrappedValue = val.try_into().ok()?;
 			let val = val.into();
 			Some(val)

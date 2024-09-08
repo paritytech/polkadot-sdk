@@ -3,7 +3,7 @@
 //! Helper types to work with Ethereum's Merkle Patricia Trie nodes
 
 use ethereum_types::H256;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 pub trait Node {
 	fn contains_hash(&self, hash: H256) -> bool;

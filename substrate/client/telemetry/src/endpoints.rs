@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use libp2p::Multiaddr;
+use libp2p::multiaddr::{self, Multiaddr};
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// List of telemetry servers we want to talk to. Contains the URL of the server, and the
@@ -41,8 +41,8 @@ where
 
 impl TelemetryEndpoints {
 	/// Create a `TelemetryEndpoints` based on a list of `(String, u8)`.
-	pub fn new(endpoints: Vec<(String, u8)>) -> Result<Self, libp2p::multiaddr::Error> {
-		let endpoints: Result<Vec<(Multiaddr, u8)>, libp2p::multiaddr::Error> =
+	pub fn new(endpoints: Vec<(String, u8)>) -> Result<Self, multiaddr::Error> {
+		let endpoints: Result<Vec<(Multiaddr, u8)>, multiaddr::Error> =
 			endpoints.iter().map(|e| Ok((url_to_multiaddr(&e.0)?, e.1))).collect();
 		endpoints.map(Self)
 	}
@@ -56,7 +56,7 @@ impl TelemetryEndpoints {
 }
 
 /// Parses a WebSocket URL into a libp2p `Multiaddr`.
-fn url_to_multiaddr(url: &str) -> Result<Multiaddr, libp2p::multiaddr::Error> {
+fn url_to_multiaddr(url: &str) -> Result<Multiaddr, multiaddr::Error> {
 	// First, assume that we have a `Multiaddr`.
 	let parse_error = match url.parse() {
 		Ok(ma) => return Ok(ma),
@@ -64,7 +64,7 @@ fn url_to_multiaddr(url: &str) -> Result<Multiaddr, libp2p::multiaddr::Error> {
 	};
 
 	// If not, try the `ws://path/url` format.
-	if let Ok(ma) = libp2p::multiaddr::from_url(url) {
+	if let Ok(ma) = multiaddr::from_url(url) {
 		return Ok(ma)
 	}
 
@@ -75,8 +75,7 @@ fn url_to_multiaddr(url: &str) -> Result<Multiaddr, libp2p::multiaddr::Error> {
 
 #[cfg(test)]
 mod tests {
-	use super::{url_to_multiaddr, TelemetryEndpoints};
-	use libp2p::Multiaddr;
+	use super::{url_to_multiaddr, Multiaddr, TelemetryEndpoints};
 
 	#[test]
 	fn valid_endpoints() {

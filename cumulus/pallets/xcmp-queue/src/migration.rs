@@ -16,16 +16,19 @@
 
 //! A module that is responsible for migration of storage.
 
+pub mod v5;
+
 use crate::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE};
+use alloc::vec::Vec;
 use cumulus_primitives_core::XcmpMessageFormat;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{EnqueueMessage, OnRuntimeUpgrade, StorageVersion},
+	traits::{EnqueueMessage, StorageVersion, UncheckedOnRuntimeUpgrade},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 
-/// The current storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+/// The in-code storage version.
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 pub const LOG: &str = "runtime::xcmp-queue-migration";
 
@@ -96,7 +99,7 @@ pub mod v2 {
 	/// 2D weights).
 	pub struct UncheckedMigrationToV2<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV2<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		#[allow(deprecated)]
 		fn on_runtime_upgrade() -> Weight {
 			let translate = |pre: v1::QueueConfigData| -> v2::QueueConfigData {
@@ -187,7 +190,7 @@ pub mod v3 {
 	/// Migrates the pallet storage to v3.
 	pub struct UncheckedMigrationToV3<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV3<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV3<T> {
 		fn on_runtime_upgrade() -> Weight {
 			#[frame_support::storage_alias]
 			type Overweight<T: Config> =
@@ -266,7 +269,7 @@ pub mod v4 {
 	/// thresholds to at least the default values.
 	pub struct UncheckedMigrationToV4<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV4<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV4<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
 				let pre_default = v2::QueueConfigData::default();
@@ -315,6 +318,7 @@ pub mod v4 {
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
+	use frame_support::traits::OnRuntimeUpgrade;
 
 	#[test]
 	#[allow(deprecated)]
