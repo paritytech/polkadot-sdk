@@ -19,7 +19,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_messages::LaneId;
+use bp_messages::LaneIdType;
 use bp_runtime::{AccountIdOf, BalanceOf, Chain};
 pub use call_info::XcmBridgeHubCall;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -155,7 +155,7 @@ pub enum BridgeState {
 	CloneNoBound, Decode, Encode, Eq, PartialEqNoBound, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound,
 )]
 #[scale_info(skip_type_params(ThisChain))]
-pub struct Bridge<ThisChain: Chain> {
+pub struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
 	/// Relative location of the bridge origin chain. This is expected to be **convertible** to the
 	/// `latest` XCM, so the check and migration needs to be ensured.
 	pub bridge_origin_relative_location: Box<VersionedLocation>,
@@ -323,7 +323,7 @@ impl BridgeLocations {
 	/// Generates the exact same `LaneId` on the both bridge hubs.
 	///
 	/// Note: Use this **only** when opening a new bridge.
-	pub fn calculate_lane_id(
+	pub fn calculate_lane_id<LaneId: LaneIdType>(
 		&self,
 		xcm_version: XcmVersion,
 	) -> Result<LaneId, BridgeLocationsError> {
@@ -595,6 +595,8 @@ mod tests {
 
 	#[test]
 	fn calculate_lane_id_works() {
+		type TestLaneId = bp_messages::HashedLaneId;
+
 		let from_local_to_remote = run_successful_test(SuccessfulTest {
 			here_universal_location: [GlobalConsensus(LOCAL_NETWORK), Parachain(LOCAL_BRIDGE_HUB)]
 				.into(),
@@ -636,12 +638,12 @@ mod tests {
 		});
 
 		assert_ne!(
-			from_local_to_remote.calculate_lane_id(xcm::latest::VERSION),
-			from_remote_to_local.calculate_lane_id(xcm::latest::VERSION - 1),
+			from_local_to_remote.calculate_lane_id::<TestLaneId>(xcm::latest::VERSION),
+			from_remote_to_local.calculate_lane_id::<TestLaneId>(xcm::latest::VERSION - 1),
 		);
 		assert_eq!(
-			from_local_to_remote.calculate_lane_id(xcm::latest::VERSION),
-			from_remote_to_local.calculate_lane_id(xcm::latest::VERSION),
+			from_local_to_remote.calculate_lane_id::<TestLaneId>(xcm::latest::VERSION),
+			from_remote_to_local.calculate_lane_id::<TestLaneId>(xcm::latest::VERSION),
 		);
 	}
 

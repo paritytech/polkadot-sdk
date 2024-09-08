@@ -26,7 +26,7 @@ use crate::{
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, DeliveredMessages,
-	InboundLaneData, LaneId, LaneState, MessageNonce, OutboundLaneData, UnrewardedRelayer,
+	InboundLaneData, LaneIdType, LaneState, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 	UnrewardedRelayersState,
 };
 use bp_runtime::{AccountIdOf, HashOf, UnverifiedStorageProofParams};
@@ -44,7 +44,7 @@ pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);
 
 /// Benchmark-specific message proof parameters.
 #[derive(Debug)]
-pub struct MessageProofParams {
+pub struct MessageProofParams<LaneId> {
 	/// Id of the lane.
 	pub lane: LaneId,
 	/// Range of messages to include in the proof.
@@ -62,7 +62,7 @@ pub struct MessageProofParams {
 
 /// Benchmark-specific message delivery proof parameters.
 #[derive(Debug)]
-pub struct MessageDeliveryProofParams<ThisChainAccountId> {
+pub struct MessageDeliveryProofParams<ThisChainAccountId, LaneId> {
 	/// Id of the lane.
 	pub lane: LaneId,
 	/// The proof needs to include this inbound lane data.
@@ -74,8 +74,8 @@ pub struct MessageDeliveryProofParams<ThisChainAccountId> {
 /// Trait that must be implemented by runtime.
 pub trait Config<I: 'static>: crate::Config<I> {
 	/// Lane id to use in benchmarks.
-	fn bench_lane_id() -> LaneId {
-		LaneId::new(1, 2)
+	fn bench_lane_id() -> Self::LaneId {
+		Self::LaneId::new(1, 2)
 	}
 
 	/// Return id of relayer account at the bridged chain.
@@ -94,12 +94,12 @@ pub trait Config<I: 'static>: crate::Config<I> {
 
 	/// Prepare messages proof to receive by the module.
 	fn prepare_message_proof(
-		params: MessageProofParams,
-	) -> (FromBridgedChainMessagesProof<HashOf<BridgedChainOf<Self, I>>>, Weight);
+		params: MessageProofParams<Self::LaneId>,
+	) -> (FromBridgedChainMessagesProof<HashOf<BridgedChainOf<Self, I>>, Self::LaneId>, Weight);
 	/// Prepare messages delivery proof to receive by the module.
 	fn prepare_message_delivery_proof(
-		params: MessageDeliveryProofParams<Self::AccountId>,
-	) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<Self, I>>>;
+		params: MessageDeliveryProofParams<Self::AccountId, Self::LaneId>,
+	) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<Self, I>>, Self::LaneId>;
 
 	/// Returns true if message has been successfully dispatched or not.
 	fn is_message_successfully_dispatched(_nonce: MessageNonce) -> bool {
