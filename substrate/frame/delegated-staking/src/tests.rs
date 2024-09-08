@@ -676,7 +676,7 @@ mod staking_integration {
 			// in equal parts. lets try to migrate this nominator into delegate based stake.
 
 			// all balance currently is in 200
-			assert_eq!(pallet_staking::asset::stakeable_balance::<T>(&agent), agent_amount);
+			assert_eq!(pallet_staking::asset::total_balance::<T>(&agent), agent_amount);
 
 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
 			// will be moved and delegated back to this old nominator account. This should be funded

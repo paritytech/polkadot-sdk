@@ -53,7 +53,7 @@ fn register_insufficient_funds_fails() {
 		// Controller account registers for fast unstake.
 		assert_noop!(
 			FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)),
-			BalancesError::<T, _>::InsufficientBalance,
+			Error::<T>::DepositFailed,
 		);
 
 		// Ensure stash is in the queue.
@@ -785,6 +785,7 @@ mod on_idle {
 	#[test]
 	fn validators_cannot_bail() {
 		ExtBuilder::default().build_and_execute(|| {
+			use frame_support::traits::fungible::Mutate;
 			ErasToCheckPerBlock::<T>::put(BondingDuration::get() + 1);
 			CurrentEra::<T>::put(BondingDuration::get());
 
@@ -793,6 +794,10 @@ mod on_idle {
 				RuntimeOrigin::signed(VALIDATOR_PREFIX),
 				vec![VALIDATOR_PREFIX]
 			));
+			assert_noop!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(VALIDATOR_PREFIX)), Error::<T>::DepositFailed);
+			// ensure validator has enough funds for deposit after accounting for ED.
+			let _ = Balances::mint_into(&VALIDATOR_PREFIX, ExistentialDeposit::get());
+			// ... and then register for fast unstake.
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(VALIDATOR_PREFIX)));
 
 			// but they indeed are exposed!
