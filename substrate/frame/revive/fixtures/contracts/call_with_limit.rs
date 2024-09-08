@@ -43,8 +43,8 @@ pub extern "C" fn call() {
 		callee_addr,
 		ref_time,
 		proof_size,
-		None,                // No deposit limit.
-		&0u64.to_le_bytes(), // value transferred to the contract.
+		None,       // No deposit limit.
+		&[0u8; 32], // value transferred to the contract.
 		forwarded_input,
 		None,
 	)
