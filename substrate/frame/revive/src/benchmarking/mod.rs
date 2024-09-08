@@ -25,7 +25,6 @@ use self::{call_builder::CallSetup, code::WasmModule};
 use crate::{
 	exec::{Key, MomentOf},
 	limits,
-	migration::codegen::LATEST_MIGRATION_VERSION,
 	storage::WriteOutcome,
 	Pallet as Contracts, *,
 };
@@ -34,7 +33,6 @@ use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
-	pallet_prelude::StorageVersion,
 	storage::child,
 	traits::{fungible::InspectHold, Currency},
 	weights::{Weight, WeightMeter},
@@ -254,73 +252,6 @@ mod benchmarks {
 		}
 
 		Ok(())
-	}
-
-	// This benchmarks the weight of executing Migration::migrate to execute a noop migration.
-	#[benchmark(pov_mode = Measured)]
-	fn migration_noop() {
-		let version = LATEST_MIGRATION_VERSION;
-		StorageVersion::new(version).put::<Pallet<T>>();
-		#[block]
-		{
-			Migration::<T>::migrate(&mut WeightMeter::new());
-		}
-		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
-	}
-
-	// This benchmarks the weight of dispatching migrate to execute 1 `NoopMigration`
-	#[benchmark(pov_mode = Measured)]
-	fn migrate() {
-		let latest_version = LATEST_MIGRATION_VERSION;
-		StorageVersion::new(latest_version - 2).put::<Pallet<T>>();
-		<Migration<T, false> as frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade();
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(whitelisted_caller()), Weight::MAX);
-
-		assert_eq!(StorageVersion::get::<Pallet<T>>(), latest_version - 1);
-	}
-
-	// This benchmarks the weight of running on_runtime_upgrade when there are no migration in
-	// progress.
-	#[benchmark(pov_mode = Measured)]
-	fn on_runtime_upgrade_noop() {
-		let latest_version = LATEST_MIGRATION_VERSION;
-		StorageVersion::new(latest_version).put::<Pallet<T>>();
-		#[block]
-		{
-			<Migration<T, false> as frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade();
-		}
-		assert!(MigrationInProgress::<T>::get().is_none());
-	}
-
-	// This benchmarks the weight of running on_runtime_upgrade when there is a migration in
-	// progress.
-	#[benchmark(pov_mode = Measured)]
-	fn on_runtime_upgrade_in_progress() {
-		let latest_version = LATEST_MIGRATION_VERSION;
-		StorageVersion::new(latest_version - 2).put::<Pallet<T>>();
-		let v = vec![42u8].try_into().ok();
-		MigrationInProgress::<T>::set(v.clone());
-		#[block]
-		{
-			<Migration<T, false> as frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade();
-		}
-		assert!(MigrationInProgress::<T>::get().is_some());
-		assert_eq!(MigrationInProgress::<T>::get(), v);
-	}
-
-	// This benchmarks the weight of running on_runtime_upgrade when there is a migration to
-	// process.
-	#[benchmark(pov_mode = Measured)]
-	fn on_runtime_upgrade() {
-		let latest_version = LATEST_MIGRATION_VERSION;
-		StorageVersion::new(latest_version - 2).put::<Pallet<T>>();
-		#[block]
-		{
-			<Migration<T, false> as frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade();
-		}
-		assert!(MigrationInProgress::<T>::get().is_some());
 	}
 
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
