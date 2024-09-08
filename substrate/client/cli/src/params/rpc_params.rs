@@ -227,7 +227,7 @@ impl RpcParams {
 				if endpoint.rpc_methods == RpcMethods::Unsafe && endpoint.is_global() ||
 					endpoint.listen_addr.ip().is_unspecified()
 				{
-					log::warn!(
+					eprintln!(
 						"It isn't safe to expose RPC publicly without a proxy server that filters \
 						 available set of RPC methods."
 					);
@@ -314,7 +314,7 @@ fn rpc_interface(
 
 	if is_external || is_unsafe_external {
 		if rpc_methods == RpcMethods::Unsafe {
-			log::warn!(
+			eprintln!(
 				"It isn't safe to expose RPC publicly without a proxy server that filters \
 				 available set of RPC methods."
 			);
