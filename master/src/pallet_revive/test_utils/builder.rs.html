@@ -377,6 +377,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -433,6 +436,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">impl</span>&lt;T: Config&gt; <span class="macro-nonterminal">$name</span>&lt;T&gt;
 		<span class="kw">where
 			</span>&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>HasCompact&gt;::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+			BalanceOf&lt;T&gt;: Into&lt;sp_core::U256&gt; + TryFrom&lt;sp_core::U256&gt;,
+			<span class="kw">crate</span>::MomentOf&lt;T&gt;: Into&lt;sp_core::U256&gt;,
+			T::Hash: frame_support::traits::IsType&lt;sp_core::H256&gt;,
 		{
 			$(
 				<span class="attr">#[doc = <span class="macro">concat!</span>(<span class="string">"Set the "</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$field</span>))]

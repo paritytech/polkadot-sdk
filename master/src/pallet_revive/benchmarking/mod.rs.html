@@ -1884,78 +1884,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1732" id="1732">1732</a>
 <a href="#1733" id="1733">1733</a>
 <a href="#1734" id="1734">1734</a>
-<a href="#1735" id="1735">1735</a>
-<a href="#1736" id="1736">1736</a>
-<a href="#1737" id="1737">1737</a>
-<a href="#1738" id="1738">1738</a>
-<a href="#1739" id="1739">1739</a>
-<a href="#1740" id="1740">1740</a>
-<a href="#1741" id="1741">1741</a>
-<a href="#1742" id="1742">1742</a>
-<a href="#1743" id="1743">1743</a>
-<a href="#1744" id="1744">1744</a>
-<a href="#1745" id="1745">1745</a>
-<a href="#1746" id="1746">1746</a>
-<a href="#1747" id="1747">1747</a>
-<a href="#1748" id="1748">1748</a>
-<a href="#1749" id="1749">1749</a>
-<a href="#1750" id="1750">1750</a>
-<a href="#1751" id="1751">1751</a>
-<a href="#1752" id="1752">1752</a>
-<a href="#1753" id="1753">1753</a>
-<a href="#1754" id="1754">1754</a>
-<a href="#1755" id="1755">1755</a>
-<a href="#1756" id="1756">1756</a>
-<a href="#1757" id="1757">1757</a>
-<a href="#1758" id="1758">1758</a>
-<a href="#1759" id="1759">1759</a>
-<a href="#1760" id="1760">1760</a>
-<a href="#1761" id="1761">1761</a>
-<a href="#1762" id="1762">1762</a>
-<a href="#1763" id="1763">1763</a>
-<a href="#1764" id="1764">1764</a>
-<a href="#1765" id="1765">1765</a>
-<a href="#1766" id="1766">1766</a>
-<a href="#1767" id="1767">1767</a>
-<a href="#1768" id="1768">1768</a>
-<a href="#1769" id="1769">1769</a>
-<a href="#1770" id="1770">1770</a>
-<a href="#1771" id="1771">1771</a>
-<a href="#1772" id="1772">1772</a>
-<a href="#1773" id="1773">1773</a>
-<a href="#1774" id="1774">1774</a>
-<a href="#1775" id="1775">1775</a>
-<a href="#1776" id="1776">1776</a>
-<a href="#1777" id="1777">1777</a>
-<a href="#1778" id="1778">1778</a>
-<a href="#1779" id="1779">1779</a>
-<a href="#1780" id="1780">1780</a>
-<a href="#1781" id="1781">1781</a>
-<a href="#1782" id="1782">1782</a>
-<a href="#1783" id="1783">1783</a>
-<a href="#1784" id="1784">1784</a>
-<a href="#1785" id="1785">1785</a>
-<a href="#1786" id="1786">1786</a>
-<a href="#1787" id="1787">1787</a>
-<a href="#1788" id="1788">1788</a>
-<a href="#1789" id="1789">1789</a>
-<a href="#1790" id="1790">1790</a>
-<a href="#1791" id="1791">1791</a>
-<a href="#1792" id="1792">1792</a>
-<a href="#1793" id="1793">1793</a>
-<a href="#1794" id="1794">1794</a>
-<a href="#1795" id="1795">1795</a>
-<a href="#1796" id="1796">1796</a>
-<a href="#1797" id="1797">1797</a>
-<a href="#1798" id="1798">1798</a>
-<a href="#1799" id="1799">1799</a>
-<a href="#1800" id="1800">1800</a>
-<a href="#1801" id="1801">1801</a>
-<a href="#1802" id="1802">1802</a>
-<a href="#1803" id="1803">1803</a>
-<a href="#1804" id="1804">1804</a>
-<a href="#1805" id="1805">1805</a>
-<a href="#1806" id="1806">1806</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1983,7 +1911,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	exec::{Key, MomentOf},
 	limits,
-	migration::codegen::LATEST_MIGRATION_VERSION,
 	storage::WriteOutcome,
 	Pallet <span class="kw">as </span>Contracts, <span class="kw-2">*</span>,
 };
@@ -1992,7 +1919,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_support::{
 	<span class="self">self</span>, assert_ok,
-	pallet_prelude::StorageVersion,
 	storage::child,
 	traits::{fungible::InspectHold, Currency},
 	weights::{Weight, WeightMeter},
@@ -2023,14 +1949,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">struct </span>Contract&lt;T: Config&gt; {
 	caller: T::AccountId,
 	account_id: T::AccountId,
-	addr: T::AccountId,
 }
 
 <span class="kw">impl</span>&lt;T&gt; Contract&lt;T&gt;
 <span class="kw">where
 	</span>T: Config + pallet_balances::Config,
 	&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>HasCompact&gt;::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+	BalanceOf&lt;T&gt;: Into&lt;U256&gt; + TryFrom&lt;U256&gt;,
+	MomentOf&lt;T&gt;: Into&lt;U256&gt;,
+	T::Hash: IsType&lt;H256&gt;,
 {
+	<span class="doccomment">/// Returns the address of the contract.
+	</span><span class="kw">fn </span>address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H160 {
+		T::AddressMapper::to_address(<span class="kw-2">&amp;</span><span class="self">self</span>.account_id)
+	}
+
 	<span class="doccomment">/// Create new contract and use a default account id as instantiator.
 	</span><span class="kw">fn </span>new(module: WasmModule, data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="self">Self</span>::with_index(<span class="number">0</span>, module, data)
@@ -2068,7 +2001,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>address = outcome.result<span class="question-mark">?</span>.addr;
 		<span class="kw">let </span>account_id = T::AddressMapper::to_account_id_contract(<span class="kw-2">&amp;</span>address);
-		<span class="kw">let </span>result = Contract { caller, account_id: account_id.clone(), addr: account_id };
+		<span class="kw">let </span>result = Contract { caller, account_id: account_id.clone() };
 
 		ContractInfoOf::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>address, result.info()<span class="question-mark">?</span>);
 
@@ -2174,9 +2107,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[benchmarks(
 	<span class="kw">where
-		</span>&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>codec::HasCompact&gt;::Type: Clone + Eq + PartialEq + core::fmt::Debug + scale_info::TypeInfo + codec::Encode,
+		</span>&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>HasCompact&gt;::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+		BalanceOf&lt;T&gt;: From&lt;&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Currency&lt;T::AccountId&gt;&gt;::Balance&gt; + Into&lt;U256&gt; + TryFrom&lt;U256&gt;,
 		T: Config + pallet_balances::Config,
-		BalanceOf&lt;T&gt;: From&lt;&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Currency&lt;T::AccountId&gt;&gt;::Balance&gt;,
+		MomentOf&lt;T&gt;: Into&lt;U256&gt;,
+		&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent: From&lt;pallet::Event&lt;T&gt;&gt;,
+		T::Hash: IsType&lt;H256&gt;,
 		&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Currency&lt;T::AccountId&gt;&gt;::Balance: From&lt;BalanceOf&lt;T&gt;&gt;,
 )]
 </span><span class="kw">mod </span>benchmarks {
@@ -2204,73 +2140,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="comment">// This benchmarks the weight of executing Migration::migrate to execute a noop migration.
-	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-	</span><span class="kw">fn </span>migration_noop() {
-		<span class="kw">let </span>version = LATEST_MIGRATION_VERSION;
-		StorageVersion::new(version).put::&lt;Pallet&lt;T&gt;&gt;();
-		<span class="attr">#[block]
-		</span>{
-			Migration::&lt;T&gt;::migrate(<span class="kw-2">&amp;mut </span>WeightMeter::new());
-		}
-		<span class="macro">assert_eq!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;(), version);
-	}
-
-	<span class="comment">// This benchmarks the weight of dispatching migrate to execute 1 `NoopMigration`
-	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-	</span><span class="kw">fn </span>migrate() {
-		<span class="kw">let </span>latest_version = LATEST_MIGRATION_VERSION;
-		StorageVersion::new(latest_version - <span class="number">2</span>).put::&lt;Pallet&lt;T&gt;&gt;();
-		&lt;Migration&lt;T, <span class="bool-val">false</span>&gt; <span class="kw">as </span>frame_support::traits::OnRuntimeUpgrade&gt;::on_runtime_upgrade();
-
-		<span class="attr">#[extrinsic_call]
-		</span><span class="kw">_</span>(RawOrigin::Signed(whitelisted_caller()), Weight::MAX);
-
-		<span class="macro">assert_eq!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;(), latest_version - <span class="number">1</span>);
-	}
-
-	<span class="comment">// This benchmarks the weight of running on_runtime_upgrade when there are no migration in
-	// progress.
-	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-	</span><span class="kw">fn </span>on_runtime_upgrade_noop() {
-		<span class="kw">let </span>latest_version = LATEST_MIGRATION_VERSION;
-		StorageVersion::new(latest_version).put::&lt;Pallet&lt;T&gt;&gt;();
-		<span class="attr">#[block]
-		</span>{
-			&lt;Migration&lt;T, <span class="bool-val">false</span>&gt; <span class="kw">as </span>frame_support::traits::OnRuntimeUpgrade&gt;::on_runtime_upgrade();
-		}
-		<span class="macro">assert!</span>(MigrationInProgress::&lt;T&gt;::get().is_none());
-	}
-
-	<span class="comment">// This benchmarks the weight of running on_runtime_upgrade when there is a migration in
-	// progress.
-	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-	</span><span class="kw">fn </span>on_runtime_upgrade_in_progress() {
-		<span class="kw">let </span>latest_version = LATEST_MIGRATION_VERSION;
-		StorageVersion::new(latest_version - <span class="number">2</span>).put::&lt;Pallet&lt;T&gt;&gt;();
-		<span class="kw">let </span>v = <span class="macro">vec!</span>[<span class="number">42u8</span>].try_into().ok();
-		MigrationInProgress::&lt;T&gt;::set(v.clone());
-		<span class="attr">#[block]
-		</span>{
-			&lt;Migration&lt;T, <span class="bool-val">false</span>&gt; <span class="kw">as </span>frame_support::traits::OnRuntimeUpgrade&gt;::on_runtime_upgrade();
-		}
-		<span class="macro">assert!</span>(MigrationInProgress::&lt;T&gt;::get().is_some());
-		<span class="macro">assert_eq!</span>(MigrationInProgress::&lt;T&gt;::get(), v);
-	}
-
-	<span class="comment">// This benchmarks the weight of running on_runtime_upgrade when there is a migration to
-	// process.
-	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-	</span><span class="kw">fn </span>on_runtime_upgrade() {
-		<span class="kw">let </span>latest_version = LATEST_MIGRATION_VERSION;
-		StorageVersion::new(latest_version - <span class="number">2</span>).put::&lt;Pallet&lt;T&gt;&gt;();
-		<span class="attr">#[block]
-		</span>{
-			&lt;Migration&lt;T, <span class="bool-val">false</span>&gt; <span class="kw">as </span>frame_support::traits::OnRuntimeUpgrade&gt;::on_runtime_upgrade();
-		}
-		<span class="macro">assert!</span>(MigrationInProgress::&lt;T&gt;::get().is_some());
-	}
-
 	<span class="comment">// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine. This does **not** include the actual execution for which the gas meter
 	// is responsible. This is achieved by generating all code to the `deploy` function
@@ -2284,7 +2153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>instance =
 			Contract::&lt;T&gt;::with_caller(whitelisted_caller(), WasmModule::sized(c), <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
 		<span class="kw">let </span>value = Pallet::&lt;T&gt;::min_balance();
-		<span class="kw">let </span>callee = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>instance.addr);
+		<span class="kw">let </span>callee = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>instance.account_id);
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
 
 		<span class="attr">#[extrinsic_call]
@@ -2392,7 +2261,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Contract::&lt;T&gt;::with_caller(whitelisted_caller(), WasmModule::dummy(), <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
 		<span class="kw">let </span>value = Pallet::&lt;T&gt;::min_balance();
 		<span class="kw">let </span>origin = RawOrigin::Signed(instance.caller.clone());
-		<span class="kw">let </span>callee = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>instance.addr);
+		<span class="kw">let </span>callee = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>instance.account_id);
 		<span class="kw">let </span>before = T::Currency::balance(<span class="kw-2">&amp;</span>instance.account_id);
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
 		<span class="attr">#[extrinsic_call]
@@ -2468,7 +2337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
 		<span class="kw">let </span>hash =
 			&lt;Contracts&lt;T&gt;&gt;::bare_upload_code(origin.into(), code, storage_deposit)<span class="question-mark">?</span>.code_hash;
-		<span class="kw">let </span>callee = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>instance.addr);
+		<span class="kw">let </span>callee = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>instance.account_id);
 		<span class="macro">assert_ne!</span>(instance.info()<span class="question-mark">?</span>.code_hash, hash);
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Root, callee, hash);
@@ -2619,85 +2488,67 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_balance() {
-		<span class="kw">let </span>len = &lt;T::Balance <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
-		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
+		<span class="macro">build_runtime!</span>(runtime, memory: [[<span class="number">0u8</span>;<span class="number">32</span>], ]);
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
 		</span>{
-			result = runtime.bench_balance(memory.as_mut_slice(), <span class="number">4</span>, <span class="number">0</span>);
+			result = runtime.bench_balance(memory.as_mut_slice(), <span class="number">0</span>);
 		}
 		<span class="macro">assert_ok!</span>(result);
-		<span class="macro">assert_eq!</span>(
-			&lt;T::Balance <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
-			runtime.ext().balance().into()
-		);
+		<span class="macro">assert_eq!</span>(U256::from_little_endian(<span class="kw-2">&amp;</span>memory[..]), runtime.ext().balance());
 	}
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_value_transferred() {
-		<span class="kw">let </span>len = &lt;T::Balance <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
-		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
+		<span class="macro">build_runtime!</span>(runtime, memory: [[<span class="number">0u8</span>;<span class="number">32</span>], ]);
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
 		</span>{
-			result = runtime.bench_value_transferred(memory.as_mut_slice(), <span class="number">4</span>, <span class="number">0</span>);
+			result = runtime.bench_value_transferred(memory.as_mut_slice(), <span class="number">0</span>);
 		}
 		<span class="macro">assert_ok!</span>(result);
-		<span class="macro">assert_eq!</span>(
-			&lt;T::Balance <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
-			runtime.ext().value_transferred().into()
-		);
+		<span class="macro">assert_eq!</span>(U256::from_little_endian(<span class="kw-2">&amp;</span>memory[..]), runtime.ext().value_transferred());
 	}
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_minimum_balance() {
-		<span class="kw">let </span>len = &lt;T::Balance <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
-		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
+		<span class="macro">build_runtime!</span>(runtime, memory: [[<span class="number">0u8</span>;<span class="number">32</span>], ]);
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
 		</span>{
-			result = runtime.bench_minimum_balance(memory.as_mut_slice(), <span class="number">4</span>, <span class="number">0</span>);
+			result = runtime.bench_minimum_balance(memory.as_mut_slice(), <span class="number">0</span>);
 		}
 		<span class="macro">assert_ok!</span>(result);
-		<span class="macro">assert_eq!</span>(
-			&lt;T::Balance <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
-			runtime.ext().minimum_balance().into()
-		);
+		<span class="macro">assert_eq!</span>(U256::from_little_endian(<span class="kw-2">&amp;</span>memory[..]), runtime.ext().minimum_balance());
 	}
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_block_number() {
-		<span class="kw">let </span>len = &lt;BlockNumberFor&lt;T&gt; <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
-		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
+		<span class="macro">build_runtime!</span>(runtime, memory: [[<span class="number">0u8</span>;<span class="number">32</span>], ]);
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
 		</span>{
-			result = runtime.bench_block_number(memory.as_mut_slice(), <span class="number">4</span>, <span class="number">0</span>);
+			result = runtime.bench_block_number(memory.as_mut_slice(), <span class="number">0</span>);
 		}
 		<span class="macro">assert_ok!</span>(result);
-		<span class="macro">assert_eq!</span>(
-			&lt;BlockNumberFor&lt;T&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
-			runtime.ext().block_number()
-		);
+		<span class="macro">assert_eq!</span>(U256::from_little_endian(<span class="kw-2">&amp;</span>memory[..]), runtime.ext().block_number());
 	}
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_now() {
-		<span class="kw">let </span>len = &lt;MomentOf&lt;T&gt; <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
-		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
+		<span class="macro">build_runtime!</span>(runtime, memory: [[<span class="number">0u8</span>;<span class="number">32</span>], ]);
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
 		</span>{
-			result = runtime.bench_now(memory.as_mut_slice(), <span class="number">4</span>, <span class="number">0</span>);
+			result = runtime.bench_now(memory.as_mut_slice(), <span class="number">0</span>);
 		}
 		<span class="macro">assert_ok!</span>(result);
-		<span class="macro">assert_eq!</span>(&lt;MomentOf&lt;T&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(), <span class="kw-2">*</span>runtime.ext().now());
+		<span class="macro">assert_eq!</span>(U256::from_little_endian(<span class="kw-2">&amp;</span>memory[..]), runtime.ext().now());
 	}
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_weight_to_fee() {
-		<span class="kw">let </span>len = &lt;T::Balance <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len() <span class="kw">as </span>u32;
-		<span class="macro">build_runtime!</span>(runtime, memory: [len.to_le_bytes(), <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as _</span>], ]);
+		<span class="macro">build_runtime!</span>(runtime, memory: [[<span class="number">0u8</span>;<span class="number">32</span>], ]);
 		<span class="kw">let </span>weight = Weight::from_parts(<span class="number">500_000</span>, <span class="number">300_000</span>);
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
@@ -2706,15 +2557,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				memory.as_mut_slice(),
 				weight.ref_time(),
 				weight.proof_size(),
-				<span class="number">4</span>,
 				<span class="number">0</span>,
 			);
 		}
 		<span class="macro">assert_ok!</span>(result);
-		<span class="macro">assert_eq!</span>(
-			&lt;BalanceOf&lt;T&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>memory[<span class="number">4</span>..]).unwrap(),
-			runtime.ext().get_weight_price(weight)
-		);
+		<span class="macro">assert_eq!</span>(U256::from_little_endian(<span class="kw-2">&amp;</span>memory[..]), runtime.ext().get_weight_price(weight));
 	}
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
@@ -2786,28 +2633,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		t: Linear&lt;<span class="number">0</span>, { limits::NUM_EVENT_TOPICS <span class="kw">as </span>u32 }&gt;,
 		n: Linear&lt;<span class="number">0</span>, { limits::PAYLOAD_BYTES }&gt;,
 	) {
-		<span class="kw">let </span>topics = (<span class="number">0</span>..t).map(|i| T::Hashing::hash_of(<span class="kw-2">&amp;</span>i)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().encode();
-		<span class="kw">let </span>topics_len = topics.len() <span class="kw">as </span>u32;
-
-		<span class="macro">build_runtime!</span>(runtime, memory: [
-			n.to_le_bytes(),
-			topics,
-			<span class="macro">vec!</span>[<span class="number">0u8</span>; n <span class="kw">as _</span>],
-		]);
+		<span class="kw">let </span>num_topic = t <span class="kw">as </span>u32;
+		<span class="kw">let </span>topics = (<span class="number">0</span>..t).map(|i| H256::repeat_byte(i <span class="kw">as </span>u8)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>topics_data =
+			topics.iter().flat_map(|hash| hash.as_bytes().to_vec()).collect::&lt;Vec&lt;u8&gt;&gt;();
+		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">42u8</span>; n <span class="kw">as _</span>];
+		<span class="macro">build_runtime!</span>(runtime, instance, memory: [ topics_data, data, ]);
 
 		<span class="kw">let </span>result;
 		<span class="attr">#[block]
 		</span>{
 			result = runtime.bench_deposit_event(
 				memory.as_mut_slice(),
-				<span class="number">4</span>,              <span class="comment">// topics_ptr
-				</span>topics_len,     <span class="comment">// topics_len
-				</span><span class="number">4 </span>+ topics_len, <span class="comment">// data_ptr
-				</span><span class="number">0</span>,              <span class="comment">// data_len
+				<span class="number">0</span>, <span class="comment">// topics_ptr
+				</span>num_topic,
+				topics_data.len() <span class="kw">as </span>u32, <span class="comment">// data_ptr
+				</span>n,                        <span class="comment">// data_len
 			</span>);
 		}
-
 		<span class="macro">assert_ok!</span>(result);
+
+		<span class="kw">let </span>events = System::&lt;T&gt;::events();
+		<span class="kw">let </span>record = <span class="kw-2">&amp;</span>events[events.len() - <span class="number">1</span>];
+
+		<span class="macro">assert_eq!</span>(
+			record.event,
+			<span class="kw">crate</span>::Event::ContractEmitted { contract: instance.address(), data }.into(),
+		);
+		<span class="macro">assert_eq!</span>(
+			record.topics.iter().map(|t| H256::from_slice(t.as_ref())).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			topics,
+		);
 	}
 
 	<span class="comment">// Benchmark debug_message call
@@ -3393,7 +3249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>account_bytes = account.encode();
 		<span class="kw">let </span>account_len = account_bytes.len() <span class="kw">as </span>u32;
-		<span class="kw">let </span>value_bytes = value.encode();
+		<span class="kw">let </span>value_bytes = Into::&lt;U256&gt;::into(value).encode();
 		<span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="macro">memory!</span>(account_bytes, value_bytes,);
 
 		<span class="kw">let </span>result;
@@ -3419,10 +3275,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>callee_len = callee_bytes.len() <span class="kw">as </span>u32;
 
 		<span class="kw">let </span>value: BalanceOf&lt;T&gt; = t.into();
-		<span class="kw">let </span>value_bytes = value.encode();
+		<span class="kw">let </span>value_bytes = Into::&lt;U256&gt;::into(value).encode();
 
 		<span class="kw">let </span>deposit: BalanceOf&lt;T&gt; = (u32::MAX - <span class="number">100</span>).into();
-		<span class="kw">let </span>deposit_bytes = deposit.encode();
+		<span class="kw">let </span>deposit_bytes = Into::&lt;U256&gt;::into(deposit).encode();
 		<span class="kw">let </span>deposit_len = deposit_bytes.len() <span class="kw">as </span>u32;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>setup = CallSetup::&lt;T&gt;::default();
@@ -3494,11 +3350,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>hash_len = hash_bytes.len() <span class="kw">as </span>u32;
 
 		<span class="kw">let </span>value: BalanceOf&lt;T&gt; = <span class="number">1u32</span>.into();
-		<span class="kw">let </span>value_bytes = value.encode();
+		<span class="kw">let </span>value_bytes = Into::&lt;U256&gt;::into(value).encode();
 		<span class="kw">let </span>value_len = value_bytes.len() <span class="kw">as </span>u32;
 
 		<span class="kw">let </span>deposit: BalanceOf&lt;T&gt; = <span class="number">0u32</span>.into();
-		<span class="kw">let </span>deposit_bytes = deposit.encode();
+		<span class="kw">let </span>deposit_bytes = Into::&lt;U256&gt;::into(deposit).encode();
 		<span class="kw">let </span>deposit_len = deposit_bytes.len() <span class="kw">as </span>u32;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>setup = CallSetup::&lt;T&gt;::default();

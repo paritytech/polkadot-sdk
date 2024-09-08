@@ -1405,74 +1405,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1253" id="1253">1253</a>
 <a href="#1254" id="1254">1254</a>
 <a href="#1255" id="1255">1255</a>
-<a href="#1256" id="1256">1256</a>
-<a href="#1257" id="1257">1257</a>
-<a href="#1258" id="1258">1258</a>
-<a href="#1259" id="1259">1259</a>
-<a href="#1260" id="1260">1260</a>
-<a href="#1261" id="1261">1261</a>
-<a href="#1262" id="1262">1262</a>
-<a href="#1263" id="1263">1263</a>
-<a href="#1264" id="1264">1264</a>
-<a href="#1265" id="1265">1265</a>
-<a href="#1266" id="1266">1266</a>
-<a href="#1267" id="1267">1267</a>
-<a href="#1268" id="1268">1268</a>
-<a href="#1269" id="1269">1269</a>
-<a href="#1270" id="1270">1270</a>
-<a href="#1271" id="1271">1271</a>
-<a href="#1272" id="1272">1272</a>
-<a href="#1273" id="1273">1273</a>
-<a href="#1274" id="1274">1274</a>
-<a href="#1275" id="1275">1275</a>
-<a href="#1276" id="1276">1276</a>
-<a href="#1277" id="1277">1277</a>
-<a href="#1278" id="1278">1278</a>
-<a href="#1279" id="1279">1279</a>
-<a href="#1280" id="1280">1280</a>
-<a href="#1281" id="1281">1281</a>
-<a href="#1282" id="1282">1282</a>
-<a href="#1283" id="1283">1283</a>
-<a href="#1284" id="1284">1284</a>
-<a href="#1285" id="1285">1285</a>
-<a href="#1286" id="1286">1286</a>
-<a href="#1287" id="1287">1287</a>
-<a href="#1288" id="1288">1288</a>
-<a href="#1289" id="1289">1289</a>
-<a href="#1290" id="1290">1290</a>
-<a href="#1291" id="1291">1291</a>
-<a href="#1292" id="1292">1292</a>
-<a href="#1293" id="1293">1293</a>
-<a href="#1294" id="1294">1294</a>
-<a href="#1295" id="1295">1295</a>
-<a href="#1296" id="1296">1296</a>
-<a href="#1297" id="1297">1297</a>
-<a href="#1298" id="1298">1298</a>
-<a href="#1299" id="1299">1299</a>
-<a href="#1300" id="1300">1300</a>
-<a href="#1301" id="1301">1301</a>
-<a href="#1302" id="1302">1302</a>
-<a href="#1303" id="1303">1303</a>
-<a href="#1304" id="1304">1304</a>
-<a href="#1305" id="1305">1305</a>
-<a href="#1306" id="1306">1306</a>
-<a href="#1307" id="1307">1307</a>
-<a href="#1308" id="1308">1308</a>
-<a href="#1309" id="1309">1309</a>
-<a href="#1310" id="1310">1310</a>
-<a href="#1311" id="1311">1311</a>
-<a href="#1312" id="1312">1312</a>
-<a href="#1313" id="1313">1313</a>
-<a href="#1314" id="1314">1314</a>
-<a href="#1315" id="1315">1315</a>
-<a href="#1316" id="1316">1316</a>
-<a href="#1317" id="1317">1317</a>
-<a href="#1318" id="1318">1318</a>
-<a href="#1319" id="1319">1319</a>
-<a href="#1320" id="1320">1320</a>
-<a href="#1321" id="1321">1321</a>
-<a href="#1322" id="1322">1322</a>
-<a href="#1323" id="1323">1323</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1502,7 +1434,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>exec;
 <span class="kw">mod </span>gas;
 <span class="kw">mod </span>primitives;
+<span class="kw">use </span><span class="kw">crate</span>::exec::MomentOf;
+<span class="kw">use </span>frame_support::traits::IsType;
 <span class="kw">pub use </span>primitives::<span class="kw-2">*</span>;
+<span class="kw">use </span>sp_core::U256;
 
 <span class="kw">mod </span>limits;
 <span class="kw">mod </span>storage;
@@ -1511,7 +1446,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub mod </span>chain_extension;
 <span class="kw">pub mod </span>debug;
-<span class="kw">pub mod </span>migration;
 <span class="kw">pub mod </span>test_utils;
 <span class="kw">pub mod </span>weights;
 
@@ -1529,7 +1463,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::{
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
-		PostDispatchInfo, RawOrigin, WithPostDispatchInfo,
+		PostDispatchInfo, RawOrigin,
 	},
 	ensure,
 	traits::{
@@ -1554,7 +1488,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use crate</span>::{
 	address::{AddressMapper, DefaultAddressMapper},
 	debug::Tracing,
-	migration::{MigrateSequence, Migration, NoopMigration},
 	pallet::<span class="kw-2">*</span>,
 };
 <span class="kw">pub use </span>weights::WeightInfo;
@@ -1604,6 +1537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span><span class="kw">crate</span>::debug::Debugger;
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>sp_core::U256;
 	<span class="kw">use </span>sp_runtime::Perbill;
 
 	<span class="doccomment">/// The in-code storage version.
@@ -1681,7 +1615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// # Note
 		///
-		/// It is safe to chage this value on a live chain as all refunds are pro rata.
+		/// It is safe to change this value on a live chain as all refunds are pro rata.
 		</span><span class="attr">#[pallet::constant]
 		#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>DepositPerByte: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
@@ -1690,7 +1624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// # Note
 		///
-		/// It is safe to chage this value on a live chain as all refunds are pro rata.
+		/// It is safe to change this value on a live chain as all refunds are pro rata.
 		</span><span class="attr">#[pallet::constant]
 		#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>DepositPerItem: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
@@ -1746,25 +1680,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>InstantiateOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin, Success = <span class="self">Self</span>::AccountId&gt;;
 
-		<span class="doccomment">/// The sequence of migration steps that will be applied during a migration.
-		///
-		/// # Examples
-		/// ```ignore
-		/// use pallet_revive::migration::{v10, v11};
-		/// # struct Runtime {};
-		/// # struct Currency {};
-		/// type Migrations = (v10::Migration&lt;Runtime, Currency&gt;, v11::Migration&lt;Runtime&gt;);
-		/// ```
-		///
-		/// If you have a single migration step, you can use a tuple with a single element:
-		/// ```ignore
-		/// use pallet_revive::migration::v10;
-		/// # struct Runtime {};
-		/// # struct Currency {};
-		/// type Migrations = (v10::Migration&lt;Runtime, Currency&gt;,);
-		/// ```
-		</span><span class="kw">type </span>Migrations: MigrateSequence;
-
 		<span class="doccomment">/// For most production chains, it's recommended to use the `()` implementation of this
 		/// trait. This implementation offers additional logging when the log target
 		/// "runtime::revive" is set to trace.
@@ -1780,13 +1695,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			BlockNumberFor&lt;<span class="self">Self</span>&gt;,
 		&gt;;
 
-		<span class="doccomment">/// The amount of memory in bytes that parachain nodes alot to the runtime.
+		<span class="doccomment">/// The amount of memory in bytes that parachain nodes a lot to the runtime.
 		///
 		/// This is used in [`Pallet::integrity_test`] to make sure that the runtime has enough
 		/// memory to support this pallet if set to the correct value.
 		</span><span class="kw">type </span>RuntimeMemory: Get&lt;u32&gt;;
 
-		<span class="doccomment">/// The amount of memory in bytes that relay chain validators alot to the PoV.
+		<span class="doccomment">/// The amount of memory in bytes that relay chain validators a lot to the PoV.
 		///
 		/// This is used in [`Pallet::integrity_test`] to make sure that the runtime has enough
 		/// memory to support this pallet if set to the correct value.
@@ -1857,7 +1772,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">type </span>DepositPerByte = DepositPerByte;
 			<span class="kw">type </span>DepositPerItem = DepositPerItem;
 			<span class="kw">type </span>MaxCodeLen = ConstU32&lt;{ <span class="number">123 </span>* <span class="number">1024 </span>}&gt;;
-			<span class="kw">type </span>Migrations = ();
 			<span class="kw">type </span>Time = <span class="self">Self</span>;
 			<span class="kw">type </span>UnsafeUnstableInterface = ConstBool&lt;<span class="bool-val">true</span>&gt;;
 			<span class="kw">type </span>UploadOrigin = EnsureSigned&lt;AccountId&gt;;
@@ -2024,10 +1938,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// A more detailed error can be found on the node console if debug messages are enabled
 		/// by supplying `-lruntime::revive=debug`.
 		</span>CodeRejected,
-		<span class="doccomment">/// A pending migration needs to complete before the extrinsic can be called.
-		</span>MigrationInProgress,
-		<span class="doccomment">/// Migrate dispatch call was attempted but no migration was performed.
-		</span>NoMigrationPerformed,
 		<span class="doccomment">/// The contract has reached its maximum number of delegate dependencies.
 		</span>MaxDelegateDependenciesReached,
 		<span class="doccomment">/// The dependency was not found in the contract's delegate dependencies.
@@ -2044,6 +1954,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>InvalidStorageFlags,
 		<span class="doccomment">/// PolkaVM failed during code execution. Probably due to a malformed program.
 		</span>ExecutionFailed,
+		<span class="doccomment">/// Failed to convert a U256 to a Balance.
+		</span>BalanceConversionFailed,
 	}
 
 	<span class="doccomment">/// A reason for the pallet contracts placing a hold on funds.
@@ -2080,12 +1992,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>DeletionQueueCounter&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, DeletionQueueManager&lt;T&gt;, ValueQuery&gt;;
 
-	<span class="doccomment">/// A migration can span across multiple blocks. This storage defines a cursor to track the
-	/// progress of the migration, enabling us to resume from the last completed position.
-	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>MigrationInProgress&lt;T: Config&gt; =
-		StorageValue&lt;<span class="kw">_</span>, migration::Cursor, OptionQuery&gt;;
-
 	<span class="attr">#[pallet::extra_constants]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="attr">#[pallet::constant_name(ApiVersion)]
@@ -2095,31 +2001,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt;
+	<span class="kw">where
+		</span>T::Hash: IsType&lt;H256&gt;,
+	{
 		<span class="kw">fn </span>on_idle(_block: BlockNumberFor&lt;T&gt;, limit: Weight) -&gt; Weight {
-			<span class="kw">use </span>migration::MigrateResult::<span class="kw-2">*</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(limit);
-
-			<span class="kw">loop </span>{
-				<span class="kw">match </span>Migration::&lt;T&gt;::migrate(<span class="kw-2">&amp;mut </span>meter) {
-					<span class="comment">// There is not enough weight to perform a migration.
-					// We can't do anything more, so we return the used weight.
-					</span>NoMigrationPerformed | InProgress { steps_done: <span class="number">0 </span>} =&gt; <span class="kw">return </span>meter.consumed(),
-					<span class="comment">// Migration is still in progress, we can start the next step.
-					</span>InProgress { .. } =&gt; <span class="kw">continue</span>,
-					<span class="comment">// Either no migration is in progress, or we are done with all migrations, we
-					// can do some more other work with the remaining weight.
-					</span>Completed | NoMigrationInProgress =&gt; <span class="kw">break</span>,
-				}
-			}
-
 			ContractInfo::&lt;T&gt;::process_deletion_queue_batch(<span class="kw-2">&amp;mut </span>meter);
 			meter.consumed()
 		}
 
 		<span class="kw">fn </span>integrity_test() {
-			Migration::&lt;T&gt;::integrity_test();
-
 			<span class="comment">// Total runtime memory limit
 			</span><span class="kw">let </span>max_runtime_mem: u32 = T::RuntimeMemory::get();
 			<span class="comment">// Memory limits for a single contract:
@@ -2246,7 +2138,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt;
 	<span class="kw">where
-		</span>&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>HasCompact&gt;::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+		</span>T::Hash: IsType&lt;H256&gt;,
+		&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>HasCompact&gt;::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+		BalanceOf&lt;T&gt;: Into&lt;U256&gt; + TryFrom&lt;U256&gt;,
+		MomentOf&lt;T&gt;: Into&lt;U256&gt;,
 	{
 		<span class="doccomment">/// Makes a call to an account, optionally transferring some balance.
 		///
@@ -2432,7 +2327,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			origin: OriginFor&lt;T&gt;,
 			code_hash: sp_core::H256,
 		) -&gt; DispatchResultWithPostInfo {
-			Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
 			<span class="kw">let </span>origin = ensure_signed(origin)<span class="question-mark">?</span>;
 			&lt;WasmBlob&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>origin, code_hash)<span class="question-mark">?</span>;
 			<span class="comment">// we waive the fee because removing unused code is beneficial
@@ -2456,7 +2350,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			dest: H160,
 			code_hash: sp_core::H256,
 		) -&gt; DispatchResult {
-			Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
 			ensure_root(origin)<span class="question-mark">?</span>;
 			&lt;ContractInfoOf&lt;T&gt;&gt;::try_mutate(<span class="kw-2">&amp;</span>dest, |contract| {
 				<span class="kw">let </span>contract = <span class="kw">if let </span><span class="prelude-val">Some</span>(contract) = contract {
@@ -2474,40 +2367,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				contract.code_hash = code_hash;
 				<span class="prelude-val">Ok</span>(())
 			})
-		}
-
-		<span class="doccomment">/// When a migration is in progress, this dispatchable can be used to run migration steps.
-		/// Calls that contribute to advancing the migration have their fees waived, as it's helpful
-		/// for the chain. Note that while the migration is in progress, the pallet will also
-		/// leverage the `on_idle` hooks to run migration steps.
-		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
-		#[pallet::weight(T::WeightInfo::migrate().saturating_add(<span class="kw-2">*</span>weight_limit))]
-		</span><span class="kw">pub fn </span>migrate(origin: OriginFor&lt;T&gt;, weight_limit: Weight) -&gt; DispatchResultWithPostInfo {
-			<span class="kw">use </span>migration::MigrateResult::<span class="kw-2">*</span>;
-			ensure_signed(origin)<span class="question-mark">?</span>;
-
-			<span class="kw">let </span>weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
-			<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(weight_limit);
-			<span class="kw">let </span>result = Migration::&lt;T&gt;::migrate(<span class="kw-2">&amp;mut </span>meter);
-
-			<span class="kw">match </span>result {
-				Completed =&gt; <span class="prelude-val">Ok</span>(PostDispatchInfo {
-					actual_weight: <span class="prelude-val">Some</span>(meter.consumed()),
-					pays_fee: Pays::No,
-				}),
-				InProgress { steps_done, .. } <span class="kw">if </span>steps_done &gt; <span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>(PostDispatchInfo {
-					actual_weight: <span class="prelude-val">Some</span>(meter.consumed()),
-					pays_fee: Pays::No,
-				}),
-				InProgress { .. } =&gt; <span class="prelude-val">Ok</span>(PostDispatchInfo {
-					actual_weight: <span class="prelude-val">Some</span>(meter.consumed()),
-					pays_fee: Pays::Yes,
-				}),
-				NoMigrationInProgress | NoMigrationPerformed =&gt; {
-					<span class="kw">let </span>err: DispatchError = &lt;Error&lt;T&gt;&gt;::NoMigrationPerformed.into();
-					<span class="prelude-val">Err</span>(err.with_weight(meter.consumed()))
-				},
-			}
 		}
 	}
 }
@@ -2528,7 +2387,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map_err(|e| DispatchErrorWithPostInfo { post_info, error: e })
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt;
+<span class="kw">where
+	</span>BalanceOf&lt;T&gt;: Into&lt;U256&gt; + TryFrom&lt;U256&gt;,
+	MomentOf&lt;T&gt;: Into&lt;U256&gt;,
+	T::Hash: IsType&lt;H256&gt;,
+{
 	<span class="doccomment">/// A generalized version of [`Self::call`].
 	///
 	/// Identical to [`Self::call`] but tailored towards being called by other code within the
@@ -2553,7 +2417,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None
 		</span>};
 		<span class="kw">let </span>try_call = || {
-			Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
 			<span class="kw">let </span>origin = Origin::from_runtime_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>storage_meter = StorageMeter::new(<span class="kw-2">&amp;</span>origin, storage_deposit_limit, value)<span class="question-mark">?</span>;
 			<span class="kw">let </span>result = ExecStack::&lt;T, WasmBlob&lt;T&gt;&gt;::run_call(
@@ -2606,7 +2469,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>debug_message =
 			<span class="kw">if </span>debug == DebugInfo::UnsafeDebug { <span class="prelude-val">Some</span>(DebugBuffer::default()) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
 		<span class="kw">let </span>try_instantiate = || {
-			Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
 			<span class="kw">let </span>instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())<span class="question-mark">?</span>;
 			<span class="kw">let </span>(executable, upload_deposit) = <span class="kw">match </span>code {
 				Code::Upload(code) =&gt; {
@@ -2667,7 +2529,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code: Vec&lt;u8&gt;,
 		storage_deposit_limit: BalanceOf&lt;T&gt;,
 	) -&gt; CodeUploadResult&lt;BalanceOf&lt;T&gt;&gt; {
-		Migration::&lt;T&gt;::ensure_migrated()<span class="question-mark">?</span>;
 		<span class="kw">let </span>origin = T::UploadOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(module, deposit) = <span class="self">Self</span>::try_upload_code(origin, code, storage_deposit_limit, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(CodeUploadReturnValue { code_hash: <span class="kw-2">*</span>module.code_hash(), deposit })
@@ -2675,9 +2536,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Query storage of a specified contract under a specified key.
 	</span><span class="kw">pub fn </span>get_storage(address: H160, key: [u8; <span class="number">32</span>]) -&gt; GetStorageResult {
-		<span class="kw">if </span>Migration::&lt;T&gt;::in_progress() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ContractAccessError::MigrationInProgress)
-		}
 		<span class="kw">let </span>contract_info =
 			ContractInfoOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>address).ok_or(ContractAccessError::DoesntExist)<span class="question-mark">?</span>;
 
@@ -2701,24 +2559,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>((module, deposit))
 	}
 
-	<span class="doccomment">/// Deposit a pallet contracts event.
-	</span><span class="kw">fn </span>deposit_event(event: Event&lt;T&gt;) {
-		&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_event(&lt;T <span class="kw">as </span>Config&gt;::RuntimeEvent::from(event))
-	}
-
-	<span class="doccomment">/// Deposit a pallet contracts indexed event.
-	</span><span class="kw">fn </span>deposit_indexed_event(topics: Vec&lt;T::Hash&gt;, event: Event&lt;T&gt;) {
-		&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_event_indexed(
-			<span class="kw-2">&amp;</span>topics,
-			&lt;T <span class="kw">as </span>Config&gt;::RuntimeEvent::from(event).into(),
-		)
-	}
-
-	<span class="doccomment">/// Return the existential deposit of [`Config::Currency`].
-	</span><span class="kw">fn </span>min_balance() -&gt; BalanceOf&lt;T&gt; {
-		&lt;T::Currency <span class="kw">as </span>Inspect&lt;AccountIdOf&lt;T&gt;&gt;&gt;::minimum_balance()
-	}
-
 	<span class="doccomment">/// Run the supplied function `f` if no other instance of this pallet is on the stack.
 	</span><span class="kw">fn </span>run_guarded&lt;R, F: FnOnce() -&gt; <span class="prelude-ty">Result</span>&lt;R, ExecError&gt;&gt;(f: F) -&gt; <span class="prelude-ty">Result</span>&lt;R, ExecError&gt; {
 		executing_contract::using_once(<span class="kw-2">&amp;mut </span><span class="bool-val">false</span>, || {
@@ -2736,6 +2576,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map(|<span class="kw">_</span>| f())
 				.and_then(|r| r)
 		})
+	}
+}
+
+<span class="kw">impl</span>&lt;T&gt; Pallet&lt;T&gt;
+<span class="kw">where
+	</span>T: Config,
+	T::Hash: IsType&lt;H256&gt;,
+{
+	<span class="doccomment">/// Return the existential deposit of [`Config::Currency`].
+	</span><span class="kw">fn </span>min_balance() -&gt; BalanceOf&lt;T&gt; {
+		&lt;T::Currency <span class="kw">as </span>Inspect&lt;AccountIdOf&lt;T&gt;&gt;&gt;::minimum_balance()
+	}
+
+	<span class="doccomment">/// Deposit a pallet contracts event.
+	</span><span class="kw">fn </span>deposit_event(event: Event&lt;T&gt;) {
+		&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_event(&lt;T <span class="kw">as </span>Config&gt;::RuntimeEvent::from(event))
+	}
+
+	<span class="doccomment">/// Deposit a pallet contracts indexed event.
+	</span><span class="kw">fn </span>deposit_indexed_event(topics: Vec&lt;H256&gt;, event: Event&lt;T&gt;) {
+		&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_event_indexed(
+			<span class="kw-2">&amp;</span>topics.into_iter().map(Into::into).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			&lt;T <span class="kw">as </span>Config&gt;::RuntimeEvent::from(event).into(),
+		)
 	}
 }
 

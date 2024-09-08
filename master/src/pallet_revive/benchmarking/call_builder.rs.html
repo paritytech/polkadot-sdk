@@ -371,6 +371,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -395,12 +403,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	wasm::{ApiVersion, PreparedCall, Runtime},
-	BalanceOf, Config, DebugBuffer, Error, GasMeter, Origin, TypeInfo, WasmBlob, Weight,
+	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, TypeInfo, WasmBlob, Weight,
 };
 <span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Encode, HasCompact};
 <span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>frame_benchmarking::benchmarking;
+<span class="kw">use </span>frame_support::traits::IsType;
+<span class="kw">use </span>sp_core::{H256, U256};
 
 <span class="kw">type </span>StackExt&lt;<span class="lifetime">'a</span>, T&gt; = Stack&lt;<span class="lifetime">'a</span>, T, WasmBlob&lt;T&gt;&gt;;
 
@@ -421,6 +431,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>T: Config + pallet_balances::Config,
 	&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>HasCompact&gt;::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+	BalanceOf&lt;T&gt;: Into&lt;U256&gt; + TryFrom&lt;U256&gt;,
+	T::Hash: IsType&lt;H256&gt;,
+	MomentOf&lt;T&gt;: Into&lt;U256&gt;,
 {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::new(WasmModule::dummy())
@@ -430,7 +443,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T&gt; CallSetup&lt;T&gt;
 <span class="kw">where
 	</span>T: Config + pallet_balances::Config,
+	T::Hash: IsType&lt;H256&gt;,
 	&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>HasCompact&gt;::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+	BalanceOf&lt;T&gt;: Into&lt;U256&gt; + TryFrom&lt;U256&gt;,
+	MomentOf&lt;T&gt;: Into&lt;U256&gt;,
 {
 	<span class="doccomment">/// Setup a new call for the given module.
 	</span><span class="kw">pub fn </span>new(module: WasmModule) -&gt; <span class="self">Self </span>{

@@ -2098,6 +2098,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1946" id="1946">1946</a>
 <a href="#1947" id="1947">1947</a>
 <a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2119,12 +2125,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{
 	address::AddressMapper,
-	exec::{ExecError, ExecResult, Ext, Key, TopicOf},
+	exec::{ExecError, ExecResult, Ext, Key},
 	gas::{ChargedAmount, Token},
 	limits,
 	primitives::ExecReturnValue,
 	weights::WeightInfo,
-	BalanceOf, Config, Error, LOG_TARGET, SENTINEL,
+	Config, Error, LOG_TARGET, SENTINEL,
 };
 <span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
@@ -2135,14 +2141,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>pallet_revive_proc_macro::define_env;
 <span class="kw">use </span>pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
-<span class="kw">use </span>sp_core::{H160, H256};
+<span class="kw">use </span>sp_core::{H160, H256, U256};
 <span class="kw">use </span>sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
-<span class="kw">use </span>sp_runtime::{traits::Zero, DispatchError, RuntimeDebug};
+<span class="kw">use </span>sp_runtime::{DispatchError, RuntimeDebug};
 
 <span class="kw">type </span>CallOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall;
 
 <span class="doccomment">/// The maximum nesting depth a contract can use when encoding types.
 </span><span class="kw">const </span>MAX_DECODE_NESTING: u32 = <span class="number">256</span>;
+
+<span class="doccomment">/// Encode a `U256` into a 32 byte buffer.
+</span><span class="kw">fn </span>as_bytes(u: U256) -&gt; [u8; <span class="number">32</span>] {
+	<span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0u8</span>; <span class="number">32</span>];
+	u.to_little_endian(<span class="kw-2">&amp;mut </span>bytes);
+	bytes
+}
 
 <span class="attr">#[derive(Clone, Copy)]
 </span><span class="kw">pub enum </span>ApiVersion {
@@ -2182,6 +2195,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; len <span class="kw">as </span>usize];
 		<span class="self">self</span>.read_into_buf(ptr, buf.as_mut_slice())<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(buf)
+	}
+
+	<span class="doccomment">/// Same as `read` but reads into a fixed size buffer.
+	</span><span class="kw">fn </span>read_array&lt;<span class="kw">const </span>N: usize&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;[u8; N], DispatchError&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0u8</span>; N];
+		<span class="self">self</span>.read_into_buf(ptr, <span class="kw-2">&amp;mut </span>buf)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(buf)
+	}
+
+	<span class="doccomment">/// Read a `u32` from the sandbox memory.
+	</span><span class="kw">fn </span>read_u32(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;u32, DispatchError&gt; {
+		<span class="kw">let </span>buf: [u8; <span class="number">4</span>] = <span class="self">self</span>.read_array(ptr)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(u32::from_le_bytes(buf))
+	}
+
+	<span class="doccomment">/// Read a `U256` from the sandbox memory.
+	</span><span class="kw">fn </span>read_u256(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;U256, DispatchError&gt; {
+		<span class="kw">let </span>buf: [u8; <span class="number">32</span>] = <span class="self">self</span>.read_array(ptr)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(U256::from_little_endian(<span class="kw-2">&amp;</span>buf))
+	}
+
+	<span class="doccomment">/// Read a `H256` from the sandbox memory.
+	</span><span class="kw">fn </span>read_h256(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;H256, DispatchError&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>code_hash = H256::default();
+		<span class="self">self</span>.read_into_buf(ptr, code_hash.as_bytes_mut())<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(code_hash)
 	}
 
 	<span class="doccomment">/// Read designated chunk from the sandbox memory and attempt to decode into the specified type.
@@ -2747,7 +2786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>buf_len = buf.len() <span class="kw">as </span>u32;
-		<span class="kw">let </span>len: u32 = memory.read_as(out_len_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span>len = memory.read_u32(out_len_ptr)<span class="question-mark">?</span>;
 
 		<span class="kw">if </span>len &lt; buf_len {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;E::T&gt;::OutputBufferTooSmall.into())
@@ -3063,13 +3102,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			CallType::Call { callee_ptr, value_ptr, deposit_ptr, weight } =&gt; {
 				<span class="kw">let </span><span class="kw-2">mut </span>callee = H160::zero();
 				memory.read_into_buf(callee_ptr, callee.as_bytes_mut())<span class="question-mark">?</span>;
-				<span class="kw">let </span>deposit_limit: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = <span class="kw">if </span>deposit_ptr == SENTINEL {
-					BalanceOf::&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt;::zero()
+				<span class="kw">let </span>deposit_limit = <span class="kw">if </span>deposit_ptr == SENTINEL {
+					U256::zero()
 				} <span class="kw">else </span>{
-					memory.read_as(deposit_ptr)<span class="question-mark">?
+					memory.read_u256(deposit_ptr)<span class="question-mark">?
 				</span>};
 				<span class="kw">let </span>read_only = flags.contains(CallFlags::READ_ONLY);
-				<span class="kw">let </span>value: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = memory.read_as(value_ptr)<span class="question-mark">?</span>;
+				<span class="kw">let </span>value = memory.read_u256(value_ptr)<span class="question-mark">?</span>;
 				<span class="kw">if </span>value &gt; <span class="number">0u32</span>.into() {
 					<span class="comment">// If the call value is non-zero and state change is not allowed, issue an
 					// error.
@@ -3092,7 +3131,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;E::T&gt;::InvalidCallFlags.into())
 				}
-				<span class="kw">let </span>code_hash = memory.read_as(code_hash_ptr)<span class="question-mark">?</span>;
+
+				<span class="kw">let </span>code_hash = memory.read_h256(code_hash_ptr)<span class="question-mark">?</span>;
 				<span class="self">self</span>.ext.delegate_call(code_hash, input_data)
 			},
 		};
@@ -3136,19 +3176,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		salt_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Instantiate { input_data_len })<span class="question-mark">?</span>;
-		<span class="kw">let </span>deposit_limit: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = <span class="kw">if </span>deposit_ptr == SENTINEL {
-			BalanceOf::&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt;::zero()
-		} <span class="kw">else </span>{
-			memory.read_as(deposit_ptr)<span class="question-mark">?
-		</span>};
-		<span class="kw">let </span>value: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = memory.read_as(value_ptr)<span class="question-mark">?</span>;
-		<span class="kw">let </span>code_hash: H256 = memory.read_as(code_hash_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span>deposit_limit: U256 =
+			<span class="kw">if </span>deposit_ptr == SENTINEL { U256::zero() } <span class="kw">else </span>{ memory.read_u256(deposit_ptr)<span class="question-mark">? </span>};
+		<span class="kw">let </span>value = memory.read_u256(value_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span>code_hash = memory.read_h256(code_hash_ptr)<span class="question-mark">?</span>;
 		<span class="kw">let </span>input_data = memory.read(input_data_ptr, input_data_len)<span class="question-mark">?</span>;
 		<span class="kw">let </span>salt = <span class="kw">if </span>salt_ptr == SENTINEL {
 			<span class="prelude-val">None
 		</span>} <span class="kw">else </span>{
-			<span class="kw">let </span><span class="kw-2">mut </span>salt = [<span class="number">0u8</span>; <span class="number">32</span>];
-			memory.read_into_buf(salt_ptr, salt.as_mut_slice())<span class="question-mark">?</span>;
+			<span class="kw">let </span>salt: [u8; <span class="number">32</span>] = memory.read_array(salt_ptr)<span class="question-mark">?</span>;
 			<span class="prelude-val">Some</span>(salt)
 		};
 		<span class="kw">let </span>instantiate_outcome = <span class="self">self</span>.ext.instantiate(
@@ -3294,7 +3330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Transfer)<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>callee = H160::zero();
 		memory.read_into_buf(address_ptr, callee.as_bytes_mut())<span class="question-mark">?</span>;
-		<span class="kw">let </span>value: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; = memory.read_as(value_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span>value: U256 = memory.read_u256(value_ptr)<span class="question-mark">?</span>;
 		<span class="kw">let </span>result = <span class="self">self</span>.ext.transfer(<span class="kw-2">&amp;</span>callee, value);
 		<span class="kw">match </span>result {
 			<span class="prelude-val">Ok</span>(()) =&gt; <span class="prelude-val">Ok</span>(ReturnErrorCode::Success),
@@ -3474,7 +3510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.write_fixed_sandbox_output(
 				memory,
 				out_ptr,
-				<span class="kw-2">&amp;</span>value.encode(),
+				<span class="kw-2">&amp;</span>value.as_bytes(),
 				<span class="bool-val">false</span>,
 				already_charged,
 			)<span class="question-mark">?</span>;
@@ -3489,11 +3525,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
 	</span><span class="kw">fn </span>own_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::OwnCodeHash)<span class="question-mark">?</span>;
-		<span class="kw">let </span>code_hash_encoded = <span class="kw-2">&amp;</span><span class="self">self</span>.ext.own_code_hash().encode();
+		<span class="kw">let </span>code_hash = <span class="kw-2">*</span><span class="self">self</span>.ext.own_code_hash();
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			code_hash_encoded,
+			code_hash.as_bytes(),
 			<span class="bool-val">false</span>,
 			already_charged,
 		)<span class="question-mark">?</span>)
@@ -3539,14 +3575,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		out_ptr: u32,
-		out_len_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="kw">let </span>weight = Weight::from_parts(ref_time_limit, proof_size_limit);
 		<span class="self">self</span>.charge_gas(RuntimeCosts::WeightToFee)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.ext.get_weight_price(weight).encode(),
 			<span class="bool-val">false</span>,
 			already_charged,
@@ -3577,18 +3611,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Stores the *free* balance of the current account into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::balance`].
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
-	</span><span class="kw">fn </span>balance(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		memory: <span class="kw-2">&amp;mut </span>M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
+	</span><span class="kw">fn </span>balance(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Balance)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.ext.balance().encode(),
+			<span class="kw-2">&amp;</span>as_bytes(<span class="self">self</span>.ext.balance()),
 			<span class="bool-val">false</span>,
 			already_charged,
 		)<span class="question-mark">?</span>)
@@ -3597,18 +3625,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::value_transferred`].
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
-	</span><span class="kw">fn </span>value_transferred(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		memory: <span class="kw-2">&amp;mut </span>M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
+	</span><span class="kw">fn </span>value_transferred(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::ValueTransferred)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.ext.value_transferred().encode(),
+			<span class="kw-2">&amp;</span>as_bytes(<span class="self">self</span>.ext.value_transferred()),
 			<span class="bool-val">false</span>,
 			already_charged,
 		)<span class="question-mark">?</span>)
@@ -3617,13 +3639,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Load the latest block timestamp into the supplied buffer
 	/// See [`pallet_revive_uapi::HostFn::now`].
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
-	</span><span class="kw">fn </span>now(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32, out_len_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
+	</span><span class="kw">fn </span>now(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::Now)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.ext.now().encode(),
+			<span class="kw-2">&amp;</span>as_bytes(<span class="self">self</span>.ext.now()),
 			<span class="bool-val">false</span>,
 			already_charged,
 		)<span class="question-mark">?</span>)
@@ -3632,18 +3653,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
-	</span><span class="kw">fn </span>minimum_balance(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		memory: <span class="kw-2">&amp;mut </span>M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
+	</span><span class="kw">fn </span>minimum_balance(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::MinimumBalance)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.ext.minimum_balance().encode(),
+			<span class="kw-2">&amp;</span>as_bytes(<span class="self">self</span>.ext.minimum_balance()),
 			<span class="bool-val">false</span>,
 			already_charged,
 		)<span class="question-mark">?</span>)
@@ -3657,50 +3672,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		memory: <span class="kw-2">&amp;mut </span>M,
 		topics_ptr: u32,
-		topics_len: u32,
+		num_topic: u32,
 		data_ptr: u32,
 		data_len: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
-		<span class="kw">let </span>num_topic = topics_len
-			.checked_div(core::mem::size_of::&lt;TopicOf&lt;E::T&gt;&gt;() <span class="kw">as </span>u32)
-			.ok_or(<span class="string">"Zero sized topics are not allowed"</span>)<span class="question-mark">?</span>;
 		<span class="self">self</span>.charge_gas(RuntimeCosts::DepositEvent { num_topic, len: data_len })<span class="question-mark">?</span>;
+
+		<span class="kw">if </span>num_topic &gt; limits::NUM_EVENT_TOPICS {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;E::T&gt;::TooManyTopics.into());
+		}
+
 		<span class="kw">if </span>data_len &gt; <span class="self">self</span>.ext.max_value_size() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;E::T&gt;::ValueTooLarge.into());
 		}
 
-		<span class="kw">let </span>topics: Vec&lt;TopicOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt;&gt; = <span class="kw">match </span>topics_len {
+		<span class="kw">let </span>topics: Vec&lt;H256&gt; = <span class="kw">match </span>num_topic {
 			<span class="number">0 </span>=&gt; Vec::new(),
-			<span class="kw">_ </span>=&gt; memory.read_as_unbounded(topics_ptr, topics_len)<span class="question-mark">?</span>,
+			<span class="kw">_ </span>=&gt; {
+				<span class="kw">let </span><span class="kw-2">mut </span>v = Vec::with_capacity(num_topic <span class="kw">as </span>usize);
+				<span class="kw">let </span>topics_len = num_topic * H256::len_bytes() <span class="kw">as </span>u32;
+				<span class="kw">let </span>buf = memory.read(topics_ptr, topics_len)<span class="question-mark">?</span>;
+				<span class="kw">for </span>chunk <span class="kw">in </span>buf.chunks_exact(H256::len_bytes()) {
+					v.push(H256::from_slice(chunk));
+				}
+				v
+			},
 		};
 
-		<span class="comment">// If there are more than `event_topics`, then trap.
-		</span><span class="kw">if </span>topics.len() <span class="kw">as </span>u32 &gt; limits::NUM_EVENT_TOPICS {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;E::T&gt;::TooManyTopics.into());
-		}
-
 		<span class="kw">let </span>event_data = memory.read(data_ptr, data_len)<span class="question-mark">?</span>;
-
 		<span class="self">self</span>.ext.deposit_event(topics, event_data);
-
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Stores the current block number of the current contract into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::block_number`].
 	</span><span class="attr">#[api_version(<span class="number">0</span>)]
-	</span><span class="kw">fn </span>block_number(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		memory: <span class="kw-2">&amp;mut </span>M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
+	</span><span class="kw">fn </span>block_number(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: <span class="kw-2">&amp;mut </span>M, out_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::BlockNumber)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_sandbox_output(
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.ext.block_number().encode(),
+			<span class="kw-2">&amp;</span>as_bytes(<span class="self">self</span>.ext.block_number()),
 			<span class="bool-val">false</span>,
 			already_charged,
 		)<span class="question-mark">?</span>)
@@ -3984,7 +3996,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code_hash_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::SetCodeHash)<span class="question-mark">?</span>;
-		<span class="kw">let </span>code_hash: H256 = memory.read_as(code_hash_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span>code_hash: H256 = memory.read_h256(code_hash_ptr)<span class="question-mark">?</span>;
 		<span class="kw">match </span><span class="self">self</span>.ext.set_code_hash(code_hash) {
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="kw">let </span>code = <span class="self">Self</span>::err_into_return_code(err)<span class="question-mark">?</span>;
@@ -4026,7 +4038,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code_hash_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::LockDelegateDependency)<span class="question-mark">?</span>;
-		<span class="kw">let </span>code_hash = memory.read_as(code_hash_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span>code_hash = memory.read_h256(code_hash_ptr)<span class="question-mark">?</span>;
 		<span class="self">self</span>.ext.lock_delegate_dependency(code_hash)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -4041,7 +4053,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code_hash_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="self">self</span>.charge_gas(RuntimeCosts::UnlockDelegateDependency)<span class="question-mark">?</span>;
-		<span class="kw">let </span>code_hash = memory.read_as(code_hash_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span>code_hash = memory.read_h256(code_hash_ptr)<span class="question-mark">?</span>;
 		<span class="self">self</span>.ext.unlock_delegate_dependency(<span class="kw-2">&amp;</span>code_hash)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(())
 	}

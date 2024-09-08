@@ -4155,26 +4155,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#4003" id="4003">4003</a>
 <a href="#4004" id="4004">4004</a>
 <a href="#4005" id="4005">4005</a>
-<a href="#4006" id="4006">4006</a>
-<a href="#4007" id="4007">4007</a>
-<a href="#4008" id="4008">4008</a>
-<a href="#4009" id="4009">4009</a>
-<a href="#4010" id="4010">4010</a>
-<a href="#4011" id="4011">4011</a>
-<a href="#4012" id="4012">4012</a>
-<a href="#4013" id="4013">4013</a>
-<a href="#4014" id="4014">4014</a>
-<a href="#4015" id="4015">4015</a>
-<a href="#4016" id="4016">4016</a>
-<a href="#4017" id="4017">4017</a>
-<a href="#4018" id="4018">4018</a>
-<a href="#4019" id="4019">4019</a>
-<a href="#4020" id="4020">4020</a>
-<a href="#4021" id="4021">4021</a>
-<a href="#4022" id="4022">4022</a>
-<a href="#4023" id="4023">4023</a>
-<a href="#4024" id="4024">4024</a>
-<a href="#4025" id="4025">4025</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4214,7 +4194,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::{Fortitude, Preservation},
-		Contains, OriginTrait, Time,
+		Contains, IsType, OriginTrait, Time,
 	},
 	weights::Weight,
 	Blake2_128Concat, BoundedVec, StorageHasher,
@@ -4226,7 +4206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::{
 	ecdsa::Public <span class="kw">as </span>ECDSAPublic,
 	sr25519::{Public <span class="kw">as </span>SR25519Public, Signature <span class="kw">as </span>SR25519Signature},
-	ConstU32, Get, H160, H256,
+	ConstU32, Get, H160, H256, U256,
 };
 <span class="kw">use </span>sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 <span class="kw">use </span>sp_runtime::{
@@ -4237,9 +4217,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub type </span>AccountIdOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId;
 <span class="kw">pub type </span>MomentOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Time <span class="kw">as </span>Time&gt;::Moment;
 <span class="kw">pub type </span>ExecResult = <span class="prelude-ty">Result</span>&lt;ExecReturnValue, ExecError&gt;;
-
-<span class="doccomment">/// A type that represents a topic of an event. At the moment a hash is used.
-</span><span class="kw">pub type </span>TopicOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash;
 
 <span class="doccomment">/// Type for variable sized storage key. Used for transparent hashing.
 </span><span class="kw">type </span>VarSizedKey = BoundedVec&lt;u8, ConstU32&lt;{ limits::STORAGE_KEY_BYTES }&gt;&gt;;
@@ -4361,9 +4338,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>call(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
+		deposit_limit: U256,
 		to: <span class="kw-2">&amp;</span>H160,
-		value: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
+		value: U256,
 		input_data: Vec&lt;u8&gt;,
 		allows_reentry: bool,
 		read_only: bool,
@@ -4386,9 +4363,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>instantiate(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
+		deposit_limit: U256,
 		code: H256,
-		value: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
+		value: U256,
 		input_data: Vec&lt;u8&gt;,
 		salt: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(H160, ExecReturnValue), ExecError&gt;;
@@ -4403,7 +4380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>H160) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Transfer some amount of funds into the specified account.
-	</span><span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>H160, value: BalanceOf&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
+	</span><span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>H160, value: U256) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Returns the storage entry of the executing account by the given `key`.
 	///
@@ -4481,30 +4458,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns the balance of the current contract.
 	///
 	/// The `value_transferred` is already added.
-	</span><span class="kw">fn </span>balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;<span class="self">Self</span>::T&gt;;
+	</span><span class="kw">fn </span>balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256;
 
 	<span class="doccomment">/// Returns the value transferred along with this call.
-	</span><span class="kw">fn </span>value_transferred(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;<span class="self">Self</span>::T&gt;;
+	</span><span class="kw">fn </span>value_transferred(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256;
 
-	<span class="doccomment">/// Returns a reference to the timestamp of the current block
-	</span><span class="kw">fn </span>now(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>MomentOf&lt;<span class="self">Self</span>::T&gt;;
+	<span class="doccomment">/// Returns the timestamp of the current block
+	</span><span class="kw">fn </span>now(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256;
 
 	<span class="doccomment">/// Returns the minimum balance that is required for creating an account.
-	</span><span class="kw">fn </span>minimum_balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;<span class="self">Self</span>::T&gt;;
+	</span><span class="kw">fn </span>minimum_balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256;
 
 	<span class="doccomment">/// Deposit an event with the given topics.
 	///
 	/// There should not be any duplicates in `topics`.
-	</span><span class="kw">fn </span>deposit_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topics: Vec&lt;TopicOf&lt;<span class="self">Self</span>::T&gt;&gt;, data: Vec&lt;u8&gt;);
+	</span><span class="kw">fn </span>deposit_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topics: Vec&lt;H256&gt;, data: Vec&lt;u8&gt;);
 
 	<span class="doccomment">/// Returns the current block number.
-	</span><span class="kw">fn </span>block_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BlockNumberFor&lt;<span class="self">Self</span>::T&gt;;
+	</span><span class="kw">fn </span>block_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256;
 
 	<span class="doccomment">/// Returns the maximum allowed size of a storage item.
 	</span><span class="kw">fn </span>max_value_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32;
 
 	<span class="doccomment">/// Returns the price for the specified amount of weight.
-	</span><span class="kw">fn </span>get_weight_price(<span class="kw-2">&amp;</span><span class="self">self</span>, weight: Weight) -&gt; BalanceOf&lt;<span class="self">Self</span>::T&gt;;
+	</span><span class="kw">fn </span>get_weight_price(<span class="kw-2">&amp;</span><span class="self">self</span>, weight: Weight) -&gt; U256;
 
 	<span class="doccomment">/// Get an immutable reference to the nested gas meter.
 	</span><span class="kw">fn </span>gas_meter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>GasMeter&lt;<span class="self">Self</span>::T&gt;;
@@ -4874,6 +4851,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T, E&gt; Stack&lt;<span class="lifetime">'a</span>, T, E&gt;
 <span class="kw">where
 	</span>T: Config,
+	T::Hash: IsType&lt;H256&gt;,
+	BalanceOf&lt;T&gt;: Into&lt;U256&gt; + TryFrom&lt;U256&gt;,
+	MomentOf&lt;T&gt;: Into&lt;U256&gt;,
 	E: Executable&lt;T&gt;,
 {
 	<span class="doccomment">/// Create and run a new call stack by calling into `dest`.
@@ -5416,16 +5396,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T, E&gt; Ext <span class="kw">for </span>Stack&lt;<span class="lifetime">'a</span>, T, E&gt;
 <span class="kw">where
 	</span>T: Config,
+	T::Hash: IsType&lt;H256&gt;,
 	E: Executable&lt;T&gt;,
+	BalanceOf&lt;T&gt;: Into&lt;U256&gt; + TryFrom&lt;U256&gt;,
+	MomentOf&lt;T&gt;: Into&lt;U256&gt;,
 {
 	<span class="kw">type </span>T = T;
 
 	<span class="kw">fn </span>call(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf&lt;T&gt;,
+		deposit_limit: U256,
 		dest: <span class="kw-2">&amp;</span>H160,
-		value: BalanceOf&lt;T&gt;,
+		value: U256,
 		input_data: Vec&lt;u8&gt;,
 		allows_reentry: bool,
 		read_only: bool,
@@ -5454,9 +5437,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 			<span class="kw">let </span>executable = <span class="self">self</span>.push_frame(
 				FrameArgs::Call { dest, cached_info, delegated_call: <span class="prelude-val">None </span>},
-				value,
+				value.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BalanceConversionFailed)<span class="question-mark">?</span>,
 				gas_limit,
-				deposit_limit,
+				deposit_limit.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BalanceConversionFailed)<span class="question-mark">?</span>,
 				<span class="comment">// Enable read-only access if requested; cannot disable it if already set.
 				</span>read_only || <span class="self">self</span>.is_read_only(),
 			)<span class="question-mark">?</span>;
@@ -5499,9 +5482,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>instantiate(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
+		deposit_limit: U256,
 		code_hash: H256,
-		value: BalanceOf&lt;T&gt;,
+		value: U256,
 		input_data: Vec&lt;u8&gt;,
 		salt: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(H160, ExecReturnValue), ExecError&gt; {
@@ -5514,9 +5497,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				salt,
 				input_data: input_data.as_ref(),
 			},
-			value,
+			value.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BalanceConversionFailed)<span class="question-mark">?</span>,
 			gas_limit,
-			deposit_limit,
+			deposit_limit.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BalanceConversionFailed)<span class="question-mark">?</span>,
 			<span class="self">self</span>.is_read_only(),
 		)<span class="question-mark">?</span>;
 		<span class="kw">let </span>address = T::AddressMapper::to_address(<span class="kw-2">&amp;</span><span class="self">self</span>.top_frame().account_id);
@@ -5551,12 +5534,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>H160, value: BalanceOf&lt;T&gt;) -&gt; DispatchResult {
+	<span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>H160, value: U256) -&gt; DispatchResult {
 		<span class="self">Self</span>::transfer(
 			Preservation::Preserve,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.top_frame().account_id,
 			<span class="kw-2">&amp;</span>T::AddressMapper::to_account_id(to),
-			value,
+			value.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BalanceConversionFailed)<span class="question-mark">?</span>,
 		)
 	}
 
@@ -5639,27 +5622,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="self">self</span>.caller_is_origin() &amp;&amp; <span class="self">self</span>.origin == Origin::Root
 	}
 
-	<span class="kw">fn </span>balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
+	<span class="kw">fn </span>balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256 {
 		T::Currency::reducible_balance(
 			<span class="kw-2">&amp;</span><span class="self">self</span>.top_frame().account_id,
 			Preservation::Preserve,
 			Fortitude::Polite,
 		)
+		.into()
 	}
 
-	<span class="kw">fn </span>value_transferred(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
-		<span class="self">self</span>.top_frame().value_transferred
+	<span class="kw">fn </span>value_transferred(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256 {
+		<span class="self">self</span>.top_frame().value_transferred.into()
 	}
 
-	<span class="kw">fn </span>now(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>MomentOf&lt;T&gt; {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.timestamp
+	<span class="kw">fn </span>now(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256 {
+		<span class="self">self</span>.timestamp.into()
 	}
 
-	<span class="kw">fn </span>minimum_balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
-		T::Currency::minimum_balance()
+	<span class="kw">fn </span>minimum_balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256 {
+		T::Currency::minimum_balance().into()
 	}
 
-	<span class="kw">fn </span>deposit_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topics: Vec&lt;T::Hash&gt;, data: Vec&lt;u8&gt;) {
+	<span class="kw">fn </span>deposit_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topics: Vec&lt;H256&gt;, data: Vec&lt;u8&gt;) {
 		Contracts::&lt;<span class="self">Self</span>::T&gt;::deposit_indexed_event(
 			topics,
 			Event::ContractEmitted {
@@ -5669,16 +5653,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="kw">fn </span>block_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BlockNumberFor&lt;T&gt; {
-		<span class="self">self</span>.block_number
+	<span class="kw">fn </span>block_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256 {
+		<span class="self">self</span>.block_number.into()
 	}
 
 	<span class="kw">fn </span>max_value_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
 		limits::PAYLOAD_BYTES
 	}
 
-	<span class="kw">fn </span>get_weight_price(<span class="kw-2">&amp;</span><span class="self">self</span>, weight: Weight) -&gt; BalanceOf&lt;<span class="self">Self</span>::T&gt; {
-		T::WeightPrice::convert(weight)
+	<span class="kw">fn </span>get_weight_price(<span class="kw-2">&amp;</span><span class="self">self</span>, weight: Weight) -&gt; U256 {
+		T::WeightPrice::convert(weight).into()
 	}
 
 	<span class="kw">fn </span>gas_meter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>GasMeter&lt;<span class="self">Self</span>::T&gt; {
@@ -6041,7 +6025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>value = <span class="number">55</span>;
 
 		<span class="kw">let </span>success_ch = MockLoader::insert(Call, <span class="kw">move </span>|ctx, <span class="kw">_</span>| {
-			<span class="macro">assert_eq!</span>(ctx.ext.value_transferred(), value);
+			<span class="macro">assert_eq!</span>(ctx.ext.value_transferred(), U256::from(value));
 			<span class="prelude-val">Ok</span>(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
@@ -6073,12 +6057,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>value = <span class="number">35</span>;
 
 		<span class="kw">let </span>success_ch = MockLoader::insert(Call, <span class="kw">move </span>|ctx, <span class="kw">_</span>| {
-			<span class="macro">assert_eq!</span>(ctx.ext.value_transferred(), value);
+			<span class="macro">assert_eq!</span>(ctx.ext.value_transferred(), U256::from(value));
 			<span class="prelude-val">Ok</span>(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
 		<span class="kw">let </span>delegate_ch = MockLoader::insert(Call, <span class="kw">move </span>|ctx, <span class="kw">_</span>| {
-			<span class="macro">assert_eq!</span>(ctx.ext.value_transferred(), value);
+			<span class="macro">assert_eq!</span>(ctx.ext.value_transferred(), U256::from(value));
 			<span class="kw">let _ </span>= ctx.ext.delegate_call(success_ch, Vec::new())<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
@@ -6289,9 +6273,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Try to call into yourself.
 			</span><span class="kw">let </span>r = ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::&lt;Test&gt;::zero(),
+				U256::zero(),
 				<span class="kw-2">&amp;</span>BOB_ADDR,
-				<span class="number">0</span>,
+				U256::zero(),
 				<span class="macro">vec!</span>[],
 				<span class="bool-val">true</span>,
 				<span class="bool-val">false</span>,
@@ -6352,9 +6336,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_matches!</span>(
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::&lt;Test&gt;::zero(),
+					U256::zero(),
 					<span class="kw-2">&amp;</span>CHARLIE_ADDR,
-					<span class="number">0</span>,
+					U256::zero(),
 					<span class="macro">vec!</span>[],
 					<span class="bool-val">true</span>,
 					<span class="bool-val">false
@@ -6493,9 +6477,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// BOB calls CHARLIE
 			</span>ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::&lt;Test&gt;::zero(),
+				U256::zero(),
 				<span class="kw-2">&amp;</span>CHARLIE_ADDR,
-				<span class="number">0</span>,
+				U256::zero(),
 				<span class="macro">vec!</span>[],
 				<span class="bool-val">true</span>,
 				<span class="bool-val">false</span>,
@@ -6587,9 +6571,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// BOB calls CHARLIE.
 			</span>ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::&lt;Test&gt;::zero(),
+				U256::zero(),
 				<span class="kw-2">&amp;</span>CHARLIE_ADDR,
-				<span class="number">0</span>,
+				U256::zero(),
 				<span class="macro">vec!</span>[],
 				<span class="bool-val">true</span>,
 				<span class="bool-val">false</span>,
@@ -6625,9 +6609,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_matches!</span>(
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::&lt;Test&gt;::zero(),
+					U256::zero(),
 					<span class="kw-2">&amp;</span>CHARLIE_ADDR,
-					<span class="number">0</span>,
+					U256::zero(),
 					<span class="macro">vec!</span>[],
 					<span class="bool-val">true</span>,
 					<span class="bool-val">false
@@ -6798,9 +6782,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.ext
 					.instantiate(
 						Weight::zero(),
-						BalanceOf::&lt;Test&gt;::zero(),
+						U256::zero(),
 						dummy_ch,
-						&lt;Test <span class="kw">as </span>Config&gt;::Currency::minimum_balance(),
+						&lt;Test <span class="kw">as </span>Config&gt;::Currency::minimum_balance().into(),
 						<span class="macro">vec!</span>[],
 						<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">48</span>; <span class="number">32</span>]),
 					)
@@ -6876,9 +6860,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="macro">assert_matches!</span>(
 					ctx.ext.instantiate(
 						Weight::zero(),
-						BalanceOf::&lt;Test&gt;::zero(),
+						U256::zero(),
 						dummy_ch,
-						&lt;Test <span class="kw">as </span>Config&gt;::Currency::minimum_balance(),
+						&lt;Test <span class="kw">as </span>Config&gt;::Currency::minimum_balance().into(),
 						<span class="macro">vec!</span>[],
 						<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>]),
 					),
@@ -6981,9 +6965,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(
 					ctx.ext.call(
 						Weight::zero(),
-						BalanceOf::&lt;Test&gt;::zero(),
+						U256::zero(),
 						<span class="kw-2">&amp;</span>CHARLIE_ADDR,
-						<span class="number">0</span>,
+						U256::zero(),
 						<span class="macro">vec!</span>[],
 						<span class="bool-val">true</span>,
 						<span class="bool-val">false
@@ -6997,15 +6981,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="macro">assert!</span>(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::&lt;Test&gt;::zero(),
-					<span class="kw-2">&amp;</span>BOB_ADDR,
-					<span class="number">0</span>,
-					<span class="macro">vec!</span>[<span class="number">99</span>],
-					<span class="bool-val">true</span>,
-					<span class="bool-val">false
-				</span>)
+				.call(Weight::zero(), U256::zero(), <span class="kw-2">&amp;</span>BOB_ADDR, U256::zero(), <span class="macro">vec!</span>[<span class="number">99</span>], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
 				.is_ok());
 			exec_trapped()
 		});
@@ -7037,7 +7013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>addr = &lt;Test <span class="kw">as </span>Config&gt;::AddressMapper::to_address(<span class="kw-2">&amp;</span>account_id);
 
 			<span class="macro">assert_matches!</span>(
-						   ctx.ext.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), <span class="kw-2">&amp;</span>addr, <span class="number">0</span>, <span class="macro">vec!</span>[],
+						   ctx.ext.call(Weight::zero(), U256::zero(), <span class="kw-2">&amp;</span>addr, U256::zero(), <span class="macro">vec!</span>[],
 			<span class="bool-val">true</span>, <span class="bool-val">false</span>), 				<span class="prelude-val">Err</span>(ExecError{error, ..}) <span class="kw">if </span>error == &lt;Error&lt;Test&gt;&gt;::ContractNotFound.into()
 					   );
 			exec_success()
@@ -7175,7 +7151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>code_bob = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="kw">let </span>dest = H160::from_slice(ctx.input_data.as_ref());
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), <span class="kw-2">&amp;</span>dest, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">false</span>, <span class="bool-val">false</span>)
+				.call(Weight::zero(), U256::zero(), <span class="kw-2">&amp;</span>dest, U256::zero(), <span class="macro">vec!</span>[], <span class="bool-val">false</span>, <span class="bool-val">false</span>)
 		});
 
 		<span class="kw">let </span>code_charlie = MockLoader::insert(Call, |<span class="kw">_</span>, <span class="kw">_</span>| exec_success());
@@ -7220,9 +7196,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>ctx.input_data[<span class="number">0</span>] == <span class="number">0 </span>{
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::&lt;Test&gt;::zero(),
+					U256::zero(),
 					<span class="kw-2">&amp;</span>CHARLIE_ADDR,
-					<span class="number">0</span>,
+					U256::zero(),
 					<span class="macro">vec!</span>[],
 					<span class="bool-val">false</span>,
 					<span class="bool-val">false</span>,
@@ -7236,9 +7212,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::&lt;Test&gt;::zero(),
+				U256::zero(),
 				<span class="kw-2">&amp;</span>BOB_ADDR,
-				<span class="number">0</span>,
+				U256::zero(),
 				<span class="macro">vec!</span>[<span class="number">1</span>],
 				<span class="bool-val">true</span>,
 				<span class="bool-val">false</span>,
@@ -7428,7 +7404,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ctx.ext
 				.instantiate(
 					Weight::zero(),
-					BalanceOf::&lt;Test&gt;::zero(),
+					U256::zero(),
 					fail_code,
 					ctx.ext.minimum_balance() * <span class="number">100</span>,
 					<span class="macro">vec!</span>[],
@@ -7445,7 +7421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.ext
 				.instantiate(
 					Weight::zero(),
-					BalanceOf::&lt;Test&gt;::zero(),
+					U256::zero(),
 					success_code,
 					ctx.ext.minimum_balance() * <span class="number">100</span>,
 					<span class="macro">vec!</span>[],
@@ -7461,7 +7437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// a plain call should not influence the account counter
 			</span>ctx.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), <span class="kw-2">&amp;</span>addr, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">false</span>, <span class="bool-val">false</span>)
+				.call(Weight::zero(), U256::zero(), <span class="kw-2">&amp;</span>addr, U256::zero(), <span class="macro">vec!</span>[], <span class="bool-val">false</span>, <span class="bool-val">false</span>)
 				.unwrap();
 
 			<span class="macro">assert_eq!</span>(System::account_nonce(ALICE), alice_nonce);
@@ -7999,9 +7975,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(
 					ctx.ext.call(
 						Weight::zero(),
-						BalanceOf::&lt;Test&gt;::zero(),
+						U256::zero(),
 						<span class="kw-2">&amp;</span>CHARLIE_ADDR,
-						<span class="number">0</span>,
+						U256::zero(),
 						<span class="macro">vec!</span>[],
 						<span class="bool-val">true</span>,
 						<span class="bool-val">false</span>,
@@ -8026,15 +8002,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="macro">assert!</span>(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::&lt;Test&gt;::zero(),
-					<span class="kw-2">&amp;</span>BOB_ADDR,
-					<span class="number">0</span>,
-					<span class="macro">vec!</span>[<span class="number">99</span>],
-					<span class="bool-val">true</span>,
-					<span class="bool-val">false
-				</span>)
+				.call(Weight::zero(), U256::zero(), <span class="kw-2">&amp;</span>BOB_ADDR, U256::zero(), <span class="macro">vec!</span>[<span class="number">99</span>], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
 				.is_ok());
 			<span class="comment">// CHARLIE can not read BOB`s storage.
 			</span><span class="macro">assert_eq!</span>(ctx.ext.get_transient_storage(storage_key_1), <span class="prelude-val">None</span>);
@@ -8111,9 +8079,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(
 					ctx.ext.call(
 						Weight::zero(),
-						BalanceOf::&lt;Test&gt;::zero(),
+						U256::zero(),
 						<span class="kw-2">&amp;</span>CHARLIE_ADDR,
-						<span class="number">0</span>,
+						U256::zero(),
 						<span class="macro">vec!</span>[],
 						<span class="bool-val">true</span>,
 						<span class="bool-val">false
@@ -8134,15 +8102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="macro">assert!</span>(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::&lt;Test&gt;::zero(),
-					<span class="kw-2">&amp;</span>BOB_ADDR,
-					<span class="number">0</span>,
-					<span class="macro">vec!</span>[<span class="number">99</span>],
-					<span class="bool-val">true</span>,
-					<span class="bool-val">false
-				</span>)
+				.call(Weight::zero(), U256::zero(), <span class="kw-2">&amp;</span>BOB_ADDR, U256::zero(), <span class="macro">vec!</span>[<span class="number">99</span>], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
 				.is_ok());
 			exec_trapped()
 		});

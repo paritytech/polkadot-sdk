@@ -633,6 +633,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -668,11 +672,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	storage::child::{<span class="self">self</span>, ChildInfo},
+	traits::IsType,
 	weights::{Weight, WeightMeter},
 	CloneNoBound, DefaultNoBound,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_core::{ConstU32, Get, H160};
+<span class="kw">use </span>sp_core::{ConstU32, Get, H160, H256};
 <span class="kw">use </span>sp_io::KillStorageResult;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Hash, Saturating, Zero},
@@ -712,7 +717,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>delegate_dependencies: DelegateDependencyMap&lt;T&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; ContractInfo&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config&gt; ContractInfo&lt;T&gt;
+<span class="kw">where
+	</span>T::Hash: IsType&lt;H256&gt;,
+{
 	<span class="doccomment">/// Constructs a new contract info **without** writing it to storage.
 	///
 	/// This returns an `Err` if an contract with the supplied `account` already exists

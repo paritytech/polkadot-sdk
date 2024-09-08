@@ -224,7 +224,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["pallet_recovery",["",[],["benchmarking.rs","lib.rs","weights.rs"]]],\
 ["pallet_referenda",["",[],["benchmarking.rs","branch.rs","lib.rs","migration.rs","types.rs","weights.rs"]]],\
 ["pallet_remark",["",[],["benchmarking.rs","lib.rs","weights.rs"]]],\
-["pallet_revive",["",[["benchmarking",[],["call_builder.rs","code.rs","mod.rs"]],["storage",[],["meter.rs"]],["test_utils",[],["builder.rs"]],["wasm",[],["mod.rs","runtime.rs"]]],["address.rs","chain_extension.rs","debug.rs","exec.rs","gas.rs","lib.rs","limits.rs","migration.rs","primitives.rs","storage.rs","test_utils.rs","transient_storage.rs","weights.rs"]]],\
+["pallet_revive",["",[["benchmarking",[],["call_builder.rs","code.rs","mod.rs"]],["storage",[],["meter.rs"]],["test_utils",[],["builder.rs"]],["wasm",[],["mod.rs","runtime.rs"]]],["address.rs","chain_extension.rs","debug.rs","exec.rs","gas.rs","lib.rs","limits.rs","primitives.rs","storage.rs","test_utils.rs","transient_storage.rs","weights.rs"]]],\
 ["pallet_revive_fixtures",["",[],["lib.rs"]]],\
 ["pallet_revive_mock_network",["",[["mocks",[],["msg_queue.rs","relay_message_queue.rs"]],["parachain",[],["contracts_config.rs"]]],["lib.rs","mocks.rs","parachain.rs","primitives.rs","relay_chain.rs"]]],\
 ["pallet_revive_proc_macro",["",[],["lib.rs"]]],\

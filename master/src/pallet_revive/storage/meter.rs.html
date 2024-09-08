@@ -1038,6 +1038,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#886" id="886">886</a>
 <a href="#887" id="887">887</a>
 <a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1061,17 +1065,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	address::AddressMapper, storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error,
 	Event, HoldReason, Inspect, Origin, Pallet, StorageDeposit <span class="kw">as </span>Deposit, System, LOG_TARGET,
 };
-
 <span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>core::{fmt::Debug, marker::PhantomData};
 <span class="kw">use </span>frame_support::{
 	traits::{
 		fungible::{Mutate, MutateHold},
 		tokens::{Fortitude, Fortitude::Polite, Precision, Preservation, Restriction},
-		Get,
+		Get, IsType,
 	},
 	DefaultNoBound, RuntimeDebugNoBound,
 };
+<span class="kw">use </span>sp_core::H256;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
@@ -1440,6 +1444,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">impl</span>&lt;T, E&gt; RawMeter&lt;T, E, Nested&gt;
 <span class="kw">where
 	</span>T: Config,
+	T::Hash: IsType&lt;H256&gt;,
 	E: Ext&lt;T&gt;,
 {
 	<span class="doccomment">/// Charges `diff` from the meter.
@@ -1543,7 +1548,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; Ext&lt;T&gt; <span class="kw">for </span>ReservingExt {
+<span class="kw">impl</span>&lt;T: Config&gt; Ext&lt;T&gt; <span class="kw">for </span>ReservingExt
+<span class="kw">where
+	</span>T::Hash: IsType&lt;H256&gt;,
+{
 	<span class="kw">fn </span>check_limit(
 		origin: <span class="kw-2">&amp;</span>T::AccountId,
 		limit: BalanceOf&lt;T&gt;,
