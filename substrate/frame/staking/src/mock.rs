@@ -430,37 +430,38 @@ impl ExtBuilder {
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let ed = ExistentialDeposit::get();
 
 		let _ = pallet_balances::GenesisConfig::<Test> {
 			balances: vec![
-				(1, 10 * self.balance_factor),
-				(2, 20 * self.balance_factor),
-				(3, 300 * self.balance_factor),
-				(4, 400 * self.balance_factor),
+				(1, (10 + ed) * self.balance_factor),
+				(2, (20 + ed) * self.balance_factor),
+				(3, (300 + ed) * self.balance_factor),
+				(4, (400 + ed) * self.balance_factor),
 				// controllers (still used in some tests. Soon to be deprecated).
-				(10, self.balance_factor),
-				(20, self.balance_factor),
-				(30, self.balance_factor),
-				(40, self.balance_factor),
-				(50, self.balance_factor),
+				(10, ed * self.balance_factor),
+				(20, ed * self.balance_factor),
+				(30, ed * self.balance_factor),
+				(40, ed * self.balance_factor),
+				(50, ed * self.balance_factor),
 				// stashes
-				(11, self.balance_factor * 1000),
-				(21, self.balance_factor * 2000),
-				(31, self.balance_factor * 2000),
-				(41, self.balance_factor * 2000),
-				(51, self.balance_factor * 2000),
-				(201, self.balance_factor * 2000),
-				(202, self.balance_factor * 2000),
+				(11, self.balance_factor * (1000 + ed)),
+				(21, self.balance_factor * (2000 + ed)),
+				(31, self.balance_factor * (2000 + ed)),
+				(41, self.balance_factor * (2000 + ed)),
+				(51, self.balance_factor * (2000 + ed)),
+				(201, self.balance_factor * (2000 + ed)),
+				(202, self.balance_factor * (2000 + ed)),
 				// optional nominator
-				(100, self.balance_factor * 2000),
-				(101, self.balance_factor * 2000),
+				(100, self.balance_factor * (2000 + ed)),
+				(101, self.balance_factor * (2000 + ed)),
 				// aux accounts
-				(60, self.balance_factor),
-				(61, self.balance_factor * 2000),
-				(70, self.balance_factor),
-				(71, self.balance_factor * 2000),
-				(80, self.balance_factor),
-				(81, self.balance_factor * 2000),
+				(60, ed * self.balance_factor),
+				(61, self.balance_factor * (2000 + ed)),
+				(70, ed * self.balance_factor),
+				(71, self.balance_factor * (2000 + ed)),
+				(80, ed * self.balance_factor),
+				(81, self.balance_factor * (2000 + ed)),
 				// This allows us to have a total_payout different from 0.
 				(999, 1_000_000_000_000),
 			],

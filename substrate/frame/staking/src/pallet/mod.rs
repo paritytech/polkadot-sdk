@@ -1051,6 +1051,8 @@ pub mod pallet {
 				return Err(Error::<T>::InsufficientBond.into())
 			}
 
+			frame_system::Pallet::<T>::inc_consumers(&stash)?;
+
 			let stash_balance = asset::stakeable_balance::<T>(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });

@@ -23,7 +23,7 @@ use frame_support::traits::{
 		hold::{Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate},
 		Balanced, Inspect as FunInspect,
 	},
-	tokens::Precision,
+	tokens::{Fortitude, Precision, Preservation},
 };
 use sp_runtime::{traits::Zero, DispatchResult};
 
@@ -50,7 +50,8 @@ pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 ///
 /// This includes balance free to stake along with any balance that is already staked.
 pub fn stakeable_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
-	T::Currency::balance(who) + T::Currency::balance_on_hold(&HoldReason::Staking.into(), who)
+	T::Currency::reducible_balance(who, Preservation::Protect, Fortitude::Force) +
+		T::Currency::balance_on_hold(&HoldReason::Staking.into(), who)
 }
 
 /// Balance of `who` that is currently at stake.
@@ -72,15 +73,15 @@ pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>)
 	let staked_balance = staked::<T>(who);
 	// if value is greater than staked balance, we need to increase the free balance.
 	if value > staked_balance {
-		let _ = T::Currency::set_balance(who, value - staked_balance);
+		let _ = T::Currency::set_balance(who, value + existential_deposit::<T>() - staked_balance);
 	} else {
 		// else reduce the staked balance.
 		update_stake::<T>(who, value).expect("can remove from what is staked");
-		// burn all free
-		let _ = T::Currency::set_balance(who, Zero::zero());
+		// burn all free except ED
+		let _ = T::Currency::set_balance(who, existential_deposit::<T>());
 	}
 
-	assert_eq!(total_balance::<T>(who), value);
+	assert_eq!(stakeable_balance::<T>(who), value);
 }
 
 /// Update `amount` at stake for `who`.
@@ -90,7 +91,7 @@ pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>)
 pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 	// if first stake, inc provider. This allows us to stake all free balance.
 	if staked::<T>(who) == Zero::zero() && amount > Zero::zero() {
-		frame_system::Pallet::<T>::inc_providers(who);
+		// frame_system::Pallet::<T>::inc_providers(who);
 	}
 
 	T::Currency::set_on_hold(&HoldReason::Staking.into(), who, amount)
@@ -113,7 +114,7 @@ pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
 	}
 
 	// dec provider that we incremented for a new stake.
-	let _ = frame_system::Pallet::<T>::dec_providers(who)?;
+	// let _ = frame_system::Pallet::<T>::dec_providers(who)?;
 	Ok(())
 }
 

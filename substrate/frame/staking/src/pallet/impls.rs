@@ -797,6 +797,8 @@ impl<T: Config> Pallet<T> {
 		Self::do_remove_validator(&stash);
 		Self::do_remove_nominator(&stash);
 
+		frame_system::Pallet::<T>::dec_consumers(&stash);
+
 		Ok(())
 	}
 
@@ -1936,6 +1938,9 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 
 		// check if payee not same as who.
 		ensure!(keyless_who != payee, Error::<T>::RewardDestinationRestricted);
+
+		// mark this pallet as consumer of `who`.
+		frame_system::Pallet::<T>::inc_consumers(&keyless_who)?;
 
 		// mark who as a virtual staker.
 		VirtualStakers::<T>::insert(keyless_who, ());
