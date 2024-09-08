@@ -121,21 +121,21 @@ pub trait VestedTransfer<AccountId> {
 	/// The currency that this schedule applies to.
 	type Currency: Currency<AccountId>;
 
-	// Execute a vested transfer from `source` to `target` with the given schedule:
-	// 	- `locked`: The amount to be transferred and for the vesting schedule to apply to.
-	// 	- `per_block`: The amount to be unlocked each block. (linear vesting)
-	// 	- `starting_block`: The block where the vesting should start. This block can be in the past
-	//    or future, and should adjust when the tokens become available to the user.
-	//
-	// Example: Assume we are on block 100. If `locked` amount is 100, and `per_block` is 1:
-	// 	- If `starting_block` is 0, then the whole 100 tokens will be available right away as the
-	//    vesting schedule started in the past and has fully completed.
-	// 	- If `starting_block` is 50, then 50 tokens are made available right away, and 50 more
-	//    tokens will unlock one token at a time until block 150.
-	// 	- If `starting_block` is 100, then each block, 1 token will be unlocked until the whole
-	//    balance is unlocked at block 200.
-	// 	- If `starting_block` is 200, then the 100 token balance will be completely locked until
-	//    block 200, and then start to unlock one token at a time until block 300.
+	/// Execute a vested transfer from `source` to `target` with the given schedule:
+	/// 	- `locked`: The amount to be transferred and for the vesting schedule to apply to.
+	/// 	- `per_block`: The amount to be unlocked each block. (linear vesting)
+	/// 	- `starting_block`: The block where the vesting should start. This block can be in the past
+	///    or future, and should adjust when the tokens become available to the user.
+	///
+	/// Example: Assume we are on block 100. If `locked` amount is 100, and `per_block` is 1:
+	/// 	- If `starting_block` is 0, then the whole 100 tokens will be available right away as the
+	///    vesting schedule started in the past and has fully completed.
+	/// 	- If `starting_block` is 50, then 50 tokens are made available right away, and 50 more
+	///    tokens will unlock one token at a time until block 150.
+	/// 	- If `starting_block` is 100, then each block, 1 token will be unlocked until the whole
+	///    balance is unlocked at block 200.
+	/// 	- If `starting_block` is 200, then the 100 token balance will be completely locked until
+	///    block 200, and then start to unlock one token at a time until block 300.
 	fn vested_transfer(
 		source: &AccountId,
 		target: &AccountId,
