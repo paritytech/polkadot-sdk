@@ -14,7 +14,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 //! Helper functions for OPF pallet.
 
 pub use super::*;
@@ -44,8 +43,6 @@ impl<T: Config> Pallet<T> {
 		// Check that Project is whiteListed
 		ensure!(projects.contains(&project), Error::<T>::NotWhitelistedProject);
 
-		//Have you
-
 		// Create vote infos and store/adjust them
 		let round_number = VotingRoundNumber::<T>::get().saturating_sub(1);
 		let mut round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
@@ -71,7 +68,6 @@ impl<T: Config> Pallet<T> {
 
 		// Update Funds unlock block according to the selected conviction
 		new_vote.funds_unlock();
-
 		if Votes::<T>::contains_key(&project, &voter_id) {
 			let old_vote = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let old_amount = old_vote.amount;
@@ -96,6 +92,7 @@ impl<T: Config> Pallet<T> {
 			Votes::<T>::mutate(&project, &voter_id, |value| {
 				*value = Some(new_vote);
 			});
+
 			// Adjust locked amount
 			let total_hold = T::NativeBalance::total_balance_on_hold(&voter_id);
 			let new_hold = total_hold.saturating_sub(old_amount).saturating_add(amount);
@@ -157,7 +154,6 @@ impl<T: Config> Pallet<T> {
 			});
 
 			// Update ProjectFund Storage
-
 			ProjectFunds::<T>::mutate(&project, |val| {
 				let mut val0 = val.clone().into_inner();
 				if is_fund {
@@ -169,7 +165,6 @@ impl<T: Config> Pallet<T> {
 			});
 
 			// Remove Vote Infos
-
 			Votes::<T>::remove(&project, &voter_id);
 
 			T::NativeBalance::release(
