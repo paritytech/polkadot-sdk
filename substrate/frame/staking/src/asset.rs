@@ -46,12 +46,9 @@ pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::total_balance(who)
 }
 
-/// Stakeable balance of `who`.
-///
-/// This includes balance free to stake along with any balance that is already staked.
+/// Total balance of `who` that can be staked or is already staked.
 pub fn stakeable_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
-	T::Currency::reducible_balance(who, Preservation::Protect, Fortitude::Force) +
-		T::Currency::balance_on_hold(&HoldReason::Staking.into(), who)
+	staked::<T>(who) + free_to_stake::<T>(who)
 }
 
 /// Balance of `who` that is currently at stake.
@@ -61,11 +58,17 @@ pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::balance_on_hold(&HoldReason::Staking.into(), who)
 }
 
+/// Balance of `who` that is free to be staked.
+pub fn free_to_stake<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
+	T::Currency::reducible_balance(who, Preservation::Protect, Fortitude::Force)
+}
+
 /// Set balance that can be staked for `who`.
 ///
 /// `Value` must be greater than already staked plus existential deposit for free balance.
 ///
 /// Should only be used with test.
+// FIXME(ank4n): Remove and replace with set_free_balance().
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
 	use frame_support::traits::fungible::Mutate;
@@ -103,18 +106,6 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
 	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort)
 		.map(|_| ())?;
-
-	// FIXME(ank4n): may have to update bench. Also add failing test if non session consumers on
-	// stash.
-	if !frame_system::Pallet::<T>::can_dec_provider(who) {
-		// The session pallet keeps a consumer reference to validator stash which may block this
-		// pallet from clearing its provider reference. If the account cannot provide for itself
-		// (via enough free balance) to keep the session key, we should clean up the session keys.
-		T::SessionInterface::purge_keys(who.clone())?;
-	}
-
-	// dec provider that we incremented for a new stake.
-	// let _ = frame_system::Pallet::<T>::dec_providers(who)?;
 	Ok(())
 }
 

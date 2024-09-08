@@ -490,7 +490,7 @@ fn staking_should_work() {
 			}
 		);
 		// e.g. it cannot reserve more than 500 that it has free from the total 2000
-		assert_noop!(Balances::reserve(&3, 501), BalancesError::<Test, _>::InsufficientBalance);
+		assert_noop!(Balances::reserve(&3, 501), DispatchError::ConsumerRemaining);
 		assert_ok!(Balances::reserve(&3, 409));
 	});
 }
@@ -610,20 +610,21 @@ fn nominating_and_rewards_should_work() {
 
 			// give the man some money
 			let initial_balance = 1000;
-			for i in [1, 3, 5, 11, 21].iter() {
+			for i in [1, 5, 11, 21].iter() {
 				let _ = asset::set_stakeable_balance::<Test>(&i, initial_balance);
 			}
 
 			// bond two account pairs and state interest in nomination.
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(1),
-				1000,
+				initial_balance,
 				RewardDestination::Account(1)
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11, 21, 31]));
 
-			// the second nominator is virtual.
-			bond_virtual_nominator(3, 333, 1000, vec![11, 21, 41]);
+			// the second nominator is virtual. The balance is not locked by staking pallet, only
+			// ledger is updated.
+			bond_virtual_nominator(3, 333, initial_balance, vec![11, 21, 41]);
 
 			// the total reward for era 0
 			let total_payout_0 = current_total_payout_for_duration(reward_time_per_era());
@@ -687,26 +688,24 @@ fn nominating_and_rewards_should_work() {
 				initial_balance + (2 * payout_for_11 / 9 + 3 * payout_for_21 / 11),
 				2,
 			);
-			// Nominator 3: has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11 from 21]'s reward. ==>
-			// 2/9 + 3/11
-			assert_eq!(asset::total_balance::<Test>(&3), initial_balance);
-			// 333 is the reward destination for 3.
+			// Nominator 3 (Reward account: 333): has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11
+			// from 21]'s reward. ==> 2/9 + 3/11
 			assert_eq_error_rate!(
-				asset::total_balance::<Test>(&333),
+				asset::stakeable_balance::<Test>(&333),
 				2 * payout_for_11 / 9 + 3 * payout_for_21 / 11,
 				2
 			);
 
 			// Validator 11: got 800 / 1800 external stake => 8/18 =? 4/9 => Validator's share = 5/9
 			assert_eq_error_rate!(
-				asset::total_balance::<Test>(&11),
+				asset::stakeable_balance::<Test>(&11),
 				initial_balance + 5 * payout_for_11 / 9,
 				2,
 			);
 			// Validator 21: got 1200 / 2200 external stake => 12/22 =? 6/11 => Validator's share =
 			// 5/11
 			assert_eq_error_rate!(
-				asset::total_balance::<Test>(&21),
+				asset::stakeable_balance::<Test>(&21),
 				initial_balance_21 + 5 * payout_for_21 / 11,
 				2,
 			);
@@ -992,18 +991,19 @@ fn cannot_transfer_staked_balance() {
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		// Confirm account 11 is stashed
 		assert_eq!(Staking::bonded(&11), Some(11));
-		// Confirm account 11 has some free balance
-		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000);
-		// Confirm account 11 (via controller) is totally staked
+		// Confirm account 11 has no free balance
+		assert_eq!(asset::free_to_stake::<Test>(&11), 0);
+		// Confirm account 11 (via controller) is totally staked.
 		assert_eq!(Staking::eras_stakers(active_era(), &11).total, 1000);
 		// Confirm account 11 cannot transfer as a result
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(11), 21, 1),
-			TokenError::FundsUnavailable,
+			TokenError::Frozen,
 		);
 
 		// Give account 11 extra free balance
 		let _ = asset::set_stakeable_balance::<Test>(&11, 10000);
+
 		// Confirm that account 11 can now transfer some balance
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(11), 21, 1));
 	});
@@ -1018,15 +1018,14 @@ fn cannot_transfer_staked_balance_2() {
 		// Confirm account 21 is stashed
 		assert_eq!(Staking::bonded(&21), Some(21));
 		// Confirm account 21 has some free balance
-		assert_eq!(asset::stakeable_balance::<Test>(&21), 2000);
-		// Confirm account 21 (via controller) is totally staked
+		assert_eq!(asset::free_to_stake::<Test>(&21), 1000);
+		// Confirm account 21 (via controller) is staked
 		assert_eq!(Staking::eras_stakers(active_era(), &21).total, 1000);
-		// Confirm account 21 cannot transfer more than 1000
+		// Confirm account 21 can only transfer upto 1000.
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(21), 21, 1001),
-			TokenError::FundsUnavailable,
+			TokenError::Frozen,
 		);
-		// Confirm account 21 needs to leave at least ED in free balance to be able to transfer
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(21), 21, 1000));
 	});
 }
@@ -1037,12 +1036,12 @@ fn cannot_reserve_staked_balance() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Confirm account 11 is stashed
 		assert_eq!(Staking::bonded(&11), Some(11));
-		// Confirm account 11 has some free balance
-		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000);
+		// 11 has all its balance staked and no free balance.
+		assert_eq!(asset::free_to_stake::<Test>(&11), 0);
 		// Confirm account 11 (via controller 10) is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &11).own, 1000);
-		// Confirm account 11 cannot reserve as a result
-		assert_noop!(Balances::reserve(&11, 1), BalancesError::<Test, _>::InsufficientBalance);
+		// Confirm account 11 cannot reserve as it would drop the balance below ED.
+		assert_noop!(Balances::reserve(&11, 1), DispatchError::ConsumerRemaining);
 
 		// Give account 11 extra free balance
 		let _ = asset::set_stakeable_balance::<Test>(&11, 10000);
@@ -1299,7 +1298,7 @@ fn bond_extra_and_withdraw_unbonded_works() {
 		assert_eq!(active_era(), 0);
 
 		// check the balance of a validator accounts.
-		assert_eq!(asset::total_balance::<Test>(&11), 1000000);
+		assert_eq!(asset::total_balance::<Test>(&11), 1000000 + ExistentialDeposit::get());
 
 		// confirm that 10 is a normal validator and gets paid at the end of the era.
 		mock::start_active_era(1);
@@ -2339,7 +2338,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		EraInfo::<Test>::set_exposure(0, &11, exposure);
 		ErasValidatorReward::<Test>::insert(0, stake);
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
-		assert_eq!(asset::total_balance::<Test>(&11), stake * 2);
+		assert_eq!(asset::stakeable_balance::<Test>(&11), stake * 2);
 
 		// ensure ledger has `stake` and no more.
 		Ledger::<Test>::insert(
@@ -2378,8 +2377,8 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 			&[Perbill::from_percent(100)],
 		);
 
-		assert_eq!(asset::total_balance::<Test>(&11), stake - 1);
-		assert_eq!(asset::total_balance::<Test>(&2), 1);
+		assert_eq!(asset::stakeable_balance::<Test>(&11), stake - 1);
+		assert_eq!(asset::stakeable_balance::<Test>(&2), 1);
 	})
 }
 
@@ -2799,7 +2798,9 @@ fn garbage_collection_after_slashing() {
 		.existential_deposit(2)
 		.balance_factor(2)
 		.build_and_execute(|| {
-			assert_eq!(asset::stakeable_balance::<Test>(&11), 2000);
+			// 11 is fully staked.
+			assert_eq!(asset::free_to_stake::<Test>(&11), 0);
+			assert_eq!(asset::staked::<Test>(&11), 2000);
 
 			on_offence_now(
 				&[OffenceDetails {
@@ -2809,7 +2810,8 @@ fn garbage_collection_after_slashing() {
 				&[Perbill::from_percent(10)],
 			);
 
-			assert_eq!(asset::stakeable_balance::<Test>(&11), 2000 - 200);
+			// slashed 10% of 2000
+			assert_eq!(asset::staked::<Test>(&11), 2000 - 200);
 			assert!(SlashingSpans::<Test>::get(&11).is_some());
 			assert_eq!(SpanSlash::<Test>::get(&(11, 0)).amount(), &200);
 
@@ -2824,8 +2826,7 @@ fn garbage_collection_after_slashing() {
 			// validator and nominator slash in era are garbage-collected by era change,
 			// so we don't test those here.
 
-			assert_eq!(asset::stakeable_balance::<Test>(&11), 0);
-			assert_eq!(asset::total_balance::<Test>(&11), 0);
+			assert_eq!(asset::staked::<Test>(&11), 0);
 
 			let slashing_spans = SlashingSpans::<Test>::get(&11).unwrap();
 			assert_eq!(slashing_spans.iter().count(), 2);
