@@ -43,8 +43,8 @@ use crate::{
 
 use codec::Encode;
 use log::{debug, error, info, trace, warn};
-use prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
-use sc_client_api::{BlockBackend, ProofProvider};
+use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
+use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
@@ -128,7 +128,6 @@ mod rep {
 struct Metrics {
 	queued_blocks: Gauge<U64>,
 	fork_targets: Gauge<U64>,
-	justifications: GaugeVec<U64>,
 }
 
 impl Metrics {
@@ -141,16 +140,6 @@ impl Metrics {
 			},
 			fork_targets: {
 				let g = Gauge::new("substrate_sync_fork_targets", "Number of fork sync targets")?;
-				register(g, r)?
-			},
-			justifications: {
-				let g = GaugeVec::new(
-					Opts::new(
-						"substrate_sync_extra_justifications",
-						"Number of extra justifications requests",
-					),
-					&["status"],
-				)?;
 				register(g, r)?
 			},
 		})
@@ -374,7 +363,7 @@ where
 		client: Arc<Client>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
-		metrics_registry: Option<Registry>,
+		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
@@ -384,7 +373,7 @@ where
 			blocks: BlockCollection::new(),
 			best_queued_hash: Default::default(),
 			best_queued_number: Zero::zero(),
-			extra_justifications: ExtraRequests::new("justification"),
+			extra_justifications: ExtraRequests::new("justification", metrics_registry),
 			mode,
 			queue_blocks: Default::default(),
 			fork_targets: Default::default(),
@@ -396,7 +385,7 @@ where
 			import_existing: false,
 			gap_sync: None,
 			actions: Vec::new(),
-			metrics: metrics_registry.and_then(|r| match Metrics::register(&r) {
+			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
 				Ok(metrics) => Some(metrics),
 				Err(err) => {
 					log::error!(
@@ -449,7 +438,6 @@ where
 			state: sync_state,
 			best_seen_block,
 			num_peers: self.peers.len() as u32,
-			num_connected_peers: 0u32,
 			queued_blocks: self.queue_blocks.len() as u32,
 			state_sync: self.state_sync.as_ref().map(|s| s.progress()),
 			warp_sync: warp_sync_progress,
@@ -676,7 +664,13 @@ where
 
 		self.fork_targets
 			.entry(*hash)
-			.or_insert_with(|| ForkTarget { number, peers: Default::default(), parent_hash: None })
+			.or_insert_with(|| {
+				if let Some(metrics) = &self.metrics {
+					metrics.fork_targets.inc();
+				}
+
+				ForkTarget { number, peers: Default::default(), parent_hash: None }
+			})
 			.peers
 			.extend(peers);
 	}
@@ -883,10 +877,16 @@ where
 								);
 								self.fork_targets
 									.entry(peer.best_hash)
-									.or_insert_with(|| ForkTarget {
-										number: peer.best_number,
-										parent_hash: None,
-										peers: Default::default(),
+									.or_insert_with(|| {
+										if let Some(metrics) = &self.metrics {
+											metrics.fork_targets.inc();
+										}
+
+										ForkTarget {
+											number: peer.best_number,
+											parent_hash: None,
+											peers: Default::default(),
+										}
 									})
 									.peers
 									.insert(*peer_id);
@@ -1126,10 +1126,16 @@ where
 			);
 			self.fork_targets
 				.entry(hash)
-				.or_insert_with(|| ForkTarget {
-					number,
-					parent_hash: Some(*announce.header.parent_hash()),
-					peers: Default::default(),
+				.or_insert_with(|| {
+					if let Some(metrics) = &self.metrics {
+						metrics.fork_targets.inc();
+					}
+
+					ForkTarget {
+						number,
+						parent_hash: Some(*announce.header.parent_hash()),
+						peers: Default::default(),
+					}
 				})
 				.peers
 				.insert(peer_id);
@@ -1161,41 +1167,14 @@ where
 			target.peers.remove(peer_id);
 			!target.peers.is_empty()
 		});
+		if let Some(metrics) = &self.metrics {
+			metrics.fork_targets.set(self.fork_targets.len().try_into().unwrap_or(u64::MAX));
+		}
 
 		let blocks = self.ready_blocks();
 
 		if !blocks.is_empty() {
 			self.validate_and_queue_blocks(blocks, false);
-		}
-	}
-
-	/// Report prometheus metrics.
-	pub fn report_metrics(&self) {
-		if let Some(metrics) = &self.metrics {
-			metrics
-				.fork_targets
-				.set(self.fork_targets.len().try_into().unwrap_or(std::u64::MAX));
-			metrics
-				.queued_blocks
-				.set(self.queue_blocks.len().try_into().unwrap_or(std::u64::MAX));
-
-			let justifications_metrics = self.extra_justifications.metrics();
-			metrics
-				.justifications
-				.with_label_values(&["pending"])
-				.set(justifications_metrics.pending_requests.into());
-			metrics
-				.justifications
-				.with_label_values(&["active"])
-				.set(justifications_metrics.active_requests.into());
-			metrics
-				.justifications
-				.with_label_values(&["failed"])
-				.set(justifications_metrics.failed_requests.into());
-			metrics
-				.justifications
-				.with_label_values(&["importing"])
-				.set(justifications_metrics.importing_requests.into());
 		}
 	}
 
@@ -1264,6 +1243,11 @@ where
 			self.on_block_queued(h, n)
 		}
 		self.queue_blocks.extend(new_blocks.iter().map(|b| b.hash));
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.queued_blocks
+				.set(self.queue_blocks.len().try_into().unwrap_or(u64::MAX));
+		}
 
 		self.actions.push(ChainSyncAction::ImportBlocks { origin, blocks: new_blocks })
 	}
@@ -1280,6 +1264,9 @@ where
 	/// through all peers to update our view of their state as well.
 	fn on_block_queued(&mut self, hash: &B::Hash, number: NumberFor<B>) {
 		if self.fork_targets.remove(hash).is_some() {
+			if let Some(metrics) = &self.metrics {
+				metrics.fork_targets.dec();
+			}
 			trace!(target: LOG_TARGET, "Completed fork sync {hash:?}");
 		}
 		if let Some(gap_sync) = &mut self.gap_sync {
@@ -1394,7 +1381,7 @@ where
 			}
 		}
 
-		if let Some((start, end)) = info.block_gap {
+		if let Some(BlockGap { start, end, .. }) = info.block_gap {
 			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end}");
 			self.gap_sync = Some(GapSync {
 				best_queued_number: start - One::one(),
@@ -1549,12 +1536,13 @@ where
 			std::cmp::min(self.best_queued_number, self.client.info().finalized_number);
 		let best_queued = self.best_queued_number;
 		let client = &self.client;
-		let queue = &self.queue_blocks;
+		let queue_blocks = &self.queue_blocks;
 		let allowed_requests = self.allowed_requests.take();
 		let max_parallel = if is_major_syncing { 1 } else { self.max_parallel_downloads };
 		let max_blocks_per_request = self.max_blocks_per_request;
 		let gap_sync = &mut self.gap_sync;
 		let disconnected_peers = &mut self.disconnected_peers;
+		let metrics = self.metrics.as_ref();
 		self.peers
 			.iter_mut()
 			.filter_map(move |(&id, peer)| {
@@ -1574,7 +1562,7 @@ where
 					MAX_BLOCKS_TO_LOOK_BACKWARDS.into() &&
 					best_queued < peer.best_number &&
 					peer.common_number < last_finalized &&
-					queue.len() <= MAJOR_SYNC_BLOCKS.into()
+					queue_blocks.len() <= MAJOR_SYNC_BLOCKS.into()
 				{
 					trace!(
 						target: LOG_TARGET,
@@ -1617,13 +1605,14 @@ where
 					last_finalized,
 					attrs,
 					|hash| {
-						if queue.contains(hash) {
+						if queue_blocks.contains(hash) {
 							BlockStatus::Queued
 						} else {
 							client.block_status(*hash).unwrap_or(BlockStatus::Unknown)
 						}
 					},
 					max_blocks_per_request,
+					metrics,
 				) {
 					trace!(target: LOG_TARGET, "Downloading fork {hash:?} from {id}");
 					peer.state = PeerSyncState::DownloadingStale(hash);
@@ -1764,7 +1753,11 @@ where
 
 		let mut has_error = false;
 		for (_, hash) in &results {
-			self.queue_blocks.remove(hash);
+			if self.queue_blocks.remove(hash) {
+				if let Some(metrics) = &self.metrics {
+					metrics.queued_blocks.dec();
+				}
+			}
 			self.blocks.clear_queued(hash);
 			if let Some(gap_sync) = &mut self.gap_sync {
 				gap_sync.blocks.clear_queued(hash);
@@ -2094,14 +2087,15 @@ fn peer_gap_block_request<B: BlockT>(
 /// Get pending fork sync targets for a peer.
 fn fork_sync_request<B: BlockT>(
 	id: &PeerId,
-	targets: &mut HashMap<B::Hash, ForkTarget<B>>,
+	fork_targets: &mut HashMap<B::Hash, ForkTarget<B>>,
 	best_num: NumberFor<B>,
 	finalized: NumberFor<B>,
 	attributes: BlockAttributes,
 	check_block: impl Fn(&B::Hash) -> BlockStatus,
 	max_blocks_per_request: u32,
+	metrics: Option<&Metrics>,
 ) -> Option<(B::Hash, BlockRequest<B>)> {
-	targets.retain(|hash, r| {
+	fork_targets.retain(|hash, r| {
 		if r.number <= finalized {
 			trace!(
 				target: LOG_TARGET,
@@ -2122,7 +2116,10 @@ fn fork_sync_request<B: BlockT>(
 		}
 		true
 	});
-	for (hash, r) in targets {
+	if let Some(metrics) = metrics {
+		metrics.fork_targets.set(fork_targets.len().try_into().unwrap_or(u64::MAX));
+	}
+	for (hash, r) in fork_targets {
 		if !r.peers.contains(&id) {
 			continue
 		}

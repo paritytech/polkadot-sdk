@@ -26,7 +26,6 @@ use crate::{
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
-use futures::channel::oneshot;
 use log::{debug, error, trace};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
@@ -104,8 +103,6 @@ mod rep {
 pub enum WarpSyncPhase<Block: BlockT> {
 	/// Waiting for peers to connect.
 	AwaitingPeers { required_peers: usize },
-	/// Waiting for target block to be received.
-	AwaitingTargetBlock,
 	/// Downloading and verifying grandpa warp proofs.
 	DownloadingWarpProofs,
 	/// Downloading target block.
@@ -125,7 +122,6 @@ impl<Block: BlockT> fmt::Display for WarpSyncPhase<Block> {
 		match self {
 			Self::AwaitingPeers { required_peers } =>
 				write!(f, "Waiting for {required_peers} peers to be connected"),
-			Self::AwaitingTargetBlock => write!(f, "Waiting for target block to be received"),
 			Self::DownloadingWarpProofs => write!(f, "Downloading finality proofs"),
 			Self::DownloadingTargetBlock => write!(f, "Downloading target block"),
 			Self::DownloadingState => write!(f, "Downloading state"),
@@ -145,37 +141,14 @@ pub struct WarpSyncProgress<Block: BlockT> {
 	pub total_bytes: u64,
 }
 
-/// The different types of warp syncing, passed to `build_network`.
-pub enum WarpSyncParams<Block: BlockT> {
-	/// Standard warp sync for the chain.
-	WithProvider(Arc<dyn WarpSyncProvider<Block>>),
-	/// Skip downloading proofs and wait for a header of the state that should be downloaded.
-	///
-	/// It is expected that the header provider ensures that the header is trusted.
-	WaitForTarget(oneshot::Receiver<<Block as BlockT>::Header>),
-}
-
 /// Warp sync configuration as accepted by [`WarpSync`].
 pub enum WarpSyncConfig<Block: BlockT> {
 	/// Standard warp sync for the chain.
 	WithProvider(Arc<dyn WarpSyncProvider<Block>>),
-	/// Skip downloading proofs and wait for a header of the state that should be downloaded.
+	/// Skip downloading proofs and use provided header of the state that should be downloaded.
 	///
 	/// It is expected that the header provider ensures that the header is trusted.
-	WaitForTarget,
-}
-
-impl<Block: BlockT> WarpSyncParams<Block> {
-	/// Split `WarpSyncParams` into `WarpSyncConfig` and warp sync target block header receiver.
-	pub fn split(
-		self,
-	) -> (WarpSyncConfig<Block>, Option<oneshot::Receiver<<Block as BlockT>::Header>>) {
-		match self {
-			WarpSyncParams::WithProvider(provider) =>
-				(WarpSyncConfig::WithProvider(provider), None),
-			WarpSyncParams::WaitForTarget(rx) => (WarpSyncConfig::WaitForTarget, Some(rx)),
-		}
-	}
+	WithTarget(<Block as BlockT>::Header),
 }
 
 /// Warp sync phase used by warp sync state machine.
@@ -189,9 +162,6 @@ enum Phase<B: BlockT> {
 		last_hash: B::Hash,
 		warp_sync_provider: Arc<dyn WarpSyncProvider<B>>,
 	},
-	/// Waiting for target block to be set externally if we skip warp proofs downloading,
-	/// and start straight from the target block (used by parachains warp sync).
-	PendingTargetBlock,
 	/// Downloading target block.
 	TargetBlock(B::Header),
 	/// Warp sync is complete.
@@ -274,7 +244,7 @@ where
 		let phase = match warp_sync_config {
 			WarpSyncConfig::WithProvider(warp_sync_provider) =>
 				Phase::WaitingForPeers { warp_sync_provider },
-			WarpSyncConfig::WaitForTarget => Phase::PendingTargetBlock,
+			WarpSyncConfig::WithTarget(target_header) => Phase::TargetBlock(target_header),
 		};
 
 		Self {
@@ -287,20 +257,6 @@ where
 			actions: Vec::new(),
 			result: None,
 		}
-	}
-
-	/// Set target block externally in case we skip warp proof downloading.
-	pub fn set_target_block(&mut self, header: B::Header) {
-		let Phase::PendingTargetBlock = self.phase else {
-			error!(
-				target: LOG_TARGET,
-				"Attempt to set warp sync target block in invalid phase.",
-			);
-			debug_assert!(false);
-			return
-		};
-
-		self.phase = Phase::TargetBlock(header);
 	}
 
 	/// Notify that a new peer has connected.
@@ -592,10 +548,6 @@ where
 				phase: WarpSyncPhase::DownloadingTargetBlock,
 				total_bytes: self.total_proof_bytes,
 			},
-			Phase::PendingTargetBlock { .. } => WarpSyncProgress {
-				phase: WarpSyncPhase::AwaitingTargetBlock,
-				total_bytes: self.total_proof_bytes,
-			},
 			Phase::Complete => WarpSyncProgress {
 				phase: WarpSyncPhase::Complete,
 				total_bytes: self.total_proof_bytes + self.total_state_bytes,
@@ -614,19 +566,16 @@ where
 			state: match &self.phase {
 				Phase::WaitingForPeers { .. } => SyncState::Downloading { target: Zero::zero() },
 				Phase::WarpProof { .. } => SyncState::Downloading { target: Zero::zero() },
-				Phase::PendingTargetBlock => SyncState::Downloading { target: Zero::zero() },
 				Phase::TargetBlock(header) => SyncState::Downloading { target: *header.number() },
 				Phase::Complete => SyncState::Idle,
 			},
 			best_seen_block: match &self.phase {
 				Phase::WaitingForPeers { .. } => None,
 				Phase::WarpProof { .. } => None,
-				Phase::PendingTargetBlock => None,
 				Phase::TargetBlock(header) => Some(*header.number()),
 				Phase::Complete => None,
 			},
 			num_peers: self.peers.len().saturated_into(),
-			num_connected_peers: self.peers.len().saturated_into(),
 			queued_blocks: 0,
 			state_sync: None,
 			warp_sync: Some(self.progress()),
@@ -759,7 +708,13 @@ mod test {
 	#[test]
 	fn warp_sync_to_target_for_db_with_finalized_state_is_noop() {
 		let client = mock_client_with_state();
-		let config = WarpSyncConfig::WaitForTarget;
+		let config = WarpSyncConfig::WithTarget(<Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
 		let mut warp_sync = WarpSync::new(Arc::new(client), config);
 
 		// Warp sync instantly finishes
@@ -785,7 +740,13 @@ mod test {
 	#[test]
 	fn warp_sync_to_target_for_empty_db_doesnt_finish_instantly() {
 		let client = mock_client_without_state();
-		let config = WarpSyncConfig::WaitForTarget;
+		let config = WarpSyncConfig::WithTarget(<Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
 		let mut warp_sync = WarpSync::new(Arc::new(client), config);
 
 		// No actions are emitted.
@@ -936,7 +897,13 @@ mod test {
 		}
 
 		// Manually set to another phase.
-		warp_sync.phase = Phase::PendingTargetBlock;
+		warp_sync.phase = Phase::TargetBlock(<Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
 
 		// No request is made.
 		assert!(warp_sync.warp_proof_request().is_none());
@@ -1193,7 +1160,7 @@ mod test {
 			.unwrap()
 			.block;
 		let target_header = target_block.header().clone();
-		let config = WarpSyncConfig::WaitForTarget;
+		let config = WarpSyncConfig::WithTarget(target_header);
 		let mut warp_sync = WarpSync::new(client, config);
 
 		// Make sure we have enough peers to make a request.
@@ -1201,10 +1168,6 @@ mod test {
 			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
 		}
 
-		// No actions generated so far.
-		assert_eq!(warp_sync.actions().count(), 0);
-
-		warp_sync.set_target_block(target_header);
 		assert!(matches!(warp_sync.phase, Phase::TargetBlock(_)));
 
 		let (_peer_id, request) = warp_sync.target_block_request().unwrap();

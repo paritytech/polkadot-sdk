@@ -28,16 +28,15 @@ use crate::{
 use codec::Encode;
 use futures::SinkExt;
 use itertools::Itertools;
-use polkadot_node_core_approval_voting::{
-	criteria::{compute_assignments, Config},
-	time::tranche_to_tick,
-};
+use polkadot_node_core_approval_voting::criteria::{compute_assignments, Config};
+
 use polkadot_node_network_protocol::{
 	grid_topology::{GridNeighbors, RandomRouting, RequiredRouting, SessionGridTopology},
 	v3 as protocol_v3,
 };
 use polkadot_node_primitives::approval::{
 	self,
+	time::tranche_to_tick,
 	v2::{CoreBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 };
 use polkadot_primitives::{
