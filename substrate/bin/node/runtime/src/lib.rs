@@ -91,7 +91,7 @@ use sp_consensus_beefy::{
 	mmr::MmrLeafVersion,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str,
@@ -507,8 +507,7 @@ impl pallet_babe::Config for Runtime {
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominators;
-	type KeyOwnerProof =
-		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -1114,6 +1113,9 @@ parameter_types! {
 	pub const CouncilMotionDuration: BlockNumber = 5 * DAYS;
 	pub const CouncilMaxProposals: u32 = 100;
 	pub const CouncilMaxMembers: u32 = 100;
+	pub const ProposalDepositOffset: Balance = ExistentialDeposit::get() + ExistentialDeposit::get();
+	pub const ProposalHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Council(pallet_collective::HoldReason::ProposalSubmission);
 }
 
 type CouncilCollective = pallet_collective::Instance1;
@@ -1128,6 +1130,18 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ProposalHoldReason,
+		pallet_collective::deposit::Delayed<
+			ConstU32<2>,
+			pallet_collective::deposit::Linear<ConstU32<2>, ProposalDepositOffset>,
+		>,
+		u32,
+	>;
 }
 
 parameter_types! {
@@ -1189,6 +1203,9 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 type EnsureRootOrHalfCouncil = EitherOfDiverse<
@@ -1392,7 +1409,7 @@ impl pallet_revive::Config for Runtime {
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type ChainExtension = ();
-	type AddressGenerator = pallet_revive::DefaultAddressGenerator;
+	type AddressMapper = pallet_revive::DefaultAddressMapper;
 	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
@@ -1400,10 +1417,6 @@ impl pallet_revive::Config for Runtime {
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type Migrations = pallet_revive::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = ();
 	type Xcm = ();
@@ -1516,7 +1529,7 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -2027,6 +2040,9 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 parameter_types! {
@@ -2572,7 +2588,6 @@ type Migrations = (
 	pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
-	pallet_revive::Migration<Runtime>,
 	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 );
 
@@ -2593,7 +2608,7 @@ impl pallet_beefy::Config for Runtime {
 	type OnNewValidatorSet = MmrLeaf;
 	type AncestryHelper = MmrLeaf;
 	type WeightInfo = ();
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		pallet_beefy::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -2988,11 +3003,11 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, Hash, EventRecord> for Runtime
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, EventRecord> for Runtime
 	{
 		fn call(
 			origin: AccountId,
-			dest: AccountId,
+			dest: H160,
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
@@ -3015,10 +3030,10 @@ impl_runtime_apis! {
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
-			code: pallet_revive::Code<Hash>,
+			code: pallet_revive::Code,
 			data: Vec<u8>,
-			salt: Vec<u8>,
-		) -> pallet_revive::ContractInstantiateResult<AccountId, Balance, EventRecord>
+			salt: Option<[u8; 32]>,
+		) -> pallet_revive::ContractInstantiateResult<Balance, EventRecord>
 		{
 			Revive::bare_instantiate(
 				RuntimeOrigin::signed(origin),
@@ -3037,7 +3052,7 @@ impl_runtime_apis! {
 			origin: AccountId,
 			code: Vec<u8>,
 			storage_deposit_limit: Option<Balance>,
-		) -> pallet_revive::CodeUploadResult<Hash, Balance>
+		) -> pallet_revive::CodeUploadResult<Balance>
 		{
 			Revive::bare_upload_code(
 				RuntimeOrigin::signed(origin),
@@ -3047,8 +3062,8 @@ impl_runtime_apis! {
 		}
 
 		fn get_storage(
-			address: AccountId,
-			key: Vec<u8>,
+			address: H160,
+			key: [u8; 32],
 		) -> pallet_revive::GetStorageResult {
 			Revive::get_storage(
 				address,

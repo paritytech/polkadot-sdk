@@ -237,8 +237,48 @@ jobs:
               echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
           fi
 
-  cmd:
+  # Get PR branch name, because the issue_comment event does not contain the PR branch name
+  get-pr-branch:
     needs: [ set-image ]
+    runs-on: ubuntu-latest
+    outputs:
+      pr-branch: ${{ steps.get-pr.outputs.pr_branch }}
+      repo: ${{ steps.get-pr.outputs.repo }}
+    steps:
+      - name: Check if the issue is a PR
+        id: check-pr
+        run: |
+          if [ -n "${{ github.event.issue.pull_request.url }}" ]; then
+            echo "This is a pull request comment"
+          else
+            echo "This is not a pull request comment"
+            exit 1
+          fi
+
+      - name: Get PR Branch Name and Repo
+        if: steps.check-pr.outcome == 'success'
+        id: get-pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const prBranch = pr.data.head.ref;
+            const repo = pr.data.head.repo.full_name;
+            console.log(prBranch, repo)
+            core.setOutput('pr_branch', prBranch);
+            core.setOutput('repo', repo);
+
+      - name: Use PR Branch Name and Repo
+        run: |
+          echo "The PR branch is ${{ steps.get-pr.outputs.pr_branch }}"
+          echo "The repository is ${{ steps.get-pr.outputs.repo }}"
+
+  cmd:
+    needs: [ set-image, get-pr-branch ]
     env:
       JOB_NAME: 'cmd'
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
@@ -291,7 +331,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          repository: ${{ needs.get-pr-branch.outputs.repo }}
+          ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
 
       - name: Install dependencies for bench
         if: startsWith(steps.get-pr-comment.outputs.group2, 'bench')
@@ -317,11 +358,11 @@ jobs:
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
           
-            git pull origin ${{ github.head_ref }}
+            git pull --rebase origin ${{ needs.get-pr-branch.outputs.pr-branch }}
             git add .
             git restore --staged Cargo.lock # ignore changes in Cargo.lock
             git commit -m "Update from ${{ github.actor }} running command '${{ steps.get-pr-comment.outputs.group2 }}'" || true
-            git push origin ${{ github.head_ref }}
+            git push origin ${{ needs.get-pr-branch.outputs.pr-branch }}
           else
             echo "Nothing to commit";
           fi
@@ -339,7 +380,7 @@ jobs:
             --no-color \
             --change added changed \
             --ignore-errors \
-            refs/remotes/origin/master ${{ github.ref }})
+            refs/remotes/origin/master refs/heads/${{ needs.get-pr-branch.outputs.pr-branch }})
           
           # Save the multiline result to the output
           {
