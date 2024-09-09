@@ -11,6 +11,11 @@ doc:
       The Identify protocol no longer includes public addresses in its configuration.
       Instead, we rely on the `litep2p.public_addresses` interface to propagate external addresses of the node.
 
+      Litep2p uses hickory DNS resolver (formerly known as trust DNS).
+      Similarly to the trust DNS, the hickory logs are silenced.
+
 crates: 
   - name: sc-network
     bump: patch
+  - name: sc-tracing
+    bump: minor
