@@ -763,6 +763,7 @@ pub fn new_full<
 	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 	use polkadot_node_network_protocol::request_response::IncomingRequest;
 	use sc_network_sync::WarpSyncConfig;
+	use sc_sysinfo::Metric;
 
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 	let role = config.role;
@@ -1080,13 +1081,31 @@ pub fn new_full<
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, role.is_authority()) {
 			Err(err) if role.is_authority() => {
-				log::warn!(
-				"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
-				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
-				err
-			);
+				if err
+					.0
+					.iter()
+					.any(|failure| matches!(failure.metric, Metric::Blake2256Parallel { .. }))
+				{
+					log::warn!(
+						"⚠️  Starting January 2025 the hardware will fail the minimal physical CPU cores requirements {} for role 'Authority',\n\
+						    find out more when this will become mandatory at:\n\
+						    https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+						err
+					);
+				}
+				if err
+					.0
+					.iter()
+					.any(|failure| !matches!(failure.metric, Metric::Blake2256Parallel { .. }))
+				{
+					log::warn!(
+						"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+						https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+						err
+					);
+				}
 			},
 			_ => {},
 		}
