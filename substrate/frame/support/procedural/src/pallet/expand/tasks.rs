@@ -30,8 +30,8 @@ impl TaskEnumDef {
 	/// event they _don't_ specify one (which is actually the most common behavior) we have to
 	/// generate one based on the existing [`TasksDef`]. This method performs that generation.
 	pub fn generate(tasks: &TasksDef, def: &Def) -> Self {
-		// We use the span of attribute to indicate the error comes from code generated for the
-		// specific section, otherwise the item impl.
+		// We use the span of the attribute to indicate that the error comes from code generated
+		// for the specific section, otherwise the item impl.
 		let span = tasks
 			.tasks_attr
 			.as_ref()
