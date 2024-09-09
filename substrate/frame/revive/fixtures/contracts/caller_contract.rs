@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api, ReturnErrorCode};
 
 #[no_mangle]
@@ -32,7 +32,7 @@ pub extern "C" fn call() {
 
 	// The value to transfer on instantiation and calls. Chosen to be greater than existential
 	// deposit.
-	let value = 32768u64.to_le_bytes();
+	let value = u256_bytes(32768u64);
 	let salt = [0u8; 32];
 
 	// Callee will use the first 4 bytes of the input to return an exit status.
