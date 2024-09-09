@@ -2425,6 +2425,7 @@ pub mod pallet {
 				});
 
 				if member_account == bonded_pool.roles.depositor {
+					frame_system::Pallet::<T>::dec_providers(&bonded_pool.bonded_account())?;
 					Pallet::<T>::dissolve_pool(bonded_pool);
 					Weight::default()
 				} else {
@@ -3367,6 +3368,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		bonded_pool.try_inc_members()?;
+		frame_system::Pallet::<T>::inc_providers(&bonded_pool.bonded_account());
 		let points = bonded_pool.try_bond_funds(&who, amount, BondType::Create)?;
 
 		// Transfer the minimum balance for the reward account.

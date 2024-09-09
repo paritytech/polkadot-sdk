@@ -200,13 +200,13 @@ fn destroy_pool_with_erroneous_consumer() {
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
 		assert_eq!(LastPoolId::<Runtime>::get(), 1);
 
-		// expect consumers on pool account to be 1 (staking hold).
-		assert_eq!(frame_system::Pallet::<T>::consumers(&POOL1_BONDED), 1);
+		// expect consumers on pool account to be 2 (staking lock and an explicit inc by staking).
+		assert_eq!(frame_system::Pallet::<T>::consumers(&POOL1_BONDED), 2);
 
 		// increment consumer by 1 reproducing the erroneous consumer bug.
 		// refer https://github.com/paritytech/polkadot-sdk/issues/4440.
 		assert_ok!(frame_system::Pallet::<T>::inc_consumers(&POOL1_BONDED));
-		assert_eq!(frame_system::Pallet::<T>::consumers(&POOL1_BONDED), 2);
+		assert_eq!(frame_system::Pallet::<T>::consumers(&POOL1_BONDED), 3);
 
 		// have the pool nominate.
 		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
