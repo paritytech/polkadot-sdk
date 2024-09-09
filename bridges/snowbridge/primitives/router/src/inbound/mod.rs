@@ -168,8 +168,7 @@ impl<
 		ConvertAssetId,
 		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
-	>
-where
+	> where
 	CreateAssetCall: Get<CallIndex>,
 	CreateAssetDeposit: Get<u128>,
 	InboundQueuePalletInstance: Get<u8>,
@@ -227,8 +226,7 @@ impl<
 		ConvertAssetId,
 		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
-	>
-where
+	> where
 	CreateAssetCall: Get<CallIndex>,
 	CreateAssetDeposit: Get<u128>,
 	InboundQueuePalletInstance: Get<u8>,
@@ -396,7 +394,7 @@ where
 		asset_hub_fee: u128,
 	) -> Result<(Xcm<()>, Balance), ConvertMessageError> {
 		let network = Ethereum { chain_id };
-		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
+		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee / 2).into();
 
 		let (dest_para_id, beneficiary, dest_para_fee) = match destination {
 			// Final destination is a 32-byte account on AssetHub
@@ -440,10 +438,6 @@ where
 				let dest_para_fee_asset: Asset = (Location::parent(), dest_para_fee).into();
 
 				instructions.extend(vec![
-					// `SetFeesMode` to pay transport fee from bridge sovereign, which depends on
-					//  unspent AH fees deposited to the bridge sovereign,
-					//  more context and analysis in https://github.com/paritytech/polkadot-sdk/pull/5546#discussion_r1744682864
-					SetFeesMode { jit_withdraw: true },
 					// `SetAppendix` ensures that `fees` are not trapped in any case
 					SetAppendix(Xcm(vec![DepositAsset {
 						assets: AllCounted(2).into(),
