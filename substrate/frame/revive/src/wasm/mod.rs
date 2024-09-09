@@ -32,22 +32,23 @@ pub use crate::wasm::runtime::{ReturnData, TrapReason};
 pub use crate::wasm::runtime::{ApiVersion, Memory, Runtime, RuntimeCosts};
 
 use crate::{
+	address::AddressMapper,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, Event,
-	ExecError, HoldReason, Pallet, PristineCode, Weight, API_VERSION, LOG_TARGET,
+	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, Event, ExecError,
+	HoldReason, Pallet, PristineCode, Weight, API_VERSION, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
-	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
+	traits::{fungible::MutateHold, tokens::Precision::BestEffort, IsType},
 };
-use sp_core::Get;
-use sp_runtime::{traits::Hash, DispatchError};
+use sp_core::{Get, H256, U256};
+use sp_runtime::DispatchError;
 
 /// Validated Wasm module ready for execution.
 /// This data structure is immutable once created and stored.
@@ -61,7 +62,7 @@ pub struct WasmBlob<T: Config> {
 	code_info: CodeInfo<T>,
 	// This is for not calculating the hash every time we need it.
 	#[codec(skip)]
-	code_hash: CodeHash<T>,
+	code_hash: sp_core::H256,
 }
 
 /// Contract code related data, such as:
@@ -122,7 +123,11 @@ impl<T: Config> Token<T> for CodeLoadToken {
 	}
 }
 
-impl<T: Config> WasmBlob<T> {
+impl<T: Config> WasmBlob<T>
+where
+	T::Hash: IsType<H256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+{
 	/// We only check for size and nothing else when the code is uploaded.
 	pub fn from_code(
 		code: Vec<u8>,
@@ -143,14 +148,14 @@ impl<T: Config> WasmBlob<T> {
 			api_version: API_VERSION,
 			behaviour_version: Default::default(),
 		};
-		let code_hash = T::Hashing::hash(&code);
+		let code_hash = sp_core::H256(sp_io::hashing::keccak_256(&code));
 		Ok(WasmBlob { code, code_info, code_hash })
 	}
 
 	/// Remove the code from storage and refund the deposit to its owner.
 	///
 	/// Applies all necessary checks before removing the code.
-	pub fn remove(origin: &T::AccountId, code_hash: CodeHash<T>) -> DispatchResult {
+	pub fn remove(origin: &T::AccountId, code_hash: sp_core::H256) -> DispatchResult {
 		<CodeInfoOf<T>>::try_mutate_exists(&code_hash, |existing| {
 			if let Some(code_info) = existing {
 				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
@@ -162,7 +167,7 @@ impl<T: Config> WasmBlob<T> {
 					BestEffort,
 				);
 				let deposit_released = code_info.deposit;
-				let remover = code_info.owner.clone();
+				let remover = T::AddressMapper::to_address(&code_info.owner);
 
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
@@ -201,10 +206,11 @@ impl<T: Config> WasmBlob<T> {
 					self.code_info.refcount = 0;
 					<PristineCode<T>>::insert(code_hash, &self.code);
 					*stored_code_info = Some(self.code_info.clone());
+					let uploader = T::AddressMapper::to_address(&self.code_info.owner);
 					<Pallet<T>>::deposit_event(Event::CodeStored {
 						code_hash,
 						deposit_held: deposit,
-						uploader: self.code_info.owner.clone(),
+						uploader,
 					});
 					Ok(deposit)
 				},
@@ -249,7 +255,11 @@ pub struct PreparedCall<'a, E: Ext> {
 	api_version: ApiVersion,
 }
 
-impl<'a, E: Ext> PreparedCall<'a, E> {
+impl<'a, E: Ext> PreparedCall<'a, E>
+where
+	BalanceOf<E::T>: Into<U256>,
+	BalanceOf<E::T>: TryFrom<U256>,
+{
 	pub fn call(mut self) -> ExecResult {
 		let exec_result = loop {
 			let interrupt = self.instance.run();
@@ -313,9 +323,12 @@ impl<T: Config> WasmBlob<T> {
 	}
 }
 
-impl<T: Config> Executable<T> for WasmBlob<T> {
+impl<T: Config> Executable<T> for WasmBlob<T>
+where
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+{
 	fn from_storage(
-		code_hash: CodeHash<T>,
+		code_hash: sp_core::H256,
 		gas_meter: &mut GasMeter<T>,
 	) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
@@ -340,11 +353,15 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 		prepared_call.call()
 	}
 
-	fn code_info(&self) -> &CodeInfo<T> {
-		&self.code_info
+	fn code(&self) -> &[u8] {
+		self.code.as_ref()
 	}
 
-	fn code_hash(&self) -> &CodeHash<T> {
+	fn code_hash(&self) -> &sp_core::H256 {
 		&self.code_hash
+	}
+
+	fn code_info(&self) -> &CodeInfo<T> {
+		&self.code_info
 	}
 }

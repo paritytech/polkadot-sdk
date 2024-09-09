@@ -144,8 +144,8 @@ benchmarks! {
 		// Traverse candidates and assert descriptors are as expected
 		for (para_id, backing_validators) in vote.backing_validators_per_candidate.iter().enumerate() {
 			let descriptor = backing_validators.0.descriptor();
-			assert_eq!(ParaId::from(para_id), descriptor.para_id);
-			assert_eq!(header.hash(), descriptor.relay_parent);
+			assert_eq!(ParaId::from(para_id), descriptor.para_id());
+			assert_eq!(header.hash(), descriptor.relay_parent());
 			assert_eq!(backing_validators.1.len(), votes);
 		}
 
@@ -203,8 +203,8 @@ benchmarks! {
 		for (para_id, backing_validators)
 			in vote.backing_validators_per_candidate.iter().enumerate() {
 				let descriptor = backing_validators.0.descriptor();
-				assert_eq!(ParaId::from(para_id), descriptor.para_id);
-				assert_eq!(header.hash(), descriptor.relay_parent);
+				assert_eq!(ParaId::from(para_id), descriptor.para_id());
+				assert_eq!(header.hash(), descriptor.relay_parent());
 				assert_eq!(
 					backing_validators.1.len(),
 					votes,
