@@ -421,7 +421,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let hwbench = (!disable_hardware_benchmarks)
 		.then_some(config.database.path().map(|database_path| {
 			let _ = std::fs::create_dir_all(&database_path);
-			sc_sysinfo::gather_hwbench(Some(database_path))
+			sc_sysinfo::gather_hwbench(Some(database_path), &SUBSTRATE_REFERENCE_HARDWARE)
 		}))
 		.flatten();
 
@@ -558,7 +558,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, false) {
 			Err(err) if role.is_authority() => {
 				log::warn!(
 					"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'.",
