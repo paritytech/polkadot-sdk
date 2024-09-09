@@ -33,9 +33,11 @@ jobs:
         with:
           target_branches: stable2407 stable2409
           merge_commits: skip
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }} # FAIL-CI this token wont trigger CI
           pull_description: |
             Backport #${pull_number} into `${target_branch}` (cc @${pull_author}).
+
+            See the [BACKPORT.md](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) for an explanation on how to trigger this bot.
 
             <!--
               # To be used by other automation, do not modify:
