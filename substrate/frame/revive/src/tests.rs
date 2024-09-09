@@ -678,9 +678,10 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
 							contract: addr,
-							data: vec![1, 2, 3, 4]
+							data: vec![1, 2, 3, 4],
+							topics: vec![H256::repeat_byte(42)],
 						}),
-						topics: vec![H256::repeat_byte(42)],
+						topics: vec![],
 					},
 					EventRecord {
 						phase: Phase::Initialization,

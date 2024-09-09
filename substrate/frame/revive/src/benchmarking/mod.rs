@@ -772,11 +772,7 @@ mod benchmarks {
 
 		assert_eq!(
 			record.event,
-			crate::Event::ContractEmitted { contract: instance.address(), data }.into(),
-		);
-		assert_eq!(
-			record.topics.iter().map(|t| H256::from_slice(t.as_ref())).collect::<Vec<_>>(),
-			topics,
+			crate::Event::ContractEmitted { contract: instance.address(), data, topics }.into(),
 		);
 	}
 
