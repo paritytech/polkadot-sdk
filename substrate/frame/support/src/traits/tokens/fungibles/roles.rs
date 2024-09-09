@@ -36,6 +36,9 @@ pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 pub trait ResetTeam<AccountId>: super::Inspect<AccountId> {
 	/// Reset the team for the asset with the given `id`.
 	///
+	/// This operation doesn't make any consideration about the current privileges of the team.
+	/// If the current team had revoked its privileges, the new team will still get the privileges.
+	///
 	/// ### Parameters
 	/// - `id`: The identifier of the asset for which the team is being reset.
 	/// - `owner`: The new `owner` account for the asset.

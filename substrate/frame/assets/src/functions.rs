@@ -1032,6 +1032,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Reset the team for the asset with the given `id`.
 	///
+	/// This forces the reset of the team. If the team had revoked its pivileges, the new team will
+	/// get the privileges.
 	/// If the asset status is `LiveAndNoPrivileges` then it is changed to `Live`.
 	///
 	/// ### Parameters
