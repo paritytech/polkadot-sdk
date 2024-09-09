@@ -962,7 +962,7 @@ pub struct BlockDescription {
 /// The reason this exists is, so that we can keep both mods of running in the same polkadot binary,
 /// based on the value of `--approval-voting-parallel-enabled`, we decide if we run with two
 /// different subsystems for approval-distribution and approval-voting or run the approval-voting
-///  parallel which has  several parallel workers for the approval-distribution and an worker for
+/// parallel which has several parallel workers for the approval-distribution and a worker for
 /// approval-voting.
 ///
 /// This is meant to be a temporary state until we can safely remove running the two subsystems

@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
 	build_worker_handles, metrics::MetricsWatcher, prio_right, run_main_loop, start_workers,
-	validator_index_for_msg, ApprovalVotingParallelSubsystem, Metrics, WorkProvider, LOG_TARGET,
+	validator_index_for_msg, ApprovalVotingParallelSubsystem, Metrics, WorkProvider,
 };
 use assert_matches::assert_matches;
 use futures::{channel::oneshot, future, stream::PollNext, StreamExt};
@@ -99,11 +99,7 @@ fn build_subsystem(
 	TestSubsystemContext<ApprovalVotingParallelMessage, SpawnGlue<TaskExecutor>>,
 	VirtualOverseer,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some("polkadot_node_core_approval_voting"), log::LevelFilter::Trace)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (context, virtual_overseer) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -278,11 +274,11 @@ fn test_main_loop_forwards_correctly() {
 			)));
 			overseer_signal(&mut overseer, signal.clone()).await;
 			let approval_voting_receives = approval_voting_work_provider.recv().await.unwrap();
-			assert!(matches!(approval_voting_receives, FromOrchestra::Signal(_)));
+			assert_matches!(approval_voting_receives, FromOrchestra::Signal(_));
 			for rx_approval_distribution_worker in rx_approval_distribution_workers.iter_mut() {
 				let approval_distribution_receives =
 					rx_approval_distribution_worker.next().await.unwrap();
-				assert!(matches!(approval_distribution_receives, FromOrchestra::Signal(_)));
+				assert_matches!(approval_distribution_receives, FromOrchestra::Signal(_));
 			}
 
 			let (test_tx, _rx) = oneshot::channel();
@@ -687,18 +683,17 @@ fn test_signal_before_message_keeps_receive_order() {
 			.await;
 
 			let approval_voting_receives = approval_voting_work_provider.recv().await.unwrap();
-			assert!(matches!(approval_voting_receives, FromOrchestra::Signal(_)));
+			assert_matches!(approval_voting_receives, FromOrchestra::Signal(_));
 			let rx_approval_distribution_worker = rx_approval_distribution_workers
 				.get_mut(validator_index.0 as usize % num_approval_distro_workers)
 				.unwrap();
 			let approval_distribution_receives =
 				rx_approval_distribution_worker.next().await.unwrap();
-			assert!(matches!(approval_distribution_receives, FromOrchestra::Signal(_)));
+			assert_matches!(approval_distribution_receives, FromOrchestra::Signal(_));
 			assert_matches!(
 				rx_approval_distribution_worker.next().await.unwrap(),
 				FromOrchestra::Communication {
 					msg: ApprovalDistributionMessage::DistributeAssignment(_, _)
-				} => {
 				}
 			);
 
@@ -734,18 +729,17 @@ fn test_signal_is_prioritized_when_unread_messages_in_the_queue() {
 			overseer_signal(&mut overseer, signal.clone()).await;
 
 			let approval_voting_receives = approval_voting_work_provider.recv().await.unwrap();
-			assert!(matches!(approval_voting_receives, FromOrchestra::Signal(_)));
+			assert_matches!(approval_voting_receives, FromOrchestra::Signal(_));
 			let rx_approval_distribution_worker = rx_approval_distribution_workers
 				.get_mut(validator_index.0 as usize % num_approval_distro_workers)
 				.unwrap();
 			let approval_distribution_receives =
 				rx_approval_distribution_worker.next().await.unwrap();
-			assert!(matches!(approval_distribution_receives, FromOrchestra::Signal(_)));
+			assert_matches!(approval_distribution_receives, FromOrchestra::Signal(_));
 			assert_matches!(
 				rx_approval_distribution_worker.next().await.unwrap(),
 				FromOrchestra::Communication {
 					msg: ApprovalDistributionMessage::DistributeAssignment(_, _)
-				} => {
 				}
 			);
 
@@ -1016,7 +1010,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 	);
 	let result = validator_index_for_msg(v1_assignment.clone());
 
-	assert!(matches!(result, (None, Some(_))));
+	assert_matches!(result, (None, Some(_)));
 	let messsages_split_by_validator = result.1.unwrap();
 	assert_eq!(messsages_split_by_validator.len(), assignments.len());
 	for (index, (validator_index, message)) in messsages_split_by_validator.into_iter().enumerate()
@@ -1039,7 +1033,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 	);
 	let result = validator_index_for_msg(v2_assignment.clone());
 
-	assert!(matches!(result, (None, Some(_))));
+	assert_matches!(result, (None, Some(_)));
 	let messsages_split_by_validator = result.1.unwrap();
 	assert_eq!(messsages_split_by_validator.len(), assignments.len());
 	for (index, (validator_index, message)) in messsages_split_by_validator.into_iter().enumerate()
@@ -1089,7 +1083,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 	);
 	let result = validator_index_for_msg(v2_approvals.clone());
 
-	assert!(matches!(result, (None, Some(_))));
+	assert_matches!(result, (None, Some(_)));
 	let messsages_split_by_validator = result.1.unwrap();
 	assert_eq!(messsages_split_by_validator.len(), approvals.len());
 	for (index, (validator_index, message)) in messsages_split_by_validator.into_iter().enumerate()
@@ -1112,7 +1106,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 	);
 	let result = validator_index_for_msg(v3_assignment.clone());
 
-	assert!(matches!(result, (None, Some(_))));
+	assert_matches!(result, (None, Some(_)));
 	let messsages_split_by_validator = result.1.unwrap();
 	assert_eq!(messsages_split_by_validator.len(), v2_assignments.len());
 	for (index, (validator_index, message)) in messsages_split_by_validator.into_iter().enumerate()
@@ -1149,7 +1143,7 @@ fn test_validator_index_with_messages_from_different_validators() {
 	);
 	let result = validator_index_for_msg(v3_approvals.clone());
 
-	assert!(matches!(result, (None, Some(_))));
+	assert_matches!(result, (None, Some(_)));
 	let messsages_split_by_validator = result.1.unwrap();
 	assert_eq!(messsages_split_by_validator.len(), approvals.len());
 	for (index, (validator_index, message)) in messsages_split_by_validator.into_iter().enumerate()

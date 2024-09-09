@@ -53,7 +53,7 @@ fn main() -> Result<(), String> {
 		stop_when_approved: false,
 		workdir_prefix: "/tmp".to_string(),
 		num_no_shows_per_candidate: 0,
-		approval_voting_parallel_enabled: false,
+		approval_voting_parallel_enabled: true,
 	};
 
 	println!("Benchmarking...");

@@ -13,6 +13,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
 use crate::{
 	approval::{
 		helpers::{
@@ -460,6 +461,14 @@ impl ApprovalTestState {
 				)
 			})
 			.collect()
+	}
+
+	fn subsystem_name(&self) -> &'static str {
+		if self.options.approval_voting_parallel_enabled {
+			"approval-voting-parallel-subsystem"
+		} else {
+			"approval-distribution-subsystem"
+		}
 	}
 }
 
@@ -1116,14 +1125,7 @@ pub async fn bench_approvals_run(
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize;
 	env.wait_until_metric(
 		"polkadot_parachain_subsystem_bounded_received",
-		Some((
-			"subsystem_name",
-			if state.options.approval_voting_parallel_enabled {
-				"approval-voting-parallel-subsystem"
-			} else {
-				"approval-distribution-subsystem"
-			},
-		)),
+		Some(("subsystem_name", state.subsystem_name())),
 		|value| {
 			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64

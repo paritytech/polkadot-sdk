@@ -56,12 +56,12 @@ sp-keyring = { workspace = true, default-features = true }
 sp-keystore = {workspace = true, default-features = true}
 sp-core = { workspace = true, default-features = true}
 sp-consensus-babe = { workspace = true, default-features = true }
+sp-tracing = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true, default-features = true}
 assert_matches = "1.4.0"
 kvdb-memorydb = "0.13.0"
 polkadot-primitives-test-helpers = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-env_logger = "0.11"
 
 polkadot-subsystem-bench = { workspace = true, default-features = true}
 

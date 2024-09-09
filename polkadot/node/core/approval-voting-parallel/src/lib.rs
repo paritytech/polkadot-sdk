@@ -70,7 +70,7 @@ pub(crate) const LOG_TARGET: &str = "parachain::approval-voting-parallel";
 // lock issues for example.
 const WAIT_FOR_SIGS_GATHER_TIMEOUT: Duration = Duration::from_millis(2000);
 
-/// The approval voting subsystem.
+/// The approval voting parallel subsystem.
 pub struct ApprovalVotingParallelSubsystem {
 	/// `LocalKeystore` is needed for assignment keys, but not necessarily approval keys.
 	///
@@ -109,7 +109,7 @@ impl ApprovalVotingParallelSubsystem {
 		)
 	}
 
-	/// Create a new approval voting subsystem with the given keystore, config, and database.
+	/// Create a new approval voting subsystem with the given keystore, config, clock, and database.
 	pub fn with_config_and_clock(
 		config: Config,
 		db: Arc<dyn Database>,
@@ -150,6 +150,7 @@ pub const APPROVAL_DISTRIBUTION_WORKER_COUNT: usize = 4;
 
 /// The channel size for the workers.
 pub const WORKERS_CHANNEL_SIZE: usize = 64000 / APPROVAL_DISTRIBUTION_WORKER_COUNT;
+
 fn prio_right<'a>(_val: &'a mut ()) -> PollNext {
 	PollNext::Right
 }
@@ -363,8 +364,7 @@ async fn run_main_loop<Context>(
 							}
 						},
 						ApprovalVotingParallelMessage::DistributeAssignment(assignment, claimed) => {
-							let worker_index = assignment.validator.0 as usize % to_approval_distribution_workers.len();
-							let worker = to_approval_distribution_workers.get_mut(worker_index).expect("Worker index is obtained modulo len; qed");
+							let worker = assigned_worker_for_validator(assignment.validator, &mut to_approval_distribution_workers);
 							worker
 								.send_message(
 									ApprovalDistributionMessage::DistributeAssignment(assignment, claimed)
@@ -373,8 +373,7 @@ async fn run_main_loop<Context>(
 
 						},
 						ApprovalVotingParallelMessage::DistributeApproval(vote) => {
-							let worker_index = vote.validator.0 as usize % to_approval_distribution_workers.len();
-							let worker = to_approval_distribution_workers.get_mut(worker_index).expect("Worker index is obtained modulo len; qed");
+							let worker = assigned_worker_for_validator(vote.validator, &mut to_approval_distribution_workers);
 							worker
 								.send_message(
 									ApprovalDistributionMessage::DistributeApproval(vote)
@@ -390,8 +389,7 @@ async fn run_main_loop<Context>(
 								let (all_msgs_from_same_validator, messages_split_by_validator) = validator_index_for_msg(msg);
 
 								for (validator_index, msg) in all_msgs_from_same_validator.into_iter().chain(messages_split_by_validator.into_iter().flatten()) {
-									let worker_index = validator_index.0 as usize % to_approval_distribution_workers.len();
-									let worker = to_approval_distribution_workers.get_mut(worker_index).expect("Worker index is obtained modulo len; qed");
+									let worker = assigned_worker_for_validator(validator_index, &mut to_approval_distribution_workers);
 
 									worker
 										.send_message(
@@ -494,11 +492,22 @@ async fn handle_get_approval_signatures<Context>(
 	}
 }
 
+// Returns the worker that should receive the message for the given validator.
+fn assigned_worker_for_validator(
+	validator: ValidatorIndex,
+	to_approval_distribution_workers: &mut Vec<ToWorker<ApprovalDistributionMessage>>,
+) -> &mut ToWorker<ApprovalDistributionMessage> {
+	let worker_index = validator.0 as usize % to_approval_distribution_workers.len();
+	to_approval_distribution_workers
+		.get_mut(worker_index)
+		.expect("Worker index is obtained modulo len; qed")
+}
+
 // Returns the validators that initially created this assignments/votes, the validator index
 // is later used to decide which approval-distribution worker should receive the message.
 //
 // Because this is on the hot path and we don't want to be unnecessarily slow, it contains two logic
-// paths. The ultra fast path where all messages have the same validator index and we don't don't do
+// paths. The ultra fast path where all messages have the same validator index and we don't do
 // any cloning or allocation and the path where we need to split the messages into multiple
 // messages, because they have different validator indices, where we do need to clone and allocate.
 // In practice most of the message will fall on the ultra fast path.
