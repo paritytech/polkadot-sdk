@@ -62,6 +62,7 @@ use std::{
 	sync::Arc,
 	task::{Context, Poll},
 	time::{Duration, Instant},
+	fmt::{Display,Formatter},
 };
 
 pub use libp2p::request_response::{Config, InboundFailure, OutboundFailure, RequestId};
@@ -69,7 +70,6 @@ pub use libp2p::request_response::{Config, InboundFailure, OutboundFailure, Requ
 /// Adding a custom OutboundFailure, not depending on libp2p
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
-#[error("dial-failure")]
 pub enum CustomOutboundFailure {
 	/// The request could not be sent because a dialing attempt failed.
 	DialFailure,
@@ -81,18 +81,36 @@ pub enum CustomOutboundFailure {
 	UnsupportedProtocols,
 }
 
+impl Display for CustomOutboundFailure{
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result{
+		match self {
+			CustomOutboundFailure::DialFailure => write!(f, "DialFailure"),
+			CustomOutboundFailure::Timeout => write!(f, "Timeout"),
+			CustomOutboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
+			CustomOutboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
+		}
+	}
+}
+
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
-#[error("dial-failure")]
 pub enum CustomMessage {
 	Request { request_id: InboundRequestId, request: Vec<u8>, channel: ResponseChannel<Vec<u8>> },
 	Response { request_id: OutboundRequestId, response: Vec<u8> },
 }
 
+impl Display for CustomMessage {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		match self {
+			CustomMessage::Request {request_id,request,channel} => write!(f, "MessageRequest({:?}, {:?}, {:?})",request_id,request,channel),
+			CustomMessage::Response {request_id,response} => write!(f, "MessageResponse({:?}, {:?})",request_id, response),
+		}
+	}
+}
+
 /// Adding a custom InboundFailure, not depending on libp2p
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
-#[error("dial-failure")]
 pub enum CustomInboundFailure {
 	/// The inbound request timed out, either while reading the incoming request or before a
 	/// response is sent
@@ -103,6 +121,17 @@ pub enum CustomInboundFailure {
 	UnsupportedProtocols,
 	/// The local peer failed to respond to an inbound request
 	ResponseOmission,
+}
+
+impl Display for CustomInboundFailure{
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result{
+		match self {
+			CustomInboundFailure::Timeout => write!(f, "Timeout"),
+			CustomInboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
+			CustomInboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
+			CustomInboundFailure::ResponseOmission => write!(f, "ResponseOmission"),
+		}
+	}
 }
 
 /// In preparation for a CustomOutBoundFailure Event
