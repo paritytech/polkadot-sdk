@@ -28,7 +28,6 @@ use sp_storage::Storage;
 
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
-	storage::StoragePrefixedMap,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		ConstU32, ConstU64, IntegrityTest, SortedMembers, StorageVersion,

@@ -15,14 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Combines [sc_rpc_api::state::StateApiClient] with [frame_support::storage::generator] traits
+//! Combines [sc_rpc_api::state::StateApiClient] with [frame_support::storage] traits
 //! to provide strongly typed chain state queries over rpc.
 
 #![warn(missing_docs)]
 
 use codec::{DecodeAll, FullCodec, FullEncode};
 use core::marker::PhantomData;
-use frame_support::storage::generator::{StorageDoubleMap, StorageMap, StorageValue};
 use jsonrpsee::core::ClientError as RpcError;
 use sc_rpc_api::state::StateApiClient;
 use serde::{de::DeserializeOwned, Serialize};
@@ -142,21 +141,32 @@ pub struct StorageQuery<V> {
 
 impl<V: FullCodec> StorageQuery<V> {
 	/// Create a storage query for a StorageValue.
-	pub fn value<St: StorageValue<V>>() -> Self {
-		Self { key: StorageKey(St::storage_value_final_key().to_vec()), _spook: PhantomData }
+	pub fn value<St: frame_support::StorageValue<V>>() -> Self
+	{
+		Self {
+			key: StorageKey(St::hashed_key().to_vec()),
+			_spook: PhantomData,
+		}
 	}
 
 	/// Create a storage query for a value in a StorageMap.
-	pub fn map<St: StorageMap<K, V>, K: FullEncode>(key: K) -> Self {
-		Self { key: StorageKey(St::storage_map_final_key(key)), _spook: PhantomData }
+	pub fn map<St: frame_support::StorageMap<K, V>, K: FullEncode>(key: K) -> Self
+	{
+		Self {
+			key: StorageKey(St::hashed_key_for(key)),
+			_spook: PhantomData,
+		}
 	}
 
 	/// Create a storage query for a value in a StorageDoubleMap.
-	pub fn double_map<St: StorageDoubleMap<K1, K2, V>, K1: FullEncode, K2: FullEncode>(
-		key1: K1,
-		key2: K2,
-	) -> Self {
-		Self { key: StorageKey(St::storage_double_map_final_key(key1, key2)), _spook: PhantomData }
+	pub fn double_map<St: frame_support::StorageDoubleMap<K1, K2, V>, K1: FullEncode, K2: FullEncode>(key1: K1, key2: K2) -> Self
+	{
+		Self {
+			key: StorageKey(
+				St::hashed_key_for(key1, key2)
+			),
+			_spook: PhantomData,
+		}
 	}
 
 	/// Send this query over RPC, await the typed result.

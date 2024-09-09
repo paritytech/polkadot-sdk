@@ -31,8 +31,6 @@ where
 	Block: BlockT + DeserializeOwned,
 	Block::Header: DeserializeOwned,
 {
-	use frame_support::storage::generator::StorageMap;
-
 	let mut ext = Builder::<Block>::new()
 		.mode(Mode::Online(OnlineConfig {
 			transport: ws_url.to_string().into(),

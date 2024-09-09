@@ -37,12 +37,7 @@ use bp_messages::{
 use bp_runtime::{BasicOperatingMode, PreComputedSize, RangeInclusiveExt, Size};
 use bp_test_utils::generate_owned_bridge_module_tests;
 use codec::Encode;
-use frame_support::{
-	assert_err, assert_noop, assert_ok,
-	dispatch::Pays,
-	storage::generator::{StorageMap, StorageValue},
-	weights::Weight,
-};
+use frame_support::{assert_err, assert_noop, assert_ok, dispatch::Pays, weights::Weight};
 use frame_system::{EventRecord, Pallet as System, Phase};
 use sp_runtime::{BoundedVec, DispatchError};
 

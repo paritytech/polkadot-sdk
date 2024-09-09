@@ -44,8 +44,6 @@ pub mod bounded_btree_map;
 pub mod bounded_btree_set;
 pub mod bounded_vec;
 pub mod child;
-#[doc(hidden)]
-pub mod generator;
 pub mod hashed;
 pub mod migration;
 pub mod storage_noop_guard;
@@ -61,7 +59,7 @@ pub struct KeyLenOf<M>(PhantomData<M>);
 
 /// A trait for working with macro-generated storage values under the substrate storage API.
 ///
-/// Details on implementation can be found at [`generator::StorageValue`].
+/// Details on implementation can be found at [`types::StorageValue`].
 pub trait StorageValue<T: FullCodec> {
 	/// The type that get/take return.
 	type Query;
@@ -267,7 +265,7 @@ pub trait StorageAppender<V: FullCodec> {
 
 /// A strongly-typed map in storage.
 ///
-/// Details on implementation can be found at [`generator::StorageMap`].
+/// Details on implementation can be found at [`types::StorageMap`].
 pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	/// The type that get/take return.
 	type Query;
@@ -610,7 +608,7 @@ pub trait IterableStorageNMap<K: ReversibleKeyGenerator, V: FullCodec>: StorageN
 
 /// An implementation of a map with a two keys.
 ///
-/// Details on implementation can be found at [`generator::StorageDoubleMap`].
+/// Details on implementation can be found at [`types::StorageDoubleMap`].
 pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	/// The type that get/take returns.
 	type Query;
@@ -828,7 +826,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 
 /// An implementation of a map with an arbitrary number of keys.
 ///
-/// Details of implementation can be found at [`generator::StorageNMap`].
+/// Details of implementation can be found at [`types::StorageNMap`].
 pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	/// The type that get/take returns.
 	type Query;
@@ -1593,27 +1591,6 @@ pub trait TryAppendValue<T: StorageTryAppend<I>, I: Encode> {
 	fn try_append<LikeI: EncodeLike<I>>(item: LikeI) -> Result<(), ()>;
 }
 
-impl<T, I, StorageValueT> TryAppendValue<T, I> for StorageValueT
-where
-	I: Encode,
-	T: FullCodec + StorageTryAppend<I>,
-	StorageValueT: generator::StorageValue<T>,
-{
-	fn try_append<LikeI: EncodeLike<I>>(item: LikeI) -> Result<(), ()> {
-		let bound = T::bound();
-		let current = Self::decode_len().unwrap_or_default();
-		if current < bound {
-			// NOTE: we cannot reuse the implementation for `Vec<T>` here because we never want to
-			// mark `BoundedVec<T, S>` as `StorageAppend`.
-			let key = Self::storage_value_final_key();
-			sp_io::storage::append(&key, item.encode());
-			Ok(())
-		} else {
-			Err(())
-		}
-	}
-}
-
 /// Storage map that is capable of [`StorageTryAppend`].
 pub trait TryAppendMap<K: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage map at the given `key`.
@@ -1623,29 +1600,6 @@ pub trait TryAppendMap<K: Encode, T: StorageTryAppend<I>, I: Encode> {
 		key: LikeK,
 		item: LikeI,
 	) -> Result<(), ()>;
-}
-
-impl<K, T, I, StorageMapT> TryAppendMap<K, T, I> for StorageMapT
-where
-	K: FullCodec,
-	T: FullCodec + StorageTryAppend<I>,
-	I: Encode,
-	StorageMapT: generator::StorageMap<K, T>,
-{
-	fn try_append<LikeK: EncodeLike<K> + Clone, LikeI: EncodeLike<I>>(
-		key: LikeK,
-		item: LikeI,
-	) -> Result<(), ()> {
-		let bound = T::bound();
-		let current = Self::decode_len(key.clone()).unwrap_or_default();
-		if current < bound {
-			let key = Self::storage_map_final_key(key);
-			sp_io::storage::append(&key, item.encode());
-			Ok(())
-		} else {
-			Err(())
-		}
-	}
 }
 
 /// Storage double map that is capable of [`StorageTryAppend`].
@@ -1662,35 +1616,6 @@ pub trait TryAppendDoubleMap<K1: Encode, K2: Encode, T: StorageTryAppend<I>, I: 
 		key2: LikeK2,
 		item: LikeI,
 	) -> Result<(), ()>;
-}
-
-impl<K1, K2, T, I, StorageDoubleMapT> TryAppendDoubleMap<K1, K2, T, I> for StorageDoubleMapT
-where
-	K1: FullCodec,
-	K2: FullCodec,
-	T: FullCodec + StorageTryAppend<I>,
-	I: Encode,
-	StorageDoubleMapT: generator::StorageDoubleMap<K1, K2, T>,
-{
-	fn try_append<
-		LikeK1: EncodeLike<K1> + Clone,
-		LikeK2: EncodeLike<K2> + Clone,
-		LikeI: EncodeLike<I>,
-	>(
-		key1: LikeK1,
-		key2: LikeK2,
-		item: LikeI,
-	) -> Result<(), ()> {
-		let bound = T::bound();
-		let current = Self::decode_len(key1.clone(), key2.clone()).unwrap_or_default();
-		if current < bound {
-			let double_map_key = Self::storage_double_map_final_key(key1, key2);
-			sp_io::storage::append(&double_map_key, item.encode());
-			Ok(())
-		} else {
-			Err(())
-		}
-	}
 }
 
 /// Returns the storage prefix for a specific pallet name and storage name.
@@ -1710,11 +1635,17 @@ pub fn storage_prefix(pallet_name: &[u8], storage_name: &[u8]) -> [u8; 32] {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::{assert_ok, hash::Identity, pallet_prelude::NMapKey, Twox128};
+	use crate::{
+		assert_ok,
+		hash::Identity,
+		pallet_prelude::NMapKey,
+		storage::types::{StorageMap, StorageValue},
+		traits::StorageInstance,
+		Twox128,
+	};
 	use bounded_vec::BoundedVec;
 	use frame_support::traits::ConstU32;
-	use generator::StorageValue as _;
-	use sp_crypto_hashing::twox_128;
+	use sp_core::hashing::twox_128;
 	use sp_io::TestExternalities;
 	use weak_bounded_vec::WeakBoundedVec;
 
@@ -1796,100 +1727,70 @@ mod test {
 	#[test]
 	fn digest_storage_append_works_as_expected() {
 		TestExternalities::default().execute_with(|| {
-			struct Storage;
-			impl generator::StorageValue<Digest> for Storage {
-				type Query = Digest;
-
-				fn pallet_prefix() -> &'static [u8] {
-					b"MyModule"
+			struct Prefix;
+			impl StorageInstance for Prefix {
+				fn pallet_prefix() -> &'static str {
+					"MyModule"
 				}
-
-				fn storage_prefix() -> &'static [u8] {
-					b"Storage"
-				}
-
-				fn from_optional_value_to_query(v: Option<Digest>) -> Self::Query {
-					v.unwrap()
-				}
-
-				fn from_query_to_optional_value(v: Self::Query) -> Option<Digest> {
-					Some(v)
-				}
-
-				fn storage_value_final_key() -> [u8; 32] {
-					storage_prefix(Self::pallet_prefix(), Self::storage_prefix())
-				}
+				const STORAGE_PREFIX: &'static str = "Storage";
 			}
 
-			Storage::append(DigestItem::Other(Vec::new()));
+			type Value = StorageValue<Prefix, Digest>;
+			Value::append(DigestItem::Other(Vec::new()));
 
-			let value = unhashed::get_raw(&Storage::storage_value_final_key()).unwrap();
+			let raw =
+				unhashed::get_raw(&storage_prefix(Value::pallet_prefix(), Value::storage_prefix()))
+					.unwrap();
 
 			let expected = Digest { logs: vec![DigestItem::Other(Vec::new())] };
-			assert_eq!(Digest::decode(&mut &value[..]).unwrap(), expected);
+			assert_eq!(Digest::decode(&mut &raw[..]).unwrap(), expected);
 		});
 	}
 
 	#[test]
 	fn key_prefix_iterator_works() {
 		TestExternalities::default().execute_with(|| {
-			use crate::{hash::Twox64Concat, storage::generator::StorageMap};
-			struct MyStorageMap;
-			impl StorageMap<u64, u64> for MyStorageMap {
-				type Query = u64;
-				type Hasher = Twox64Concat;
-
-				fn pallet_prefix() -> &'static [u8] {
-					b"MyModule"
+			use crate::hash::Twox64Concat;
+			struct Prefix;
+			impl StorageInstance for Prefix {
+				fn pallet_prefix() -> &'static str {
+					"MyModule"
 				}
-
-				fn storage_prefix() -> &'static [u8] {
-					b"MyStorageMap"
-				}
-
-				fn prefix_hash() -> [u8; 32] {
-					storage_prefix(Self::pallet_prefix(), Self::storage_prefix())
-				}
-
-				fn from_optional_value_to_query(v: Option<u64>) -> Self::Query {
-					v.unwrap_or_default()
-				}
-
-				fn from_query_to_optional_value(v: Self::Query) -> Option<u64> {
-					Some(v)
-				}
+				const STORAGE_PREFIX: &'static str = "MyStorageMap";
 			}
 
+			type Map = StorageMap<Prefix, Twox64Concat, u64, u64>;
+
 			let k = [twox_128(b"MyModule"), twox_128(b"MyStorageMap")].concat();
-			assert_eq!(MyStorageMap::prefix_hash().to_vec(), k);
+			assert_eq!(Map::prefix_hash().to_vec(), k);
 
 			// empty to start
-			assert!(MyStorageMap::iter_keys().collect::<Vec<_>>().is_empty());
+			assert!(Map::iter_keys().collect::<Vec<_>>().is_empty());
 
-			MyStorageMap::insert(1, 10);
-			MyStorageMap::insert(2, 20);
-			MyStorageMap::insert(3, 30);
-			MyStorageMap::insert(4, 40);
+			Map::insert(1, 10);
+			Map::insert(2, 20);
+			Map::insert(3, 30);
+			Map::insert(4, 40);
 
 			// just looking
-			let mut keys = MyStorageMap::iter_keys().collect::<Vec<_>>();
+			let mut keys = Map::iter_keys().collect::<Vec<_>>();
 			keys.sort();
 			assert_eq!(keys, vec![1, 2, 3, 4]);
 
 			// draining the keys and values
-			let mut drained_keys = MyStorageMap::iter_keys().drain().collect::<Vec<_>>();
+			let mut drained_keys = Map::iter_keys().drain().collect::<Vec<_>>();
 			drained_keys.sort();
 			assert_eq!(drained_keys, vec![1, 2, 3, 4]);
 
 			// empty again
-			assert!(MyStorageMap::iter_keys().collect::<Vec<_>>().is_empty());
+			assert!(Map::iter_keys().collect::<Vec<_>>().is_empty());
 		});
 	}
 
 	#[test]
 	fn prefix_iterator_pagination_works() {
 		TestExternalities::default().execute_with(|| {
-			use crate::{hash::Identity, storage::generator::map::StorageMap};
+			use crate::hash::Identity;
 			#[crate::storage_alias]
 			type MyStorageMap = StorageMap<MyModule, Identity, u64, u64>;
 

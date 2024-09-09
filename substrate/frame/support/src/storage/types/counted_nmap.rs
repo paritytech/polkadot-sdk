@@ -148,7 +148,6 @@ where
 
 	/// The prefix used to generate the key of the map.
 	pub fn map_storage_final_prefix() -> Vec<u8> {
-		use crate::storage::generator::StorageNMap;
 		<Self as MapWrapper>::Map::prefix_hash().to_vec()
 	}
 
@@ -683,7 +682,6 @@ mod test {
 		hash::{StorageHasher as _, *},
 		storage::types::{Key as NMapKey, ValueQuery},
 	};
-	use alloc::boxed::Box;
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
 

@@ -20,11 +20,13 @@
 
 use crate::{
 	storage::{
+		self, storage_prefix,
 		types::{OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder},
-		KeyLenOf, StorageAppend, StorageDecodeLength, StoragePrefixedMap, StorageTryAppend,
+		unhashed, KeyLenOf, KeyPrefixIterator, PrefixIterator, StorageAppend, StorageDecodeLength,
+		StoragePrefixedMap, StorageTryAppend, TryAppendMap,
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
-	StorageHasher, Twox128,
+	Never, StorageHasher, Twox128,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
@@ -97,8 +99,7 @@ where
 }
 
 impl<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
-	crate::storage::generator::StorageMap<Key, Value>
-	for StorageMap<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
+	StorageMap<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
 where
 	Prefix: StorageInstance,
 	Hasher: crate::hash::StorageHasher,
@@ -108,22 +109,41 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	type Query = QueryKind::Query;
-	type Hasher = Hasher;
-	fn pallet_prefix() -> &'static [u8] {
+	/// Pallet prefix. Used for generating final key.
+	pub fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
-	fn storage_prefix() -> &'static [u8] {
+	/// Storage prefix. Used for generating final key.
+	pub fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
-	fn prefix_hash() -> [u8; 32] {
+	/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
+	/// `storage_prefix`.
+	pub fn prefix_hash() -> [u8; 32] {
 		Prefix::prefix_hash()
 	}
-	fn from_optional_value_to_query(v: Option<Value>) -> Self::Query {
+	/// Convert an optional value retrieved from storage to the type queried.
+	pub fn from_optional_value_to_query(v: Option<Value>) -> QueryKind::Query {
 		QueryKind::from_optional_value_to_query(v)
 	}
-	fn from_query_to_optional_value(v: Self::Query) -> Option<Value> {
+	/// Convert a query to an optional value into storage.
+	pub fn from_query_to_optional_value(v: QueryKind::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
+	}
+	/// Generate the full key used in top storage.
+	pub fn storage_map_final_key<KeyArg>(key: KeyArg) -> Vec<u8>
+	where
+		KeyArg: EncodeLike<Key>,
+	{
+		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
+		let key_hashed = key.using_encoded(Hasher::hash);
+
+		let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
+
+		final_key.extend_from_slice(&storage_prefix);
+		final_key.extend_from_slice(key_hashed.as_ref());
+
+		final_key
 	}
 }
 
@@ -139,10 +159,277 @@ where
 	MaxValues: Get<Option<u32>>,
 {
 	fn pallet_prefix() -> &'static [u8] {
-		<Self as crate::storage::generator::StorageMap<Key, Value>>::pallet_prefix()
+		Self::pallet_prefix()
 	}
 	fn storage_prefix() -> &'static [u8] {
-		<Self as crate::storage::generator::StorageMap<Key, Value>>::storage_prefix()
+		Self::storage_prefix()
+	}
+}
+
+impl<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
+	crate::storage::StorageMap<Key, Value>
+	for StorageMap<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
+where
+	Prefix: StorageInstance,
+	Hasher: crate::hash::StorageHasher,
+	Key: FullCodec,
+	Value: FullCodec,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: Get<QueryKind::Query> + 'static,
+	MaxValues: Get<Option<u32>>,
+{
+	type Query = QueryKind::Query;
+
+	fn hashed_key_for<KeyArg: EncodeLike<Key>>(key: KeyArg) -> Vec<u8> {
+		Self::storage_map_final_key(key)
+	}
+
+	fn contains_key<KeyArg: EncodeLike<Key>>(key: KeyArg) -> bool {
+		unhashed::exists(Self::storage_map_final_key(key).as_ref())
+	}
+
+	fn get<KeyArg: EncodeLike<Key>>(key: KeyArg) -> Self::Query {
+		Self::from_optional_value_to_query(unhashed::get(&Self::storage_map_final_key(key)))
+	}
+
+	fn set<KeyArg: EncodeLike<Key>>(key: KeyArg, query: Self::Query) {
+		match Self::from_query_to_optional_value(query) {
+			Some(v) => Self::insert(key, v),
+			None => Self::remove(key),
+		}
+	}
+
+	fn try_get<KeyArg: EncodeLike<Key>>(key: KeyArg) -> Result<Value, ()> {
+		unhashed::get(Self::storage_map_final_key(key).as_ref()).ok_or(())
+	}
+
+	fn swap<KeyArg1: EncodeLike<Key>, KeyArg2: EncodeLike<Key>>(key1: KeyArg1, key2: KeyArg2) {
+		let k1 = Self::storage_map_final_key(key1);
+		let k2 = Self::storage_map_final_key(key2);
+
+		let v1 = unhashed::get_raw(k1.as_ref());
+		if let Some(val) = unhashed::get_raw(k2.as_ref()) {
+			unhashed::put_raw(k1.as_ref(), &val);
+		} else {
+			unhashed::kill(k1.as_ref())
+		}
+		if let Some(val) = v1 {
+			unhashed::put_raw(k2.as_ref(), &val);
+		} else {
+			unhashed::kill(k2.as_ref())
+		}
+	}
+
+	fn insert<KeyArg: EncodeLike<Key>, ValArg: EncodeLike<Value>>(key: KeyArg, val: ValArg) {
+		unhashed::put(Self::storage_map_final_key(key).as_ref(), &val)
+	}
+
+	fn remove<KeyArg: EncodeLike<Key>>(key: KeyArg) {
+		unhashed::kill(Self::storage_map_final_key(key).as_ref())
+	}
+
+	fn mutate<KeyArg: EncodeLike<Key>, R, F: FnOnce(&mut Self::Query) -> R>(
+		key: KeyArg,
+		f: F,
+	) -> R {
+		Self::try_mutate(key, |v| Ok::<R, Never>(f(v)))
+			.expect("`Never` can not be constructed; qed")
+	}
+
+	fn try_mutate<KeyArg: EncodeLike<Key>, R, E, F: FnOnce(&mut Self::Query) -> Result<R, E>>(
+		key: KeyArg,
+		f: F,
+	) -> Result<R, E> {
+		let final_key = Self::storage_map_final_key(key);
+		let mut val = Self::from_optional_value_to_query(unhashed::get(final_key.as_ref()));
+
+		let ret = f(&mut val);
+		if ret.is_ok() {
+			match Self::from_query_to_optional_value(val) {
+				Some(ref val) => unhashed::put(final_key.as_ref(), &val),
+				None => unhashed::kill(final_key.as_ref()),
+			}
+		}
+		ret
+	}
+
+	fn mutate_exists<KeyArg: EncodeLike<Key>, R, F: FnOnce(&mut Option<Value>) -> R>(
+		key: KeyArg,
+		f: F,
+	) -> R {
+		Self::try_mutate_exists(key, |v| Ok::<R, Never>(f(v)))
+			.expect("`Never` can not be constructed; qed")
+	}
+
+	fn try_mutate_exists<
+		KeyArg: EncodeLike<Key>,
+		R,
+		E,
+		F: FnOnce(&mut Option<Value>) -> Result<R, E>,
+	>(
+		key: KeyArg,
+		f: F,
+	) -> Result<R, E> {
+		let final_key = Self::storage_map_final_key(key);
+		let mut val = unhashed::get(final_key.as_ref());
+
+		let ret = f(&mut val);
+		if ret.is_ok() {
+			match val {
+				Some(ref val) => unhashed::put(final_key.as_ref(), &val),
+				None => unhashed::kill(final_key.as_ref()),
+			}
+		}
+		ret
+	}
+
+	fn take<KeyArg: EncodeLike<Key>>(key: KeyArg) -> Self::Query {
+		let key = Self::storage_map_final_key(key);
+		let value = unhashed::take(key.as_ref());
+		Self::from_optional_value_to_query(value)
+	}
+
+	fn append<Item, EncodeLikeItem, EncodeLikeKey>(key: EncodeLikeKey, item: EncodeLikeItem)
+	where
+		EncodeLikeKey: EncodeLike<Key>,
+		Item: Encode,
+		EncodeLikeItem: EncodeLike<Item>,
+		Value: StorageAppend<Item>,
+	{
+		let key = Self::storage_map_final_key(key);
+		sp_io::storage::append(&key, item.encode());
+	}
+
+	fn migrate_key<OldHasher: StorageHasher, KeyArg: EncodeLike<Key>>(
+		key: KeyArg,
+	) -> Option<Value> {
+		let old_key = {
+			let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
+			let key_hashed = key.using_encoded(OldHasher::hash);
+
+			let mut final_key =
+				Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
+
+			final_key.extend_from_slice(&storage_prefix);
+			final_key.extend_from_slice(key_hashed.as_ref());
+
+			final_key
+		};
+		unhashed::take(old_key.as_ref()).map(|value| {
+			unhashed::put(Self::storage_map_final_key(key).as_ref(), &value);
+			value
+		})
+	}
+}
+
+impl<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
+	storage::IterableStorageMap<Key, Value>
+	for StorageMap<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
+where
+	Prefix: StorageInstance,
+	Hasher: crate::ReversibleStorageHasher,
+	Key: FullCodec,
+	Value: FullCodec,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: Get<QueryKind::Query> + 'static,
+	MaxValues: Get<Option<u32>>,
+{
+	type Iterator = PrefixIterator<(Key, Value)>;
+	type KeyIterator = KeyPrefixIterator<Key>;
+
+	/// Enumerate all elements in the map.
+	fn iter() -> Self::Iterator {
+		let prefix = Self::prefix_hash().to_vec();
+		PrefixIterator {
+			prefix: prefix.clone(),
+			previous_key: prefix,
+			drain: false,
+			closure: |raw_key_without_prefix, mut raw_value| {
+				let mut key_material = Hasher::reverse(raw_key_without_prefix);
+				Ok((Key::decode(&mut key_material)?, Value::decode(&mut raw_value)?))
+			},
+			phantom: Default::default(),
+		}
+	}
+
+	/// Enumerate all elements in the map after a given key.
+	fn iter_from(starting_raw_key: Vec<u8>) -> Self::Iterator {
+		let mut iter = Self::iter();
+		iter.set_last_raw_key(starting_raw_key);
+		iter
+	}
+
+	/// Enumerate all keys in the map.
+	fn iter_keys() -> Self::KeyIterator {
+		let prefix = Self::prefix_hash().to_vec();
+		KeyPrefixIterator {
+			prefix: prefix.clone(),
+			previous_key: prefix,
+			drain: false,
+			closure: |raw_key_without_prefix| {
+				let mut key_material = Hasher::reverse(raw_key_without_prefix);
+				Key::decode(&mut key_material)
+			},
+		}
+	}
+
+	/// Enumerate all keys in the map after a given key.
+	fn iter_keys_from(starting_raw_key: Vec<u8>) -> Self::KeyIterator {
+		let mut iter = Self::iter_keys();
+		iter.set_last_raw_key(starting_raw_key);
+		iter
+	}
+
+	/// Enumerate all elements in the map.
+	fn drain() -> Self::Iterator {
+		let mut iterator = Self::iter();
+		iterator.drain = true;
+		iterator
+	}
+
+	fn translate<O: Decode, F: FnMut(Key, O) -> Option<Value>>(mut f: F) {
+		let mut previous_key = None;
+		loop {
+			previous_key = Self::translate_next(previous_key, &mut f);
+			if previous_key.is_none() {
+				break;
+			}
+		}
+	}
+
+	fn translate_next<O: Decode, F: FnMut(Key, O) -> Option<Value>>(
+		previous_key: Option<Vec<u8>>,
+		mut f: F,
+	) -> Option<Vec<u8>> {
+		let prefix = Self::prefix_hash().to_vec();
+		let previous_key = previous_key.unwrap_or_else(|| prefix.clone());
+
+		let current_key =
+			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))?;
+
+		let value = match unhashed::get::<O>(&current_key) {
+			Some(value) => value,
+			None => {
+				crate::defensive!("Invalid translate: fail to decode old value");
+				return Some(current_key);
+			},
+		};
+
+		let mut key_material = Hasher::reverse(&current_key[prefix.len()..]);
+		let key = match Key::decode(&mut key_material) {
+			Ok(key) => key,
+			Err(_) => {
+				crate::defensive!("Invalid translate: fail to decode key");
+				return Some(current_key);
+			},
+		};
+
+		match f(key, value) {
+			Some(new) => unhashed::put::<Value>(&current_key, &new),
+			None => unhashed::kill(&current_key),
+		}
+
+		Some(current_key)
 	}
 }
 
@@ -400,6 +687,34 @@ where
 	}
 }
 
+impl<Prefix, Hasher, Key, Value, I, QueryKind, OnEmpty, MaxValues> TryAppendMap<Key, Value, I>
+	for StorageMap<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
+where
+	Prefix: StorageInstance,
+	Hasher: crate::hash::StorageHasher,
+	Key: FullCodec,
+	Value: FullCodec + StorageTryAppend<I>,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: Get<QueryKind::Query> + 'static,
+	MaxValues: Get<Option<u32>>,
+	I: Encode,
+{
+	fn try_append<LikeK: EncodeLike<Key> + Clone, LikeI: EncodeLike<I>>(
+		key: LikeK,
+		item: LikeI,
+	) -> Result<(), ()> {
+		let bound = Value::bound();
+		let current = Self::decode_len(key.clone()).unwrap_or_default();
+		if current < bound {
+			let key = Self::storage_map_final_key(key);
+			sp_io::storage::append(&key, item.encode());
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+}
+
 impl<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
 	StorageMap<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
 where
@@ -564,7 +879,13 @@ mod test {
 	use super::*;
 	use crate::{
 		hash::*,
-		storage::{types::ValueQuery, IterableStorageMap},
+		storage::{
+			types::{
+				test::{frame_system, key_after_prefix, key_before_prefix, Runtime},
+				ValueQuery,
+			},
+			IterableStorageMap,
+		},
 	};
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
@@ -825,6 +1146,139 @@ mod test {
 			assert_eq!(WithLen::decode_len(3), None);
 			WithLen::append(0, 10);
 			assert_eq!(WithLen::decode_len(0), Some(1));
+		})
+	}
+
+	#[test]
+	fn map_iter_from() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			use crate::hash::Identity;
+			#[crate::storage_alias]
+			type MyMap = StorageMap<MyModule, Identity, u64, u64>;
+
+			MyMap::insert(1, 10);
+			MyMap::insert(2, 20);
+			MyMap::insert(3, 30);
+			MyMap::insert(4, 40);
+			MyMap::insert(5, 50);
+
+			let starting_raw_key = MyMap::storage_map_final_key(3);
+			let iter = MyMap::iter_from(starting_raw_key);
+			assert_eq!(iter.collect::<Vec<_>>(), vec![(4, 40), (5, 50)]);
+
+			let starting_raw_key = MyMap::storage_map_final_key(2);
+			let iter = MyMap::iter_keys_from(starting_raw_key);
+			assert_eq!(iter.collect::<Vec<_>>(), vec![3, 4, 5]);
+		});
+	}
+
+	#[cfg(debug_assertions)]
+	#[test]
+	#[should_panic]
+	fn map_translate_with_bad_key_in_debug_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong key
+			unhashed::put(&[prefix.clone(), vec![1, 2, 3]].concat(), &3u64.encode());
+
+			// debug_assert should cause a
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
+		})
+	}
+
+	#[cfg(debug_assertions)]
+	#[test]
+	#[should_panic]
+	fn map_translate_with_bad_value_in_debug_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong value
+			unhashed::put(
+				&[prefix.clone(), crate::Blake2_128Concat::hash(&6u16.encode())].concat(),
+				&vec![1],
+			);
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
+		})
+	}
+
+	#[cfg(not(debug_assertions))]
+	#[test]
+	fn map_translate_with_bad_key_in_production_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong key
+			unhashed::put(&[prefix.clone(), vec![1, 2, 3]].concat(), &3u64.encode());
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![]);
+		})
+	}
+
+	#[cfg(not(debug_assertions))]
+	#[test]
+	fn map_translate_with_bad_value_in_production_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong value
+			unhashed::put(
+				&[prefix.clone(), crate::Blake2_128Concat::hash(&6u16.encode())].concat(),
+				&vec![1],
+			);
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![]);
+		})
+	}
+
+	#[test]
+	fn map_reversible_reversible_iteration() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = frame_system::Map<Runtime>;
+
+			// All map iterator
+			let prefix = Map::prefix_hash().to_vec();
+
+			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
+			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
+
+			for i in 0..4 {
+				Map::insert(i as u16, i as u64);
+			}
+
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 3), (0, 0), (2, 2), (1, 1)]);
+
+			assert_eq!(Map::iter_keys().collect::<Vec<_>>(), vec![3, 0, 2, 1]);
+
+			assert_eq!(Map::iter_values().collect::<Vec<_>>(), vec![3, 0, 2, 1]);
+
+			assert_eq!(Map::drain().collect::<Vec<_>>(), vec![(3, 3), (0, 0), (2, 2), (1, 1)]);
+
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![]);
+			assert_eq!(unhashed::get(&key_before_prefix(prefix.clone())), Some(1u64));
+			assert_eq!(unhashed::get(&key_after_prefix(prefix.clone())), Some(1u64));
+
+			// Translate
+			let prefix = Map::prefix_hash().to_vec();
+
+			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
+			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
+			for i in 0..4 {
+				Map::insert(i as u16, i as u64);
+			}
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
 		})
 	}
 }

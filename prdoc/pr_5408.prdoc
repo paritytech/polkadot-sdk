@@ -1,0 +1,13 @@
+title: "[FRAME] Cleanup storage generator types"
+doc:
+  - audience: Runtime Dev
+    description: |
+      V1 pallet syntax has been deprecated and so the generator traits no longer needed, 
+      However, all methods have been ported over to `storage::types` and made public for developers
+      that require them.
+      ...
+
+crates: 
+    - name: frame-support
+      bump: major
+

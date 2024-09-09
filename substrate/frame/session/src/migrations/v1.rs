@@ -19,7 +19,6 @@ use core::str;
 use sp_io::hashing::twox_128;
 
 use frame_support::{
-	storage::{generator::StorageValue, StoragePrefixedMap},
 	traits::{
 		Get, GetStorageVersion, PalletInfoAccess, StorageVersion,
 		STORAGE_VERSION_STORAGE_KEY_POSTFIX,

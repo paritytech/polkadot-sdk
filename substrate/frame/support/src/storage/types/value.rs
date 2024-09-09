@@ -19,11 +19,11 @@
 
 use crate::{
 	storage::{
-		generator::StorageValue as StorageValueT,
 		types::{OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder},
-		StorageAppend, StorageDecodeLength, StorageTryAppend,
+		unhashed, StorageAppend, StorageDecodeLength, StorageTryAppend, TryAppendValue,
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
+	Never,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
@@ -66,29 +66,241 @@ pub struct StorageValue<Prefix, Value, QueryKind = OptionQuery, OnEmpty = GetDef
 	core::marker::PhantomData<(Prefix, Value, QueryKind, OnEmpty)>,
 );
 
-impl<Prefix, Value, QueryKind, OnEmpty> crate::storage::generator::StorageValue<Value>
-	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
+impl<Prefix, Value, QueryKind, OnEmpty> StorageValue<Prefix, Value, QueryKind, OnEmpty>
 where
 	Prefix: StorageInstance,
 	Value: FullCodec,
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
 	OnEmpty: Get<QueryKind::Query> + 'static,
 {
-	type Query = QueryKind::Query;
-	fn pallet_prefix() -> &'static [u8] {
+	/// Pallet prefix. Used for generating final key.
+	pub fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
-	fn storage_prefix() -> &'static [u8] {
+	/// Storage prefix. Used for generating final key.
+	pub fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
-	fn from_optional_value_to_query(v: Option<Value>) -> Self::Query {
+	/// Convert an optional value retrieved from storage to the type queried.
+	pub fn from_optional_value_to_query(v: Option<Value>) -> QueryKind::Query {
 		QueryKind::from_optional_value_to_query(v)
 	}
-	fn from_query_to_optional_value(v: Self::Query) -> Option<Value> {
+	/// Convert a query to an optional value into storage.
+	pub fn from_query_to_optional_value(v: QueryKind::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
 	}
-	fn storage_value_final_key() -> [u8; 32] {
+	/// Generate the full key used in top storage.
+	pub fn storage_value_final_key() -> [u8; 32] {
 		Prefix::prefix_hash()
+	}
+}
+
+impl<Prefix, Value, QueryKind, OnEmpty> crate::storage::StorageValue<Value>
+	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
+where
+	Prefix: StorageInstance,
+	Value: FullCodec,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
+{
+	type Query = QueryKind::Query;
+
+	fn hashed_key() -> [u8; 32] {
+		Self::storage_value_final_key()
+	}
+
+	fn exists() -> bool {
+		unhashed::exists(&Self::storage_value_final_key())
+	}
+
+	fn get() -> Self::Query {
+		let value = unhashed::get(&Self::storage_value_final_key());
+		Self::from_optional_value_to_query(value)
+	}
+
+	fn try_get() -> Result<Value, ()> {
+		unhashed::get(&Self::storage_value_final_key()).ok_or(())
+	}
+
+	fn translate<O: Decode, F: FnOnce(Option<O>) -> Option<Value>>(
+		f: F,
+	) -> Result<Option<Value>, ()> {
+		let key = Self::storage_value_final_key();
+
+		// attempt to get the length directly.
+		let maybe_old = unhashed::get_raw(&key)
+			.map(|old_data| O::decode(&mut &old_data[..]).map_err(|_| ()))
+			.transpose()?;
+		let maybe_new = f(maybe_old);
+		if let Some(new) = maybe_new.as_ref() {
+			new.using_encoded(|d| unhashed::put_raw(&key, d));
+		} else {
+			unhashed::kill(&key);
+		}
+		Ok(maybe_new)
+	}
+
+	fn put<Arg: EncodeLike<Value>>(val: Arg) {
+		unhashed::put(&Self::storage_value_final_key(), &val)
+	}
+
+	fn set(maybe_val: Self::Query) {
+		if let Some(val) = Self::from_query_to_optional_value(maybe_val) {
+			unhashed::put(&Self::storage_value_final_key(), &val)
+		} else {
+			unhashed::kill(&Self::storage_value_final_key())
+		}
+	}
+
+	fn mutate<R, F: FnOnce(&mut Self::Query) -> R>(f: F) -> R {
+		Self::try_mutate(|v| Ok::<R, Never>(f(v))).expect("`Never` can not be constructed; qed")
+	}
+
+	fn try_mutate<R, E, F: FnOnce(&mut Self::Query) -> Result<R, E>>(f: F) -> Result<R, E> {
+		let mut val = Self::get();
+
+		let ret = f(&mut val);
+		if ret.is_ok() {
+			match Self::from_query_to_optional_value(val) {
+				Some(ref val) => Self::put(val),
+				None => Self::kill(),
+			}
+		}
+		ret
+	}
+
+	fn mutate_exists<R, F>(f: F) -> R
+	where
+		F: FnOnce(&mut Option<Value>) -> R,
+	{
+		Self::try_mutate_exists(|v| Ok::<R, Never>(f(v)))
+			.expect("`Never` can not be constructed; qed")
+	}
+
+	fn try_mutate_exists<R, E, F>(f: F) -> Result<R, E>
+	where
+		F: FnOnce(&mut Option<Value>) -> Result<R, E>,
+	{
+		let mut val = Self::from_query_to_optional_value(Self::get());
+
+		let ret = f(&mut val);
+		if ret.is_ok() {
+			match val {
+				Some(ref val) => Self::put(val),
+				None => Self::kill(),
+			}
+		}
+		ret
+	}
+
+	fn kill() {
+		unhashed::kill(&Self::storage_value_final_key())
+	}
+
+	fn take() -> Self::Query {
+		let key = Self::storage_value_final_key();
+		let value = unhashed::get(&key);
+		if value.is_some() {
+			unhashed::kill(&key)
+		}
+		Self::from_optional_value_to_query(value)
+	}
+
+	fn append<Item, EncodeLikeItem>(item: EncodeLikeItem)
+	where
+		Item: Encode,
+		EncodeLikeItem: EncodeLike<Item>,
+		Value: StorageAppend<Item>,
+	{
+		let key = Self::storage_value_final_key();
+		sp_io::storage::append(&key, item.encode());
+	}
+}
+
+impl<Prefix, Value, QueryKind, OnEmpty, I> TryAppendValue<Value, I>
+	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
+where
+	I: Encode,
+	Prefix: StorageInstance,
+	Value: FullCodec + StorageTryAppend<I>,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
+{
+	fn try_append<LikeI: EncodeLike<I>>(item: LikeI) -> Result<(), ()> {
+		let bound = Value::bound();
+		let current =
+			<Self as crate::storage::StorageValue<Value>>::decode_len().unwrap_or_default();
+		if current < bound {
+			// NOTE: we cannot reuse the implementation for `Vec<T>` here because we never want to
+			// mark `BoundedVec<T, S>` as `StorageAppend`.
+			let key = Self::storage_value_final_key();
+			sp_io::storage::append(&key, item.encode());
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+}
+
+impl<Prefix, Value, QueryKind, OnEmpty> StorageEntryMetadataBuilder
+	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
+where
+	Prefix: StorageInstance,
+	Value: FullCodec + scale_info::StaticTypeInfo,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
+{
+	fn build_metadata(docs: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>) {
+		let docs = if cfg!(feature = "no-metadata-docs") { vec![] } else { docs };
+
+		let entry = StorageEntryMetadataIR {
+			name: Prefix::STORAGE_PREFIX,
+			modifier: QueryKind::METADATA,
+			ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<Value>()),
+			default: OnEmpty::get().encode(),
+			docs,
+		};
+
+		entries.push(entry);
+	}
+}
+
+impl<Prefix, Value, QueryKind, OnEmpty> crate::traits::StorageInfoTrait
+	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
+where
+	Prefix: StorageInstance,
+	Value: FullCodec + MaxEncodedLen,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
+{
+	fn storage_info() -> Vec<StorageInfo> {
+		vec![StorageInfo {
+			pallet_name: Self::pallet_prefix().to_vec(),
+			storage_name: Self::storage_prefix().to_vec(),
+			prefix: <Self as crate::storage::StorageValue<Value>>::hashed_key().to_vec(),
+			max_values: Some(1),
+			max_size: Some(Value::max_encoded_len().saturated_into()),
+		}]
+	}
+}
+
+/// It doesn't require to implement `MaxEncodedLen` and give no information for `max_size`.
+impl<Prefix, Value, QueryKind, OnEmpty> crate::traits::PartialStorageInfoTrait
+	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
+where
+	Prefix: StorageInstance,
+	Value: FullCodec,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
+{
+	fn partial_storage_info() -> Vec<StorageInfo> {
+		vec![StorageInfo {
+			pallet_name: Self::pallet_prefix().to_vec(),
+			storage_name: Self::storage_prefix().to_vec(),
+			prefix: <Self as crate::storage::StorageValue<Value>>::hashed_key().to_vec(),
+			max_values: Some(1),
+			max_size: None,
+		}]
 	}
 }
 
@@ -266,68 +478,6 @@ where
 		Value: StorageTryAppend<Item>,
 	{
 		<Self as crate::storage::TryAppendValue<Value, Item>>::try_append(item)
-	}
-}
-
-impl<Prefix, Value, QueryKind, OnEmpty> StorageEntryMetadataBuilder
-	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
-where
-	Prefix: StorageInstance,
-	Value: FullCodec + scale_info::StaticTypeInfo,
-	QueryKind: QueryKindTrait<Value, OnEmpty>,
-	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
-{
-	fn build_metadata(docs: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>) {
-		let docs = if cfg!(feature = "no-metadata-docs") { vec![] } else { docs };
-
-		let entry = StorageEntryMetadataIR {
-			name: Prefix::STORAGE_PREFIX,
-			modifier: QueryKind::METADATA,
-			ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<Value>()),
-			default: OnEmpty::get().encode(),
-			docs,
-		};
-
-		entries.push(entry);
-	}
-}
-
-impl<Prefix, Value, QueryKind, OnEmpty> crate::traits::StorageInfoTrait
-	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
-where
-	Prefix: StorageInstance,
-	Value: FullCodec + MaxEncodedLen,
-	QueryKind: QueryKindTrait<Value, OnEmpty>,
-	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
-{
-	fn storage_info() -> Vec<StorageInfo> {
-		vec![StorageInfo {
-			pallet_name: Self::pallet_prefix().to_vec(),
-			storage_name: Self::storage_prefix().to_vec(),
-			prefix: Self::hashed_key().to_vec(),
-			max_values: Some(1),
-			max_size: Some(Value::max_encoded_len().saturated_into()),
-		}]
-	}
-}
-
-/// It doesn't require to implement `MaxEncodedLen` and give no information for `max_size`.
-impl<Prefix, Value, QueryKind, OnEmpty> crate::traits::PartialStorageInfoTrait
-	for StorageValue<Prefix, Value, QueryKind, OnEmpty>
-where
-	Prefix: StorageInstance,
-	Value: FullCodec,
-	QueryKind: QueryKindTrait<Value, OnEmpty>,
-	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
-{
-	fn partial_storage_info() -> Vec<StorageInfo> {
-		vec![StorageInfo {
-			pallet_name: Self::pallet_prefix().to_vec(),
-			storage_name: Self::storage_prefix().to_vec(),
-			prefix: Self::hashed_key().to_vec(),
-			max_values: Some(1),
-			max_size: None,
-		}]
 	}
 }
 

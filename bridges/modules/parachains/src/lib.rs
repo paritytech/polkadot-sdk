@@ -843,12 +843,8 @@ pub(crate) mod tests {
 		TEST_GRANDPA_SET_ID,
 	};
 	use frame_support::{
-		assert_noop, assert_ok,
-		dispatch::DispatchResultWithPostInfo,
-		pallet_prelude::Pays,
-		storage::generator::{StorageDoubleMap, StorageMap},
-		traits::Get,
-		weights::Weight,
+		assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo, pallet_prelude::Pays,
+		traits::Get, weights::Weight,
 	};
 	use frame_system::{EventRecord, Pallet as System, Phase};
 	use sp_core::Hasher;
