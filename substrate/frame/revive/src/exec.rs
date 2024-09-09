@@ -37,7 +37,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::{Fortitude, Preservation},
-		Contains, OriginTrait, Time,
+		Contains, IsType, OriginTrait, Time,
 	},
 	weights::Weight,
 	Blake2_128Concat, BoundedVec, StorageHasher,
@@ -49,20 +49,17 @@ use frame_system::{
 use sp_core::{
 	ecdsa::Public as ECDSAPublic,
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
-	ConstU32, Get, H160, H256,
+	ConstU32, Get, H160, H256, U256,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
 	traits::{BadOrigin, Convert, Dispatchable, Zero},
-	DispatchError,
+	DispatchError, SaturatedConversion,
 };
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
 pub type ExecResult = Result<ExecReturnValue, ExecError>;
-
-/// A type that represents a topic of an event. At the moment a hash is used.
-pub type TopicOf<T> = <T as frame_system::Config>::Hash;
 
 /// Type for variable sized storage key. Used for transparent hashing.
 type VarSizedKey = BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>;
@@ -184,9 +181,9 @@ pub trait Ext: sealing::Sealed {
 	fn call(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: U256,
 		to: &H160,
-		value: BalanceOf<Self::T>,
+		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
@@ -209,11 +206,11 @@ pub trait Ext: sealing::Sealed {
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: U256,
 		code: H256,
-		value: BalanceOf<Self::T>,
+		value: U256,
 		input_data: Vec<u8>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 	) -> Result<(H160, ExecReturnValue), ExecError>;
 
 	/// Transfer all funds to `beneficiary` and delete the contract.
@@ -226,7 +223,7 @@ pub trait Ext: sealing::Sealed {
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
 
 	/// Transfer some amount of funds into the specified account.
-	fn transfer(&mut self, to: &H160, value: BalanceOf<Self::T>) -> DispatchResult;
+	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult;
 
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
@@ -304,30 +301,30 @@ pub trait Ext: sealing::Sealed {
 	/// Returns the balance of the current contract.
 	///
 	/// The `value_transferred` is already added.
-	fn balance(&self) -> BalanceOf<Self::T>;
+	fn balance(&self) -> U256;
 
 	/// Returns the value transferred along with this call.
-	fn value_transferred(&self) -> BalanceOf<Self::T>;
+	fn value_transferred(&self) -> U256;
 
-	/// Returns a reference to the timestamp of the current block
-	fn now(&self) -> &MomentOf<Self::T>;
+	/// Returns the timestamp of the current block
+	fn now(&self) -> U256;
 
 	/// Returns the minimum balance that is required for creating an account.
-	fn minimum_balance(&self) -> BalanceOf<Self::T>;
+	fn minimum_balance(&self) -> U256;
 
 	/// Deposit an event with the given topics.
 	///
 	/// There should not be any duplicates in `topics`.
-	fn deposit_event(&mut self, topics: Vec<TopicOf<Self::T>>, data: Vec<u8>);
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>);
 
 	/// Returns the current block number.
-	fn block_number(&self) -> BlockNumberFor<Self::T>;
+	fn block_number(&self) -> U256;
 
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
 
 	/// Returns the price for the specified amount of weight.
-	fn get_weight_price(&self, weight: Weight) -> BalanceOf<Self::T>;
+	fn get_weight_price(&self, weight: Weight) -> U256;
 
 	/// Get an immutable reference to the nested gas meter.
 	fn gas_meter(&self) -> &GasMeter<Self::T>;
@@ -573,7 +570,7 @@ enum FrameArgs<'a, T: Config, E> {
 		/// The executable whose `deploy` function is run.
 		executable: E,
 		/// A salt used in the contract address derivation of the new contract.
-		salt: &'a [u8; 32],
+		salt: Option<&'a [u8; 32]>,
 		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
 	},
@@ -697,6 +694,9 @@ impl<T: Config> CachedContract<T> {
 impl<'a, T, E> Stack<'a, T, E>
 where
 	T: Config,
+	T::Hash: IsType<H256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 	E: Executable<T>,
 {
 	/// Create and run a new call stack by calling into `dest`.
@@ -750,7 +750,7 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
@@ -863,7 +863,12 @@ where
 			},
 			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
 				let deployer = T::AddressMapper::to_address(&sender);
-				let address = address::create2(&deployer, executable.code(), input_data, salt);
+				let account_nonce = <System<T>>::account_nonce(&sender);
+				let address = if let Some(salt) = salt {
+					address::create2(&deployer, executable.code(), input_data, salt)
+				} else {
+					address::create1(&deployer, account_nonce.saturated_into())
+				};
 				let contract = ContractInfo::new(
 					&address,
 					<System<T>>::account_nonce(&sender),
@@ -1234,16 +1239,19 @@ where
 impl<'a, T, E> Ext for Stack<'a, T, E>
 where
 	T: Config,
+	T::Hash: IsType<H256>,
 	E: Executable<T>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 {
 	type T = T;
 
 	fn call(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<T>,
+		deposit_limit: U256,
 		dest: &H160,
-		value: BalanceOf<T>,
+		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
@@ -1272,9 +1280,9 @@ where
 				});
 			let executable = self.push_frame(
 				FrameArgs::Call { dest, cached_info, delegated_call: None },
-				value,
+				value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 				gas_limit,
-				deposit_limit,
+				deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 				// Enable read-only access if requested; cannot disable it if already set.
 				read_only || self.is_read_only(),
 			)?;
@@ -1317,11 +1325,11 @@ where
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: U256,
 		code_hash: H256,
-		value: BalanceOf<T>,
+		value: U256,
 		input_data: Vec<u8>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = &self.top_frame().account_id;
@@ -1332,9 +1340,9 @@ where
 				salt,
 				input_data: input_data.as_ref(),
 			},
-			value,
+			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,
-			deposit_limit,
+			deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
@@ -1369,12 +1377,12 @@ where
 		Ok(())
 	}
 
-	fn transfer(&mut self, to: &H160, value: BalanceOf<T>) -> DispatchResult {
+	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult {
 		Self::transfer(
 			Preservation::Preserve,
 			&self.top_frame().account_id,
 			&T::AddressMapper::to_account_id(to),
-			value,
+			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 		)
 	}
 
@@ -1457,27 +1465,28 @@ where
 		self.caller_is_origin() && self.origin == Origin::Root
 	}
 
-	fn balance(&self) -> BalanceOf<T> {
+	fn balance(&self) -> U256 {
 		T::Currency::reducible_balance(
 			&self.top_frame().account_id,
 			Preservation::Preserve,
 			Fortitude::Polite,
 		)
+		.into()
 	}
 
-	fn value_transferred(&self) -> BalanceOf<T> {
-		self.top_frame().value_transferred
+	fn value_transferred(&self) -> U256 {
+		self.top_frame().value_transferred.into()
 	}
 
-	fn now(&self) -> &MomentOf<T> {
-		&self.timestamp
+	fn now(&self) -> U256 {
+		self.timestamp.into()
 	}
 
-	fn minimum_balance(&self) -> BalanceOf<T> {
-		T::Currency::minimum_balance()
+	fn minimum_balance(&self) -> U256 {
+		T::Currency::minimum_balance().into()
 	}
 
-	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
 		Contracts::<Self::T>::deposit_indexed_event(
 			topics,
 			Event::ContractEmitted {
@@ -1487,16 +1496,16 @@ where
 		);
 	}
 
-	fn block_number(&self) -> BlockNumberFor<T> {
-		self.block_number
+	fn block_number(&self) -> U256 {
+		self.block_number.into()
 	}
 
 	fn max_value_size(&self) -> u32 {
 		limits::PAYLOAD_BYTES
 	}
 
-	fn get_weight_price(&self, weight: Weight) -> BalanceOf<Self::T> {
-		T::WeightPrice::convert(weight)
+	fn get_weight_price(&self, weight: Weight) -> U256 {
+		T::WeightPrice::convert(weight).into()
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
@@ -1859,7 +1868,7 @@ mod tests {
 		let value = 55;
 
 		let success_ch = MockLoader::insert(Call, move |ctx, _| {
-			assert_eq!(ctx.ext.value_transferred(), value);
+			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
@@ -1891,12 +1900,12 @@ mod tests {
 		let value = 35;
 
 		let success_ch = MockLoader::insert(Call, move |ctx, _| {
-			assert_eq!(ctx.ext.value_transferred(), value);
+			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
 		let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
-			assert_eq!(ctx.ext.value_transferred(), value);
+			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
 			let _ = ctx.ext.delegate_call(success_ch, Vec::new())?;
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
@@ -2088,7 +2097,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance,
 					vec![1, 2, 3, 4],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				);
 				assert_matches!(result, Ok(_));
@@ -2107,9 +2116,9 @@ mod tests {
 			// Try to call into yourself.
 			let r = ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::<Test>::zero(),
+				U256::zero(),
 				&BOB_ADDR,
-				0,
+				U256::zero(),
 				vec![],
 				true,
 				false,
@@ -2170,9 +2179,9 @@ mod tests {
 			assert_matches!(
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					&CHARLIE_ADDR,
-					0,
+					U256::zero(),
 					vec![],
 					true,
 					false
@@ -2311,9 +2320,9 @@ mod tests {
 			// BOB calls CHARLIE
 			ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::<Test>::zero(),
+				U256::zero(),
 				&CHARLIE_ADDR,
-				0,
+				U256::zero(),
 				vec![],
 				true,
 				false,
@@ -2405,9 +2414,9 @@ mod tests {
 			// BOB calls CHARLIE.
 			ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::<Test>::zero(),
+				U256::zero(),
 				&CHARLIE_ADDR,
-				0,
+				U256::zero(),
 				vec![],
 				true,
 				false,
@@ -2443,9 +2452,9 @@ mod tests {
 			assert_matches!(
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					&CHARLIE_ADDR,
-					0,
+					U256::zero(),
 					vec![],
 					true,
 					false
@@ -2497,7 +2506,7 @@ mod tests {
 					&mut storage_meter,
 					0, // <- zero value
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				),
 				Err(_)
@@ -2533,7 +2542,7 @@ mod tests {
 
 						min_balance,
 						vec![],
-						&[0;32],
+						Some(&[0 ;32]),
 						None,
 					),
 					Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
@@ -2587,7 +2596,7 @@ mod tests {
 
 						min_balance,
 						vec![],
-						&[0;32],
+						Some(&[0; 32]),
 						None,
 					),
 					Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
@@ -2616,11 +2625,11 @@ mod tests {
 					.ext
 					.instantiate(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						dummy_ch,
-						<Test as Config>::Currency::minimum_balance(),
+						<Test as Config>::Currency::minimum_balance().into(),
 						vec![],
-						&[48; 32],
+						Some(&[48; 32]),
 					)
 					.unwrap();
 
@@ -2694,11 +2703,11 @@ mod tests {
 				assert_matches!(
 					ctx.ext.instantiate(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						dummy_ch,
-						<Test as Config>::Currency::minimum_balance(),
+						<Test as Config>::Currency::minimum_balance().into(),
 						vec![],
-						&[0; 32],
+						Some(&[0; 32]),
 					),
 					Err(ExecError {
 						error: DispatchError::Other("It's a trap!"),
@@ -2771,7 +2780,7 @@ mod tests {
 						&mut storage_meter,
 						100,
 						vec![],
-						&[0; 32],
+						Some(&[0; 32]),
 						None,
 					),
 					Err(Error::<Test>::TerminatedInConstructor.into())
@@ -2799,9 +2808,9 @@ mod tests {
 				assert_eq!(
 					ctx.ext.call(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						&CHARLIE_ADDR,
-						0,
+						U256::zero(),
 						vec![],
 						true,
 						false
@@ -2815,15 +2824,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					&BOB_ADDR,
-					0,
-					vec![99],
-					true,
-					false
-				)
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
 				.is_ok());
 			exec_trapped()
 		});
@@ -2855,7 +2856,7 @@ mod tests {
 			let addr = <Test as Config>::AddressMapper::to_address(&account_id);
 
 			assert_matches!(
-						   ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), &addr, 0, vec![],
+						   ctx.ext.call(Weight::zero(), U256::zero(), &addr, U256::zero(), vec![],
 			true, false), 				Err(ExecError{error, ..}) if error == <Error<Test>>::ContractNotFound.into()
 					   );
 			exec_success()
@@ -2882,7 +2883,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				);
 				assert_matches!(result, Ok(_));
@@ -2993,7 +2994,7 @@ mod tests {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			let dest = H160::from_slice(ctx.input_data.as_ref());
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), &dest, 0, vec![], false, false)
+				.call(Weight::zero(), U256::zero(), &dest, U256::zero(), vec![], false, false)
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3038,9 +3039,9 @@ mod tests {
 			if ctx.input_data[0] == 0 {
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					&CHARLIE_ADDR,
-					0,
+					U256::zero(),
 					vec![],
 					false,
 					false,
@@ -3054,9 +3055,9 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::<Test>::zero(),
+				U256::zero(),
 				&BOB_ADDR,
-				0,
+				U256::zero(),
 				vec![1],
 				true,
 				false,
@@ -3246,11 +3247,11 @@ mod tests {
 			ctx.ext
 				.instantiate(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					fail_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 				)
 				.ok();
 			exec_success()
@@ -3263,11 +3264,11 @@ mod tests {
 				.ext
 				.instantiate(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					success_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 				)
 				.unwrap();
 
@@ -3279,7 +3280,7 @@ mod tests {
 
 			// a plain call should not influence the account counter
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), &addr, 0, vec![], false, false)
+				.call(Weight::zero(), U256::zero(), &addr, U256::zero(), vec![], false, false)
 				.unwrap();
 
 			assert_eq!(System::account_nonce(ALICE), alice_nonce);
@@ -3318,7 +3319,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				)
 				.ok();
@@ -3331,7 +3332,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 100,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 1);
@@ -3343,7 +3344,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 200,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 2);
@@ -3355,7 +3356,7 @@ mod tests {
 					&mut storage_meter,
 					min_balance * 200,
 					vec![],
-					&[0; 32],
+					Some(&[0; 32]),
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 3);
@@ -3817,9 +3818,9 @@ mod tests {
 				assert_eq!(
 					ctx.ext.call(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						&CHARLIE_ADDR,
-						0,
+						U256::zero(),
 						vec![],
 						true,
 						false,
@@ -3844,15 +3845,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					&BOB_ADDR,
-					0,
-					vec![99],
-					true,
-					false
-				)
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
 				.is_ok());
 			// CHARLIE can not read BOB`s storage.
 			assert_eq!(ctx.ext.get_transient_storage(storage_key_1), None);
@@ -3929,9 +3922,9 @@ mod tests {
 				assert_eq!(
 					ctx.ext.call(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						&CHARLIE_ADDR,
-						0,
+						U256::zero(),
 						vec![],
 						true,
 						false
@@ -3952,15 +3945,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					&BOB_ADDR,
-					0,
-					vec![99],
-					true,
-					false
-				)
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
 				.is_ok());
 			exec_trapped()
 		});

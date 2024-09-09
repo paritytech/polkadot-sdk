@@ -26,14 +26,13 @@ use self::{
 };
 use crate::{
 	self as pallet_revive,
-	address::AddressMapper,
+	address::{create1, create2, AddressMapper},
 	chain_extension::{
 		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
 		RetVal, ReturnFlags,
 	},
 	exec::Key,
 	limits,
-	migration::codegen::LATEST_MIGRATION_VERSION,
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	test_utils::*,
@@ -41,8 +40,8 @@ use crate::{
 	wasm::Memory,
 	weights::WeightInfo,
 	BalanceOf, Code, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf, DebugInfo,
-	DefaultAddressMapper, DeletionQueueCounter, Error, HoldReason, MigrationInProgress, Origin,
-	Pallet, PristineCode, H160,
+	DefaultAddressMapper, DeletionQueueCounter, Error, HoldReason, Origin, Pallet, PristineCode,
+	H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -490,7 +489,6 @@ impl Config for Test {
 	type UnsafeUnstableInterface = UnstableInterface;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
-	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
 }
@@ -522,10 +520,6 @@ impl ExtBuilder {
 	}
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
-	}
-	pub fn set_storage_version(mut self, version: u16) -> Self {
-		self.storage_version = Some(StorageVersion::new(version));
-		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
@@ -593,6 +587,7 @@ impl Default for Origin<Test> {
 mod run_tests {
 	use super::*;
 	use pretty_assertions::{assert_eq, assert_ne};
+	use sp_core::U256;
 
 	// Perform a call to a plain account.
 	// The actual transfer fails because we can only call contracts.
@@ -612,66 +607,6 @@ mod run_tests {
 						pays_fee: Default::default(),
 					},
 				})
-			);
-		});
-	}
-
-	#[test]
-	fn migration_on_idle_hooks_works() {
-		// Defines expectations of how many migration steps can be done given the weight limit.
-		let tests = [
-			(Weight::zero(), LATEST_MIGRATION_VERSION - 2),
-			(<Test as Config>::WeightInfo::migrate() + 1.into(), LATEST_MIGRATION_VERSION - 1),
-			(Weight::MAX, LATEST_MIGRATION_VERSION),
-		];
-
-		for (weight, expected_version) in tests {
-			ExtBuilder::default()
-				.set_storage_version(LATEST_MIGRATION_VERSION - 2)
-				.build()
-				.execute_with(|| {
-					MigrationInProgress::<Test>::set(Some(Default::default()));
-					Contracts::on_idle(System::block_number(), weight);
-					assert_eq!(StorageVersion::get::<Pallet<Test>>(), expected_version);
-				});
-		}
-	}
-
-	#[test]
-	fn migration_in_progress_works() {
-		let (wasm, code_hash) = compile_module("dummy").unwrap();
-
-		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-			MigrationInProgress::<Test>::set(Some(Default::default()));
-
-			assert_err!(
-				Contracts::upload_code(
-					RuntimeOrigin::signed(ALICE),
-					vec![],
-					deposit_limit::<Test>(),
-				),
-				Error::<Test>::MigrationInProgress,
-			);
-			assert_err!(
-				Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
-				Error::<Test>::MigrationInProgress,
-			);
-			assert_err!(
-				Contracts::set_code(RuntimeOrigin::signed(ALICE), BOB_ADDR, code_hash),
-				Error::<Test>::MigrationInProgress,
-			);
-			assert_err_ignore_postinfo!(
-				builder::call(BOB_ADDR).build(),
-				Error::<Test>::MigrationInProgress
-			);
-			assert_err_ignore_postinfo!(
-				builder::instantiate_with_code(wasm).value(100_000).build(),
-				Error::<Test>::MigrationInProgress,
-			);
-			assert_err_ignore_postinfo!(
-				builder::instantiate(code_hash).value(100_000).build(),
-				Error::<Test>::MigrationInProgress,
 			);
 		});
 	}
@@ -745,7 +680,7 @@ mod run_tests {
 							contract: addr,
 							data: vec![1, 2, 3, 4]
 						}),
-						topics: vec![],
+						topics: vec![H256::repeat_byte(42)],
 					},
 					EventRecord {
 						phase: Phase::Initialization,
@@ -768,6 +703,47 @@ mod run_tests {
 					},
 				]
 			);
+		});
+	}
+
+	#[test]
+	fn create1_address_from_extrinsic() {
+		let (wasm, code_hash) = compile_module("dummy").unwrap();
+
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			assert_ok!(Contracts::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				wasm.clone(),
+				deposit_limit::<Test>(),
+			));
+
+			assert_eq!(System::account_nonce(&ALICE), 0);
+
+			for nonce in 0..3 {
+				let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
+					.salt(None)
+					.build_and_unwrap_contract();
+				assert!(ContractInfoOf::<Test>::contains_key(&addr));
+				assert_eq!(
+					addr,
+					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce)
+				);
+			}
+			assert_eq!(System::account_nonce(&ALICE), 3);
+
+			for nonce in 3..6 {
+				let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm.clone()))
+					.salt(None)
+					.build_and_unwrap_contract();
+				assert!(ContractInfoOf::<Test>::contains_key(&addr));
+				assert_eq!(
+					addr,
+					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce)
+				);
+			}
+			assert_eq!(System::account_nonce(&ALICE), 6);
 		});
 	}
 
@@ -1023,7 +999,7 @@ mod run_tests {
 					.value(100_000)
 					.build_and_unwrap_contract();
 
-			let callee_addr = crate::address::create2(
+			let callee_addr = create2(
 				&caller_addr,
 				&callee_wasm,
 				&[0, 1, 34, 51, 68, 85, 102, 119], // hard coded in wasm
@@ -1410,7 +1386,7 @@ mod run_tests {
 
 			// Check that the CHARLIE contract has been instantiated.
 			let salt = [47; 32]; // hard coded in fixture.
-			let addr_charlie = crate::address::create2(&addr_bob, &callee_wasm, &[], &salt);
+			let addr_charlie = create2(&addr_bob, &callee_wasm, &[], &salt);
 			get_contract(&addr_charlie);
 
 			// Call BOB, which calls CHARLIE, forcing CHARLIE to self-destruct.
@@ -1759,7 +1735,7 @@ mod run_tests {
 			for i in 0..3u8 {
 				let contract = builder::bare_instantiate(Code::Upload(code.clone()))
 					.value(min_balance * 100)
-					.salt([i; 32])
+					.salt(Some([i; 32]))
 					.build_and_unwrap_contract();
 
 				let info = get_contract(&contract.addr);
@@ -2000,7 +1976,7 @@ mod run_tests {
 			for i in 0..3u8 {
 				let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
 					.value(min_balance * 100)
-					.salt([i; 32])
+					.salt(Some([i; 32]))
 					.build_and_unwrap_contract();
 
 				let info = get_contract(&addr);
@@ -2042,19 +2018,19 @@ mod run_tests {
 			let Contract { addr: addr0, .. } =
 				builder::bare_instantiate(Code::Upload(wasm.clone()))
 					.value(min_balance * 100)
-					.salt([0; 32])
+					.salt(Some([0; 32]))
 					.build_and_unwrap_contract();
 			let Contract { addr: addr1, .. } =
 				builder::bare_instantiate(Code::Upload(wasm.clone()))
 					.value(min_balance * 100)
-					.salt([1; 32])
+					.salt(Some([1; 32]))
 					.build_and_unwrap_contract();
 			assert_refcount!(code_hash, 2);
 
 			// Sharing should also work with the usual instantiate call
 			let Contract { addr: addr2, .. } = builder::bare_instantiate(Code::Existing(code_hash))
 				.value(min_balance * 100)
-				.salt([2; 32])
+				.salt(Some([2; 32]))
 				.build_and_unwrap_contract();
 			assert_refcount!(code_hash, 3);
 
@@ -2241,7 +2217,7 @@ mod run_tests {
 			let Contract { addr: addr_caller, .. } =
 				builder::bare_instantiate(Code::Upload(caller_code))
 					.value(min_balance * 100)
-					.salt([0; 32])
+					.salt(Some([0; 32]))
 					.build_and_unwrap_contract();
 
 			// Call something trivial with a huge gas limit so that we can observe the effects
@@ -2279,13 +2255,13 @@ mod run_tests {
 			let Contract { addr: addr_caller, .. } =
 				builder::bare_instantiate(Code::Upload(caller_code))
 					.value(min_balance * 100)
-					.salt([0; 32])
+					.salt(Some([0; 32]))
 					.build_and_unwrap_contract();
 
 			let Contract { addr: addr_callee, .. } =
 				builder::bare_instantiate(Code::Upload(callee_code))
 					.value(min_balance * 100)
-					.salt([1; 32])
+					.salt(Some([1; 32]))
 					.build_and_unwrap_contract();
 
 			// Call pallet_revive call() dispatchable
@@ -3361,7 +3337,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(13)
-					.data((100u32, &addr_callee, 0u64).encode())
+					.data((100u32, &addr_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3375,7 +3351,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(14)
-					.data((101u32, &addr_callee, 0u64).encode())
+					.data((101u32, &addr_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3388,7 +3364,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(16)
-					.data((102u32, &addr_callee, 1u64).encode())
+					.data((102u32, &addr_callee, U256::from(1u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3399,7 +3375,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(0)
-					.data((87u32, &addr_callee, 0u64).encode())
+					.data((87u32, &addr_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3409,7 +3385,9 @@ mod run_tests {
 			// Require more than the sender's balance.
 			// We don't set a special limit for the nested call.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller).data((512u32, &addr_callee, 1u64).encode()).build(),
+				builder::call(addr_caller)
+					.data((512u32, &addr_callee, U256::from(1u64)).encode())
+					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
 
@@ -3418,7 +3396,7 @@ mod run_tests {
 			// enforced as callee frees up storage. This should pass.
 			assert_ok!(builder::call(addr_caller)
 				.storage_deposit_limit(1)
-				.data((87u32, &addr_callee, 1u64).encode())
+				.data((87u32, &addr_callee, U256::from(1u64)).encode())
 				.build());
 		});
 	}
@@ -3459,7 +3437,7 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 1)
-					.data((0u32, &code_hash_callee, 0u64).encode())
+					.data((0u32, &code_hash_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3473,7 +3451,7 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 2)
-					.data((1u32, &code_hash_callee, 0u64).encode())
+					.data((1u32, &code_hash_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3487,7 +3465,10 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 2)
-					.data((0u32, &code_hash_callee, callee_info_len + 2 + ED + 1).encode())
+					.data(
+						(0u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 1))
+							.encode()
+					)
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3502,7 +3483,10 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 3) // enough parent limit
-					.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 2).encode())
+					.data(
+						(1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 2))
+							.encode()
+					)
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3513,7 +3497,7 @@ mod run_tests {
 			let result = builder::bare_call(addr_caller)
 				.origin(RuntimeOrigin::signed(BOB))
 				.storage_deposit_limit(callee_info_len + 2 + ED + 4)
-				.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 3).encode())
+				.data((1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 3)).encode())
 				.build();
 
 			let returned = result.result.unwrap();

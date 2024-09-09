@@ -19,7 +19,7 @@
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -31,7 +31,7 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		256,
-		callee_addr: [u8; 20],
+		callee_addr: &[u8; 20],
 		flags: u32,
 		value: u64,
 		forwarded_input: [u8],
@@ -40,10 +40,10 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::from_bits(flags).unwrap(),
 		callee_addr,
-		0u64,                 // How much ref_time to devote for the execution. 0 = all.
-		0u64,                 // How much proof_size to devote for the execution. 0 = all.
-		None,                 // No deposit limit.
-		&value.to_le_bytes(), // Value transferred to the contract.
+		0u64,               // How much ref_time to devote for the execution. 0 = all.
+		0u64,               // How much proof_size to devote for the execution. 0 = all.
+		None,               // No deposit limit.
+		&u256_bytes(value), // Value transferred to the contract.
 		forwarded_input,
 		None,
 	)

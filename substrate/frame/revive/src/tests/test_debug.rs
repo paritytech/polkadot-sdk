@@ -28,7 +28,7 @@ use std::cell::RefCell;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct DebugFrame {
-	contract_account: sp_core::H160,
+	contract_address: sp_core::H160,
 	call: ExportedFunction,
 	input: Vec<u8>,
 	result: Option<Vec<u8>>,
@@ -41,7 +41,7 @@ thread_local! {
 
 pub struct TestDebug;
 pub struct TestCallSpan {
-	contract_account: sp_core::H160,
+	contract_address: sp_core::H160,
 	call: ExportedFunction,
 	input: Vec<u8>,
 }
@@ -50,20 +50,20 @@ impl Tracing<Test> for TestDebug {
 	type CallSpan = TestCallSpan;
 
 	fn new_call_span(
-		contract_account: &crate::H160,
+		contract_address: &crate::H160,
 		entry_point: ExportedFunction,
 		input_data: &[u8],
 	) -> TestCallSpan {
 		DEBUG_EXECUTION_TRACE.with(|d| {
 			d.borrow_mut().push(DebugFrame {
-				contract_account: *contract_account,
+				contract_address: *contract_address,
 				call: entry_point,
 				input: input_data.to_vec(),
 				result: None,
 			})
 		});
 		TestCallSpan {
-			contract_account: *contract_account,
+			contract_address: *contract_address,
 			call: entry_point,
 			input: input_data.to_vec(),
 		}
@@ -90,7 +90,7 @@ impl CallSpan for TestCallSpan {
 	fn after_call(self, output: &ExecReturnValue) {
 		DEBUG_EXECUTION_TRACE.with(|d| {
 			d.borrow_mut().push(DebugFrame {
-				contract_account: self.contract_account,
+				contract_address: self.contract_address,
 				call: self.call,
 				input: self.input,
 				result: Some(output.data.clone()),
@@ -122,7 +122,7 @@ mod run_tests {
 				deposit_limit::<Test>(),
 				Code::Upload(wasm),
 				vec![],
-				[0u8; 32],
+				Some([0u8; 32]),
 				DebugInfo::Skip,
 				CollectEvents::Skip,
 			)
@@ -131,18 +131,18 @@ mod run_tests {
 			.addr
 		}
 
-		fn constructor_frame(contract_account: &H160, after: bool) -> DebugFrame {
+		fn constructor_frame(contract_address: &H160, after: bool) -> DebugFrame {
 			DebugFrame {
-				contract_account: *contract_account,
+				contract_address: *contract_address,
 				call: ExportedFunction::Constructor,
 				input: vec![],
 				result: if after { Some(vec![]) } else { None },
 			}
 		}
 
-		fn call_frame(contract_account: &H160, args: Vec<u8>, after: bool) -> DebugFrame {
+		fn call_frame(contract_address: &H160, args: Vec<u8>, after: bool) -> DebugFrame {
 			DebugFrame {
-				contract_account: *contract_account,
+				contract_address: *contract_address,
 				call: ExportedFunction::Call,
 				input: args,
 				result: if after { Some(vec![]) } else { None },
@@ -207,7 +207,7 @@ mod run_tests {
 				Code::Upload(wasm),
 				vec![],
 				// some salt to ensure that the address of this contract is unique among all tests
-				[0x41; 32],
+				Some([0x41; 32]),
 				DebugInfo::Skip,
 				CollectEvents::Skip,
 			)
