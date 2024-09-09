@@ -20,7 +20,7 @@
 #![no_std]
 #![no_main]
 
-use common::{input, output};
+use common::input;
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -33,7 +33,8 @@ pub extern "C" fn call() {
 	input!(calls_left: u32, );
 
 	// own address
-	output!(addr, [0u8; 32], api::address,);
+	let mut addr = [0u8; 20];
+	api::address(&mut addr);
 
 	if calls_left == 0 {
 		return
@@ -41,11 +42,11 @@ pub extern "C" fn call() {
 
 	api::call(
 		uapi::CallFlags::ALLOW_REENTRY,
-		addr,
-		0u64,                // How much ref_time to devote for the execution. 0 = all.
-		0u64,                // How much deposit_limit to devote for the execution. 0 = all.
-		None,                // No deposit limit.
-		&0u64.to_le_bytes(), // Value transferred to the contract.
+		&addr,
+		0u64,       // How much ref_time to devote for the execution. 0 = all.
+		0u64,       // How much deposit_limit to devote for the execution. 0 = all.
+		None,       // No deposit limit.
+		&[0u8; 32], // Value transferred to the contract.
 		&(calls_left - 1).to_le_bytes(),
 		None,
 	)

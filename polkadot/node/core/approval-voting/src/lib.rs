@@ -1732,13 +1732,22 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 			candidates: block_entry
 				.candidates()
 				.iter()
-				.flat_map(|(core_index, c_hash)| {
+				.map(|(core_index, c_hash)| {
 					let candidate = db.load_candidate_entry(c_hash).ok().flatten();
-					candidate
+					let group_index = candidate
 						.and_then(|entry| {
 							entry.approval_entry(&block_hash).map(|entry| entry.backing_group())
 						})
-						.and_then(|group_index| Some((*c_hash, *core_index, group_index)))
+						.unwrap_or_else(|| {
+							gum::warn!(
+								target: LOG_TARGET,
+								?block_hash,
+								?c_hash,
+								"Missing candidate entry or approval entry",
+							);
+							GroupIndex::default()
+						});
+					(*c_hash, *core_index, group_index)
 				})
 				.collect(),
 			slot: block_entry.slot(),
@@ -2015,9 +2024,14 @@ async fn handle_from_overseer<
 		},
 		FromOrchestra::Communication { msg } => match msg {
 			ApprovalVotingMessage::ImportAssignment(checked_assignment, tx) => {
-				let (check_outcome, actions) =
-					import_assignment(sender, state, db, session_info_provider, checked_assignment)
-						.await?;
+				let (check_outcome, actions) = import_assignment(
+					sender,
+					state,
+					db,
+					session_info_provider,
+					checked_assignment,
+				)
+				.await?;
 				// approval-distribution makes sure this assignment is valid and expected,
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.
@@ -2028,9 +2042,16 @@ async fn handle_from_overseer<
 				actions
 			},
 			ApprovalVotingMessage::ImportApproval(a, tx) => {
-				let result =
-					import_approval(sender, state, db, session_info_provider, metrics, a, &wakeups)
-						.await?;
+				let result = import_approval(
+					sender,
+					state,
+					db,
+					session_info_provider,
+					metrics,
+					a,
+					&wakeups,
+				)
+				.await?;
 				// approval-distribution makes sure this vote is valid and expected,
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.
