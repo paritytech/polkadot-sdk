@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
 use static_assertions::const_assert;
 
-pub mod electra;
 pub mod altair;
+pub mod electra;
 
 /// Sizes related to SSZ encoding
 pub const MAX_EXTRA_DATA_BYTES: usize = 32;

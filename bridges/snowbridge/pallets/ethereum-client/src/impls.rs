@@ -4,14 +4,12 @@ use super::*;
 use frame_support::ensure;
 use snowbridge_beacon_primitives::ExecutionProof;
 
+use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
 use snowbridge_core::inbound::{
 	VerificationError::{self, *},
 	*,
 };
 use snowbridge_ethereum::Receipt;
-use snowbridge_beacon_primitives::merkle_proof::generalized_index_length;
-use snowbridge_beacon_primitives::merkle_proof::subtree_index;
-
 
 impl<T: Config> Verifier for Pallet<T> {
 	/// Verify a message by verifying the existence of the corresponding
@@ -118,7 +116,10 @@ impl<T: Config> Pallet<T> {
 			.hash_tree_root()
 			.map_err(|_| Error::<T>::BlockBodyHashTreeRootFailed)?;
 
-		let execution_header_g_index = Self::execution_header_gindex_at_slot(execution_proof.header.slot, T::ForkVersions::get());
+		let execution_header_g_index = Self::execution_header_gindex_at_slot(
+			execution_proof.header.slot,
+			T::ForkVersions::get(),
+		);
 		ensure!(
 			verify_merkle_branch(
 				execution_header_root,
@@ -150,13 +151,12 @@ impl<T: Config> Pallet<T> {
 		let index_in_array = block_slot % (SLOTS_PER_HISTORICAL_ROOT as u64);
 		let leaf_index = (SLOTS_PER_HISTORICAL_ROOT as u64) + index_in_array;
 
-		let block_roots_g_index = Self::block_roots_gindex_at_slot(block_slot, T::ForkVersions::get());
 		ensure!(
 			verify_merkle_branch(
 				block_root,
 				block_root_proof,
-				subtree_index(block_roots_g_index),
-				generalized_index_length(block_roots_g_index),
+				leaf_index as usize,
+				config::BLOCK_ROOT_AT_INDEX_DEPTH,
 				state.block_roots_root
 			),
 			Error::<T>::InvalidAncestryMerkleProof
