@@ -1018,6 +1018,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#866" id="866">866</a>
 <a href="#867" id="867">867</a>
 <a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1604,6 +1606,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; sp_blockchain::Result&lt;()&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
+
+	<span class="kw">fn </span>set_create_gap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _create_gap: bool) {}
 }
 
 <span class="doccomment">/// In-memory backend. Keeps all states and blocks in memory.

@@ -543,6 +543,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -759,6 +762,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>fork_choice: <span class="prelude-ty">Option</span>&lt;ForkChoiceStrategy&gt;,
 	<span class="doccomment">/// Re-validate existing block.
 	</span><span class="kw">pub </span>import_existing: bool,
+	<span class="doccomment">/// Whether to create "block gap" in case this block doesn't have parent.
+	</span><span class="kw">pub </span>create_gap: bool,
 	<span class="doccomment">/// Cached full header hash (with post-digests applied).
 	</span><span class="kw">pub </span>post_hash: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
 }
@@ -779,6 +784,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			auxiliary: Vec::new(),
 			fork_choice: <span class="prelude-val">None</span>,
 			import_existing: <span class="bool-val">false</span>,
+			create_gap: <span class="bool-val">true</span>,
 			post_hash: <span class="prelude-val">None</span>,
 		}
 	}

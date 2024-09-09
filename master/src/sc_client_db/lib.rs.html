@@ -4852,6 +4852,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#4700" id="4700">4700</a>
 <a href="#4701" id="4701">4701</a>
 <a href="#4702" id="4702">4702</a>
+<a href="#4703" id="4703">4703</a>
+<a href="#4704" id="4704">4704</a>
+<a href="#4705" id="4705">4705</a>
+<a href="#4706" id="4706">4706</a>
+<a href="#4707" id="4707">4707</a>
+<a href="#4708" id="4708">4708</a>
+<a href="#4709" id="4709">4709</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5688,6 +5695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	finalized_blocks: Vec&lt;(Block::Hash, <span class="prelude-ty">Option</span>&lt;Justification&gt;)&gt;,
 	set_head: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
 	commit_state: bool,
+	create_gap: bool,
 	index_ops: Vec&lt;IndexOperation&gt;,
 }
 
@@ -5841,6 +5849,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>update_transaction_index(<span class="kw-2">&amp;mut </span><span class="self">self</span>, index_ops: Vec&lt;IndexOperation&gt;) -&gt; ClientResult&lt;()&gt; {
 		<span class="self">self</span>.index_ops = index_ops;
 		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="kw">fn </span>set_create_gap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, create_gap: bool) {
+		<span class="self">self</span>.create_gap = create_gap;
 	}
 }
 
@@ -6563,8 +6575,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="macro">unreachable!</span>(<span class="string">"Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406"</span>)
 						},
 					}
-				} <span class="kw">else if </span>number &gt; best_num + One::one() &amp;&amp;
-					number &gt; One::one() &amp;&amp; <span class="self">self</span>.blockchain.header(parent_hash)<span class="question-mark">?</span>.is_none()
+				} <span class="kw">else if </span>operation.create_gap &amp;&amp;
+					number &gt; best_num + One::one() &amp;&amp;
+					<span class="self">self</span>.blockchain.header(parent_hash)<span class="question-mark">?</span>.is_none()
 				{
 					<span class="kw">let </span>gap = BlockGap {
 						start: best_num + One::one(),
@@ -6926,6 +6939,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			finalized_blocks: Vec::new(),
 			set_head: <span class="prelude-val">None</span>,
 			commit_state: <span class="bool-val">false</span>,
+			create_gap: <span class="bool-val">true</span>,
 			index_ops: Default::default(),
 		})
 	}

@@ -161,9 +161,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         query_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
         querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Location&gt;,
         response: Response,
-        max_weight: Weight,
+        max_weight: <a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
         context: &amp;XcmContext
-    ) -&gt; Weight;
+    ) -&gt; <a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Define what needs to be done upon receiving a query response.</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.expecting_response" class="method"><a class="src rightside" href="../../src/staging_xcm_executor/traits/on_response.rs.html#31">source</a><h4 class="code-header">fn <a href="#tymethod.expecting_response" class="fn">expecting_response</a>(
     origin: &amp;Location,
@@ -176,9 +176,9 @@ queried by <code>querier</code>.</p>
     query_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
     querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Location&gt;,
     response: Response,
-    max_weight: Weight,
+    max_weight: <a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
     context: &amp;XcmContext
-) -&gt; Weight</h4></section></summary><div class="docblock"><p>Handler for receiving a <code>response</code> from <code>origin</code> relating to <code>query_id</code> initiated by
+) -&gt; <a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Handler for receiving a <code>response</code> from <code>origin</code> relating to <code>query_id</code> initiated by
 <code>querier</code>.</p>
 </div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-OnResponse-for-()" class="impl"><a class="src rightside" href="../../src/staging_xcm_executor/traits/on_response.rs.html#43-57">source</a><a href="#impl-OnResponse-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.OnResponse.html" title="trait staging_xcm_executor::traits::OnResponse">OnResponse</a> for <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="method.expecting_response" class="method trait-impl"><a class="src rightside" href="../../src/staging_xcm_executor/traits/on_response.rs.html#44-46">source</a><a href="#method.expecting_response" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.expecting_response" class="fn">expecting_response</a>(
     _origin: &amp;Location,
@@ -189,9 +189,9 @@ queried by <code>querier</code>.</p>
     _query_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
     _querier: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Location&gt;,
     _response: Response,
-    _max_weight: Weight,
+    _max_weight: <a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
     _context: &amp;XcmContext
-) -&gt; Weight</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/staging_xcm_executor/traits/on_response/trait.OnResponse.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+) -&gt; <a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/staging_xcm_executor/traits/on_response/trait.OnResponse.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
 </body></html>

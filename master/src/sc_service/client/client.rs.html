@@ -2281,6 +2281,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2129" id="2129">2129</a>
 <a href="#2130" id="2130">2130</a>
 <a href="#2131" id="2131">2131</a>
+<a href="#2132" id="2132">2132</a>
+<a href="#2133" id="2133">2133</a>
+<a href="#2134" id="2134">2134</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2796,6 +2799,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			fork_choice,
 			intermediates,
 			import_existing,
+			create_gap,
 			..
 		} = import_block;
 
@@ -2819,6 +2823,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>height = (<span class="kw-2">*</span>import_headers.post().number()).saturated_into::&lt;u64&gt;();
 
 		<span class="kw-2">*</span><span class="self">self</span>.importing_block.write() = <span class="prelude-val">Some</span>(hash);
+
+		operation.op.set_create_gap(create_gap);
 
 		<span class="kw">let </span>result = <span class="self">self</span>.execute_and_import_block(
 			operation,
