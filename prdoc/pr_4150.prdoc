@@ -71,6 +71,11 @@ crates:
       There is also some minor migration for assets.
   - name: pallet-revive-mock-network
     bump: major
+  - name: frame-support
+    bump: minor
+    note: |
+      The trait `ResetTeam` meaning has been precised: even if the asset has no privileges,
+      the new team will have the privileges.
 
 migrations:
   runtime:
