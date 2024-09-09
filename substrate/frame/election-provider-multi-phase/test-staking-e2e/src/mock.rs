@@ -473,6 +473,7 @@ pub struct BalancesExtBuilder {
 
 impl Default for BalancesExtBuilder {
 	fn default() -> Self {
+		let ed = ExistentialDeposit::get();
 		let balances = vec![
 			// (account_id, balance)
 			(1, 10),
@@ -492,17 +493,17 @@ impl Default for BalancesExtBuilder {
 			(100, 100),
 			(200, 100),
 			// stashes
-			(11, 1000),
-			(21, 2000),
-			(31, 3000),
-			(41, 4000),
-			(51, 5000),
-			(61, 6000),
-			(71, 7000),
-			(81, 8000),
-			(91, 9000),
-			(101, 10000),
-			(201, 20000),
+			(11, 1000 + ed),
+			(21, 2000 + ed),
+			(31, 3000 + ed),
+			(41, 4000 + ed),
+			(51, 5000 + ed),
+			(61, 6000 + ed),
+			(71, 7000 + ed),
+			(81, 8000 + ed),
+			(91, 9000 + ed),
+			(101, 10000 + ed),
+			(201, 20000 + ed),
 			// This allows us to have a total_payout different from 0.
 			(999, 1_000_000_000_000),
 		];

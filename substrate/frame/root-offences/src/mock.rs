@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Hooks, OneSessionHandler},
+	traits::{fungible::Inspect, ConstU32, ConstU64, Hooks, OneSessionHandler},
 };
 use pallet_staking::StakerStatus;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
@@ -197,7 +197,7 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
 	fn build(self) -> sp_io::TestExternalities {
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-
+		let ed = Balances::minimum_balance();
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![
 				// controllers (still used in some tests. Soon to be deprecated).
@@ -206,10 +206,10 @@ impl ExtBuilder {
 				(30, self.balance_factor * 50),
 				(40, self.balance_factor * 50),
 				// stashes
-				(11, self.balance_factor * 1000),
-				(21, self.balance_factor * 1000),
-				(31, self.balance_factor * 500),
-				(41, self.balance_factor * 1000),
+				(11, self.balance_factor * 1000 + ed),
+				(21, self.balance_factor * 1000 + ed),
+				(31, self.balance_factor * 500 + ed),
+				(41, self.balance_factor * 1000 + ed),
 			],
 		}
 		.assimilate_storage(&mut storage)

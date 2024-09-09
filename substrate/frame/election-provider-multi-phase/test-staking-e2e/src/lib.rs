@@ -405,7 +405,10 @@ fn automatic_unbonding_pools() {
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(2), 2, 10));
 		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 16);
 
-		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&2), 20);
+		assert_eq!(
+			pallet_staking::asset::stakeable_balance::<Runtime>(&2),
+			init_stakeable_balance_2
+		);
 		assert_eq!(TotalValueLocked::<Runtime>::get(), 15);
 
 		// 3 cannot withdraw yet.
