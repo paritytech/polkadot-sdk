@@ -1,0 +1,14 @@
+title: No-op Impl Polling Trait
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Provide no-op implementations for Polling trait in test contexts, skipping benchmarks that necessitate trait definition.
+
+crates:
+  - name: pallet-core-fellowship
+    bump: minor
+  - name: pallet-ranked-collective
+    bump: minor
+  - name: pallet-salary
+    bump: minor
