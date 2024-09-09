@@ -1448,8 +1448,8 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 
 /// Map candidates to scheduled cores.
 /// If the para only has one scheduled core and one candidate supplied, map the candidate to the
-/// single core. If the para has multiple cores scheduled, only map the candidates which have a
-/// proper core injected. Filter out the rest.
+/// single core. If the para has multiple cores scheduled, only map the candidates with core index.
+/// Filter out the rest.
 /// Also returns whether or not we dropped any candidates.
 /// When dropping a candidate of a para, we must drop all subsequent candidates from that para
 /// (because they form a chain).
