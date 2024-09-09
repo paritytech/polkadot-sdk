@@ -172,7 +172,7 @@ to prometheus alongside the telemetry.</p>
     TBl: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>,
     TCl: <a class="trait" href="../sp_api/trait.ProvideRuntimeApi.html" title="trait sp_api::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;TBl&gt; + <a class="trait" href="../sc_client_api/trait.UsageProvider.html" title="trait sc_client_api::UsageProvider">UsageProvider</a>&lt;TBl&gt;,
     TExPool: <a class="trait" href="../sc_transaction_pool_api/trait.MaintainedTransactionPool.html" title="trait sc_transaction_pool_api::MaintainedTransactionPool">MaintainedTransactionPool</a>&lt;Block = TBl, Hash = &lt;TBl as <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;,
-    TNet: <a class="trait" href="../sc_network/service/traits/trait.NetworkStatusProvider.html" title="trait sc_network::service::traits::NetworkStatusProvider">NetworkStatusProvider</a>,
+    TNet: NetworkStatusProvider,
     TSync: SyncStatusProvider&lt;TBl&gt;,</div></h4></section></summary><div class="docblock"><p>Returns a never-ending <code>Future</code> that performs the
 metric and telemetry updates with information from
 the given sources.</p>
