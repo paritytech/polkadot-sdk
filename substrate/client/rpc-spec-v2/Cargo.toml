@@ -25,6 +25,7 @@ sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-rpc = { workspace = true, default-features = true }
+sc-rpc-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
@@ -43,6 +44,8 @@ log = { workspace = true, default-features = true }
 futures-util = { workspace = true }
 rand = { workspace = true, default-features = true }
 schnellru = { workspace = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-session = { workspace = true, default-features = true }
 
 [dev-dependencies]
 jsonrpsee = { workspace = true, features = ["server", "ws-client"] }

@@ -1,0 +1,12 @@
+title: Implement sudo_sessionKeys_unstable_generate
+
+doc:
+  - audience: Node Operator
+    description: |
+      This PR implements the `sudo_sessionKeys_unstable_generate` method.
+      The specification for the method can be found at: https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/sudo_sessionKeys_unstable_generate.md.
+      This is an alternative to generate (rotate) session keys to `author_rotateKeys`.
+
+crates:
+  - name: sc-rpc-spec-v2
+    bump: minor

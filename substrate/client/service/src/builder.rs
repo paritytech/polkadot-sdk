@@ -70,6 +70,7 @@ use sc_rpc_spec_v2::{
 	archive::ArchiveApiServer,
 	chain_head::ChainHeadApiServer,
 	chain_spec::ChainSpecApiServer,
+	sudo_session_keys::SudoSessionKeysServer,
 	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
 };
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -731,6 +732,14 @@ where
 		rpc_api.merge(archive_v2).map_err(|e| Error::Application(e.into()))?;
 	}
 
+	// RPC v2 spec to handle session keys.
+	let sudo_session_keys = sc_rpc_spec_v2::sudo_session_keys::SudoSessionKeys::new(
+		client.clone(),
+		keystore.clone(),
+		deny_unsafe,
+	)
+	.into_rpc();
+
 	// ChainSpec RPC-v2.
 	let chain_spec_v2 = sc_rpc_spec_v2::chain_spec::ChainSpec::new(
 		chain_spec.name().into(),
@@ -761,6 +770,7 @@ where
 		.merge(transaction_broadcast_rpc_v2)
 		.map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))?;
+	rpc_api.merge(sudo_session_keys).map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_spec_v2).map_err(|e| Error::Application(e.into()))?;
 
 	// Part of the old RPC spec.

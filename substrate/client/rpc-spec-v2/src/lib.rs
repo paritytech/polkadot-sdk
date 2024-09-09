@@ -31,6 +31,7 @@ mod common;
 pub mod archive;
 pub mod chain_head;
 pub mod chain_spec;
+pub mod sudo_session_keys;
 pub mod transaction;
 
 /// Task executor that is being used by RPC subscriptions.
