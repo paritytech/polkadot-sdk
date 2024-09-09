@@ -197,6 +197,7 @@ use frame_support::{
 	},
 };
 use frame_system::Config as SystemConfig;
+use sp_runtime::traits::TrailingZeroInput;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -1888,11 +1889,42 @@ pub mod pallet {
 			}
 			ensure!(asset.status == AssetStatus::Live, Error::<T, I>::IncorrectStatus);
 
+			let Some(owner) = asset.owner() else {
+				log::error!(
+					target: LOG_TARGET,
+					"asset is ensured to be `Live` thus asset has an owner; qed"
+				);
+				return Err(Error::<T, I>::IncorrectStatus.into());
+			};
+
+			// Some randomly generated account to be used for the team. Not necessary but safer.
+			let pure_account = {
+				let (height, ext_index) = (
+					frame_system::Pallet::<T>::block_number(),
+					frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
+				);
+
+				let entropy = (b"modlasts/assets_", owner, height, ext_index)
+					.using_encoded(sp_core::blake2_256);
+
+				T::AccountId::decode(&mut TrailingZeroInput::new(entropy.as_ref())).map_err(
+					|_| {
+						log::error!(
+							target: LOG_TARGET,
+							"infinite length input; no invalid inputs for type; qed"
+						);
+						Error::<T, I>::InternalError
+					},
+				)?
+			};
+
 			let old_metadata = Metadata::<T, I>::get(&id);
 
 			let deposit_amount = asset.deposit.saturating_add(old_metadata.deposit);
 
-			let fee_imbalance = if let Some(owner) = maybe_owner_origin {
+			let fee_imbalance = if maybe_owner_origin.is_some() {
+				// Call is from owner: pay for deposits.
+
 				let new_metadata_deposit =
 					Self::calc_metadata_deposit(&old_metadata.name, &old_metadata.symbol);
 
@@ -1910,14 +1942,10 @@ pub mod pallet {
 					)?;
 					Ok(imbalance)
 				})?
-			} else if let Some(owner) = asset.owner() {
-				T::Currency::unreserve(owner, deposit_amount);
-				Imbalance::zero()
 			} else {
-				log::error!(
-					target: LOG_TARGET,
-					"asset is ensured to be `Live` thus asset has an owner; qed"
-				);
+				// Call is not from owner: unreserve owner's deposit.
+
+				T::Currency::unreserve(owner, deposit_amount);
 				Imbalance::zero()
 			};
 
@@ -1930,6 +1958,12 @@ pub mod pallet {
 			};
 			Metadata::<T, I>::insert(&id, &new_metadata);
 
+			asset.set_team_or_historical_team(
+				&pure_account,
+				&pure_account,
+				&pure_account,
+				&pure_account,
+			);
 			asset.deposit = Zero::zero();
 			asset.status = AssetStatus::LiveAndNoPrivileges;
 			Asset::<T, I>::insert(&id, &asset);

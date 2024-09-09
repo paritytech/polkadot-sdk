@@ -184,12 +184,33 @@ impl<Balance, AccountId: Clone, DepositBalance> AssetDetails<Balance, AccountId,
 		}
 	}
 
+	/// Set the team or the historical team of the asset, new team may not have privileges, never
+	/// fails.
+	pub(super) fn set_team_or_historical_team(
+		&mut self,
+		owner: &AccountId,
+		issuer: &AccountId,
+		admin: &AccountId,
+		freezer: &AccountId,
+	) {
+		self.owner = owner.clone();
+		self.issuer = issuer.clone();
+		self.admin = admin.clone();
+		self.freezer = freezer.clone();
+	}
+
 	/// Is the asset live or live with no privileges.
 	pub(super) fn is_live(&self) -> bool {
 		match self.status {
 			AssetStatus::Live | AssetStatus::LiveAndNoPrivileges => true,
 			AssetStatus::Frozen | AssetStatus::Destroying => false,
 		}
+	}
+
+	/// Get team, regardless of privileges.
+	#[cfg(test)]
+	pub fn testing_team_or_historical_team(&self) -> (AccountId, AccountId, AccountId, AccountId) {
+		(self.owner.clone(), self.issuer.clone(), self.admin.clone(), self.freezer.clone())
 	}
 }
 

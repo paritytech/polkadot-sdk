@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::{mock::*, Error};
+use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -2251,5 +2252,34 @@ fn reset_team_from_no_privileges() {
 			assert_eq!(asset.freezer(), Some(&9));
 			assert_eq!(asset.status, AssetStatus::Live);
 		}
+	});
+}
+
+#[test]
+fn revoke_change_account_to_pure_account() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+
+		let height = 10;
+		let ext_index = 20;
+
+		frame_system::Pallet::<Test>::set_block_number(height);
+		frame_system::Pallet::<Test>::set_extrinsic_index(ext_index);
+
+		let pure_account = {
+			let entropy =
+				(b"modlasts/assets_", owner, height, ext_index).using_encoded(sp_core::blake2_256);
+			Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref())).unwrap()
+		};
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, owner, false, 1));
+		assert_ok!(Assets::revoke_all_privileges(RuntimeOrigin::root(), 0));
+
+		let asset = Asset::<Test>::get(0).unwrap();
+		assert_eq!(asset.status, AssetStatus::LiveAndNoPrivileges);
+		assert_eq!(
+			asset.testing_team_or_historical_team(),
+			(pure_account, pure_account, pure_account, pure_account),
+		);
 	});
 }
