@@ -794,7 +794,10 @@ mod on_idle {
 				RuntimeOrigin::signed(VALIDATOR_PREFIX),
 				vec![VALIDATOR_PREFIX]
 			));
-			assert_noop!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(VALIDATOR_PREFIX)), Error::<T>::DepositFailed);
+			assert_noop!(
+				FastUnstake::register_fast_unstake(RuntimeOrigin::signed(VALIDATOR_PREFIX)),
+				Error::<T>::DepositFailed
+			);
 			// ensure validator has enough funds for deposit after accounting for ED.
 			let _ = Balances::mint_into(&VALIDATOR_PREFIX, ExistentialDeposit::get());
 			// ... and then register for fast unstake.

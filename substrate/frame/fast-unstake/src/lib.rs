@@ -346,7 +346,8 @@ pub mod pallet {
 			T::Staking::chill(&stash_account)?;
 			T::Staking::fully_unbond(&stash_account)?;
 
-			T::Currency::reserve(&stash_account, T::Deposit::get()).map_err(|_| Error::<T>::DepositFailed)?;
+			T::Currency::reserve(&stash_account, T::Deposit::get())
+				.map_err(|_| Error::<T>::DepositFailed)?;
 
 			// enqueue them.
 			Queue::<T>::insert(stash_account, T::Deposit::get());

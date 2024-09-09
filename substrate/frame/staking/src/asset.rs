@@ -27,9 +27,7 @@ use frame_support::traits::{
 };
 use sp_runtime::{traits::Zero, DispatchResult};
 
-use crate::{
-	BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf, SessionInterface,
-};
+use crate::{BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf};
 
 /// Existential deposit for the chain.
 pub fn existential_deposit<T: Config>() -> BalanceOf<T> {
