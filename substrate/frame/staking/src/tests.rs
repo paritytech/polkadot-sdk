@@ -31,7 +31,6 @@ use frame_support::{
 };
 
 use mock::*;
-use pallet_balances::Error as BalancesError;
 use sp_runtime::{
 	assert_eq_error_rate, bounded_vec,
 	traits::{BadOrigin, Dispatchable},
