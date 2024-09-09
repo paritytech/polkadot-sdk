@@ -923,13 +923,16 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						self.discovery.add_self_reported_address(peer, supported_protocols, listen_addresses).await;
 					}
 					Some(DiscoveryEvent::ExternalAddressDiscovered { address }) => {
-						if let Err(err) = self.litep2p.public_addresses().add_address(address.clone().into()) {
-							log::warn!(
-								target: LOG_TARGET,
-								"🔍 Failed to add discovered external address {address:?}: {err:?}",
-							);
-						} else {
-							log::info!(target: LOG_TARGET, "🔍 Discovered new external address for our node: {address}");
+						match self.litep2p.public_addresses().add_address(address.clone().into()) {
+							Ok(inserted) => if inserted {
+								log::info!(target: LOG_TARGET, "🔍 Discovered new external address for our node: {address}");
+							},
+							Err(err) => {
+								log::warn!(
+									target: LOG_TARGET,
+									"🔍 Failed to add discovered external address {address:?}: {err:?}",
+								);
+							},
 						}
 					}
 					Some(DiscoveryEvent::Ping { peer, rtt }) => {
