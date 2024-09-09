@@ -19,7 +19,11 @@ path = "src/cli/subsystem-bench.rs"
 # Prevent rustdoc error. Already documented from top-level Cargo.toml.
 doc = false
 
+
 [dependencies]
+tikv-jemallocator = { features = ["profiling", "unprefixed_malloc_on_supported_platforms"], workspace = true, optional = true }
+jemalloc_pprof = { workspace = true, optional = true }
+polkadot-service = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-node-subsystem-types = { workspace = true, default-features = true }
@@ -94,3 +98,7 @@ strum = { features = ["derive"], workspace = true, default-features = true }
 
 [features]
 default = []
+memprofile = [
+	"dep:jemalloc_pprof",
+	"dep:tikv-jemallocator",
+]
