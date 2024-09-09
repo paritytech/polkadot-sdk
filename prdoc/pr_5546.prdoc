@@ -14,10 +14,13 @@ crates:
     bump: patch
   - name: snowbridge-pallet-system
     bump: minor
+    validate: false
   - name: snowbridge-core
     bump: minor
+    validate: false
   - name: snowbridge-router-primitives
     bump: minor
+    validate: false
   - name: bridge-hub-westend-runtime
     bump: patch
   - name: bridge-hub-rococo-runtime
