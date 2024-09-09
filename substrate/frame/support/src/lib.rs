@@ -814,32 +814,6 @@ macro_rules! assert_ok {
 	};
 }
 
-/// Assert that the maximum encoding size does not exceed the value defined in
-/// [`MAX_MODULE_ERROR_ENCODED_SIZE`] during compilation.
-///
-/// This macro is intended to be used in conjunction with `tt_call!`.
-#[macro_export]
-macro_rules! assert_error_encoded_size {
-	{
-		path = [{ $($path:ident)::+ }]
-		runtime = [{ $runtime:ident }]
-		assert_message = [{ $assert_message:literal }]
-		error = [{ $error:ident }]
-	} => {
-		const _: () = assert!(
-			<
-				$($path::)+$error<$runtime> as $crate::traits::PalletError
-			>::MAX_ENCODED_SIZE <= $crate::MAX_MODULE_ERROR_ENCODED_SIZE,
-			$assert_message
-		);
-	};
-	{
-		path = [{ $($path:ident)::+ }]
-		runtime = [{ $runtime:ident }]
-		assert_message = [{ $assert_message:literal }]
-	} => {};
-}
-
 /// Do something hypothetically by rolling back any changes afterwards.
 ///
 /// Returns the original result of the closure.
@@ -875,8 +849,8 @@ pub use macro_magic;
 #[cfg(feature = "std")]
 pub mod testing_prelude {
 	pub use super::{
-		assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_error_encoded_size,
-		assert_noop, assert_ok, assert_storage_noop, parameter_types, traits::Get,
+		assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
+		assert_storage_noop, parameter_types, traits::Get,
 	};
 	pub use sp_arithmetic::assert_eq_error_rate;
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};

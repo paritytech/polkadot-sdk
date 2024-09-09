@@ -34,7 +34,8 @@ pub fn expand_type_values(def: &mut Def) -> proc_macro2::TokenStream {
 		);
 
 		let type_value_item = {
-			let item = &mut def.item.content.as_mut().expect("Checked by def").1[type_value.index];
+			let item =
+				&mut def.item.content.as_mut().expect(msg!("Checked by def")).1[type_value.index];
 			if let syn::Item::Fn(item) = item {
 				item
 			} else {

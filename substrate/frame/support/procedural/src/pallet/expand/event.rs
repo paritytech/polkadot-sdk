@@ -15,47 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	pallet::{parse::event::PalletEventDepositAttr, Def},
-	COUNTER,
-};
+use crate::pallet::{parse::event::PalletEventDepositAttr, Def};
 use frame_support_procedural_tools::get_doc_literals;
-use syn::{spanned::Spanned, Ident};
 
 ///
 /// * Add __Ignore variant on Event
 /// * Impl various trait on Event including metadata
 /// * if deposit_event is defined, implement deposit_event on module.
 pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
-	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
-
-	let (event, macro_ident) = if let Some(event) = &def.event {
-		let ident = Ident::new(&format!("__is_event_part_defined_{}", count), event.attr_span);
-		(event, ident)
-	} else {
-		let macro_ident =
-			Ident::new(&format!("__is_event_part_defined_{}", count), def.item.span());
-
-		return quote::quote! {
-			#[doc(hidden)]
-			pub mod __substrate_event_check {
-				#[macro_export]
-				#[doc(hidden)]
-				macro_rules! #macro_ident {
-					($pallet_name:ident) => {
-						compile_error!(concat!(
-							"`",
-							stringify!($pallet_name),
-							"` does not have #[pallet::event] defined, perhaps you should \
-							remove `Event` from construct_runtime?",
-						));
-					}
-				}
-
-				#[doc(hidden)]
-				pub use #macro_ident as is_event_part_defined;
-			}
-		}
+	let Some(event) = &def.event else {
+		return Default::default();
 	};
 
 	let event_where_clause = &event.where_clause;
@@ -73,7 +42,8 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 	let event_impl_gen = &event.gen_kind.type_impl_gen(event.attr_span);
 
 	let event_item = {
-		let item = &mut def.item.content.as_mut().expect("Checked by def parser").1[event.index];
+		let item =
+			&mut def.item.content.as_mut().expect(msg!("Checked by def parser")).1[event.index];
 		if let syn::Item::Enum(item) = item {
 			item
 		} else {
@@ -153,18 +123,6 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 	};
 
 	quote::quote_spanned!(event.attr_span =>
-		#[doc(hidden)]
-		pub mod __substrate_event_check {
-			#[macro_export]
-			#[doc(hidden)]
-			macro_rules! #macro_ident {
-				($pallet_name:ident) => {};
-			}
-
-			#[doc(hidden)]
-			pub use #macro_ident as is_event_part_defined;
-		}
-
 		#deposit_event
 
 		impl<#event_impl_gen> From<#event_ident<#event_use_gen>> for () #event_where_clause {

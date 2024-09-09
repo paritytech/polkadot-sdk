@@ -25,7 +25,7 @@ pub fn expand_genesis_build(def: &mut Def) -> proc_macro2::TokenStream {
 	} else {
 		return Default::default()
 	};
-	let genesis_build = def.genesis_build.as_ref().expect("Checked by def parser");
+	let genesis_build = def.genesis_build.as_ref().expect(msg!("Checked by def parser"));
 
 	let frame_support = &def.frame_support;
 	let type_impl_gen = &genesis_config.gen_kind.type_impl_gen(genesis_build.attr_span);

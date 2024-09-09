@@ -1,0 +1,15 @@
+title: "Pallet macro internal refactor"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      No breaking change, some internal refactor in pallet and runtime macros.
+      `assert_error_encoded_size` is removed, but it is very unlikely to have been used.
+
+crates:
+  - name: frame-support
+    bump: minor
+  - name: frame-support-procedural
+    bump: minor
+  - name: polkadot-sdk-frame
+    bump: minor

@@ -20,7 +20,7 @@ use frame_support_procedural_tools::get_doc_literals;
 use proc_macro2::Span;
 use quote::ToTokens;
 use std::collections::HashMap;
-use syn::{spanned::Spanned, ExprClosure};
+use syn::spanned::Spanned;
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -66,6 +66,27 @@ pub enum CallWeightDef {
 	///
 	/// The concrete value is not known at this point.
 	Inherited,
+}
+
+impl CallWeightDef {
+	fn try_from(
+		weight: Option<syn::Expr>,
+		inherited_call_weight: bool,
+		dev_mode: bool,
+		error_span: proc_macro2::Span,
+	) -> syn::Result<Self> {
+		match weight {
+			None if inherited_call_weight => Ok(CallWeightDef::Inherited),
+			None if dev_mode => Ok(CallWeightDef::DevModeDefault),
+			None => Err(syn::Error::new(
+				error_span,
+				"A pallet::call requires either a concrete `#[pallet::weight($expr)]` \
+					or an inherited weight from the `#[pallet:call(weight($type))]` \
+					attribute, but none were given.",
+			)),
+			Some(weight) => Ok(CallWeightDef::Immediate(weight)),
+		}
+	}
 }
 
 /// Definition of dispatchable typically: `#[weight...] fn foo(origin .., param1: ...) -> ..`
@@ -269,57 +290,47 @@ impl CallDef {
 				}
 
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&method.attrs);
-				let mut call_idx_attrs = vec![];
-				let mut weight_attrs = vec![];
-				let mut feeless_attrs = vec![];
+				let mut call_index = None;
+				let mut weight = None;
+				let mut feeless_check = None;
+
 				for attr in helper::take_item_pallet_attrs(&mut method.attrs)?.into_iter() {
 					match attr {
-						FunctionAttr::CallIndex(_) => {
-							call_idx_attrs.push(attr);
+						FunctionAttr::CallIndex(idx) => {
+							if call_index.is_some() {
+								let msg =
+									"Invalid pallet::call, too many call_index attributes given";
+								return Err(syn::Error::new(method.sig.span(), msg))
+							}
+
+							call_index = Some(idx);
 						},
-						FunctionAttr::Weight(_) => {
-							weight_attrs.push(attr);
+						FunctionAttr::Weight(w) => {
+							if weight.is_some() {
+								let msg = "Invalid pallet::call, too many weight attributes given";
+								return Err(syn::Error::new(method.sig.span(), msg))
+							}
+							weight = Some(w);
 						},
-						FunctionAttr::FeelessIf(span, _) => {
-							feeless_attrs.push((span, attr));
+						FunctionAttr::FeelessIf(span, closure) => {
+							if feeless_check.is_some() {
+								let msg =
+									"Invalid pallet::call, there can only be one feeless_if attribute";
+								return Err(syn::Error::new(span, msg))
+							}
+
+							feeless_check = Some(closure);
 						},
 					}
 				}
 
-				if weight_attrs.is_empty() && dev_mode {
-					// inject a default O(1) weight when dev mode is enabled and no weight has
-					// been specified on the call
-					let empty_weight: syn::Expr = syn::parse_quote!(0);
-					weight_attrs.push(FunctionAttr::Weight(empty_weight));
-				}
+				let weight = CallWeightDef::try_from(
+					weight,
+					inherited_call_weight.is_some(),
+					dev_mode,
+					method.sig.span(),
+				)?;
 
-				let weight = match weight_attrs.len() {
-					0 if inherited_call_weight.is_some() => CallWeightDef::Inherited,
-					0 if dev_mode => CallWeightDef::DevModeDefault,
-					0 => return Err(syn::Error::new(
-						method.sig.span(),
-						"A pallet::call requires either a concrete `#[pallet::weight($expr)]` or an
-						inherited weight from the `#[pallet:call(weight($type))]` attribute, but
-						none were given.",
-					)),
-					1 => match weight_attrs.pop().unwrap() {
-						FunctionAttr::Weight(w) => CallWeightDef::Immediate(w),
-						_ => unreachable!("checked during creation of the let binding"),
-					},
-					_ => {
-						let msg = "Invalid pallet::call, too many weight attributes given";
-						return Err(syn::Error::new(method.sig.span(), msg))
-					},
-				};
-
-				if call_idx_attrs.len() > 1 {
-					let msg = "Invalid pallet::call, too many call_index attributes given";
-					return Err(syn::Error::new(method.sig.span(), msg))
-				}
-				let call_index = call_idx_attrs.pop().map(|attr| match attr {
-					FunctionAttr::CallIndex(idx) => idx,
-					_ => unreachable!("checked during creation of the let binding"),
-				});
 				let explicit_call_index = call_index.is_some();
 
 				let final_index = match call_index {
@@ -369,16 +380,6 @@ impl CallDef {
 				}
 
 				let docs = get_doc_literals(&method.attrs);
-
-				if feeless_attrs.len() > 1 {
-					let msg = "Invalid pallet::call, there can only be one feeless_if attribute";
-					return Err(syn::Error::new(feeless_attrs[1].0, msg))
-				}
-				let feeless_check: Option<ExprClosure> =
-					feeless_attrs.pop().map(|(_, attr)| match attr {
-						FunctionAttr::FeelessIf(_, closure) => closure,
-						_ => unreachable!("checked during creation of the let binding"),
-					});
 
 				if let Some(ref feeless_check) = feeless_check {
 					if feeless_check.inputs.len() != args.len() + 1 {

@@ -25,11 +25,12 @@ use syn::{parse_quote, Item};
 pub fn expand_config(def: &mut Def) -> TokenStream {
 	let config = &def.config;
 	let config_item = {
-		let item = &mut def.item.content.as_mut().expect("Checked by def parser").1[config.index];
+		let item =
+			&mut def.item.content.as_mut().expect(msg!("Checked by def parser")).1[config.index];
 		if let Item::Trait(item) = item {
 			item
 		} else {
-			unreachable!("Checked by config parser")
+			unreachable!("{}", msg!("Checked by config parser"))
 		}
 	};
 
