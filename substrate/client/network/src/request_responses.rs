@@ -739,7 +739,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 			}
 
 			let mut fallback_requests = vec![];
-			
+
 			// Poll request-responses protocols.
 			for (protocol, (ref mut behaviour, ref mut resp_builder)) in &mut self.protocols {
 				'poll_protocol: while let Poll::Ready(ev) = behaviour.poll(cx, params) {
@@ -909,7 +909,8 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									// Try using the fallback request if the protocol was not
 									// supported.
 									if let OutboundFailure::UnsupportedProtocols = error {
-										let error_bis_out = CustomOutboundFailure::UnsupportedProtocols;
+										let error_bis_out =
+											CustomOutboundFailure::UnsupportedProtocols;
 										if let Some((fallback_request, fallback_protocol)) =
 											fallback_request
 										{
