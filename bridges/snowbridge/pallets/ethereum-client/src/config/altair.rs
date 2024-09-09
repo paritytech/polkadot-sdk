@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 
-use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
-
 /// Generalized Indices
 /// related to Merkle proofs
 /// get_generalized_index(BeaconState, 'block_roots')

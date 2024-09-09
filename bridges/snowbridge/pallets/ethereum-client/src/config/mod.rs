@@ -3,8 +3,8 @@
 use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
 use static_assertions::const_assert;
 
-mod electra;
-mod altair;
+pub mod electra;
+pub mod altair;
 
 /// Sizes related to SSZ encoding
 pub const MAX_EXTRA_DATA_BYTES: usize = 32;

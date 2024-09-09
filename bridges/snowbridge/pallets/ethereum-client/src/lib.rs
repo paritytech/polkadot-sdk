@@ -44,6 +44,8 @@ use snowbridge_beacon_primitives::{
 	fast_aggregate_verify, verify_merkle_branch, verify_receipt_proof, BeaconHeader, BlsError,
 	CompactBeaconState, ForkData, ForkVersion, ForkVersions, PublicKeyPrepared, SigningData,
 };
+use snowbridge_beacon_primitives::merkle_proof::generalized_index_length;
+use snowbridge_beacon_primitives::merkle_proof::subtree_index;
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;
 use sp_std::prelude::*;
@@ -242,7 +244,8 @@ pub mod pallet {
 				.hash_tree_root()
 				.map_err(|_| Error::<T>::SyncCommitteeHashTreeRootFailed)?;
 
-			let sync_committee_g_index = current_sync_committee_gindex_at_slot(update.header.slot);
+			let fork_versions = T::ForkVersions::get();
+			let sync_committee_g_index = Self::current_sync_committee_gindex_at_slot(update.header.slot, fork_versions.clone());
 			// Verifies the sync committee in the Beacon state.
 			ensure!(
 				verify_merkle_branch(
@@ -263,12 +266,13 @@ pub mod pallet {
 			// This is used for ancestry proofs in ExecutionHeader updates. This verifies the
 			// BeaconState: the beacon state root is the tree root; the `block_roots` hash is the
 			// tree leaf.
+			let block_roots_g_index = Self::block_roots_gindex_at_slot(update.header.slot, fork_versions);
 			ensure!(
 				verify_merkle_branch(
 					update.block_roots_root,
 					&update.block_roots_branch,
-					config::BLOCK_ROOTS_SUBTREE_INDEX,
-					config::BLOCK_ROOTS_DEPTH,
+					subtree_index(block_roots_g_index),
+					generalized_index_length(block_roots_g_index),
 					update.header.state_root
 				),
 				Error::<T>::InvalidBlockRootsRootMerkleProof
@@ -346,6 +350,8 @@ pub mod pallet {
 				Error::<T>::InvalidFinalizedHeaderGap
 			);
 
+			let fork_versions = T::ForkVersions::get();
+			let finalized_root_g_index = Self::finalized_root_gindex_at_slot(update.attested_header.slot, fork_versions.clone()); // TODO check attested / finalized header slot
 			// Verify that the `finality_branch`, if present, confirms `finalized_header` to match
 			// the finalized checkpoint root saved in the state of `attested_header`.
 			let finalized_block_root: H256 = update
@@ -356,8 +362,8 @@ pub mod pallet {
 				verify_merkle_branch(
 					finalized_block_root,
 					&update.finality_branch,
-					config::FINALIZED_ROOT_SUBTREE_INDEX,
-					config::FINALIZED_ROOT_DEPTH,
+					subtree_index(finalized_root_g_index),
+					generalized_index_length(finalized_root_g_index),
 					update.attested_header.state_root
 				),
 				Error::<T>::InvalidHeaderMerkleProof
@@ -366,12 +372,13 @@ pub mod pallet {
 			// Though following check does not belong to ALC spec we verify block_roots_root to
 			// match the finalized checkpoint root saved in the state of `finalized_header` so to
 			// cache it for later use in `verify_ancestry_proof`.
+			let block_roots_g_index = Self::block_roots_gindex_at_slot(update.finalized_header.slot, fork_versions.clone());
 			ensure!(
 				verify_merkle_branch(
 					update.block_roots_root,
 					&update.block_roots_branch,
-					config::BLOCK_ROOTS_SUBTREE_INDEX,
-					config::BLOCK_ROOTS_DEPTH,
+					subtree_index(block_roots_g_index),
+					generalized_index_length(block_roots_g_index),
 					update.finalized_header.state_root
 				),
 				Error::<T>::InvalidBlockRootsRootMerkleProof
@@ -391,12 +398,13 @@ pub mod pallet {
 						Error::<T>::InvalidSyncCommitteeUpdate
 					);
 				}
+				let next_sync_committee_g_index = Self::next_sync_committee_gindex_at_slot(update.attested_header.slot, fork_versions);
 				ensure!(
 					verify_merkle_branch(
 						sync_committee_root,
 						&next_sync_committee_update.next_sync_committee_branch,
-						config::NEXT_SYNC_COMMITTEE_SUBTREE_INDEX,
-						config::NEXT_SYNC_COMMITTEE_DEPTH,
+						subtree_index(next_sync_committee_g_index),
+						generalized_index_length(next_sync_committee_g_index),
 						update.attested_header.state_root
 					),
 					Error::<T>::InvalidSyncCommitteeMerkleProof
@@ -675,56 +683,51 @@ pub mod pallet {
 			Pays::Yes
 		}
 
-		pub fn finalized_root_gindex_at_slot(slot: u64) -> u64 {
-			let fork_versions = T::ForkVersions::get();
-			let epoch = compute_epoch_at_slot(slot);
+		pub fn finalized_root_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
 			if epoch >= fork_versions.electra.epoch {
-				config::electra::FINALIZED_ROOT_INDEX
+				return config::electra::FINALIZED_ROOT_INDEX;
 			}
 
 			config::altair::FINALIZED_ROOT_INDEX
 		}
 
-		pub fn current_sync_committee_gindex_at_slot(slot: u64) -> u64 {
-			let fork_versions = T::ForkVersions::get();
-			let epoch = compute_epoch_at_slot(slot);
+		pub fn current_sync_committee_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
 			if epoch >= fork_versions.electra.epoch {
-				config::electra::CURRENT_SYNC_COMMITTEE_INDEX
+				return config::electra::CURRENT_SYNC_COMMITTEE_INDEX;
 			}
 
 			config::altair::CURRENT_SYNC_COMMITTEE_INDEX
 		}
 
-		pub fn next_sync_committee_gindex_at_slot(slot: u64) -> u64 {
-			let fork_versions = T::ForkVersions::get();
-			let epoch = compute_epoch_at_slot(slot);
+		pub fn next_sync_committee_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
 			if epoch >= fork_versions.electra.epoch {
-				config::electra::NEXT_SYNC_COMMITTEE_INDEX
+				return config::electra::NEXT_SYNC_COMMITTEE_INDEX;
 			}
 
 			config::altair::NEXT_SYNC_COMMITTEE_INDEX
 		}
 
-		pub fn block_roots_gindex_at_slot(slot: u64) -> u64 {
-			let fork_versions = T::ForkVersions::get();
-			let epoch = compute_epoch_at_slot(slot);
+		pub fn block_roots_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
 			if epoch >= fork_versions.electra.epoch {
-				config::electra::BLOCK_ROOTS_INDEX
+				return  config::electra::BLOCK_ROOTS_INDEX;
 			}
 
 			config::altair::BLOCK_ROOTS_INDEX
 		}
 
-		pub fn execution_header_gindex_at_slot(slot: u64) -> u64 {
-			let fork_versions = T::ForkVersions::get();
-			let epoch = compute_epoch_at_slot(slot);
+		pub fn execution_header_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
 			if epoch >= fork_versions.electra.epoch {
-				config::electra::EXECUTION_HEADER_INDEX
+				return config::electra::EXECUTION_HEADER_INDEX;
 			}
 
 			config::altair::EXECUTION_HEADER_INDEX
