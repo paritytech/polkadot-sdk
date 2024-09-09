@@ -990,7 +990,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(())
 	}
 
-	fn create_gap(&mut self, create_gap: bool) {
+	fn set_create_gap(&mut self, create_gap: bool) {
 		self.create_gap = create_gap;
 	}
 }

@@ -234,7 +234,7 @@ pub trait BlockImportOperation<Block: BlockT> {
 		-> sp_blockchain::Result<()>;
 
 	/// Configure whether to create a block gap if newly imported block is missing parent
-	fn create_gap(&mut self, create_gap: bool);
+	fn set_create_gap(&mut self, create_gap: bool);
 }
 
 /// Interface for performing operations on the backend.
