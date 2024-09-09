@@ -390,8 +390,8 @@ mod tests {
 	use scale_info::TypeInfo;
 	use sp_runtime::{
 		traits::{
-			parameter_types, AsSystemOriginSigner, ConstU64, DispatchTransaction, Header as _,
-			TransactionExtension,
+			parameter_types, AsAuthorizedOrigin, AsSystemOriginSigner, ConstU64,
+			DispatchTransaction, Header as _, TransactionExtension,
 		},
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 		DispatchError,
@@ -422,6 +422,12 @@ mod tests {
 	impl AsSystemOriginSigner<u64> for MockOrigin {
 		fn as_system_origin_signer(&self) -> Option<&u64> {
 			Some(&self.0)
+		}
+	}
+
+	impl AsAuthorizedOrigin for MockOrigin {
+		fn is_authorized(&self) -> bool {
+			true
 		}
 	}
 

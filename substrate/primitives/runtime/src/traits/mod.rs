@@ -1591,6 +1591,14 @@ pub trait AsSystemOriginSigner<AccountId> {
 	fn as_system_origin_signer(&self) -> Option<&AccountId>;
 }
 
+/// Interface to differentiate between authorized and unauthorized Runtime Origins. Generally, an
+/// authorized origin is either an `Origin::Signed` System origin or a custom origin auhtorized in a
+/// `TransactionExtension`.
+pub trait AsAuthorizedOrigin {
+	/// Returns `true` if the origin is a System `Origin::None` variant, `false` otherwise.
+	fn is_authorized(&self) -> bool;
+}
+
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
 #[deprecated = "Use `TransactionExtension` instead."]
@@ -1729,11 +1737,23 @@ pub trait SignedExtension:
 ///
 /// Also provides information on to whom this information is attributable and an index that allows
 /// each piece of attributable information to be disambiguated.
+///
+/// IMPORTANT: After validation, in both [validate](Applyable::validate) and
+/// [apply](Applyable::apply), all transactions should have *some* authorized origin, except for
+/// inherents. This is necessary in order to protect the chain against spam. If no extension in the
+/// transaction extension pipeline authorized the transaction with an origin, either a system signed
+/// origin or a custom origin, then the transaction must be rejected, as the extensions provided in
+/// substrate which protect the chain, such as `CheckNonce`, `ChargeTransactionPayment` etc., rely
+/// on the assumption that the system handles system signed transactions, and the pallets handle the
+/// custom origin that they authorized.
 pub trait Applyable: Sized + Send + Sync {
 	/// Type by which we can dispatch. Restricts the `UnsignedValidator` type.
 	type Call: Dispatchable;
 
 	/// Checks to see if this is a valid *transaction*. It returns information on it if so.
+	///
+	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the transaction.
+	/// If no origin was authorized, the transaction must be rejected.
 	fn validate<V: ValidateUnsigned<Call = Self::Call>>(
 		&self,
 		source: TransactionSource,
@@ -1743,6 +1763,9 @@ pub trait Applyable: Sized + Send + Sync {
 
 	/// Executes all necessary logic needed prior to dispatch and deconstructs into function call,
 	/// index and sender.
+	///
+	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the
+	/// transaction. If no origin was authorized, the transaction must be rejected.
 	fn apply<V: ValidateUnsigned<Call = Self::Call>>(
 		self,
 		info: &DispatchInfoOf<Self::Call>,
