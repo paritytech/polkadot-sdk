@@ -69,7 +69,6 @@ def create_prdoc(pr, audience, title, description, patch, bump, force):
 		while not os.path.exists(os.path.join(p, "Cargo.toml")):
 			print(f"Could not find Cargo.toml in {p}")
 			if p == '/':
-				print(f"Could not find Cargo.toml in {p}")
 				exit(1)
 			p = os.path.dirname(p)
 		
