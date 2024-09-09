@@ -26,7 +26,7 @@ use crate::{BridgeOf, Bridges};
 
 use bp_messages::{
 	source_chain::{MessagesBridge, OnMessagesDelivered},
-	LaneId, MessageNonce,
+	MessageNonce,
 };
 use bp_xcm_bridge_hub::{BridgeId, BridgeState, LocalXcmChannelManager, XcmAsPlainPayload};
 use frame_support::{ensure, traits::Get};
@@ -62,7 +62,7 @@ where
 	type Ticket = (
 		BridgeId,
 		BridgeOf<T, I>,
-		<MessagesPallet<T, I> as MessagesBridge<T::OutboundPayload>>::SendMessageArgs,
+		<MessagesPallet<T, I> as MessagesBridge<T::OutboundPayload, T::LaneId>>::SendMessageArgs,
 		XcmHash,
 	);
 
@@ -198,8 +198,8 @@ where
 	}
 }
 
-impl<T: Config<I>, I: 'static> OnMessagesDelivered for Pallet<T, I> {
-	fn on_messages_delivered(lane_id: LaneId, enqueued_messages: MessageNonce) {
+impl<T: Config<I>, I: 'static> OnMessagesDelivered<T::LaneId> for Pallet<T, I> {
+	fn on_messages_delivered(lane_id: T::LaneId, enqueued_messages: MessageNonce) {
 		Self::on_bridge_messages_delivered(lane_id, enqueued_messages);
 	}
 }
@@ -273,7 +273,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Must be called whenever we receive a message delivery confirmation.
-	fn on_bridge_messages_delivered(lane_id: LaneId, enqueued_messages: MessageNonce) {
+	fn on_bridge_messages_delivered(lane_id: T::LaneId, enqueued_messages: MessageNonce) {
 		// if the bridge queue is still congested, we don't want to do anything
 		let is_congested = enqueued_messages > OUTBOUND_LANE_UNCONGESTED_THRESHOLD;
 		if is_congested {
@@ -381,7 +381,7 @@ mod tests {
 		BridgedUniversalDestination::get()
 	}
 
-	fn open_lane() -> (BridgeLocations, LaneId) {
+	fn open_lane() -> (BridgeLocations, TestLaneIdType) {
 		// open expected outbound lane
 		let origin = OpenBridgeOrigin::sibling_parachain_origin();
 		let with = bridged_asset_hub_universal_location();
@@ -438,7 +438,7 @@ mod tests {
 		(*locations, lane_id)
 	}
 
-	fn open_lane_and_send_regular_message() -> (BridgeId, LaneId) {
+	fn open_lane_and_send_regular_message() -> (BridgeId, TestLaneIdType) {
 		let (locations, lane_id) = open_lane();
 
 		// now let's try to enqueue message using our `ExportXcm` implementation

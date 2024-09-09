@@ -154,7 +154,7 @@ pub enum BridgeState {
 #[derive(
 	CloneNoBound, Decode, Encode, Eq, PartialEqNoBound, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound,
 )]
-#[scale_info(skip_type_params(ThisChain))]
+#[scale_info(skip_type_params(ThisChain, LaneId))]
 pub struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
 	/// Relative location of the bridge origin chain. This is expected to be **convertible** to the
 	/// `latest` XCM, so the check and migration needs to be ensured.

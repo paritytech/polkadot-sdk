@@ -75,6 +75,7 @@ pub struct TestPayload {
 pub type TestMessageFee = u64;
 pub type TestRelayer = u64;
 pub type TestDispatchLevelResult = ();
+/// Lane identifier type used for tests.
 pub type TestLaneIdType = HashedLaneId;
 
 pub struct ThisChain;

@@ -20,7 +20,7 @@ use crate as pallet_xcm_bridge_hub;
 
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
-	ChainWithMessages, LaneId, MessageNonce,
+	ChainWithMessages, HashedLaneId, MessageNonce,
 };
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
 use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
@@ -49,6 +49,8 @@ use xcm_executor::XcmExecutor;
 pub type AccountId = AccountId32;
 pub type Balance = u64;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
+/// Lane identifier type used for tests.
+pub type TestLaneIdType = HashedLaneId;
 
 pub const SIBLING_ASSET_HUB_ID: u32 = 2001;
 pub const THIS_BRIDGE_HUB_ID: u32 = 2002;
@@ -92,6 +94,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 
 	type OutboundPayload = Vec<u8>;
 	type InboundPayload = Vec<u8>;
+	type LaneId = HashedLaneId;
 
 	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = ();
@@ -523,7 +526,7 @@ impl bp_header_chain::HeaderChain<BridgedUnderlyingChain> for BridgedHeaderChain
 pub struct TestMessageDispatch;
 
 impl TestMessageDispatch {
-	pub fn deactivate(lane: LaneId) {
+	pub fn deactivate(lane: TestLaneIdType) {
 		frame_support::storage::unhashed::put(&(b"inactive", lane).encode()[..], &false);
 	}
 }
@@ -531,18 +534,21 @@ impl TestMessageDispatch {
 impl MessageDispatch for TestMessageDispatch {
 	type DispatchPayload = Vec<u8>;
 	type DispatchLevelResult = ();
+	type LaneId = TestLaneIdType;
 
-	fn is_active(lane: LaneId) -> bool {
+	fn is_active(lane: TestLaneIdType) -> bool {
 		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
 			Some(false)
 	}
 
-	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
+	fn dispatch_weight(
+		_message: &mut DispatchMessage<Self::DispatchPayload, Self::LaneId>,
+	) -> Weight {
 		Weight::zero()
 	}
 
 	fn dispatch(
-		_: DispatchMessage<Self::DispatchPayload>,
+		_: DispatchMessage<Self::DispatchPayload, Self::LaneId>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 	}

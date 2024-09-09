@@ -32,6 +32,7 @@ pub trait LaneIdType:
 	+ Debug
 	+ PartialEq
 	+ Eq
+	+ Ord
 	+ TypeInfo
 	+ MaxEncodedLen
 	+ Serialize
