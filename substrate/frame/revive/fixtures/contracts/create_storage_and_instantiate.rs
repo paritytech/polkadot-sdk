@@ -19,7 +19,7 @@
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -32,10 +32,10 @@ pub extern "C" fn call() {
 	input!(
 		input: [u8; 4],
 		code_hash: &[u8; 32],
-		deposit_limit: [u8; 8],
+		deposit_limit: &[u8; 32],
 	);
 
-	let value = 10_000u64.to_le_bytes();
+	let value = u256_bytes(10_000u64);
 	let salt = [0u8; 32];
 	let mut address = [0u8; 20];
 
