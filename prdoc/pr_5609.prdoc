@@ -13,4 +13,4 @@ doc:
 
 crates: 
   - name: sc-network
-    bump: minor
+    bump: patch
