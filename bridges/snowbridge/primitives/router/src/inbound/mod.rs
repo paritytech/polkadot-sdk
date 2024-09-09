@@ -102,14 +102,14 @@ pub struct MessageToXcm<
 	AccountId,
 	Balance,
 	ConvertAssetId,
-	UniversalLocation,
+	EthereumUniversalLocation,
 	GlobalAssetHubLocation,
 > where
 	CreateAssetCall: Get<CallIndex>,
 	CreateAssetDeposit: Get<u128>,
 	Balance: BalanceT,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	UniversalLocation: Get<InteriorLocation>,
+	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
 {
 	_phantom: PhantomData<(
@@ -119,7 +119,7 @@ pub struct MessageToXcm<
 		AccountId,
 		Balance,
 		ConvertAssetId,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
 	)>,
 }
@@ -156,7 +156,7 @@ impl<
 		AccountId,
 		Balance,
 		ConvertAssetId,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
 	> ConvertMessage
 	for MessageToXcm<
@@ -166,16 +166,17 @@ impl<
 		AccountId,
 		Balance,
 		ConvertAssetId,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
-	> where
+	>
+where
 	CreateAssetCall: Get<CallIndex>,
 	CreateAssetDeposit: Get<u128>,
 	InboundQueuePalletInstance: Get<u8>,
 	Balance: BalanceT + From<u128>,
 	AccountId: Into<[u8; 32]>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	UniversalLocation: Get<InteriorLocation>,
+	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
 {
 	type Balance = Balance;
@@ -214,7 +215,7 @@ impl<
 		AccountId,
 		Balance,
 		ConvertAssetId,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
 	>
 	MessageToXcm<
@@ -224,16 +225,17 @@ impl<
 		AccountId,
 		Balance,
 		ConvertAssetId,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
-	> where
+	>
+where
 	CreateAssetCall: Get<CallIndex>,
 	CreateAssetDeposit: Get<u128>,
 	InboundQueuePalletInstance: Get<u8>,
 	Balance: BalanceT + From<u128>,
 	AccountId: Into<[u8; 32]>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	UniversalLocation: Get<InteriorLocation>,
+	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
 {
 	fn convert_register_token(
@@ -416,7 +418,7 @@ impl<
 
 		let mut reanchored_asset_loc = asset_loc.clone();
 		reanchored_asset_loc
-			.reanchor(&GlobalAssetHubLocation::get(), &UniversalLocation::get())
+			.reanchor(&GlobalAssetHubLocation::get(), &EthereumUniversalLocation::get())
 			.map_err(|_| ConvertMessageError::CannotReanchor)?;
 
 		let asset: Asset = (reanchored_asset_loc, amount).into();
@@ -479,7 +481,8 @@ impl<
 		// Forward message id to Asset Hub.
 		instructions.push(SetTopic(message_id.into()));
 
-		// `total_fees` to burn on this chain when sending `instructions` to run on AH (which also teleport fees) 
+		// `total_fees` to burn on this chain when sending `instructions` to run on AH (which also
+		// teleport fees)
 		Ok((instructions.into(), total_fees.into()))
 	}
 }
