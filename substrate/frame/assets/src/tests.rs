@@ -1345,6 +1345,12 @@ fn freezer_should_work() {
 		// freeze 50 of it.
 		set_frozen_balance(0, 1, 50);
 
+		// Note: The amount to be transferred in this step changed deliberately from 20 to 30
+		// (https://github.com/paritytech/polkadot-sdk/pull/4530/commits/2ab35354d86904c035b21a2229452841b79b0457)
+		// to reflect the change in how `reducible_balance` is calculated: from untouchable = ed +
+		// frozen, to untouchalbe = max(ed, frozen)
+		//
+		// This is done in this line so most of the remaining test is preserved without changes
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 30));
 		// cannot transfer another 21 away as this would take the spendable balance (30) to below
 		// zero.
