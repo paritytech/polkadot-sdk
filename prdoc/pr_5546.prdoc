@@ -13,11 +13,11 @@ crates:
   - name: snowbridge-pallet-outbound-queue
     bump: patch
   - name: snowbridge-pallet-system
-    bump: major
+    bump: minor
   - name: snowbridge-core
-    bump: major
+    bump: minor
   - name: snowbridge-router-primitives
-    bump: major
+    bump: minor
   - name: bridge-hub-westend-runtime
     bump: patch
   - name: bridge-hub-rococo-runtime
