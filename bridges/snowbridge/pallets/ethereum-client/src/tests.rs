@@ -17,12 +17,13 @@ use crate::config::{EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_EPOCH, SLOTS_PER
 use frame_support::{assert_err, assert_noop, assert_ok, pallet_prelude::Pays};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
-	types::deneb, Fork, ForkVersions, NextSyncCommitteeUpdate, VersionedExecutionPayloadHeader,
+	merkle_proof::{generalized_index_length, subtree_index},
+	types::deneb,
+	Fork, ForkVersions, NextSyncCommitteeUpdate, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::inbound::{VerificationError, Verifier};
 use sp_core::H256;
 use sp_runtime::DispatchError;
-use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
 
 /// Arbitrary hash used for tests and invalid hashes.
 const TEST_HASH: [u8; 32] =
