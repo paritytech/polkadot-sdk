@@ -406,7 +406,8 @@ pub mod pallet {
 			/// Data supplied by the contract. Metadata generated during contract compilation
 			/// is needed to decode it.
 			data: Vec<u8>,
-			///  A list of topics used to index the event.
+			/// A list of topics used to index the event.
+			/// Number of topics is capped by [`limits::NUM_EVENT_TOPICS`].
 			topics: Vec<H256>,
 		},
 
