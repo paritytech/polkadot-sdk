@@ -1057,6 +1057,13 @@ where
 				self.state_sync =
 					Some(StateSync::new(self.client.clone(), header, None, None, skip_proofs));
 				self.allowed_requests.set_all();
+			} else {
+				log::error!(
+					target: LOG_TARGET,
+					"Failed to start state sync: header for finalized block \
+				 	 #{finalized_number} ({finalized_hash}) is not available",
+				);
+				debug_assert!(false);
 			}
 		}
 	}
