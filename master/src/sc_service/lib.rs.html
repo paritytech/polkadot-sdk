@@ -757,6 +757,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -793,6 +794,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>metrics;
 <span class="kw">mod </span>task_manager;
 
+<span class="kw">use </span><span class="kw">crate</span>::config::Multiaddr;
 <span class="kw">use </span>std::{
 	collections::HashMap,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -809,6 +811,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sc_network_sync::SyncingService;
 <span class="kw">use </span>sc_network_types::PeerId;
+<span class="kw">use </span>sc_rpc_server::Server;
 <span class="kw">use </span>sc_utils::mpsc::TracingUnboundedReceiver;
 <span class="kw">use </span>sp_blockchain::HeaderMetadata;
 <span class="kw">use </span>sp_consensus::SyncOracle;
@@ -860,14 +863,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">const </span>DEFAULT_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">"sup"</span>;
 
-<span class="doccomment">/// RPC handlers that can perform RPC queries.
+<span class="doccomment">/// A running RPC service that can perform in-memory RPC queries.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>RpcHandlers(Arc&lt;RpcModule&lt;()&gt;&gt;);
+</span><span class="kw">pub struct </span>RpcHandlers {
+	<span class="comment">// This is legacy and may be removed at some point, it was for WASM stuff before smoldot was a
+	// thing. https://github.com/paritytech/polkadot-sdk/pull/5038#discussion_r1694971805
+	</span>rpc_module: Arc&lt;RpcModule&lt;()&gt;&gt;,
+
+	<span class="comment">// This can be used to introspect the port the RPC server is listening on. SDK consumers are
+	// depending on this and it should be supported even if in-memory query support is removed.
+	</span>listen_addresses: Vec&lt;Multiaddr&gt;,
+}
 
 <span class="kw">impl </span>RpcHandlers {
 	<span class="doccomment">/// Create PRC handlers instance.
-	</span><span class="kw">pub fn </span>new(inner: Arc&lt;RpcModule&lt;()&gt;&gt;) -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>(inner)
+	</span><span class="kw">pub fn </span>new(rpc_module: Arc&lt;RpcModule&lt;()&gt;&gt;, listen_addresses: Vec&lt;Multiaddr&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ rpc_module, listen_addresses }
 	}
 
 	<span class="doccomment">/// Starts an RPC query.
@@ -889,12 +900,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// This limit is used to prevent panics and is large enough.
 		</span><span class="kw">const </span>TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
 
-		<span class="self">self</span>.<span class="number">0</span>.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).<span class="kw">await
+		<span class="self">self</span>.rpc_module.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Provides access to the underlying `RpcModule`
 	</span><span class="kw">pub fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RpcModule&lt;()&gt;&gt; {
-		<span class="self">self</span>.<span class="number">0</span>.clone()
+		<span class="self">self</span>.rpc_module.clone()
+	}
+
+	<span class="doccomment">/// Provides access to listen addresses
+	</span><span class="kw">pub fn </span>listen_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Multiaddr] {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.listen_addresses[..]
 	}
 }
 
@@ -1122,20 +1138,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">debug!</span>(<span class="string">"`NetworkWorker` has terminated, shutting down the system RPC future."</span>);
 }
 
-<span class="comment">// Wrapper for HTTP and WS servers that makes sure they are properly shut down.
-</span><span class="kw">mod </span>waiting {
-	<span class="kw">pub struct </span>Server(<span class="kw">pub </span><span class="prelude-ty">Option</span>&lt;sc_rpc_server::Server&gt;);
-
-	<span class="kw">impl </span>Drop <span class="kw">for </span>Server {
-		<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(server) = <span class="self">self</span>.<span class="number">0</span>.take() {
-				<span class="comment">// This doesn't not wait for the server to be stopped but fires the signal.
-				</span><span class="kw">let _ </span>= server.stop();
-			}
-		}
-	}
-}
-
 <span class="doccomment">/// Starts RPC servers.
 </span><span class="kw">pub fn </span>start_rpc_servers&lt;R&gt;(
 	rpc_configuration: <span class="kw-2">&amp;</span>RpcConfiguration,
@@ -1143,7 +1145,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	tokio_handle: <span class="kw-2">&amp;</span>Handle,
 	gen_rpc_module: R,
 	rpc_id_provider: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>sc_rpc_server::SubscriptionIdProvider&gt;&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>std::any::Any + Send + Sync&gt;, error::Error&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;Server, error::Error&gt;
 <span class="kw">where
 	</span>R: Fn() -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;()&gt;, Error&gt;,
 {
@@ -1210,7 +1212,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">match </span>tokio::task::block_in_place(|| {
 		tokio_handle.block_on(sc_rpc_server::start_server(server_config))
 	}) {
-		<span class="prelude-val">Ok</span>(server) =&gt; <span class="prelude-val">Ok</span>(Box::new(waiting::Server(<span class="prelude-val">Some</span>(server)))),
+		<span class="prelude-val">Ok</span>(server) =&gt; <span class="prelude-val">Ok</span>(server),
 		<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(Error::Application(e)),
 	}
 }

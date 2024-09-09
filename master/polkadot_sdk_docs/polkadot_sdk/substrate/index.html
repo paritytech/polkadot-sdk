@@ -213,8 +213,8 @@ they are, and how they are organized. In broad terms, these crates are divided i
 categories:</p>
 <ul>
 <li><code>sc-*</code> (short for <em>Substrate-client</em>) crates, located under <code>./client</code> folder. These are all
-the crates that lead to the node software. Notable examples are [<code>sc_network</code>], various
-consensus crates, RPC ([<code>sc_rpc_api</code>]) and database (<a href="../../../sc_client_db/index.html" title="mod sc_client_db"><code>sc_client_db</code></a>), all of which are
+the crates that lead to the node software. Notable examples are <a href="../../../sc_network/index.html" title="mod sc_network"><code>sc_network</code></a>, various
+consensus crates, RPC (<a href="../../../sc_rpc_api/index.html" title="mod sc_rpc_api"><code>sc_rpc_api</code></a>) and database (<a href="../../../sc_client_db/index.html" title="mod sc_client_db"><code>sc_client_db</code></a>), all of which are
 expected to reside in the node side.</li>
 <li><code>sp-*</code> (short for <em>substrate-primitives</em>) crates, located under <code>./primitives</code> folder. These
 are crates that facilitate both the node and the runtime, but are not opinionated about what
@@ -251,7 +251,7 @@ node. Other projects typically contain a <code>build-spec</code> subcommand that
 <li><a href="https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node"><code>node_template</code></a>:
 a template node that contains a minimal set of features and can act as a starting point of a
 project.</li>
-<li>[<code>subkey</code>]: Substrate’s key management utility.</li>
+<li><a href="../../../subkey/index.html" title="mod subkey"><code>subkey</code></a>: Substrate’s key management utility.</li>
 </ul>
 <h4 id="anatomy-of-a-binary-crate"><a class="doc-anchor" href="#anatomy-of-a-binary-crate">§</a>Anatomy of a Binary Crate</h4>
 <p>From the above, <a href="../../../staging_node_cli/index.html" title="mod staging_node_cli"><code>node_cli</code></a>/[<code>kitchensink_runtime</code>] and <code>node-template</code> are essentially
@@ -286,8 +286,8 @@ top of Substrate, empowering any substrate-based chain to be a Polkadot parachai
 <h3 id="where-to-go-next"><a class="doc-anchor" href="#where-to-go-next">§</a>Where To Go Next?</h3>
 <p>Additional noteworthy crates within substrate:</p>
 <ul>
-<li>RPC APIs of a Substrate node: [<code>sc_rpc_api</code>]/<a href="../../../sc_rpc/index.html" title="mod sc_rpc"><code>sc_rpc</code></a></li>
-<li>CLI Options of a Substrate node: [<code>sc_cli</code>]</li>
+<li>RPC APIs of a Substrate node: <a href="../../../sc_rpc_api/index.html" title="mod sc_rpc_api"><code>sc_rpc_api</code></a>/<a href="../../../sc_rpc/index.html" title="mod sc_rpc"><code>sc_rpc</code></a></li>
+<li>CLI Options of a Substrate node: <a href="../../../sc_cli/index.html" title="mod sc_cli"><code>sc_cli</code></a></li>
 <li>All of the consensus related crates provided by Substrate:
 <ul>
 <li><a href="../../../sc_consensus_aura/index.html" title="mod sc_consensus_aura"><code>sc_consensus_aura</code></a></li>
@@ -295,7 +295,7 @@ top of Substrate, empowering any substrate-based chain to be a Polkadot parachai
 <li><a href="../../../sc_consensus_grandpa/index.html" title="mod sc_consensus_grandpa"><code>sc_consensus_grandpa</code></a></li>
 <li><a href="../../../sc_consensus_beefy/index.html" title="mod sc_consensus_beefy"><code>sc_consensus_beefy</code></a> (TODO: @adrian, add some high level docs <a href="https://github.com/paritytech/polkadot-sdk-docs/issues/57">https://github.com/paritytech/polkadot-sdk-docs/issues/57</a>)</li>
 <li><a href="../../../sc_consensus_manual_seal/index.html" title="mod sc_consensus_manual_seal"><code>sc_consensus_manual_seal</code></a></li>
-<li>[<code>sc_consensus_pow</code>]</li>
+<li><a href="../../../sc_consensus_pow/index.html" title="mod sc_consensus_pow"><code>sc_consensus_pow</code></a></li>
 </ul>
 </li>
 </ul>
