@@ -52,7 +52,7 @@ pub extern "C" fn call() {
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None,
-		&0u64.to_le_bytes(), // Value transferred to the contract.
+		&[0u8; 32], // Value transferred to the contract.
 		input,
 		None,
 	)

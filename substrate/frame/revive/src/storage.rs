@@ -33,11 +33,12 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
+	traits::IsType,
 	weights::{Weight, WeightMeter},
 	CloneNoBound, DefaultNoBound,
 };
 use scale_info::TypeInfo;
-use sp_core::{ConstU32, Get, H160};
+use sp_core::{ConstU32, Get, H160, H256};
 use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
@@ -77,7 +78,10 @@ pub struct ContractInfo<T: Config> {
 	delegate_dependencies: DelegateDependencyMap<T>,
 }
 
-impl<T: Config> ContractInfo<T> {
+impl<T: Config> ContractInfo<T>
+where
+	T::Hash: IsType<H256>,
+{
 	/// Constructs a new contract info **without** writing it to storage.
 	///
 	/// This returns an `Err` if an contract with the supplied `account` already exists

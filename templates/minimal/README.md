@@ -37,6 +37,14 @@ A Polkadot SDK based project such as this one consists of:
 * 🛠️ Depending on your operating system and Rust version, there might be additional
 packages required to compile this template - please take note of the Rust compiler output.
 
+Fetch minimal template code:
+
+```sh
+git clone https://github.com/paritytech/polkadot-sdk-minimal-template.git minimal-template
+
+cd minimal-template
+```
+
 ### Build
 
 🔨 Use the following command to build the node without launching it:
