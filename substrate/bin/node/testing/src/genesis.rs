@@ -58,9 +58,9 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 		},
 		staking: StakingConfig {
 			stakers: vec![
-				(dave(), dave(), 111 * DOLLARS, StakerStatus::Validator),
-				(eve(), eve(), 100 * DOLLARS, StakerStatus::Validator),
-				(ferdie(), ferdie(), 100 * DOLLARS, StakerStatus::Validator),
+				(dave(), dave(), 110 * DOLLARS, StakerStatus::Validator),
+				(eve(), eve(), 99 * DOLLARS, StakerStatus::Validator),
+				(ferdie(), ferdie(), 99 * DOLLARS, StakerStatus::Validator),
 			],
 			validator_count: 3,
 			minimum_validator_count: 0,
