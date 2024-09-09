@@ -1079,7 +1079,7 @@ pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.12.1", default-features = false }
 proc-macro-crate = { version = "3.0.0" }
 proc-macro-warning = { version = "1.0.0", default-features = false }
-proc-macro2 = { version = "1.0.64" }
+proc-macro2 = { version = "1.0.86" }
 procfs = { version = "0.16.0" }
 prometheus = { version = "0.13.0", default-features = false }
 prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint" }
