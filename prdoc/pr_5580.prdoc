@@ -6,7 +6,7 @@ title: Fix error message on pallet macro
 doc:
   - audience: Runtime Dev
     description: |
-        This PR fixes the error message on the pallet macro.
+        Improve error message for pallet macro generated code.
 
 crates:
   - name: frame-support-procedural
