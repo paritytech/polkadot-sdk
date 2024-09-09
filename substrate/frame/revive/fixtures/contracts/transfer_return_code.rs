@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
+use common::u256_bytes;
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -28,7 +28,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let ret_code = match api::transfer(&[0u8; 20], &100u64.to_le_bytes()) {
+	let ret_code = match api::transfer(&[0u8; 20], &u256_bytes(100u64)) {
 		Ok(_) => 0u32,
 		Err(code) => code as u32,
 	};
