@@ -1417,7 +1417,7 @@ pub async fn start_approval_worker<
 			)
 			.await
 			{
-				gum::error!(target: LOG_TARGET, ?err, "Approval voting worker stoped processing messages");
+				gum::error!(target: LOG_TARGET, ?err, "Approval voting worker stopped processing messages");
 			};
 		}),
 	);
