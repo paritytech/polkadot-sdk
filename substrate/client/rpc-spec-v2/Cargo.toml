@@ -28,7 +28,6 @@ sp-rpc = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
-sc-utils = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 thiserror = { workspace = true }
@@ -59,3 +58,4 @@ sc-service = { features = ["test-helpers"], workspace = true, default-features =
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 sc-transaction-pool = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }

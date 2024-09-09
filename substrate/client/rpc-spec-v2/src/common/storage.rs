@@ -20,8 +20,11 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
+use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
+use sc_rpc::SubscriptionTaskExecutor;
 use sp_runtime::traits::Block as BlockT;
+use tokio::sync::mpsc;
 
 use super::events::{StorageResult, StorageResultType};
 use crate::hex_string;
@@ -30,17 +33,25 @@ use crate::hex_string;
 pub struct Storage<Client, Block, BE> {
 	/// Substrate client.
 	client: Arc<Client>,
+	executor: SubscriptionTaskExecutor,
 	_phandom: PhantomData<(BE, Block)>,
+}
+
+impl<Client, Block, BE> Clone for Storage<Client, Block, BE> {
+	fn clone(&self) -> Self {
+		Self { client: self.client.clone(), executor: self.executor.clone(), _phandom: PhantomData }
+	}
 }
 
 impl<Client, Block, BE> Storage<Client, Block, BE> {
 	/// Constructs a new [`Storage`].
-	pub fn new(client: Arc<Client>) -> Self {
-		Self { client, _phandom: PhantomData }
+	pub fn new(client: Arc<Client>, executor: SubscriptionTaskExecutor) -> Self {
+		Self { client, _phandom: PhantomData, executor }
 	}
 }
 
 /// Query to iterate over storage.
+#[derive(Debug)]
 pub struct QueryIter {
 	/// The key from which the iteration was started.
 	pub query_key: StorageKey,
@@ -51,6 +62,7 @@ pub struct QueryIter {
 }
 
 /// The query type of an iteration.
+#[derive(Debug)]
 pub enum IterQueryType {
 	/// Iterating over (key, value) pairs.
 	Value,
@@ -61,14 +73,11 @@ pub enum IterQueryType {
 /// The result of making a query call.
 pub type QueryResult = Result<Option<StorageResult>, String>;
 
-/// The result of iterating over keys.
-pub type QueryIterResult = Result<(Vec<StorageResult>, Option<QueryIter>), String>;
-
 impl<Client, Block, BE> Storage<Client, Block, BE>
 where
-	Block: BlockT + 'static,
-	BE: Backend<Block> + 'static,
-	Client: StorageProvider<Block, BE> + 'static,
+	Block: BlockT + Send + 'static,
+	BE: Backend<Block> + Send + 'static,
+	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
 {
 	/// Fetch the value from storage.
 	pub fn query_value(
@@ -123,7 +132,7 @@ where
 		key: &StorageKey,
 		child_key: Option<&ChildInfo>,
 	) -> QueryResult {
-		let result = if let Some(child_key) = child_key {
+		let result = if let Some(ref child_key) = child_key {
 			self.client.child_closest_merkle_value(hash, child_key, key)
 		} else {
 			self.client.closest_merkle_value(hash, key)
@@ -146,53 +155,83 @@ where
 			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
 	}
 
-	/// Iterate over at most the provided number of keys.
+	/// Iterate over the storage which returns a receiver that will receive the results of the
+	/// query.
 	///
-	/// Returns the storage result with a potential next key to resume iteration.
+	/// Internally this relies on a bounded channel which provides backpressure to the client
+	/// and that's why we don't need a static limit.
+	///
+	/// Thus, if the client is slow then we will slow down the iteration.
 	pub fn query_iter_pagination(
 		&self,
-		query: QueryIter,
+		queries: Vec<QueryIter>,
 		hash: Block::Hash,
-		child_key: Option<&ChildInfo>,
-		count: usize,
-	) -> QueryIterResult {
-		let QueryIter { ty, query_key, pagination_start_key } = query;
+		child_key: Option<ChildInfo>,
+	) -> mpsc::Receiver<QueryResult> {
+		// NOTE: This is small because we rely on the buffer from the actual JSON-RPC connection.
+		let (tx, rx) = mpsc::channel(1);
+		let storage = self.clone();
 
-		let mut keys_iter = if let Some(child_key) = child_key {
-			self.client.child_storage_keys(
-				hash,
-				child_key.to_owned(),
-				Some(&query_key),
-				pagination_start_key.as_ref(),
-			)
-		} else {
-			self.client.storage_keys(hash, Some(&query_key), pagination_start_key.as_ref())
+		let fut = async move {
+			let futs: FuturesUnordered<_> = queries
+				.into_iter()
+				.map(|query| {
+					query_iter_pagination_one(&storage, query, hash, child_key.as_ref(), &tx)
+				})
+				.collect();
+
+			futs.for_each(|_| async {}).await;
+		};
+
+		self.executor
+			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+
+		rx
+	}
+}
+
+async fn query_iter_pagination_one<Client, Block, BE>(
+	storage: &Storage<Client, Block, BE>,
+	query: QueryIter,
+	hash: Block::Hash,
+	child_key: Option<&ChildInfo>,
+	tx: &mpsc::Sender<QueryResult>,
+) where
+	Block: BlockT + Send + 'static,
+	BE: Backend<Block> + Send + 'static,
+	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
+{
+	let QueryIter { ty, query_key, pagination_start_key } = query;
+
+	let maybe_storage = if let Some(child_key) = child_key {
+		storage.client.child_storage_keys(
+			hash,
+			child_key.to_owned(),
+			Some(&query_key),
+			pagination_start_key.as_ref(),
+		)
+	} else {
+		storage
+			.client
+			.storage_keys(hash, Some(&query_key), pagination_start_key.as_ref())
+	};
+
+	let mut keys_iter = match maybe_storage {
+		Ok(keys_iter) => keys_iter,
+		Err(error) => {
+			_ = tx.send(Err(error.to_string())).await;
+			return;
+		},
+	};
+
+	while let Some(key) = keys_iter.next() {
+		let result = match ty {
+			IterQueryType::Value => storage.query_value(hash, &key, child_key),
+			IterQueryType::Hash => storage.query_hash(hash, &key, child_key),
+		};
+
+		if tx.send(result).await.is_err() {
+			break;
 		}
-		.map_err(|err| err.to_string())?;
-
-		let mut ret = Vec::with_capacity(count);
-		let mut next_pagination_key = None;
-		for _ in 0..count {
-			let Some(key) = keys_iter.next() else { break };
-
-			next_pagination_key = Some(key.clone());
-
-			let result = match ty {
-				IterQueryType::Value => self.query_value(hash, &key, child_key),
-				IterQueryType::Hash => self.query_hash(hash, &key, child_key),
-			}?;
-
-			if let Some(value) = result {
-				ret.push(value);
-			}
-		}
-
-		// Save the next key if any to continue the iteration.
-		let maybe_next_query = keys_iter.next().map(|_| QueryIter {
-			ty,
-			query_key,
-			pagination_start_key: next_pagination_key,
-		});
-		Ok((ret, maybe_next_query))
 	}
 }

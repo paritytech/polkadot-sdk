@@ -18,21 +18,24 @@
 
 //! Implementation of the `chainHead_storage` method.
 
-use std::{collections::VecDeque, marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
+use futures::SinkExt;
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
-use sc_utils::mpsc::TracingUnboundedSender;
+use sc_rpc::SubscriptionTaskExecutor;
 use sp_runtime::traits::Block as BlockT;
+use tokio::sync::mpsc;
 
 use crate::{
 	chain_head::{
+		chain_head::LOG_TARGET,
 		event::{OperationError, OperationId, OperationStorageItems},
-		subscription::BlockGuard,
-		FollowEvent,
+		subscription::{BlockGuard, StopHandle},
+		FollowEvent, FollowEventSendError, FollowEventSender,
 	},
 	common::{
 		events::{StorageQuery, StorageQueryType},
-		storage::{IterQueryType, QueryIter, QueryIterResult, Storage},
+		storage::{IterQueryType, QueryIter, QueryResult, Storage},
 	},
 };
 
@@ -40,92 +43,57 @@ use crate::{
 pub struct ChainHeadStorage<Client, Block, BE> {
 	/// Storage client.
 	client: Storage<Client, Block, BE>,
-	/// Queue of operations that may require pagination.
-	iter_operations: VecDeque<QueryIter>,
-	/// The maximum number of items reported by the `chainHead_storage` before
-	/// pagination is required.
-	operation_max_storage_items: usize,
 	_phandom: PhantomData<(BE, Block)>,
 }
 
 impl<Client, Block, BE> ChainHeadStorage<Client, Block, BE> {
 	/// Constructs a new [`ChainHeadStorage`].
-	pub fn new(client: Arc<Client>, operation_max_storage_items: usize) -> Self {
-		Self {
-			client: Storage::new(client),
-			iter_operations: VecDeque::new(),
-			operation_max_storage_items,
-			_phandom: PhantomData,
-		}
+	pub fn new(client: Arc<Client>, executor: SubscriptionTaskExecutor) -> Self {
+		Self { client: Storage::new(client, executor), _phandom: PhantomData }
 	}
 }
 
 impl<Client, Block, BE> ChainHeadStorage<Client, Block, BE>
 where
-	Block: BlockT + 'static,
-	BE: Backend<Block> + 'static,
-	Client: StorageProvider<Block, BE> + 'static,
+	Block: BlockT + Send + 'static,
+	BE: Backend<Block> + Send + 'static,
+	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
 {
 	/// Iterate over (key, hash) and (key, value) generating the `WaitingForContinue` event if
 	/// necessary.
 	async fn generate_storage_iter_events(
-		&mut self,
+		&self,
+		query_iter: Vec<QueryIter>,
 		mut block_guard: BlockGuard<Block, BE>,
 		hash: Block::Hash,
 		child_key: Option<ChildInfo>,
-	) {
-		let sender = block_guard.response_sender();
-		let operation = block_guard.operation();
+	) -> Result<(), FollowEventSendError> {
+		let stop_handle = block_guard.operation().stop_handle().clone();
 
-		while let Some(query) = self.iter_operations.pop_front() {
-			if operation.was_stopped() {
-				return
-			}
-
-			let result = self.client.query_iter_pagination(
-				query,
-				hash,
-				child_key.as_ref(),
-				self.operation_max_storage_items,
-			);
-			let (events, maybe_next_query) = match result {
-				QueryIterResult::Ok(result) => result,
-				QueryIterResult::Err(error) => {
-					send_error::<Block>(&sender, operation.operation_id(), error.to_string());
-					return
-				},
-			};
-
-			if !events.is_empty() {
-				// Send back the results of the iteration produced so far.
-				let _ = sender.unbounded_send(FollowEvent::<Block::Hash>::OperationStorageItems(
-					OperationStorageItems { operation_id: operation.operation_id(), items: events },
-				));
-			}
-
-			if let Some(next_query) = maybe_next_query {
-				let _ =
-					sender.unbounded_send(FollowEvent::<Block::Hash>::OperationWaitingForContinue(
-						OperationId { operation_id: operation.operation_id() },
-					));
-
-				// The operation might be continued or cancelled only after the
-				// `OperationWaitingForContinue` is generated above.
-				operation.wait_for_continue().await;
-
-				// Give a chance for the other items to advance next time.
-				self.iter_operations.push_back(next_query);
-			}
+		if stop_handle.is_stopped() {
+			return Ok(());
 		}
 
-		if operation.was_stopped() {
-			return
+		if !query_iter.is_empty() {
+			process_storage_iter_stream(
+				self.client.query_iter_pagination(query_iter, hash, child_key),
+				block_guard.response_sender(),
+				block_guard.operation().operation_id().to_owned(),
+				&stop_handle,
+			)
+			.await?;
 		}
 
-		let _ =
-			sender.unbounded_send(FollowEvent::<Block::Hash>::OperationStorageDone(OperationId {
-				operation_id: operation.operation_id(),
-			}));
+		if !stop_handle.is_stopped() {
+			block_guard
+				.response_sender()
+				.send(FollowEvent::OperationStorageDone(OperationId {
+					operation_id: block_guard.operation().operation_id().to_owned(),
+				}))
+				.await?;
+		}
+
+		Ok(())
 	}
 
 	/// Generate the block events for the `chainHead_storage` method.
@@ -135,8 +103,11 @@ where
 		hash: Block::Hash,
 		items: Vec<StorageQuery<StorageKey>>,
 		child_key: Option<ChildInfo>,
-	) {
-		let sender = block_guard.response_sender();
+	) -> Result<(), FollowEventSendError> {
+		log::info!(target: LOG_TARGET, "generate_events={:?}", items.len());
+
+		let mut iter_ops = Vec::new();
+		let mut sender = block_guard.response_sender();
 		let operation = block_guard.operation();
 
 		let mut storage_results = Vec::with_capacity(items.len());
@@ -147,8 +118,7 @@ where
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
 						Err(error) => {
-							send_error::<Block>(&sender, operation.operation_id(), error);
-							return
+							return send_error(&mut sender, operation.operation_id(), error).await;
 						},
 					}
 				},
@@ -157,8 +127,7 @@ where
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
 						Err(error) => {
-							send_error::<Block>(&sender, operation.operation_id(), error);
-							return
+							return send_error(&mut sender, operation.operation_id(), error).await;
 						},
 					},
 				StorageQueryType::ClosestDescendantMerkleValue =>
@@ -166,16 +135,15 @@ where
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
 						Err(error) => {
-							send_error::<Block>(&sender, operation.operation_id(), error);
-							return
+							return send_error(&mut sender, operation.operation_id(), error).await;
 						},
 					},
-				StorageQueryType::DescendantsValues => self.iter_operations.push_back(QueryIter {
+				StorageQueryType::DescendantsValues => iter_ops.push(QueryIter {
 					query_key: item.key,
 					ty: IterQueryType::Value,
 					pagination_start_key: None,
 				}),
-				StorageQueryType::DescendantsHashes => self.iter_operations.push_back(QueryIter {
+				StorageQueryType::DescendantsHashes => iter_ops.push(QueryIter {
 					query_key: item.key,
 					ty: IterQueryType::Hash,
 					pagination_start_key: None,
@@ -184,26 +152,66 @@ where
 		}
 
 		if !storage_results.is_empty() {
-			let _ = sender.unbounded_send(FollowEvent::<Block::Hash>::OperationStorageItems(
-				OperationStorageItems {
+			sender
+				.send(FollowEvent::<Block::Hash>::OperationStorageItems(OperationStorageItems {
 					operation_id: operation.operation_id(),
 					items: storage_results,
-				},
-			));
+				}))
+				.await?;
 		}
 
-		self.generate_storage_iter_events(block_guard, hash, child_key).await
+		self.generate_storage_iter_events(iter_ops, block_guard, hash, child_key).await
 	}
 }
 
 /// Build and send the opaque error back to the `chainHead_follow` method.
-fn send_error<Block: BlockT>(
-	sender: &TracingUnboundedSender<FollowEvent<Block::Hash>>,
+async fn send_error<Hash>(
+	sender: &mut FollowEventSender<Hash>,
 	operation_id: String,
 	error: String,
-) {
-	let _ = sender.unbounded_send(FollowEvent::<Block::Hash>::OperationError(OperationError {
-		operation_id,
-		error,
-	}));
+) -> Result<(), FollowEventSendError> {
+	sender
+		.send(FollowEvent::OperationError(OperationError { operation_id, error }))
+		.await
+}
+
+async fn process_storage_iter_stream<Hash>(
+	mut storage_query_stream: mpsc::Receiver<QueryResult>,
+	mut sender: FollowEventSender<Hash>,
+	operation_id: String,
+	stop_handle: &StopHandle,
+) -> Result<(), FollowEventSendError> {
+	let mut buf = Vec::new();
+
+	loop {
+		tokio::select! {
+			_ = stop_handle.stopped() => return Ok(()),
+			len = storage_query_stream.recv_many(&mut buf, 1024) => {
+				if len == 0 {
+					break Ok(());
+				}
+
+				let mut items = Vec::with_capacity(buf.len());
+
+				for val in buf.drain(..) {
+					match val {
+						QueryResult::Err(error) =>
+							return send_error(&mut sender, operation_id.clone(), error).await,
+						QueryResult::Ok(Some(v)) => {
+							items.push(v)
+						},
+						QueryResult::Ok(None) => continue
+					}
+				}
+
+				// Send back the results of the iteration produced so far.
+				sender
+					.send(FollowEvent::OperationStorageItems(OperationStorageItems {
+						operation_id: operation_id.clone(),
+						items,
+				})).await?;
+
+			},
+		}
+	}
 }

@@ -19,18 +19,19 @@
 use futures::channel::oneshot;
 use parking_lot::Mutex;
 use sc_client_api::Backend;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
-	sync::{atomic::AtomicBool, Arc},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
-use crate::chain_head::{subscription::SubscriptionManagementError, FollowEvent};
+use crate::chain_head::{
+	subscription::SubscriptionManagementError, FollowEventReceiver, FollowEventSender,
+};
 
-/// The queue size after which the `sc_utils::mpsc::tracing_unbounded` would produce warnings.
-const QUEUE_SIZE_WARNING: usize = 512;
+type NotifyOnDrop = tokio::sync::mpsc::Receiver<()>;
+type SharedOperations = Arc<Mutex<HashMap<String, (NotifyOnDrop, StopHandle)>>>;
 
 /// The state machine of a block of a single subscription ID.
 ///
@@ -155,72 +156,42 @@ struct PermitOperations {
 	_permit: tokio::sync::OwnedSemaphorePermit,
 }
 
-/// The state of one operation.
-///
-/// This is directly exposed to users via `chain_head_unstable_continue` and
-/// `chain_head_unstable_stop_operation`.
+/// Stop handle for the operation.
 #[derive(Clone)]
-pub struct OperationState {
-	/// The shared operation state that holds information about the
-	/// `waitingForContinue` event and cancellation.
-	shared_state: Arc<SharedOperationState>,
-	/// Send notifications when the user calls `chainHead_continue` method.
-	send_continue: tokio::sync::mpsc::Sender<()>,
-}
+pub struct StopHandle(tokio::sync::mpsc::Sender<()>);
 
-impl OperationState {
-	/// Returns true if `chainHead_continue` is called after the
-	/// `waitingForContinue` event was emitted for the associated
-	/// operation ID.
-	pub fn submit_continue(&self) -> bool {
-		// `waitingForContinue` not generated.
-		if !self.shared_state.requested_continue.load(std::sync::atomic::Ordering::Acquire) {
-			return false
-		}
-
-		// Has enough capacity for 1 message.
-		// Can fail if the `stop_operation` propagated the stop first.
-		self.send_continue.try_send(()).is_ok()
+impl StopHandle {
+	pub async fn stopped(&self) {
+		self.0.closed().await;
 	}
 
-	/// Stops the operation if `waitingForContinue` event was emitted for the associated
-	/// operation ID.
-	///
-	/// Returns nothing in accordance with `chainHead_v1_stopOperation`.
-	pub fn stop_operation(&self) {
-		// `waitingForContinue` not generated.
-		if !self.shared_state.requested_continue.load(std::sync::atomic::Ordering::Acquire) {
-			return
-		}
-
-		self.shared_state
-			.operation_stopped
-			.store(true, std::sync::atomic::Ordering::Release);
-
-		// Send might not have enough capacity if `submit_continue` was sent first.
-		// However, the `operation_stopped` boolean was set.
-		let _ = self.send_continue.try_send(());
+	pub fn is_stopped(&self) -> bool {
+		self.0.is_closed()
 	}
 }
 
 /// The shared operation state between the backend [`RegisteredOperation`] and frontend
 /// [`RegisteredOperation`].
-struct SharedOperationState {
-	/// True if the `chainHead` generated `waitingForContinue` event.
-	requested_continue: AtomicBool,
-	/// True if the operation was cancelled by the user.
-	operation_stopped: AtomicBool,
+#[derive(Clone)]
+pub struct OperationState {
+	stop: StopHandle,
+	operations: SharedOperations,
+	operation_id: String,
 }
 
-impl SharedOperationState {
-	/// Constructs a new [`SharedOperationState`].
-	///
-	/// This is efficiently cloned under a single heap allocation.
-	fn new() -> Arc<Self> {
-		Arc::new(SharedOperationState {
-			requested_continue: AtomicBool::new(false),
-			operation_stopped: AtomicBool::new(false),
-		})
+impl OperationState {
+	pub fn stop(&mut self) {
+		if !self.stop.is_stopped() {
+			self.operations.lock().remove(&self.operation_id);
+		}
+	}
+
+	pub fn is_stopped(&self) -> bool {
+		self.stop.is_stopped()
+	}
+
+	pub async fn stopped(&self) {
+		self.stop.stopped().await;
 	}
 }
 
@@ -228,40 +199,20 @@ impl SharedOperationState {
 ///
 /// This is used internally by the `chainHead` methods.
 pub struct RegisteredOperation {
-	/// The shared operation state that holds information about the
-	/// `waitingForContinue` event and cancellation.
-	shared_state: Arc<SharedOperationState>,
-	/// Receive notifications when the user calls `chainHead_continue` method.
-	recv_continue: tokio::sync::mpsc::Receiver<()>,
+	/// Stop handle for the operation.
+	stop_handle: StopHandle,
+	/// Track the operations ID of this subscription.
+	operations: SharedOperations,
 	/// The operation ID of the request.
 	operation_id: String,
-	/// Track the operations ID of this subscription.
-	operations: Arc<Mutex<HashMap<String, OperationState>>>,
 	/// Permit a number of items to be executed by this operation.
 	permit: PermitOperations,
 }
 
 impl RegisteredOperation {
-	/// Wait until the user calls `chainHead_continue` or the operation
-	/// is cancelled via `chainHead_stopOperation`.
-	pub async fn wait_for_continue(&mut self) {
-		self.shared_state
-			.requested_continue
-			.store(true, std::sync::atomic::Ordering::Release);
-
-		// The sender part of this channel is around for as long as this object exists,
-		// because it is stored in the `OperationState` of the `operations` field.
-		// The sender part is removed from tracking when this object is dropped.
-		let _ = self.recv_continue.recv().await;
-
-		self.shared_state
-			.requested_continue
-			.store(false, std::sync::atomic::Ordering::Release);
-	}
-
-	/// Returns true if the current operation was stopped.
-	pub fn was_stopped(&self) -> bool {
-		self.shared_state.operation_stopped.load(std::sync::atomic::Ordering::Acquire)
+	/// Stop handle for the operation.
+	pub fn stop_handle(&self) -> &StopHandle {
+		&self.stop_handle
 	}
 
 	/// Get the operation ID.
@@ -279,8 +230,7 @@ impl RegisteredOperation {
 
 impl Drop for RegisteredOperation {
 	fn drop(&mut self) {
-		let mut operations = self.operations.lock();
-		operations.remove(&self.operation_id);
+		self.operations.lock().remove(&self.operation_id);
 	}
 }
 
@@ -291,7 +241,7 @@ struct Operations {
 	/// Limit the number of ongoing operations.
 	limits: LimitOperations,
 	/// Track the operations ID of this subscription.
-	operations: Arc<Mutex<HashMap<String, OperationState>>>,
+	operations: SharedOperations,
 }
 
 impl Operations {
@@ -307,25 +257,25 @@ impl Operations {
 	/// Register a new operation.
 	pub fn register_operation(&mut self, to_reserve: usize) -> Option<RegisteredOperation> {
 		let permit = self.limits.reserve_at_most(to_reserve)?;
-
 		let operation_id = self.next_operation_id();
 
-		// At most one message can be sent.
-		let (send_continue, recv_continue) = tokio::sync::mpsc::channel(1);
-		let shared_state = SharedOperationState::new();
-
-		let state = OperationState { send_continue, shared_state: shared_state.clone() };
-
-		// Cloned operations for removing the current ID on drop.
+		let (tx, rx) = tokio::sync::mpsc::channel(1);
+		let stop_handle = StopHandle(tx);
 		let operations = self.operations.clone();
-		operations.lock().insert(operation_id.clone(), state);
+		operations.lock().insert(operation_id.clone(), (rx, stop_handle.clone()));
 
-		Some(RegisteredOperation { shared_state, operation_id, recv_continue, operations, permit })
+		Some(RegisteredOperation { stop_handle, operation_id, operations, permit })
 	}
 
 	/// Get the associated operation state with the ID.
 	pub fn get_operation(&self, id: &str) -> Option<OperationState> {
-		self.operations.lock().get(id).map(|state| state.clone())
+		let stop = self.operations.lock().get(id).map(|(_, stop)| stop.clone())?;
+
+		Some(OperationState {
+			stop,
+			operations: self.operations.clone(),
+			operation_id: id.to_string(),
+		})
 	}
 
 	/// Generate the next operation ID for this subscription.
@@ -352,7 +302,7 @@ struct SubscriptionState<Block: BlockT> {
 	/// The sender of message responses to the `chainHead_follow` events.
 	///
 	/// This object is cloned between methods.
-	response_sender: TracingUnboundedSender<FollowEvent<Block::Hash>>,
+	response_sender: FollowEventSender<Block::Hash>,
 	/// The ongoing operations of a subscription.
 	operations: Operations,
 	/// Track the block hashes available for this subscription.
@@ -486,7 +436,7 @@ impl<Block: BlockT> SubscriptionState<Block> {
 pub struct BlockGuard<Block: BlockT, BE: Backend<Block>> {
 	hash: Block::Hash,
 	with_runtime: bool,
-	response_sender: TracingUnboundedSender<FollowEvent<Block::Hash>>,
+	response_sender: FollowEventSender<Block::Hash>,
 	operation: RegisteredOperation,
 	backend: Arc<BE>,
 }
@@ -504,7 +454,7 @@ impl<Block: BlockT, BE: Backend<Block>> BlockGuard<Block, BE> {
 	fn new(
 		hash: Block::Hash,
 		with_runtime: bool,
-		response_sender: TracingUnboundedSender<FollowEvent<Block::Hash>>,
+		response_sender: FollowEventSender<Block::Hash>,
 		operation: RegisteredOperation,
 		backend: Arc<BE>,
 	) -> Result<Self, SubscriptionManagementError> {
@@ -521,7 +471,7 @@ impl<Block: BlockT, BE: Backend<Block>> BlockGuard<Block, BE> {
 	}
 
 	/// Send message responses from the `chainHead` methods to `chainHead_follow`.
-	pub fn response_sender(&self) -> TracingUnboundedSender<FollowEvent<Block::Hash>> {
+	pub fn response_sender(&self) -> FollowEventSender<Block::Hash> {
 		self.response_sender.clone()
 	}
 
@@ -543,7 +493,7 @@ pub struct InsertedSubscriptionData<Block: BlockT> {
 	/// Signal that the subscription must stop.
 	pub rx_stop: oneshot::Receiver<()>,
 	/// Receive message responses from the `chainHead` methods.
-	pub response_receiver: TracingUnboundedReceiver<FollowEvent<Block::Hash>>,
+	pub response_receiver: FollowEventReceiver<Block::Hash>,
 }
 
 pub struct SubscriptionsInner<Block: BlockT, BE: Backend<Block>> {
@@ -593,8 +543,9 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 	) -> Option<InsertedSubscriptionData<Block>> {
 		if let Entry::Vacant(entry) = self.subs.entry(sub_id) {
 			let (tx_stop, rx_stop) = oneshot::channel();
-			let (response_sender, response_receiver) =
-				tracing_unbounded("chain-head-method-responses", QUEUE_SIZE_WARNING);
+			// We are relying on the backpressure from the underlying subscription and we shouldn't
+			// buffer more than the underlying client can handle.
+			let (response_sender, response_receiver) = futures::channel::mpsc::channel(1);
 			let state = SubscriptionState::<Block> {
 				with_runtime,
 				tx_stop: Some(tx_stop),
@@ -972,8 +923,7 @@ mod tests {
 
 	#[test]
 	fn sub_state_register_twice() {
-		let (response_sender, _response_receiver) =
-			tracing_unbounded("test-chain-head-method-responses", QUEUE_SIZE_WARNING);
+		let (response_sender, _response_receiver) = futures::channel::mpsc::channel(1);
 		let mut sub_state = SubscriptionState::<Block> {
 			with_runtime: false,
 			tx_stop: None,
@@ -1001,8 +951,7 @@ mod tests {
 
 	#[test]
 	fn sub_state_register_unregister() {
-		let (response_sender, _response_receiver) =
-			tracing_unbounded("test-chain-head-method-responses", QUEUE_SIZE_WARNING);
+		let (response_sender, _response_receiver) = futures::channel::mpsc::channel(1);
 		let mut sub_state = SubscriptionState::<Block> {
 			with_runtime: false,
 			tx_stop: None,

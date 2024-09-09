@@ -24,10 +24,7 @@ use crate::{
 	hex_string, MethodResult,
 };
 
-use super::{
-	archive::{Archive, ArchiveConfig},
-	*,
-};
+use super::{archive::Archive, *};
 
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
@@ -38,7 +35,7 @@ use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
-use sp_core::{Blake2Hasher, Hasher};
+use sp_core::{testing::TaskExecutor, Blake2Hasher, Hasher};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 	SaturatedConversion,
@@ -51,8 +48,6 @@ use substrate_test_runtime_client::{
 
 const CHAIN_GENESIS: [u8; 32] = [0; 32];
 const INVALID_HASH: [u8; 32] = [1; 32];
-const MAX_PAGINATION_LIMIT: usize = 5;
-const MAX_QUERIED_LIMIT: usize = 5;
 const KEY: &[u8] = b":mock";
 const VALUE: &[u8] = b"hello world";
 const CHILD_STORAGE_KEY: &[u8] = b"child";
@@ -61,10 +56,7 @@ const CHILD_VALUE: &[u8] = b"child value";
 type Header = substrate_test_runtime_client::runtime::Header;
 type Block = substrate_test_runtime_client::runtime::Block;
 
-fn setup_api(
-	max_descendant_responses: usize,
-	max_queried_items: usize,
-) -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
+fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
 	let child_info = ChildInfo::new_default(CHILD_STORAGE_KEY);
 	let builder = TestClientBuilder::new().add_extra_child_storage(
 		&child_info,
@@ -74,20 +66,16 @@ fn setup_api(
 	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
-	let api = Archive::new(
-		client.clone(),
-		backend,
-		CHAIN_GENESIS,
-		ArchiveConfig { max_descendant_responses, max_queried_items },
-	)
-	.into_rpc();
+	let api =
+		Archive::new(client.clone(), backend, CHAIN_GENESIS, Arc::new(TaskExecutor::default()))
+			.into_rpc();
 
 	(client, api)
 }
 
 #[tokio::test]
 async fn archive_genesis() {
-	let (_client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (_client, api) = setup_api();
 
 	let genesis: String =
 		api.call("archive_unstable_genesisHash", EmptyParams::new()).await.unwrap();
@@ -96,7 +84,7 @@ async fn archive_genesis() {
 
 #[tokio::test]
 async fn archive_body() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	// Invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
@@ -130,7 +118,7 @@ async fn archive_body() {
 
 #[tokio::test]
 async fn archive_header() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	// Invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
@@ -164,7 +152,7 @@ async fn archive_header() {
 
 #[tokio::test]
 async fn archive_finalized_height() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	let client_height: u32 = client.info().finalized_number.saturated_into();
 
@@ -176,7 +164,7 @@ async fn archive_finalized_height() {
 
 #[tokio::test]
 async fn archive_hash_by_height() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	// Genesis height.
 	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [0]).await.unwrap();
@@ -282,7 +270,7 @@ async fn archive_hash_by_height() {
 
 #[tokio::test]
 async fn archive_call() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 	let invalid_hash = hex_string(&INVALID_HASH);
 
 	// Invalid parameter (non-hex).
@@ -341,7 +329,7 @@ async fn archive_call() {
 
 #[tokio::test]
 async fn archive_storage_hashes_values() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	let block = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -431,7 +419,7 @@ async fn archive_storage_hashes_values() {
 
 #[tokio::test]
 async fn archive_storage_closest_merkle_value() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	/// The core of this test.
 	///
@@ -592,7 +580,7 @@ async fn archive_storage_closest_merkle_value() {
 #[tokio::test]
 async fn archive_storage_paginate_iterations() {
 	// 1 iteration allowed before pagination kicks in.
-	let (client, api) = setup_api(1, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	// Import a new block with storage changes.
 	let mut builder = BlockBuilderBuilder::new(&*client)
@@ -647,7 +635,7 @@ async fn archive_storage_paginate_iterations() {
 		.unwrap();
 	match result {
 		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
+			assert_eq!(result.len(), 5);
 			assert_eq!(discarded_items, 0);
 
 			assert_eq!(result[0].key, hex_string(b":m"));
@@ -673,7 +661,7 @@ async fn archive_storage_paginate_iterations() {
 		.unwrap();
 	match result {
 		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
+			assert_eq!(result.len(), 4);
 			assert_eq!(discarded_items, 0);
 
 			assert_eq!(result[0].key, hex_string(b":mo"));
@@ -699,7 +687,7 @@ async fn archive_storage_paginate_iterations() {
 		.unwrap();
 	match result {
 		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
+			assert_eq!(result.len(), 3);
 			assert_eq!(discarded_items, 0);
 
 			assert_eq!(result[0].key, hex_string(b":moD"));
@@ -725,7 +713,7 @@ async fn archive_storage_paginate_iterations() {
 		.unwrap();
 	match result {
 		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
+			assert_eq!(result.len(), 2);
 			assert_eq!(discarded_items, 0);
 
 			assert_eq!(result[0].key, hex_string(b":moc"));
@@ -785,9 +773,9 @@ async fn archive_storage_paginate_iterations() {
 }
 
 #[tokio::test]
-async fn archive_storage_discarded_items() {
+async fn archive_storage_is_backpressured() {
 	// One query at a time
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, 1);
+	let (client, api) = setup_api();
 
 	// Import a new block with storage changes.
 	let mut builder = BlockBuilderBuilder::new(&*client)
@@ -829,8 +817,8 @@ async fn archive_storage_discarded_items() {
 		.unwrap();
 	match result {
 		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
-			assert_eq!(discarded_items, 2);
+			assert_eq!(result.len(), 3);
+			assert_eq!(discarded_items, 0);
 
 			assert_eq!(result[0].key, hex_string(b":m"));
 			assert_eq!(result[0].result, StorageResultType::Value(hex_string(b"a")));

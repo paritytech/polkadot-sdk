@@ -187,7 +187,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	type TrieBackendStorage: TrieBackendStorage<H>;
 
 	/// Type of the raw storage iterator.
-	type RawIter: StorageIterator<H, Backend = Self, Error = Self::Error>;
+	type RawIter: StorageIterator<H, Backend = Self, Error = Self::Error> + Send;
 
 	/// Get keyed storage or None if there is nothing associated.
 	fn storage(&self, key: &[u8]) -> Result<Option<StorageValue>, Self::Error>;

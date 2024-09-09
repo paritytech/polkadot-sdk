@@ -60,7 +60,6 @@ type Block = substrate_test_runtime_client::runtime::Block;
 const MAX_PINNED_BLOCKS: usize = 32;
 const MAX_PINNED_SECS: u64 = 60;
 const MAX_OPERATIONS: usize = 16;
-const MAX_PAGINATION_LIMIT: usize = 5;
 const MAX_LAGGING_DISTANCE: usize = 128;
 const MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION: usize = 4;
 
@@ -85,7 +84,6 @@ pub async fn run_server() -> std::net::SocketAddr {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 			max_follow_subscriptions_per_connection: 1,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
@@ -147,7 +145,7 @@ async fn setup_api() -> (
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -255,8 +253,6 @@ async fn follow_subscription_produces_blocks() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -326,8 +322,6 @@ async fn follow_with_runtime() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -636,8 +630,6 @@ async fn call_runtime_without_flag() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -1297,8 +1289,6 @@ async fn separate_operation_ids_for_subscriptions() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -1385,8 +1375,6 @@ async fn follow_generates_initial_blocks() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -1543,8 +1531,6 @@ async fn follow_exceeding_pinned_blocks() {
 			global_max_pinned_blocks: 2,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -1622,8 +1608,6 @@ async fn follow_with_unpin() {
 			global_max_pinned_blocks: 2,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -1730,8 +1714,6 @@ async fn unpin_duplicate_hashes() {
 			global_max_pinned_blocks: 3,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -1835,8 +1817,6 @@ async fn follow_with_multiple_unpin_hashes() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -1982,8 +1962,6 @@ async fn follow_prune_best_block() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -2170,8 +2148,6 @@ async fn follow_forks_pruned_block() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -2332,8 +2308,6 @@ async fn follow_report_multiple_pruned_block() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -2580,8 +2554,6 @@ async fn pin_block_references() {
 			global_max_pinned_blocks: 3,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -2717,8 +2689,6 @@ async fn follow_finalized_before_new_block() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -2834,8 +2804,6 @@ async fn ensure_operation_limits_works() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: 1,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -2887,7 +2855,7 @@ async fn ensure_operation_limits_works() {
 	let operation_id = match response {
 		MethodResponse::Started(started) => {
 			// Check discarded items.
-			assert_eq!(started.discarded_items.unwrap(), 3);
+			assert!(started.discarded_items.is_none());
 			started.operation_id
 		},
 		MethodResponse::LimitReached => panic!("Expected started response"),
@@ -2922,7 +2890,7 @@ async fn ensure_operation_limits_works() {
 }
 
 #[tokio::test]
-async fn check_continue_operation() {
+async fn storage_is_backpressured() {
 	let child_info = ChildInfo::new_default(CHILD_STORAGE_KEY);
 	let builder = TestClientBuilder::new().add_extra_child_storage(
 		&child_info,
@@ -2941,8 +2909,6 @@ async fn check_continue_operation() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: 1,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -3021,18 +2987,6 @@ async fn check_continue_operation() {
 			res.items[0].result == StorageResultType::Value(hex_string(b"a"))
 	);
 
-	// Pagination event.
-	assert_matches!(
-		get_next_event::<FollowEvent<String>>(&mut sub).await,
-		FollowEvent::OperationWaitingForContinue(res) if res.operation_id == operation_id
-	);
-
-	does_not_produce_event::<FollowEvent<String>>(
-		&mut sub,
-		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
-	)
-	.await;
-	let _res: () = api.call("chainHead_v1_continue", [&sub_id, &operation_id]).await.unwrap();
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
@@ -3041,17 +2995,6 @@ async fn check_continue_operation() {
 			res.items[0].result == StorageResultType::Value(hex_string(b"ab"))
 	);
 
-	// Pagination event.
-	assert_matches!(
-		get_next_event::<FollowEvent<String>>(&mut sub).await,
-		FollowEvent::OperationWaitingForContinue(res) if res.operation_id == operation_id
-	);
-	does_not_produce_event::<FollowEvent<String>>(
-		&mut sub,
-		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
-	)
-	.await;
-	let _res: () = api.call("chainHead_v1_continue", [&sub_id, &operation_id]).await.unwrap();
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
@@ -3060,18 +3003,6 @@ async fn check_continue_operation() {
 			res.items[0].result == StorageResultType::Value(hex_string(b"abcmoD"))
 	);
 
-	// Pagination event.
-	assert_matches!(
-		get_next_event::<FollowEvent<String>>(&mut sub).await,
-		FollowEvent::OperationWaitingForContinue(res) if res.operation_id == operation_id
-	);
-
-	does_not_produce_event::<FollowEvent<String>>(
-		&mut sub,
-		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
-	)
-	.await;
-	let _res: () = api.call("chainHead_v1_continue", [&sub_id, &operation_id]).await.unwrap();
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
@@ -3080,17 +3011,6 @@ async fn check_continue_operation() {
 			res.items[0].result == StorageResultType::Value(hex_string(b"abc"))
 	);
 
-	// Pagination event.
-	assert_matches!(
-		get_next_event::<FollowEvent<String>>(&mut sub).await,
-		FollowEvent::OperationWaitingForContinue(res) if res.operation_id == operation_id
-	);
-	does_not_produce_event::<FollowEvent<String>>(
-		&mut sub,
-		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
-	)
-	.await;
-	let _res: () = api.call("chainHead_v1_continue", [&sub_id, &operation_id]).await.unwrap();
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
@@ -3126,8 +3046,6 @@ async fn stop_storage_operation() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: 1,
-
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -3203,14 +3121,21 @@ async fn stop_storage_operation() {
 			res.items[0].result == StorageResultType::Value(hex_string(b"a"))
 	);
 
-	// Pagination event.
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
-		FollowEvent::OperationWaitingForContinue(res) if res.operation_id == operation_id
+		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
+			res.items.len() == 1 &&
+			res.items[0].key == hex_string(b":mo") &&
+			res.items[0].result == StorageResultType::Value(hex_string(b"ab"))
 	);
 
 	// Stop the operation.
 	let _res: () = api.call("chainHead_v1_stopOperation", [&sub_id, &operation_id]).await.unwrap();
+
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id
+	);
 
 	does_not_produce_event::<FollowEvent<String>>(
 		&mut sub,
@@ -3425,7 +3350,6 @@ async fn chain_head_stop_all_subscriptions() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 			max_lagging_distance: 5,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
@@ -3639,7 +3563,6 @@ async fn chain_head_limit_reached() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: 1,
 		},
@@ -3680,7 +3603,6 @@ async fn follow_unique_pruned_blocks() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
@@ -3850,7 +3772,6 @@ async fn follow_report_best_block_of_a_known_block() {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
