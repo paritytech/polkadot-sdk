@@ -1,5 +1,5 @@
 error: Invalid deprecation attribute: missing `note`
-       help: the following are the possible correct uses
+               help: the following are the possible correct uses
        |
        |     #[deprecated = "reason"]
        |
@@ -12,33 +12,20 @@ error: Invalid deprecation attribute: missing `note`
 20 |         #[deprecated(unknown_kw = "test")]
    |         ^
 
-error: Invalid deprecation attribute: expected string literal
-       help: the following are the possible correct uses
-       |
-       |     #[deprecated = "reason"]
-       |
-       |     #[deprecated(/*opt*/ since = "version", /*opt*/ note = "reason")]
-       |
-       |     #[deprecated]
-       |
-  --> tests/ui/deprecation_info.rs:22:3
-   |
-22 |         #[deprecated(since = 5)]
-   |         ^
-
-error: Invalid deprecation attribute: expected string literal
-       help: the following are the possible correct uses
-       |
-       |     #[deprecated = "reason"]
-       |
-       |     #[deprecated(/*opt*/ since = "version", /*opt*/ note = "reason")]
-       |
-       |     #[deprecated]
-       |
+error: malformed `deprecated` attribute input
   --> tests/ui/deprecation_info.rs:24:3
    |
 24 |         #[deprecated = 5]
-   |         ^
+   |         ^^^^^^^^^^^^^^^^^
+   |
+help: the following are the possible correct uses
+   |
+24 |         #[deprecated = "reason"]
+   |
+24 |         #[deprecated(/*opt*/ since = "version", /*opt*/ note = "reason")]
+   |
+24 |         #[deprecated]
+   |
 
 error[E0541]: unknown meta item 'unknown_kw'
   --> tests/ui/deprecation_info.rs:20:16
