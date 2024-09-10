@@ -1,3 +1,5 @@
+name: Subsystem Benchmarks
+
 on:
   push:
     branches:
