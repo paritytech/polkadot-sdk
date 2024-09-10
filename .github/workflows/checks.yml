@@ -54,7 +54,7 @@ jobs:
       RUSTFLAGS: "-D warnings"
       SKIP_WASM_BUILD: 1
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
         run: |
           forklift cargo clippy --all-targets --locked --workspace
@@ -67,7 +67,7 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
         run: |
           forklift cargo check --locked --all --features try-runtime
@@ -86,7 +86,7 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
         run: |
           cd substrate/primitives/core

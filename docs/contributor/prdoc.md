@@ -14,7 +14,7 @@ the [CODEOWNERS](../../.github/CODEOWNERS) for advice.
 
 A `.prdoc` file is a YAML file with a defined structure (ie JSON Schema). Please follow these steps to generate one:
 
-1. Install the [`prdoc` CLI](https://github.com/paritytech/prdoc) by running `cargo install prdoc`.
+1. Install the [`prdoc` CLI](https://github.com/paritytech/prdoc) by running `cargo install parity-prdoc`.
 1. Open a Pull Request and get the PR number.
 1. Generate the file with `prdoc generate <PR_NUMBER>`. The output filename will be printed.
 1. Optional: Install the `prdoc/schema_user.json` schema in your editor, for example

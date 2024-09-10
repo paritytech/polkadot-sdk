@@ -406,6 +406,9 @@ pub mod pallet {
 			/// Data supplied by the contract. Metadata generated during contract compilation
 			/// is needed to decode it.
 			data: Vec<u8>,
+			/// A list of topics used to index the event.
+			/// Number of topics is capped by [`limits::NUM_EVENT_TOPICS`].
+			topics: Vec<H256>,
 		},
 
 		/// A code with the specified hash was removed.
@@ -1185,14 +1188,6 @@ where
 	/// Deposit a pallet contracts event.
 	fn deposit_event(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
-	}
-
-	/// Deposit a pallet contracts indexed event.
-	fn deposit_indexed_event(topics: Vec<H256>, event: Event<T>) {
-		<frame_system::Pallet<T>>::deposit_event_indexed(
-			&topics.into_iter().map(Into::into).collect::<Vec<_>>(),
-			<T as Config>::RuntimeEvent::from(event).into(),
-		)
 	}
 }
 
