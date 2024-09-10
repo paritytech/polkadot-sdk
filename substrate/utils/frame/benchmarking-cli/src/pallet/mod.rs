@@ -185,7 +185,7 @@ pub struct PalletCmd {
 	///
 	/// This can be useful when a runtime has a dedicated benchmarking preset instead of using the
 	/// default one.
-	#[arg(long, default_value = "development")]
+	#[arg(long, default_value = sp_genesis_builder::DEV_RUNTIME_PRESET)]
 	pub genesis_builder_preset: String,
 
 	/// DEPRECATED: This argument has no effect.
