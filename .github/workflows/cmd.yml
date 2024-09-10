@@ -2,7 +2,7 @@ name: Command
 
 on:
   issue_comment: # listen for comments on issues
-    types: [ created ]
+    types: [created]
 
 permissions: # allow the action to comment on the PR
   contents: write
@@ -35,14 +35,14 @@ jobs:
             try {              
               const org = '${{ github.event.repository.owner.login }}';
               const username = '${{ github.event.comment.user.login }}';
-            
+
               const membership = await github.rest.orgs.checkMembershipForUser({
                   org: org,
                   username: username
               });
-            
+
               console.log(membership, membership.status, membership.status === 204);
-            
+
               if (membership.status === 204) {
                 return 'true';
               } else {
@@ -52,7 +52,7 @@ jobs:
             } catch (error) {
               console.log(error)
             }
-            
+
             return 'false';
 
   reject-non-members:
@@ -140,7 +140,7 @@ jobs:
               }
             })
   help:
-    needs: [ clean, is-org-member ]
+    needs: [clean, is-org-member]
     if: ${{ startsWith(github.event.comment.body, '/cmd') && contains(github.event.comment.body, '--help') && needs.is-org-member.outputs.member == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -173,11 +173,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `<details><summary>Command help:</summary> 
-            
+
             \`\`\`
             ${{ steps.help.outputs.help }}
             \`\`\` 
-            
+
             </details>`
             })
 
@@ -208,7 +208,7 @@ jobs:
             })
 
   set-image:
-    needs: [ clean, is-org-member ]
+    needs: [clean, is-org-member]
     if: ${{ startsWith(github.event.comment.body, '/cmd') && !contains(github.event.comment.body, '--help') && needs.is-org-member.outputs.member == 'true' }}
     runs-on: ubuntu-latest
     outputs:
@@ -222,13 +222,13 @@ jobs:
         run: |
           BODY=$(echo "${{ github.event.comment.body }}" | xargs)
           IMAGE_OVERRIDE=$(echo $BODY | grep -oe 'docker.io/paritytech/ci-unified:.*\s' | xargs)
-          
+
           cat .github/env >> $GITHUB_OUTPUT
-          
+
           if [ -n "$IMAGE_OVERRIDE" ]; then
               echo "IMAGE=$IMAGE_OVERRIDE" >> $GITHUB_OUTPUT
           fi
-          
+
           if [[ $BODY == "/cmd bench"* ]]; then
               echo "RUNNER=arc-runners-polkadot-sdk-benchmark" >> $GITHUB_OUTPUT
           elif [[ $BODY == "/cmd update-ui"* ]]; then
@@ -239,7 +239,7 @@ jobs:
 
   # Get PR branch name, because the issue_comment event does not contain the PR branch name
   get-pr-branch:
-    needs: [ set-image ]
+    needs: [set-image]
     runs-on: ubuntu-latest
     outputs:
       pr-branch: ${{ steps.get-pr.outputs.pr_branch }}
@@ -278,9 +278,9 @@ jobs:
           echo "The repository is ${{ steps.get-pr.outputs.repo }}"
 
   cmd:
-    needs: [ set-image, get-pr-branch ]
+    needs: [set-image, get-pr-branch]
     env:
-      JOB_NAME: 'cmd'
+      JOB_NAME: "cmd"
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -301,17 +301,16 @@ jobs:
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs | jq '.jobs[] | select(.name | contains("${{ env.JOB_NAME }}")) | .html_url')
-          
+
           runLink=$(curl -s \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }} | jq '.html_url')
-          
+
           echo "job_url=${jobLink}"
           echo "run_url=${runLink}"
           echo "job_url=$jobLink" >> $GITHUB_OUTPUT
           echo "run_url=$runLink" >> $GITHUB_OUTPUT
-
 
       - name: Comment PR (Start)
         if: ${{ !contains(github.event.comment.body, '--quiet') }}
@@ -320,7 +319,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             let job_url = ${{ steps.build-link.outputs.job_url }}
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -348,6 +347,7 @@ jobs:
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           git remote -v
+          python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
           python3 .github/scripts/cmd/cmd.py $CMD
           git status
           git diff
@@ -357,7 +357,7 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
-          
+
             git pull --rebase origin ${{ needs.get-pr-branch.outputs.pr-branch }}
             git add .
             git restore --staged Cargo.lock # ignore changes in Cargo.lock
@@ -381,7 +381,7 @@ jobs:
             --change added changed \
             --ignore-errors \
             refs/remotes/origin/master refs/heads/${{ needs.get-pr-branch.outputs.pr-branch }})
-          
+
           # Save the multiline result to the output
           {
             echo "result<<EOF"
@@ -393,17 +393,17 @@ jobs:
         if: ${{ !failure() && !contains(github.event.comment.body, '--quiet') }}
         uses: actions/github-script@v7
         env:
-          SUBWEIGHT: '${{ steps.subweight.outputs.result }}'
+          SUBWEIGHT: "${{ steps.subweight.outputs.result }}"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             let runUrl = ${{ steps.build-link.outputs.run_url }}
             let subweight = process.env.SUBWEIGHT;
-            
+
             let subweightCollapsed = subweight 
               ? `<details>\n\n<summary>Subweight results:</summary>\n\n${subweight}\n\n</details>` 
               : '';
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

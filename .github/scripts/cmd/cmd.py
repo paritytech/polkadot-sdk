@@ -5,13 +5,12 @@ import sys
 import json
 import argparse
 import _help
+import importlib.util
 
 _HelpAction = _help._HelpAction
 
 f = open('.github/workflows/runtimes-matrix.json', 'r')
 runtimesMatrix = json.load(f)
-
-print(f'runtimesMatrix: {runtimesMatrix}\n')
 
 runtimeNames = list(map(lambda x: x['name'], runtimesMatrix))
 
@@ -68,6 +67,20 @@ Update UI
 parser_ui = subparsers.add_parser('update-ui', help='Updates UI tests')
 for arg, config in common_args.items():
     parser_ui.add_argument(arg, **config)
+
+"""
+PRDOC
+"""
+# Import generate-prdoc.py dynamically
+spec = importlib.util.spec_from_file_location("generate_prdoc", ".github/scripts/generate-prdoc.py")
+generate_prdoc = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(generate_prdoc)
+
+# Create the prdoc subparser
+parser_prdoc = subparsers.add_parser('prdoc', help='Generates PR documentation')
+
+# Use parse_args from generate_prdoc to add arguments
+generate_prdoc.parse_args(parser_prdoc)
 
 def main():
     global args, unknown, runtimesMatrix
@@ -214,6 +227,13 @@ def main():
         if status != 0 and not args.continue_on_fail:
             print('❌ Failed to format code')
             sys.exit(1)
+
+    elif args.command == 'prdoc':
+        # Call the main function from generate_prdoc module
+        exit_code = generate_prdoc.main(args)
+        if exit_code != 0 and not args.continue_on_fail:
+            print('❌ Failed to generate prdoc')
+            sys.exit(exit_code)
 
     print('🚀 Done')
 

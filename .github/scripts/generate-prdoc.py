@@ -98,16 +98,28 @@ def create_prdoc(pr, audience, title, description, patch, bump, force):
 		yaml.dump(prdoc, f)
 		print(f"PrDoc for PR {pr} written to {path}")
 
-def parse_args():
-	parser = argparse.ArgumentParser()
+# parse_args is also used by cmd/cmd.py
+def parse_args(parser=None):
+	if parser is None:
+		parser = argparse.ArgumentParser()
+	
 	parser.add_argument("--pr", type=int, required=True)
 	parser.add_argument("--audience", type=str, default="TODO")
 	parser.add_argument("--bump", type=str, default="TODO")
 	parser.add_argument("--force", type=str)
-	return parser.parse_args()
+	
+	return parser
 
-if __name__ == "__main__":
-	args = parse_args()
+def main(args):
 	force = True if args.force.lower() == "true" else False
 	print(f"Args: {args}, force: {force}")
-	from_pr_number(args.pr, args.audience, args.bump, force)
+	try:
+		from_pr_number(args.pr, args.audience, args.bump, force)
+		return 0
+	except Exception as e:
+		print(f"Error generating prdoc: {e}")
+		return 1
+
+if __name__ == "__main__":
+	args = parse_args().parse_args()
+	main(args)
