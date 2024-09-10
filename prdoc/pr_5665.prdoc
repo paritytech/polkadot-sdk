@@ -11,3 +11,7 @@ doc:
 crates:
   - name: pallet-contracts
     bump: patch
+  - name: pallet-contracts-fixtures
+    bump: patch
+  - name: pallet-contracts-uapi
+    bump: patch
