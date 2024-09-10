@@ -575,44 +575,7 @@ where
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
 	) {
-		if key != Self::STRATEGY_KEY {
-			error!(
-				target: LOG_TARGET,
-				"`on_block_response()` called with unexpected key {key:?} for chain sync",
-			);
-			debug_assert!(false);
-		}
-		let block_response = BlockResponse::<B> { id: request.id, blocks };
-
-		let blocks_range = || match (
-			block_response
-				.blocks
-				.first()
-				.and_then(|b| b.header.as_ref().map(|h| h.number())),
-			block_response.blocks.last().and_then(|b| b.header.as_ref().map(|h| h.number())),
-		) {
-			(Some(first), Some(last)) if first != last => format!(" ({}..{})", first, last),
-			(Some(first), Some(_)) => format!(" ({})", first),
-			_ => Default::default(),
-		};
-		trace!(
-			target: LOG_TARGET,
-			"BlockResponse {} from {} with {} blocks {}",
-			block_response.id,
-			peer_id,
-			block_response.blocks.len(),
-			blocks_range(),
-		);
-
-		let res = if request.fields == BlockAttributes::JUSTIFICATION {
-			self.on_block_justification(peer_id, block_response)
-		} else {
-			self.on_block_data(&peer_id, Some(request), block_response)
-		};
-
-		if let Err(bad_peer) = res {
-			self.actions.push(SyncingAction::DropPeer(bad_peer));
-		}
+		self.on_block_response(peer_id, key, request, blocks)
 	}
 
 	fn on_generic_response(&mut self, peer_id: &PeerId, key: StrategyKey, response: Vec<u8>) {
@@ -1337,6 +1300,53 @@ where
 		self.validate_and_queue_blocks(new_blocks, gap);
 
 		Ok(())
+	}
+
+	fn on_block_response(
+		&mut self,
+		peer_id: PeerId,
+		key: StrategyKey,
+		request: BlockRequest<B>,
+		blocks: Vec<BlockData<B>>,
+	) {
+		if key != Self::STRATEGY_KEY {
+			error!(
+				target: LOG_TARGET,
+				"`on_block_response()` called with unexpected key {key:?} for chain sync",
+			);
+			debug_assert!(false);
+		}
+		let block_response = BlockResponse::<B> { id: request.id, blocks };
+
+		let blocks_range = || match (
+			block_response
+				.blocks
+				.first()
+				.and_then(|b| b.header.as_ref().map(|h| h.number())),
+			block_response.blocks.last().and_then(|b| b.header.as_ref().map(|h| h.number())),
+		) {
+			(Some(first), Some(last)) if first != last => format!(" ({}..{})", first, last),
+			(Some(first), Some(_)) => format!(" ({})", first),
+			_ => Default::default(),
+		};
+		trace!(
+			target: LOG_TARGET,
+			"BlockResponse {} from {} with {} blocks {}",
+			block_response.id,
+			peer_id,
+			block_response.blocks.len(),
+			blocks_range(),
+		);
+
+		let res = if request.fields == BlockAttributes::JUSTIFICATION {
+			self.on_block_justification(peer_id, block_response)
+		} else {
+			self.on_block_data(&peer_id, Some(request), block_response)
+		};
+
+		if let Err(bad_peer) = res {
+			self.actions.push(SyncingAction::DropPeer(bad_peer));
+		}
 	}
 
 	/// Submit a justification response for processing.
