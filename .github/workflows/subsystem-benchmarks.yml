@@ -82,6 +82,7 @@ jobs:
           benchmark-data-dir-path: ./artifacts/${{ matrix.features.bench }}
           auto-push: false
           skip-fetch-gh-pages: true
+          gh-pages-branch: master
 
       - run: |
           ls -lsa ./artifacts
