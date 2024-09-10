@@ -1591,11 +1591,22 @@ pub trait AsSystemOriginSigner<AccountId> {
 	fn as_system_origin_signer(&self) -> Option<&AccountId>;
 }
 
-/// Interface to differentiate between authorized and unauthorized Runtime Origins. Generally, an
-/// authorized origin is either an `Origin::Signed` System origin or a custom origin auhtorized in a
+/// Interface to differentiate between Runtime Origins authorized to include a transaction into the
+/// block, and those who aren't.
+///
+/// Typically, upon validation or application of a transaction, the origin resulting from the
+/// transaction extension (see [`TransactionExtension`]) is checked for authorization. Transaction
+/// is then rejected or applied.
+///
+/// In FRAME, an
+/// authorized origin is either an `Origin::Signed` System origin or a custom origin authorized in a
 /// `TransactionExtension`.
 pub trait AsAuthorizedOrigin {
-	/// Returns `true` if the origin is a System `Origin::None` variant, `false` otherwise.
+	/// Whether the origin is authorized to include the transaction in a block.
+	///
+	/// In FRAME returns `false` if the origin is a System `Origin::None` variant, `true` otherwise,
+	/// meaning only signed or custom origin resulting from the transaction extension pipeline are
+	/// authorized.
 	fn is_authorized(&self) -> bool;
 }
 
