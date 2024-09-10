@@ -16,7 +16,10 @@
 
 //! Genesis configs presets for the Rococo runtime
 
-use crate::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
+use crate::{
+	BabeConfig, BalancesConfig, ConfigurationConfig, RegistrarConfig, RuntimeGenesisConfig,
+	SessionConfig, SessionKeys, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
+};
 #[cfg(not(feature = "std"))]
 use alloc::format;
 use alloc::vec::Vec;
@@ -178,12 +181,12 @@ fn rococo_testnet_genesis(
 
 	const ENDOWMENT: u128 = 1_000_000 * ROC;
 
-	serde_json::json!({
-		"balances": {
-			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
+	let config = RuntimeGenesisConfig {
+		balances: BalancesConfig {
+			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
-		"session": {
-			"keys": initial_authorities
+		session: SessionConfig {
+			keys: initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -200,13 +203,12 @@ fn rococo_testnet_genesis(
 					)
 				})
 				.collect::<Vec<_>>(),
+			..Default::default()
 		},
-		"babe": {
-			"epochConfig": Some(BABE_GENESIS_EPOCH_CONFIG),
-		},
-		"sudo": { "key": Some(root_key.clone()) },
-		"configuration": {
-			"config": polkadot_runtime_parachains::configuration::HostConfiguration {
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		sudo: SudoConfig { key: Some(root_key.clone()) },
+		configuration: ConfigurationConfig {
+			config: polkadot_runtime_parachains::configuration::HostConfiguration {
 				scheduler_params: SchedulerParams {
 					max_validators_per_core: Some(1),
 					..default_parachains_host_configuration().scheduler_params
@@ -214,10 +216,14 @@ fn rococo_testnet_genesis(
 				..default_parachains_host_configuration()
 			},
 		},
-		"registrar": {
-			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
-		}
-	})
+		registrar: RegistrarConfig {
+			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
+			..Default::default()
+		},
+		..Default::default()
+	};
+
+	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 
 // staging_testnet
@@ -439,44 +445,32 @@ fn rococo_staging_testnet_config_genesis() -> serde_json::Value {
 	const ENDOWMENT: u128 = 1_000_000 * ROC;
 	const STASH: u128 = 100 * ROC;
 
-	serde_json::json!({
-		"balances": {
-			"balances": endowed_accounts
+	let config = RuntimeGenesisConfig {
+		balances: BalancesConfig {
+			balances: endowed_accounts
 				.iter()
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
 				.collect::<Vec<_>>(),
 		},
-		"session": {
-			"keys": initial_authorities
+		session: SessionConfig {
+			keys: initial_authorities
 				.into_iter()
-				.map(|x| {
-					(
-						x.0.clone(),
-						x.0,
-						rococo_session_keys(
-							x.2,
-							x.3,
-							x.4,
-							x.5,
-							x.6,
-							x.7,
-						),
-					)
-				})
+				.map(|x| (x.0.clone(), x.0, rococo_session_keys(x.2, x.3, x.4, x.5, x.6, x.7)))
 				.collect::<Vec<_>>(),
+			..Default::default()
 		},
-		"babe": {
-			"epochConfig": Some(BABE_GENESIS_EPOCH_CONFIG),
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		sudo: SudoConfig { key: Some(endowed_accounts[0].clone()) },
+		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
+		registrar: RegistrarConfig {
+			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
+			..Default::default()
 		},
-		"sudo": { "key": Some(endowed_accounts[0].clone()) },
-		"configuration": {
-			"config": default_parachains_host_configuration(),
-		},
-		"registrar": {
-			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
-		},
-	})
+		..Default::default()
+	};
+
+	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 
 //development

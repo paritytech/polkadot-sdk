@@ -32,50 +32,54 @@ fn bridge_hub_rococo_genesis(
 	bridges_pallet_owner: Option<AccountId>,
 	asset_hub_para_id: ParaId,
 ) -> serde_json::Value {
-	serde_json::json!({
-		"balances": BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1u128 << 60)).collect::<Vec<_>>(),
+	let config = RuntimeGenesisConfig {
+		balances: BalancesConfig {
+			balances: endowed_accounts
+				.iter()
+				.cloned()
+				.map(|k| (k, 1u128 << 60))
+				.collect::<Vec<_>>(),
 		},
-		"parachainInfo": ParachainInfoConfig {
-			parachain_id: id,
-			..Default::default()
-		},
-		"collatorSelection": CollatorSelectionConfig {
+		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
+		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: BRIDGE_HUB_ROCOCO_ED * 16,
 			..Default::default()
 		},
-		"session": SessionConfig {
+		session: SessionConfig {
 			keys: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
-						acc.clone(),                         // account id
-						acc,                                 // validator id
-						SessionKeys { aura }, 		     // session keys
+						acc.clone(),          // account id
+						acc,                  // validator id
+						SessionKeys { aura }, // session keys
 					)
 				})
 				.collect(),
 			..Default::default()
 		},
-		"polkadotXcm": PolkadotXcmConfig {
+		polkadot_xcm: PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		},
-		"bridgeWestendGrandpa": BridgeWestendGrandpaConfig {
+		bridge_westend_grandpa: BridgeWestendGrandpaConfig {
 			owner: bridges_pallet_owner.clone(),
 			..Default::default()
 		},
-		"bridgeWestendMessages": BridgeWestendMessagesConfig {
+		bridge_westend_messages: BridgeWestendMessagesConfig {
 			owner: bridges_pallet_owner.clone(),
 			..Default::default()
 		},
-		"ethereumSystem": EthereumSystemConfig {
+		ethereum_system: EthereumSystemConfig {
 			para_id: id,
 			asset_hub_para_id,
 			..Default::default()
-		}
-	})
+		},
+		..Default::default()
+	};
+
+	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 
 /// Encapsulates names of predefined presets.

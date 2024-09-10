@@ -14014,7 +14014,6 @@ dependencies = [
  "shell-runtime",
  "sp-core",
  "sp-genesis-builder",
- "sp-runtime",
  "staging-xcm",
  "substrate-build-script-utils",
  "testnet-parachains-constants",
