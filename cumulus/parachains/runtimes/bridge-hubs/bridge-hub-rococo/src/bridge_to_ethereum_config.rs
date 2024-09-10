@@ -136,6 +136,10 @@ parameter_types! {
 		deneb: Fork {
 			version: [4, 0, 0, 0], // 0x04000000
 			epoch: 0,
+		},
+		electra: Fork {
+			version: [5, 0, 0, 0], // 0x05000000
+			epoch: 80000000000,
 		}
 	};
 }
@@ -162,6 +166,10 @@ parameter_types! {
 		deneb: Fork {
 			version: [144, 0, 0, 115], // 0x90000073
 			epoch: 132608,
+		},
+		electra: Fork {
+			version: [144, 0, 0, 115], // 0x90000073
+			epoch: 80000000,
 		},
 	};
 }
