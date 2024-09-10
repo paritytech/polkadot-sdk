@@ -162,6 +162,7 @@ jobs:
           CMD: ${{ steps.get-pr-comment.outputs.group2 }} # to avoid "" around the command
         run: |
           echo 'help<<EOF' >> $GITHUB_OUTPUT
+          python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
           python3 .github/scripts/cmd/cmd.py $CMD >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
