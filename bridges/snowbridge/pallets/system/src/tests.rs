@@ -688,7 +688,7 @@ fn register_all_tokens_succeeds() {
 		},
 		// USDT
 		TokenInfo {
-			location: Location::new(1, [Parachain(1000), PalletInstance(50), GeneralIndex(1084)]),
+			location: Location::new(1, [Parachain(1000), PalletInstance(50), GeneralIndex(1984)]),
 			metadata: AssetMetadata {
 				decimals: 6,
 				name: b"USDT".to_vec().try_into().unwrap(),
