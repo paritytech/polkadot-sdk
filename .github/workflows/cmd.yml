@@ -146,8 +146,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Get command
         uses: actions-ecosystem/action-regex-match@v2
@@ -333,7 +331,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ needs.get-pr-branch.outputs.repo }}
+          ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
 
       - name: Install dependencies for bench
         if: startsWith(steps.get-pr-comment.outputs.group2, 'bench')
@@ -359,8 +358,6 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
-
-            git checkout ${{ needs.get-pr-branch.outputs.pr-branch }}
 
             git add .
             git restore --staged Cargo.lock # ignore changes in Cargo.lock
