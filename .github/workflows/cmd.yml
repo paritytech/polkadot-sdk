@@ -358,7 +358,7 @@ jobs:
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
           
-            git pull origin ${{ needs.get-pr-branch.outputs.pr-branch }}
+            git pull --rebase origin ${{ needs.get-pr-branch.outputs.pr-branch }}
             git add .
             git restore --staged Cargo.lock # ignore changes in Cargo.lock
             git commit -m "Update from ${{ github.actor }} running command '${{ steps.get-pr-comment.outputs.group2 }}'" || true

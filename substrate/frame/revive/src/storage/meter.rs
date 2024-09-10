@@ -21,17 +21,17 @@ use crate::{
 	address::AddressMapper, storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error,
 	Event, HoldReason, Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
-
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::{
 		fungible::{Mutate, MutateHold},
 		tokens::{Fortitude, Fortitude::Polite, Precision, Preservation, Restriction},
-		Get,
+		Get, IsType,
 	},
 	DefaultNoBound, RuntimeDebugNoBound,
 };
+use sp_core::H256;
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
@@ -400,6 +400,7 @@ where
 impl<T, E> RawMeter<T, E, Nested>
 where
 	T: Config,
+	T::Hash: IsType<H256>,
 	E: Ext<T>,
 {
 	/// Charges `diff` from the meter.
@@ -503,7 +504,10 @@ where
 	}
 }
 
-impl<T: Config> Ext<T> for ReservingExt {
+impl<T: Config> Ext<T> for ReservingExt
+where
+	T::Hash: IsType<H256>,
+{
 	fn check_limit(
 		origin: &T::AccountId,
 		limit: BalanceOf<T>,

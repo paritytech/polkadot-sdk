@@ -1,0 +1,8 @@
+title: 'pallet-utility: Improve weight annotations'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Prevent allocations when calculating the weights.
+crates:
+- name: pallet-utility
+  bump: patch
