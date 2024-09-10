@@ -38,20 +38,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        features:
-          [
+        features: [
             {
               name: "polkadot-availability-recovery",
               bench: "availability-recovery-regression-bench",
             },
-            {
-              name: "polkadot-availability-distribution",
-              bench: "availability-distribution-regression-bench",
-            },
-            {
-              name: "polkadot-node-core-approval-voting",
-              bench: "approval-voting-regression-bench",
-            },
+            # {
+            #   name: "polkadot-availability-distribution",
+            #   bench: "availability-distribution-regression-bench",
+            # },
+            # {
+            #   name: "polkadot-node-core-approval-voting",
+            #   bench: "approval-voting-regression-bench",
+            # },
             {
               name: "polkadot-statement-distribution",
               bench: "statement-distribution-regression-bench",
