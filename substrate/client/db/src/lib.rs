@@ -1716,7 +1716,25 @@ impl<Block: BlockT> Backend<Block> {
 								block_gap_updated = true;
 							},
 						BlockGapType::MissingBody => {
-							unreachable!("Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406")
+							// Gap increased when syncing the header chain during fast sync.
+							if number == gap.end + One::one() && !body_exists {
+								gap.end += One::one();
+								utils::insert_number_to_key_mapping(
+									&mut transaction,
+									columns::KEY_LOOKUP,
+									number,
+									hash,
+								)?;
+								block_gap = Some(gap);
+								debug!(target: "db", "Update block gap. {block_gap:?}");
+								transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
+								transaction.set(
+									columns::META,
+									meta_keys::BLOCK_GAP_VERSION,
+									&BLOCK_GAP_CURRENT_VERSION.encode(),
+								);
+								block_gap_updated = true;
+							}
 						},
 					}
 				} else if operation.create_gap {
