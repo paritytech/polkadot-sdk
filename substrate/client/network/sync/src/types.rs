@@ -23,7 +23,6 @@ use sc_network_common::{role::Roles, types::ReputationChange};
 
 use crate::strategy::{state_sync::StateSyncProgress, warp::WarpSyncProgress};
 
-use sc_network_common::sync::message::BlockRequest;
 use sc_network_types::PeerId;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -106,12 +105,6 @@ impl fmt::Display for BadPeer {
 }
 
 impl std::error::Error for BadPeer {}
-
-#[derive(Debug)]
-pub enum PeerRequest<B: BlockT> {
-	Block(BlockRequest<B>),
-	Generic,
-}
 
 /// Provides high-level status of syncing.
 #[async_trait::async_trait]

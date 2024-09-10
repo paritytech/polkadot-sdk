@@ -36,7 +36,7 @@ use crate::{
 };
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::ProtocolName;
-use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockRequest};
+use sc_network_common::sync::message::BlockAnnounce;
 use sc_network_types::PeerId;
 use sp_blockchain::Error as ClientError;
 use sp_consensus::BlockOrigin;
@@ -44,6 +44,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, NumberFor},
 	Justifications,
 };
+use std::any::Any;
 
 /// Syncing strategy for syncing engine to use
 pub trait SyncingStrategy<B: BlockT>: Send
@@ -85,22 +86,16 @@ where
 	/// Report a justification import (successful or not).
 	fn on_justification_import(&mut self, hash: B::Hash, number: NumberFor<B>, success: bool);
 
-	/// Process block response.
-	fn on_block_response(
-		&mut self,
-		peer_id: PeerId,
-		key: StrategyKey,
-		request: BlockRequest<B>,
-		blocks: Vec<BlockData<B>>,
-	);
-
 	/// Process generic response.
+	///
+	/// Strategy has to create opaque response and should be to downcast it back into concrete type
+	/// internally. Failure to downcast is an implementation bug.
 	fn on_generic_response(
 		&mut self,
 		peer_id: &PeerId,
 		key: StrategyKey,
 		protocol_name: ProtocolName,
-		response: Vec<u8>,
+		response: Box<dyn Any + Send>,
 	);
 
 	/// A batch of blocks that have been processed, with or without errors.
@@ -156,10 +151,14 @@ impl StrategyKey {
 }
 
 pub enum SyncingAction<B: BlockT> {
-	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
-	SendBlockRequest { peer_id: PeerId, key: StrategyKey, request: BlockRequest<B> },
 	/// Start request to peer.
-	StartRequest { peer_id: PeerId, key: StrategyKey, request: ResponseFuture },
+	StartRequest {
+		peer_id: PeerId,
+		key: StrategyKey,
+		request: ResponseFuture,
+		// Whether to remove obsolete pending responses.
+		remove_obsolete: bool,
+	},
 	/// Drop stale request.
 	CancelRequest { peer_id: PeerId, key: StrategyKey },
 	/// Peer misbehaved. Disconnect, report it and cancel any requests to it.
@@ -185,7 +184,6 @@ impl<B: BlockT> SyncingAction<B> {
 	#[cfg(test)]
 	pub(crate) fn name(&self) -> &'static str {
 		match self {
-			Self::SendBlockRequest { .. } => "SendBlockRequest",
 			Self::StartRequest { .. } => "StartRequest",
 			Self::CancelRequest { .. } => "CancelRequest",
 			Self::DropPeer(_) => "DropPeer",

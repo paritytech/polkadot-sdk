@@ -21,7 +21,7 @@ use sc_network::{request_responses::RequestFailure, NetworkBackend, ProtocolName
 use sc_network_common::sync::message::{BlockData, BlockRequest};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 /// The serving side of the block relay protocol. It runs a single instance
 /// of the server task that processes the incoming protocol messages.
@@ -34,7 +34,10 @@ pub trait BlockServer<Block: BlockT>: Send {
 /// The client side stub to download blocks from peers. This is a handle
 /// that can be used to initiate concurrent downloads.
 #[async_trait::async_trait]
-pub trait BlockDownloader<Block: BlockT>: Send + Sync {
+pub trait BlockDownloader<Block: BlockT>: fmt::Debug + Send + Sync {
+	/// Protocol name used by block downloader.
+	fn protocol_name(&self) -> &ProtocolName;
+
 	/// Performs the protocol specific sequence to fetch the blocks from the peer.
 	/// Output: if the download succeeds, the response is a `Vec<u8>` which is
 	/// in a format specific to the protocol implementation. The block data

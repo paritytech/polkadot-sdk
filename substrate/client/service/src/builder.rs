@@ -807,8 +807,6 @@ where
 	>,
 	/// Syncing strategy to use in syncing engine.
 	pub syncing_strategy: Box<dyn SyncingStrategy<Block>>,
-	/// Implementation of block downloader logic.
-	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
 	/// Network service provider to drive with network internally.
 	pub network_service_provider: NetworkServiceProvider,
 	/// Metrics.
@@ -852,7 +850,6 @@ where
 		import_queue,
 		block_announce_validator_builder,
 		syncing_strategy,
-		block_downloader,
 		network_service_provider,
 		metrics,
 	} = params;
@@ -916,7 +913,6 @@ where
 		syncing_strategy,
 		network_service_provider.handle(),
 		import_queue.service(),
-		block_downloader,
 		Arc::clone(&peer_store_handle),
 	)?;
 	let sync_service_import_queue = sync_service.clone();
@@ -1071,6 +1067,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	fork_id: Option<&str>,
 	net_config: &mut FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
 	warp_sync_config: Option<WarpSyncConfig<Block>>,
+	block_downloader: Arc<dyn BlockDownloader<Block>>,
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
@@ -1140,6 +1137,7 @@ where
 		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
+		block_downloader,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,

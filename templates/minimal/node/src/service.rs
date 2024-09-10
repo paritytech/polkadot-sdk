@@ -153,6 +153,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		config.chain_spec.fork_id(),
 		&mut net_config,
 		None,
+		block_downloader,
 		client.clone(),
 		&spawn_handle,
 		config.prometheus_config.as_ref().map(|config| &config.registry),
@@ -168,7 +169,6 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 			net_config,
 			block_announce_validator_builder: None,
 			syncing_strategy,
-			block_downloader,
 			network_service_provider,
 			metrics,
 		})?;

@@ -29,6 +29,7 @@
 //! order to update it.
 
 use crate::{
+	block_relay_protocol::{BlockDownloader, BlockResponseError},
 	blocks::BlockCollection,
 	justification_requests::ExtraRequests,
 	schema::v1::{StateRequest, StateResponse},
@@ -67,6 +68,7 @@ use sp_runtime::{
 };
 
 use std::{
+	any::Any,
 	collections::{HashMap, HashSet},
 	ops::Range,
 	sync::Arc,
@@ -128,6 +130,9 @@ mod rep {
 
 	/// Peer response data does not have requested bits.
 	pub const BAD_RESPONSE: Rep = Rep::new(-(1 << 12), "Incomplete response");
+
+	/// We received a message that failed to decode.
+	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad message");
 }
 
 struct Metrics {
@@ -331,6 +336,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// Enable importing existing blocks. This is used after the state download to
 	/// catch up to the latest state while re-importing blocks.
 	import_existing: bool,
+	/// Block downloader
+	block_downloader: Arc<dyn BlockDownloader<B>>,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -352,11 +359,10 @@ where
 {
 	fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
 		match self.add_peer_inner(peer_id, best_hash, best_number) {
-			Ok(Some(request)) => self.actions.push(SyncingAction::SendBlockRequest {
-				peer_id,
-				key: Self::STRATEGY_KEY,
-				request,
-			}),
+			Ok(Some(request)) => {
+				let action = self.create_block_request_action(peer_id, request);
+				self.actions.push(action);
+			},
 			Ok(None) => {},
 			Err(bad_peer) => self.actions.push(SyncingAction::DropPeer(bad_peer)),
 		}
@@ -568,35 +574,76 @@ where
 		self.allowed_requests.set_all();
 	}
 
-	fn on_block_response(
-		&mut self,
-		peer_id: PeerId,
-		key: StrategyKey,
-		request: BlockRequest<B>,
-		blocks: Vec<BlockData<B>>,
-	) {
-		self.on_block_response(peer_id, key, request, blocks)
-	}
-
 	fn on_generic_response(
 		&mut self,
 		peer_id: &PeerId,
 		key: StrategyKey,
-		_protocol_name: ProtocolName,
-		response: Vec<u8>,
+		protocol_name: ProtocolName,
+		response: Box<dyn Any + Send>,
 	) {
-		match key {
-			Self::STRATEGY_KEY =>
-				if let Err(bad_peer) = self.on_state_data(&peer_id, &response) {
-					self.actions.push(SyncingAction::DropPeer(bad_peer));
-				},
-			key => {
-				warn!(
-					target: LOG_TARGET,
-					"Unexpected generic response strategy key: {key:?}",
-				);
+		if Self::STRATEGY_KEY != key {
+			warn!(
+				target: LOG_TARGET,
+				"Unexpected generic response strategy key {key:?}, protocol {protocol_name}",
+			);
+			debug_assert!(false);
+			return;
+		}
+
+		if protocol_name == self.state_request_protocol_name {
+			let Ok(response) = response.downcast::<Vec<u8>>() else {
+				warn!(target: LOG_TARGET, "Failed to downcast state response");
 				debug_assert!(false);
-			},
+				return;
+			};
+
+			if let Err(bad_peer) = self.on_state_data(&peer_id, &response) {
+				self.actions.push(SyncingAction::DropPeer(bad_peer));
+			}
+		} else if &protocol_name == self.block_downloader.protocol_name() {
+			let Ok(response) = response
+				.downcast::<(BlockRequest<B>, Result<Vec<BlockData<B>>, BlockResponseError>)>()
+			else {
+				warn!(target: LOG_TARGET, "Failed to downcast block response");
+				debug_assert!(false);
+				return;
+			};
+
+			let (request, response) = *response;
+			let blocks = match response {
+				Ok(blocks) => blocks,
+				Err(BlockResponseError::DecodeFailed(e)) => {
+					debug!(
+						target: LOG_TARGET,
+						"Failed to decode block response from peer {:?}: {:?}.",
+						peer_id,
+						e
+					);
+					self.actions.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_MESSAGE)));
+					return;
+				},
+				Err(BlockResponseError::ExtractionFailed(e)) => {
+					debug!(
+						target: LOG_TARGET,
+						"Failed to extract blocks from peer response {:?}: {:?}.",
+						peer_id,
+						e
+					);
+					self.actions.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_MESSAGE)));
+					return;
+				},
+			};
+
+			if let Err(bad_peer) = self.on_block_response(peer_id, key, request, blocks) {
+				self.actions.push(SyncingAction::DropPeer(bad_peer));
+			}
+		} else {
+			warn!(
+				target: LOG_TARGET,
+				"Unexpected generic response protocol {protocol_name}, strategy key \
+				{key:?}",
+			);
+			debug_assert!(false);
 		}
 	}
 
@@ -831,15 +878,18 @@ where
 			}
 		}
 
-		let block_requests = self.block_requests().into_iter().map(|(peer_id, request)| {
-			SyncingAction::SendBlockRequest { peer_id, key: Self::STRATEGY_KEY, request }
-		});
+		let block_requests = self
+			.block_requests()
+			.into_iter()
+			.map(|(peer_id, request)| self.create_block_request_action(peer_id, request))
+			.collect::<Vec<_>>();
 		self.actions.extend(block_requests);
 
-		let justification_requests =
-			self.justification_requests().into_iter().map(|(peer_id, request)| {
-				SyncingAction::SendBlockRequest { peer_id, key: Self::STRATEGY_KEY, request }
-			});
+		let justification_requests = self
+			.justification_requests()
+			.into_iter()
+			.map(|(peer_id, request)| self.create_block_request_action(peer_id, request))
+			.collect::<Vec<_>>();
 		self.actions.extend(justification_requests);
 
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
@@ -858,7 +908,17 @@ where
 				IfDisconnected::ImmediateError,
 			);
 
-			SyncingAction::StartRequest { peer_id, key: Self::STRATEGY_KEY, request: rx.boxed() }
+			SyncingAction::StartRequest {
+				peer_id,
+				key: Self::STRATEGY_KEY,
+				request: async move {
+					Ok(rx.await?.and_then(|(response, protocol_name)| {
+						Ok((Box::new(response) as Box<dyn Any + Send>, protocol_name))
+					}))
+				}
+				.boxed(),
+				remove_obsolete: false,
+			}
 		});
 		self.actions.extend(state_request);
 
@@ -887,6 +947,7 @@ where
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		state_request_protocol_name: ProtocolName,
+		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
@@ -909,6 +970,7 @@ where
 			downloaded_blocks: 0,
 			state_sync: None,
 			import_existing: false,
+			block_downloader,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1046,6 +1108,33 @@ where
 				self.allowed_requests.add(&peer_id);
 				Ok(None)
 			},
+		}
+	}
+
+	fn create_block_request_action(
+		&mut self,
+		peer_id: PeerId,
+		request: BlockRequest<B>,
+	) -> SyncingAction<B> {
+		let downloader = self.block_downloader.clone();
+
+		SyncingAction::StartRequest {
+			peer_id,
+			key: Self::STRATEGY_KEY,
+			request: async move {
+				Ok(downloader.download_blocks(peer_id, request.clone()).await?.and_then(
+					|(response, protocol_name)| {
+						let decoded_response =
+							downloader.block_response_into_blocks(&request, response);
+						let result = Box::new((request, decoded_response)) as Box<dyn Any + Send>;
+						Ok((result, protocol_name))
+					},
+				))
+			}
+			.boxed(),
+			// Sending block request implies dropping obsolete pending response as we are not
+			// interested in it anymore.
+			remove_obsolete: true,
 		}
 	}
 
@@ -1222,11 +1311,8 @@ where
 								state: next_state,
 							};
 							let request = ancestry_request::<B>(next_num);
-							self.actions.push(SyncingAction::SendBlockRequest {
-								peer_id: *peer_id,
-								key: Self::STRATEGY_KEY,
-								request,
-							});
+							let action = self.create_block_request_action(*peer_id, request);
+							self.actions.push(action);
 							return Ok(());
 						} else {
 							// Ancestry search is complete. Check if peer is on a stale fork unknown
@@ -1310,11 +1396,11 @@ where
 
 	fn on_block_response(
 		&mut self,
-		peer_id: PeerId,
+		peer_id: &PeerId,
 		key: StrategyKey,
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
-	) {
+	) -> Result<(), BadPeer> {
 		if key != Self::STRATEGY_KEY {
 			error!(
 				target: LOG_TARGET,
@@ -1344,14 +1430,10 @@ where
 			blocks_range(),
 		);
 
-		let res = if request.fields == BlockAttributes::JUSTIFICATION {
-			self.on_block_justification(peer_id, block_response)
+		if request.fields == BlockAttributes::JUSTIFICATION {
+			self.on_block_justification(*peer_id, block_response)
 		} else {
-			self.on_block_data(&peer_id, Some(request), block_response)
-		};
-
-		if let Err(bad_peer) = res {
-			self.actions.push(SyncingAction::DropPeer(bad_peer));
+			self.on_block_data(peer_id, Some(request), block_response)
 		}
 	}
 

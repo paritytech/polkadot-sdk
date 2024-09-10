@@ -20,12 +20,13 @@
 //! and specific syncing algorithms.
 
 use crate::{
+	block_relay_protocol::BlockDownloader,
 	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
 	service::network::NetworkServiceHandle,
 	strategy::{
 		chain_sync::{ChainSync, ChainSyncMode},
 		state::StateStrategy,
-		warp::{EncodedProof, WarpSync, WarpSyncConfig},
+		warp::{WarpSync, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
 	types::SyncStatus,
@@ -36,14 +37,11 @@ use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus};
 use sc_network::ProtocolName;
-use sc_network_common::sync::{
-	message::{BlockAnnounce, BlockData, BlockRequest},
-	SyncMode,
-};
+use sc_network_common::sync::{message::BlockAnnounce, SyncMode};
 use sc_network_types::PeerId;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
-use std::{collections::HashMap, sync::Arc};
+use std::{any::Any, collections::HashMap, sync::Arc};
 
 /// Corresponding `ChainSync` mode.
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
@@ -57,7 +55,10 @@ fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 
 /// Syncing configuration containing data for [`PolkadotSyncingStrategy`].
 #[derive(Clone, Debug)]
-pub struct PolkadotSyncingStrategyConfig {
+pub struct PolkadotSyncingStrategyConfig<Block>
+where
+	Block: BlockT,
+{
 	/// Syncing mode.
 	pub mode: SyncMode,
 	/// The number of parallel downloads to guard against slow peers.
@@ -68,12 +69,14 @@ pub struct PolkadotSyncingStrategyConfig {
 	pub metrics_registry: Option<Registry>,
 	/// Protocol name used to send out state requests
 	pub state_request_protocol_name: ProtocolName,
+	/// Block downloader
+	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
 }
 
 /// Proxy to specific syncing strategies used in Polkadot.
 pub struct PolkadotSyncingStrategy<B: BlockT, Client> {
 	/// Initial syncing configuration.
-	config: PolkadotSyncingStrategyConfig,
+	config: PolkadotSyncingStrategyConfig<B>,
 	/// Client used by syncing strategies.
 	client: Arc<Client>,
 	/// Warp strategy.
@@ -175,65 +178,59 @@ where
 		}
 	}
 
-	fn on_block_response(
-		&mut self,
-		peer_id: PeerId,
-		key: StrategyKey,
-		request: BlockRequest<B>,
-		blocks: Vec<BlockData<B>>,
-	) {
-		if let (WarpSync::<B, Client>::STRATEGY_KEY, Some(ref mut warp)) = (key, &mut self.warp) {
-			warp.on_block_response(peer_id, request, blocks);
-		} else if let (ChainSync::<B, Client>::STRATEGY_KEY, Some(ref mut chain_sync)) =
-			(key, &mut self.chain_sync)
-		{
-			chain_sync.on_block_response(peer_id, key, request, blocks);
-		} else {
-			error!(
-				target: LOG_TARGET,
-				"`on_block_response()` called with unexpected key {key:?} \
-				 or corresponding strategy is not active.",
-			);
-			debug_assert!(false);
-		}
-	}
-
 	fn on_generic_response(
 		&mut self,
 		peer_id: &PeerId,
 		key: StrategyKey,
 		protocol_name: ProtocolName,
-		response: Vec<u8>,
+		response: Box<dyn Any + Send>,
 	) {
 		match key {
 			StateStrategy::<B>::STRATEGY_KEY =>
 				if let Some(state) = &mut self.state {
-					state.on_state_response(peer_id, response);
+					let Ok(response) = response.downcast::<Vec<u8>>() else {
+						warn!(target: LOG_TARGET, "Failed to downcast state response");
+						debug_assert!(false);
+						return;
+					};
+
+					state.on_state_response(peer_id, *response);
 				} else if let Some(chain_sync) = &mut self.chain_sync {
 					chain_sync.on_generic_response(peer_id, key, protocol_name, response);
 				} else {
 					error!(
 						target: LOG_TARGET,
-						"`on_state_response()` called with unexpected key {key:?} \
+						"`on_generic_response()` called with unexpected key {key:?} \
 						 or corresponding strategy is not active.",
 					);
 					debug_assert!(false);
 				},
 			WarpSync::<B, Client>::STRATEGY_KEY =>
 				if let Some(warp) = &mut self.warp {
-					warp.on_warp_proof_response(peer_id, EncodedProof(response));
+					warp.on_generic_response(peer_id, protocol_name, response);
 				} else {
 					error!(
 						target: LOG_TARGET,
-						"`on_warp_proof_response()` called with unexpected key {key:?} \
+						"`on_generic_response()` called with unexpected key {key:?} \
 						 or warp strategy is not active",
+					);
+					debug_assert!(false);
+				},
+			ChainSync::<B, Client>::STRATEGY_KEY =>
+				if let Some(chain_sync) = &mut self.chain_sync {
+					chain_sync.on_generic_response(peer_id, key, protocol_name, response);
+				} else {
+					error!(
+						target: LOG_TARGET,
+						"`on_generic_response()` called with unexpected key {key:?} \
+						 or corresponding strategy is not active.",
 					);
 					debug_assert!(false);
 				},
 			key => {
 				warn!(
 					target: LOG_TARGET,
-					"Unexpected generic response strategy key: {key:?}",
+					"Unexpected generic response strategy key {key:?}, protocol {protocol_name}",
 				);
 				debug_assert!(false);
 			},
@@ -342,7 +339,7 @@ where
 {
 	/// Initialize a new syncing strategy.
 	pub fn new(
-		mut config: PolkadotSyncingStrategyConfig,
+		mut config: PolkadotSyncingStrategyConfig<B>,
 		client: Arc<Client>,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
 		warp_sync_protocol_name: Option<ProtocolName>,
@@ -358,8 +355,12 @@ where
 		if let SyncMode::Warp = config.mode {
 			let warp_sync_config = warp_sync_config
 				.expect("Warp sync configuration must be supplied in warp sync mode.");
-			let warp_sync =
-				WarpSync::new(client.clone(), warp_sync_config, warp_sync_protocol_name);
+			let warp_sync = WarpSync::new(
+				client.clone(),
+				warp_sync_config,
+				warp_sync_protocol_name,
+				config.block_downloader.clone(),
+			);
 			Ok(Self {
 				config,
 				client,
@@ -375,6 +376,7 @@ where
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
 				config.state_request_protocol_name.clone(),
+				config.block_downloader.clone(),
 				config.metrics_registry.as_ref(),
 				std::iter::empty(),
 			)?;
@@ -426,6 +428,7 @@ where
 						self.config.max_parallel_downloads,
 						self.config.max_blocks_per_request,
 						self.config.state_request_protocol_name.clone(),
+						self.config.block_downloader.clone(),
 						self.config.metrics_registry.as_ref(),
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(*peer_id, *best_hash, *best_number)
@@ -455,6 +458,7 @@ where
 				self.config.max_parallel_downloads,
 				self.config.max_blocks_per_request,
 				self.config.state_request_protocol_name.clone(),
+				self.config.block_downloader.clone(),
 				self.config.metrics_registry.as_ref(),
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(*peer_id, *best_hash, *best_number)

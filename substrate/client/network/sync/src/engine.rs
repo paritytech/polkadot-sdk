@@ -23,19 +23,18 @@ use crate::{
 	block_announce_validator::{
 		BlockAnnounceValidationResult, BlockAnnounceValidator as BlockAnnounceValidatorStream,
 	},
-	block_relay_protocol::{BlockDownloader, BlockResponseError},
 	pending_responses::{PendingResponses, ResponseEvent},
 	service::{
 		self,
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
-	strategy::{StrategyKey, SyncingAction, SyncingStrategy},
-	types::{BadPeer, ExtendedPeerInfo, PeerRequest, SyncEvent},
+	strategy::{SyncingAction, SyncingStrategy},
+	types::{BadPeer, ExtendedPeerInfo, SyncEvent},
 	LOG_TARGET,
 };
 
 use codec::{Decode, DecodeAll, Encode};
-use futures::{channel::oneshot, FutureExt, StreamExt};
+use futures::{channel::oneshot, StreamExt};
 use libp2p::request_response::OutboundFailure;
 use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
@@ -60,7 +59,7 @@ use sc_network::{
 };
 use sc_network_common::{
 	role::Roles,
-	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
+	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockState},
 };
 use sc_network_types::PeerId;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -96,8 +95,6 @@ mod rep {
 	pub const GENESIS_MISMATCH: Rep = Rep::new_fatal("Genesis mismatch");
 	/// Peer send us a block announcement that failed at validation.
 	pub const BAD_BLOCK_ANNOUNCEMENT: Rep = Rep::new(-(1 << 12), "Bad block announcement");
-	/// We received a message that failed to decode.
-	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad message");
 	/// Peer is on unsupported protocol version.
 	pub const BAD_PROTOCOL: Rep = Rep::new_fatal("Unsupported protocol");
 	/// Reputation change when a peer refuses a request.
@@ -258,10 +255,7 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	peer_store_handle: Arc<dyn PeerStoreProvider>,
 
 	/// Pending responses
-	pending_responses: PendingResponses<B>,
-
-	/// Block downloader
-	block_downloader: Arc<dyn BlockDownloader<B>>,
+	pending_responses: PendingResponses,
 
 	/// Handle to import queue.
 	import_queue: Box<dyn ImportQueueService<B>>,
@@ -290,7 +284,6 @@ where
 		syncing_strategy: Box<dyn SyncingStrategy<B>>,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
-		block_downloader: Arc<dyn BlockDownloader<B>>,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
 	) -> Result<(Self, SyncingService<B>, N::NotificationProtocolConfig), ClientError>
 	where
@@ -411,7 +404,6 @@ where
 					None
 				},
 				pending_responses: PendingResponses::new(),
-				block_downloader,
 				import_queue,
 			},
 			SyncingService::new(tx, num_connected, is_major_syncing),
@@ -579,32 +571,7 @@ where
 	fn process_strategy_actions(&mut self) -> Result<(), ClientError> {
 		for action in self.strategy.actions(&self.network_service)? {
 			match action {
-				SyncingAction::SendBlockRequest { peer_id, key, request } => {
-					// Sending block request implies dropping obsolete pending response as we are
-					// not interested in it anymore (see [`SyncingAction::SendBlockRequest`]).
-					let removed = self.pending_responses.remove(peer_id, key);
-					self.send_block_request(peer_id, key, request.clone());
-
-					if removed {
-						warn!(
-							target: LOG_TARGET,
-							"Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}. \
-							 Stale response removed!",
-							peer_id,
-							key,
-							request,
-						)
-					} else {
-						trace!(
-							target: LOG_TARGET,
-							"Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}.",
-							peer_id,
-							key,
-							request,
-						)
-					}
-				},
-				SyncingAction::StartRequest { peer_id, key, request } => {
+				SyncingAction::StartRequest { peer_id, key, request, remove_obsolete } => {
 					if !self.peers.contains_key(&peer_id) {
 						trace!(
 							target: LOG_TARGET,
@@ -614,8 +581,26 @@ where
 						debug_assert!(false);
 						continue;
 					}
+					if remove_obsolete {
+						// Sending block request implies dropping obsolete pending response as we
+						// are not interested in it anymore (see
+						// [`SyncingAction::SendBlockRequest`]).
+						if self.pending_responses.remove(peer_id, key) {
+							warn!(
+								target: LOG_TARGET,
+								"Processed `SyncingAction::StartRequest` to {peer_id} with \
+								strategy key {key:?}. Stale response removed!",
+							)
+						} else {
+							trace!(
+								target: LOG_TARGET,
+								"Processed `SyncingAction::StartRequest` to {peer_id} with \
+								strategy key {key:?}.",
+							)
+						}
+					}
 
-					self.pending_responses.insert(peer_id, key, PeerRequest::Generic, request);
+					self.pending_responses.insert(peer_id, key, request);
 				},
 				SyncingAction::CancelRequest { peer_id, key } => {
 					let removed = self.pending_responses.remove(peer_id, key);
@@ -988,62 +973,12 @@ where
 		Ok(())
 	}
 
-	fn send_block_request(&mut self, peer_id: PeerId, key: StrategyKey, request: BlockRequest<B>) {
-		if !self.peers.contains_key(&peer_id) {
-			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {peer_id}");
-			debug_assert!(false);
-			return;
-		}
+	fn process_response_event(&mut self, response_event: ResponseEvent) {
+		let ResponseEvent { peer_id, key, response: response_result } = response_event;
 
-		let downloader = self.block_downloader.clone();
-
-		self.pending_responses.insert(
-			peer_id,
-			key,
-			PeerRequest::Block(request.clone()),
-			async move { downloader.download_blocks(peer_id, request).await }.boxed(),
-		);
-	}
-
-	fn process_response_event(&mut self, response_event: ResponseEvent<B>) {
-		let ResponseEvent { peer_id, key, request, response } = response_event;
-
-		match response {
-			Ok(Ok((resp, protocol_name))) => match request {
-				PeerRequest::Block(req) => {
-					match self.block_downloader.block_response_into_blocks(&req, resp) {
-						Ok(blocks) => {
-							self.strategy.on_block_response(peer_id, key, req, blocks);
-						},
-						Err(BlockResponseError::DecodeFailed(e)) => {
-							debug!(
-								target: LOG_TARGET,
-								"Failed to decode block response from peer {:?}: {:?}.",
-								peer_id,
-								e
-							);
-							self.network_service.report_peer(peer_id, rep::BAD_MESSAGE);
-							self.network_service.disconnect_peer(
-								peer_id,
-								self.block_announce_protocol_name.clone(),
-							);
-							return;
-						},
-						Err(BlockResponseError::ExtractionFailed(e)) => {
-							debug!(
-								target: LOG_TARGET,
-								"Failed to extract blocks from peer response {:?}: {:?}.",
-								peer_id,
-								e
-							);
-							self.network_service.report_peer(peer_id, rep::BAD_MESSAGE);
-							return;
-						},
-					}
-				},
-				PeerRequest::Generic => {
-					self.strategy.on_generic_response(&peer_id, key, protocol_name, resp);
-				},
+		match response_result {
+			Ok(Ok((response, protocol_name))) => {
+				self.strategy.on_generic_response(&peer_id, key, protocol_name, response);
 			},
 			Ok(Err(e)) => {
 				debug!(target: LOG_TARGET, "Request to peer {peer_id:?} failed: {e:?}.");

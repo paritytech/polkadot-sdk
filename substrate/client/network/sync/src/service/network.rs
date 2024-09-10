@@ -43,6 +43,7 @@ pub struct NetworkServiceProvider {
 }
 
 /// Commands that `ChainSync` wishes to send to `NetworkService`
+#[derive(Debug)]
 pub enum ToServiceCommand {
 	/// Call `NetworkPeers::disconnect_peer()`
 	DisconnectPeer(PeerId, ProtocolName),
@@ -62,7 +63,7 @@ pub enum ToServiceCommand {
 
 /// Handle that is (temporarily) passed to `ChainSync` so it can
 /// communicate with `NetworkService` through `SyncingEngine`
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct NetworkServiceHandle {
 	tx: TracingUnboundedSender<ToServiceCommand>,
 }

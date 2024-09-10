@@ -210,6 +210,7 @@ impl TestNetworkBuilder {
 			max_blocks_per_request: network_config.max_blocks_per_request,
 			metrics_registry: None,
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
+			block_downloader: block_relay_params.downloader,
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
@@ -228,7 +229,6 @@ impl TestNetworkBuilder {
 			syncing_strategy,
 			chain_sync_network_handle,
 			import_queue.service(),
-			block_relay_params.downloader,
 			Arc::clone(&peer_store_handle),
 		)
 		.unwrap();

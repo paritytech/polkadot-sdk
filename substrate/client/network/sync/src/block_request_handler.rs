@@ -502,6 +502,7 @@ enum HandleRequestError {
 }
 
 /// The full block downloader implementation of [`BlockDownloader].
+#[derive(Debug)]
 pub struct FullBlockDownloader {
 	protocol_name: ProtocolName,
 	network: NetworkServiceHandle,
@@ -576,6 +577,10 @@ impl FullBlockDownloader {
 
 #[async_trait::async_trait]
 impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
+	fn protocol_name(&self) -> &ProtocolName {
+		&self.protocol_name
+	}
+
 	async fn download_blocks(
 		&self,
 		who: PeerId,

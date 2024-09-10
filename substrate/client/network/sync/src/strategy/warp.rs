@@ -21,6 +21,7 @@
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
+	block_relay_protocol::{BlockDownloader, BlockResponseError},
 	service::network::NetworkServiceHandle,
 	strategy::{
 		chain_sync::validate_blocks, disconnected_peers::DisconnectedPeers, StrategyKey,
@@ -42,7 +43,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor, Zero},
 	Justifications, SaturatedConversion,
 };
-use std::{collections::HashMap, fmt, sync::Arc};
+use std::{any::Any, collections::HashMap, fmt, sync::Arc};
 
 /// Number of peers that need to be connected before warp sync is started.
 const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
@@ -102,6 +103,9 @@ mod rep {
 
 	/// Reputation change for peers which send us a block which we fail to verify.
 	pub const VERIFICATION_FAIL: Rep = Rep::new(-(1 << 29), "Block verification failed");
+
+	/// We received a message that failed to decode.
+	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad message");
 }
 
 /// Reported warp sync phase.
@@ -206,6 +210,7 @@ pub struct WarpSync<B: BlockT, Client> {
 	peers: HashMap<PeerId, Peer<B>>,
 	disconnected_peers: DisconnectedPeers,
 	protocol_name: Option<ProtocolName>,
+	block_downloader: Arc<dyn BlockDownloader<B>>,
 	actions: Vec<SyncingAction<B>>,
 	result: Option<WarpSyncResult<B>>,
 }
@@ -225,6 +230,7 @@ where
 		client: Arc<Client>,
 		warp_sync_config: WarpSyncConfig<B>,
 		protocol_name: Option<ProtocolName>,
+		block_downloader: Arc<dyn BlockDownloader<B>>,
 	) -> Self {
 		if client.info().finalized_state.is_some() {
 			error!(
@@ -239,6 +245,7 @@ where
 				peers: HashMap::new(),
 				disconnected_peers: DisconnectedPeers::new(),
 				protocol_name,
+				block_downloader,
 				actions: vec![SyncingAction::Finished],
 				result: None,
 			}
@@ -258,6 +265,7 @@ where
 			peers: HashMap::new(),
 			disconnected_peers: DisconnectedPeers::new(),
 			protocol_name,
+			block_downloader,
 			actions: Vec::new(),
 			result: None,
 		}
@@ -319,6 +327,58 @@ where
 			warp_sync_provider: Arc::clone(warp_sync_provider),
 		};
 		trace!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
+	}
+
+	pub fn on_generic_response(
+		&mut self,
+		peer_id: &PeerId,
+		protocol_name: ProtocolName,
+		response: Box<dyn Any + Send>,
+	) {
+		if &protocol_name == self.block_downloader.protocol_name() {
+			let Ok(response) = response
+				.downcast::<(BlockRequest<B>, Result<Vec<BlockData<B>>, BlockResponseError>)>()
+			else {
+				warn!(target: LOG_TARGET, "Failed to downcast block response");
+				debug_assert!(false);
+				return;
+			};
+
+			let (request, response) = *response;
+			let blocks = match response {
+				Ok(blocks) => blocks,
+				Err(BlockResponseError::DecodeFailed(e)) => {
+					debug!(
+						target: LOG_TARGET,
+						"Failed to decode block response from peer {:?}: {:?}.",
+						peer_id,
+						e
+					);
+					self.actions.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_MESSAGE)));
+					return;
+				},
+				Err(BlockResponseError::ExtractionFailed(e)) => {
+					debug!(
+						target: LOG_TARGET,
+						"Failed to extract blocks from peer response {:?}: {:?}.",
+						peer_id,
+						e
+					);
+					self.actions.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_MESSAGE)));
+					return;
+				},
+			};
+
+			self.on_block_response(*peer_id, request, blocks);
+		} else {
+			let Ok(response) = response.downcast::<Vec<u8>>() else {
+				warn!(target: LOG_TARGET, "Failed to downcast warp sync response");
+				debug_assert!(false);
+				return;
+			};
+
+			self.on_warp_proof_response(peer_id, EncodedProof(*response));
+		}
 	}
 
 	/// Process warp proof response.
@@ -624,14 +684,40 @@ where
 				SyncingAction::StartRequest {
 					peer_id,
 					key: Self::STRATEGY_KEY,
-					request: rx.boxed(),
+					request: async move {
+						Ok(rx.await?.and_then(|(response, protocol_name)| {
+							Ok((Box::new(response) as Box<dyn Any + Send>, protocol_name))
+						}))
+					}
+					.boxed(),
+					remove_obsolete: false,
 				}
 			});
 		self.actions.extend(warp_proof_request);
 
 		let target_block_request =
 			self.target_block_request().into_iter().map(|(peer_id, request)| {
-				SyncingAction::SendBlockRequest { peer_id, key: Self::STRATEGY_KEY, request }
+				let downloader = self.block_downloader.clone();
+
+				SyncingAction::StartRequest {
+					peer_id,
+					key: Self::STRATEGY_KEY,
+					request: async move {
+						Ok(downloader.download_blocks(peer_id, request.clone()).await?.and_then(
+							|(response, protocol_name)| {
+								let decoded_response =
+									downloader.block_response_into_blocks(&request, response);
+								let result =
+									Box::new((request, decoded_response)) as Box<dyn Any + Send>;
+								Ok((result, protocol_name))
+							},
+						))
+					}
+					.boxed(),
+					// Sending block request implies dropping obsolete pending response as we are
+					// not interested in it anymore.
+					remove_obsolete: true,
+				}
 			});
 		self.actions.extend(target_block_request);
 
@@ -648,7 +734,7 @@ where
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::service::network::NetworkServiceProvider;
+	use crate::{mock::MockBlockDownloader, service::network::NetworkServiceProvider};
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
 	use sp_consensus_grandpa::{AuthorityList, SetId};
@@ -733,7 +819,8 @@ mod test {
 		let client = mock_client_with_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+		let mut warp_sync =
+			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
 
 		let network_provider = NetworkServiceProvider::new();
 		let network_handle = network_provider.handle();
@@ -757,7 +844,8 @@ mod test {
 			Default::default(),
 			Default::default(),
 		));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+		let mut warp_sync =
+			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
 
 		let network_provider = NetworkServiceProvider::new();
 		let network_handle = network_provider.handle();
@@ -776,7 +864,8 @@ mod test {
 		let client = mock_client_without_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+		let mut warp_sync =
+			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
 
 		let network_provider = NetworkServiceProvider::new();
 		let network_handle = network_provider.handle();
@@ -795,7 +884,8 @@ mod test {
 			Default::default(),
 			Default::default(),
 		));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+		let mut warp_sync =
+			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
 
 		let network_provider = NetworkServiceProvider::new();
 		let network_handle = network_provider.handle();
@@ -813,7 +903,8 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+		let mut warp_sync =
+			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
 
 		// Warp sync is not started when there is not enough peers.
 		for _ in 0..(MIN_PEERS_TO_START_WARP_SYNC - 1) {
@@ -831,7 +922,8 @@ mod test {
 		let client = mock_client_without_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+		let mut warp_sync =
+			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
 
 		assert!(warp_sync.schedule_next_peer(PeerState::DownloadingProofs, None).is_none());
 	}
@@ -855,7 +947,8 @@ mod test {
 				.once()
 				.return_const(AuthorityList::default());
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-			let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+			let mut warp_sync =
+				WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
 
 			for best_number in 1..11 {
 				warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
@@ -876,7 +969,8 @@ mod test {
 				.once()
 				.return_const(AuthorityList::default());
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-			let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+			let mut warp_sync =
+				WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
 
 			for best_number in 1..11 {
 				warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
@@ -896,7 +990,8 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+		let mut warp_sync =
+			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
 
 		for best_number in 1..11 {
 			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
@@ -940,7 +1035,12 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, Some(ProtocolName::Static("")));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			Some(ProtocolName::Static("")),
+			Arc::new(MockBlockDownloader::new()),
+		);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -969,7 +1069,12 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, Some(ProtocolName::Static("")));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			Some(ProtocolName::Static("")),
+			Arc::new(MockBlockDownloader::new()),
+		);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1000,7 +1105,12 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, Some(ProtocolName::Static("")));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			Some(ProtocolName::Static("")),
+			Arc::new(MockBlockDownloader::new()),
+		);
 
 		// Make sure we have enough peers to make requests.
 		for best_number in 1..11 {
@@ -1027,7 +1137,12 @@ mod test {
 			Err(Box::new(std::io::Error::new(ErrorKind::Other, "test-verification-failure")))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, Some(ProtocolName::Static("")));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			Some(ProtocolName::Static("")),
+			Arc::new(MockBlockDownloader::new()),
+		);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1070,7 +1185,12 @@ mod test {
 			Ok(VerificationResult::Partial(set_id, authorities, Hash::random()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, Some(ProtocolName::Static("")));
+		let mut warp_sync = WarpSync::new(
+			Arc::new(client),
+			config,
+			Some(ProtocolName::Static("")),
+			Arc::new(MockBlockDownloader::new()),
+		);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1116,7 +1236,12 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config, Some(ProtocolName::Static("")));
+		let mut warp_sync = WarpSync::new(
+			client,
+			config,
+			Some(ProtocolName::Static("")),
+			Arc::new(MockBlockDownloader::new()),
+		);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1151,7 +1276,8 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+		let mut warp_sync =
+			WarpSync::new(Arc::new(client), config, None, Arc::new(MockBlockDownloader::new()));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1186,7 +1312,8 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config, None);
+		let mut warp_sync =
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1218,7 +1345,8 @@ mod test {
 			.block;
 		let target_header = target_block.header().clone();
 		let config = WarpSyncConfig::WithTarget(target_header);
-		let mut warp_sync = WarpSync::new(client, config, None);
+		let mut warp_sync =
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1258,7 +1386,8 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config, None);
+		let mut warp_sync =
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1296,7 +1425,8 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config, None);
+		let mut warp_sync =
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1350,7 +1480,8 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config, None);
+		let mut warp_sync =
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1427,7 +1558,8 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config, None);
+		let mut warp_sync =
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1480,7 +1612,8 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config, None);
+		let mut warp_sync =
+			WarpSync::new(client, config, None, Arc::new(MockBlockDownloader::new()));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {

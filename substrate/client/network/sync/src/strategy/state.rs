@@ -42,7 +42,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	Justifications, SaturatedConversion,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{any::Any, collections::HashMap, sync::Arc};
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -365,7 +365,17 @@ impl<B: BlockT> StateStrategy<B> {
 				IfDisconnected::ImmediateError,
 			);
 
-			SyncingAction::StartRequest { peer_id, key: Self::STRATEGY_KEY, request: rx.boxed() }
+			SyncingAction::StartRequest {
+				peer_id,
+				key: Self::STRATEGY_KEY,
+				request: async move {
+					Ok(rx.await?.and_then(|(response, protocol_name)| {
+						Ok((Box::new(response) as Box<dyn Any + Send>, protocol_name))
+					}))
+				}
+				.boxed(),
+				remove_obsolete: false,
+			}
 		});
 		self.actions.extend(state_request);
 

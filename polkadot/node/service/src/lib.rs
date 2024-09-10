@@ -1047,6 +1047,7 @@ pub fn new_full<
 		config.chain_spec.fork_id(),
 		&mut net_config,
 		Some(WarpSyncConfig::WithProvider(warp_sync)),
+		block_downloader,
 		client.clone(),
 		&spawn_handle,
 		config.prometheus_config.as_ref().map(|config| &config.registry),
@@ -1062,7 +1063,6 @@ pub fn new_full<
 			import_queue,
 			block_announce_validator_builder: None,
 			syncing_strategy,
-			block_downloader,
 			network_service_provider,
 			metrics,
 		})?;

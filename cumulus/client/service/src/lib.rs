@@ -516,6 +516,7 @@ where
 		parachain_config.chain_spec.fork_id(),
 		&mut net_config,
 		warp_sync_config,
+		block_downloader,
 		client.clone(),
 		&spawn_handle,
 		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
@@ -530,7 +531,6 @@ where
 		import_queue,
 		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
 		syncing_strategy,
-		block_downloader,
 		network_service_provider,
 		metrics,
 	})
