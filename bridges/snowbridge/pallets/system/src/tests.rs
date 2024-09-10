@@ -695,7 +695,7 @@ fn register_all_tokens_succeeds() {
 				symbol: b"USDT".to_vec().try_into().unwrap(),
 			},
 			foreign_token_id: hex!(
-				"d49fe2118be0cca618e4d171e60ffea98b7b648dd80dc37d6342116b910b7aa5"
+				"14b0579be12d7d7f9971f1d4b41f0e88384b9b74799b0150d4aa6cd01afb4444"
 			)
 			.into(),
 		},
