@@ -115,9 +115,10 @@ mod build {
 
 	fn invoke_build(current_dir: &Path) -> Result<()> {
 		let encoded_rustflags = [
+			"-Ctarget-feature=+lui-addi-fusion",
 			"-Crelocation-model=pie",
 			"-Clink-arg=--emit-relocs",
-			"-Clink-arg=--export-dynamic-symbol=__polkavm_symbol_export_hack__*",
+			"-Clink-arg=--unique",
 		]
 		.join("\x1f");
 
