@@ -145,7 +145,7 @@ mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
 	use frame_support::assert_ok;
-	use sp_runtime::traits::DispatchTransaction;
+	use sp_runtime::traits::{AsAuthorizedOrigin, DispatchTransaction};
 
 	#[test]
 	fn signed_ext_check_nonce_works() {
@@ -276,18 +276,11 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
-			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
-				None.into(),
-				CALL,
-				&info,
-				len
-			));
-			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
-				None.into(),
-				CALL,
-				&info,
-				len
-			));
+			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
+				.validate(None.into(), CALL, &info, len, (), CALL)
+				.unwrap();
+			assert!(!origin.is_authorized());
+			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(val, &origin, CALL, &info, len));
 		})
 	}
 

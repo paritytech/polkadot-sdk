@@ -88,7 +88,10 @@ mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
 	use frame_support::{assert_ok, dispatch::DispatchInfo};
-	use sp_runtime::{traits::DispatchTransaction, transaction_validity::TransactionValidityError};
+	use sp_runtime::{
+		traits::{AsAuthorizedOrigin, DispatchTransaction},
+		transaction_validity::TransactionValidityError,
+	};
 
 	#[test]
 	fn zero_account_ban_works() {
@@ -115,12 +118,10 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
-			assert_ok!(CheckNonZeroSender::<Test>::new().validate_only(
-				None.into(),
-				CALL,
-				&info,
-				len
-			));
+			let (_, _, origin) = CheckNonZeroSender::<Test>::new()
+				.validate(None.into(), CALL, &info, len, (), CALL)
+				.unwrap();
+			assert!(!origin.is_authorized());
 		})
 	}
 }
