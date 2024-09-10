@@ -102,7 +102,6 @@ pub struct ApprovalDistribution {
 	slot_duration_millis: u64,
 	clock: Arc<dyn Clock + Send + Sync>,
 	assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
-	subsystem_disabled: bool,
 }
 
 /// Contains recently finalized
@@ -2666,14 +2665,12 @@ impl ApprovalDistribution {
 		metrics: Metrics,
 		slot_duration_millis: u64,
 		assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
-		subsystem_disabled: bool,
 	) -> Self {
 		Self::new_with_clock(
 			metrics,
 			slot_duration_millis,
 			Arc::new(SystemClock),
 			assignment_criteria,
-			subsystem_disabled,
 		)
 	}
 
@@ -2683,9 +2680,8 @@ impl ApprovalDistribution {
 		slot_duration_millis: u64,
 		clock: Arc<dyn Clock + Send + Sync>,
 		assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
-		subsystem_disabled: bool,
 	) -> Self {
-		Self { metrics, slot_duration_millis, clock, assignment_criteria, subsystem_disabled }
+		Self { metrics, slot_duration_millis, clock, assignment_criteria }
 	}
 
 	async fn run<Context>(self, ctx: Context) {
@@ -2731,10 +2727,6 @@ impl ApprovalDistribution {
 					reputation_delay = new_reputation_delay();
 				},
 				message = ctx.recv().fuse() => {
-					if self.subsystem_disabled {
-						gum::trace!(target: LOG_TARGET, "Approval voting parallel is enabled skipping messages");
-						continue;
-					}
 					let message = match message {
 						Ok(message) => message,
 						Err(e) => {

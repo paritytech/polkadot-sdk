@@ -579,7 +579,6 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 			Metrics::default(),
 			clock.clone(),
 			Arc::new(SpawnGlue(pool)),
-			false,
 		),
 		assignment_criteria,
 		backend,

@@ -1567,7 +1567,6 @@ fn revert_approval_voting(
 		Box::new(sp_consensus::NoNetwork),
 		approval_voting_subsystem::Metrics::default(),
 		Arc::new(SpawnGlue(task_handle)),
-		false,
 	);
 
 	approval_voting

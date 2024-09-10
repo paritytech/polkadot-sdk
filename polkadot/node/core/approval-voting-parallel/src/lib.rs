@@ -83,7 +83,6 @@ pub struct ApprovalVotingParallelSubsystem {
 	metrics: Metrics,
 	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
 	clock: Arc<dyn Clock + Send + Sync>,
-	subsystem_enabled: bool,
 }
 
 impl ApprovalVotingParallelSubsystem {
@@ -95,7 +94,6 @@ impl ApprovalVotingParallelSubsystem {
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
 		spawner: impl overseer::gen::Spawner + 'static + Clone,
-		subsystem_enabled: bool,
 	) -> Self {
 		ApprovalVotingParallelSubsystem::with_config_and_clock(
 			config,
@@ -105,7 +103,6 @@ impl ApprovalVotingParallelSubsystem {
 			metrics,
 			Arc::new(SystemClock {}),
 			spawner,
-			subsystem_enabled,
 		)
 	}
 
@@ -118,7 +115,6 @@ impl ApprovalVotingParallelSubsystem {
 		metrics: Metrics,
 		clock: Arc<dyn Clock + Send + Sync>,
 		spawner: impl overseer::gen::Spawner + 'static,
-		subsystem_enabled: bool,
 	) -> Self {
 		ApprovalVotingParallelSubsystem {
 			keystore,
@@ -129,7 +125,6 @@ impl ApprovalVotingParallelSubsystem {
 			metrics,
 			spawner: Arc::new(spawner),
 			clock,
-			subsystem_enabled,
 		}
 	}
 }
@@ -187,7 +182,6 @@ where
 				subsystem.slot_duration_millis,
 				subsystem.clock.clone(),
 				Arc::new(RealAssignmentCriteria {}),
-				false,
 			);
 		let task_name = format!("approval-voting-parallel-{}", i);
 
@@ -277,11 +271,9 @@ async fn run<Context>(
 	mut ctx: Context,
 	subsystem: ApprovalVotingParallelSubsystem,
 ) -> SubsystemResult<()> {
-	let subsystem_enabled = subsystem.subsystem_enabled;
 	let mut metrics_watcher = MetricsWatcher::new(subsystem.metrics.clone());
 	gum::info!(
 		target: LOG_TARGET,
-		subsystem_enabled,
 		"Starting workers"
 	);
 
@@ -290,26 +282,18 @@ async fn run<Context>(
 
 	gum::info!(
 		target: LOG_TARGET,
-		subsystem_enabled,
 		"Starting main subsystem loop"
 	);
 
 	// Main loop of the subsystem, it shouldn't include any logic just dispatching of messages to
 	// the workers.
-	run_main_loop(
-		ctx,
-		subsystem_enabled,
-		to_approval_voting_worker,
-		to_approval_distribution_workers,
-		metrics_watcher,
-	)
-	.await
+	run_main_loop(ctx, to_approval_voting_worker, to_approval_distribution_workers, metrics_watcher)
+		.await
 }
 
 #[overseer::contextbounds(ApprovalVotingParallel, prefix = self::overseer)]
 async fn run_main_loop<Context>(
 	mut ctx: Context,
-	subsystem_enabled: bool,
 	mut to_approval_voting_worker: ToWorker<ApprovalVotingMessage>,
 	mut to_approval_distribution_workers: Vec<ToWorker<ApprovalDistributionMessage>>,
 	metrics_watcher: MetricsWatcher,
@@ -324,10 +308,6 @@ async fn run_main_loop<Context>(
 						return Err(err);
 					}
 				};
-				if !subsystem_enabled {
-					gum::trace!(target: LOG_TARGET, ?next_msg, "Parallel processing is not enabled skipping message");
-					continue;
-				}
 
 				match next_msg {
 					FromOrchestra::Signal(msg) => {

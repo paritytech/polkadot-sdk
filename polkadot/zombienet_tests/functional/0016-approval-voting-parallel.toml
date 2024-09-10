@@ -7,7 +7,7 @@ chain = "rococo-local"
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config]
   needed_approvals = 4
-  relay_vrf_modulo_samples = 6
+  relay_vrf_modulo_samples = 2
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
   max_approval_coalesce_count = 5

@@ -129,7 +129,6 @@ fn build_subsystem(
 			Metrics::default(),
 			clock.clone(),
 			SpawnGlue(pool),
-			false,
 		),
 		context,
 		virtual_overseer,
@@ -195,7 +194,6 @@ fn test_harness<T, Clos, State>(
 	let subsystem = async move {
 		let result = run_main_loop(
 			context,
-			true,
 			to_approval_voting_worker,
 			to_approval_distribution_workers,
 			metrics_watcher,

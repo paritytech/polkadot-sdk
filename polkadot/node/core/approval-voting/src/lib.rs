@@ -167,7 +167,6 @@ pub struct ApprovalVotingSubsystem {
 	metrics: Metrics,
 	clock: Arc<dyn Clock + Send + Sync>,
 	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
-	subsystem_disabled: bool,
 }
 
 #[derive(Clone)]
@@ -487,7 +486,6 @@ impl ApprovalVotingSubsystem {
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
 		spawner: Arc<dyn overseer::gen::Spawner + 'static>,
-		subsystem_disabled: bool,
 	) -> Self {
 		ApprovalVotingSubsystem::with_config_and_clock(
 			config,
@@ -497,7 +495,6 @@ impl ApprovalVotingSubsystem {
 			metrics,
 			Arc::new(SystemClock {}),
 			spawner,
-			subsystem_disabled,
 		)
 	}
 
@@ -510,7 +507,6 @@ impl ApprovalVotingSubsystem {
 		metrics: Metrics,
 		clock: Arc<dyn Clock + Send + Sync>,
 		spawner: Arc<dyn overseer::gen::Spawner + 'static>,
-		subsystem_disabled: bool,
 	) -> Self {
 		ApprovalVotingSubsystem {
 			keystore,
@@ -521,7 +517,6 @@ impl ApprovalVotingSubsystem {
 			metrics,
 			clock,
 			spawner,
-			subsystem_disabled,
 		}
 	}
 
@@ -1257,12 +1252,6 @@ where
 				).await?
 			}
 			next_msg = work_provider.recv().fuse() => {
-				if subsystem.subsystem_disabled {
-					// If we are running in parallel mode, we need to ensure that we are not
-					// processing messages, but also consume the messages, so that the system
-					// is not marked as stalled because of the signals it receives.
-					continue;
-				}
 				let mut actions = handle_from_overseer(
 					&mut to_other_subsystems,
 					&mut to_approval_distr,
@@ -1411,7 +1400,6 @@ pub async fn start_approval_worker<
 		metrics,
 		clock,
 		spawner,
-		false,
 	);
 	let backend = DbBackend::new(db.clone(), approval_voting.db_config);
 	let spawner = approval_voting.spawner.clone();
@@ -2036,14 +2024,9 @@ async fn handle_from_overseer<
 		},
 		FromOrchestra::Communication { msg } => match msg {
 			ApprovalVotingMessage::ImportAssignment(checked_assignment, tx) => {
-				let (check_outcome, actions) = import_assignment(
-					sender,
-					state,
-					db,
-					session_info_provider,
-					checked_assignment,
-				)
-				.await?;
+				let (check_outcome, actions) =
+					import_assignment(sender, state, db, session_info_provider, checked_assignment)
+						.await?;
 				// approval-distribution makes sure this assignment is valid and expected,
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.
@@ -2054,16 +2037,9 @@ async fn handle_from_overseer<
 				actions
 			},
 			ApprovalVotingMessage::ImportApproval(a, tx) => {
-				let result = import_approval(
-					sender,
-					state,
-					db,
-					session_info_provider,
-					metrics,
-					a,
-					&wakeups,
-				)
-				.await?;
+				let result =
+					import_approval(sender, state, db, session_info_provider, metrics, a, &wakeups)
+						.await?;
 				// approval-distribution makes sure this vote is valid and expected,
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.

@@ -81,8 +81,8 @@ impl metrics::Metrics for Metrics {
 			to_worker_bounded_tof: prometheus::register(
 				prometheus::HistogramVec::new(
 					prometheus::HistogramOpts::new(
-						"polkadot_parachain_worker_bounded_tof",
-						"Duration spent in a particular channel from entrance to removal",
+						"polkadot_approval_voting_parallel_worker_bounded_tof",
+						"Duration spent in a particular approval voting worker channel from entrance to removal",
 					)
 					.buckets(vec![
 						0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768,
@@ -95,8 +95,8 @@ impl metrics::Metrics for Metrics {
 			to_worker_bounded_sent: prometheus::register(
 				prometheus::GaugeVec::<prometheus::U64>::new(
 					prometheus::Opts::new(
-						"polkadot_parachain_worker_bounded_sent",
-						"Number of elements sent to subsystems' bounded queues",
+						"polkadot_approval_voting_parallel_worker_bounded_sent",
+						"Number of elements sent to approval voting workers' bounded queues",
 					),
 					&["worker_name"],
 				)?,
@@ -105,8 +105,8 @@ impl metrics::Metrics for Metrics {
 			to_worker_bounded_received: prometheus::register(
 				prometheus::GaugeVec::<prometheus::U64>::new(
 					prometheus::Opts::new(
-						"polkadot_parachain_worker_bounded_received",
-						"Number of elements received by subsystems' bounded queues",
+						"polkadot_approval_voting_parallel_worker_bounded_received",
+						"Number of elements received by approval voting workers' bounded queues",
 					),
 					&["worker_name"],
 				)?,
@@ -115,8 +115,8 @@ impl metrics::Metrics for Metrics {
 			to_worker_bounded_blocked: prometheus::register(
 				prometheus::GaugeVec::<prometheus::U64>::new(
 					prometheus::Opts::new(
-						"polkadot_parachain_worker_bounded_blocked",
-						"Number of times senders blocked while sending messages to a subsystem",
+						"polkadot_approval_voting_parallel_worker_bounded_blocked",
+						"Number of times approval voting workers blocked while sending messages to a subsystem",
 					),
 					&["worker_name"],
 				)?,
@@ -125,8 +125,8 @@ impl metrics::Metrics for Metrics {
 			to_worker_unbounded_tof: prometheus::register(
 				prometheus::HistogramVec::new(
 					prometheus::HistogramOpts::new(
-						"polkadot_parachain_worker_unbounded_tof",
-						"Duration spent in a particular channel from entrance to removal",
+						"polkadot_approval_voting_parallel_worker_unbounded_tof",
+						"Duration spent in a particular approval voting worker channel from entrance to removal",
 					)
 					.buckets(vec![
 						0.0001, 0.0004, 0.0016, 0.0064, 0.0256, 0.1024, 0.4096, 1.6384, 3.2768,
@@ -139,8 +139,8 @@ impl metrics::Metrics for Metrics {
 			to_worker_unbounded_sent: prometheus::register(
 				prometheus::GaugeVec::<prometheus::U64>::new(
 					prometheus::Opts::new(
-						"polkadot_parachain_worker_unbounded_sent",
-						"Number of elements sent to subsystems' unbounded queues",
+						"polkadot_approval_voting_parallel_worker_unbounded_sent",
+						"Number of elements sent to approval voting workers' unbounded queues",
 					),
 					&["worker_name"],
 				)?,
@@ -149,8 +149,8 @@ impl metrics::Metrics for Metrics {
 			to_worker_unbounded_received: prometheus::register(
 				prometheus::GaugeVec::<prometheus::U64>::new(
 					prometheus::Opts::new(
-						"polkadot_parachain_worker_unbounded_received",
-						"Number of elements received by subsystems' unbounded queues",
+						"polkadot_approval_voting_parallel_worker_unbounded_received",
+						"Number of elements received by approval voting workers' unbounded queues",
 					),
 					&["worker_name"],
 				)?,

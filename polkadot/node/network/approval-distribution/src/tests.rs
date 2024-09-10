@@ -69,7 +69,6 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		Default::default(),
 		clock,
 		assignment_criteria,
-		false,
 	);
 	{
 		let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(12345);
@@ -536,7 +535,8 @@ impl AssignmentCriteria for MockAssignmentCriteria {
 		_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 		_assignment: &polkadot_node_primitives::approval::v2::AssignmentCertV2,
 		_backing_groups: Vec<polkadot_primitives::GroupIndex>,
-	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment> {
+	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment>
+	{
 		self.tranche
 	}
 }
@@ -4133,7 +4133,6 @@ fn batch_test_round(message_count: usize) {
 		Default::default(),
 		Arc::new(SystemClock {}),
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		false,
 	);
 	let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(12345);
 	let mut sender = context.sender().clone();

@@ -839,7 +839,6 @@ fn build_overseer(
 		state.approval_voting_parallel_metrics.approval_voting_metrics(),
 		Arc::new(system_clock.clone()),
 		Arc::new(SpawnGlue(spawn_task_handle.clone())),
-		state.options.approval_voting_parallel_enabled,
 	);
 
 	let approval_distribution = ApprovalDistribution::new_with_clock(
@@ -847,7 +846,6 @@ fn build_overseer(
 		TEST_CONFIG.slot_duration_millis,
 		Arc::new(system_clock.clone()),
 		Arc::new(RealAssignmentCriteria {}),
-		state.options.approval_voting_parallel_enabled,
 	);
 
 	let approval_voting_parallel =
@@ -859,7 +857,6 @@ fn build_overseer(
 			state.approval_voting_parallel_metrics.clone(),
 			Arc::new(system_clock.clone()),
 			SpawnGlue(spawn_task_handle.clone()),
-			state.options.approval_voting_parallel_enabled,
 		);
 
 	let mock_chain_api = MockChainApi::new(state.build_chain_api_state());
