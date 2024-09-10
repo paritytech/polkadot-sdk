@@ -128,10 +128,10 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 
 	// we wil send block requests to these peers
 	// for these blocks we don't know about
-	let actions = sync.actions().collect::<Vec<_>>();
+	let actions = sync.actions().unwrap();
 	assert_eq!(actions.len(), 2);
 	assert!(actions.iter().all(|action| match action {
-		ChainSyncAction::SendBlockRequest { peer_id, .. } =>
+		SyncingAction::SendBlockRequest { peer_id, .. } =>
 			peer_id == &peer_id1 || peer_id == &peer_id2,
 		_ => false,
 	}));
@@ -162,15 +162,15 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	sync.restart();
 
 	// which should make us cancel and send out again block requests to the first two peers
-	let actions = sync.actions().collect::<Vec<_>>();
+	let actions = sync.actions().unwrap();
 	assert_eq!(actions.len(), 4);
 	let mut cancelled_first = HashSet::new();
 	assert!(actions.iter().all(|action| match action {
-		ChainSyncAction::CancelRequest { peer_id, .. } => {
+		SyncingAction::CancelRequest { peer_id, .. } => {
 			cancelled_first.insert(peer_id);
 			peer_id == &peer_id1 || peer_id == &peer_id2
 		},
-		ChainSyncAction::SendBlockRequest { peer_id, .. } => {
+		SyncingAction::SendBlockRequest { peer_id, .. } => {
 			assert!(cancelled_first.remove(peer_id));
 			peer_id == &peer_id1 || peer_id == &peer_id2
 		},
@@ -329,7 +329,7 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(
 			&actions[0],
-			ChainSyncAction::ImportBlocks{ origin: _, blocks } if blocks.len() == max_blocks_to_request as usize,
+			SyncingAction::ImportBlocks{ origin: _, blocks } if blocks.len() == max_blocks_to_request as usize,
 		));
 
 		best_block_num += max_blocks_to_request as u32;
@@ -476,7 +476,7 @@ fn can_sync_huge_fork() {
 		} else {
 			assert_eq!(actions.len(), 1);
 			match &actions[0] {
-				ChainSyncAction::SendBlockRequest { peer_id: _, request } => request.clone(),
+				SyncingAction::SendBlockRequest { peer_id: _, request, key: _ } => request.clone(),
 				action @ _ => panic!("Unexpected action: {action:?}"),
 			}
 		};
@@ -508,7 +508,7 @@ fn can_sync_huge_fork() {
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(
 			&actions[0],
-			ChainSyncAction::ImportBlocks{ origin: _, blocks } if blocks.len() == sync.max_blocks_per_request as usize
+			SyncingAction::ImportBlocks{ origin: _, blocks } if blocks.len() == sync.max_blocks_per_request as usize
 		));
 
 		best_block_num += sync.max_blocks_per_request as u32;
@@ -610,7 +610,7 @@ fn syncs_fork_without_duplicate_requests() {
 		} else {
 			assert_eq!(actions.len(), 1);
 			match &actions[0] {
-				ChainSyncAction::SendBlockRequest { peer_id: _, request } => request.clone(),
+				SyncingAction::SendBlockRequest { peer_id: _, request, key: _ } => request.clone(),
 				action @ _ => panic!("Unexpected action: {action:?}"),
 			}
 		};
@@ -646,7 +646,7 @@ fn syncs_fork_without_duplicate_requests() {
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(
 			&actions[0],
-			ChainSyncAction::ImportBlocks{ origin: _, blocks } if blocks.len() == max_blocks_to_request as usize
+			SyncingAction::ImportBlocks{ origin: _, blocks } if blocks.len() == max_blocks_to_request as usize
 		));
 
 		best_block_num += max_blocks_to_request as u32;
@@ -839,10 +839,10 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	let actions = sync.take_actions().collect::<Vec<_>>();
 	for action in actions.iter() {
 		match action {
-			ChainSyncAction::CancelRequest { peer_id } => {
+			SyncingAction::CancelRequest { peer_id, key: _ } => {
 				pending_responses.remove(&peer_id);
 			},
-			ChainSyncAction::SendBlockRequest { peer_id, .. } => {
+			SyncingAction::SendBlockRequest { peer_id, .. } => {
 				// we drop obsolete response, but don't register a new request, it's checked in
 				// the `assert!` below
 				pending_responses.remove(&peer_id);
@@ -852,7 +852,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	}
 	assert!(actions.iter().any(|action| {
 		match action {
-			ChainSyncAction::SendBlockRequest { peer_id, .. } => peer_id == &peers[0],
+			SyncingAction::SendBlockRequest { peer_id, .. } => peer_id == &peers[0],
 			_ => false,
 		}
 	}));
@@ -943,7 +943,7 @@ fn request_across_forks() {
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(
 			&actions[0],
-			ChainSyncAction::ImportBlocks{ origin: _, blocks } if blocks.len() == 7_usize
+			SyncingAction::ImportBlocks{ origin: _, blocks } if blocks.len() == 7_usize
 		));
 		assert_eq!(sync.best_queued_number, 107);
 		assert_eq!(sync.best_queued_hash, block.hash());
@@ -988,7 +988,7 @@ fn request_across_forks() {
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(
 			&actions[0],
-			ChainSyncAction::ImportBlocks{ origin: _, blocks } if blocks.len() == 1_usize
+			SyncingAction::ImportBlocks{ origin: _, blocks } if blocks.len() == 1_usize
 		));
 		assert!(sync.is_known(&block.header.parent_hash()));
 	}
