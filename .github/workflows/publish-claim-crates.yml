@@ -18,7 +18,7 @@ jobs:
           cache-on-failure: true
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.8.0 --locked -q
+        run: cargo install parity-publish@0.8.0
 
       - name: parity-publish claim
         env:
