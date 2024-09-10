@@ -32,6 +32,8 @@ mod build {
 		process::Command,
 	};
 
+	const OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_RUSTUP_TOOLCHAIN";
+
 	/// A contract entry.
 	struct Entry {
 		/// The path to the contract source file.
@@ -122,12 +124,16 @@ mod build {
 		]
 		.join("\x1f");
 
+		let toolchain = std::env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR)
+			.ok()
+			.unwrap_or(String::from("rve-nightly"));
+
 		let build_res = Command::new(env::var("CARGO")?)
 			.current_dir(current_dir)
 			.env_clear()
 			.env("PATH", env::var("PATH").unwrap_or_default())
 			.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-			.env("RUSTUP_TOOLCHAIN", "rve-nightly")
+			.env("RUSTUP_TOOLCHAIN", &toolchain)
 			.env("RUSTC_BOOTSTRAP", "1")
 			.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
 			.args([
@@ -185,6 +191,8 @@ mod build {
 		let contracts_dir = fixtures_dir.join("contracts");
 		let uapi_dir = fixtures_dir.parent().expect("uapi dir exits; qed").join("uapi");
 		let out_dir: PathBuf = env::var("OUT_DIR")?.into();
+
+		println!("cargo::rerun-if-env-changed={OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR}");
 
 		// the fixtures have a dependency on the uapi crate
 		println!("cargo::rerun-if-changed={}", fixtures_dir.display());
