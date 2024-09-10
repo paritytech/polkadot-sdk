@@ -21094,6 +21094,7 @@ name = "sp-version-proc-macro"
 version = "13.0.0"
 dependencies = [
  "parity-scale-codec",
+ "proc-macro-warning 1.0.0",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "sp-version",
