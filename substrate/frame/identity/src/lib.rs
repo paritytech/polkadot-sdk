@@ -53,7 +53,7 @@
 //! account".
 //!
 //! To grant a username, a username authority can either:
-//! - be given an allocation by governane of a specific amount of usernames to issue for free,
+//! - be given an allocation by governance of a specific amount of usernames to issue for free,
 //!   without any deposit associated with storage costs;
 //! - put up a deposit for each username it issues (usually a subsidized, reduced deposit, relative
 //!   to other deposits in the system)

@@ -17,8 +17,8 @@
 
 use super::*;
 use frame_support::{
-	migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
-	IterableStorageMap,
+	migrations::VersionedMigration, pallet_prelude::*, storage_alias,
+	traits::UncheckedOnRuntimeUpgrade, IterableStorageMap,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -40,51 +40,68 @@ pub mod versioned {
 	>;
 }
 
-pub mod v1 {
+/// The old identity types in v0.
+mod types_v0 {
 	use super::*;
-	use frame_support::storage_alias;
 
-	/// The log target.
-	const TARGET: &'static str = "runtime::identity::migration::v1";
+	#[storage_alias]
+	pub type IdentityOf<T: Config> = StorageMap<
+		Pallet<T>,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Registration<
+			BalanceOf<T>,
+			<T as pallet::Config>::MaxRegistrars,
+			<T as pallet::Config>::IdentityInformation,
+		>,
+		OptionQuery,
+	>;
+}
 
-	/// The old identity type, useful in pre-upgrade.
-	mod v0 {
-		use super::*;
+/// The old identity types in v1.
+mod types_v1 {
+	use super::*;
 
-		#[storage_alias]
-		pub type IdentityOf<T: Config> = StorageMap<
-			Pallet<T>,
-			Twox64Concat,
-			<T as frame_system::Config>::AccountId,
+	#[storage_alias]
+	pub type IdentityOf<T: Config> = StorageMap<
+		Pallet<T>,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		(
 			Registration<
 				BalanceOf<T>,
 				<T as pallet::Config>::MaxRegistrars,
 				<T as pallet::Config>::IdentityInformation,
 			>,
-			OptionQuery,
-		>;
-	}
+			Option<Username<T>>,
+		),
+		OptionQuery,
+	>;
 
-	mod vx {
-		use super::*;
+	#[storage_alias]
+	pub type UsernameAuthorities<T: Config> = StorageMap<
+		Pallet<T>,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		AuthorityProperties<Suffix<T>>,
+		OptionQuery,
+	>;
 
-		#[storage_alias]
-		pub type IdentityOf<T: Config> = StorageMap<
-			Pallet<T>,
-			Twox64Concat,
-			<T as frame_system::Config>::AccountId,
-			(
-				Registration<
-					BalanceOf<T>,
-					<T as pallet::Config>::MaxRegistrars,
-					<T as pallet::Config>::IdentityInformation,
-				>,
-				Option<Username<T>>,
-			),
-			OptionQuery,
-		>;
-	}
+	#[storage_alias]
+	pub type AccountOfUsername<T: Config> = StorageMap<
+		Pallet<T>,
+		Blake2_128Concat,
+		Username<T>,
+		<T as frame_system::Config>::AccountId,
+		OptionQuery,
+	>;
+}
 
+pub mod v1 {
+	use super::*;
+
+	/// The log target.
+	const TARGET: &'static str = "runtime::identity::migration::v1";
 	/// Migration to add usernames to Identity info.
 	///
 	/// `T` is the runtime and `KL` is the key limit to migrate. This is just a safety guard to
@@ -94,7 +111,7 @@ pub mod v1 {
 	impl<T: Config, const KL: u64> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV0ToV1<T, KL> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			let identities = v0::IdentityOf::<T>::iter().count();
+			let identities = types_v0::IdentityOf::<T>::iter().count();
 			log::info!(
 				target: TARGET,
 				"pre-upgrade state contains '{}' identities.",
@@ -114,8 +131,8 @@ pub mod v1 {
 			let mut translated: u64 = 0;
 			let mut interrupted = false;
 
-			for (account, registration) in v0::IdentityOf::<T>::iter() {
-				vx::IdentityOf::<T>::insert(account, (registration, None::<Username<T>>));
+			for (account, registration) in types_v0::IdentityOf::<T>::iter() {
+				types_v1::IdentityOf::<T>::insert(account, (registration, None::<Username<T>>));
 				translated.saturating_inc();
 				if translated >= KL {
 					log::warn!(
@@ -139,7 +156,7 @@ pub mod v1 {
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			let identities_to_migrate: u64 = Decode::decode(&mut &state[..])
 				.expect("failed to decode the state from pre-upgrade.");
-			let identities = IdentityOf::<T>::iter().count() as u64;
+			let identities = types_v1::IdentityOf::<T>::iter().count() as u64;
 			log::info!("post-upgrade expects '{}' identities to have been migrated.", identities);
 			ensure!(identities_to_migrate == identities, "must migrate all identities.");
 			log::info!(target: TARGET, "migrated all identities.");
@@ -152,7 +169,6 @@ pub mod v2 {
 	use super::*;
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		storage_alias,
 		weights::WeightMeter,
 	};
 
@@ -164,28 +180,6 @@ pub mod v2 {
 	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) type BenchmarkingSetupOf<T> =
 		BenchmarkingSetup<Suffix<T>, <T as frame_system::Config>::AccountId, Username<T>>;
-
-	mod v1 {
-		use super::*;
-
-		#[storage_alias]
-		pub type UsernameAuthorities<T: Config> = StorageMap<
-			Pallet<T>,
-			Twox64Concat,
-			<T as frame_system::Config>::AccountId,
-			AuthorityProperties<Suffix<T>>,
-			OptionQuery,
-		>;
-
-		#[storage_alias]
-		pub type AccountOfUsername<T: Config> = StorageMap<
-			Pallet<T>,
-			Blake2_128Concat,
-			Username<T>,
-			<T as frame_system::Config>::AccountId,
-			OptionQuery,
-		>;
-	}
 
 	#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
 	pub enum MigrationState<A, U, S> {
@@ -315,11 +309,11 @@ pub mod v2 {
 		// Migrate one entry from `UsernameAuthorities` to `AuthorityOf`.
 		pub(crate) fn authority_step(maybe_last_key: Option<&T::AccountId>) -> StepResultOf<T> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
-				v1::UsernameAuthorities::<T>::iter_from(
-					v1::UsernameAuthorities::<T>::hashed_key_for(last_key),
+				types_v1::UsernameAuthorities::<T>::iter_from(
+					types_v1::UsernameAuthorities::<T>::hashed_key_for(last_key),
 				)
 			} else {
-				v1::UsernameAuthorities::<T>::iter()
+				types_v1::UsernameAuthorities::<T>::iter()
 			};
 			if let Some((authority_account, properties)) = iter.next() {
 				let suffix = properties.account_id;
@@ -336,11 +330,11 @@ pub mod v2 {
 		// Migrate one entry from `AccountOfUsername` to `UsernameInfoOf`.
 		pub(crate) fn username_step(maybe_last_key: Option<&Username<T>>) -> StepResultOf<T> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
-				v1::AccountOfUsername::<T>::iter_from(v1::AccountOfUsername::<T>::hashed_key_for(
-					last_key,
-				))
+				types_v1::AccountOfUsername::<T>::iter_from(
+					types_v1::AccountOfUsername::<T>::hashed_key_for(last_key),
+				)
 			} else {
-				v1::AccountOfUsername::<T>::iter()
+				types_v1::AccountOfUsername::<T>::iter()
 			};
 
 			if let Some((username, owner_account)) = iter.next() {
@@ -412,7 +406,7 @@ pub mod v2 {
 			};
 
 			if let Some((suffix, properties)) = iter.next() {
-				let _ = v1::UsernameAuthorities::<T>::take(&properties.account_id);
+				let _ = types_v1::UsernameAuthorities::<T>::take(&properties.account_id);
 				MigrationState::CleanupAuthorities(suffix)
 			} else {
 				MigrationState::FinishedCleanupAuthorities
@@ -430,7 +424,7 @@ pub mod v2 {
 			};
 
 			if let Some((username, _)) = iter.next() {
-				let _ = v1::AccountOfUsername::<T>::take(&username);
+				let _ = types_v1::AccountOfUsername::<T>::take(&username);
 				MigrationState::CleanupUsernames(username)
 			} else {
 				MigrationState::Finished
@@ -456,7 +450,7 @@ pub mod v2 {
 
 			let prop: AuthorityProperties<Suffix<T>> =
 				AuthorityProperties { account_id: suffix.clone(), allocation: 10 };
-			v1::UsernameAuthorities::<T>::insert(&authority, &prop);
+			types_v1::UsernameAuthorities::<T>::insert(&authority, &prop);
 
 			let username: Username<T> = b"account.bench".to_vec().try_into().unwrap();
 			let info = T::IdentityInformation::create_identity_info();
@@ -471,7 +465,7 @@ pub mod v2 {
 				&account_id.twox_64_concat(),
 				(&registration, Some(username.clone())),
 			);
-			v1::AccountOfUsername::<T>::insert(&username, &account_id);
+			types_v1::AccountOfUsername::<T>::insert(&username, &account_id);
 			let since: BlockNumberFor<T> = 0u32.into();
 			frame_support::migration::put_storage_value(
 				b"Identity",
@@ -489,7 +483,7 @@ pub mod v2 {
 
 			let prop: AuthorityProperties<Suffix<T>> =
 				AuthorityProperties { account_id: suffix.clone(), allocation: 10 };
-			v1::UsernameAuthorities::<T>::insert(&authority, &prop);
+			types_v1::UsernameAuthorities::<T>::insert(&authority, &prop);
 			let prop: AuthorityProperties<T::AccountId> =
 				AuthorityProperties { account_id: authority.clone(), allocation: 10 };
 			AuthorityOf::<T>::insert(&suffix, &prop);
@@ -508,7 +502,7 @@ pub mod v2 {
 				provider: Provider::new_with_allocation(),
 			};
 			UsernameInfoOf::<T>::insert(&username, username_info);
-			v1::AccountOfUsername::<T>::insert(&username, &account_id);
+			types_v1::AccountOfUsername::<T>::insert(&username, &account_id);
 			let since: BlockNumberFor<T> = 0u32.into();
 			PendingUsernames::<T>::insert(
 				&username,
@@ -518,7 +512,7 @@ pub mod v2 {
 		}
 
 		pub(crate) fn check_authority_cleanup_validity(suffix: Suffix<T>, authority: T::AccountId) {
-			assert_eq!(v1::UsernameAuthorities::<T>::iter().count(), 0);
+			assert_eq!(types_v1::UsernameAuthorities::<T>::iter().count(), 0);
 			assert_eq!(AuthorityOf::<T>::get(&suffix).unwrap().account_id, authority);
 		}
 
@@ -526,7 +520,7 @@ pub mod v2 {
 			username: Username<T>,
 			account_id: T::AccountId,
 		) {
-			assert_eq!(v1::AccountOfUsername::<T>::iter().count(), 0);
+			assert_eq!(types_v1::AccountOfUsername::<T>::iter().count(), 0);
 			assert_eq!(UsernameInfoOf::<T>::get(&username).unwrap().owner, account_id);
 		}
 	}
@@ -563,12 +557,12 @@ pub mod v2 {
 				let authority_1 = account_from_u8(151);
 				let suffix_1: Suffix<Test> = b"evn".to_vec().try_into().unwrap();
 				let prop = AuthorityProperties { account_id: suffix_1.clone(), allocation: 10 };
-				v1::UsernameAuthorities::<Test>::insert(&authority_1, &prop);
+				types_v1::UsernameAuthorities::<Test>::insert(&authority_1, &prop);
 				// Set up the first authority.
 				let authority_2 = account_from_u8(152);
 				let suffix_2: Suffix<Test> = b"odd".to_vec().try_into().unwrap();
 				let prop = AuthorityProperties { account_id: suffix_2.clone(), allocation: 10 };
-				v1::UsernameAuthorities::<Test>::insert(&authority_2, &prop);
+				types_v1::UsernameAuthorities::<Test>::insert(&authority_2, &prop);
 
 				// (owner_account, primary_username, maybe_secondary_username, has_identity)
 				// If `has_identity` is set, this `owner_account` will have a real identity
@@ -580,7 +574,7 @@ pub mod v2 {
 					let mut username_1 = bare_username.clone();
 					username_1.extend(suffix_1.iter());
 					let username_1: Username<Test> = username_1.try_into().unwrap();
-					v1::AccountOfUsername::<Test>::insert(&username_1, &account_id);
+					types_v1::AccountOfUsername::<Test>::insert(&username_1, &account_id);
 
 					if i % 2 == 0 {
 						let has_identity = i % 4 == 0;
@@ -597,7 +591,7 @@ pub mod v2 {
 						let mut username_2 = bare_username.clone();
 						username_2.extend(suffix_2.iter());
 						let username_2: Username<Test> = username_2.try_into().unwrap();
-						v1::AccountOfUsername::<Test>::insert(&username_2, &account_id);
+						types_v1::AccountOfUsername::<Test>::insert(&username_2, &account_id);
 						let reg = registration(has_identity);
 						frame_support::migration::put_storage_value(
 							b"Identity",
@@ -702,8 +696,8 @@ pub mod v2 {
 				}
 
 				// Check that obsolete storage was cleared.
-				assert_eq!(v1::AccountOfUsername::<Test>::iter().count(), 0);
-				assert_eq!(v1::UsernameAuthorities::<Test>::iter().count(), 0);
+				assert_eq!(types_v1::AccountOfUsername::<Test>::iter().count(), 0);
+				assert_eq!(types_v1::UsernameAuthorities::<Test>::iter().count(), 0);
 			});
 		}
 	}
