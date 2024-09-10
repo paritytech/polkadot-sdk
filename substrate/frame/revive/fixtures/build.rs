@@ -33,6 +33,8 @@ mod build {
 	};
 
 	const OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_RUSTUP_TOOLCHAIN";
+	const OVERRIDE_STRIP_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_STRIP";
+	const OVERRIDE_OPTIMIZE_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_OPTIMIZE";
 
 	/// A contract entry.
 	struct Entry {
@@ -164,9 +166,12 @@ mod build {
 
 	/// Post-process the compiled code.
 	fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
+		let strip = std::env::var(OVERRIDE_STRIP_ENV_VAR).map_or(true, |value| value == "1");
+		let optimize = std::env::var(OVERRIDE_OPTIMIZE_ENV_VAR).map_or(false, |value| value == "1");
+
 		let mut config = polkavm_linker::Config::default();
-		config.set_strip(true);
-		config.set_optimize(false);
+		config.set_strip(strip);
+		config.set_optimize(optimize);
 		let orig =
 			fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
 		let linked = polkavm_linker::program_from_elf(config, orig.as_ref())
@@ -193,6 +198,8 @@ mod build {
 		let out_dir: PathBuf = env::var("OUT_DIR")?.into();
 
 		println!("cargo::rerun-if-env-changed={OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR}");
+		println!("cargo::rerun-if-env-changed={OVERRIDE_STRIP_ENV_VAR}");
+		println!("cargo::rerun-if-env-changed={OVERRIDE_OPTIMIZE_ENV_VAR}");
 
 		// the fixtures have a dependency on the uapi crate
 		println!("cargo::rerun-if-changed={}", fixtures_dir.display());
