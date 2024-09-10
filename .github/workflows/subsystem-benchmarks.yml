@@ -3,7 +3,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [ opened, synchronize, reopened, ready_for_review ]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 
 concurrency:
@@ -29,19 +29,32 @@ jobs:
 
   build:
     timeout-minutes: 80
-    needs: [ set-image ]
+    needs: [set-image]
     runs-on: arc-runners-polkadot-sdk-benchmark
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     strategy:
       fail-fast: false
       matrix:
-        features: [
-          { name: "polkadot-availability-recovery", bench: "availability-recovery-regression-bench" },
-          { name: "polkadot-availability-distribution", bench: "availability-distribution-regression-bench" },
-          { name: "polkadot-node-core-approval-voting", bench: "approval-voting-regression-bench" },
-          { name: "polkadot-statement-distribution", bench: "statement-distribution-regression-bench" }
-        ]
+        features:
+          [
+            {
+              name: "polkadot-availability-recovery",
+              bench: "availability-recovery-regression-bench",
+            },
+            {
+              name: "polkadot-availability-distribution",
+              bench: "availability-distribution-regression-bench",
+            },
+            {
+              name: "polkadot-node-core-approval-voting",
+              bench: "approval-voting-regression-bench",
+            },
+            {
+              name: "polkadot-statement-distribution",
+              bench: "statement-distribution-regression-bench",
+            },
+          ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,24 +79,27 @@ jobs:
 
   publish-benchmarks:
     timeout-minutes: 60
-    needs: [ build ]
+    needs: [build]
     if: github.ref == 'refs/heads/master'
     environment: subsystem-benchmarks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: gh-pages
 
       - name: Download artifacts
         uses: actions/download-artifact@v4.1.8
         with:
           path: ./artifacts
 
-      - name: Setup git
+      - name: Setup git & copy artifacts
         run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
-          ls -lsR ./artifacts 
+          ls -lsR ./artifacts
+          cp -r ./artifacts/* ./bench/
 
       - uses: actions/create-github-app-token@v1
         id: app-token
@@ -98,8 +114,8 @@ jobs:
         with:
           tool: "customSmallerIsBetter"
           name: ${{ env.BENCH_NAME }}
-          output-file-path: ./artifacts/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-          benchmark-data-dir-path: ./artifacts/${{ env.BENCH_NAME }}
+          output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
           github-token: ${{ steps.app-token.outputs.token }}
 
       - name: Publish ${{ env.BENCH_NAME }}
@@ -109,8 +125,8 @@ jobs:
         with:
           tool: "customSmallerIsBetter"
           name: ${{ env.BENCH_NAME }}
-          output-file-path: ./artifacts/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-          benchmark-data-dir-path: ./artifacts/${{ env.BENCH_NAME }}
+          output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
           github-token: ${{ steps.app-token.outputs.token }}
 
       - name: Publish ${{ env.BENCH_NAME }}
@@ -120,8 +136,8 @@ jobs:
         with:
           tool: "customSmallerIsBetter"
           name: ${{ env.BENCH_NAME }}
-          output-file-path: ./artifacts/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-          benchmark-data-dir-path: ./artifacts/${{ env.BENCH_NAME }}
+          output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
           github-token: ${{ steps.app-token.outputs.token }}
 
       - name: Publish ${{ env.BENCH_NAME }}
@@ -131,6 +147,6 @@ jobs:
         with:
           tool: "customSmallerIsBetter"
           name: ${{ env.BENCH_NAME }}
-          output-file-path: ./artifacts/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-          benchmark-data-dir-path: ./artifacts/${{ env.BENCH_NAME }}
+          output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
           github-token: ${{ steps.app-token.outputs.token }}
