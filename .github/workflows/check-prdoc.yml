@@ -6,7 +6,7 @@ on:
   merge_group:
 
 env:
-  IMAGE: docker.io/paritytech/prdoc:v0.0.8
+  IMAGE: docker.io/paritytech/prdoc:v0.1.1
   API_BASE: https://api.github.com/repos
   REPO: ${{ github.repository }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

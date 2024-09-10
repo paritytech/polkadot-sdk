@@ -1487,13 +1487,11 @@ where
 	}
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
-		Contracts::<Self::T>::deposit_indexed_event(
+		Contracts::<Self::T>::deposit_event(Event::ContractEmitted {
+			contract: T::AddressMapper::to_address(self.account_id()),
+			data,
 			topics,
-			Event::ContractEmitted {
-				contract: T::AddressMapper::to_address(self.account_id()),
-				data,
-			},
-		);
+		});
 	}
 
 	fn block_number(&self) -> U256 {
