@@ -29,7 +29,7 @@ use sp_core::H160;
 use testnet_parachains_constants::rococo::{
 	currency::*,
 	fee::WeightToFee,
-	snowbridge::{EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX},
+	snowbridge::{EthereumLocation, EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX},
 };
 
 use crate::xcm_config::RelayNetwork;
@@ -190,7 +190,7 @@ impl snowbridge_pallet_system::Config for Runtime {
 	type DefaultPricingParameters = Parameters;
 	type InboundDeliveryCost = EthereumInboundQueue;
 	type UniversalLocation = UniversalLocation;
-	type EthereumNetwork = EthereumNetwork;
+	type EthereumLocation = EthereumLocation;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

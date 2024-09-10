@@ -177,8 +177,8 @@ pub mod pallet {
 		/// This chain's Universal Location.
 		type UniversalLocation: Get<InteriorLocation>;
 
-		// The bridges configured Ethereum network with chain id.
-		type EthereumNetwork: Get<NetworkId>;
+		// The bridges configured Ethereum location
+		type EthereumLocation: Get<Location>;
 
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
@@ -732,7 +732,7 @@ pub mod pallet {
 			metadata: AssetMetadata,
 			pays_fee: PaysFee<T>,
 		) -> Result<(), DispatchError> {
-			let ethereum_location = Location::new(2, [GlobalConsensus(T::EthereumNetwork::get())]);
+			let ethereum_location = T::EthereumLocation::get();
 			// reanchor to Ethereum context
 			let location = location
 				.clone()

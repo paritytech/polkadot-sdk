@@ -210,7 +210,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type InboundDeliveryCost = InboundDeliveryCost;
 	type UniversalLocation = UniversalLocation;
-	type EthereumNetwork = EthereumNetwork;
+	type EthereumLocation = EthereumDestination;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 }
