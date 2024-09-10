@@ -29,7 +29,8 @@ pub type AgentIdOf =
 
 pub type TokenId = H256;
 
-/// Convert a token location (relative to Ethereum) to a stable ID that can be used on the Ethereum side
+/// Convert a token location (relative to Ethereum) to a stable ID that can be used on the Ethereum
+/// side
 pub type TokenIdOf = HashedDescription<
 	TokenId,
 	DescribeGlobalPrefix<(DescribeTerminus, DescribeFamily<DescribeTokenTerminal>)>,
