@@ -76,10 +76,7 @@ spec = importlib.util.spec_from_file_location("generate_prdoc", ".github/scripts
 generate_prdoc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generate_prdoc)
 
-# Create the prdoc subparser
 parser_prdoc = subparsers.add_parser('prdoc', help='Generates PR documentation')
-
-# Use parse_args from generate_prdoc to add arguments
 generate_prdoc.parse_args(parser_prdoc)
 
 def main():
@@ -229,7 +226,7 @@ def main():
             sys.exit(1)
 
     elif args.command == 'prdoc':
-        # Call the main function from generate_prdoc module
+        # Call the main function from ./github/scripts/generate-prdoc.py module
         exit_code = generate_prdoc.main(args)
         if exit_code != 0 and not args.continue_on_fail:
             print('❌ Failed to generate prdoc')
