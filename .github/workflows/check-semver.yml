@@ -12,22 +12,21 @@ concurrency:
 env:
   TOOLCHAIN: nightly-2024-06-01
 
-
 jobs:
   check-semver:
     runs-on: ubuntu-latest
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+        with:
+          fetch-depth: 2
 
       - name: extra git setup
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           git config --global --add safe.directory '*'
-          git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
-          git branch old $BASE
+
+          git branch old HEAD^1
 
       - name: Comment If Backport
         if: ${{ startsWith(github.event.pull_request.base.ref, 'stable') }}
@@ -46,7 +45,7 @@ jobs:
             as to not impact downstream teams that rely on the stability of it. Some things to consider:
             - Backports are only for 'patch' or 'minor' changes. No 'major' or other breaking change.
             - Should be a legit *fix* for some  bug, not adding tons of new features.
-            - Must either be already audited or trivial (not sure audit).
+            - Must either be already audited or not need an audit.
 
             <details><summary><i>Emergency Bypass</i></summary>
             <p>

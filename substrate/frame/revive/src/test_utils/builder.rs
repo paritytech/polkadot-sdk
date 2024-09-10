@@ -17,7 +17,7 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	AccountIdLookupOf, AccountIdOf, BalanceOf, Code, CodeHash, CollectEvents, Config,
+	address::AddressMapper, AccountIdOf, BalanceOf, Code, CollectEvents, Config,
 	ContractExecResult, ContractInstantiateResult, DebugInfo, EventRecordOf, ExecReturnValue,
 	InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
@@ -26,6 +26,7 @@ use core::fmt::Debug;
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
 use scale_info::TypeInfo;
+use sp_core::H160;
 
 /// Helper macro to generate a builder for contract API calls.
 macro_rules! builder {
@@ -53,6 +54,9 @@ macro_rules! builder {
 		impl<T: Config> $name<T>
 		where
 			<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+			BalanceOf<T>: Into<sp_core::U256> + TryFrom<sp_core::U256>,
+			crate::MomentOf<T>: Into<sp_core::U256>,
+			T::Hash: frame_support::traits::IsType<sp_core::H256>,
 		{
 			$(
 				#[doc = concat!("Set the ", stringify!($field))]
@@ -74,6 +78,11 @@ macro_rules! builder {
 	}
 }
 
+pub struct Contract<T: Config> {
+	pub account_id: AccountIdOf<T>,
+	pub addr: H160,
+}
+
 builder!(
 	instantiate_with_code(
 		origin: OriginFor<T>,
@@ -82,7 +91,7 @@ builder!(
 		storage_deposit_limit: BalanceOf<T>,
 		code: Vec<u8>,
 		data: Vec<u8>,
-		salt: Vec<u8>,
+		salt: Option<[u8; 32]>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create an [`InstantiateWithCodeBuilder`] with default values.
@@ -94,7 +103,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
-			salt: vec![],
+			salt: Some([0; 32]),
 		}
 	}
 );
@@ -105,13 +114,13 @@ builder!(
 		value: BalanceOf<T>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
-		code_hash: CodeHash<T>,
+		code_hash: sp_core::H256,
 		data: Vec<u8>,
-		salt: Vec<u8>,
+		salt: Option<[u8; 32]>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create an [`InstantiateBuilder`] with default values.
-	pub fn instantiate(origin: OriginFor<T>, code_hash: CodeHash<T>) -> Self {
+	pub fn instantiate(origin: OriginFor<T>, code_hash: sp_core::H256) -> Self {
 		Self {
 			origin,
 			value: 0u32.into(),
@@ -119,7 +128,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code_hash,
 			data: vec![],
-			salt: vec![],
+			salt: Some([0; 32]),
 		}
 	}
 );
@@ -130,24 +139,27 @@ builder!(
 		value: BalanceOf<T>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
-		code: Code<CodeHash<T>>,
+		code: Code,
 		data: Vec<u8>,
-		salt: Vec<u8>,
+		salt: Option<[u8; 32]>,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> ContractInstantiateResult<AccountIdOf<T>, BalanceOf<T>, EventRecordOf<T>>;
+	) -> ContractInstantiateResult<BalanceOf<T>, EventRecordOf<T>>;
 
 	/// Build the instantiate call and unwrap the result.
-	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue<AccountIdOf<T>> {
+	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue {
 		self.build().result.unwrap()
 	}
 
 	/// Build the instantiate call and unwrap the account id.
-	pub fn build_and_unwrap_account_id(self) -> AccountIdOf<T> {
-		self.build().result.unwrap().account_id
+	pub fn build_and_unwrap_contract(self) -> Contract<T> {
+		let addr = self.build().result.unwrap().addr;
+		let account_id = T::AddressMapper::to_account_id(&addr);
+		Contract{ account_id,  addr }
 	}
 
-	pub fn bare_instantiate(origin: OriginFor<T>, code: Code<CodeHash<T>>) -> Self {
+	/// Create a [`BareInstantiateBuilder`] with default values.
+	pub fn bare_instantiate(origin: OriginFor<T>, code: Code) -> Self {
 		Self {
 			origin,
 			value: 0u32.into(),
@@ -155,7 +167,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
-			salt: vec![],
+			salt: Some([0; 32]),
 			debug: DebugInfo::UnsafeDebug,
 			collect_events: CollectEvents::Skip,
 		}
@@ -165,7 +177,7 @@ builder!(
 builder!(
 	call(
 		origin: OriginFor<T>,
-		dest: AccountIdLookupOf<T>,
+		dest: H160,
 		value: BalanceOf<T>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
@@ -173,7 +185,7 @@ builder!(
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`CallBuilder`] with default values.
-	pub fn call(origin: OriginFor<T>, dest: AccountIdLookupOf<T>) -> Self {
+	pub fn call(origin: OriginFor<T>, dest: H160) -> Self {
 		CallBuilder {
 			origin,
 			dest,
@@ -188,7 +200,7 @@ builder!(
 builder!(
 	bare_call(
 		origin: OriginFor<T>,
-		dest: AccountIdOf<T>,
+		dest: H160,
 		value: BalanceOf<T>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
@@ -203,7 +215,7 @@ builder!(
 	}
 
 	/// Create a [`BareCallBuilder`] with default values.
-	pub fn bare_call(origin: OriginFor<T>, dest: AccountIdOf<T>) -> Self {
+	pub fn bare_call(origin: OriginFor<T>, dest: H160) -> Self {
 		Self {
 			origin,
 			dest,

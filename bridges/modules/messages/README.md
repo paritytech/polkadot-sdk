@@ -28,9 +28,10 @@ Single message lane may be seen as a transport channel for single application (o
 time the module itself never dictates any lane or message rules. In the end, it is the runtime developer who defines
 what message lane and message mean for this runtime.
 
-In our [Kusama<>Polkadot bridge](../../docs/polkadot-kusama-bridge-overview.md) we are using lane as a channel of
-communication between two parachains of different relay chains. For example, lane `[0, 0, 0, 0]` is used for Polkadot <>
-Kusama Asset Hub communications. Other lanes may be used to bridge other parachains.
+In our [Kusama<>Polkadot bridge](../../docs/polkadot-kusama-bridge-overview.md) we are using lane
+as a channel of communication between two parachains of different relay chains. For example, lane
+`[0, 0, 0, 0]` is used for Polkadot <> Kusama Asset Hub communications. Other lanes may be used to
+bridge other parachains.
 
 ## Message Workflow
 
@@ -142,10 +143,9 @@ and will simply reject all transactions, related to inbound messages.
 
 ### What about other Constants in the Messages Module Configuration Trait?
 
-Two settings that are used to check messages in the `send_message()` function. The
-`pallet_bridge_messages::Config::ActiveOutboundLanes` is an array of all message lanes, that
-may be used to send messages. All messages sent using other lanes are rejected. All messages that have
-size above `pallet_bridge_messages::Config::MaximalOutboundPayloadSize` will also be rejected.
+`pallet_bridge_messages::Config::MaximalOutboundPayloadSize` constant defines the maximal size
+of outbound message that may be sent. If the message size is above this limit, the message is
+rejected.
 
 To be able to reward the relayer for delivering messages, we store a map of message nonces range =>
 identifier of the relayer that has delivered this range at the target chain runtime storage. If a
