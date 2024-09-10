@@ -21,15 +21,15 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, PollStatus, Polling, TryMapSuccess},
+	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, TryMapSuccess},
 };
-use frame_system::{pallet_prelude::BlockNumberFor, EnsureSignedBy};
-use pallet_ranked_collective::{EnsureRanked, Geometric, MemberIndex, Rank, TallyOf, Votes};
+use frame_system::EnsureSignedBy;
+use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
 use sp_core::{ConstU32, Get};
 use sp_runtime::{
 	bounded_vec,
 	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
-	BuildStorage, DispatchError,
+	BuildStorage,
 };
 type Class = Rank;
 

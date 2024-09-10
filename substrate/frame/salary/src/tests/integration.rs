@@ -21,14 +21,13 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{ConstU64, EitherOf, MapSuccess, PollStatus, Polling},
+	traits::{ConstU64, EitherOf, MapSuccess},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_ranked_collective::{EnsureRanked, Geometric, MemberIndex, TallyOf, Votes};
+use pallet_ranked_collective::{EnsureRanked, Geometric};
 use sp_core::{ConstU16, Get};
 use sp_runtime::{
 	traits::{Convert, ReduceBy, ReplaceWithDefault},
-	BuildStorage, DispatchError,
+	BuildStorage,
 };
 
 use crate as pallet_salary;
