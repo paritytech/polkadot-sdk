@@ -339,7 +339,9 @@ impl pallet_preimage::Config for Runtime {
 parameter_types! {
 	pub const EpochDuration: u64 = prod_or_fast!(
 		EPOCH_DURATION_IN_SLOTS as u64,
-		2 * MINUTES as u64
+		//5 * MINUTES as u64
+		// use for large election
+		25 * MINUTES as u64
 	);
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 	pub const ReportLongevity: u64 =
@@ -550,7 +552,9 @@ parameter_types! {
 	);
 	pub UnsignedPhase: u32 = prod_or_fast!(
 		EPOCH_DURATION_IN_SLOTS / 4,
-		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
+		//(5 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
+		// for large elections
+		(10 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
 	);
 
 	// signed config
@@ -572,7 +576,7 @@ parameter_types! {
 	pub ElectionBounds: frame_election_provider_support::bounds::ElectionBounds =
 		ElectionBoundsBuilder::default().voters_count(MaxElectingVoters::get().into()).build();
 	// Maximum winners that can be chosen as active validators
-	pub const MaxActiveValidators: u32 = 50_000;
+	pub const MaxActiveValidators: u32 = 5_000;
 
 }
 
@@ -641,9 +645,9 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = NposSolutionPriority;
 	type DataProvider = Staking;
-	#[cfg(any(feature = "fast-runtime", feature = "runtime-benchmarks"))]
-	type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
-	#[cfg(not(any(feature = "fast-runtime", feature = "runtime-benchmarks")))]
+	//#[cfg(any(feature = "fast-runtime", feature = "runtime-benchmarks"))]
+	//type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
+	//#[cfg(not(any(feature = "fast-runtime", feature = "runtime-benchmarks")))]
 	type Fallback = frame_election_provider_support::NoElection<(
 		AccountId,
 		BlockNumber,

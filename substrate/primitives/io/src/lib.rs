@@ -1564,7 +1564,12 @@ pub trait Offchain {
 pub trait Allocator {
 	/// Malloc the given number of bytes and return the pointer to the allocated memory location.
 	fn malloc(&mut self, size: u32) -> Pointer<u8> {
-		self.allocate_memory(size).expect("Failed to allocate memory")
+		self.allocate_memory(size)
+			.map_err(|e| {
+				log::log!(target: "runtime", log::Level::from(LogLevel::Error), "malloc error at size: {:?}", size);
+				e
+			})
+			.expect("Failed to allocate memory")
 	}
 
 	/// Free the given pointer.

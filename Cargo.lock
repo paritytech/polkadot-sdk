@@ -12963,6 +12963,7 @@ dependencies = [
  "polkadot-overseer",
  "substrate-build-script-utils",
  "substrate-rpc-client",
+ "substrate-wasm-builder",
  "tempfile",
  "tikv-jemallocator",
  "tokio",
@@ -17857,6 +17858,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
+ "log",
  "polkavm 0.9.3",
  "sc-allocator",
  "sp-maybe-compressed-blob",
@@ -20614,6 +20616,7 @@ dependencies = [
 name = "sp-npos-elections"
 version = "26.0.0"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "rand",
  "scale-info",

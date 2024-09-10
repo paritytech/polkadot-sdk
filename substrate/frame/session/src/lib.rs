@@ -479,10 +479,19 @@ pub mod pallet {
 			let initial_validators_1 = T::SessionManager::new_session_genesis(1)
 				.unwrap_or_else(|| initial_validators_0.clone());
 
-			let queued_keys: Vec<_> = initial_validators_1
+			let mut queued_keys: Vec<_> = initial_validators_1
 				.into_iter()
 				.filter_map(|v| Pallet::<T>::load_keys(&v).map(|k| (v, k)))
 				.collect();
+
+			// force initial authority keys as the auth validator IDs may not be in the
+			// `initial_validators_1/0` sets. This may happen when the number of *active* validators
+			// are lower than the number of registered validators at genesis.
+			if queued_keys.len() == 0 {
+				queued_keys =
+					self.keys.iter().map(|k| (k.1.clone(), k.2.clone())).collect::<Vec<_>>();
+				log::info!(target: "runtime::session", "forced keys {:?}", queued_keys);
+			}
 
 			// Tell everyone about the genesis session keys
 			T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);

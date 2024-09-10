@@ -51,6 +51,7 @@ polkadot-core-primitives = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
+substrate-wasm-builder = { features = ["metadata-hash"], workspace = true, default-features = true }
 
 [badges]
 maintenance = { status = "actively-developed" }

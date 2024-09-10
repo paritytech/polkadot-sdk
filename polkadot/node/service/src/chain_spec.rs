@@ -527,24 +527,62 @@ pub fn westend_testnet_genesis(
 
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 
-	let validators = 4_000;
+	// real world scenario.
+	// 1. PANICS with default mem allocation
+	// 2. works with memory increase.
+	let validators = 3_998;
+	let nominators = 50_000;
+	let edges = 24;
+	let validator_count = 1_000;
+
+	/*
+	// large, off-chain worker
+	// works with memory increase.
+	let validators = 3_998;
 	let nominators = 10_000;
 	let edges = 16;
+	let validator_count = 1_000;
+	*/
+
+	/*
+	// large, off-chain worker DOES panic due to active validator set being too large (5K)
+	let validators = 3_998;
+	let nominators = 10_000;
+	let edges = 16;
+	let validator_count = 5_000;
+	*/
+
+	/*
+	// small, OK
+	let validators = 10;
+	let nominators = 10;
+	let edges = 16;
+	let validator_count = 12;
+	*/
+
+	/*
+	// small, issue in GRANPA? -- it actually works (with forced keys)
+	let validators = 28;
+	let nominators = 10;
+	let edges = 16;;
+	let validator_count = 3;
+	*/
 
 	let mut stakers = vec![];
+
+	let gen_stakers = staking_genesis::generate(validators, nominators, edges);
+
+	// fund all generated stakers and add to stakers.
+	for s in gen_stakers.into_iter() {
+		endowed_accounts.push(s.0.clone());
+		stakers.push(s);
+	}
 
 	// add initial auths to stakers
 	for auth_staker in initial_authorities.iter().map(|x| {
 		(x.0.clone(), x.0.clone(), 1_000 * WND, westend::StakerStatus::<AccountId>::Validator)
 	}) {
 		stakers.push(auth_staker)
-	}
-
-	let gen_stakers = staking_genesis::generate(validators, nominators, edges);
-	// fund all generated stakers and add to stakers.
-	for s in gen_stakers.into_iter() {
-		endowed_accounts.push(s.0.clone());
-		stakers.push(s);
 	}
 
 	serde_json::json!({
@@ -572,7 +610,7 @@ pub fn westend_testnet_genesis(
 		},
 		"staking": {
 			"minimumValidatorCount": 1,
-			"validatorCount": stakers.len(),
+			"validatorCount": validator_count,
 			"stakers": stakers,
 			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			"forceEra": Forcing::NotForcing,

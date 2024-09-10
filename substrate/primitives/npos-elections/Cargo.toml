@@ -22,6 +22,7 @@ serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true, default-features = true }
