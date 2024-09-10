@@ -70,7 +70,7 @@ jobs:
         run: |
           forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
           ls -lsa ./charts
-          mkdir ./artifacts
+          mkdir -p ./artifacts/${{ matrix.features.bench }}
           cp ./charts/${{ matrix.features.bench }}.json ./artifacts/${{ matrix.features.bench }}/${{ matrix.features.bench }}.json || echo "Failed to copy ${{ matrix.features.bench }}"
 
       - name: Generate ${{ matrix.features.bench }}
