@@ -733,11 +733,9 @@ pub mod pallet {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
 			if epoch >= fork_versions.electra.epoch {
-				println!("ELECTRA");
 				return config::electra::BLOCK_ROOTS_INDEX;
 			}
 
-			println!("ALTAIR");
 			config::altair::BLOCK_ROOTS_INDEX
 		}
 

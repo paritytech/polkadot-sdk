@@ -18,11 +18,13 @@ use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 
+use snowbridge_beacon_primitives::Fork;
 use snowbridge_pallet_ethereum_client_fixtures::*;
 
 use snowbridge_beacon_primitives::{
-	fast_aggregate_verify, prepare_aggregate_pubkey, prepare_aggregate_signature,
-	verify_merkle_branch,
+	fast_aggregate_verify,
+	merkle_proof::{generalized_index_length, subtree_index},
+	prepare_aggregate_pubkey, prepare_aggregate_signature, verify_merkle_branch,
 };
 use util::*;
 
@@ -122,13 +124,43 @@ mod benchmarks {
 		let update = make_sync_committee_update();
 		let block_root: H256 = update.finalized_header.hash_tree_root().unwrap();
 
+		let fork_versions = ForkVersions {
+			genesis: Fork {
+				version: [0, 0, 0, 0], // 0x00000000
+				epoch: 0,
+			},
+			altair: Fork {
+				version: [1, 0, 0, 0], // 0x01000000
+				epoch: 0,
+			},
+			bellatrix: Fork {
+				version: [2, 0, 0, 0], // 0x02000000
+				epoch: 0,
+			},
+			capella: Fork {
+				version: [3, 0, 0, 0], // 0x03000000
+				epoch: 0,
+			},
+			deneb: Fork {
+				version: [4, 0, 0, 0], // 0x04000000
+				epoch: 0,
+			},
+			electra: Fork {
+				version: [5, 0, 0, 0], // 0x05000000
+				epoch: 80000000000,
+			},
+		};
+		let finalized_root_g_index = EthereumBeaconClient::<T>::finalized_root_gindex_at_slot(
+			update.attested_header.slot,
+			fork_versions,
+		);
 		#[block]
 		{
 			verify_merkle_branch(
 				block_root,
 				&update.finality_branch,
-				config::FINALIZED_ROOT_SUBTREE_INDEX,
-				config::FINALIZED_ROOT_DEPTH,
+				subtree_index(finalized_root_g_index),
+				generalized_index_length(finalized_root_g_index),
 				update.attested_header.state_root,
 			);
 		}
