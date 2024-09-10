@@ -5788,6 +5788,7 @@ dependencies = [
  "sc-cli",
  "sp-runtime",
  "sp-statement-store",
+ "tracing-subscriber",
 ]
 
 [[package]]
