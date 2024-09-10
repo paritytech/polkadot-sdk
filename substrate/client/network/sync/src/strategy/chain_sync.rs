@@ -1061,7 +1061,7 @@ where
 				log::error!(
 					target: LOG_TARGET,
 					"Failed to start state sync: header for finalized block \
-				 	 #{finalized_number} ({finalized_hash}) is not available",
+					  #{finalized_number} ({finalized_hash}) is not available",
 				);
 				debug_assert!(false);
 			}
