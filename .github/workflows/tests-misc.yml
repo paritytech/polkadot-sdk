@@ -60,7 +60,7 @@ jobs:
       RUST_BACKTRACE: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: script
         run: |
@@ -185,7 +185,7 @@ jobs:
     needs: [set-image, cargo-check-benches]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Download artifact (master run)
         uses: actions/download-artifact@v4.1.8
@@ -225,7 +225,7 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Run tests
         id: tests
@@ -257,7 +257,7 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: script
         run: |
@@ -272,7 +272,7 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: script
         run: |
@@ -301,7 +301,7 @@ jobs:
         --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Run honggfuzz
         run: |
@@ -332,7 +332,7 @@ jobs:
         index: [1, 2, 3, 4, 5, 6, 7] # 7 parallel jobs
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Check Rust
         run: |
@@ -359,7 +359,7 @@ jobs:
   #       index: [ 1,2,3,4,5,6,7,8,9,10 ] # 10 parallel jobs
   #   steps:
   #     - name: Checkout
-  #       uses: actions/checkout@v4.1.7
+  #       uses: actions/checkout@v4
 
   #     - name: Install dependencies
   #       uses: ./.github/actions/set-up-mac
