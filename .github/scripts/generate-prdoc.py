@@ -114,7 +114,7 @@ def setup_yaml():
 	yaml.add_representer(str, yaml_multiline_string_presenter)
 
 # parse_args is also used by cmd/cmd.py
-def parse_args(parser=None):
+def setup_parser(parser=None):
 	if parser is None:
 		parser = argparse.ArgumentParser()
 	parser.add_argument("--pr", type=int, required=True)
@@ -136,5 +136,5 @@ def main(args):
 		return 1
 
 if __name__ == "__main__":
-	args = parse_args().parse_args()
+	args = setup_parser().parse_args()
 	main(args)

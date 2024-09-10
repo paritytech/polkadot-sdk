@@ -32,7 +32,7 @@ Options:
 - `pr`: The PR number to generate the PrDoc for.
 - `audience`: The audience of whom the changes may concern.
 - `bump`: A default bump level for all crates. The PrDoc will likely need to be edited to reflect the actual changes after generation.
-- `overwrite`: Whether to overwrite any existing PrDoc.
+- `force`: Whether to overwrite any existing PrDoc.
 
 ## Pick An Audience
 
