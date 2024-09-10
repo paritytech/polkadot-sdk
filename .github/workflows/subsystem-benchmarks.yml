@@ -90,6 +90,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: gh-pages
+          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4.1.8
@@ -109,16 +110,18 @@ jobs:
           app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
           private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
 
-      # - name: Publish ${{ env.BENCH_NAME }}
-      #   uses: benchmark-action/github-action-benchmark@v1
-      #   env:
-      #     BENCH_NAME: availability-recovery-regression-bench
-      #   with:
-      #     tool: "customSmallerIsBetter"
-      #     name: ${{ env.BENCH_NAME }}
-      #     output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-      #     benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
-      #     github-token: ${{ steps.app-token.outputs.token }}
+      - name: Publish ${{ env.BENCH_NAME }}
+        uses: benchmark-action/github-action-benchmark@v1
+        env:
+          BENCH_NAME: availability-recovery-regression-bench
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH_NAME }}
+          output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: false
+          skip-fetch-gh-pages: true
 
       # - name: Publish ${{ env.BENCH_NAME }}
       #   uses: benchmark-action/github-action-benchmark@v1
@@ -152,3 +155,15 @@ jobs:
           output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
           benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
           github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: false
+          skip-fetch-gh-pages: true
+
+      - name: Push changes
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git status
+          git diff
+          git add .
+          git commit -m "Update ${{ env.BENCH_NAME }} benchmarks"
+          git push
