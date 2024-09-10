@@ -394,7 +394,7 @@ impl<
 		asset_hub_fee: u128,
 	) -> Result<(Xcm<()>, Balance), ConvertMessageError> {
 		let network = Ethereum { chain_id };
-		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee / 2).into();
+		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
 
 		let (dest_para_id, beneficiary, dest_para_fee) = match destination {
 			// Final destination is a 32-byte account on AssetHub
