@@ -437,4 +437,22 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 	fn kill_username(_p: u32, ) -> Weight {
 		Weight::zero()
 	}
+	fn migration_v2_authority_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_username_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_identity_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_pending_username_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_cleanup_authority_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_cleanup_username_step() -> Weight {
+		Weight::zero()
+	}
 }
