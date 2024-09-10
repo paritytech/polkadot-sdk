@@ -20,8 +20,5 @@ parity-wasm = { workspace = true }
 tempfile = { workspace = true }
 toml = { workspace = true }
 twox-hash = { workspace = true, default-features = true }
-polkavm-linker = { workspace = true, optional = true }
 anyhow = { workspace = true, default-features = true }
 
-[features]
-riscv = ["polkavm-linker"]
