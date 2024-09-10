@@ -4,8 +4,7 @@
 title: "[pallet-contracts] remove riscv support"
 
 doc:
-  - audience: 
-    - Runtime Dev
+  - audience: Runtime Dev
     description: |
       RISC-V support is now being built inside the new fork pallet-revive
 
