@@ -1677,7 +1677,9 @@ impl<Block: BlockT> Backend<Block> {
 						children,
 					);
 				}
+			}
 
+			if !existing_header {
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
 						BlockGapType::MissingHeaderAndBody =>
@@ -1714,24 +1716,25 @@ impl<Block: BlockT> Backend<Block> {
 							unreachable!("Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406")
 						},
 					}
-				} else if operation.create_gap &&
-					number > best_num + One::one() &&
-					self.blockchain.header(parent_hash)?.is_none()
-				{
-					let gap = BlockGap {
-						start: best_num + One::one(),
-						end: number - One::one(),
-						gap_type: BlockGapType::MissingHeaderAndBody,
-					};
-					transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
-					transaction.set(
-						columns::META,
-						meta_keys::BLOCK_GAP_VERSION,
-						&BLOCK_GAP_CURRENT_VERSION.encode(),
-					);
-					block_gap = Some(gap);
-					block_gap_updated = true;
-					debug!(target: "db", "Detected block gap {block_gap:?}");
+				} else if operation.create_gap {
+					if number > best_num + One::one() &&
+						self.blockchain.header(parent_hash)?.is_none()
+					{
+						let gap = BlockGap {
+							start: best_num + One::one(),
+							end: number - One::one(),
+							gap_type: BlockGapType::MissingHeaderAndBody,
+						};
+						transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
+						transaction.set(
+							columns::META,
+							meta_keys::BLOCK_GAP_VERSION,
+							&BLOCK_GAP_CURRENT_VERSION.encode(),
+						);
+						block_gap = Some(gap);
+						block_gap_updated = true;
+						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
+					}
 				}
 			}
 
