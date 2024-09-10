@@ -33,7 +33,7 @@ use crate::{
 	},
 	strategy::{
 		warp::{EncodedProof, WarpProofRequest, WarpSyncConfig},
-		StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
+		PolkadotSyncingStrategy, StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
 	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
@@ -189,7 +189,7 @@ pub struct Peer<B: BlockT> {
 
 pub struct SyncingEngine<B: BlockT, Client> {
 	/// Syncing strategy.
-	strategy: SyncingStrategy<B, Client>,
+	strategy: PolkadotSyncingStrategy<B, Client>,
 
 	/// Blockchain client.
 	client: Arc<Client>,
@@ -389,7 +389,8 @@ where
 			);
 
 		// Initialize syncing strategy.
-		let strategy = SyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?;
+		let strategy =
+			PolkadotSyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?;
 
 		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
@@ -697,7 +698,7 @@ where
 						number,
 					)
 				},
-				// Nothing to do, this is handled internally by `SyncingStrategy`.
+				// Nothing to do, this is handled internally by `PolkadotSyncingStrategy`.
 				SyncingAction::Finished => {},
 			}
 		}
