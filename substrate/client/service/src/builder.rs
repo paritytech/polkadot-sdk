@@ -53,10 +53,10 @@ use sc_network::{
 use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
-	block_relay_protocol::BlockRelayParams,
+	block_relay_protocol::{BlockDownloader, BlockRelayParams},
 	block_request_handler::BlockRequestHandler,
 	engine::SyncingEngine,
-	service::network::NetworkServiceProvider,
+	service::network::{NetworkServiceHandle, NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
 	strategy::{
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
@@ -807,9 +807,10 @@ where
 	>,
 	/// Syncing strategy to use in syncing engine.
 	pub syncing_strategy: Box<dyn SyncingStrategy<Block>>,
-	/// User specified block relay params. If not specified, the default
-	/// block request handler will be used.
-	pub block_relay: Option<BlockRelayParams<Block, Net>>,
+	/// Implementation of block downloader logic.
+	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
+	/// Network service provider to drive with network internally.
+	pub network_service_provider: NetworkServiceProvider,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
 }
@@ -851,7 +852,8 @@ where
 		import_queue,
 		block_announce_validator_builder,
 		syncing_strategy,
-		block_relay,
+		block_downloader,
+		network_service_provider,
 		metrics,
 	} = params;
 
@@ -863,27 +865,6 @@ where
 	} else {
 		Box::new(DefaultBlockAnnounceValidator)
 	};
-
-	let (chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
-	let (mut block_server, block_downloader, block_request_protocol_config) = match block_relay {
-		Some(params) => (params.server, params.downloader, params.request_response_config),
-		None => {
-			// Custom protocol was not specified, use the default block handler.
-			// Allow both outgoing and incoming requests.
-			let params = BlockRequestHandler::new::<Net>(
-				chain_sync_network_handle.clone(),
-				&protocol_id,
-				config.chain_spec.fork_id(),
-				client.clone(),
-				config.network.default_peers_set.in_peers as usize +
-					config.network.default_peers_set.out_peers as usize,
-			);
-			(params.server, params.downloader, params.request_response_config)
-		},
-	};
-	spawn_handle.spawn("block-request-handler", Some("networking"), async move {
-		block_server.run().await;
-	});
 
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
@@ -897,7 +878,6 @@ where
 	};
 
 	// install request handlers to `FullNetworkConfiguration`
-	net_config.add_request_response_protocol(block_request_protocol_config);
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
 	let bitswap_config = config.network.ipfs_server.then(|| {
@@ -934,7 +914,7 @@ where
 		&config.chain_spec.fork_id().map(ToOwned::to_owned),
 		block_announce_validator,
 		syncing_strategy,
-		chain_sync_network_handle,
+		network_service_provider.handle(),
 		import_queue.service(),
 		block_downloader,
 		Arc::clone(&peer_store_handle),
@@ -979,7 +959,7 @@ where
 	spawn_handle.spawn_blocking(
 		"chain-sync-network-service-provider",
 		Some("networking"),
-		chain_sync_network_provider.run(Arc::new(network.clone())),
+		network_service_provider.run(Arc::new(network.clone())),
 	);
 	spawn_handle.spawn("import-queue", None, import_queue.run(Box::new(sync_service_import_queue)));
 	spawn_handle.spawn_blocking("syncing", None, engine.run());
@@ -1050,6 +1030,41 @@ where
 	))
 }
 
+/// Build default block downloader
+pub fn build_default_block_downloader<Block, Client, Net>(
+	protocol_id: &ProtocolId,
+	fork_id: Option<&str>,
+	net_config: &mut FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
+	network_service_handle: NetworkServiceHandle,
+	client: Arc<Client>,
+	num_peers_hint: usize,
+	spawn_handle: &SpawnTaskHandle,
+) -> Arc<dyn BlockDownloader<Block>>
+where
+	Block: BlockT,
+	Client: HeaderBackend<Block> + BlockBackend<Block> + Send + Sync + 'static,
+	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+{
+	// Custom protocol was not specified, use the default block handler.
+	// Allow both outgoing and incoming requests.
+	let BlockRelayParams { mut server, downloader, request_response_config } =
+		BlockRequestHandler::new::<Net>(
+			network_service_handle,
+			&protocol_id,
+			fork_id,
+			client.clone(),
+			num_peers_hint,
+		);
+
+	spawn_handle.spawn("block-request-handler", Some("networking"), async move {
+		server.run().await;
+	});
+
+	net_config.add_request_response_protocol(request_response_config);
+
+	downloader
+}
+
 /// Build standard polkadot syncing strategy
 pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	protocol_id: ProtocolId,
@@ -1069,7 +1084,6 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	if warp_sync_config.is_none() && net_config.network_config.sync_mode.is_warp() {

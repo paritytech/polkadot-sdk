@@ -84,7 +84,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use prometheus_endpoint::Registry;
 #[cfg(feature = "full-node")]
 use sc_service::KeystoreContainer;
-use sc_service::{build_polkadot_syncing_strategy, RpcHandlers, SpawnTaskHandle};
+use sc_service::{build_default_block_downloader, build_polkadot_syncing_strategy, RpcHandlers, SpawnTaskHandle};
 use sc_telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
@@ -98,6 +98,7 @@ pub use sc_client_api::{Backend, CallExecutor};
 pub use sc_consensus::{BlockImport, LongestChain};
 pub use sc_executor::NativeExecutionDispatch;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
+use sc_network_sync::service::network::NetworkServiceProvider;
 pub use sc_service::{
 	config::{DatabaseSource, PrometheusConfig},
 	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, TFullBackend,
@@ -1028,13 +1029,26 @@ pub fn new_full<
 		})
 	};
 
+	let protocol_id = config.protocol_id();
+	let spawn_handle = task_manager.spawn_handle();
+	let network_service_provider = NetworkServiceProvider::new();
+	let block_downloader = build_default_block_downloader(
+		&protocol_id,
+		config.chain_spec.fork_id(),
+		&mut net_config,
+		network_service_provider.handle(),
+		client.clone(),
+		config.network.default_peers_set.in_peers as usize +
+			config.network.default_peers_set.out_peers as usize,
+		&spawn_handle,
+	);
 	let syncing_strategy = build_polkadot_syncing_strategy(
-		config.protocol_id(),
+		protocol_id,
 		config.chain_spec.fork_id(),
 		&mut net_config,
 		Some(WarpSyncConfig::WithProvider(warp_sync)),
 		client.clone(),
-		&task_manager.spawn_handle(),
+		&spawn_handle,
 		config.prometheus_config.as_ref().map(|config| &config.registry),
 	)?;
 
@@ -1048,7 +1062,8 @@ pub fn new_full<
 			import_queue,
 			block_announce_validator_builder: None,
 			syncing_strategy,
-			block_relay: None,
+			block_downloader,
+			network_service_provider,
 			metrics,
 		})?;
 

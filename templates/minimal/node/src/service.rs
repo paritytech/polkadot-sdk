@@ -21,8 +21,10 @@ use minimal_template_runtime::{interface::OpaqueBlock as Block, RuntimeApi};
 use polkadot_sdk::{
 	sc_client_api::backend::Backend,
 	sc_executor::WasmExecutor,
+	sc_network_sync::service::network::NetworkServiceProvider,
 	sc_service::{
-		build_polkadot_syncing_strategy, error::Error as ServiceError, Configuration, TaskManager,
+		build_default_block_downloader, build_polkadot_syncing_strategy,
+		error::Error as ServiceError, Configuration, TaskManager,
 	},
 	sc_telemetry::{Telemetry, TelemetryWorker},
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
@@ -133,13 +135,26 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 	);
 
+	let protocol_id = config.protocol_id();
+	let spawn_handle = task_manager.spawn_handle();
+	let network_service_provider = NetworkServiceProvider::new();
+	let block_downloader = build_default_block_downloader(
+		&protocol_id,
+		config.chain_spec.fork_id(),
+		&mut net_config,
+		network_service_provider.handle(),
+		client.clone(),
+		config.network.default_peers_set.in_peers as usize +
+			config.network.default_peers_set.out_peers as usize,
+		&spawn_handle,
+	);
 	let syncing_strategy = build_polkadot_syncing_strategy(
-		config.protocol_id(),
+		protocol_id,
 		config.chain_spec.fork_id(),
 		&mut net_config,
 		None,
 		client.clone(),
-		&task_manager.spawn_handle(),
+		&spawn_handle,
 		config.prometheus_config.as_ref().map(|config| &config.registry),
 	)?;
 
@@ -153,7 +168,8 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 			net_config,
 			block_announce_validator_builder: None,
 			syncing_strategy,
-			block_relay: None,
+			block_downloader,
+			network_service_provider,
 			metrics,
 		})?;
 

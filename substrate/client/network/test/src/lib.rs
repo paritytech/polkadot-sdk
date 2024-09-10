@@ -834,8 +834,8 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let fork_id = Some(String::from("test-fork-id"));
 
-		let (chain_sync_network_provider, chain_sync_network_handle) =
-			NetworkServiceProvider::new();
+		let chain_sync_network_provider = NetworkServiceProvider::new();
+		let chain_sync_network_handle = chain_sync_network_provider.handle();
 		let mut block_relay_params = BlockRequestHandler::new::<NetworkWorker<_, _>>(
 			chain_sync_network_handle.clone(),
 			&protocol_id,

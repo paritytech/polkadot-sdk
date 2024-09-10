@@ -38,11 +38,11 @@ use sc_consensus::{
 	BlockImport,
 };
 use sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
-use sc_network_sync::SyncingService;
+use sc_network_sync::{service::network::NetworkServiceProvider, SyncingService};
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{
-	build_polkadot_syncing_strategy, Configuration, NetworkStarter, SpawnTaskHandle, TaskManager,
-	WarpSyncConfig,
+	build_default_block_downloader, build_polkadot_syncing_strategy, Configuration, NetworkStarter,
+	SpawnTaskHandle, TaskManager, WarpSyncConfig,
 };
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
@@ -499,8 +499,20 @@ where
 		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 	);
 
+	let protocol_id = parachain_config.protocol_id();
+	let network_service_provider = NetworkServiceProvider::new();
+	let block_downloader = build_default_block_downloader(
+		&protocol_id,
+		parachain_config.chain_spec.fork_id(),
+		&mut net_config,
+		network_service_provider.handle(),
+		client.clone(),
+		parachain_config.network.default_peers_set.in_peers as usize +
+			parachain_config.network.default_peers_set.out_peers as usize,
+		&spawn_handle,
+	);
 	let syncing_strategy = build_polkadot_syncing_strategy(
-		parachain_config.protocol_id(),
+		protocol_id,
 		parachain_config.chain_spec.fork_id(),
 		&mut net_config,
 		warp_sync_config,
@@ -518,7 +530,8 @@ where
 		import_queue,
 		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
 		syncing_strategy,
-		block_relay: None,
+		block_downloader,
+		network_service_provider,
 		metrics,
 	})
 }

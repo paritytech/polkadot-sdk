@@ -735,7 +735,8 @@ mod test {
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
-		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
 
 		// Warp sync instantly finishes
 		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
@@ -758,7 +759,8 @@ mod test {
 		));
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
-		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
 
 		// Warp sync instantly finishes
 		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
@@ -776,7 +778,8 @@ mod test {
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
-		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
 
 		// No actions are emitted.
 		assert_eq!(warp_sync.actions(&network_handle).count(), 0)
@@ -794,7 +797,8 @@ mod test {
 		));
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
-		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
 
 		// No actions are emitted.
 		assert_eq!(warp_sync.actions(&network_handle).count(), 0)
@@ -1031,7 +1035,8 @@ mod test {
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
-		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
 
 		// Consume `SendWarpProofRequest` action.
 		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
@@ -1073,7 +1078,8 @@ mod test {
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
-		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
 
 		// Consume `SendWarpProofRequest` action.
 		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
@@ -1118,7 +1124,8 @@ mod test {
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
-		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
 
 		// Consume `SendWarpProofRequest` action.
 		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();
@@ -1501,7 +1508,8 @@ mod test {
 
 		assert!(warp_sync.on_block_response_inner(peer_id, request, response).is_ok());
 
-		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
 
 		// Strategy finishes.
 		let actions = warp_sync.actions(&network_handle).collect::<Vec<_>>();

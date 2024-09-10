@@ -39,6 +39,7 @@ impl<T> Network for T where T: NetworkPeers + NetworkRequest {}
 /// calls the `NetworkService` on its behalf.
 pub struct NetworkServiceProvider {
 	rx: TracingUnboundedReceiver<ToServiceCommand>,
+	handle: NetworkServiceHandle,
 }
 
 /// Commands that `ChainSync` wishes to send to `NetworkService`
@@ -99,15 +100,23 @@ impl NetworkServiceHandle {
 
 impl NetworkServiceProvider {
 	/// Create new `NetworkServiceProvider`
-	pub fn new() -> (Self, NetworkServiceHandle) {
+	pub fn new() -> Self {
 		let (tx, rx) = tracing_unbounded("mpsc_network_service_provider", 100_000);
 
-		(Self { rx }, NetworkServiceHandle::new(tx))
+		Self { rx, handle: NetworkServiceHandle::new(tx) }
+	}
+
+	/// Get handle to talk to the provider
+	pub fn handle(&self) -> NetworkServiceHandle {
+		self.handle.clone()
 	}
 
 	/// Run the `NetworkServiceProvider`
-	pub async fn run(mut self, service: Arc<dyn Network + Send + Sync>) {
-		while let Some(inner) = self.rx.next().await {
+	pub async fn run(self, service: Arc<dyn Network + Send + Sync>) {
+		let Self { mut rx, handle } = self;
+		drop(handle);
+
+		while let Some(inner) = rx.next().await {
 			match inner {
 				ToServiceCommand::DisconnectPeer(peer, protocol_name) =>
 					service.disconnect_peer(peer, protocol_name),
@@ -129,7 +138,8 @@ mod tests {
 	// and then reported
 	#[tokio::test]
 	async fn disconnect_and_report_peer() {
-		let (provider, handle) = NetworkServiceProvider::new();
+		let provider = NetworkServiceProvider::new();
+		let handle = provider.handle();
 
 		let peer = PeerId::random();
 		let proto = ProtocolName::from("test-protocol");

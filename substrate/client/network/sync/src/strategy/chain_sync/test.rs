@@ -141,7 +141,8 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	sync.add_peer(peer_id1, Hash::random(), 42);
 	sync.add_peer(peer_id2, Hash::random(), 10);
 
-	let (_network_provider, network_handle) = NetworkServiceProvider::new();
+	let network_provider = NetworkServiceProvider::new();
+	let network_handle = network_provider.handle();
 
 	// we wil send block requests to these peers
 	// for these blocks we don't know about

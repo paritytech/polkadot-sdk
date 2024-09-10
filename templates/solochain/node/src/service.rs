@@ -4,9 +4,10 @@ use futures::FutureExt;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
+use sc_network_sync::service::network::NetworkServiceProvider;
 use sc_service::{
-	build_polkadot_syncing_strategy, error::Error as ServiceError, Configuration, TaskManager,
-	WarpSyncConfig,
+	build_default_block_downloader, build_polkadot_syncing_strategy, error::Error as ServiceError,
+	Configuration, TaskManager, WarpSyncConfig,
 };
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -169,13 +170,26 @@ pub fn new_full<
 		Vec::default(),
 	));
 
+	let protocol_id = config.protocol_id();
+	let spawn_handle = task_manager.spawn_handle();
+	let network_service_provider = NetworkServiceProvider::new();
+	let block_downloader = build_default_block_downloader(
+		&protocol_id,
+		config.chain_spec.fork_id(),
+		&mut net_config,
+		network_service_provider.handle(),
+		client.clone(),
+		config.network.default_peers_set.in_peers as usize +
+			config.network.default_peers_set.out_peers as usize,
+		&spawn_handle,
+	);
 	let syncing_strategy = build_polkadot_syncing_strategy(
-		config.protocol_id(),
+		protocol_id,
 		config.chain_spec.fork_id(),
 		&mut net_config,
 		Some(WarpSyncConfig::WithProvider(warp_sync)),
 		client.clone(),
-		&task_manager.spawn_handle(),
+		&spawn_handle,
 		config.prometheus_config.as_ref().map(|config| &config.registry),
 	)?;
 
@@ -189,7 +203,8 @@ pub fn new_full<
 			import_queue,
 			block_announce_validator_builder: None,
 			syncing_strategy,
-			block_relay: None,
+			block_downloader,
+			network_service_provider,
 			metrics,
 		})?;
 

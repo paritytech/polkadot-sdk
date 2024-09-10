@@ -859,7 +859,8 @@ mod test {
 			)],
 		);
 
-		let (_network_provider, network_handle) = NetworkServiceProvider::new();
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
 
 		// Strategy finishes.
 		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();

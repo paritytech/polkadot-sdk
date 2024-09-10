@@ -20915,6 +20915,7 @@ dependencies = [
  "sc-consensus-grandpa",
  "sc-executor",
  "sc-network",
+ "sc-network-sync",
  "sc-offchain",
  "sc-service",
  "sc-telemetry",

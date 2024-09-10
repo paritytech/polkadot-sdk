@@ -32,7 +32,7 @@ use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
 	block_request_handler::BlockRequestHandler,
 	engine::SyncingEngine,
-	service::network::{NetworkServiceHandle, NetworkServiceProvider},
+	service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
 	strategy::polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 };
@@ -78,7 +78,7 @@ struct TestNetworkBuilder {
 	client: Option<Arc<substrate_test_runtime_client::TestClient>>,
 	listen_addresses: Vec<Multiaddr>,
 	set_config: Option<config::SetConfig>,
-	chain_sync_network: Option<(NetworkServiceProvider, NetworkServiceHandle)>,
+	chain_sync_network: Option<NetworkServiceProvider>,
 	notification_protocols: Vec<config::NonDefaultSetConfig>,
 	config: Option<config::NetworkConfiguration>,
 }
@@ -157,8 +157,9 @@ impl TestNetworkBuilder {
 		let fork_id = Some(String::from("test-fork-id"));
 		let mut full_net_config = FullNetworkConfiguration::new(&network_config, None);
 
-		let (chain_sync_network_provider, chain_sync_network_handle) =
+		let chain_sync_network_provider =
 			self.chain_sync_network.unwrap_or(NetworkServiceProvider::new());
+		let chain_sync_network_handle = chain_sync_network_provider.handle();
 		let mut block_relay_params =
 			BlockRequestHandler::new::<
 				NetworkWorker<
