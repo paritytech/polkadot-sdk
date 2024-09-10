@@ -23,6 +23,7 @@ use alloc::vec::Vec;
 use codec::{HasCompact, MaxEncodedLen};
 use sp_arithmetic::Perbill;
 use sp_runtime::{traits::Member, DispatchError};
+use alloc::vec;
 
 pub trait VoteTally<Votes, Class> {
 	/// Initializes a new tally.
@@ -124,5 +125,49 @@ pub trait Polling<Tally> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_ongoing() -> (Self::Class, u32) {
 		(Self::classes().into_iter().next().expect("Always one class"), u32::max_value())
+	}
+}
+
+impl<Tally> Polling<Tally> for () {
+	type Index = u32;
+    type Votes = u32;
+    type Class = u16;
+    type Moment = u64;
+
+	fn classes() -> Vec<Self::Class> {
+		vec![]
+	}
+
+	fn as_ongoing(_index: Self::Index) -> Option<(Tally, Self::Class)> {
+		None
+	}
+
+	fn access_poll<R>(
+			_index: Self::Index,
+			f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> R,
+		) -> R {
+			f(PollStatus::None)
+	}
+
+	fn try_access_poll<R>(
+			_index: Self::Index,
+			f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> Result<R, DispatchError>,
+		) -> Result<R, DispatchError> {
+			f(PollStatus::None)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_ongoing(_class: Self::Class) -> Result<Self::Index, ()> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn end_ongoing(_index: Self::Index, _approved: bool) -> Result<(), ()> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_ongoing() -> (Self::Class, u32) {
+		(0, 0)
 	}
 }

@@ -83,50 +83,6 @@ impl Config for Test {
 	type MaxRank = ConstU32<9>;
 }
 
-pub struct TestPolls;
-impl Polling<TallyOf<Test>> for TestPolls {
-	type Index = MemberIndex;
-	type Votes = Votes;
-	type Moment = BlockNumberFor<Test>;
-	type Class = u16;
-
-	fn classes() -> Vec<Self::Class> {
-		vec![]
-	}
-	fn as_ongoing(_index: Self::Index) -> Option<(TallyOf<Test>, Self::Class)> {
-		None
-	}
-	fn access_poll<R>(
-		_: Self::Index,
-		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
-	) -> R {
-		f(PollStatus::None)
-	}
-	fn try_access_poll<R>(
-		_: Self::Index,
-		f: impl FnOnce(
-			PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>,
-		) -> Result<R, DispatchError>,
-	) -> Result<R, DispatchError> {
-		f(PollStatus::None)
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn create_ongoing(_: Self::Class) -> Result<Self::Index, ()> {
-		Err(())
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn end_ongoing(_: Self::Index, _: bool) -> Result<(), ()> {
-		Err(())
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn max_ongoing() -> (Self::Class, u32) {
-		(0, 0)
-	}
-}
-
 /// Convert the tally class into the minimum rank required to vote on the poll.
 /// MinRank(Class) = Class - Delta
 pub struct MinRankOfClass<Delta>(PhantomData<Delta>);
@@ -159,7 +115,7 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can exchange up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
-	type Polls = TestPolls;
+	type Polls = ();
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = CoreFellowship;
 	type VoteWeight = Geometric;
