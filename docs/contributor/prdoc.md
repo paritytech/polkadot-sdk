@@ -25,13 +25,15 @@ A `.prdoc` file is a YAML file with a defined structure (ie JSON Schema). Please
 > **Tip:** GitHub CLI and jq can be used to provide the number of your PR to generate the correct file:  
 > `prdoc generate $(gh pr view --json number | jq '.number') -o prdoc`
 
-Alternatively you can call the prdoc from PR via `/cmd prdoc` (see args with `/cmd prdoc --help`) in a comment to PR to trigger it from CI.
+Alternatively you can call the prdoc from PR via `/cmd prdoc` (see args with `/cmd prdoc --help`)
+in a comment to PR to trigger it from CI.
 
 Options:
 
 - `pr`: The PR number to generate the PrDoc for.
 - `audience`: The audience of whom the changes may concern.
-- `bump`: A default bump level for all crates. The PrDoc will likely need to be edited to reflect the actual changes after generation.
+- `bump`: A default bump level for all crates.
+  The PrDoc will likely need to be edited to reflect the actual changes after generation.
 - `force`: Whether to overwrite any existing PrDoc.
 
 ## Pick An Audience
