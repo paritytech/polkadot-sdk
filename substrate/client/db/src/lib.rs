@@ -1734,6 +1734,29 @@ impl<Block: BlockT> Backend<Block> {
 									&BLOCK_GAP_CURRENT_VERSION.encode(),
 								);
 								block_gap_updated = true;
+							// Gap decreased when downloading the full blocks.
+							} else if number == gap.start && body_exists {
+								gap.start += One::one();
+								if gap.start > gap.end {
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+									block_gap = None;
+									debug!(target: "db", "Removed block gap.");
+								} else {
+									block_gap = Some(gap);
+									debug!(target: "db", "Update block gap. {block_gap:?}");
+									transaction.set(
+										columns::META,
+										meta_keys::BLOCK_GAP,
+										&gap.encode(),
+									);
+									transaction.set(
+										columns::META,
+										meta_keys::BLOCK_GAP_VERSION,
+										&BLOCK_GAP_CURRENT_VERSION.encode(),
+									);
+								}
+								block_gap_updated = true;
 							}
 						},
 					}
