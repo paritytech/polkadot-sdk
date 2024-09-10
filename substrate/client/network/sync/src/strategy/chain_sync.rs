@@ -1556,8 +1556,10 @@ where
 		let attrs = self.required_block_attributes();
 		let blocks = &mut self.blocks;
 		let fork_targets = &mut self.fork_targets;
-		let last_finalized =
-			std::cmp::min(self.best_queued_number, self.client.info().finalized_number);
+		let info = self.client.info();
+		let best_number = info.best_number;
+		let best_hash = info.best_hash;
+		let last_finalized = std::cmp::min(self.best_queued_number, info.finalized_number);
 		let best_queued = self.best_queued_number;
 		let client = &self.client;
 		let queue_blocks = &self.queue_blocks;
@@ -1612,6 +1614,8 @@ where
 					max_blocks_per_request,
 					last_finalized,
 					best_queued,
+					best_number,
+					best_hash,
 				) {
 					peer.state = PeerSyncState::DownloadingNew(range.start);
 					trace!(
@@ -2048,16 +2052,23 @@ fn peer_block_request<B: BlockT>(
 	max_parallel_downloads: u32,
 	max_blocks_per_request: u32,
 	finalized: NumberFor<B>,
-	best_num: NumberFor<B>,
+	best_queued_num: NumberFor<B>,
+	best_number: NumberFor<B>,
+	best_hash: B::Hash,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
-	if best_num >= peer.best_number {
+	// Nothing to download from the peer via normal block requests.
+	if best_number == peer.best_number && best_hash == peer.best_hash {
+		return None;
+	}
+
+	if best_queued_num >= peer.best_number {
 		// Will be downloaded as alternative fork instead.
 		return None;
 	} else if peer.common_number < finalized {
 		trace!(
 			target: LOG_TARGET,
 			"Requesting pre-finalized chain from {:?}, common={}, finalized={}, peer best={}, our best={}",
-			id, peer.common_number, finalized, peer.best_number, best_num,
+			id, peer.common_number, finalized, peer.best_number, best_queued_num,
 		);
 	}
 	let range = blocks.needed_blocks(
