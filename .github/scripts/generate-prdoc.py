@@ -117,10 +117,10 @@ def setup_yaml():
 def setup_parser(parser=None):
 	if parser is None:
 		parser = argparse.ArgumentParser()
-	parser.add_argument("--pr", type=int, required=True)
-	parser.add_argument("--audience", type=str, default="TODO")
-	parser.add_argument("--bump", type=str, default="TODO")
-	parser.add_argument("--force", type=str)
+	parser.add_argument("--pr", type=int, required=True, help="The PR number to generate the PrDoc for."	)
+	parser.add_argument("--audience", type=str, default="TODO", help="The audience of whom the changes may concern.")
+	parser.add_argument("--bump", type=str, default="TODO", help="A default bump level for all crates.")
+	parser.add_argument("--force", type=str, help="Whether to overwrite any existing PrDoc.")
 	
 	return parser
 
