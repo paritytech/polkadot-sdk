@@ -19,11 +19,10 @@
 //! votes.
 
 use crate::dispatch::Parameter;
-use alloc::vec::Vec;
+use alloc::vec;
 use codec::{HasCompact, MaxEncodedLen};
 use sp_arithmetic::Perbill;
 use sp_runtime::{traits::Member, DispatchError};
-use alloc::vec;
 
 pub trait VoteTally<Votes, Class> {
 	/// Initializes a new tally.
@@ -130,9 +129,9 @@ pub trait Polling<Tally> {
 
 impl<Tally> Polling<Tally> for () {
 	type Index = u32;
-    type Votes = u32;
-    type Class = u16;
-    type Moment = u64;
+	type Votes = u32;
+	type Class = u16;
+	type Moment = u64;
 
 	fn classes() -> Vec<Self::Class> {
 		vec![]
@@ -143,17 +142,17 @@ impl<Tally> Polling<Tally> for () {
 	}
 
 	fn access_poll<R>(
-			_index: Self::Index,
-			f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> R,
-		) -> R {
-			f(PollStatus::None)
+		_index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> R,
+	) -> R {
+		f(PollStatus::None)
 	}
 
 	fn try_access_poll<R>(
-			_index: Self::Index,
-			f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> Result<R, DispatchError>,
-		) -> Result<R, DispatchError> {
-			f(PollStatus::None)
+		_index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> Result<R, DispatchError>,
+	) -> Result<R, DispatchError> {
+		f(PollStatus::None)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
