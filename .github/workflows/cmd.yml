@@ -146,6 +146,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Get command
         uses: actions-ecosystem/action-regex-match@v2
@@ -330,8 +332,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: ${{ needs.get-pr-branch.outputs.repo }}
-          ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install dependencies for bench
         if: startsWith(steps.get-pr-comment.outputs.group2, 'bench')
