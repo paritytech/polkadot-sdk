@@ -1598,9 +1598,8 @@ pub trait AsSystemOriginSigner<AccountId> {
 /// transaction extension (see [`TransactionExtension`]) is checked for authorization. Transaction
 /// is then rejected or applied.
 ///
-/// In FRAME, an
-/// authorized origin is either an `Origin::Signed` System origin or a custom origin authorized in a
-/// `TransactionExtension`.
+/// In FRAME, an authorized origin is either an `Origin::Signed` System origin or a custom origin
+/// authorized in a `TransactionExtension`.
 pub trait AsAuthorizedOrigin {
 	/// Whether the origin is authorized to include the transaction in a block.
 	///

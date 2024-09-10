@@ -27,9 +27,12 @@ use frame_support::{
 	pallet_prelude::*,
 };
 use frame_system::RawOrigin;
-use sp_runtime::traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable};
+use sp_runtime::traits::{
+	AsAuthorizedOrigin, AsSystemOriginSigner, DispatchTransaction, Dispatchable,
+};
 
 #[benchmarks(where
+	T::RuntimeOrigin: AsAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	T::AssetId: Send + Sync,
 	BalanceOf<T>: Send
