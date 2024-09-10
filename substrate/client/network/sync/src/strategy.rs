@@ -35,6 +35,7 @@ use crate::{
 	types::{BadPeer, SyncStatus},
 };
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
+use sc_network::ProtocolName;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockRequest};
 use sc_network_types::PeerId;
 use sp_blockchain::Error as ClientError;
@@ -94,7 +95,13 @@ where
 	);
 
 	/// Process generic response.
-	fn on_generic_response(&mut self, peer_id: &PeerId, key: StrategyKey, response: Vec<u8>);
+	fn on_generic_response(
+		&mut self,
+		peer_id: &PeerId,
+		key: StrategyKey,
+		protocol_name: ProtocolName,
+		response: Vec<u8>,
+	);
 
 	/// A batch of blocks that have been processed, with or without errors.
 	///

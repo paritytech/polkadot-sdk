@@ -578,7 +578,13 @@ where
 		self.on_block_response(peer_id, key, request, blocks)
 	}
 
-	fn on_generic_response(&mut self, peer_id: &PeerId, key: StrategyKey, response: Vec<u8>) {
+	fn on_generic_response(
+		&mut self,
+		peer_id: &PeerId,
+		key: StrategyKey,
+		_protocol_name: ProtocolName,
+		response: Vec<u8>,
+	) {
 		match key {
 			Self::STRATEGY_KEY =>
 				if let Err(bad_peer) = self.on_state_data(&peer_id, &response) {
@@ -819,13 +825,13 @@ where
 		&mut self,
 		network_service: &NetworkServiceHandle,
 	) -> Result<Vec<SyncingAction<B>>, ClientError> {
-        if !self.peers.is_empty() && self.queue_blocks.is_empty() {
-            if let Some((hash, number, skip_proofs)) = self.pending_state_sync_attempt.take() {
-                self.attempt_state_sync(hash, number, skip_proofs);
-            }
-        }
+		if !self.peers.is_empty() && self.queue_blocks.is_empty() {
+			if let Some((hash, number, skip_proofs)) = self.pending_state_sync_attempt.take() {
+				self.attempt_state_sync(hash, number, skip_proofs);
+			}
+		}
 
-        let block_requests = self.block_requests().into_iter().map(|(peer_id, request)| {
+		let block_requests = self.block_requests().into_iter().map(|(peer_id, request)| {
 			SyncingAction::SendBlockRequest { peer_id, key: Self::STRATEGY_KEY, request }
 		});
 		self.actions.extend(block_requests);

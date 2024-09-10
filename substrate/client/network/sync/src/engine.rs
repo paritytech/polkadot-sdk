@@ -1009,7 +1009,7 @@ where
 		let ResponseEvent { peer_id, key, request, response } = response_event;
 
 		match response {
-			Ok(Ok((resp, _))) => match request {
+			Ok(Ok((resp, protocol_name))) => match request {
 				PeerRequest::Block(req) => {
 					match self.block_downloader.block_response_into_blocks(&req, resp) {
 						Ok(blocks) => {
@@ -1042,7 +1042,7 @@ where
 					}
 				},
 				PeerRequest::Generic => {
-					self.strategy.on_generic_response(&peer_id, key, resp);
+					self.strategy.on_generic_response(&peer_id, key, protocol_name, resp);
 				},
 			},
 			Ok(Err(e)) => {

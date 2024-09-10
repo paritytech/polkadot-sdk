@@ -198,13 +198,19 @@ where
 		}
 	}
 
-	fn on_generic_response(&mut self, peer_id: &PeerId, key: StrategyKey, response: Vec<u8>) {
+	fn on_generic_response(
+		&mut self,
+		peer_id: &PeerId,
+		key: StrategyKey,
+		protocol_name: ProtocolName,
+		response: Vec<u8>,
+	) {
 		match key {
 			StateStrategy::<B>::STRATEGY_KEY =>
 				if let Some(state) = &mut self.state {
 					state.on_state_response(peer_id, response);
 				} else if let Some(chain_sync) = &mut self.chain_sync {
-					chain_sync.on_generic_response(peer_id, key, response);
+					chain_sync.on_generic_response(peer_id, key, protocol_name, response);
 				} else {
 					error!(
 						target: LOG_TARGET,
