@@ -35,9 +35,9 @@ jobs:
           merge_commits: skip
           github_token: ${{ secrets.GITHUB_TOKEN }} # FAIL-CI this token wont trigger CI
           pull_description: |
-            Backport #${pull_number} into `${target_branch}` (cc @${pull_author}).
+            Backport #${pull_number} into `${target_branch}` from ${pull_author}.
 
-            See the [BACKPORT.md](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) for an explanation on how to trigger this bot.
+            See the [documentation](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) on how to use this bot.
 
             <!--
               # To be used by other automation, do not modify:
@@ -49,6 +49,7 @@ jobs:
             {
               "conflict_resolution": "draft_commit_conflicts"
             }
+          copy_assignees: true
 
       - name: Label Backports
         if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
@@ -65,4 +66,22 @@ jobs:
                 labels: ['A3-backport']
               });
               console.log(`Added A3-backport label to PR #${pullNumber}`);
+            }
+
+      - name: Request Review
+        if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
+            const reviewer = '${{ github.event.pull_request.user.login }}';
+            
+            for (const pullNumber of pullNumbers) {
+              await github.pulls.createReviewRequest({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: parseInt(pullNumber),
+                reviewers: [ reviewer ]
+              });
+              console.log(`Requested review from ${reviewer} for PR #${pullNumber}`);
             }
