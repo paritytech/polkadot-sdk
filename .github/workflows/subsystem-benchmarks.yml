@@ -109,38 +109,38 @@ jobs:
           app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
           private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
 
-      - name: Publish ${{ env.BENCH_NAME }}
-        uses: benchmark-action/github-action-benchmark@v1
-        env:
-          BENCH_NAME: availability-recovery-regression-bench
-        with:
-          tool: "customSmallerIsBetter"
-          name: ${{ env.BENCH_NAME }}
-          output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-          benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
-          github-token: ${{ steps.app-token.outputs.token }}
+      # - name: Publish ${{ env.BENCH_NAME }}
+      #   uses: benchmark-action/github-action-benchmark@v1
+      #   env:
+      #     BENCH_NAME: availability-recovery-regression-bench
+      #   with:
+      #     tool: "customSmallerIsBetter"
+      #     name: ${{ env.BENCH_NAME }}
+      #     output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+      #     benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
+      #     github-token: ${{ steps.app-token.outputs.token }}
 
-      - name: Publish ${{ env.BENCH_NAME }}
-        uses: benchmark-action/github-action-benchmark@v1
-        env:
-          BENCH_NAME: availability-distribution-regression-bench
-        with:
-          tool: "customSmallerIsBetter"
-          name: ${{ env.BENCH_NAME }}
-          output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-          benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
-          github-token: ${{ steps.app-token.outputs.token }}
+      # - name: Publish ${{ env.BENCH_NAME }}
+      #   uses: benchmark-action/github-action-benchmark@v1
+      #   env:
+      #     BENCH_NAME: availability-distribution-regression-bench
+      #   with:
+      #     tool: "customSmallerIsBetter"
+      #     name: ${{ env.BENCH_NAME }}
+      #     output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+      #     benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
+      #     github-token: ${{ steps.app-token.outputs.token }}
 
-      - name: Publish ${{ env.BENCH_NAME }}
-        uses: benchmark-action/github-action-benchmark@v1
-        env:
-          BENCH_NAME: approval-voting-regression-bench
-        with:
-          tool: "customSmallerIsBetter"
-          name: ${{ env.BENCH_NAME }}
-          output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-          benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
-          github-token: ${{ steps.app-token.outputs.token }}
+      # - name: Publish ${{ env.BENCH_NAME }}
+      #   uses: benchmark-action/github-action-benchmark@v1
+      #   env:
+      #     BENCH_NAME: approval-voting-regression-bench
+      #   with:
+      #     tool: "customSmallerIsBetter"
+      #     name: ${{ env.BENCH_NAME }}
+      #     output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+      #     benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
+      #     github-token: ${{ steps.app-token.outputs.token }}
 
       - name: Publish ${{ env.BENCH_NAME }}
         uses: benchmark-action/github-action-benchmark@v1
