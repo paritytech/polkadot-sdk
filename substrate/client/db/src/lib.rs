@@ -1486,6 +1486,7 @@ impl<Block: BlockT> Backend<Block> {
 				.map(|(n, _)| n)
 				.unwrap_or(Zero::zero());
 			let existing_header = number <= highest_leaf && self.blockchain.header(hash)?.is_some();
+			let body_exists = pending_block.body.is_some();
 
 			// blocks are keyed by number + hash.
 			let lookup_key = utils::number_and_hash_to_lookup_key(number, hash)?;
@@ -1679,7 +1680,9 @@ impl<Block: BlockT> Backend<Block> {
 				}
 			}
 
-			if !existing_header {
+			let should_check_block_gap = !existing_header || !body_exists;
+
+			if should_check_block_gap {
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
 						BlockGapType::MissingHeaderAndBody =>
@@ -1734,6 +1737,24 @@ impl<Block: BlockT> Backend<Block> {
 						block_gap = Some(gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
+					} else if number == best_num + One::one() &&
+						self.blockchain.header(parent_hash)?.is_some() &&
+						!body_exists
+					{
+						let gap = BlockGap {
+							start: number,
+							end: number,
+							gap_type: BlockGapType::MissingBody,
+						};
+						transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
+						transaction.set(
+							columns::META,
+							meta_keys::BLOCK_GAP_VERSION,
+							&BLOCK_GAP_CURRENT_VERSION.encode(),
+						);
+						block_gap = Some(gap);
+						block_gap_updated = true;
+						debug!(target: "db", "Detected block gap (fast sync) {block_gap:?}");
 					}
 				}
 			}
