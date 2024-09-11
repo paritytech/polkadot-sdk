@@ -117,15 +117,22 @@
 //! [sp-genesis-builder-list]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.preset_names
 //! [sp-genesis-builder-get-preset]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset
 
-use std::{fs, path::PathBuf};
-
 use clap::{Parser, Subcommand};
-use sc_chain_spec::{ChainType, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
+use sc_chain_spec::{
+	json_patch, set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, ChainType,
+	GenericChainSpec, GenesisConfigBuilderRuntimeCaller,
+};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::{
+	borrow::Cow,
+	fs,
+	path::{Path, PathBuf},
+};
 
 /// A utility to easily create a chain spec definition.
 #[derive(Debug, Parser)]
-#[command(rename_all = "kebab-case")]
+#[command(rename_all = "kebab-case", version, about)]
 pub struct ChainSpecBuilder {
 	#[command(subcommand)]
 	pub command: ChainSpecBuilderCmd,
@@ -143,6 +150,7 @@ pub enum ChainSpecBuilderCmd {
 	ConvertToRaw(ConvertToRawCmd),
 	ListPresets(ListPresetsCmd),
 	DisplayPreset(DisplayPresetCmd),
+	AddCodeSubstitute(AddCodeSubstituteCmd),
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
@@ -157,9 +165,15 @@ pub struct CreateCmd {
 	/// The chain type.
 	#[arg(value_enum, short = 't', default_value = "live")]
 	chain_type: ChainType,
+	/// The para ID for your chain.
+	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
+	pub para_id: Option<u32>,
+	/// The relay chain you wish to connect to.
+	#[arg(long, value_enum, short = 'c', requires = "para_id")]
+	pub relay_chain: Option<String>,
 	/// The path to runtime wasm blob.
-	#[arg(long, short)]
-	runtime_wasm_path: PathBuf,
+	#[arg(long, short, alias = "runtime-wasm-path")]
+	runtime: PathBuf,
 	/// Export chainspec as raw storage.
 	#[arg(long, short = 's')]
 	raw_storage: bool,
@@ -169,6 +183,10 @@ pub struct CreateCmd {
 	verify: bool,
 	#[command(subcommand)]
 	action: GenesisBuildAction,
+
+	/// Allows to provide the runtime code blob, instead of reading it from the provided file path.
+	#[clap(skip)]
+	code: Option<Cow<'static, [u8]>>,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -219,7 +237,28 @@ pub struct UpdateCodeCmd {
 	/// Please note that the file will not be updated in-place.
 	pub input_chain_spec: PathBuf,
 	/// The path to new runtime wasm blob to be stored into chain-spec.
-	pub runtime_wasm_path: PathBuf,
+	#[arg(alias = "runtime-wasm-path")]
+	pub runtime: PathBuf,
+}
+
+/// Add a code substitute in the chain spec.
+///
+/// The `codeSubstitute` object of the chain spec will be updated with the block height as key and
+/// runtime code as value. This operation supports both plain and raw formats. The `codeSubstitute`
+/// field instructs the node to use the provided runtime code at the given block height. This is
+/// useful when the chain can not progress on its own due to a bug that prevents block-building.
+///
+/// Note: For parachains, the validation function on the relaychain needs to be adjusted too,
+/// otherwise blocks built using the substituted parachain runtime will be rejected.
+#[derive(Parser, Debug, Clone)]
+pub struct AddCodeSubstituteCmd {
+	/// Chain spec to be updated.
+	pub input_chain_spec: PathBuf,
+	/// New runtime wasm blob that should replace the existing code.
+	#[arg(alias = "runtime-wasm-path")]
+	pub runtime: PathBuf,
+	/// The block height at which the code should be substituted.
+	pub block_height: u64,
 }
 
 /// Converts the given chain spec into the raw format.
@@ -233,16 +272,16 @@ pub struct ConvertToRawCmd {
 #[derive(Parser, Debug, Clone)]
 pub struct ListPresetsCmd {
 	/// The path to runtime wasm blob.
-	#[arg(long, short)]
-	pub runtime_wasm_path: PathBuf,
+	#[arg(long, short, alias = "runtime-wasm-path")]
+	pub runtime: PathBuf,
 }
 
 /// Displays given preset
 #[derive(Parser, Debug, Clone)]
 pub struct DisplayPresetCmd {
 	/// The path to runtime wasm blob.
-	#[arg(long, short)]
-	pub runtime_wasm_path: PathBuf,
+	#[arg(long, short, alias = "runtime-wasm-path")]
+	pub runtime: PathBuf,
 	/// Preset to be displayed. If none is given default will be displayed.
 	#[arg(long, short)]
 	pub preset_name: Option<String>,
@@ -259,18 +298,146 @@ pub struct VerifyCmd {
 	pub input_chain_spec: PathBuf,
 }
 
-/// Processes `CreateCmd` and returns JSON version of `ChainSpec`.
-pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
-	let code = fs::read(cmd.runtime_wasm_path.as_path())
-		.map_err(|e| format!("wasm blob shall be readable {e}"))?;
+#[derive(Deserialize, Serialize, Clone)]
+pub struct ParachainExtension {
+	/// The relay chain of the Parachain.
+	pub relay_chain: String,
+	/// The id of the Parachain.
+	pub para_id: u32,
+}
 
-	let chain_type = &cmd.chain_type;
+type ChainSpec = GenericChainSpec<()>;
 
-	let builder = GenericChainSpec::<()>::builder(&code[..], Default::default())
-		.with_name(&cmd.chain_name[..])
-		.with_id(&cmd.chain_id[..])
-		.with_chain_type(chain_type.clone());
+impl ChainSpecBuilder {
+	/// Executes the internal command.
+	pub fn run(self) -> Result<(), String> {
+		let chain_spec_path = self.chain_spec_path.to_path_buf();
 
+		match self.command {
+			ChainSpecBuilderCmd::Create(cmd) => {
+				let chain_spec_json = generate_chain_spec_for_runtime(&cmd)?;
+				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
+			},
+			ChainSpecBuilderCmd::UpdateCode(UpdateCodeCmd {
+				ref input_chain_spec,
+				ref runtime,
+			}) => {
+				let mut chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
+
+				update_code_in_json_chain_spec(
+					&mut chain_spec_json,
+					&fs::read(runtime.as_path())
+						.map_err(|e| format!("Wasm blob file could not be read: {e}"))?[..],
+				);
+
+				let chain_spec_json = serde_json::to_string_pretty(&chain_spec_json)
+					.map_err(|e| format!("to pretty failed: {e}"))?;
+				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
+			},
+			ChainSpecBuilderCmd::AddCodeSubstitute(AddCodeSubstituteCmd {
+				ref input_chain_spec,
+				ref runtime,
+				block_height,
+			}) => {
+				let mut chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
+
+				set_code_substitute_in_json_chain_spec(
+					&mut chain_spec_json,
+					&fs::read(runtime.as_path())
+						.map_err(|e| format!("Wasm blob file could not be read: {e}"))?[..],
+					block_height,
+				);
+				let chain_spec_json = serde_json::to_string_pretty(&chain_spec_json)
+					.map_err(|e| format!("to pretty failed: {e}"))?;
+				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
+			},
+			ChainSpecBuilderCmd::ConvertToRaw(ConvertToRawCmd { ref input_chain_spec }) => {
+				let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
+
+				let mut genesis_json =
+					serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
+						.map_err(|e| format!("Conversion to json failed: {e}"))?;
+
+				// We want to extract only raw genesis ("genesis::raw" key), and apply it as a patch
+				// for the original json file. However, the file also contains original plain
+				// genesis ("genesis::runtimeGenesis") so set it to null so the patch will erase it.
+				genesis_json.as_object_mut().map(|map| {
+					map.retain(|key, _| key == "genesis");
+					map.get_mut("genesis").map(|genesis| {
+						genesis.as_object_mut().map(|genesis_map| {
+							genesis_map
+								.insert("runtimeGenesis".to_string(), serde_json::Value::Null);
+						});
+					});
+				});
+
+				let mut org_chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
+				json_patch::merge(&mut org_chain_spec_json, genesis_json);
+
+				let chain_spec_json = serde_json::to_string_pretty(&org_chain_spec_json)
+					.map_err(|e| format!("Conversion to pretty failed: {e}"))?;
+				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
+			},
+			ChainSpecBuilderCmd::Verify(VerifyCmd { ref input_chain_spec }) => {
+				let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
+				let _ = serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
+					.map_err(|e| format!("Conversion to json failed: {e}"))?;
+			},
+			ChainSpecBuilderCmd::ListPresets(ListPresetsCmd { runtime }) => {
+				let code = fs::read(runtime.as_path())
+					.map_err(|e| format!("wasm blob shall be readable {e}"))?;
+				let caller: GenesisConfigBuilderRuntimeCaller =
+					GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+				let presets = caller
+					.preset_names()
+					.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
+				let presets: Vec<String> = presets
+					.into_iter()
+					.map(|preset| {
+						String::from(
+							TryInto::<&str>::try_into(&preset)
+								.unwrap_or_else(|_| "cannot display preset id")
+								.to_string(),
+						)
+					})
+					.collect();
+				println!("{}", serde_json::json!({"presets":presets}).to_string());
+			},
+			ChainSpecBuilderCmd::DisplayPreset(DisplayPresetCmd { runtime, preset_name }) => {
+				let code = fs::read(runtime.as_path())
+					.map_err(|e| format!("wasm blob shall be readable {e}"))?;
+				let caller: GenesisConfigBuilderRuntimeCaller =
+					GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+				let preset = caller
+					.get_named_preset(preset_name.as_ref())
+					.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
+				println!("{preset}");
+			},
+		}
+		Ok(())
+	}
+
+	/// Sets the code used by [`CreateCmd`]
+	///
+	/// The file pointed by `CreateCmd::runtime` field will not be read. Provided blob will used
+	/// instead for chain spec generation.
+	pub fn set_create_cmd_runtime_code(&mut self, code: Cow<'static, [u8]>) {
+		match &mut self.command {
+			ChainSpecBuilderCmd::Create(cmd) => {
+				cmd.code = Some(code);
+			},
+			_ => {
+				panic!("Overwriting code blob is only supported for CreateCmd");
+			},
+		};
+	}
+}
+
+fn process_action<T: Serialize + Clone + Sync + 'static>(
+	cmd: &CreateCmd,
+	code: &[u8],
+	builder: sc_chain_spec::ChainSpecBuilder<T>,
+) -> Result<String, String> {
 	let builder = match cmd.action {
 		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>
 			builder.with_genesis_config_preset_name(&preset_name),
@@ -290,7 +457,7 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		},
 		GenesisBuildAction::Default(DefaultCmd {}) => {
 			let caller: GenesisConfigBuilderRuntimeCaller =
-				GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+				GenesisConfigBuilderRuntimeCaller::new(&code);
 			let default_config = caller
 				.get_default_config()
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
@@ -309,4 +476,60 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		},
 		(false, false) => chain_spec.as_json(false),
 	}
+}
+
+impl CreateCmd {
+	/// Returns the associated runtime code.
+	///
+	/// If the code blob was previously set, returns it. Otherwise reads the file.
+	fn get_runtime_code(&self) -> Result<Cow<'static, [u8]>, String> {
+		Ok(if let Some(code) = self.code.clone() {
+			code
+		} else {
+			fs::read(self.runtime.as_path())
+				.map_err(|e| format!("wasm blob shall be readable {e}"))?
+				.into()
+		})
+	}
+}
+
+/// Processes `CreateCmd` and returns string represenataion of JSON version of `ChainSpec`.
+pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
+	let code = cmd.get_runtime_code()?;
+
+	let chain_type = &cmd.chain_type;
+
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("tokenSymbol".into(), "UNIT".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+
+	let builder = ChainSpec::builder(&code[..], Default::default())
+		.with_name(&cmd.chain_name[..])
+		.with_id(&cmd.chain_id[..])
+		.with_properties(properties)
+		.with_chain_type(chain_type.clone());
+
+	let chain_spec_json_string = process_action(&cmd, &code[..], builder)?;
+
+	if let (Some(para_id), Some(ref relay_chain)) = (cmd.para_id, &cmd.relay_chain) {
+		let parachain_properties = serde_json::json!({
+			"relay_chain": relay_chain,
+			"para_id": para_id,
+		});
+		let mut chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
+			.map_err(|e| format!("deserialization a json failed {e}"))?;
+		json_patch::merge(&mut chain_spec_json_blob, parachain_properties);
+		Ok(serde_json::to_string_pretty(&chain_spec_json_blob)
+			.map_err(|e| format!("to pretty failed: {e}"))?)
+	} else {
+		Ok(chain_spec_json_string)
+	}
+}
+
+/// Extract any chain spec and convert it to JSON
+fn extract_chain_spec_json(input_chain_spec: &Path) -> Result<serde_json::Value, String> {
+	let chain_spec = &fs::read(input_chain_spec)
+		.map_err(|e| format!("Provided chain spec could not be read: {e}"))?;
+
+	serde_json::from_slice(&chain_spec).map_err(|e| format!("Conversion to json failed: {e}"))
 }

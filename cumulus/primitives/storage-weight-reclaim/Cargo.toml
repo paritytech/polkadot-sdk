@@ -10,24 +10,23 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { features = ["derive"], workspace = true }
 
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-runtime = { workspace = true }
 
-cumulus-primitives-core = { path = "../core", default-features = false }
-cumulus-primitives-proof-size-hostfunction = { path = "../proof-size-hostfunction", default-features = false }
-docify = "0.2.8"
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-proof-size-hostfunction = { workspace = true }
+docify = { workspace = true }
 
 [dev-dependencies]
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-cumulus-test-runtime = { path = "../../test/runtime" }
+sp-trie = { workspace = true }
+sp-io = { workspace = true }
+cumulus-test-runtime = { workspace = true }
 
 [features]
 default = ["std"]
@@ -41,6 +40,5 @@ std = [
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-trie/std",
 ]

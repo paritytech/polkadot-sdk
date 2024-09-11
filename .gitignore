@@ -14,6 +14,7 @@
 *.orig
 *.rej
 *.swp
+*.wasm
 **/._*
 **/.criterion/
 **/*.rs.bk
@@ -22,6 +23,7 @@
 **/node_modules
 **/target/
 **/wip/*.stderr
+**/__pycache__/
 /.cargo/config
 /.envrc
 artifacts

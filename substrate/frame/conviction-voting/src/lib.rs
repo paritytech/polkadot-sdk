@@ -27,6 +27,8 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -40,7 +42,6 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, Perbill,
 };
-use sp_std::prelude::*;
 
 mod conviction;
 mod types;
@@ -170,6 +171,10 @@ pub mod pallet {
 		Delegated(T::AccountId, T::AccountId),
 		/// An \[account\] has cancelled a previous delegation operation.
 		Undelegated(T::AccountId),
+		/// An account that has voted
+		Voted { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
+		/// A vote that been removed
+		VoteRemoved { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
 	}
 
 	#[pallet::error]
@@ -427,6 +432,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(who, &class, vote.balance());
+				Self::deposit_event(Event::Voted { who: who.clone(), vote });
 				Ok(())
 			})
 		})
@@ -462,6 +468,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						if let Some(approve) = v.1.as_standard() {
 							tally.reduce(approve, *delegations);
 						}
+						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: v.1 });
 						Ok(())
 					},
 					PollStatus::Completed(end, approved) => {
@@ -559,7 +566,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
 		let votes =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
-				let old = sp_std::mem::replace(
+				let old = core::mem::replace(
 					voting,
 					Voting::Delegating(Delegating {
 						balance,
@@ -596,7 +603,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn try_undelegate(who: T::AccountId, class: ClassOf<T, I>) -> Result<u32, DispatchError> {
 		let votes =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
-				match sp_std::mem::replace(voting, Voting::default()) {
+				match core::mem::replace(voting, Voting::default()) {
 					Voting::Delegating(Delegating {
 						balance,
 						target,

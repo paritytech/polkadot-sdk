@@ -4,10 +4,11 @@ version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "MIT-0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME example pallet demonstrating derive_impl / default_config in action"
 readme = "README.md"
+publish = false
 
 [lints]
 workspace = true
@@ -16,15 +17,14 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
+codec = { workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../../support", default-features = false }
-frame-system = { path = "../../system", default-features = false }
+scale-info = { features = ["derive"], workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
-sp-io = { path = "../../../primitives/io", default-features = false }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
@@ -36,7 +36,6 @@ std = [
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

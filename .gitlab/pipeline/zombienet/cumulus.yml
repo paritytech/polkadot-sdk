@@ -149,3 +149,27 @@ zombienet-cumulus-0007-full_node_warp_sync:
       --local-dir="${LOCAL_DIR}"
       --concurrency=1
       --test="0007-full_node_warp_sync.zndsl"
+
+zombienet-cumulus-0008-elastic_authoring:
+  extends:
+    - .zombienet-cumulus-common
+    - .zombienet-refs
+    - .zombienet-before-script
+    - .zombienet-after-script
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}"
+      --concurrency=1
+      --test="0008-elastic_authoring.zndsl"
+
+zombienet-cumulus-0009-elastic_pov_recovery:
+  extends:
+    - .zombienet-cumulus-common
+    - .zombienet-refs
+    - .zombienet-before-script
+    - .zombienet-after-script
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}"
+      --concurrency=1
+      --test="0009-elastic_pov_recovery.zndsl"

@@ -27,7 +27,6 @@ pub mod extrinsic;
 pub mod genesismap;
 pub mod substrate_test_pallet;
 
-use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
@@ -120,7 +119,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 fn version() -> RuntimeVersion {
@@ -355,29 +354,12 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::pallet::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	type Nonce = Nonce;
-	type Hash = H256;
-	type Hashing = Hashing;
 	type AccountId = AccountId;
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<2400>;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 pub mod currency {
@@ -613,7 +595,11 @@ impl_runtime_apis! {
 		}
 
 		fn do_trace_log() {
-			log::trace!("Hey I'm runtime");
+			log::trace!(target: "test", "Hey I'm runtime");
+
+			let data = "THIS IS TRACING";
+
+			tracing::trace!(target: "test", %data, "Hey, I'm tracing");
 		}
 
 		fn verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec<u8>) -> bool {
@@ -891,7 +877,7 @@ pub mod storage_key_generator {
 		sp_crypto_hashing::twox_64(x).iter().chain(x.iter()).cloned().collect()
 	}
 
-	/// Generate the hashed storage keys from the raw literals. These keys are expected to be be in
+	/// Generate the hashed storage keys from the raw literals. These keys are expected to be in
 	/// storage with given substrate-test runtime.
 	pub fn generate_expected_storage_hashed_keys(custom_heap_pages: bool) -> Vec<String> {
 		let mut literals: Vec<&[u8]> = vec![b":code", b":extrinsic_index"];
@@ -1076,7 +1062,7 @@ mod tests {
 		// This tests that the on-chain `HEAP_PAGES` parameter is respected.
 
 		// Create a client devoting only 8 pages of wasm memory. This gives us ~512k of heap memory.
-		let mut client = TestClientBuilder::new().set_heap_pages(8).build();
+		let client = TestClientBuilder::new().set_heap_pages(8).build();
 		let best_hash = client.chain_info().best_hash;
 
 		// Try to allocate 1024k of memory on heap. This is going to fail since it is twice larger

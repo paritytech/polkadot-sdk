@@ -11,50 +11,53 @@ publish = false
 workspace = true
 
 [dependencies]
-async-std = { version = "1.9.0", features = ["attributes"] }
-async-trait = "0.1.79"
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-futures = "0.3.30"
-jsonrpsee = { version = "0.22", features = ["macros", "ws-client"] }
+async-std = { features = ["attributes"], workspace = true }
+async-trait = { workspace = true }
+codec = { workspace = true, default-features = true }
+futures = { workspace = true }
+jsonrpsee = { features = ["macros", "ws-client"], workspace = true }
 log = { workspace = true }
-num-traits = "0.2"
-rand = "0.8.5"
-scale-info = { version = "2.11.1", features = ["derive"] }
-tokio = { version = "1.37", features = ["rt-multi-thread"] }
+num-traits = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
+serde_json = { workspace = true }
+scale-info = { features = [
+	"derive",
+], workspace = true, default-features = true }
+tokio = { features = [
+	"rt-multi-thread",
+], workspace = true, default-features = true }
 thiserror = { workspace = true }
+quick_cache = { workspace = true }
 
 # Bridge dependencies
 
-bp-header-chain = { path = "../../primitives/header-chain" }
-bp-messages = { path = "../../primitives/messages" }
-bp-polkadot-core = { path = "../../primitives/polkadot-core" }
-bp-runtime = { path = "../../primitives/runtime" }
-pallet-bridge-messages = { path = "../../modules/messages" }
-finality-relay = { path = "../finality" }
-relay-utils = { path = "../utils" }
+bp-header-chain = { workspace = true, default-features = true }
+bp-messages = { workspace = true, default-features = true }
+bp-polkadot-core = { workspace = true, default-features = true }
+bp-runtime = { workspace = true, default-features = true }
+finality-relay = { workspace = true }
+relay-utils = { workspace = true }
 
 # Substrate Dependencies
 
-frame-support = { path = "../../../substrate/frame/support" }
-frame-system = { path = "../../../substrate/frame/system" }
-pallet-balances = { path = "../../../substrate/frame/balances" }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment" }
-pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api" }
-pallet-utility = { path = "../../../substrate/frame/utility" }
-sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
-sc-rpc-api = { path = "../../../substrate/client/rpc-api" }
-sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
-sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-rpc = { path = "../../../substrate/primitives/rpc" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-std = { path = "../../../substrate/primitives/std" }
-sp-trie = { path = "../../../substrate/primitives/trie" }
-sp-version = { path = "../../../substrate/primitives/version" }
+frame-support = { workspace = true, default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-rpc-api = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sp-consensus-grandpa = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-rpc = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-std = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
 
 # Polkadot Dependencies
 
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm" }
+xcm = { workspace = true, default-features = true }
 
 [features]
 default = []

@@ -83,20 +83,9 @@ impl pallet_scheduler::Config for Test {
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
 }
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type MaxLocks = ConstU32<10>;
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 parameter_types! {
 	pub static AlarmInterval: u64 = 1;
@@ -123,7 +112,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 	type Id = u8;
 	type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
 	fn tracks() -> &'static [(Self::Id, TrackInfo<u64, u64>)] {
-		static DATA: [(u8, TrackInfo<u64, u64>); 2] = [
+		static DATA: [(u8, TrackInfo<u64, u64>); 3] = [
 			(
 				0u8,
 				TrackInfo {
@@ -168,6 +157,28 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 					},
 				},
 			),
+			(
+				2u8,
+				TrackInfo {
+					name: "none",
+					max_deciding: 3,
+					decision_deposit: 1,
+					prepare_period: 2,
+					decision_period: 2,
+					confirm_period: 1,
+					min_enactment_period: 0,
+					min_approval: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(95),
+						ceil: Perbill::from_percent(100),
+					},
+					min_support: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(90),
+						ceil: Perbill::from_percent(100),
+					},
+				},
+			),
 		];
 		&DATA[..]
 	}
@@ -176,6 +187,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 			match system_origin {
 				frame_system::RawOrigin::Root => Ok(0),
 				frame_system::RawOrigin::None => Ok(1),
+				frame_system::RawOrigin::Signed(1) => Ok(2),
 				_ => Err(()),
 			}
 		} else {

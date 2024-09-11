@@ -10,26 +10,25 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-pallet-aura = { path = "../../../substrate/frame/aura", default-features = false }
-pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false }
-sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-aura = { workspace = true }
+pallet-timestamp = { workspace = true }
+sp-application-crypto = { workspace = true }
+sp-consensus-aura = { workspace = true }
+sp-runtime = { workspace = true }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false }
+cumulus-pallet-parachain-system = { workspace = true }
 
 [dev-dependencies]
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../parachain-system" }
+cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -44,7 +43,6 @@ std = [
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",

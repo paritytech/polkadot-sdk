@@ -335,7 +335,7 @@ mod tests {
 	#[test]
 	fn should_generate_empty_root() {
 		// given
-		let _ = env_logger::try_init();
+		sp_tracing::init_for_tests();
 		let data = vec![];
 
 		// when
@@ -351,7 +351,7 @@ mod tests {
 	#[test]
 	fn should_generate_single_root() {
 		// given
-		let _ = env_logger::try_init();
+		sp_tracing::init_for_tests();
 		let data = make_leaves(1);
 
 		// when
@@ -367,7 +367,7 @@ mod tests {
 	#[test]
 	fn should_generate_root_pow_2() {
 		// given
-		let _ = env_logger::try_init();
+		sp_tracing::init_for_tests();
 		let data = make_leaves(2);
 
 		// when
@@ -382,7 +382,7 @@ mod tests {
 
 	#[test]
 	fn should_generate_root_complex() {
-		let _ = env_logger::try_init();
+		sp_tracing::init_for_tests();
 		let test = |root, data: Vec<H256>| {
 			assert_eq!(
 				array_bytes::bytes2hex("", merkle_root::<Keccak256, _>(data.into_iter()).as_ref()),
@@ -401,7 +401,7 @@ mod tests {
 	#[ignore]
 	fn should_generate_and_verify_proof() {
 		// given
-		let _ = env_logger::try_init();
+		sp_tracing::init_for_tests();
 		let data: Vec<H256> = make_leaves(3);
 
 		// when
@@ -458,7 +458,7 @@ mod tests {
 	#[test]
 	#[should_panic]
 	fn should_panic_on_invalid_leaf_index() {
-		let _ = env_logger::try_init();
+		sp_tracing::init_for_tests();
 		merkle_proof::<Keccak256, _>(make_leaves(1).into_iter(), 5);
 	}
 }

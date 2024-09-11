@@ -16,7 +16,7 @@
 
 //! Helper for tracking transaction invalidation events.
 
-use crate::{Chain, Client, Error, HashOf, HeaderIdOf, Subscription, TransactionStatusOf};
+use crate::{Chain, Error, HashOf, HeaderIdOf, Subscription, TransactionStatusOf};
 
 use async_trait::async_trait;
 use futures::{future::Either, Future, FutureExt, Stream, StreamExt};
@@ -31,8 +31,10 @@ pub trait Environment<C: Chain>: Send + Sync {
 	async fn header_id_by_hash(&self, hash: HashOf<C>) -> Result<HeaderIdOf<C>, Error>;
 }
 
+// TODO (https://github.com/paritytech/parity-bridges-common/issues/2133): remove `Environment` trait
+// after test client is implemented
 #[async_trait]
-impl<C: Chain> Environment<C> for Client<C> {
+impl<C: Chain, T: crate::client::Client<C>> Environment<C> for T {
 	async fn header_id_by_hash(&self, hash: HashOf<C>) -> Result<HeaderIdOf<C>, Error> {
 		self.header_by_hash(hash).await.map(|h| HeaderId(*h.number(), hash))
 	}
@@ -76,6 +78,21 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 		Self { environment, stall_timeout, transaction_hash, subscription }
 	}
 
+	// TODO (https://github.com/paritytech/parity-bridges-common/issues/2133): remove me after
+	// test client is implemented
+	/// Converts self into tracker with different environment.
+	pub fn switch_environment<NewE: Environment<C>>(
+		self,
+		environment: NewE,
+	) -> TransactionTracker<C, NewE> {
+		TransactionTracker {
+			environment,
+			stall_timeout: self.stall_timeout,
+			transaction_hash: self.transaction_hash,
+			subscription: self.subscription,
+		}
+	}
+
 	/// Wait for final transaction status and return it along with last known internal invalidation
 	/// status.
 	async fn do_wait(
@@ -88,7 +105,7 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 		let wait_for_invalidation = watch_transaction_status::<_, C, _>(
 			self.environment,
 			self.transaction_hash,
-			self.subscription.into_stream(),
+			self.subscription,
 		);
 		futures::pin_mut!(wait_for_stall_timeout, wait_for_invalidation);
 
@@ -284,7 +301,7 @@ async fn watch_transaction_status<
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test_chain::TestChain;
+	use crate::{test_chain::TestChain, StreamDescription};
 	use futures::{FutureExt, SinkExt};
 	use sc_transaction_pool_api::TransactionStatus;
 
@@ -306,22 +323,27 @@ mod tests {
 		TrackedTransactionStatus<HeaderIdOf<TestChain>>,
 		InvalidationStatus<HeaderIdOf<TestChain>>,
 	)> {
-		let (cancel_sender, _cancel_receiver) = futures::channel::oneshot::channel();
 		let (mut sender, receiver) = futures::channel::mpsc::channel(1);
 		let tx_tracker = TransactionTracker::<TestChain, TestEnvironment>::new(
 			TestEnvironment(Ok(HeaderId(0, Default::default()))),
 			Duration::from_secs(0),
 			Default::default(),
-			Subscription(async_std::sync::Mutex::new(receiver), cancel_sender),
+			Subscription::new_forwarded(
+				StreamDescription::new("test".into(), "test".into()),
+				receiver,
+			),
 		);
 
-		let wait_for_stall_timeout = futures::future::pending();
+		// we can't do `.now_or_never()` on `do_wait()` call, because `Subscription` has its own
+		// background thread, which may cause additional async task switches => let's leave some
+		// relatively small timeout here
+		let wait_for_stall_timeout = async_std::task::sleep(std::time::Duration::from_millis(100));
 		let wait_for_stall_timeout_rest = futures::future::ready(());
-		sender.send(Some(status)).await.unwrap();
-		tx_tracker
-			.do_wait(wait_for_stall_timeout, wait_for_stall_timeout_rest)
-			.now_or_never()
-			.map(|(ts, is)| (ts, is.unwrap()))
+		sender.send(Ok(status)).await.unwrap();
+
+		let (ts, is) =
+			tx_tracker.do_wait(wait_for_stall_timeout, wait_for_stall_timeout_rest).await;
+		is.map(|is| (ts, is))
 	}
 
 	#[async_std::test]
@@ -429,13 +451,15 @@ mod tests {
 
 	#[async_std::test]
 	async fn lost_on_timeout_when_waiting_for_invalidation_status() {
-		let (cancel_sender, _cancel_receiver) = futures::channel::oneshot::channel();
 		let (_sender, receiver) = futures::channel::mpsc::channel(1);
 		let tx_tracker = TransactionTracker::<TestChain, TestEnvironment>::new(
 			TestEnvironment(Ok(HeaderId(0, Default::default()))),
 			Duration::from_secs(0),
 			Default::default(),
-			Subscription(async_std::sync::Mutex::new(receiver), cancel_sender),
+			Subscription::new_forwarded(
+				StreamDescription::new("test".into(), "test".into()),
+				receiver,
+			),
 		);
 
 		let wait_for_stall_timeout = futures::future::ready(()).shared();

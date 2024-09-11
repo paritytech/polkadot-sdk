@@ -23,25 +23,52 @@ use futures::{
 	future::{self, Either, Fuse, FusedFuture},
 	Future, FutureExt, Stream, StreamExt,
 };
-use jsonrpsee::{PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink};
+use jsonrpsee::{
+	types::SubscriptionId, DisconnectError, PendingSubscriptionSink, SubscriptionMessage,
+	SubscriptionSink,
+};
 use sp_runtime::Serialize;
 use std::collections::VecDeque;
 
 const DEFAULT_BUF_SIZE: usize = 16;
 
-/// A simple bounded VecDeque.
-struct BoundedVecDeque<T> {
+/// A trait representing a buffer which may or may not support
+/// to replace items when the buffer is full.
+pub trait Buffer {
+	/// The item type that the buffer holds.
+	type Item;
+
+	/// Push an item to the buffer.
+	///
+	/// Returns `Err` if the buffer doesn't support replacing older items
+	fn push(&mut self, item: Self::Item) -> Result<(), ()>;
+	/// Pop the next item from the buffer.
+	fn pop(&mut self) -> Option<Self::Item>;
+}
+
+/// A simple bounded buffer that will terminate the subscription if the buffer becomes full.
+pub struct BoundedVecDeque<T> {
 	inner: VecDeque<T>,
 	max_cap: usize,
 }
 
-impl<T> BoundedVecDeque<T> {
-	/// Create a new bounded VecDeque.
-	fn new() -> Self {
+impl<T> Default for BoundedVecDeque<T> {
+	fn default() -> Self {
 		Self { inner: VecDeque::with_capacity(DEFAULT_BUF_SIZE), max_cap: DEFAULT_BUF_SIZE }
 	}
+}
 
-	fn push_back(&mut self, item: T) -> Result<(), ()> {
+impl<T> BoundedVecDeque<T> {
+	/// Create a new bounded VecDeque.
+	pub fn new(cap: usize) -> Self {
+		Self { inner: VecDeque::with_capacity(cap), max_cap: cap }
+	}
+}
+
+impl<T> Buffer for BoundedVecDeque<T> {
+	type Item = T;
+
+	fn push(&mut self, item: Self::Item) -> Result<(), ()> {
 		if self.inner.len() >= self.max_cap {
 			Err(())
 		} else {
@@ -50,126 +77,187 @@ impl<T> BoundedVecDeque<T> {
 		}
 	}
 
-	fn pop_front(&mut self) -> Option<T> {
+	fn pop(&mut self) -> Option<T> {
 		self.inner.pop_front()
 	}
 }
 
-/// Feed items to the subscription from the underlying stream.
-///
-/// This is bounded because the underlying streams in substrate are
-/// unbounded and if the subscription can't keep with stream it can
-/// cause the buffer to become very large and consume lots of memory.
-///
-/// In such cases the subscription is dropped.
-pub async fn pipe_from_stream<S, T>(pending: PendingSubscriptionSink, mut stream: S)
-where
-	S: Stream<Item = T> + Unpin + Send + 'static,
-	T: Serialize + Send + 'static,
-{
-	let mut buf = BoundedVecDeque::new();
-	let accept_fut = pending.accept();
-
-	futures::pin_mut!(accept_fut);
-
-	// Poll the stream while waiting for the subscription to be accepted
-	//
-	// If the `max_cap` is exceeded then the subscription is dropped.
-	let sink = loop {
-		match future::select(accept_fut, stream.next()).await {
-			Either::Left((Ok(sink), _)) => break sink,
-			Either::Right((Some(msg), f)) => {
-				if buf.push_back(msg).is_err() {
-					log::warn!(target: "rpc", "Subscription::accept failed buffer limit={} exceeded; dropping subscription", buf.max_cap);
-					return
-				}
-				accept_fut = f;
-			},
-			// The connection was closed or the stream was closed.
-			_ => return,
-		}
-	};
-
-	inner_pipe_from_stream(sink, stream, buf).await
+/// Fixed size ring buffer that replaces the oldest item when full.
+#[derive(Debug)]
+pub struct RingBuffer<T> {
+	inner: VecDeque<T>,
+	cap: usize,
 }
 
-async fn inner_pipe_from_stream<S, T>(
-	sink: SubscriptionSink,
-	mut stream: S,
-	mut buf: BoundedVecDeque<T>,
-) where
-	S: Stream<Item = T> + Unpin + Send + 'static,
-	T: Serialize + Send + 'static,
-{
-	let mut next_fut = Box::pin(Fuse::terminated());
-	let mut next_item = stream.next();
-	let closed = sink.closed();
-
-	futures::pin_mut!(closed);
-
-	loop {
-		if next_fut.is_terminated() {
-			if let Some(v) = buf.pop_front() {
-				let val = to_sub_message(&sink, &v);
-				next_fut.set(async { sink.send(val).await }.fuse());
-			}
-		}
-
-		match future::select(closed, future::select(next_fut, next_item)).await {
-			// Send operation finished.
-			Either::Right((Either::Left((_, n)), c)) => {
-				next_item = n;
-				closed = c;
-				next_fut = Box::pin(Fuse::terminated());
-			},
-			// New item from the stream
-			Either::Right((Either::Right((Some(v), n)), c)) => {
-				if buf.push_back(v).is_err() {
-					log::warn!(
-						target: "rpc",
-						"Subscription buffer limit={} exceeded for subscription={} conn_id={}; dropping subscription",
-						buf.max_cap,
-						sink.method_name(),
-						sink.connection_id()
-					);
-					return
-				}
-
-				next_fut = n;
-				closed = c;
-				next_item = stream.next();
-			},
-			// Stream "finished".
-			//
-			// Process remaining items and terminate.
-			Either::Right((Either::Right((None, pending_fut)), _)) => {
-				if !pending_fut.is_terminated() && pending_fut.await.is_err() {
-					return;
-				}
-
-				while let Some(v) = buf.pop_front() {
-					let val = to_sub_message(&sink, &v);
-					if sink.send(val).await.is_err() {
-						return;
-					}
-				}
-
-				return;
-			},
-			// Subscription was closed.
-			Either::Left(_) => return,
-		}
+impl<T> RingBuffer<T> {
+	/// Create a new ring buffer.
+	pub fn new(cap: usize) -> Self {
+		Self { inner: VecDeque::with_capacity(cap), cap }
 	}
 }
 
-/// Builds a subscription message.
-///
-/// # Panics
-///
-/// This function panics `Serialize` fails and it is treated a bug.
-pub fn to_sub_message(sink: &SubscriptionSink, result: &impl Serialize) -> SubscriptionMessage {
-	SubscriptionMessage::new(sink.method_name(), sink.subscription_id(), result)
-		.expect("Serialize infallible; qed")
+impl<T> Buffer for RingBuffer<T> {
+	type Item = T;
+
+	fn push(&mut self, item: T) -> Result<(), ()> {
+		if self.inner.len() >= self.cap {
+			self.inner.pop_front();
+		}
+
+		self.inner.push_back(item);
+
+		Ok(())
+	}
+
+	fn pop(&mut self) -> Option<T> {
+		self.inner.pop_front()
+	}
+}
+
+/// A pending subscription.
+pub struct PendingSubscription(PendingSubscriptionSink);
+
+impl From<PendingSubscriptionSink> for PendingSubscription {
+	fn from(p: PendingSubscriptionSink) -> Self {
+		Self(p)
+	}
+}
+
+impl PendingSubscription {
+	/// Feed items to the subscription from the underlying stream
+	/// with specified buffer strategy.
+	pub async fn pipe_from_stream<S, T, B>(self, mut stream: S, mut buf: B)
+	where
+		S: Stream<Item = T> + Unpin + Send + 'static,
+		T: Serialize + Send + 'static,
+		B: Buffer<Item = T>,
+	{
+		let method = self.0.method_name().to_string();
+		let conn_id = self.0.connection_id().0;
+		let accept_fut = self.0.accept();
+
+		futures::pin_mut!(accept_fut);
+
+		// Poll the stream while waiting for the subscription to be accepted
+		//
+		// If the `max_cap` is exceeded then the subscription is dropped.
+		let sink = loop {
+			match future::select(accept_fut, stream.next()).await {
+				Either::Left((Ok(sink), _)) => break sink,
+				Either::Right((Some(msg), f)) => {
+					if buf.push(msg).is_err() {
+						log::debug!(target: "rpc", "Subscription::accept buffer full for subscription={method} conn_id={conn_id}; dropping subscription");
+						return
+					}
+					accept_fut = f;
+				},
+				// The connection was closed or the stream was closed.
+				_ => return,
+			}
+		};
+
+		Subscription(sink).pipe_from_stream(stream, buf).await
+	}
+}
+
+/// An active subscription.
+#[derive(Clone, Debug)]
+pub struct Subscription(SubscriptionSink);
+
+impl From<SubscriptionSink> for Subscription {
+	fn from(sink: SubscriptionSink) -> Self {
+		Self(sink)
+	}
+}
+
+impl Subscription {
+	/// Feed items to the subscription from the underlying stream
+	/// with specified buffer strategy.
+	pub async fn pipe_from_stream<S, T, B>(self, mut stream: S, mut buf: B)
+	where
+		S: Stream<Item = T> + Unpin + Send + 'static,
+		T: Serialize + Send + 'static,
+		B: Buffer<Item = T>,
+	{
+		let mut next_fut = Box::pin(Fuse::terminated());
+		let mut next_item = stream.next();
+		let closed = self.0.closed();
+
+		futures::pin_mut!(closed);
+
+		loop {
+			if next_fut.is_terminated() {
+				if let Some(v) = buf.pop() {
+					let val = self.to_sub_message(&v);
+					next_fut.set(async { self.0.send(val).await }.fuse());
+				}
+			}
+
+			match future::select(closed, future::select(next_fut, next_item)).await {
+				// Send operation finished.
+				Either::Right((Either::Left((_, n)), c)) => {
+					next_item = n;
+					closed = c;
+					next_fut = Box::pin(Fuse::terminated());
+				},
+				// New item from the stream
+				Either::Right((Either::Right((Some(v), n)), c)) => {
+					if buf.push(v).is_err() {
+						log::debug!(
+							target: "rpc",
+							"Subscription buffer full for subscription={} conn_id={}; dropping subscription",
+							self.0.method_name(),
+							self.0.connection_id().0
+						);
+						return
+					}
+
+					next_fut = n;
+					closed = c;
+					next_item = stream.next();
+				},
+				// Stream "finished".
+				//
+				// Process remaining items and terminate.
+				Either::Right((Either::Right((None, pending_fut)), _)) => {
+					if !pending_fut.is_terminated() && pending_fut.await.is_err() {
+						return;
+					}
+
+					while let Some(v) = buf.pop() {
+						if self.send(&v).await.is_err() {
+							return;
+						}
+					}
+
+					return;
+				},
+				// Subscription was closed.
+				Either::Left(_) => return,
+			}
+		}
+	}
+
+	/// Send a message on the subscription.
+	pub async fn send(&self, result: &impl Serialize) -> Result<(), DisconnectError> {
+		self.0.send(self.to_sub_message(result)).await
+	}
+
+	/// Get the subscription id.
+	pub fn subscription_id(&self) -> SubscriptionId {
+		self.0.subscription_id()
+	}
+
+	/// Completes when the subscription is closed.
+	pub async fn closed(&self) {
+		self.0.closed().await
+	}
+
+	/// Convert a result to a subscription message.
+	fn to_sub_message(&self, result: &impl Serialize) -> SubscriptionMessage {
+		SubscriptionMessage::new(self.0.method_name(), self.0.subscription_id(), result)
+			.expect("Serialize infallible; qed")
+	}
 }
 
 /// Helper for spawning non-blocking rpc subscription task.
@@ -182,16 +270,18 @@ pub fn spawn_subscription_task(
 
 #[cfg(test)]
 mod tests {
-	use super::pipe_from_stream;
+	use super::*;
 	use futures::StreamExt;
 	use jsonrpsee::{core::EmptyServerParams, RpcModule, Subscription};
 
 	async fn subscribe() -> Subscription {
 		let mut module = RpcModule::new(());
 		module
-			.register_subscription("sub", "my_sub", "unsub", |_, pending, _| async move {
+			.register_subscription("sub", "my_sub", "unsub", |_, pending, _, _| async move {
 				let stream = futures::stream::iter([0; 16]);
-				pipe_from_stream(pending, stream).await;
+				PendingSubscription::from(pending)
+					.pipe_from_stream(stream, BoundedVecDeque::new(16))
+					.await;
 				Ok(())
 			})
 			.unwrap();
@@ -212,14 +302,16 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn pipe_from_stream_is_bounded() {
+	async fn pipe_from_stream_with_bounded_vec() {
 		let (tx, mut rx) = futures::channel::mpsc::unbounded::<()>();
 
 		let mut module = RpcModule::new(tx);
 		module
-			.register_subscription("sub", "my_sub", "unsub", |_, pending, ctx| async move {
+			.register_subscription("sub", "my_sub", "unsub", |_, pending, ctx, _| async move {
 				let stream = futures::stream::iter([0; 32]);
-				pipe_from_stream(pending, stream).await;
+				PendingSubscription::from(pending)
+					.pipe_from_stream(stream, BoundedVecDeque::new(16))
+					.await;
 				_ = ctx.unbounded_send(());
 				Ok(())
 			})
@@ -239,20 +331,58 @@ mod tests {
 
 		let mut module = RpcModule::new(notify_tx);
 		module
-			.register_subscription("sub", "my_sub", "unsub", |_, pending, notify_tx| async move {
-				// emulate empty stream for simplicity: otherwise we need some mechanism
-				// to sync buffer and channel send operations
-				let stream = futures::stream::empty::<()>();
-				// this should exit immediately
-				pipe_from_stream(pending, stream).await;
-				// notify that the `pipe_from_stream` has returned
-				notify_tx.notify_one();
-				Ok(())
-			})
+			.register_subscription(
+				"sub",
+				"my_sub",
+				"unsub",
+				|_, pending, notify_tx, _| async move {
+					// emulate empty stream for simplicity: otherwise we need some mechanism
+					// to sync buffer and channel send operations
+					let stream = futures::stream::empty::<()>();
+					// this should exit immediately
+					PendingSubscription::from(pending)
+						.pipe_from_stream(stream, BoundedVecDeque::default())
+						.await;
+					// notify that the `pipe_from_stream` has returned
+					notify_tx.notify_one();
+					Ok(())
+				},
+			)
 			.unwrap();
 		module.subscribe("sub", EmptyServerParams::new(), 1).await.unwrap();
 
 		// it should fire once `pipe_from_stream` returns
 		notify_rx.notified().await;
+	}
+
+	#[tokio::test]
+	async fn subscription_replace_old_messages() {
+		let mut module = RpcModule::new(());
+		module
+			.register_subscription("sub", "my_sub", "unsub", |_, pending, _, _| async move {
+				// Send items 0..20 and ensure that only the last 3 are kept in the buffer.
+				let stream = futures::stream::iter(0..20);
+				PendingSubscription::from(pending)
+					.pipe_from_stream(stream, RingBuffer::new(3))
+					.await;
+				Ok(())
+			})
+			.unwrap();
+
+		let mut sub = module.subscribe("sub", EmptyServerParams::new(), 1).await.unwrap();
+
+		// This is a hack simulate a very slow client
+		// and all older messages are replaced.
+		tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+		let mut res = Vec::new();
+
+		while let Some(Ok((v, _))) = sub.next::<usize>().await {
+			res.push(v);
+		}
+
+		// There is no way to cancel pending send operations so
+		// that's why 0 is included here.
+		assert_eq!(res, vec![0, 17, 18, 19]);
 	}
 }

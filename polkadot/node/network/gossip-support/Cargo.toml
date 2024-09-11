@@ -10,34 +10,34 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-crypto-hashing = { path = "../../../../substrate/primitives/crypto/hashing" }
-sc-network = { path = "../../../../substrate/client/network" }
-sc-network-common = { path = "../../../../substrate/client/network/common" }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
 
-polkadot-node-network-protocol = { path = "../protocol" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-primitives = { path = "../../../primitives" }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 
-futures = "0.3.30"
-futures-timer = "3.0.2"
-rand = { version = "0.8.5", default-features = false }
-rand_chacha = { version = "0.3.1", default-features = false }
-gum = { package = "tracing-gum", path = "../../gum" }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+gum = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-sp-consensus-babe = { path = "../../../../substrate/primitives/consensus/babe" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
+sp-keyring = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
 
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
 
-assert_matches = "1.4.0"
-async-trait = "0.1.79"
-parking_lot = "0.12.1"
-lazy_static = "1.4.0"
-quickcheck = "1.0.3"
+assert_matches = { workspace = true }
+async-trait = { workspace = true }
+parking_lot = { workspace = true, default-features = true }
+lazy_static = { workspace = true }
+quickcheck = { workspace = true, default-features = true }

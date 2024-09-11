@@ -4,7 +4,7 @@ version = "31.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Runtime Modules shared primitive types."
 documentation = "https://docs.rs/sp-runtime"
@@ -17,34 +17,36 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
-either = { version = "1.5", default-features = false }
-hash256-std-hasher = { version = "0.15.2", default-features = false }
-impl-trait-for-tuples = "0.2.2"
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+either = { workspace = true }
+hash256-std-hasher = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
-num-traits = { version = "0.2.17", default-features = false }
-paste = "1.0"
-rand = { version = "0.8.5", optional = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+num-traits = { workspace = true }
+paste = { workspace = true, default-features = true }
+rand = { optional = true, workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-application-crypto = { path = "../application-crypto", default-features = false }
-sp-arithmetic = { path = "../arithmetic", default-features = false }
-sp-core = { path = "../core", default-features = false }
-sp-io = { path = "../io", default-features = false }
-sp-std = { path = "../std", default-features = false }
-sp-weights = { path = "../weights", default-features = false }
-docify = "0.2.8"
+sp-application-crypto = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-std = { workspace = true }
+sp-trie = { workspace = true }
+sp-weights = { workspace = true }
+docify = { workspace = true }
+tracing = { workspace = true, features = ["log"], default-features = false }
 
 simple-mermaid = { version = "0.1.1", optional = true }
 
 [dev-dependencies]
-rand = "0.8.5"
+rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-zstd = { version = "0.12.4", default-features = false }
-sp-api = { path = "../api" }
-sp-state-machine = { path = "../state-machine" }
-sp-tracing = { path = "../tracing" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+zstd = { workspace = true }
+sp-api = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
 
 [features]
 runtime-benchmarks = []
@@ -68,7 +70,9 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-tracing/std",
+	"sp-trie/std",
 	"sp-weights/std",
+	"tracing/std",
 ]
 
 # Serde support without relying on std features.

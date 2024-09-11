@@ -14,23 +14,23 @@ workspace = true
 [dependencies]
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 serde-big-array = { optional = true, features = ["const-generics"], workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-ethbloom = { version = "0.13.0", default-features = false }
-ethereum-types = { version = "0.14.1", default-features = false, features = ["codec", "rlp", "serialize"] }
-hex-literal = { version = "0.4.1", default-features = false }
-parity-bytes = { version = "0.1.2", default-features = false }
-rlp = { version = "0.5.2", default-features = false }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+ethbloom = { workspace = true }
+ethereum-types = { features = ["codec", "rlp", "serialize"], workspace = true }
+hex-literal = { workspace = true }
+parity-bytes = { workspace = true }
+rlp = { workspace = true }
 
-sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sp-io = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
 
-ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
+ethabi = { workspace = true }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.19"
-rand = "0.8.5"
+wasm-bindgen-test = { workspace = true }
+rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 [features]

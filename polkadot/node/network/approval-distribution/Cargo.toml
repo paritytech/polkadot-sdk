@@ -10,32 +10,34 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-node-network-protocol = { path = "../protocol" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-jaeger = { path = "../../jaeger" }
-rand = "0.8"
-itertools = "0.11"
+polkadot-node-metrics = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-jaeger = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
+itertools = { workspace = true }
 
-futures = "0.3.30"
-futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum" }
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+gum = { workspace = true, default-features = true }
+bitvec = { features = ["alloc"], workspace = true }
 
 [dev-dependencies]
-sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
-sp-core = { path = "../../../../substrate/primitives/core", features = ["std"] }
+sc-keystore = { workspace = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-core = { features = ["std"], workspace = true, default-features = true }
 
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
 
-assert_matches = "1.4.0"
-schnorrkel = { version = "0.11.4", default-features = false }
+assert_matches = { workspace = true }
+schnorrkel = { workspace = true }
 # rand_core should match schnorrkel
-rand_core = "0.6.2"
-rand_chacha = "0.3.1"
-env_logger = "0.11"
+rand_core = { workspace = true }
+rand_chacha = { workspace = true, default-features = true }
+sp-tracing = { workspace = true }
 log = { workspace = true, default-features = true }

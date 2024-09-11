@@ -10,9 +10,9 @@ description = "CLI to generate voter bags for Polkadot runtimes"
 workspace = true
 
 [dependencies]
-clap = { version = "4.5.3", features = ["derive"] }
+clap = { features = ["derive"], workspace = true }
 
-generate-bags = { path = "../../../substrate/utils/frame/generate-bags" }
-sp-io = { path = "../../../substrate/primitives/io" }
+generate-bags = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
-westend-runtime = { path = "../../runtime/westend" }
+westend-runtime = { workspace = true }

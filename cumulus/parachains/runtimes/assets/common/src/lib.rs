@@ -23,11 +23,13 @@ pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
 
+extern crate alloc;
+
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use sp_runtime::traits::TryConvertInto;
-use xcm::latest::Location;
+use xcm::prelude::*;
 use xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
 };
@@ -136,7 +138,6 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 mod tests {
 	use super::*;
 	use sp_runtime::traits::MaybeEquivalence;
-	use xcm::prelude::*;
 	use xcm_builder::{StartsWithExplicitGlobalConsensus, WithLatestLocationConverter};
 	use xcm_executor::traits::{Error as MatchError, MatchesFungibles};
 

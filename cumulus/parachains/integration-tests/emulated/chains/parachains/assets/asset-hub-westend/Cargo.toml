@@ -13,16 +13,19 @@ workspace = true
 [dependencies]
 
 # Substrate
-sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
-frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
+sp-core = { workspace = true }
+frame-support = { workspace = true }
 
 # Cumulus
-parachains-common = { path = "../../../../../../common" }
-cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
-emulated-integration-tests-common = { path = "../../../../common", default-features = false }
-asset-hub-westend-runtime = { path = "../../../../../../runtimes/assets/asset-hub-westend" }
-westend-emulated-chain = { path = "../../../relays/westend" }
-testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["westend"] }
+parachains-common = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true }
+emulated-integration-tests-common = { workspace = true }
+asset-hub-westend-runtime = { workspace = true }
+westend-emulated-chain = { workspace = true, default-features = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../../../../polkadot/xcm", default-features = false }
+xcm = { workspace = true }
+
+# Bridges
+bp-bridge-hub-westend = { workspace = true }

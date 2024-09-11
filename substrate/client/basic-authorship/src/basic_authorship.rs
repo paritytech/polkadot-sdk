@@ -205,7 +205,11 @@ where
 	) -> Proposer<Block, C, A, PR> {
 		let parent_hash = parent_header.hash();
 
-		info!("🙌 Starting consensus session on top of parent {:?}", parent_hash);
+		info!(
+			"🙌 Starting consensus session on top of parent {:?} (#{})",
+			parent_hash,
+			parent_header.number()
+		);
 
 		let proposer = Proposer::<_, _, _, PR> {
 			spawn_handle: self.spawn_handle.clone(),
@@ -848,7 +852,7 @@ mod tests {
 			block
 		};
 
-		let import_and_maintain = |mut client: Arc<TestClient>, block: TestBlock| {
+		let import_and_maintain = |client: Arc<TestClient>, block: TestBlock| {
 			let hash = block.hash();
 			block_on(client.import(BlockOrigin::Own, block)).unwrap();
 			block_on(txpool.maintain(chain_event(

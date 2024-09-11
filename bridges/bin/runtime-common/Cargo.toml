@@ -11,48 +11,46 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-hash-db = { version = "0.16.0", default-features = false }
+codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-static_assertions = { version = "1.1", optional = true }
-tuplex = { version = "0.1", default-features = false }
+scale-info = { features = ["derive"], workspace = true }
+static_assertions = { optional = true, workspace = true, default-features = true }
+tuplex = { workspace = true }
 
 # Bridge dependencies
-
-bp-header-chain = { path = "../../primitives/header-chain", default-features = false }
-bp-messages = { path = "../../primitives/messages", default-features = false }
-bp-parachains = { path = "../../primitives/parachains", default-features = false }
-bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false }
-bp-relayers = { path = "../../primitives/relayers", default-features = false }
-bp-runtime = { path = "../../primitives/runtime", default-features = false }
-bp-xcm-bridge-hub = { path = "../../primitives/xcm-bridge-hub", default-features = false }
-bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false }
-pallet-bridge-grandpa = { path = "../../modules/grandpa", default-features = false }
-pallet-bridge-messages = { path = "../../modules/messages", default-features = false }
-pallet-bridge-parachains = { path = "../../modules/parachains", default-features = false }
-pallet-bridge-relayers = { path = "../../modules/relayers", default-features = false }
+bp-header-chain = { workspace = true }
+bp-messages = { workspace = true }
+bp-parachains = { workspace = true }
+bp-polkadot-core = { workspace = true }
+bp-relayers = { workspace = true }
+bp-runtime = { workspace = true }
+bp-xcm-bridge-hub = { workspace = true }
+pallet-bridge-grandpa = { workspace = true }
+pallet-bridge-messages = { workspace = true }
+pallet-bridge-parachains = { workspace = true }
+pallet-bridge-relayers = { workspace = true }
 
 # Substrate dependencies
-
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
-pallet-utility = { path = "../../../substrate/frame/utility", default-features = false }
-sp-api = { path = "../../../substrate/primitives/api", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-utility = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-trie = { optional = true, workspace = true }
 
 # Polkadot dependencies
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm = { workspace = true }
 
 [dev-dependencies]
-bp-test-utils = { path = "../../primitives/test-utils" }
-pallet-balances = { path = "../../../substrate/frame/balances" }
+bp-test-utils = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-bridge-messages = { features = [
+	"std",
+	"test-helpers",
+], workspace = true }
+sp-core = { workspace = true }
 
 [features]
 default = ["std"]
@@ -63,13 +61,13 @@ std = [
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-runtime/std",
-	"bp-xcm-bridge-hub-router/std",
+	"bp-test-utils/std",
 	"bp-xcm-bridge-hub/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"hash-db/std",
 	"log/std",
+	"pallet-balances/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
@@ -77,26 +75,27 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"scale-info/std",
-	"sp-api/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
 	"tuplex/std",
-	"xcm-builder/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"bp-runtime/test-helpers",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-bridge-messages/test-helpers",
 	"pallet-bridge-parachains/runtime-benchmarks",
 	"pallet-bridge-relayers/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
+	"sp-trie",
 ]
 integrity-test = ["static_assertions"]
+test-helpers = ["bp-runtime/test-helpers", "sp-trie"]

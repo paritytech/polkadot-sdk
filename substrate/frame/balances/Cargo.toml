@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet to manage balances"
 readme = "README.md"
@@ -16,22 +16,21 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-docify = "0.2.8"
+scale-info = { features = ["derive"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
+docify = { workspace = true }
 
 [dev-dependencies]
-pallet-transaction-payment = { path = "../transaction-payment" }
-frame-support = { path = "../support", features = ["experimental"] }
-sp-core = { path = "../../primitives/core" }
-sp-io = { path = "../../primitives/io" }
-paste = "1.0.12"
+pallet-transaction-payment = { workspace = true, default-features = true }
+frame-support = { features = ["experimental"], workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+paste = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -46,7 +45,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 # Enable support for setting the existential deposit to zero.
 insecure_zero_ed = []

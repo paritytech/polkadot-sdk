@@ -118,6 +118,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
+								cli.experimental_use_slot_based,
 							)
 							.await,
 						sc_network::config::NetworkBackendType::Litep2p =>
@@ -135,6 +136,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
+								cli.experimental_use_slot_based,
 							)
 							.await,
 					}

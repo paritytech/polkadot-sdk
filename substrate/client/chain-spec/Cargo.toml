@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Substrate chain configurations."
 readme = "README.md"
@@ -16,31 +16,31 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { version = "4.5.3", features = ["derive"], optional = true }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-memmap2 = "0.9.3"
+clap = { features = ["derive"], optional = true, workspace = true }
+codec = { features = ["derive"], workspace = true }
+memmap2 = { workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sc-client-api = { path = "../api" }
-sc-chain-spec-derive = { path = "derive" }
-sc-executor = { path = "../executor" }
-sp-io = { default-features = false, path = "../../primitives/io" }
-sc-network = { path = "../network" }
-sc-telemetry = { path = "../telemetry" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
-sp-genesis-builder = { path = "../../primitives/genesis-builder" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-state-machine = { path = "../../primitives/state-machine" }
+sc-client-api = { workspace = true, default-features = true }
+sc-chain-spec-derive = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sp-io = { workspace = true }
+sc-network = { workspace = true, default-features = true }
+sc-telemetry = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 log = { workspace = true }
-sp-tracing = { path = "../../primitives/tracing" }
-array-bytes = "6.2.2"
-docify = "0.2.8"
+sp-tracing = { workspace = true, default-features = true }
+array-bytes = { workspace = true, default-features = true }
+docify = { workspace = true }
 
 [dev-dependencies]
-substrate-test-runtime = { path = "../../test-utils/runtime" }
-sp-keyring = { path = "../../primitives/keyring" }
-sp-application-crypto = { default-features = false, path = "../../primitives/application-crypto", features = ["serde"] }
-sp-consensus-babe = { default-features = false, path = "../../primitives/consensus/babe", features = ["serde"] }
-regex = "1.6.0"
+substrate-test-runtime = { workspace = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-application-crypto = { features = ["serde"], workspace = true }
+sp-consensus-babe = { features = ["serde"], workspace = true }
+regex = { workspace = true }

@@ -18,7 +18,7 @@
 
 use crate::{
 	cli::{bridge::*, chain_schema::*, HexLaneId, PrometheusParams},
-	messages_lane::MessagesRelayParams,
+	messages::MessagesRelayParams,
 	TransactionParams,
 };
 
@@ -29,15 +29,16 @@ use structopt::StructOpt;
 use bp_messages::MessageNonce;
 use bp_runtime::HeaderIdProvider;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithRuntimeVersion, ChainWithTransactions,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithRuntimeVersion,
+	ChainWithTransactions, Client,
 };
 use relay_utils::UniqueSaturatedInto;
 
 /// Messages relaying params.
 #[derive(StructOpt)]
 pub struct RelayMessagesParams {
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	#[structopt(long, default_value = "00000000")]
+	/// Hex-encoded lane id that should be served by the relay.
+	#[structopt(long)]
 	lane: HexLaneId,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
@@ -58,8 +59,8 @@ pub struct RelayMessagesRangeParams {
 	/// This header must be previously proved to the target chain.
 	#[structopt(long)]
 	at_source_block: u128,
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	#[structopt(long, default_value = "00000000")]
+	/// Hex-encoded lane id that should be served by the relay.
+	#[structopt(long)]
 	lane: HexLaneId,
 	/// Nonce (inclusive) of the first message to relay.
 	#[structopt(long)]
@@ -87,8 +88,8 @@ pub struct RelayMessagesDeliveryConfirmationParams {
 	/// delivery proof. This header must be previously proved to the source chain.
 	#[structopt(long)]
 	at_target_block: u128,
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	#[structopt(long, default_value = "00000000")]
+	/// Hex-encoded lane id that should be served by the relay.
+	#[structopt(long)]
 	lane: HexLaneId,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
@@ -116,7 +117,7 @@ where
 		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 		let target_transactions_mortality = data.target_sign.transactions_mortality()?;
 
-		crate::messages_lane::run::<Self::MessagesLane>(MessagesRelayParams {
+		crate::messages::run::<Self::MessagesLane, _, _>(MessagesRelayParams {
 			source_client,
 			source_transaction_params: TransactionParams {
 				signer: source_sign,
@@ -160,7 +161,7 @@ where
 			})?
 			.id();
 
-		crate::messages_lane::relay_messages_range::<Self::MessagesLane>(
+		crate::messages::relay_messages_range::<Self::MessagesLane>(
 			source_client,
 			target_client,
 			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },
@@ -196,7 +197,7 @@ where
 			})?
 			.id();
 
-		crate::messages_lane::relay_messages_delivery_confirmation::<Self::MessagesLane>(
+		crate::messages::relay_messages_delivery_confirmation::<Self::MessagesLane>(
 			source_client,
 			target_client,
 			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },

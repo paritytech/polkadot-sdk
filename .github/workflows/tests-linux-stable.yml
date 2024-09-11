@@ -12,40 +12,46 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  FORKLIFT_storage_s3_bucketName: ${{ secrets.FORKLIFT_storage_s3_bucketName }}
-  FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
-  FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
-  FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
-  FORKLIFT_metrics_pushEndpoint: ${{ secrets.FORKLIFT_metrics_pushEndpoint }}
-
 jobs:
-
-  changes:
-    permissions:
-      pull-requests: read
-    uses: ./.github/workflows/check-changed-files.yml
+  # changes:
+  #   # TODO: remove once migration is complete or this workflow is fully stable
+  #   if: contains(github.event.label.name, 'GHA-migration')
+  #   permissions:
+  #     pull-requests: read
+  #   uses: ./.github/workflows/reusable-check-changed-files.yml
 
   set-image:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
-    needs: changes
-    if: ${{ needs.changes.outputs.rust }}      
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
+      OLDLINUXRUNNER: ${{ steps.set_runner.outputs.OLDLINUXRUNNER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
-  
+      # By default we use spot machines that can be terminated at any time.
+      # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      - id: set_runner
+        run: |
+          # Run merge queues on persistent runners
+          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
+            echo "OLDLINUXRUNNER=oldlinux-persistent" >> $GITHUB_OUTPUT
+          else
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+            echo "OLDLINUXRUNNER=oldlinux" >> $GITHUB_OUTPUT
+          fi
+
   test-linux-stable-int:
-    needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}  
-    runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 30
+    needs: [set-image]
+    # if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -59,14 +65,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
-  
+        run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
+
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
-    needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}    
-    runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 30
+    needs: [set-image]
+    # if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -78,4 +84,68 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+
+  test-linux-stable:
+    needs: [set-image]
+    # if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ matrix.runners }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1/3, 2/3, 3/3]
+        runners:
+          [
+            "${{ needs.set-image.outputs.RUNNER }}",
+            "${{ needs.set-image.outputs.OLDLINUXRUNNER }}",
+          ]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+      # needed for tests that use unshare syscall
+      options: --security-opt seccomp=unconfined
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          forklift cargo nextest run \
+            --workspace \
+            --locked \
+            --release \
+            --no-fail-fast \
+            --features try-runtime,experimental,riscv,ci-only-tests \
+            --partition count:${{ matrix.partition }}
+      # run runtime-api tests with `enable-staging-api` feature on the 1st node
+      - name: runtime-api tests
+        if: ${{ matrix.partition == '1/3' }}
+        run: forklift cargo nextest run -p sp-api-test --features enable-staging-api
+
+  confirm-required-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All tests passed
+    # If any new job gets added, be sure to add it to this array
+    needs:
+      [
+        test-linux-stable-int,
+        test-linux-stable-runtime-benchmarks,
+        test-linux-stable,
+      ]
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi

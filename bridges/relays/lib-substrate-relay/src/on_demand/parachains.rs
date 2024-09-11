@@ -17,7 +17,7 @@
 //! On-demand Substrate -> Substrate parachain finality relay.
 
 use crate::{
-	messages_source::best_finalized_peer_header_at_self,
+	messages::source::best_finalized_peer_header_at_self,
 	on_demand::OnDemandRelay,
 	parachains::{
 		source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter,
@@ -31,11 +31,11 @@ use async_std::{
 	sync::{Arc, Mutex},
 };
 use async_trait::async_trait;
+use bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use bp_runtime::HeaderIdProvider;
 use futures::{select, FutureExt};
 use num_traits::Zero;
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
 use relay_substrate_client::{
 	is_ancient_block, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client,
@@ -53,29 +53,34 @@ use std::fmt::Debug;
 /// (e.g. messages relay) needs it to continue its regular work. When enough parachain headers
 /// are relayed, on-demand stops syncing headers.
 #[derive(Clone)]
-pub struct OnDemandParachainsRelay<P: SubstrateParachainsPipeline> {
+pub struct OnDemandParachainsRelay<P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt> {
 	/// Relay task name.
 	relay_task_name: String,
 	/// Channel used to communicate with background task and ask for relay of parachain heads.
 	required_header_number_sender: Sender<BlockNumberOf<P::SourceParachain>>,
 	/// Source relay chain client.
-	source_relay_client: Client<P::SourceRelayChain>,
+	source_relay_client: SourceRelayClnt,
 	/// Target chain client.
-	target_client: Client<P::TargetChain>,
+	target_client: TargetClnt,
 	/// On-demand relay chain relay.
 	on_demand_source_relay_to_target_headers:
 		Arc<dyn OnDemandRelay<P::SourceRelayChain, P::TargetChain>>,
 }
 
-impl<P: SubstrateParachainsPipeline> OnDemandParachainsRelay<P> {
+impl<
+		P: SubstrateParachainsPipeline,
+		SourceRelayClnt: Client<P::SourceRelayChain>,
+		TargetClnt: Client<P::TargetChain>,
+	> OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>
+{
 	/// Create new on-demand parachains relay.
 	///
 	/// Note that the argument is the source relay chain client, not the parachain client.
 	/// That's because parachain finality is determined by the relay chain and we don't
 	/// need to connect to the parachain itself here.
 	pub fn new(
-		source_relay_client: Client<P::SourceRelayChain>,
-		target_client: Client<P::TargetChain>,
+		source_relay_client: SourceRelayClnt,
+		target_client: TargetClnt,
 		target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 		on_demand_source_relay_to_target_headers: Arc<
 			dyn OnDemandRelay<P::SourceRelayChain, P::TargetChain>,
@@ -114,10 +119,13 @@ impl<P: SubstrateParachainsPipeline> OnDemandParachainsRelay<P> {
 }
 
 #[async_trait]
-impl<P: SubstrateParachainsPipeline> OnDemandRelay<P::SourceParachain, P::TargetChain>
-	for OnDemandParachainsRelay<P>
+impl<P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt>
+	OnDemandRelay<P::SourceParachain, P::TargetChain>
+	for OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>
 where
 	P::SourceParachain: Chain<Hash = ParaHash>,
+	SourceRelayClnt: Client<P::SourceRelayChain>,
+	TargetClnt: Client<P::TargetChain>,
 {
 	async fn reconnect(&self) -> Result<(), SubstrateError> {
 		// using clone is fine here (to avoid mut requirement), because clone on Client clones
@@ -147,7 +155,7 @@ where
 		required_parachain_header: BlockNumberOf<P::SourceParachain>,
 	) -> Result<(HeaderIdOf<P::SourceParachain>, Vec<CallOf<P::TargetChain>>), SubstrateError> {
 		// select headers to prove
-		let parachains_source = ParachainsSource::<P>::new(
+		let parachains_source = ParachainsSource::<P, _>::new(
 			self.source_relay_client.clone(),
 			Arc::new(Mutex::new(AvailableHeader::Missing)),
 		);
@@ -231,8 +239,8 @@ where
 
 /// Background task that is responsible for starting parachain headers relay.
 async fn background_task<P: SubstrateParachainsPipeline>(
-	source_relay_client: Client<P::SourceRelayChain>,
-	target_client: Client<P::TargetChain>,
+	source_relay_client: impl Client<P::SourceRelayChain>,
+	target_client: impl Client<P::TargetChain>,
 	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	on_demand_source_relay_to_target_headers: Arc<
 		dyn OnDemandRelay<P::SourceRelayChain, P::TargetChain>,
@@ -255,9 +263,11 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 	let parachains_relay_task = futures::future::Fuse::terminated();
 	futures::pin_mut!(parachains_relay_task);
 
-	let mut parachains_source =
-		ParachainsSource::<P>::new(source_relay_client.clone(), required_para_header_ref.clone());
-	let mut parachains_target = ParachainsTarget::<P>::new(
+	let mut parachains_source = ParachainsSource::<P, _>::new(
+		source_relay_client.clone(),
+		required_para_header_ref.clone(),
+	);
+	let mut parachains_target = ParachainsTarget::<P, _, _>::new(
 		source_relay_client.clone(),
 		target_client.clone(),
 		target_transaction_params.clone(),
@@ -446,9 +456,9 @@ struct RelayData<ParaHash, ParaNumber, RelayNumber> {
 }
 
 /// Read required data from source and target clients.
-async fn read_relay_data<P: SubstrateParachainsPipeline>(
-	source: &ParachainsSource<P>,
-	target: &ParachainsTarget<P>,
+async fn read_relay_data<P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt>(
+	source: &ParachainsSource<P, SourceRelayClnt>,
+	target: &ParachainsTarget<P, SourceRelayClnt, TargetClnt>,
 	required_header_number: BlockNumberOf<P::SourceParachain>,
 ) -> Result<
 	RelayData<
@@ -459,7 +469,9 @@ async fn read_relay_data<P: SubstrateParachainsPipeline>(
 	FailedClient,
 >
 where
-	ParachainsTarget<P>:
+	SourceRelayClnt: Client<P::SourceRelayChain>,
+	TargetClnt: Client<P::TargetChain>,
+	ParachainsTarget<P, SourceRelayClnt, TargetClnt>:
 		TargetClient<ParachainsPipelineAdapter<P>> + RelayClient<Error = SubstrateError>,
 {
 	let map_target_err = |e| {
@@ -642,13 +654,19 @@ trait SelectHeadersToProveEnvironment<RBN, RBH, PBN, PBH> {
 }
 
 #[async_trait]
-impl<'a, P: SubstrateParachainsPipeline>
+impl<'a, P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt>
 	SelectHeadersToProveEnvironment<
 		BlockNumberOf<P::SourceRelayChain>,
 		HashOf<P::SourceRelayChain>,
 		BlockNumberOf<P::SourceParachain>,
 		HashOf<P::SourceParachain>,
-	> for (&'a OnDemandParachainsRelay<P>, &'a ParachainsSource<P>)
+	>
+	for (
+		&'a OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>,
+		&'a ParachainsSource<P, SourceRelayClnt>,
+	) where
+	SourceRelayClnt: Client<P::SourceRelayChain>,
+	TargetClnt: Client<P::TargetChain>,
 {
 	fn parachain_id(&self) -> ParaId {
 		ParaId(P::SourceParachain::PARACHAIN_ID)
@@ -663,9 +681,8 @@ impl<'a, P: SubstrateParachainsPipeline>
 	async fn best_finalized_relay_block_at_target(
 		&self,
 	) -> Result<HeaderIdOf<P::SourceRelayChain>, SubstrateError> {
-		Ok(crate::messages_source::read_client_state::<P::TargetChain, P::SourceRelayChain>(
+		Ok(crate::messages::source::read_client_state::<P::TargetChain, P::SourceRelayChain>(
 			&self.0.target_client,
-			None,
 		)
 		.await?
 		.best_finalized_peer_at_best_self

@@ -78,15 +78,6 @@ pub struct ReserveData<ReserveIdentifier, Balance> {
 	pub amount: Balance,
 }
 
-/// An identifier and balance.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub struct IdAmount<Id, Balance> {
-	/// An identifier for this item.
-	pub id: Id,
-	/// Some amount for this item.
-	pub amount: Balance,
-}
-
 /// All balance information for an account.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AccountData<Balance> {

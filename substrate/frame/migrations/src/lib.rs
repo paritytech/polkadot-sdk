@@ -150,9 +150,12 @@ pub mod mock_helpers;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame_support::{
@@ -168,7 +171,6 @@ use frame_system::{
 	Pallet as System,
 };
 use sp_runtime::Saturating;
-use sp_std::vec::Vec;
 
 /// Points to the next migration to execute.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]

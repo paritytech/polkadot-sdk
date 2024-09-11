@@ -170,7 +170,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 		assert_ok!(<PenpalA as Chain>::System::set_storage(
 			<PenpalA as Chain>::RuntimeOrigin::root(),
 			vec![(
-				penpal_runtime::xcm_config::CustomizableAssetFromSystemAssetHub::key().to_vec(),
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
 				Location::new(2, [GlobalConsensus(Rococo)]).encode(),
 			)],
 		));
@@ -300,7 +300,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 		assert_ok!(<PenpalA as Chain>::System::set_storage(
 			<PenpalA as Chain>::RuntimeOrigin::root(),
 			vec![(
-				penpal_runtime::xcm_config::CustomizableAssetFromSystemAssetHub::key().to_vec(),
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
 				Location::new(2, [GlobalConsensus(Rococo)]).encode(),
 			)],
 		));
@@ -455,7 +455,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		assert_ok!(<PenpalB as Chain>::System::set_storage(
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
-				penpal_runtime::xcm_config::CustomizableAssetFromSystemAssetHub::key().to_vec(),
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
 				Location::new(2, [GlobalConsensus(Rococo)]).encode(),
 			)],
 		));
@@ -613,10 +613,10 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &receiver)
 	});
 
-	// Sender's balance is reduced by amount sent plus delivery fees
+	// Sender's balance is reduced by amount sent.
 	assert!(sender_wnds_after < sender_wnds_before - wnd_to_send);
 	assert_eq!(sender_rocs_after, sender_rocs_before - roc_to_send);
-	// Sovereign accounts on reserve are changed accordingly
+	// Sovereign accounts on reserve are changed accordingly.
 	assert_eq!(
 		wnds_in_sender_reserve_on_ah_after,
 		wnds_in_sender_reserve_on_ah_before - wnd_to_send
@@ -630,7 +630,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		rocs_in_receiver_reserve_on_ah_after,
 		rocs_in_receiver_reserve_on_ah_before + roc_to_send
 	);
-	// Receiver's balance is increased
+	// Receiver's balance is increased by amount sent minus delivery fees.
 	assert!(receiver_wnds_after > receiver_wnds_before);
 	assert_eq!(receiver_rocs_after, receiver_rocs_before + roc_to_send);
 }

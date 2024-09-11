@@ -203,7 +203,11 @@ pub mod mock_helpers;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use core::{fmt::Debug, ops::Deref};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -221,9 +225,8 @@ use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{defer, H256};
 use sp_runtime::{
 	traits::{One, Zero},
-	SaturatedConversion, Saturating,
+	SaturatedConversion, Saturating, TransactionOutcome,
 };
-use sp_std::{fmt::Debug, ops::Deref, prelude::*, vec};
 use sp_weights::WeightMeter;
 pub use weights::WeightInfo;
 
@@ -307,7 +310,7 @@ impl<
 			return Err(())
 		}
 
-		let mut heap = sp_std::mem::take(&mut self.heap).into_inner();
+		let mut heap = core::mem::take(&mut self.heap).into_inner();
 		header.using_encoded(|h| heap.extend_from_slice(h));
 		heap.extend_from_slice(message.deref());
 		self.heap = BoundedVec::defensive_truncate_from(heap);
@@ -1432,6 +1435,8 @@ impl<T: Config> Pallet<T> {
 	/// The base weight of this function needs to be accounted for by the caller. `weight` is the
 	/// remaining weight to process the message. `overweight_limit` is the maximum weight that a
 	/// message can ever consume. Messages above this limit are marked as permanently overweight.
+	/// This process is also transactional, any form of error that occurs in processing a message
+	/// causes storage changes to be rolled back.
 	fn process_message_payload(
 		origin: MessageOriginOf<T>,
 		page_index: PageIndex,
@@ -1444,7 +1449,27 @@ impl<T: Config> Pallet<T> {
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 
-		match T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id) {
+		let transaction =
+			storage::with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+				let res =
+					T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id);
+				match &res {
+					Ok(_) => TransactionOutcome::Commit(Ok(res)),
+					Err(_) => TransactionOutcome::Rollback(Ok(res)),
+				}
+			});
+
+		let transaction = match transaction {
+			Ok(result) => result,
+			_ => {
+				defensive!(
+					"Error occurred processing message, storage changes will be rolled back"
+				);
+				return MessageExecutionStatus::Unprocessable { permanent: true }
+			},
+		};
+
+		match transaction {
 			Err(Overweight(w)) if w.any_gt(overweight_limit) => {
 				// Permanently overweight.
 				Self::deposit_event(Event::<T>::OverweightEnqueued {
@@ -1509,7 +1534,7 @@ pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
 }
 
 /// Provides a [`sp_core::Get`] to access the `MEL` of a [`codec::MaxEncodedLen`] type.
-pub struct MaxEncodedLenOf<T>(sp_std::marker::PhantomData<T>);
+pub struct MaxEncodedLenOf<T>(core::marker::PhantomData<T>);
 impl<T: MaxEncodedLen> Get<u32> for MaxEncodedLenOf<T> {
 	fn get() -> u32 {
 		T::max_encoded_len() as u32
@@ -1518,7 +1543,7 @@ impl<T: MaxEncodedLen> Get<u32> for MaxEncodedLenOf<T> {
 
 /// Calculates the maximum message length and exposed it through the [`codec::MaxEncodedLen`] trait.
 pub struct MaxMessageLen<Origin, Size, HeapSize>(
-	sp_std::marker::PhantomData<(Origin, Size, HeapSize)>,
+	core::marker::PhantomData<(Origin, Size, HeapSize)>,
 );
 impl<Origin: MaxEncodedLen, Size: MaxEncodedLen + Into<u32>, HeapSize: Get<Size>> Get<u32>
 	for MaxMessageLen<Origin, Size, HeapSize>
@@ -1544,7 +1569,7 @@ pub type BookStateOf<T> = BookState<MessageOriginOf<T>>;
 
 /// Converts a [`sp_core::Get`] with returns a type that can be cast into an `u32` into a `Get`
 /// which returns an `u32`.
-pub struct IntoU32<T, O>(sp_std::marker::PhantomData<(T, O)>);
+pub struct IntoU32<T, O>(core::marker::PhantomData<(T, O)>);
 impl<T: Get<O>, O: Into<u32>> Get<u32> for IntoU32<T, O> {
 	fn get() -> u32 {
 		T::get().into()
