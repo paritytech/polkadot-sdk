@@ -43,7 +43,7 @@ use std::{collections::HashMap, sync::Arc};
 use super::error::ErrorBroadcast;
 
 /// An API for transaction RPC calls.
-pub struct TransactionBroadcast<Pool: TransactionPool + ?Sized, Client> {
+pub struct TransactionBroadcast<Pool: TransactionPool, Client> {
 	/// Substrate client.
 	client: Arc<Client>,
 	/// Transactions pool.
@@ -57,14 +57,14 @@ pub struct TransactionBroadcast<Pool: TransactionPool + ?Sized, Client> {
 }
 
 /// The state of a broadcast operation.
-struct BroadcastState<Pool: TransactionPool + ?Sized> {
+struct BroadcastState<Pool: TransactionPool> {
 	/// Handle to abort the running future that broadcasts the transaction.
 	handle: AbortHandle,
 	/// Associated tx hash.
 	tx_hash: <Pool as TransactionPool>::Hash,
 }
 
-impl<Pool: TransactionPool + ?Sized, Client> TransactionBroadcast<Pool, Client> {
+impl<Pool: TransactionPool, Client> TransactionBroadcast<Pool, Client> {
 	/// Creates a new [`TransactionBroadcast`].
 	pub fn new(
 		client: Arc<Client>,
@@ -116,7 +116,7 @@ const TX_SOURCE: TransactionSource = TransactionSource::External;
 #[async_trait]
 impl<Pool, Client> TransactionBroadcastApiServer for TransactionBroadcast<Pool, Client>
 where
-	Pool: TransactionPool + Sync + Send + 'static + ?Sized,
+	Pool: TransactionPool + Sync + Send + 'static,
 	Pool::Error: IntoPoolError,
 	<Pool::Block as BlockT>::Hash: Unpin,
 	Client: HeaderBackend<Pool::Block> + BlockchainEvents<Pool::Block> + Send + Sync + 'static,

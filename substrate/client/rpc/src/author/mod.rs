@@ -48,7 +48,7 @@ use self::error::{Error, Result};
 pub use sc_rpc_api::author::*;
 
 /// Authoring API
-pub struct Author<P: ?Sized, Client> {
+pub struct Author<P, Client> {
 	/// Substrate client
 	client: Arc<Client>,
 	/// Transactions pool
@@ -59,7 +59,7 @@ pub struct Author<P: ?Sized, Client> {
 	executor: SubscriptionTaskExecutor,
 }
 
-impl<P: ?Sized, Client> Author<P, Client> {
+impl<P, Client> Author<P, Client> {
 	/// Create new instance of Authoring API.
 	pub fn new(
 		client: Arc<Client>,
@@ -79,7 +79,7 @@ impl<P: ?Sized, Client> Author<P, Client> {
 const TX_SOURCE: TransactionSource = TransactionSource::External;
 
 #[async_trait]
-impl<P: ?Sized, Client> AuthorApiServer<TxHash<P>, BlockHash<P>> for Author<P, Client>
+impl<P, Client> AuthorApiServer<TxHash<P>, BlockHash<P>> for Author<P, Client>
 where
 	P: TransactionPool + Sync + Send + 'static,
 	Client: HeaderBackend<P::Block> + ProvideRuntimeApi<P::Block> + Send + Sync + 'static,

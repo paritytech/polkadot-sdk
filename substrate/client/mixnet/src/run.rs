@@ -161,7 +161,7 @@ pub async fn run<B, C, S, P>(
 	C: BlockchainEvents<B> + ProvideRuntimeApi<B> + HeaderBackend<B>,
 	C::Api: MixnetApi<B>,
 	S: SyncOracle,
-	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static + ?Sized,
+	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static,
 {
 	let local_peer_id = network.local_peer_id();
 	let Some(local_peer_id) = to_core_peer_id(&local_peer_id) else {

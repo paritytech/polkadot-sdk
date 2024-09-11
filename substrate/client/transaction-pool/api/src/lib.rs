@@ -425,7 +425,7 @@ pub trait LocalTransactionPool: Send + Sync {
 	) -> Result<Self::Hash, Self::Error>;
 }
 
-impl<T: LocalTransactionPool + ?Sized> LocalTransactionPool for Arc<T> {
+impl<T: LocalTransactionPool> LocalTransactionPool for Arc<T> {
 	type Block = T::Block;
 
 	type Hash = T::Hash;

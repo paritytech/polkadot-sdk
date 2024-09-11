@@ -43,7 +43,7 @@ use std::sync::Arc;
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
 
 /// An API for transaction RPC calls.
-pub struct Transaction<Pool: ?Sized, Client> {
+pub struct Transaction<Pool, Client> {
 	/// Substrate client.
 	client: Arc<Client>,
 	/// Transactions pool.
@@ -52,7 +52,7 @@ pub struct Transaction<Pool: ?Sized, Client> {
 	executor: SubscriptionTaskExecutor,
 }
 
-impl<Pool: ?Sized, Client> Transaction<Pool, Client> {
+impl<Pool, Client> Transaction<Pool, Client> {
 	/// Creates a new [`Transaction`].
 	pub fn new(client: Arc<Client>, pool: Arc<Pool>, executor: SubscriptionTaskExecutor) -> Self {
 		Transaction { client, pool, executor }
@@ -67,7 +67,7 @@ impl<Pool: ?Sized, Client> Transaction<Pool, Client> {
 const TX_SOURCE: TransactionSource = TransactionSource::External;
 
 #[async_trait]
-impl<Pool: ?Sized, Client> TransactionApiServer<BlockHash<Pool>> for Transaction<Pool, Client>
+impl<Pool, Client> TransactionApiServer<BlockHash<Pool>> for Transaction<Pool, Client>
 where
 	Pool: TransactionPool + Sync + Send + 'static,
 	Pool::Hash: Unpin,

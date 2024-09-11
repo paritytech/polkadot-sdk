@@ -179,7 +179,7 @@ impl MetricsService {
 	) where
 		TBl: Block,
 		TCl: ProvideRuntimeApi<TBl> + UsageProvider<TBl>,
-		TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as Block>::Hash> + ?Sized,
+		TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as Block>::Hash>,
 		TNet: NetworkStatusProvider,
 		TSync: SyncStatusProvider<TBl>,
 	{
