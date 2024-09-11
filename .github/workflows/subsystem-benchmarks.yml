@@ -90,6 +90,8 @@ jobs:
           ref: gh-pages
           fetch-depth: 0
 
+      - run: git checkout master --
+
       - name: Download artifacts
         uses: actions/download-artifact@v4.1.8
         with:
@@ -100,15 +102,12 @@ jobs:
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           ls -lsR ./charts
-          benchmarks=(
-            "availability-recovery-regression-bench"
-            "statement-distribution-regression-bench"
-            "approval-voting-regression-bench"
-            "statement-distribution-regression-bench"
-          )
-          for bench in "${benchmarks[@]}"; do
-            cp -r "./charts/${bench}" ./bench/${bench} || echo "Failed to copy ${bench}"
-          done
+
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
+          private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
 
       - name: Generate ${{ env.BENCH }}
         env:
@@ -117,9 +116,10 @@ jobs:
         with:
           tool: "customSmallerIsBetter"
           name: ${{ env.BENCH }}
-          output-file-path: ./bench/${{ env.BENCH }}/${{ env.BENCH }}.json
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
-          auto-push: false
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
 
       - name: Generate ${{ env.BENCH }}
         env:
@@ -128,9 +128,10 @@ jobs:
         with:
           tool: "customSmallerIsBetter"
           name: ${{ env.BENCH }}
-          output-file-path: ./bench/${{ env.BENCH }}/${{ env.BENCH }}.json
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
-          auto-push: false
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
 
       - run: |
           ls -lsaR ./bench
@@ -138,20 +139,14 @@ jobs:
           git status
           git diff
 
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
-          private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
-
-      - name: Push changes
-        run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
-          git remote remove origin
-          git remote add origin https://${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}
-          git status
-          git diff
-          git add .
-          git commit -m "Update subsystem benchmarks"
-          git push --set-upstream origin gh-pages
+      # - name: Push changes
+      #   run: |
+      #     git config --global user.email "action@github.com"
+      #     git config --global user.name "GitHub Action"
+      #     git remote remove origin
+      #     git remote add origin https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}
+      #     git status
+      #     git diff
+      #     git add ./bench
+      #     git commit -m "Update subsystem benchmarks"
+      #     git push --set-upstream origin gh-pages
