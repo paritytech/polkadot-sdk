@@ -34,6 +34,7 @@ pub extern "C" fn call() {
 	input!(
 		100,
 		callee_addr: &[u8; 20],
+		value: &[u8; 32],
 		input: [u8],
 	);
 
@@ -44,7 +45,7 @@ pub extern "C" fn call() {
 		0u64,                // How much ref_time to devote for the execution. 0 = all.
 		0u64,                // How much proof_size to devote for the execution. 0 = all.
 		None,                // No deposit limit.
-		&u256_bytes(100u64), // Value transferred to the contract.
+		value, 				 // Value transferred to the contract.
 		input,
 		None,
 	) {

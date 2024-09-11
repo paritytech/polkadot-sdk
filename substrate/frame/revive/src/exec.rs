@@ -64,6 +64,8 @@ pub type ExecResult = Result<ExecReturnValue, ExecError>;
 /// Type for variable sized storage key. Used for transparent hashing.
 type VarSizedKey = BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>;
 
+const FRAME_ALWAYS_EXISTS_ON_INSTANTIATE: &str = "The return value is only `None` if no contract exists at the specified address. This cannot happen on instantiate or delegate; qed";
+
 /// Combined key type for both fixed and variable sized storage keys.
 pub enum Key {
 	/// Variant for fixed sized keys.
@@ -591,26 +593,6 @@ enum CachedContract<T: Config> {
 	Terminated,
 }
 
-impl<T: Config> CachedContract<T> {
-	/// Return `Some(ContractInfo)` if the contract is in cached state. `None` otherwise.
-	fn into_contract(self) -> Option<ContractInfo<T>> {
-		if let CachedContract::Cached(contract) = self {
-			Some(contract)
-		} else {
-			None
-		}
-	}
-
-	/// Return `Some(&mut ContractInfo)` if the contract is in cached state. `None` otherwise.
-	fn as_contract(&mut self) -> Option<&mut ContractInfo<T>> {
-		if let CachedContract::Cached(contract) = self {
-			Some(contract)
-		} else {
-			None
-		}
-	}
-}
-
 impl<T: Config> Frame<T> {
 	/// Return the `contract_info` of the current contract.
 	fn contract_info(&mut self) -> &mut ContractInfo<T> {
@@ -668,6 +650,24 @@ macro_rules! top_frame_mut {
 }
 
 impl<T: Config> CachedContract<T> {
+	/// Return `Some(ContractInfo)` if the contract is in cached state. `None` otherwise.
+	fn into_contract(self) -> Option<ContractInfo<T>> {
+		if let CachedContract::Cached(contract) = self {
+			Some(contract)
+		} else {
+			None
+		}
+	}
+
+	/// Return `Some(&mut ContractInfo)` if the contract is in cached state. `None` otherwise.
+	fn as_contract(&mut self) -> Option<&mut ContractInfo<T>> {
+		if let CachedContract::Cached(contract) = self {
+			Some(contract)
+		} else {
+			None
+		}
+	}
+
 	/// Load the `contract_info` from storage if necessary.
 	fn load(&mut self, account_id: &T::AccountId) {
 		if let CachedContract::Invalidated = self {
@@ -717,20 +717,20 @@ where
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		debug_message: Option<&'a mut DebugBuffer>,
-	) -> Result<ExecReturnValue, ExecError> {
-		let (mut stack, executable) = Self::new(
-			FrameArgs::Call {
-				dest: T::AddressMapper::to_account_id(&dest),
-				cached_info: None,
-				delegated_call: None,
-			},
-			origin,
+	) -> ExecResult {
+		let dest = T::AddressMapper::to_account_id(&dest);
+		if let Some((mut stack, executable)) = Self::new(
+			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
+			origin.clone(),
 			gas_meter,
 			storage_meter,
 			value,
 			debug_message,
-		)?;
-		stack.run(executable, input_data)
+		)? {
+			stack.run(executable, input_data)
+		} else {
+			Self::transfer_no_contract(&origin, &dest, value)
+		}
 	}
 
 	/// Create and run a new call stack by instantiating a new contract.
@@ -765,7 +765,8 @@ where
 			storage_meter,
 			value,
 			debug_message,
-		)?;
+		)?
+		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
 		stack.run(executable, input_data).map(|ret| (address, ret))
 	}
@@ -792,9 +793,13 @@ where
 			debug_message,
 		)
 		.unwrap()
+		.unwrap()
 	}
 
 	/// Create a new call stack.
+	///
+	/// Returns `None` when calling a non existant contract. This is not an error case
+	/// since this will result in a value transfer.
 	fn new(
 		args: FrameArgs<T, E>,
 		origin: Origin<T>,
@@ -802,8 +807,8 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
 		debug_message: Option<&'a mut DebugBuffer>,
-	) -> Result<(Self, E), ExecError> {
-		let (first_frame, executable) = Self::new_frame(
+	) -> Result<Option<(Self, E)>, ExecError> {
+		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
 			gas_meter,
@@ -811,7 +816,10 @@ where
 			storage_meter,
 			BalanceOf::<T>::zero(),
 			false,
-		)?;
+		)?
+		else {
+			return Ok(None);
+		};
 
 		let stack = Self {
 			origin,
@@ -826,7 +834,7 @@ where
 			_phantom: Default::default(),
 		};
 
-		Ok((stack, executable))
+		Ok(Some((stack, executable)))
 	}
 
 	/// Construct a new frame.
@@ -841,15 +849,20 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
-	) -> Result<(Frame<T>, E), ExecError> {
+	) -> Result<Option<(Frame<T>, E)>, ExecError> {
 		let (account_id, contract_info, executable, delegate_caller, entry_point) = match frame_args
 		{
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
 				let contract = if let Some(contract) = cached_info {
 					contract
 				} else {
-					<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
-						.ok_or(<Error<T>>::ContractNotFound)?
+					if let Some(contract) =
+						<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
+					{
+						contract
+					} else {
+						return Ok(None)
+					}
 				};
 
 				let (executable, delegate_caller) =
@@ -896,7 +909,7 @@ where
 			read_only,
 		};
 
-		Ok((frame, executable))
+		Ok(Some((frame, executable)))
 	}
 
 	/// Create a subsequent nested frame.
@@ -907,7 +920,7 @@ where
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
-	) -> Result<E, ExecError> {
+	) -> Result<Option<E>, ExecError> {
 		if self.frames.len() as u32 == limits::CALL_STACK_DEPTH {
 			return Err(Error::<T>::MaxCallDepthReached.into());
 		}
@@ -929,7 +942,7 @@ where
 		let frame = top_frame_mut!(self);
 		let nested_gas = &mut frame.nested_gas;
 		let nested_storage = &mut frame.nested_storage;
-		let (frame, executable) = Self::new_frame(
+		if let Some((frame, executable)) = Self::new_frame(
 			frame_args,
 			value_transferred,
 			nested_gas,
@@ -937,15 +950,18 @@ where
 			nested_storage,
 			deposit_limit,
 			read_only,
-		)?;
-		self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
-		Ok(executable)
+		)? {
+			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
+			Ok(Some(executable))
+		} else {
+			Ok(None)
+		}
 	}
 
 	/// Run the current (top) frame.
 	///
 	/// This can be either a call or an instantiate.
-	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<ExecReturnValue, ExecError> {
+	fn run(&mut self, executable: E, input_data: Vec<u8>) -> ExecResult {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
 		let delegated_code_hash =
@@ -954,13 +970,15 @@ where
 		self.transient_storage.start_transaction();
 
 		let do_transaction = || {
+			let caller = self.caller();
+			let frame = top_frame_mut!(self);
+
 			// We need to charge the storage deposit before the initial transfer so that
 			// it can create the account in case the initial transfer is < ed.
 			if entry_point == ExportedFunction::Constructor {
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
-				let frame = top_frame_mut!(self);
 				frame.nested_storage.charge_instantiate(
 					origin,
 					&frame.account_id,
@@ -969,11 +987,15 @@ where
 				)?;
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.
-				<System<T>>::inc_account_nonce(self.caller().account_id()?);
+				<System<T>>::inc_account_nonce(caller.account_id()?);
 			}
 
 			// Every non delegate call or instantiate also optionally transfers the balance.
-			self.initial_transfer()?;
+			// If it is a delegate call, then we've already transferred tokens in the
+			// last non-delegate frame.
+			if delegated_code_hash.is_none() {
+				Self::transfer_from_origin(&caller, &frame.account_id, frame.value_transferred)?;
+			}
 
 			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
 
@@ -1166,40 +1188,40 @@ where
 	}
 
 	/// Transfer some funds from `from` to `to`.
-	fn transfer(
-		preservation: Preservation,
-		from: &T::AccountId,
-		to: &T::AccountId,
-		value: BalanceOf<T>,
-	) -> DispatchResult {
-		if !value.is_zero() && from != to {
-			T::Currency::transfer(from, to, value, preservation)
+	fn transfer(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) -> DispatchResult {
+		// this avoids events to be emitted for zero balance transfers
+		if !value.is_zero() {
+			T::Currency::transfer(from, to, value, Preservation::Preserve)
 				.map_err(|_| Error::<T>::TransferFailed)?;
 		}
 		Ok(())
 	}
 
-	// The transfer as performed by a call or instantiate.
-	fn initial_transfer(&self) -> DispatchResult {
-		let frame = self.top_frame();
-
-		// If it is a delegate call, then we've already transferred tokens in the
-		// last non-delegate frame.
-		if frame.delegate_caller.is_some() {
-			return Ok(());
-		}
-
-		let value = frame.value_transferred;
-
-		// Get the account id from the caller.
-		// If the caller is root there is no account to transfer from, and therefore we can't take
-		// any `value` other than 0.
-		let caller = match self.caller() {
+	/// Same as `transfer` but `from` is an `Origin`.
+	fn transfer_from_origin(
+		from: &Origin<T>,
+		to: &T::AccountId,
+		value: BalanceOf<T>,
+	) -> DispatchResult {
+		// If the from address is root there is no account to transfer from, and therefore we can't
+		// take any `value` other than 0.
+		let from = match from {
 			Origin::Signed(caller) => caller,
 			Origin::Root if value.is_zero() => return Ok(()),
 			Origin::Root => return DispatchError::RootNotAllowed.into(),
 		};
-		Self::transfer(Preservation::Preserve, &caller, &frame.account_id, value)
+		Self::transfer(from, to, value)
+	}
+
+	/// Same as `transfer_from_origin` but creates an `ExecReturnValue` on success.
+	fn transfer_no_contract(
+		from: &Origin<T>,
+		to: &T::AccountId,
+		value: BalanceOf<T>,
+	) -> ExecResult {
+		Self::transfer_from_origin(from, to, value)
+			.map(|_| ExecReturnValue::default())
+			.map_err(Into::into)
 	}
 
 	/// Reference to the current (top) frame.
@@ -1255,13 +1277,14 @@ where
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
-	) -> Result<ExecReturnValue, ExecError> {
+	) -> ExecResult {
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
 		self.top_frame_mut().allows_reentry = allows_reentry;
 
 		let dest = T::AddressMapper::to_account_id(dest);
+		let value = value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
 
 		let try_call = || {
 			if !self.allows_reentry(&dest) {
@@ -1278,15 +1301,22 @@ where
 					CachedContract::Cached(contract) => Some(contract.clone()),
 					_ => None,
 				});
-			let executable = self.push_frame(
-				FrameArgs::Call { dest, cached_info, delegated_call: None },
-				value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
+			if let Some(executable) = self.push_frame(
+				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
+				value,
 				gas_limit,
 				deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 				// Enable read-only access if requested; cannot disable it if already set.
 				read_only || self.is_read_only(),
-			)?;
-			self.run(executable, input_data)
+			)? {
+				self.run(executable, input_data)
+			} else {
+				Self::transfer_no_contract(
+					&Origin::from_account_id(self.account_id().clone()),
+					&dest,
+					value,
+				)
+			}
 		};
 
 		// We need to make sure to reset `allows_reentry` even on failure.
@@ -1319,7 +1349,7 @@ where
 			BalanceOf::<T>::zero(),
 			self.is_read_only(),
 		)?;
-		self.run(executable, input_data)
+		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
 	}
 
 	fn instantiate(
@@ -1346,7 +1376,8 @@ where
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
-		self.run(executable, input_data).map(|ret| (address, ret))
+		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
+			.map(|ret| (address, ret))
 	}
 
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult {
@@ -1379,7 +1410,6 @@ where
 
 	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult {
 		Self::transfer(
-			Preservation::Preserve,
 			&self.top_frame().account_id,
 			&T::AddressMapper::to_account_id(to),
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
@@ -1854,7 +1884,7 @@ mod tests {
 			set_balance(&ALICE, 100);
 			set_balance(&BOB, 0);
 
-			MockStack::transfer(Preservation::Preserve, &ALICE, &BOB, 55).unwrap();
+			MockStack::transfer(&ALICE, &BOB, 55).unwrap();
 
 			assert_eq!(get_balance(&ALICE), 45);
 			assert_eq!(get_balance(&BOB), 55);
@@ -1974,7 +2004,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			set_balance(&origin, 0);
 
-			let result = MockStack::transfer(Preservation::Preserve, &origin, &dest, 100);
+			let result = MockStack::transfer(&origin, &dest, 100);
 
 			assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
 			assert_eq!(get_balance(&origin), 0);
@@ -2848,15 +2878,35 @@ mod tests {
 	}
 
 	#[test]
-	fn recursive_call_during_constructor_fails() {
+	fn recursive_call_during_constructor_is_balance_transfer() {
 		let code = MockLoader::insert(Constructor, |ctx, _| {
 			let account_id = ctx.ext.account_id().clone();
 			let addr = <Test as Config>::AddressMapper::to_address(&account_id);
+			let balance = ctx.ext.balance();
 
-			assert_matches!(
-						   ctx.ext.call(Weight::zero(), U256::zero(), &addr, U256::zero(), vec![],
-			true, false), 				Err(ExecError{error, ..}) if error == <Error<Test>>::ContractNotFound.into()
-					   );
+			// Calling ourselves during the constructor will trigger a balance
+			// transfer since no contract exist yet.
+			assert_ok!(ctx.ext.call(
+				Weight::zero(),
+				U256::zero(),
+				&addr,
+				(balance - 1).into(),
+				vec![],
+				true,
+				false
+			));
+
+			// Should also work with call data set as it is ignored when no
+			// contract is deployed.
+			assert_ok!(ctx.ext.call(
+				Weight::zero(),
+				U256::zero(),
+				&addr,
+				1u32.into(),
+				vec![1, 2, 3, 4],
+				true,
+				false
+			));
 			exec_success()
 		});
 
@@ -2879,12 +2929,57 @@ mod tests {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					min_balance,
+					10,
 					vec![],
 					Some(&[0; 32]),
 					None,
 				);
 				assert_matches!(result, Ok(_));
+			});
+	}
+
+	#[test]
+	fn cannot_send_more_balance_than_available_to_self() {
+		let code_hash = MockLoader::insert(Call, |ctx, _| {
+			let account_id = ctx.ext.account_id().clone();
+			let addr = <Test as Config>::AddressMapper::to_address(&account_id);
+			let balance = ctx.ext.balance();
+
+			assert_err!(
+				ctx.ext.call(
+					Weight::zero(),
+					U256::zero(),
+					&addr,
+					(balance + 1).into(),
+					vec![],
+					true,
+					false
+				),
+				<Error<Test>>::TransferFailed
+			);
+			exec_success()
+		});
+
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.build()
+			.execute_with(|| {
+				let min_balance = <Test as Config>::Currency::minimum_balance();
+				let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+				set_balance(&ALICE, min_balance * 10);
+				place_contract(&BOB, code_hash);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut gas_meter,
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap();
 			});
 	}
 
