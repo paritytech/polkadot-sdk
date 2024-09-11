@@ -154,7 +154,8 @@ pub struct RunCmd {
 
 	/// Enable approval-voting message processing in parallel.
 	///
-	///**Dangerous!** This is an experimental feature and should not be used in production.
+	///**Dangerous!** This is an experimental feature and should not be used in production, unless
+	/// explicitly advised to.
 	#[arg(long)]
 	pub enable_approval_voting_parallel: bool,
 }

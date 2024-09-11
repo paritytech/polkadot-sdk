@@ -794,6 +794,14 @@ pub fn new_full<
 		Some(backoff)
 	};
 
+	// Running approval voting in parallel is enabled by default on all networks except Polkadot and
+	// Kusama, unless explicitly enabled by the commandline option.
+	// This is meant to be temporary until we have enough confidence in the new system to enable it
+	// by default on all networks.
+	let enable_approval_voting_parallel = (!config.chain_spec.is_kusama() &&
+		!config.chain_spec.is_polkadot()) ||
+		enable_approval_voting_parallel;
+
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
 
