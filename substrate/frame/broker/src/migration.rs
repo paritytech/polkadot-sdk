@@ -262,19 +262,29 @@ mod v4 {
 
 			// using a u32::MAX as sentinel value in case TryFrom fails.
 			// Ref: https://github.com/paritytech/polkadot-sdk/pull/3331#discussion_r1499014975
+			let current_block: RelayBlockNumberOf<T> =
+				match TryFrom::try_from(frame_system::Pallet::<T>::block_number()) {
+					Ok(val) => val,
+					Err(_) => u32::MAX.into(),
+				};
+			let current_relay_number = crate::Pallet::<T>::relay_height();
+			let offset = current_relay_number - current_block * 2;
+
+			let translate_old_block_number_to_relay_height =
+				|old_block_number: RelayBlockNumberOf<T>| offset + old_block_number * 2u32.into();
 
 			if let Some(config_record) = v3::Configuration::<T>::take() {
 				log::info!(target: LOG_TARGET, "migrating Configuration record");
 
 				let updated_interlude_length: RelayBlockNumberOf<T> =
 					match TryFrom::try_from(config_record.interlude_length) {
-						Ok(val) => val,
+						Ok(val) => translate_old_block_number_to_relay_height(val),
 						Err(_) => u32::MAX.into(),
 					};
 
 				let updated_leadin_length: RelayBlockNumberOf<T> =
 					match TryFrom::try_from(config_record.leadin_length) {
-						Ok(val) => val,
+						Ok(val) => translate_old_block_number_to_relay_height(val),
 						Err(_) => u32::MAX.into(),
 					};
 
@@ -297,13 +307,13 @@ mod v4 {
 
 				let updated_sale_start: RelayBlockNumberOf<T> =
 					match TryFrom::try_from(sale_info.sale_start) {
-						Ok(val) => val,
+						Ok(val) => translate_old_block_number_to_relay_height(val),
 						Err(_) => u32::MAX.into(),
 					};
 
 				let updated_leadin_length: RelayBlockNumberOf<T> =
 					match TryFrom::try_from(sale_info.leadin_length) {
-						Ok(val) => val,
+						Ok(val) => translate_old_block_number_to_relay_height(val),
 						Err(_) => u32::MAX.into(),
 					};
 
