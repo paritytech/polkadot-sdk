@@ -4033,6 +4033,31 @@ mod run_tests {
 	}
 
 	#[test]
+	fn balance_of_api() {
+		let (wasm, _code_hash) = compile_module("balance_of").unwrap();
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+			let _ = Balances::set_balance(&ETH_ALICE, 1_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(wasm.to_vec())).build_and_unwrap_contract();
+
+			// The fixture asserts a non-zero returned free balance of the account;
+			// The ALICE account is endowed;
+			// Hence we should not revert
+			assert_ok!(builder::call(addr).data(ALICE_ADDR.0.to_vec()).build());
+
+			// The fixture asserts a non-zero returned free balance of the account;
+			// The 0x0..0 account is not endowed;
+			// Hence we should revert
+			assert_err_ignore_postinfo!(
+				builder::call(addr).data(vec![0; 20]).build(),
+				<Error<Test>>::ContractTrapped
+			);
+		});
+	}
+
+	#[test]
 	fn balance_api_returns_free_balance() {
 		let (wasm, _code_hash) = compile_module("balance").unwrap();
 		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
