@@ -32,7 +32,7 @@ use codec::Encode;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::fungible::Mutate,
-	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight},
+	weights::{ConstantMultiplier, IdentityFee, RuntimeDbRefTime, Weight},
 };
 use pallet_transaction_payment::Multiplier;
 use sp_core::{ConstU64, ConstU8, H256};
@@ -177,7 +177,7 @@ frame_support::construct_runtime! {
 
 parameter_types! {
 	pub const BridgedParasPalletName: &'static str = "Paras";
-	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
+	pub const DbWeight: RuntimeDbRefTime = RuntimeDbRefTime { read: 1, write: 2 };
 	pub const ExistentialDeposit: ThisChainBalance = 1;
 	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
 	pub const Stake: ThisChainBalance = 1_000;

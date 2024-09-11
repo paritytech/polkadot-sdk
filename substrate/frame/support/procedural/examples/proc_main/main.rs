@@ -81,7 +81,7 @@ pub mod frame_system {
 		type RuntimeTask: crate::traits::tasks::Task;
 		#[pallet::no_default_bounds]
 		type PalletInfo: crate::traits::PalletInfo;
-		type DbWeight: Get<crate::weights::RuntimeDbWeight>;
+		type DbWeight: Get<crate::weights::RuntimeDbRefTime>;
 	}
 
 	#[pallet::error]

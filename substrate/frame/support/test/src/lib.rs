@@ -60,7 +60,7 @@ pub mod pallet {
 		/// The information about the pallet setup in the runtime.
 		type PalletInfo: frame_support::traits::PalletInfo;
 		/// The db weights.
-		type DbWeight: Get<frame_support::weights::RuntimeDbWeight>;
+		type DbWeight: Get<frame_support::weights::RuntimeDbRefTime>;
 	}
 
 	#[pallet::call]

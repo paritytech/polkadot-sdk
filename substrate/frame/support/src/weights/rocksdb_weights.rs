@@ -18,12 +18,12 @@
 pub mod constants {
 	use frame_support::weights::constants;
 	use sp_core::parameter_types;
-	use sp_weights::RuntimeDbWeight;
+	use sp_weights::RuntimeDbRefTime;
 
 	parameter_types! {
 		/// By default, Substrate uses RocksDB, so this will be the weight used throughout
 		/// the runtime.
-		pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
+		pub const RocksDbWeight: RuntimeDbRefTime = RuntimeDbRefTime {
 			read: 25_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
 			write: 100_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
 		};

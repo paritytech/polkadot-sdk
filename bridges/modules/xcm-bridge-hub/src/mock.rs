@@ -28,7 +28,7 @@ use codec::Encode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{EnsureOrigin, Equals, Everything, OriginTrait},
-	weights::RuntimeDbWeight,
+	weights::RuntimeDbRefTime,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::H256;
@@ -65,7 +65,7 @@ frame_support::construct_runtime! {
 }
 
 parameter_types! {
-	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
+	pub const DbWeight: RuntimeDbRefTime = RuntimeDbRefTime { read: 1, write: 2 };
 	pub const ExistentialDeposit: Balance = 1;
 }
 

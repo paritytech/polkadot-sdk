@@ -29,7 +29,7 @@ use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, Parachain};
 use codec::Encode;
 use frame_support::{
 	derive_impl, parameter_types,
-	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight},
+	weights::{ConstantMultiplier, IdentityFee, RuntimeDbRefTime, Weight},
 };
 use pallet_transaction_payment::Multiplier;
 use sp_runtime::{
@@ -116,7 +116,7 @@ crate::generate_bridge_reject_obsolete_headers_and_messages! {
 parameter_types! {
 	pub const BridgedParasPalletName: &'static str = "Paras";
 	pub const ExistentialDeposit: ThisChainBalance = 500;
-	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
+	pub const DbWeight: RuntimeDbRefTime = RuntimeDbRefTime { read: 1, write: 2 };
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
 	pub const TransactionBaseFee: ThisChainBalance = 0;
 	pub const TransactionByteFee: ThisChainBalance = 1;
