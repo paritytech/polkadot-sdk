@@ -70,6 +70,16 @@ pub(crate) const LOG_TARGET: &str = "parachain::approval-voting-parallel";
 // lock issues for example.
 const WAIT_FOR_SIGS_GATHER_TIMEOUT: Duration = Duration::from_millis(2000);
 
+/// The number of workers used for running the approval-distribution logic.
+pub const APPROVAL_DISTRIBUTION_WORKER_COUNT: usize = 4;
+
+/// The channel size for the workers.
+pub const WORKERS_CHANNEL_SIZE: usize = 64000 / APPROVAL_DISTRIBUTION_WORKER_COUNT;
+
+fn prio_right<'a>(_val: &'a mut ()) -> PollNext {
+	PollNext::Right
+}
+
 /// The approval voting parallel subsystem.
 pub struct ApprovalVotingParallelSubsystem {
 	/// `LocalKeystore` is needed for assignment keys, but not necessarily approval keys.
@@ -140,16 +150,6 @@ impl<Context: Send> ApprovalVotingParallelSubsystem {
 	}
 }
 
-/// The number of workers used for running the approval-distribution logic.
-pub const APPROVAL_DISTRIBUTION_WORKER_COUNT: usize = 4;
-
-/// The channel size for the workers.
-pub const WORKERS_CHANNEL_SIZE: usize = 64000 / APPROVAL_DISTRIBUTION_WORKER_COUNT;
-
-fn prio_right<'a>(_val: &'a mut ()) -> PollNext {
-	PollNext::Right
-}
-
 // It starts worker for the approval voting subsystem and the `APPROVAL_DISTRIBUTION_WORKER_COUNT`
 // workers for the approval distribution subsystem.
 //
@@ -162,6 +162,8 @@ async fn start_workers<Context>(
 ) -> SubsystemResult<(ToWorker<ApprovalVotingMessage>, Vec<ToWorker<ApprovalDistributionMessage>>)>
 where
 {
+	gum::info!(target: LOG_TARGET, "Starting approval distribution workers");
+
 	// Build approval voting handles.
 	let (to_approval_voting_worker, approval_voting_work_provider) = build_worker_handles(
 		"approval-voting-parallel-db".into(),
@@ -169,13 +171,14 @@ where
 		metrics_watcher,
 		prio_right,
 	);
-
-	gum::info!(target: LOG_TARGET, "Starting approval distribution workers");
-
 	let mut to_approval_distribution_workers = Vec::new();
 	let slot_duration_millis = subsystem.slot_duration_millis;
 
 	for i in 0..APPROVAL_DISTRIBUTION_WORKER_COUNT {
+		let mut network_sender = ctx.sender().clone();
+		let mut runtime_api_sender = ctx.sender().clone();
+		let mut approval_distribution_to_approval_voting = to_approval_voting_worker.clone();
+
 		let approval_distr_instance =
 			polkadot_approval_distribution::ApprovalDistribution::new_with_clock(
 				subsystem.metrics.approval_distribution_metrics(),
@@ -184,7 +187,6 @@ where
 				Arc::new(RealAssignmentCriteria {}),
 			);
 		let task_name = format!("approval-voting-parallel-{}", i);
-
 		let (to_approval_distribution_worker, mut approval_distribution_work_provider) =
 			build_worker_handles(
 				task_name.clone(),
@@ -194,10 +196,6 @@ where
 			);
 
 		metrics_watcher.watch(task_name.clone(), to_approval_distribution_worker.meter());
-
-		let mut network_sender = ctx.sender().clone();
-		let mut runtime_api_sender = ctx.sender().clone();
-		let mut approval_distribution_to_approval_voting = to_approval_voting_worker.clone();
 
 		subsystem.spawner.spawn_blocking(
 			task_name.leak(),
@@ -240,9 +238,9 @@ where
 	}
 
 	gum::info!(target: LOG_TARGET, "Starting approval voting workers");
+
 	let sender = ctx.sender().clone();
 	let to_approval_distribution = ApprovalVotingToApprovalDistribution(sender.clone());
-
 	polkadot_node_core_approval_voting::start_approval_worker(
 		approval_voting_work_provider,
 		sender.clone(),
@@ -265,7 +263,7 @@ where
 	Ok((to_approval_voting_worker, to_approval_distribution_workers))
 }
 
-// The main run function of the approval voting subsystem.
+// The main run function of the approval parallel voting subsystem.
 #[overseer::contextbounds(ApprovalVotingParallel, prefix = self::overseer)]
 async fn run<Context>(
 	mut ctx: Context,
@@ -285,12 +283,14 @@ async fn run<Context>(
 		"Starting main subsystem loop"
 	);
 
-	// Main loop of the subsystem, it shouldn't include any logic just dispatching of messages to
-	// the workers.
 	run_main_loop(ctx, to_approval_voting_worker, to_approval_distribution_workers, metrics_watcher)
 		.await
 }
 
+// Main loop of the subsystem, it shouldn't include any logic just dispatching of messages to
+// the workers.
+//
+// It listens for messages from the overseer and dispatches them to the workers.
 #[overseer::contextbounds(ApprovalVotingParallel, prefix = self::overseer)]
 async fn run_main_loop<Context>(
 	mut ctx: Context,
@@ -624,8 +624,8 @@ fn validator_index_for_msg(
 
 /// A handler object that both type of workers use for receiving work.
 ///
-/// In practive this just a wrapper over a channel Receiver, that is injected into approval-voting
-/// worker and approval-distribution workers.
+/// In practive this is just a wrapper over two channels Receiver, that is injected into
+/// approval-voting worker and approval-distribution workers.
 type WorkProvider<M, Clos, State> = WorkProviderImpl<
 	SelectWithStrategy<
 		MeteredReceiver<FromOrchestra<M>>,
@@ -677,9 +677,10 @@ where
 }
 
 /// Just a wrapper for implementing overseer::SubsystemSender<ApprovalVotingMessage> and
-/// overseer::SubsystemSender<ApprovalDistributionMessage>, so that we can inject into the
-/// workers, so they can talke directly with each other without intermediating in this subsystem
-/// loop.
+/// overseer::SubsystemSender<ApprovalDistributionMessage>.
+///
+/// The instance of this struct can be injected into the workers, so they can talk
+/// directly with each other without intermediating in this subsystem loop.
 pub struct ToWorker<T: Send + Sync + 'static>(
 	MeteredSender<FromOrchestra<T>>,
 	UnboundedMeteredSender<FromOrchestra<T>>,
@@ -808,28 +809,26 @@ impl<T: Send + Sync + 'static + Debug> overseer::SubsystemSender<T> for ToWorker
 	}
 }
 
-/// Handles to use by an worker to receive work.
+/// Handles that are used by an worker to receive work.
 pub struct RxWorker<T: Send + Sync + 'static>(
 	MeteredReceiver<FromOrchestra<T>>,
 	UnboundedMeteredReceiver<FromOrchestra<T>>,
 );
 
-/// Build all the necessary channels for sending messages to the workers
-/// and for the workers to receive them.
+// Build all the necessary channels for sending messages to an worker
+// and for the worker to receive them.
 fn build_channels<T: Send + Sync + 'static>(
 	channel_name: String,
 	channel_size: usize,
 	metrics_watcher: &mut MetricsWatcher,
 ) -> (ToWorker<T>, RxWorker<T>) {
-	let (tx_approval_voting_work, rx_approval_voting_work) =
-		channel::<FromOrchestra<T>>(channel_size);
-	let (tx_approval_voting_work_unbounded, rx_approval_voting_work_unbounded) =
-		unbounded::<FromOrchestra<T>>();
-	let to_worker = ToWorker(tx_approval_voting_work, tx_approval_voting_work_unbounded);
+	let (tx_work, rx_work) = channel::<FromOrchestra<T>>(channel_size);
+	let (tx_work_unbounded, rx_work_unbounded) = unbounded::<FromOrchestra<T>>();
+	let to_worker = ToWorker(tx_work, tx_work_unbounded);
 
 	metrics_watcher.watch(channel_name, to_worker.meter());
 
-	(to_worker, RxWorker(rx_approval_voting_work, rx_approval_voting_work_unbounded))
+	(to_worker, RxWorker(rx_work, rx_work_unbounded))
 }
 
 /// Build the worker handles used for interacting with the workers.

@@ -2024,9 +2024,14 @@ async fn handle_from_overseer<
 		},
 		FromOrchestra::Communication { msg } => match msg {
 			ApprovalVotingMessage::ImportAssignment(checked_assignment, tx) => {
-				let (check_outcome, actions) =
-					import_assignment(sender, state, db, session_info_provider, checked_assignment)
-						.await?;
+				let (check_outcome, actions) = import_assignment(
+					sender,
+					state,
+					db,
+					session_info_provider,
+					checked_assignment,
+				)
+				.await?;
 				// approval-distribution makes sure this assignment is valid and expected,
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.
@@ -2037,9 +2042,16 @@ async fn handle_from_overseer<
 				actions
 			},
 			ApprovalVotingMessage::ImportApproval(a, tx) => {
-				let result =
-					import_approval(sender, state, db, session_info_provider, metrics, a, &wakeups)
-						.await?;
+				let result = import_approval(
+					sender,
+					state,
+					db,
+					session_info_provider,
+					metrics,
+					a,
+					&wakeups,
+				)
+				.await?;
 				// approval-distribution makes sure this vote is valid and expected,
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.
