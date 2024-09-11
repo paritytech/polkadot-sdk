@@ -30,8 +30,10 @@ use crate::{
 use crate::request_responses::CustomOutboundFailure;
 use futures::{channel::oneshot, future::BoxFuture, stream::FuturesUnordered, StreamExt};
 use litep2p::{
+	error::{ImmediateDialError, NegotiationError, SubstreamError},
 	protocol::request_response::{
-		DialOptions, RequestResponseError, RequestResponseEvent, RequestResponseHandle,
+		DialOptions, RejectReason, RequestResponseError, RequestResponseEvent,
+		RequestResponseHandle,
 	},
 	types::RequestId,
 };
@@ -373,7 +375,32 @@ impl RequestResponseProtocol {
 		let status = match error {
 			RequestResponseError::NotConnected =>
 				Some((RequestFailure::NotConnected, "not-connected")),
-			RequestResponseError::Rejected => Some((RequestFailure::Refused, "rejected")),
+			RequestResponseError::Rejected(reason) => {
+				let reason = match reason {
+					RejectReason::ConnectionClosed => "connection-closed",
+					RejectReason::SubstreamClosed => "substream-closed",
+					RejectReason::SubstreamOpenError(substream_error) => match substream_error {
+						SubstreamError::NegotiationError(NegotiationError::Timeout) =>
+							"substream-timeout",
+						_ => "substream-open-error",
+					},
+					RejectReason::DialFailed(None) => "dial-failed",
+					RejectReason::DialFailed(Some(ImmediateDialError::AlreadyConnected)) =>
+						"dial-already-connected",
+					RejectReason::DialFailed(Some(ImmediateDialError::PeerIdMissing)) =>
+						"dial-peerid-missing",
+					RejectReason::DialFailed(Some(ImmediateDialError::TriedToDialSelf)) =>
+						"dial-tried-to-dial-self",
+					RejectReason::DialFailed(Some(ImmediateDialError::NoAddressAvailable)) =>
+						"dial-no-address-available",
+					RejectReason::DialFailed(Some(ImmediateDialError::TaskClosed)) =>
+						"dial-task-closed",
+					RejectReason::DialFailed(Some(ImmediateDialError::ChannelClogged)) =>
+						"dial-channel-clogged",
+				};
+
+				Some((RequestFailure::Refused, reason))
+			},
 			RequestResponseError::Timeout =>
 				Some((RequestFailure::Network(CustomOutboundFailure::Timeout), "timeout")),
 			RequestResponseError::Canceled => {

@@ -60,7 +60,7 @@ jobs:
       RUST_BACKTRACE: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: script
         run: |
@@ -93,7 +93,7 @@ jobs:
 
   test-frame-ui:
     timeout-minutes: 60
-    needs: [set-image, test-frame-examples-compile-to-wasm]
+    needs: [set-image]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -121,7 +121,7 @@ jobs:
 
   test-deterministic-wasm:
     timeout-minutes: 20
-    needs: [set-image]
+    needs: [set-image, test-frame-examples-compile-to-wasm]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -148,7 +148,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       matrix:
-        branch: [ master, current ]
+        branch: [master, current]
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -158,7 +158,7 @@ jobs:
         with:
           # if branch is master, use the branch, otherwise set empty string, so it uses the current context
           # either PR (including forks) or merge group (main repo)
-          ref: ${{ matrix.branch == 'master' && matrix.branch || '' }} 
+          ref: ${{ matrix.branch == 'master' && matrix.branch || '' }}
 
       - name: script
         run: |
@@ -181,11 +181,12 @@ jobs:
   node-bench-regression-guard:
     timeout-minutes: 20
     if: always() && !cancelled()
-    runs-on: arc-runners-polkadot-sdk
+    # runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     needs: [set-image, cargo-check-benches]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Download artifact (master run)
         uses: actions/download-artifact@v4.1.8
@@ -225,7 +226,7 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Run tests
         id: tests
@@ -257,7 +258,7 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: script
         run: |
@@ -272,7 +273,7 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: script
         run: |
@@ -301,7 +302,7 @@ jobs:
         --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Run honggfuzz
         run: |
@@ -332,7 +333,7 @@ jobs:
         index: [1, 2, 3, 4, 5, 6, 7] # 7 parallel jobs
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Check Rust
         run: |
@@ -359,7 +360,7 @@ jobs:
   #       index: [ 1,2,3,4,5,6,7,8,9,10 ] # 10 parallel jobs
   #   steps:
   #     - name: Checkout
-  #       uses: actions/checkout@v4.1.7
+  #       uses: actions/checkout@v4
 
   #     - name: Install dependencies
   #       uses: ./.github/actions/set-up-mac
