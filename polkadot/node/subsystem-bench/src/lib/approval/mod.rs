@@ -49,6 +49,7 @@ use itertools::Itertools;
 use orchestra::TimeoutExt;
 use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
 use polkadot_approval_distribution::ApprovalDistribution;
+use polkadot_node_core_approval_voting_parallel::ApprovalVotingParallelSubsystem;
 use polkadot_node_primitives::approval::time::{
 	slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock,
 };
@@ -831,36 +832,10 @@ fn build_overseer(
 		PastSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());
 	let keystore = Arc::new(keystore);
 	let db = Arc::new(db);
-	let approval_voting = ApprovalVotingSubsystem::with_config_and_clock(
-		TEST_CONFIG,
-		db.clone(),
-		keystore.clone(),
-		Box::new(TestSyncOracle {}),
-		state.approval_voting_parallel_metrics.approval_voting_metrics(),
-		Arc::new(system_clock.clone()),
-		Arc::new(SpawnGlue(spawn_task_handle.clone())),
-	);
-
-	let approval_distribution = ApprovalDistribution::new_with_clock(
-		state.approval_voting_parallel_metrics.approval_distribution_metrics(),
-		TEST_CONFIG.slot_duration_millis,
-		Arc::new(system_clock.clone()),
-		Arc::new(RealAssignmentCriteria {}),
-	);
-
-	let approval_voting_parallel =
-		polkadot_node_core_approval_voting_parallel::ApprovalVotingParallelSubsystem::with_config_and_clock(
-			TEST_CONFIG,
-			db.clone(),
-			keystore.clone(),
-			Box::new(TestSyncOracle {}),
-			state.approval_voting_parallel_metrics.clone(),
-			Arc::new(system_clock.clone()),
-			SpawnGlue(spawn_task_handle.clone()),
-		);
 
 	let mock_chain_api = MockChainApi::new(state.build_chain_api_state());
-	let mock_chain_selection = MockChainSelection { state: state.clone(), clock: system_clock };
+	let mock_chain_selection =
+		MockChainSelection { state: state.clone(), clock: system_clock.clone() };
 	let mock_runtime_api = MockRuntimeApi::new(
 		config.clone(),
 		state.test_authorities.clone(),
@@ -881,10 +856,8 @@ fn build_overseer(
 		state.options.approval_voting_parallel_enabled,
 	);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
-	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
-		.replace_approval_distribution(|_| approval_distribution)
-		.replace_approval_voting(|_| approval_voting)
-		.replace_approval_voting_parallel(|_| approval_voting_parallel)
+	let task_handle = spawn_task_handle.clone();
+	let dummy = dummy_builder!(task_handle, overseer_metrics)
 		.replace_chain_api(|_| mock_chain_api)
 		.replace_chain_selection(|_| mock_chain_selection)
 		.replace_runtime_api(|_| mock_runtime_api)
@@ -893,8 +866,44 @@ fn build_overseer(
 		.replace_availability_recovery(|_| MockAvailabilityRecovery::new())
 		.replace_candidate_validation(|_| MockCandidateValidation::new());
 
-	let (overseer, raw_handle) =
-		dummy.build_with_connector(overseer_connector).expect("Should not fail");
+	let (overseer, raw_handle) = if state.options.approval_voting_parallel_enabled {
+		let approval_voting_parallel = ApprovalVotingParallelSubsystem::with_config_and_clock(
+			TEST_CONFIG,
+			db.clone(),
+			keystore.clone(),
+			Box::new(TestSyncOracle {}),
+			state.approval_voting_parallel_metrics.clone(),
+			Arc::new(system_clock.clone()),
+			SpawnGlue(spawn_task_handle.clone()),
+		);
+		dummy
+			.replace_approval_voting_parallel(|_| approval_voting_parallel)
+			.build_with_connector(overseer_connector)
+			.expect("Should not fail")
+	} else {
+		let approval_voting = ApprovalVotingSubsystem::with_config_and_clock(
+			TEST_CONFIG,
+			db.clone(),
+			keystore.clone(),
+			Box::new(TestSyncOracle {}),
+			state.approval_voting_parallel_metrics.approval_voting_metrics(),
+			Arc::new(system_clock.clone()),
+			Arc::new(SpawnGlue(spawn_task_handle.clone())),
+		);
+
+		let approval_distribution = ApprovalDistribution::new_with_clock(
+			state.approval_voting_parallel_metrics.approval_distribution_metrics(),
+			TEST_CONFIG.slot_duration_millis,
+			Arc::new(system_clock.clone()),
+			Arc::new(RealAssignmentCriteria {}),
+		);
+
+		dummy
+			.replace_approval_voting(|_| approval_voting)
+			.replace_approval_distribution(|_| approval_distribution)
+			.build_with_connector(overseer_connector)
+			.expect("Should not fail")
+	};
 
 	let overseer_handle = OverseerHandleReal::new(raw_handle);
 	(overseer, overseer_handle)
