@@ -181,6 +181,8 @@ pub mod v2 {
 	pub(crate) type BenchmarkingSetupOf<T> =
 		BenchmarkingSetup<Suffix<T>, <T as frame_system::Config>::AccountId, Username<T>>;
 
+	/// Progressive states of a migration. The migration starts with the first variant and ends with
+	/// the last.
 	#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
 	pub enum MigrationState<A, U, S> {
 		Authority(A),
@@ -197,8 +199,8 @@ pub mod v2 {
 		Finished,
 	}
 
-	pub struct LazyMigrationV2<T: Config>(PhantomData<T>);
-	impl<T: Config> SteppedMigration for LazyMigrationV2<T> {
+	pub struct LazyMigrationV1ToV2<T: Config>(PhantomData<T>);
+	impl<T: Config> SteppedMigration for LazyMigrationV1ToV2<T> {
 		type Cursor = MigrationState<T::AccountId, Username<T>, Suffix<T>>;
 		type Identifier = MigrationId<15>;
 
@@ -286,7 +288,7 @@ pub mod v2 {
 		}
 	}
 
-	impl<T: Config> LazyMigrationV2<T> {
+	impl<T: Config> LazyMigrationV1ToV2<T> {
 		pub(crate) fn required_weight(
 			step: &MigrationState<T::AccountId, Username<T>, Suffix<T>>,
 		) -> Weight {
@@ -441,7 +443,7 @@ pub mod v2 {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	impl<T: Config> LazyMigrationV2<T> {
+	impl<T: Config> LazyMigrationV1ToV2<T> {
 		pub(crate) fn setup_benchmark_env_for_migration() -> BenchmarkingSetupOf<T> {
 			use frame_support::Hashable;
 			let suffix: Suffix<T> = b"bench".to_vec().try_into().unwrap();
@@ -637,7 +639,7 @@ pub mod v2 {
 				let mut weight_meter = WeightMeter::new();
 				let mut cursor = None;
 				while let Some(new_cursor) =
-					LazyMigrationV2::<Test>::step(cursor, &mut weight_meter).unwrap()
+					LazyMigrationV1ToV2::<Test>::step(cursor, &mut weight_meter).unwrap()
 				{
 					cursor = Some(new_cursor);
 				}

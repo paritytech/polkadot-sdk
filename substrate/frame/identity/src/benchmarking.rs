@@ -21,7 +21,7 @@
 
 use super::*;
 
-use crate::{migration::v2::LazyMigrationV2, Pallet as Identity};
+use crate::{migration::v2::LazyMigrationV1ToV2, Pallet as Identity};
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
@@ -897,11 +897,11 @@ mod benchmarks {
 
 	#[benchmark]
 	fn migration_v2_authority_step() -> Result<(), BenchmarkError> {
-		let setup = LazyMigrationV2::<T>::setup_benchmark_env_for_migration();
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_migration();
 		assert_eq!(AuthorityOf::<T>::iter().count(), 0);
 		#[block]
 		{
-			LazyMigrationV2::<T>::authority_step(None);
+			LazyMigrationV1ToV2::<T>::authority_step(None);
 		}
 		assert_eq!(AuthorityOf::<T>::get(&setup.suffix).unwrap().account_id, setup.authority);
 		Ok(())
@@ -909,11 +909,11 @@ mod benchmarks {
 
 	#[benchmark]
 	fn migration_v2_username_step() -> Result<(), BenchmarkError> {
-		let setup = LazyMigrationV2::<T>::setup_benchmark_env_for_migration();
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_migration();
 		assert_eq!(UsernameInfoOf::<T>::iter().count(), 0);
 		#[block]
 		{
-			LazyMigrationV2::<T>::username_step(None);
+			LazyMigrationV1ToV2::<T>::username_step(None);
 		}
 		assert_eq!(UsernameInfoOf::<T>::iter().next().unwrap().1.owner, setup.account);
 		Ok(())
@@ -921,10 +921,10 @@ mod benchmarks {
 
 	#[benchmark]
 	fn migration_v2_identity_step() -> Result<(), BenchmarkError> {
-		let setup = LazyMigrationV2::<T>::setup_benchmark_env_for_migration();
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_migration();
 		#[block]
 		{
-			LazyMigrationV2::<T>::identity_step(None);
+			LazyMigrationV1ToV2::<T>::identity_step(None);
 		}
 		assert!(IdentityOf::<T>::get(&setup.account).is_some());
 		Ok(())
@@ -932,10 +932,10 @@ mod benchmarks {
 
 	#[benchmark]
 	fn migration_v2_pending_username_step() -> Result<(), BenchmarkError> {
-		let setup = LazyMigrationV2::<T>::setup_benchmark_env_for_migration();
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_migration();
 		#[block]
 		{
-			LazyMigrationV2::<T>::pending_username_step(None);
+			LazyMigrationV1ToV2::<T>::pending_username_step(None);
 		}
 		assert!(PendingUsernames::<T>::get(&setup.username).is_some());
 		Ok(())
@@ -943,23 +943,23 @@ mod benchmarks {
 
 	#[benchmark]
 	fn migration_v2_cleanup_authority_step() -> Result<(), BenchmarkError> {
-		let setup = LazyMigrationV2::<T>::setup_benchmark_env_for_cleanup();
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_cleanup();
 		#[block]
 		{
-			LazyMigrationV2::<T>::cleanup_authority_step(None);
+			LazyMigrationV1ToV2::<T>::cleanup_authority_step(None);
 		}
-		LazyMigrationV2::<T>::check_authority_cleanup_validity(setup.suffix, setup.authority);
+		LazyMigrationV1ToV2::<T>::check_authority_cleanup_validity(setup.suffix, setup.authority);
 		Ok(())
 	}
 
 	#[benchmark]
 	fn migration_v2_cleanup_username_step() -> Result<(), BenchmarkError> {
-		let setup = LazyMigrationV2::<T>::setup_benchmark_env_for_cleanup();
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_cleanup();
 		#[block]
 		{
-			LazyMigrationV2::<T>::cleanup_username_step(None);
+			LazyMigrationV1ToV2::<T>::cleanup_username_step(None);
 		}
-		LazyMigrationV2::<T>::check_username_cleanup_validity(setup.username, setup.account);
+		LazyMigrationV1ToV2::<T>::check_username_cleanup_validity(setup.username, setup.account);
 		Ok(())
 	}
 
