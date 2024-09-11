@@ -151,6 +151,7 @@ fn stress_test_recursive() {
 		TotalEnqueued::set(TotalEnqueued::get() + enqueued);
 		Enqueued::set(Enqueued::get() + enqueued);
 		Called::set(Called::get() + 1);
+		Ok(())
 	}));
 
 	build_and_execute::<Test>(|| {

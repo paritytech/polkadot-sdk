@@ -17,5 +17,19 @@
 //! In an ideal world this would be one runtime which would simplify the code massively.
 //! This is not an ideal world - Polkadot Asset Hub has a different key type.
 
-pub mod asset_hub_polkadot_aura;
-pub mod aura;
+mod utils;
+
+use utils::{impl_node_runtime_apis, imports::*};
+
+type CustomBlock = crate::common::types::Block<u32>;
+pub mod aura_sr25519 {
+	use super::*;
+	struct FakeRuntime;
+	impl_node_runtime_apis!(FakeRuntime, CustomBlock, sp_consensus_aura::sr25519::AuthorityId);
+}
+
+pub mod aura_ed25519 {
+	use super::*;
+	struct FakeRuntime;
+	impl_node_runtime_apis!(FakeRuntime, CustomBlock, sp_consensus_aura::ed25519::AuthorityId);
+}

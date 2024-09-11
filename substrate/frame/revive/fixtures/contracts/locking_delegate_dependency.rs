@@ -23,14 +23,14 @@
 use common::input;
 use uapi::{HostFn, HostFnImpl as api};
 
-const ALICE: [u8; 32] = [1u8; 32];
+const ETH_ALICE: [u8; 20] = [1u8; 20];
 
 /// Load input data and perform the action specified by the input.
 /// If `delegate_call` is true, then delegate call into the contract.
 fn load_input(delegate_call: bool) {
 	input!(
 		action: u32,
-		code_hash: [u8; 32],
+		code_hash: &[u8; 32],
 	);
 
 	match action {
@@ -44,7 +44,7 @@ fn load_input(delegate_call: bool) {
 		},
 		// 3 = Terminate
 		3 => {
-			api::terminate(&ALICE);
+			api::terminate(&ETH_ALICE);
 		},
 		// Everything else is a noop
 		_ => {},

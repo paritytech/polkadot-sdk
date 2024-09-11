@@ -25,6 +25,7 @@ use bp_messages::*;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
+use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::DispatchClass,
 	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
@@ -104,13 +105,21 @@ frame_support::parameter_types! {
 	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
 	/// BridgeHub.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const BridgeHubRococoBaseXcmFeeInRocs: u128 = 59_034_266;
+	pub const BridgeHubRococoBaseXcmFeeInRocs: u128 = 57_145_832;
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 314_082_193;
+	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 297_685_840;
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 57_459_145;
+	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 56_782_099;
+}
+
+/// Wrapper over `BridgeHubRococo`'s `RuntimeCall` that can be used without a runtime.
+#[derive(Decode, Encode)]
+pub enum RuntimeCall {
+	/// Points to the `pallet_xcm_bridge_hub` pallet instance for `BridgeHubWestend`.
+	#[codec(index = 52)]
+	XcmOverBridgeHubWestend(bp_xcm_bridge_hub::XcmBridgeHubCall),
 }

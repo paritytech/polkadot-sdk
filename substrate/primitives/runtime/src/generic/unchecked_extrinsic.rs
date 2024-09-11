@@ -973,13 +973,15 @@ mod tests {
 
 	#[test]
 	fn legacy_short_signed_encode_decode() {
-		let call: TestCall = vec![0u8; 0].into();
+		let call: TestCall = vec![0u8; 4].into();
 		let signed = TEST_ACCOUNT;
-		let payload = vec![0u8; 0];
-		let old_signature = TestSig(TEST_ACCOUNT, (payload.clone(), DummyExtension).encode());
-		let new_signature =
-			TestSig(TEST_ACCOUNT, blake2_256(&(&payload, DummyExtension).encode()[..]).to_vec());
 		let extension = DummyExtension;
+		let implicit = extension.implicit().unwrap();
+		let old_signature = TestSig(TEST_ACCOUNT, (&call, &extension, &implicit).encode());
+		let new_signature = TestSig(
+			TEST_ACCOUNT,
+			blake2_256(&(&call, &extension, &implicit).encode()[..]).to_vec(),
+		);
 
 		let old_ux =
 			UncheckedExtrinsicV4::<TestAccountId, TestCall, TestSig, DummyExtension>::new_signed(
@@ -1008,12 +1010,14 @@ mod tests {
 
 	#[test]
 	fn legacy_long_signed_encode_decode() {
-		let call: TestCall = vec![0u8; 256].into();
+		let call: TestCall = vec![0u8; 257].into();
 		let signed = TEST_ACCOUNT;
-		let payload = vec![0u8; 256];
-		let signature =
-			TestSig(TEST_ACCOUNT, blake2_256(&(&payload, DummyExtension).encode()[..]).to_vec());
 		let extension = DummyExtension;
+		let implicit = extension.implicit().unwrap();
+		let signature = TestSig(
+			TEST_ACCOUNT,
+			blake2_256(&(&call, DummyExtension, &implicit).encode()[..]).to_vec(),
+		);
 
 		let old_ux =
 			UncheckedExtrinsicV4::<TestAccountId, TestCall, TestSig, DummyExtension>::new_signed(

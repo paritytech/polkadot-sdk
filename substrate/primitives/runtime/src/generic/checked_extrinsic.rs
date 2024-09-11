@@ -23,8 +23,9 @@ use sp_weights::Weight;
 
 use crate::{
 	traits::{
-		self, transaction_extension::TransactionExtension, DispatchInfoOf, DispatchTransaction,
-		Dispatchable, MaybeDisplay, Member, PostDispatchInfoOf, ValidateUnsigned,
+		self, transaction_extension::TransactionExtension, AsAuthorizedOrigin, DispatchInfoOf,
+		DispatchTransaction, Dispatchable, MaybeDisplay, Member, PostDispatchInfoOf,
+		ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
@@ -69,7 +70,7 @@ where
 	AccountId: Member + MaybeDisplay,
 	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin> + Encode,
 	Extension: TransactionExtension<Call>,
-	RuntimeOrigin: From<Option<AccountId>>,
+	RuntimeOrigin: From<Option<AccountId>> + AsAuthorizedOrigin,
 {
 	type Call = Call;
 

@@ -23,7 +23,9 @@ use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;
 use frame_support::dispatch::DispatchInfo;
 use frame_system::RawOrigin;
-use sp_runtime::traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable};
+use sp_runtime::traits::{
+	AsAuthorizedOrigin, AsSystemOriginSigner, DispatchTransaction, Dispatchable,
+};
 
 fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 	let re: <T as Config>::RuntimeEvent = generic_event.into();
@@ -36,7 +38,7 @@ fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: From<()>,
 	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
-		AsSystemOriginSigner<T::AccountId> + Clone,
+		AsSystemOriginSigner<T::AccountId> + AsAuthorizedOrigin + Clone,
 )]
 mod benchmarks {
 	use super::*;

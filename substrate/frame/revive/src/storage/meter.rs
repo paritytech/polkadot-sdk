@@ -18,20 +18,20 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error, Event, HoldReason,
-	Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
+	address::AddressMapper, storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error,
+	Event, HoldReason, Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
-
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::{
 		fungible::{Mutate, MutateHold},
 		tokens::{Fortitude, Fortitude::Polite, Precision, Preservation, Restriction},
-		Get,
+		Get, IsType,
 	},
 	DefaultNoBound, RuntimeDebugNoBound,
 };
+use sp_core::H256;
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
@@ -400,6 +400,7 @@ where
 impl<T, E> RawMeter<T, E, Nested>
 where
 	T: Config,
+	T::Hash: IsType<H256>,
 	E: Ext<T>,
 {
 	/// Charges `diff` from the meter.
@@ -503,7 +504,10 @@ where
 	}
 }
 
-impl<T: Config> Ext<T> for ReservingExt {
+impl<T: Config> Ext<T> for ReservingExt
+where
+	T::Hash: IsType<H256>,
+{
 	fn check_limit(
 		origin: &T::AccountId,
 		limit: BalanceOf<T>,
@@ -537,8 +541,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 				)?;
 
 				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndHeld {
-					from: origin.clone(),
-					to: contract.clone(),
+					from: T::AddressMapper::to_address(origin),
+					to: T::AddressMapper::to_address(contract),
 					amount: *amount,
 				});
 			},
@@ -554,8 +558,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 				)?;
 
 				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndReleased {
-					from: contract.clone(),
-					to: origin.clone(),
+					from: T::AddressMapper::to_address(contract),
+					to: T::AddressMapper::to_address(origin),
 					amount: transferred,
 				});
 
