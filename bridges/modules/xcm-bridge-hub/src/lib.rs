@@ -1474,25 +1474,26 @@ mod tests {
 		let lane_id = LaneId::from_inner(Either::Left(H256::default()));
 		let lane_id_mismatch = LaneId::from_inner(Either::Left(H256::from([1u8; 32])));
 
-		let test_bridge_state = |id,
-		                         bridge,
-		                         (lane_id, bridge_id),
-		                         (inbound_lane_id, outbound_lane_id),
-		                         expected_error: Option<TryRuntimeError>| {
-			Bridges::<TestRuntime, ()>::insert(id, bridge);
-			LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge_id);
+		let test_bridge_state =
+			|id,
+			 bridge,
+			 (lane_id, bridge_id),
+			 (inbound_lane_id, outbound_lane_id),
+			 expected_error: Option<TryRuntimeError>| {
+				Bridges::<TestRuntime, ()>::insert(id, bridge);
+				LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge_id);
 
-			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
-			lanes_manager.create_inbound_lane(inbound_lane_id).unwrap();
-			lanes_manager.create_outbound_lane(outbound_lane_id).unwrap();
+				let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
+				lanes_manager.create_inbound_lane(inbound_lane_id).unwrap();
+				lanes_manager.create_outbound_lane(outbound_lane_id).unwrap();
 
-			let result = XcmOverBridge::do_try_state();
-			if let Some(e) = expected_error {
-				assert_err!(result, e);
-			} else {
-				assert_ok!(result);
-			}
-		};
+				let result = XcmOverBridge::do_try_state();
+				if let Some(e) = expected_error {
+					assert_err!(result, e);
+				} else {
+					assert_ok!(result);
+				}
+			};
 		let cleanup = |bridge_id, lane_ids| {
 			Bridges::<TestRuntime, ()>::remove(bridge_id);
 			for lane_id in lane_ids {
