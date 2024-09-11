@@ -165,7 +165,7 @@ where
 /// `FullClientTransactionPool` with the given `Client` and `Block` types.
 ///
 /// This trait object abstracts away the specific implementations of the transaction pool.
-pub type TransactionPoolImpl<Block, Client> = dyn FullClientTransactionPool<Block, Client>;
+pub type TransactionPoolImpl<Block, Client> = Box<dyn FullClientTransactionPool<Block, Client>>;
 
 /// Builder allowing to create specific instance of transaction pool.
 pub struct Builder<Block, Client> {
@@ -207,7 +207,7 @@ where
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
-	) -> Arc<TransactionPoolImpl<Block, Client>> {
+	) -> TransactionPoolImpl<Block, Client> {
 		log::debug!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
 		match self.options.txpool_type {
 			TransactionPoolType::SingleState => SingleStateFullPool::new_full(
