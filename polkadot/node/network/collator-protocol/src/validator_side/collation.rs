@@ -269,6 +269,8 @@ impl Collations {
 	pub(super) fn note_seconded(&mut self, para_id: ParaId) {
 		*self.seconded_per_para.entry(para_id).or_default() += 1;
 
+		gum::trace!(target: LOG_TARGET, ?para_id, new_count=*self.seconded_per_para.entry(para_id).or_default(), "Note seconded.");
+
 		// and the claim queue state
 		if let Some(claim_queue_state) = self.claim_queue_state.as_mut() {
 			for (satisfied, assignment) in claim_queue_state {
@@ -351,7 +353,18 @@ impl Collations {
 
 	// Returns the number of seconded collations for the specified `ParaId`.
 	pub(super) fn seconded_and_pending_for_para(&self, para_id: &ParaId) -> usize {
-		*self.seconded_per_para.get(&para_id).unwrap_or(&0) + self.pending_for_para(para_id)
+		let seconded_for_para = *self.seconded_per_para.get(&para_id).unwrap_or(&0);
+		let pending_for_para = self.pending_for_para(para_id);
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?para_id,
+			seconded_for_para,
+			pending_for_para,
+			"Seconded and pending for para."
+		);
+
+		seconded_for_para + pending_for_para
 	}
 
 	// Returns the number of claims in the claim queue for the specified `ParaId`.
