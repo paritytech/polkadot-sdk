@@ -944,7 +944,6 @@ pub trait TestNetFactory: Default + Sized + Send {
 				peer_store_handle.clone(),
 			)
 			.unwrap();
-		let sync_service_import_queue = Box::new(sync_service.clone());
 		let sync_service = Arc::new(sync_service.clone());
 
 		for config in config.request_response_protocols {
@@ -988,8 +987,12 @@ pub trait TestNetFactory: Default + Sized + Send {
 			chain_sync_network_provider.run(service).await;
 		});
 
-		tokio::spawn(async move {
-			import_queue.run(sync_service_import_queue).await;
+		tokio::spawn({
+			let sync_service = sync_service.clone();
+
+			async move {
+				import_queue.run(sync_service.as_ref()).await;
+			}
 		});
 
 		tokio::spawn(async move {

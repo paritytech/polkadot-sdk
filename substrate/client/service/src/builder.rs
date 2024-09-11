@@ -915,7 +915,6 @@ where
 		import_queue.service(),
 		Arc::clone(&peer_store_handle),
 	)?;
-	let sync_service_import_queue = sync_service.clone();
 	let sync_service = Arc::new(sync_service);
 
 	let network_params = sc_network::config::Params::<Block, <Block as BlockT>::Hash, Net> {
@@ -957,7 +956,11 @@ where
 		Some("networking"),
 		network_service_provider.run(Arc::new(network.clone())),
 	);
-	spawn_handle.spawn("import-queue", None, import_queue.run(Box::new(sync_service_import_queue)));
+	spawn_handle.spawn("import-queue", None, {
+		let sync_service = sync_service.clone();
+
+		async move { import_queue.run(sync_service.as_ref()).await }
+	});
 	spawn_handle.spawn_blocking("syncing", None, engine.run());
 
 	let (system_rpc_tx, system_rpc_rx) = tracing_unbounded("mpsc_system_rpc", 10_000);
