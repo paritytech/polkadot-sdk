@@ -52,6 +52,7 @@ pub enum Location {
 #[derive(Default)]
 pub struct ModuleDefinition {
 	/// Imported memory attached to the module. No memory is imported if `None`.
+	#[allow(dead_code)]
 	pub memory: Option<ImportedMemory>,
 	/// Initializers for the imported memory.
 	pub data_segments: Vec<DataSegment>,
