@@ -212,6 +212,10 @@ pub mod v2 {
 			mut cursor: Option<Self::Cursor>,
 			meter: &mut WeightMeter,
 		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+			if Pallet::<T>::on_chain_storage_version() != Self::id().version_from as u16 {
+				return Ok(None);
+			}
+
 			// Check that we have enough weight for at least the next step. If we don't, then the
 			// migration cannot be complete.
 			let required = match &cursor {
@@ -277,7 +281,10 @@ pub mod v2 {
 						Self::cleanup_username_step(Some(maybe_last_username)),
 					// After the last obsolete username was cleared from storage, the migration is
 					// done.
-					Some(MigrationState::Finished) => return Ok(None),
+					Some(MigrationState::Finished) => {
+						StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
+						return Ok(None)
+					},
 				};
 
 				cursor = Some(next);
@@ -555,6 +562,7 @@ pub mod v2 {
 		#[test]
 		fn migrate_to_v2() {
 			new_test_ext().execute_with(|| {
+				StorageVersion::new(1).put::<Pallet<Test>>();
 				// Set up the first authority.
 				let authority_1 = account_from_u8(151);
 				let suffix_1: Suffix<Test> = b"evn".to_vec().try_into().unwrap();
@@ -643,6 +651,7 @@ pub mod v2 {
 				{
 					cursor = Some(new_cursor);
 				}
+				assert_eq!(Pallet::<Test>::on_chain_storage_version(), 2);
 
 				// Check that the authorities were migrated.
 				let expected_prop =
