@@ -79,7 +79,7 @@ impl From<UintAuthorityId> for u64 {
 impl UintAuthorityId {
 	/// Convert this authority ID into a public key.
 	pub fn to_public_key<T: ByteArray>(&self) -> T {
-		let bytes: [u8; 32] = U256::from(self.0).into();
+		let bytes = U256::from(self.0).to_big_endian();
 		T::from_slice(&bytes).unwrap()
 	}
 }

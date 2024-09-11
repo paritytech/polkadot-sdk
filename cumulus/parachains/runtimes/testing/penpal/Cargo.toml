@@ -80,7 +80,7 @@ parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 assets-common = { workspace = true }
 
-primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "num-traits", "scale-info"] }
+primitive-types = { workspace = true, default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
 [features]
 default = ["std"]

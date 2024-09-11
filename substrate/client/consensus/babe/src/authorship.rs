@@ -108,7 +108,8 @@ pub(super) fn secondary_slot_author(
 		return None
 	}
 
-	let rand = U256::from((randomness, slot).using_encoded(sp_crypto_hashing::blake2_256));
+	let rand =
+		U256::from_big_endian(&(randomness, slot).using_encoded(sp_crypto_hashing::blake2_256));
 
 	let authorities_len = U256::from(authorities.len());
 	let idx = rand % authorities_len;

@@ -44,13 +44,6 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
 
-/// Encode a `U256` into a 32 byte buffer.
-fn as_bytes(u: U256) -> [u8; 32] {
-	let mut bytes = [0u8; 32];
-	u.to_little_endian(&mut bytes);
-	bytes
-}
-
 #[derive(Clone, Copy)]
 pub enum ApiVersion {
 	/// Expose all APIs even unversioned ones. Only used for testing and benchmarking.
@@ -1510,7 +1503,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.balance()),
+			&self.ext.balance().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1524,7 +1517,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.value_transferred()),
+			&self.ext.value_transferred().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1538,7 +1531,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.now()),
+			&self.ext.now().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1552,7 +1545,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.minimum_balance()),
+			&self.ext.minimum_balance().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1606,7 +1599,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.block_number()),
+			&self.ext.block_number().to_little_endian(),
 			false,
 			already_charged,
 		)?)
