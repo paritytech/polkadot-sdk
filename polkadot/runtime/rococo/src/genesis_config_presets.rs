@@ -22,7 +22,7 @@ use crate::{
 };
 #[cfg(not(feature = "std"))]
 use alloc::format;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, SchedulerParams, ValidatorId};
 use rococo_runtime_constants::currency::UNITS as ROC;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -30,6 +30,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
+use sp_genesis_builder::PresetId;
 use sp_runtime::traits::IdentifyAccount;
 
 /// Helper function to generate a crypto pair from seed
@@ -522,10 +523,10 @@ fn wococo_local_testnet_genesis() -> serde_json::Value {
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
-pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>> {
+pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.try_into() {
 		Ok("local_testnet") => rococo_local_testnet_genesis(),
-		Ok("development") => rococo_development_config_genesis(),
+		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => rococo_development_config_genesis(),
 		Ok("staging_testnet") => rococo_staging_testnet_config_genesis(),
 		Ok("wococo_local_testnet") => wococo_local_testnet_genesis(),
 		Ok("versi_local_testnet") => versi_local_testnet_genesis(),
@@ -536,4 +537,15 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u
 			.expect("serialization to json is expected to work. qed.")
 			.into_bytes(),
 	)
+}
+
+/// List of supported presets.
+pub fn preset_names() -> Vec<PresetId> {
+	vec![
+		PresetId::from("local_testnet"),
+		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
+		PresetId::from("staging_testnet"),
+		PresetId::from("wococo_local_testnet"),
+		PresetId::from("versi_local_testnet"),
+	]
 }
