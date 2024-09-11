@@ -282,14 +282,14 @@ impl Queue {
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
 
 		if let Some(deadline) = job.exec_deadline {
-			gum::warn!(
-				target: LOG_TARGET,
-				?priority,
-				?deadline,
-				"Job exceeded its deadline and was dropped without execution",
-			);
 			if Instant::now() > deadline {
 				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
+				gum::warn!(
+					target: LOG_TARGET,
+					?priority,
+					?deadline,
+					"Job exceeded its deadline and was dropped without execution",
+				);
 				return
 			}
 		}
