@@ -183,11 +183,11 @@ where
 					cmd = ctx.command_receiver.next() => {
 						match cmd {
 							Some(Command::AddView(key,stream)) => {
-								debug!(target: LOG_TARGET,"dropped_watcher: Command::AddView {key:?}");
+								trace!(target: LOG_TARGET,"dropped_watcher: Command::AddView {key:?}");
 								ctx.stream_map.get_mut().insert(key,stream);
 							},
 							Some(Command::RemoveView(key)) => {
-								debug!(target: LOG_TARGET,"dropped_watcher: Command::RemoveView {key:?}");
+								trace!(target: LOG_TARGET,"dropped_watcher: Command::RemoveView {key:?}");
 								ctx.stream_map.get_mut().remove(&key);
 							},
 							//controller sender is terminated, terminate the map as well
@@ -235,7 +235,7 @@ where
 	/// Notifies the [`StreamOfDropped`] that new view was created.
 	pub fn add_view(&self, key: BlockHash<C>, view: ViewStream<C>) {
 		let _ = self.controller.unbounded_send(Command::AddView(key, view)).map_err(|e| {
-			debug!(target: LOG_TARGET, "dropped_watcher: add_view {key:?} send message failed: {e}");
+			trace!(target: LOG_TARGET, "dropped_watcher: add_view {key:?} send message failed: {e}");
 		});
 	}
 
@@ -243,7 +243,7 @@ where
 	/// stream map.
 	pub fn remove_view(&self, key: BlockHash<C>) {
 		let _ = self.controller.unbounded_send(Command::RemoveView(key)).map_err(|e| {
-			debug!(target: LOG_TARGET, "dropped_watcher: remove_view {key:?} send message failed: {e}");
+			trace!(target: LOG_TARGET, "dropped_watcher: remove_view {key:?} send message failed: {e}");
 		});
 	}
 }

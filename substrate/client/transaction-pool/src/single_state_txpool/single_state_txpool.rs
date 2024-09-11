@@ -100,7 +100,7 @@ impl<T, Block: BlockT> ReadyPoll<T, Block> {
 		while idx < self.pollers.len() {
 			if self.pollers[idx].0 <= number {
 				let poller_sender = self.pollers.swap_remove(idx);
-				log::debug!(target: LOG_TARGET, "Sending ready signal at block {}", number);
+				log::trace!(target: LOG_TARGET, "Sending ready signal at block {}", number);
 				let _ = poller_sender.1.send(iterator_factory());
 			} else {
 				idx += 1;
@@ -608,16 +608,16 @@ pub async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block
 	let header = match api.block_header(at.hash) {
 		Ok(Some(h)) => h,
 		Ok(None) => {
-			log::debug!(target: LOG_TARGET, "Could not find header for {:?}.", at.hash);
+			log::trace!(target: LOG_TARGET, "Could not find header for {:?}.", at.hash);
 			return hashes
 		},
 		Err(e) => {
-			log::debug!(target: LOG_TARGET, "Error retrieving header for {:?}: {}", at.hash, e);
+			log::trace!(target: LOG_TARGET, "Error retrieving header for {:?}: {}", at.hash, e);
 			return hashes
 		},
 	};
 
-	log_xt_debug!(target: LOG_TARGET, &hashes, "[{:?}] Pruning transaction.");
+	log_xt_trace!(target: LOG_TARGET, &hashes, "[{:?}] Pruning transaction.");
 
 	pool.prune(at, *header.parent_hash(), &extrinsics).await;
 	hashes
@@ -709,7 +709,7 @@ where
 						resubmitted_to_report += 1;
 
 						if !contains {
-							log::debug!(
+							log::trace!(
 								target: LOG_TARGET,
 								"[{:?}]: Resubmitting from retracted block {:?}",
 								tx_hash,
@@ -778,7 +778,7 @@ where
 
 		match result {
 			Err(msg) => {
-				log::debug!(target: LOG_TARGET, "{msg}");
+				log::trace!(target: LOG_TARGET, "{msg}");
 				self.enactment_state.lock().force_update(&event);
 			},
 			Ok(EnactmentAction::Skip) => return,

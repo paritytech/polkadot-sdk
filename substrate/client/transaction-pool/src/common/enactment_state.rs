@@ -112,14 +112,14 @@ where
 			};
 
 		if skip_maintenance {
-			log::debug!(target: LOG_TARGET, "skip maintain: tree_route would be too long");
+			log::trace!(target: LOG_TARGET, "skip maintain: tree_route would be too long");
 			self.force_update(event);
 			return Ok(EnactmentAction::Skip)
 		}
 
 		// block was already finalized
 		if self.recent_finalized_block == new_hash {
-			log::debug!(target: LOG_TARGET, "handle_enactment: block already finalized");
+			log::trace!(target: LOG_TARGET, "handle_enactment: block already finalized");
 			return Ok(EnactmentAction::Skip)
 		}
 
@@ -127,7 +127,7 @@ where
 		// it instead of tree_route provided with event
 		let tree_route = tree_route(self.recent_best_block, new_hash)?;
 
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"resolve hash: {new_hash:?} finalized: {finalized:?} \
 			 tree_route: (common {:?}, last {:?}) best_block: {:?} finalized_block:{:?}",
@@ -141,7 +141,7 @@ where
 		// happening if we first received a finalization event and then a new
 		// best event for some old stale best head.
 		if tree_route.retracted().iter().any(|x| x.hash == self.recent_finalized_block) {
-			log::debug!(
+			log::trace!(
 				target: LOG_TARGET,
 				"Recently finalized block {} would be retracted by ChainEvent {}, skipping",
 				self.recent_finalized_block,
@@ -180,7 +180,7 @@ where
 			ChainEvent::NewBestBlock { hash, .. } => self.recent_best_block = *hash,
 			ChainEvent::Finalized { hash, .. } => self.recent_finalized_block = *hash,
 		};
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"forced update: {:?}, {:?}",
 			self.recent_best_block,

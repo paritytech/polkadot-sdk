@@ -521,7 +521,7 @@ impl<Hash: hash::Hash + Member, Ex> BestIterator<Hash, Ex> {
 	/// When invoked on a fully drained iterator it has no effect either.
 	pub fn report_invalid(&mut self, tx: &Arc<Transaction<Hash, Ex>>) {
 		if let Some(to_report) = self.all.get(&tx.hash) {
-			debug!(
+			trace!(
 				target: LOG_TARGET,
 				"[{:?}] best-iterator: Reported as invalid. Will skip sub-chains while iterating.",
 				to_report.transaction.transaction.hash
@@ -544,7 +544,7 @@ impl<Hash: hash::Hash + Member, Ex> Iterator for BestIterator<Hash, Ex> {
 
 			// Check if the transaction was marked invalid.
 			if self.invalid.contains(hash) {
-				debug!(
+				trace!(
 					target: LOG_TARGET,
 					"[{:?}] Skipping invalid child transaction while iterating.", hash,
 				);

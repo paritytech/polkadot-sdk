@@ -270,7 +270,7 @@ where
 			}
 		})
 	});
-	log::debug!(target: LOG_TARGET, "[{h:?}] validate_transaction_blocking: at:{:?} took:{:?}", at, s.elapsed());
+	log::trace!(target: LOG_TARGET, "[{h:?}] validate_transaction_blocking: at:{:?} took:{:?}", at, s.elapsed());
 
 	result
 }

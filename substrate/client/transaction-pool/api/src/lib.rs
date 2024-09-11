@@ -459,7 +459,7 @@ impl<TPool: LocalTransactionPool> OffchainSubmitTransaction<TPool::Block> for TP
 		at: <TPool::Block as BlockT>::Hash,
 		extrinsic: <TPool::Block as BlockT>::Extrinsic,
 	) -> Result<(), ()> {
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"(offchain call) Submitting a transaction to the pool: {:?}",
 			extrinsic

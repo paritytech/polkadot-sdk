@@ -114,7 +114,7 @@ where
 					cmd = ctx.command_receiver.next() => {
 						match cmd {
 							Some(Command::AddView(key,stream)) => {
-								debug!(target: LOG_TARGET,"Command::AddView {key:?}");
+								trace!(target: LOG_TARGET,"Command::AddView {key:?}");
 								ctx.stream_map.get_mut().insert(key,stream);
 							},
 							//controller sender is terminated, terminate the map as well
@@ -186,9 +186,9 @@ where
 				async move {
 					if already_notified_items.write().insert(event.clone()) {
 						for sink in &mut *external_sinks.write() {
-							debug!(target: LOG_TARGET, "[{:?}] import_sink_worker sending out imported", event);
+							trace!(target: LOG_TARGET, "[{:?}] import_sink_worker sending out imported", event);
 							let _ = sink.try_send(event.clone()).map_err(|e| {
-								debug!(target: LOG_TARGET, "import_sink_worker sending message failed: {e}");
+								trace!(target: LOG_TARGET, "import_sink_worker sending message failed: {e}");
 							});
 						}
 					}
@@ -207,7 +207,7 @@ where
 			.controller
 			.unbounded_send(Command::AddView(key.clone(), view))
 			.map_err(|e| {
-				debug!(target: LOG_TARGET, "add_view {key:?} send message failed: {e}");
+				trace!(target: LOG_TARGET, "add_view {key:?} send message failed: {e}");
 			});
 	}
 

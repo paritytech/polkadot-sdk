@@ -223,7 +223,7 @@ impl<B: ChainApi> Pool<B> {
 	) {
 		let now = Instant::now();
 		self.validated_pool.resubmit(revalidated_transactions);
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"Resubmitted. Took {} ms. Status: {:?}",
 			now.elapsed().as_millis(),
@@ -297,7 +297,7 @@ impl<B: ChainApi> Pool<B> {
 							)
 							.await;
 
-						log::debug!(target: LOG_TARGET,"[{:?}] prune::revalidated {:?}", self.validated_pool.api().hash_and_length(&extrinsic.clone()).0, validity);
+						log::trace!(target: LOG_TARGET,"[{:?}] prune::revalidated {:?}", self.validated_pool.api().hash_and_length(&extrinsic.clone()).0, validity);
 
 						if let Ok(Ok(validity)) = validity {
 							future_tags.extend(validity.provides);
@@ -312,7 +312,7 @@ impl<B: ChainApi> Pool<B> {
 			}
 		}
 
-		log::debug!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}");
+		log::trace!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}");
 
 		self.prune_tags(at, future_tags, in_pool_hashes).await
 	}
@@ -344,7 +344,7 @@ impl<B: ChainApi> Pool<B> {
 		tags: impl IntoIterator<Item = Tag>,
 		known_imported_hashes: impl IntoIterator<Item = ExtrinsicHash<B>> + Clone,
 	) {
-		log::debug!(target: LOG_TARGET, "Pruning at {:?}", at);
+		log::trace!(target: LOG_TARGET, "Pruning at {:?}", at);
 		// Prune all transactions that provide given tags
 		let prune_status = self.validated_pool.prune_tags(tags);
 
@@ -364,8 +364,8 @@ impl<B: ChainApi> Pool<B> {
 
 		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect();
 
-		log::debug!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}", &at, reverified_transactions.len());
-		log_xt_debug!(data: tuple, target: LOG_TARGET, &reverified_transactions, "[{:?}] Resubmitting transaction: {:?}");
+		log::trace!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}", &at, reverified_transactions.len());
+		log_xt_trace!(data: tuple, target: LOG_TARGET, &reverified_transactions, "[{:?}] Resubmitting transaction: {:?}");
 
 		// And finally - submit reverified transactions back to the pool
 		self.validated_pool.resubmit_pruned(

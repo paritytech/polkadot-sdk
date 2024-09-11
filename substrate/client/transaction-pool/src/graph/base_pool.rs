@@ -277,7 +277,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		}
 
 		let tx = WaitingTransaction::new(tx, self.ready.provided_tags(), &self.recently_pruned);
-		debug!(
+		trace!(
 			target: LOG_TARGET,
 			"[{:?}] Importing {:?} to {}",
 			tx.transaction.hash,
@@ -333,7 +333,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 				// transaction failed to be imported.
 				Err(e) =>
 					if first {
-						debug!(target: LOG_TARGET, "[{:?}] Error importing: {:?}", current_hash, e);
+						trace!(target: LOG_TARGET, "[{:?}] Error importing: {:?}", current_hash, e);
 						return Err(e)
 					} else {
 						failed.push(current_hash);
@@ -352,7 +352,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 			// since they depend on each other and will never get to the best iterator.
 			self.ready.remove_subtree(&promoted);
 
-			debug!(target: LOG_TARGET, "[{:?}] Cycle detected, bailing.", hash);
+			trace!(target: LOG_TARGET, "[{:?}] Cycle detected, bailing.", hash);
 			return Err(error::Error::CycleDetected)
 		}
 

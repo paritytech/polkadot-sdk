@@ -322,7 +322,7 @@ where
 						let (view_hash, status) = v;
 
 						if ctx.handle(&status, view_hash) {
-							log::debug!(target: LOG_TARGET, "[{:?}] sending out: {status:?}", ctx.tx_hash);
+							log::trace!(target: LOG_TARGET, "[{:?}] sending out: {status:?}", ctx.tx_hash);
 							return Some((status, ctx));
 						}
 					},
@@ -337,21 +337,21 @@ where
 							},
 							Some(ControllerCommand::TransactionInvalidated) => {
 								if ctx.handle_invalidate_transaction() {
-									log::debug!(target: LOG_TARGET, "[{:?}] sending out: Invalid", ctx.tx_hash);
+									log::trace!(target: LOG_TARGET, "[{:?}] sending out: Invalid", ctx.tx_hash);
 									return Some((TransactionStatus::Invalid, ctx))
 								}
 							},
 							Some(ControllerCommand::FinalizeTransaction(block, index)) => {
-								log::debug!(target: LOG_TARGET, "[{:?}] sending out: Finalized", ctx.tx_hash);
+								log::trace!(target: LOG_TARGET, "[{:?}] sending out: Finalized", ctx.tx_hash);
 								ctx.terminate = true;
 								return Some((TransactionStatus::Finalized((block, index)), ctx))
 							},
 							Some(ControllerCommand::TransactionBroadcasted(peers)) => {
-								log::debug!(target: LOG_TARGET, "[{:?}] sending out: Broadcasted", ctx.tx_hash);
+								log::trace!(target: LOG_TARGET, "[{:?}] sending out: Broadcasted", ctx.tx_hash);
 								return Some((TransactionStatus::Broadcast(peers), ctx))
 							},
 							Some(ControllerCommand::TransactionDropped) => {
-								log::debug!(target: LOG_TARGET, "[{:?}] sending out: Dropped", ctx.tx_hash);
+								log::trace!(target: LOG_TARGET, "[{:?}] sending out: Dropped", ctx.tx_hash);
 								ctx.terminate = true;
 								return Some((TransactionStatus::Dropped, ctx))
 							},
@@ -379,7 +379,7 @@ where
 		if let Some(tx) = controllers.get(&tx_hash) {
 			match tx.unbounded_send(ControllerCommand::AddViewStream(block_hash, stream)) {
 				Err(e) => {
-					debug!(target: LOG_TARGET, "[{:?}] add_view_watcher_for_tx: send message failed: {:?}", tx_hash, e);
+					trace!(target: LOG_TARGET, "[{:?}] add_view_watcher_for_tx: send message failed: {:?}", tx_hash, e);
 					controllers.remove(&tx_hash);
 				},
 				Ok(_) => {},
@@ -397,7 +397,7 @@ where
 		for (tx_hash, sender) in controllers.iter() {
 			match sender.unbounded_send(ControllerCommand::RemoveViewStream(block_hash)) {
 				Err(e) => {
-					log::debug!(target: LOG_TARGET, "[{:?}] remove_view: send message failed: {:?}", tx_hash, e);
+					log::trace!(target: LOG_TARGET, "[{:?}] remove_view: send message failed: {:?}", tx_hash, e);
 					invalid_controllers.push(*tx_hash);
 				},
 				Ok(_) => {},
@@ -423,7 +423,7 @@ where
 				trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction", tx_hash);
 				match tx.unbounded_send(ControllerCommand::TransactionInvalidated) {
 					Err(e) => {
-						debug!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
+						trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
 						controllers.remove(&tx_hash);
 					},
 					Ok(_) => {},
@@ -448,7 +448,7 @@ where
 				trace!(target: LOG_TARGET, "[{:?}] transaction_broadcasted", tx_hash);
 				match tx.unbounded_send(ControllerCommand::TransactionBroadcasted(peers)) {
 					Err(e) => {
-						debug!(target: LOG_TARGET, "[{:?}] transactions_broadcasted: send message failed: {:?}", tx_hash, e);
+						trace!(target: LOG_TARGET, "[{:?}] transactions_broadcasted: send message failed: {:?}", tx_hash, e);
 						controllers.remove(&tx_hash);
 					},
 					Ok(_) => {},
@@ -471,7 +471,7 @@ where
 				info!(target: LOG_TARGET, "[{:?}] transaction_dropped", tx_hash);
 				match tx.unbounded_send(ControllerCommand::TransactionDropped) {
 					Err(e) => {
-						debug!(target: LOG_TARGET, "[{:?}] transactions_dropped: send message failed: {:?}", tx_hash, e);
+						trace!(target: LOG_TARGET, "[{:?}] transactions_dropped: send message failed: {:?}", tx_hash, e);
 						controllers.remove(&tx_hash);
 					},
 					Ok(_) => {},
@@ -495,7 +495,7 @@ where
 			trace!(target: LOG_TARGET, "[{:?}] finalize_transaction", tx_hash);
 			let result = tx.unbounded_send(ControllerCommand::FinalizeTransaction(block, idx));
 			if let Err(e) = result {
-				debug!(target: LOG_TARGET, "[{:?}] finalize_transaction: send message failed: {:?}", tx_hash, e);
+				trace!(target: LOG_TARGET, "[{:?}] finalize_transaction: send message failed: {:?}", tx_hash, e);
 				controllers.remove(&tx_hash);
 			}
 		};

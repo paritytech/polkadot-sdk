@@ -262,7 +262,7 @@ where
 		to_be_removed: &Vec<ExtrinsicHash<ChainApi>>,
 	) {
 		log::info!(target: LOG_TARGET, "remove_dropped_transactions count:{:?}", to_be_removed.len());
-		log_xt_debug!(target: LOG_TARGET, to_be_removed, "[{:?}] mempool::remove_dropped_transactions");
+		log_xt_trace!(target: LOG_TARGET, to_be_removed, "[{:?}] mempool::remove_dropped_transactions");
 		let mut transactions = self.transactions.write();
 		to_be_removed.iter().for_each(|t| {
 			transactions.remove(t);
@@ -303,7 +303,7 @@ where
 	///
 	/// Returns a vector of invalid transaction hashes.
 	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
-		log::debug!(target: LOG_TARGET, "mempool::revalidate at:{:?} {}", finalized_block, line!());
+		log::trace!(target: LOG_TARGET, "mempool::revalidate at:{:?} {}", finalized_block, line!());
 		let start = Instant::now();
 
 		let (count, input) = {
@@ -347,7 +347,7 @@ where
 				Err(_) |
 				Ok(Err(TransactionValidityError::Unknown(_))) |
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
-					log::debug!(
+					log::trace!(
 						target: LOG_TARGET,
 						"[{:?}]: Purging: invalid: {:?}",
 						xt_hash,
@@ -372,7 +372,7 @@ where
 		finalized_xts: &Vec<ExtrinsicHash<ChainApi>>,
 	) {
 		log::info!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
-		log_xt_debug!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
+		log_xt_trace!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
 		let mut transactions = self.transactions.write();
 		finalized_xts.iter().for_each(|t| {
 			transactions.remove(t);
@@ -382,7 +382,7 @@ where
 	/// Revalidates transactions in the memory pool against a given finalized block and removes
 	/// invalid ones.
 	pub(super) async fn revalidate(&self, finalized_block: HashAndNumber<Block>) {
-		log::debug!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
+		log::trace!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
 		let invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;
 
 		self.metrics.report(|metrics| {

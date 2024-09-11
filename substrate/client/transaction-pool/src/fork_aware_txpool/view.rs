@@ -159,7 +159,7 @@ where
 		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>>,
 	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
 		let xts = xts.into_iter().collect::<Vec<_>>();
-		log_xt_debug!(target: LOG_TARGET, xts.iter().map(|xt| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
+		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
 		self.pool.submit_at(&self.at, source, xts).await
 	}
 
@@ -169,7 +169,7 @@ where
 		source: TransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<Watcher<ExtrinsicHash<ChainApi>, ExtrinsicHash<ChainApi>>, ChainApi::Error> {
-		log::debug!(target: LOG_TARGET, "[{:?}] view::submit_and_watch at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
+		log::trace!(target: LOG_TARGET, "[{:?}] view::submit_and_watch at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
 		self.pool.submit_and_watch(&self.at, source, xt).await
 	}
 
@@ -209,7 +209,7 @@ where
 			revalidation_result_tx,
 		} = finish_revalidation_worker_channels;
 
-		log::debug!(target:LOG_TARGET, "view::revalidate_later: at {} starting", self.at.hash);
+		log::trace!(target:LOG_TARGET, "view::revalidate_later: at {} starting", self.at.hash);
 		let start = Instant::now();
 		let validated_pool = self.pool.validated_pool();
 		let api = validated_pool.api();
@@ -263,7 +263,7 @@ where
 			batch_len,
 			revalidation_duration
 		);
-		log_xt_debug!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "[{:?}] view::revalidate_later result: {:?}");
+		log_xt_trace!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "[{:?}] view::revalidate_later result: {:?}");
 
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
@@ -299,12 +299,12 @@ where
 			}
 		}
 
-		log::debug!(target:LOG_TARGET, "view::revalidate_later: sending revalidation result at {}", self.at.hash);
+		log::trace!(target:LOG_TARGET, "view::revalidate_later: sending revalidation result at {}", self.at.hash);
 		if let Err(e) = revalidation_result_tx
 			.send(RevalidationResult { invalid_hashes, revalidated })
 			.await
 		{
-			log::debug!(target:LOG_TARGET, "view::revalidate_later: sending revalidation_result at {} failed {:?}", self.at.hash, e);
+			log::trace!(target:LOG_TARGET, "view::revalidate_later: sending revalidation_result at {} failed {:?}", self.at.hash, e);
 		}
 	}
 

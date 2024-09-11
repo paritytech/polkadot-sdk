@@ -159,7 +159,7 @@ where
 			r
 		});
 		if let Some(Err(err)) = maybe_error {
-			log::debug!(target: LOG_TARGET, "[{:?}] submit_and_watch: err: {}", tx_hash, err);
+			log::trace!(target: LOG_TARGET, "[{:?}] submit_and_watch: err: {}", tx_hash, err);
 			return Err(err);
 		};
 
@@ -259,7 +259,7 @@ where
 		finalized_hash: Block::Hash,
 		tree_route: &[Block::Hash],
 	) -> Vec<ExtrinsicHash<ChainApi>> {
-		log::debug!(target: LOG_TARGET, "finalize_route finalized_hash:{finalized_hash:?} tree_route: {tree_route:?}");
+		log::trace!(target: LOG_TARGET, "finalize_route finalized_hash:{finalized_hash:?} tree_route: {tree_route:?}");
 
 		let mut finalized_transactions = Vec::new();
 
@@ -341,7 +341,7 @@ where
 			views_to_be_removed
 		};
 		{
-			log::debug!(target:LOG_TARGET,"insert_new_view: retracted_views: {:?}", self.retracted_views.read().keys());
+			log::trace!(target:LOG_TARGET,"insert_new_view: retracted_views: {:?}", self.retracted_views.read().keys());
 		}
 		for hash in &views_to_be_removed {
 			self.listener.remove_view(*hash);
@@ -409,7 +409,7 @@ where
 				Ok(Some(n)) => v.at.number >= n,
 			});
 
-			log::debug!(target:LOG_TARGET,"handle_finalized: retracted_views: {:?}", retracted_views.keys());
+			log::trace!(target:LOG_TARGET,"handle_finalized: retracted_views: {:?}", retracted_views.keys());
 		}
 
 		self.listener.remove_stale_controllers();
@@ -435,6 +435,6 @@ where
 			futures
 		};
 		futures::future::join_all(finish_revalidation_futures).await;
-		log::debug!(target:LOG_TARGET,"finish_background_revalidations took {:?}", start.elapsed());
+		log::trace!(target:LOG_TARGET,"finish_background_revalidations took {:?}", start.elapsed());
 	}
 }

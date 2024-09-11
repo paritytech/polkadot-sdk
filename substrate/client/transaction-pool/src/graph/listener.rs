@@ -135,15 +135,15 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 
 	/// Transaction was removed as invalid.
 	pub fn invalid(&mut self, tx: &H) {
-		debug!(target: LOG_TARGET, "[{:?}] Extrinsic invalid", tx);
+		trace!(target: LOG_TARGET, "[{:?}] Extrinsic invalid", tx);
 		self.fire(tx, |watcher| watcher.invalid());
 	}
 
 	/// Transaction was pruned from the pool.
 	pub fn pruned(&mut self, block_hash: BlockHash<C>, tx: &H) {
-		// debug!(target: LOG_TARGET, "[{:?}] Pruned at {:?} {:#?}", tx, block_hash,
+		// trace!(target: LOG_TARGET, "[{:?}] Pruned at {:?} {:#?}", tx, block_hash,
 		// std::backtrace::Backtrace::force_capture());
-		debug!(target: LOG_TARGET, "[{:?}] Pruned at {:?}", tx, block_hash);
+		trace!(target: LOG_TARGET, "[{:?}] Pruned at {:?}", tx, block_hash);
 		// Get the transactions included in the given block hash.
 		let txs = self.finality_watchers.entry(block_hash).or_insert(vec![]);
 		txs.push(tx.clone());
@@ -174,7 +174,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	pub fn finalized(&mut self, block_hash: BlockHash<C>) {
 		if let Some(hashes) = self.finality_watchers.remove(&block_hash) {
 			for (tx_index, hash) in hashes.into_iter().enumerate() {
-				log::debug!(
+				log::trace!(
 					target: LOG_TARGET,
 					"[{:?}] Sent finalization event (block {:?})",
 					hash,

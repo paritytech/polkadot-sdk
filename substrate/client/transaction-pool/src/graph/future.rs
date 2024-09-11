@@ -184,7 +184,7 @@ impl<Hash: hash::Hash + Eq + Clone + std::fmt::Debug, Ex: std::fmt::Debug>
 			})
 			.collect::<Vec<_>>();
 
-		log_xt_debug!(target: LOG_TARGET, &pruned, "[{:?}] FutureTransactions: removed while pruning tags.");
+		log_xt_trace!(target: LOG_TARGET, &pruned, "[{:?}] FutureTransactions: removed while pruning tags.");
 		self.remove(&pruned)
 	}
 

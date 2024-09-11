@@ -202,7 +202,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 	fn submit_one(&self, tx: ValidatedTransactionFor<B>) -> Result<ExtrinsicHash<B>, B::Error> {
 		match tx {
 			ValidatedTransaction::Valid(tx) => {
-				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one", tx.hash);
+				log::trace!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one", tx.hash);
 				if !tx.propagate && !(self.is_validator.0)() {
 					return Err(error::Error::Unactionable.into())
 				}
@@ -232,12 +232,12 @@ impl<B: ChainApi> ValidatedPool<B> {
 				Ok(*imported.hash())
 			},
 			ValidatedTransaction::Invalid(hash, err) => {
-				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one invalid: {:?}", hash, err);
+				log::trace!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one invalid: {:?}", hash, err);
 				self.rotator.ban(&Instant::now(), std::iter::once(hash));
 				Err(err)
 			},
 			ValidatedTransaction::Unknown(hash, err) => {
-				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one unknown {:?}", hash, err);
+				log::trace!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one unknown {:?}", hash, err);
 				self.listener.write().invalid(&hash);
 				Err(err)
 			},
@@ -274,7 +274,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 				removed
 			};
 			if !removed.is_empty() {
-				log::debug!(target: LOG_TARGET, "Enforcing limits: {} dropped", removed.len());
+				log::trace!(target: LOG_TARGET, "Enforcing limits: {} dropped", removed.len());
 			}
 
 			// run notifications
@@ -617,15 +617,15 @@ impl<B: ChainApi> ValidatedPool<B> {
 			return vec![]
 		}
 
-		log::debug!(target: LOG_TARGET, "Removing invalid transactions: {:?}", hashes.len());
+		log::trace!(target: LOG_TARGET, "Removing invalid transactions: {:?}", hashes.len());
 
 		// temporarily ban invalid transactions
 		self.rotator.ban(&Instant::now(), hashes.iter().cloned());
 
 		let invalid = self.pool.write().remove_subtree(hashes);
 
-		log::debug!(target: LOG_TARGET, "Removed invalid transactions: {:?}", invalid.len());
-		log_xt_debug!(target: LOG_TARGET, invalid.iter().map(|t| t.hash), "{:?} Removed invalid transaction");
+		log::trace!(target: LOG_TARGET, "Removed invalid transactions: {:?}", invalid.len());
+		log_xt_trace!(target: LOG_TARGET, invalid.iter().map(|t| t.hash), "{:?} Removed invalid transaction");
 
 		let mut listener = self.listener.write();
 		for tx in &invalid {

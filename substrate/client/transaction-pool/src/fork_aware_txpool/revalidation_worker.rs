@@ -131,7 +131,7 @@ where
 		view: Arc<View<Api>>,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<Api>,
 	) {
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"revalidation_queue::revalidate_view: Sending view to revalidation queue at {}",
 			view.at.hash
@@ -161,7 +161,7 @@ where
 		mempool: Arc<TxMemPool<Api, Block>>,
 		finalized_hash: HashAndNumber<Block>,
 	) {
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"Sent mempool to revalidation queue at hash: {:?}",
 			finalized_hash

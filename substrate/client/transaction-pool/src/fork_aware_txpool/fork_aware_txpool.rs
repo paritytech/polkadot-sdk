@@ -102,7 +102,7 @@ where
 	///
 	/// `ready_iterator` is a closure that generates the result data to be sent to the pollers.
 	fn trigger(&mut self, at: <Block as BlockT>::Hash, ready_iterator: impl Fn() -> T) {
-		log::debug!(target: LOG_TARGET, "fatp::trigger {at:?} pending keys: {:?}", self.pollers.keys());
+		log::trace!(target: LOG_TARGET, "fatp::trigger {at:?} pending keys: {:?}", self.pollers.keys());
 		let Some(pollers) = self.pollers.remove(&at) else { return };
 		pollers.into_iter().for_each(|p| {
 			log::info!(target: LOG_TARGET, "trigger ready signal at block {}", at);
@@ -227,7 +227,7 @@ where
 				log::info!("fatp::dropped_monitor_task: terminated...");
 				break;
 			};
-			log::debug!("[{:?}] fatp::dropped notification, removing", dropped);
+			log::trace!("[{:?}] fatp::dropped notification, removing", dropped);
 			mempool.remove_dropped_transactions(&vec![dropped]).await;
 		}
 	}
@@ -348,7 +348,7 @@ where
 	/// so this process shall be fast.
 	fn ready_at_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
 		let start = Instant::now();
-		log::debug!(target: LOG_TARGET, "fatp::ready_at_light {:?}", at);
+		log::trace!(target: LOG_TARGET, "fatp::ready_at_light {:?}", at);
 
 		let Ok(block_number) = self.api.resolve_block_number(at) else {
 			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
@@ -364,7 +364,7 @@ where
 			for v in views.values().chain(retracted_views.values()) {
 				let tree_route = self.api.tree_route(v.at.hash, at);
 				if let Ok(tree_route) = tree_route {
-					log::debug!(target: LOG_TARGET, "fatp::ready_at_light {} tree_route from: {} e:{} r:{}", at,v.at.hash,tree_route.enacted().len(), tree_route.retracted().len());
+					log::trace!(target: LOG_TARGET, "fatp::ready_at_light {} tree_route from: {} e:{} r:{}", at,v.at.hash,tree_route.enacted().len(), tree_route.retracted().len());
 					if tree_route.retracted().is_empty() &&
 						tree_route.enacted().len() < best_enacted_len
 					{
@@ -560,7 +560,7 @@ where
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let view_store = self.view_store.clone();
 		log::info!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.views_count());
-		log_xt_debug!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
+		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
 		let mempool_result = self.mempool.extend_unwatched(source, xts.clone());
 
@@ -609,7 +609,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
-		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
+		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
 		let result_future = self.submit_at(_at, source, vec![xt]);
 		async move {
 			let result = result_future.await;
@@ -633,7 +633,7 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		//todo: should send to view first, and check if not Dropped [#5494]
-		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
+		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
 		let xt = Arc::from(xt);
 		if let Err(e) = self.mempool.push_watched(source, xt.clone()) {
 			return future::ready(Err(e)).boxed();
@@ -652,7 +652,7 @@ where
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
 		if !hashes.is_empty() {
 			log::info!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
-			log_xt_debug!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
+			log_xt_trace!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
 			let _ = hashes
 				.len()
 				.try_into()
@@ -823,7 +823,7 @@ where
 		};
 
 		if self.has_view(&hash_and_number.hash) {
-			log::debug!(
+			log::trace!(
 				target: LOG_TARGET,
 				"view already exists for block: {:?}",
 				hash_and_number,
@@ -952,7 +952,7 @@ where
 	}
 
 	async fn update_view(&self, view: &View<ChainApi>) {
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"update_view: {:?} xts:{:?} v:{}",
 			view.at,
@@ -1089,7 +1089,7 @@ where
 		tree_route: &TreeRoute<Block>,
 		hash_and_number: HashAndNumber<Block>,
 	) {
-		log::debug!(target: LOG_TARGET, "update_view_with_fork tree_route: {:?} {tree_route:?}", view.at);
+		log::trace!(target: LOG_TARGET, "update_view_with_fork tree_route: {:?} {tree_route:?}", view.at);
 		let api = self.api.clone();
 
 		// We keep track of everything we prune so that later we won't add
@@ -1193,11 +1193,11 @@ where
 				)
 				.await;
 		} else {
-			log::debug!(target: LOG_TARGET, "purge_transactions_later skipped, cannot find block number {finalized_number:?}");
+			log::trace!(target: LOG_TARGET, "purge_transactions_later skipped, cannot find block number {finalized_number:?}");
 		}
 
 		self.ready_poll.lock().remove_cancelled();
-		log::debug!(target: LOG_TARGET, "handle_finalized after views_count:{:?}", self.views_count());
+		log::trace!(target: LOG_TARGET, "handle_finalized after views_count:{:?}", self.views_count());
 	}
 
 	fn tx_hash(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
@@ -1231,7 +1231,7 @@ where
 					.api
 					.validate_transaction(block_hash, TransactionSource::External, tx.data.clone())
 					.await;
-				log::debug!(target:LOG_TARGET, "[{:?}] is ready in view {:?} validation result {:?}", tx.hash, block_hash, validation_result);
+				log::trace!(target:LOG_TARGET, "[{:?}] is ready in view {:?} validation result {:?}", tx.hash, block_hash, validation_result);
 			}
 			let future = view.2;
 			for tx in future {
@@ -1239,7 +1239,7 @@ where
 					.api
 					.validate_transaction(block_hash, TransactionSource::External, tx.1.clone())
 					.await;
-				log::debug!(target:LOG_TARGET, "[{:?}] is future in view {:?} validation result {:?}", tx.0, block_hash, validation_result);
+				log::trace!(target:LOG_TARGET, "[{:?}] is future in view {:?} validation result {:?}", tx.0, block_hash, validation_result);
 			}
 		}
 		log::info!(target:LOG_TARGET, "fatp::verify--");
@@ -1280,7 +1280,7 @@ where
 
 		match result {
 			Err(msg) => {
-				log::debug!(target: LOG_TARGET, "enactment_state::update error: {msg}");
+				log::trace!(target: LOG_TARGET, "enactment_state::update error: {msg}");
 				self.enactment_state.lock().force_update(&event);
 			},
 			Ok(EnactmentAction::Skip) => return,

@@ -74,11 +74,11 @@ async fn batch_revalidate<Api: ChainApi>(
 	let block_number = match api.block_id_to_number(&BlockId::Hash(at)) {
 		Ok(Some(n)) => n,
 		Ok(None) => {
-			log::debug!(target: LOG_TARGET, "revalidation skipped at block {at:?}, could not get block number.");
+			log::trace!(target: LOG_TARGET, "revalidation skipped at block {at:?}, could not get block number.");
 			return
 		},
 		Err(e) => {
-			log::debug!(target: LOG_TARGET, "revalidation skipped at block {at:?}: {e:?}.");
+			log::trace!(target: LOG_TARGET, "revalidation skipped at block {at:?}: {e:?}.");
 			return
 		},
 	};
@@ -97,7 +97,7 @@ async fn batch_revalidate<Api: ChainApi>(
 	for (validation_result, ext_hash, ext) in validation_results {
 		match validation_result {
 			Ok(Err(TransactionValidityError::Invalid(err))) => {
-				log::debug!(
+				log::trace!(
 					target: LOG_TARGET,
 					"[{:?}]: Revalidation: invalid {:?}",
 					ext_hash,
@@ -129,7 +129,7 @@ async fn batch_revalidate<Api: ChainApi>(
 				);
 			},
 			Err(validation_err) => {
-				log::debug!(
+				log::trace!(
 					target: LOG_TARGET,
 					"[{:?}]: Removing due to error during revalidation: {}",
 					ext_hash,
@@ -255,7 +255,7 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 					batch_revalidate(this.pool.clone(), this.api.clone(), this.best_block, next_batch).await;
 
 					if batch_len > 0 || this.len() > 0 {
-						log::debug!(
+						log::trace!(
 							target: LOG_TARGET,
 							"Revalidated {} transactions. Left in the queue for revalidation: {}.",
 							batch_len,
@@ -272,7 +272,7 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 							this.push(worker_payload);
 
 							if this.members.len() > 0 {
-								log::debug!(
+								log::trace!(
 									target: LOG_TARGET,
 									"Updated revalidation queue at {:?}. Transactions: {:?}",
 									this.best_block,
