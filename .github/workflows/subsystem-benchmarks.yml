@@ -70,21 +70,6 @@ jobs:
         run: |
           forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
           ls -lsa ./charts
-          mkdir -p ./charts/${{ matrix.features.bench }}
-          cp ./charts/${{ matrix.features.bench }}.json ./charts/${{ matrix.features.bench }}/${{ matrix.features.bench }}.json || echo "Failed to copy ${{ matrix.features.bench }}"
-
-      - name: Generate ${{ matrix.features.bench }}
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          tool: "customSmallerIsBetter"
-          name: ${{ matrix.features.bench }}
-          output-file-path: ./charts/${{ matrix.features.bench }}/${{ matrix.features.bench }}.json
-          benchmark-data-dir-path: ./charts/${{ matrix.features.bench }}
-          auto-push: false
-
-      - run: |
-          ls -lsa ./charts
-          ls -lsa ./charts/${{ matrix.features.bench }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.3.6
@@ -103,6 +88,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: gh-pages
+          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4.1.8
@@ -114,64 +100,49 @@ jobs:
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           ls -lsR ./charts
-          cp -r ./charts/availability-recovery-regression-bench ./bench/ || echo "Failed to copy availability-recovery-regression-bench"
-          cp -r ./charts/statement-distribution-regression-bench ./bench/ || echo "Failed to copy statement-distribution-regression-bench"
-          cp -r ./charts/approval-voting-regression-bench ./bench/ || echo "Failed to copy approval-voting-regression-bench"
-          cp -r ./charts/statement-distribution-regression-bench ./bench/ || echo "Failed to copy statement-distribution-regression-bench"
+          benchmarks=(
+            "availability-recovery-regression-bench"
+            "statement-distribution-regression-bench"
+            "approval-voting-regression-bench"
+            "statement-distribution-regression-bench"
+          )
+          for bench in "${benchmarks[@]}"; do
+            cp -r "./charts/${bench}.json" ./bench/ || echo "Failed to copy ${bench}"
+          done
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: availability-recovery-regression-bench
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./bench/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          auto-push: false
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: statement-distribution-regression-bench
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./bench/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          auto-push: false
+
+      - run: |
+          ls -lsaR ./bench
+          ls -lsaR ./charts
+          git status
+          git diff
 
       - uses: actions/create-github-app-token@v1
         id: app-token
         with:
           app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
           private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
-
-      # - name: Publish ${{ env.BENCH_NAME }}
-      #   uses: benchmark-action/github-action-benchmark@v1
-      #   env:
-      #     BENCH_NAME: availability-recovery-regression-bench
-      #   with:
-      #     tool: "customSmallerIsBetter"
-      #     name: ${{ env.BENCH_NAME }}
-      #     output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-      #     benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
-      #     github-token: ${{ steps.app-token.outputs.token }}
-      #     auto-push: false
-      #     skip-fetch-gh-pages: true
-
-      # - name: Publish ${{ env.BENCH_NAME }}
-      #   uses: benchmark-action/github-action-benchmark@v1
-      #   env:
-      #     BENCH_NAME: availability-distribution-regression-bench
-      #   with:
-      #     tool: "customSmallerIsBetter"
-      #     name: ${{ env.BENCH_NAME }}
-      #     output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-      #     benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
-      #     github-token: ${{ steps.app-token.outputs.token }}
-
-      # - name: Publish ${{ env.BENCH_NAME }}
-      #   uses: benchmark-action/github-action-benchmark@v1
-      #   env:
-      #     BENCH_NAME: approval-voting-regression-bench
-      #   with:
-      #     tool: "customSmallerIsBetter"
-      #     name: ${{ env.BENCH_NAME }}
-      #     output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-      #     benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
-      #     github-token: ${{ steps.app-token.outputs.token }}
-
-      # - name: Publish ${{ env.BENCH_NAME }}
-      #   uses: benchmark-action/github-action-benchmark@v1
-      #   env:
-      #     BENCH_NAME: statement-distribution-regression-bench
-      #   with:
-      #     tool: "customSmallerIsBetter"
-      #     name: ${{ env.BENCH_NAME }}
-      #     output-file-path: ./bench/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
-      #     benchmark-data-dir-path: ./bench/${{ env.BENCH_NAME }}
-      #     github-token: ${{ steps.app-token.outputs.token }}
-      #     auto-push: false
-      #     skip-fetch-gh-pages: true
 
       - name: Push changes
         run: |
@@ -183,4 +154,4 @@ jobs:
           git diff
           git add .
           git commit -m "Update subsystem benchmarks"
-          git push
+          git push --set-upstream origin gh-pages
