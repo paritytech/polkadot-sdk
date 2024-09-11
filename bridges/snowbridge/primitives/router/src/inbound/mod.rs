@@ -401,14 +401,9 @@ where
 		let beneficiary = match destination {
 			// Final destination is a 32-byte account on AssetHub
 			Destination::AccountId32 { id } =>
-				Location::new(0, [AccountId32 { network: None, id }]),
-			// Final destination is a 32-byte account on a sibling of AssetHub
-			Destination::ForeignAccountId32 { para_id, id, .. } =>
-				Location::new(0, [AccountId32 { network: None, id }]),
-			// Final destination is a 20-byte account on a sibling of AssetHub
-			Destination::ForeignAccountId20 { para_id, id, .. } =>
-				Location::new(0, [AccountKey20 { network: None, key: id }]),
-		};
+				Ok(Location::new(0, [AccountId32 { network: None, id }])),
+			_ => Err(ConvertMessageError::InvalidDestination),
+		}?;
 
 		let total_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
 
@@ -423,8 +418,6 @@ where
 		let asset: Asset = (reanchored_asset_loc, amount).into();
 
 		let inbound_queue_pallet_index = InboundQueuePalletInstance::get();
-
-		let bridge_location = Location::new(2, GlobalConsensus(network));
 
 		let instructions = vec![
 			ReceiveTeleportedAsset(total_fee_asset.clone().into()),
