@@ -73,7 +73,7 @@ jobs:
 
       - name: install parity-publish
         # Set the target dir to cache the build.
-        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.8.0 -q
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.8.0 --locked -q
 
       - name: check semver
         run: |
