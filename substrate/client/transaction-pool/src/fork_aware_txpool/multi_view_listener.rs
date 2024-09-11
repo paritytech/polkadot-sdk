@@ -25,7 +25,7 @@ use crate::{
 	LOG_TARGET,
 };
 use futures::{stream, stream::Fuse, StreamExt};
-use log::{info, trace};
+use log::{debug, trace};
 use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
 use sc_utils::mpsc;
 use sp_runtime::traits::Block as BlockT;
