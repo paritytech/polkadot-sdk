@@ -88,6 +88,24 @@ pub fn dummy_candidate_receipt_bad_sig(
 	}
 }
 
+
+/// Create a candidate receipt with a bogus signature and filler data. Optionally set the commitment
+/// hash with the `commitments` arg.
+pub fn dummy_candidate_receipt_v2_bad_sig(
+	relay_parent: Hash,
+	commitments: impl Into<Option<Hash>>,
+) -> CandidateReceiptV2<Hash> {
+	let commitments_hash = if let Some(commitments) = commitments.into() {
+		commitments
+	} else {
+		dummy_candidate_commitments(dummy_head_data()).hash()
+	};
+	CandidateReceiptV2::<Hash> {
+		commitments_hash,
+		descriptor: dummy_candidate_descriptor_bad_sig(relay_parent).into(),
+	}
+}
+
 /// Create candidate commitments with filler data.
 pub fn dummy_candidate_commitments(head_data: impl Into<Option<HeadData>>) -> CandidateCommitments {
 	CandidateCommitments {

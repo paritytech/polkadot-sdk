@@ -28,11 +28,12 @@ use polkadot_node_subsystem_types::messages::{
 	NetworkBridgeEvent, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
-	PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+	vstaging::CandidateReceiptV2, CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId,
+	InvalidDisputeStatementKind, PvfExecKind, SessionIndex, ValidDisputeStatementKind,
+	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash,
+	dummy_candidate_descriptor, dummy_candidate_receipt, dummy_candidate_receipt_v2, dummy_hash,
 };
 
 use crate::{
@@ -98,8 +99,8 @@ where
 				let mut c: usize = 0;
 				loop {
 					if c < 10 {
-						let candidate_receipt = CandidateReceipt {
-							descriptor: dummy_candidate_descriptor(dummy_hash()),
+						let candidate_receipt = CandidateReceiptV2 {
+							descriptor: dummy_candidate_descriptor(dummy_hash()).into(),
 							commitments_hash: dummy_hash(),
 						};
 
@@ -797,8 +798,8 @@ where
 fn test_candidate_validation_msg() -> CandidateValidationMessage {
 	let (response_sender, _) = oneshot::channel();
 	let pov = Arc::new(PoV { block_data: BlockData(Vec::new()) });
-	let candidate_receipt = CandidateReceipt {
-		descriptor: dummy_candidate_descriptor(dummy_hash()),
+	let candidate_receipt = CandidateReceiptV2 {
+		descriptor: dummy_candidate_descriptor(dummy_hash()).into(),
 		commitments_hash: Hash::zero(),
 	};
 
@@ -855,7 +856,7 @@ fn test_statement_distribution_msg() -> StatementDistributionMessage {
 fn test_availability_recovery_msg() -> AvailabilityRecoveryMessage {
 	let (sender, _) = oneshot::channel();
 	AvailabilityRecoveryMessage::RecoverAvailableData(
-		dummy_candidate_receipt(dummy_hash()),
+		dummy_candidate_receipt_v2(dummy_hash()),
 		Default::default(),
 		None,
 		None,
@@ -914,7 +915,7 @@ fn test_dispute_coordinator_msg() -> DisputeCoordinatorMessage {
 
 fn test_dispute_distribution_msg() -> DisputeDistributionMessage {
 	let dummy_dispute_message = UncheckedDisputeMessage {
-		candidate_receipt: dummy_candidate_receipt(dummy_hash()),
+		candidate_receipt: dummy_candidate_receipt_v2(dummy_hash()),
 		session_index: 0,
 		invalid_vote: InvalidDisputeVote {
 			validator_index: ValidatorIndex(0),

@@ -41,9 +41,12 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CompactStatement,
-	Hash, Header, Id, PersistedValidationData, SessionInfo, SignedStatement, SigningContext,
-	UncheckedSigned, ValidatorIndex, ValidatorPair,
+	vstaging::{
+		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	},
+	BlockNumber, CandidateHash, CompactStatement, Hash, Header, Id, PersistedValidationData,
+	SessionInfo, SignedStatement, SigningContext, UncheckedSigned, ValidatorIndex, ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt, dummy_hash, dummy_head_data, dummy_pvd,
@@ -125,8 +128,8 @@ impl TestState {
 				let candidate_index =
 					*pov_size_to_candidate.get(pov_size).expect("pov_size always exists; qed");
 				let mut receipt = receipt_templates[candidate_index].clone();
-				receipt.descriptor.para_id = Id::new(core_idx as u32 + 1);
-				receipt.descriptor.relay_parent = block_info.hash;
+				receipt.descriptor.para_id() = Id::new(core_idx as u32 + 1);
+				receipt.descriptor.relay_parent() = block_info.hash;
 
 				state.candidate_receipts.entry(block_info.hash).or_default().push(
 					CandidateReceipt {

@@ -275,7 +275,7 @@ async fn assert_validate_seconded_candidate(
 		}) if &validation_data == assert_pvd &&
 			&validation_code == assert_validation_code &&
 			&*pov == assert_pov &&
-			&candidate_receipt.descriptor == candidate.descriptor() &&
+			&candidate_receipt.descriptor == candidate.descriptor &&
 			exec_kind == PvfExecKind::Backing &&
 			candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 		{

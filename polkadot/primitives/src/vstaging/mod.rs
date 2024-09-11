@@ -142,7 +142,7 @@ impl<H: Copy> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
 	}
 }
 
-impl<H: Copy + std::convert::AsRef<[u8]>> CandidateDescriptorV2<H> {
+impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// Constructor
 	pub fn new(
 		para_id: Id,
@@ -849,8 +849,6 @@ pub fn remap_claim_queue(
 
 #[cfg(test)]
 mod tests {
-	use std::hash::DefaultHasher;
-
 	use super::*;
 	use crate::{
 		v8::{

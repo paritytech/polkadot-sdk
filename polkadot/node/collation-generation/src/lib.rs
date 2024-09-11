@@ -49,7 +49,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	collator_signature_payload,
-	vstaging::{CandidateDescriptorV2, CandidateReceiptV2 as CandidateReceipt, CoreState},
+	vstaging::{CandidateReceiptV2 as CandidateReceipt, CoreState},
 	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
 	OccupiedCoreAssumption, PersistedValidationData, ScheduledCore, ValidationCodeHash,
 };

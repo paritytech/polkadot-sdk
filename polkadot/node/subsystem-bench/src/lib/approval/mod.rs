@@ -65,8 +65,9 @@ use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, Appro
 use polkadot_node_subsystem_util::metrics::Metrics;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot, ValidatorId,
-	ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
+	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
+	BlockNumber, CandidateIndex, Hash, Header, Slot, ValidatorId, ValidatorIndex,
+	ASSIGNMENT_KEY_TYPE_ID,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;

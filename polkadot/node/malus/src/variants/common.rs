@@ -25,8 +25,10 @@ use polkadot_node_core_candidate_validation::find_validation_data;
 use polkadot_node_primitives::{InvalidCandidate, ValidationResult};
 
 use polkadot_primitives::{
-	CandidateCommitments, CandidateDescriptor, CandidateReceipt, PersistedValidationData,
-	PvfExecKind,
+	vstaging::{
+		CandidateDescriptorV2 as CandidateDescriptor, CandidateReceiptV2 as CandidateReceipt,
+	},
+	CandidateCommitments, PersistedValidationData, PvfExecKind,
 };
 
 use futures::channel::oneshot;
