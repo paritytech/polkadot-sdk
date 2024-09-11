@@ -21,8 +21,9 @@ use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 use syn::{
-	parse_quote, spanned::Spanned, token::And, Attribute, Error, FnArg, GenericArgument, Ident,
-	ImplItem, ItemImpl, Pat, Path, PathArguments, Result, ReturnType, Signature, Type, TypePath,
+	parse_quote, punctuated::Punctuated, spanned::Spanned, token::And, Attribute, Error, Expr,
+	ExprLit, FnArg, GenericArgument, Ident, ImplItem, ItemImpl, Lit, Meta, MetaNameValue, Pat,
+	Path, PathArguments, Result, ReturnType, Signature, Token, Type, TypePath,
 };
 
 /// Generates the access to the `sc_client` crate.
@@ -33,7 +34,7 @@ pub fn generate_crate_access() -> TokenStream {
 			let renamed_name = Ident::new(&renamed_name, Span::call_site());
 			quote!(#renamed_name::__private)
 		},
-		Err(e) =>
+		Err(e) => {
 			if let Ok(FoundCrate::Name(name)) =
 				crate_name(&"polkadot-sdk-frame").or_else(|_| crate_name(&"frame"))
 			{
@@ -47,7 +48,8 @@ pub fn generate_crate_access() -> TokenStream {
 			} else {
 				let err = Error::new(Span::call_site(), e).to_compile_error();
 				quote!( #err )
-			},
+			}
+		},
 	}
 }
 
@@ -144,7 +146,7 @@ pub fn extract_parameter_names_types_and_borrows(
 				return Err(Error::new(input.span(), "`self` parameter not supported!")),
 			FnArg::Receiver(recv) =>
 				if recv.mutability.is_some() || recv.reference.is_none() {
-					return Err(Error::new(recv.span(), "Only `&self` is supported!"))
+					return Err(Error::new(recv.span(), "Only `&self` is supported!"));
 				},
 		}
 	}
@@ -284,6 +286,85 @@ pub fn filter_cfg_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
 	attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect()
 }
 
+fn deprecation_msg_formatter(msg: &str) -> String {
+	format!(
+		r#"{msg}
+		help: the following are the possible correct uses
+|
+|     #[deprecated = "reason"]
+|
+|     #[deprecated(/*opt*/ since = "version", /*opt*/ note = "reason")]
+|
+|     #[deprecated]
+|"#
+	)
+}
+
+fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<TokenStream> {
+	match &attr.meta {
+		Meta::List(meta_list) => {
+			let parsed = meta_list
+				.parse_args_with(Punctuated::<MetaNameValue, Token![,]>::parse_terminated)
+				.map_err(|e| Error::new(attr.span(), e.to_string()))?;
+			let (note, since) = parsed.iter().try_fold((None, None), |mut acc, item| {
+				let value = match &item.value {
+					Expr::Lit(ExprLit { lit: lit @ Lit::Str(_), .. }) => Ok(lit),
+					_ => Err(Error::new(
+						attr.span(),
+						deprecation_msg_formatter(
+							"Invalid deprecation attribute: expected string literal",
+						),
+					)),
+				}?;
+				if item.path.is_ident("note") {
+					acc.0.replace(value);
+				} else if item.path.is_ident("since") {
+					acc.1.replace(value);
+				}
+				Ok::<(Option<&syn::Lit>, Option<&syn::Lit>), Error>(acc)
+			})?;
+			note.map_or_else(
+				|| Err(Error::new(attr.span(), 						deprecation_msg_formatter(
+					"Invalid deprecation attribute: missing `note`"))),
+				|note| {
+					let since = if let Some(str) = since {
+						quote! { Some(#str) }
+					} else {
+						quote! { None }
+					};
+					let doc = quote! { #crate_::metadata_ir::DeprecationStatusIR::Deprecated { note: #note, since: #since }};
+					Ok(doc)
+				},
+			)
+		},
+		Meta::NameValue(MetaNameValue {
+			value: Expr::Lit(ExprLit { lit: lit @ Lit::Str(_), .. }),
+			..
+		}) => {
+			// #[deprecated = "lit"]
+			let doc = quote! { #crate_::metadata_ir::DeprecationStatusIR::Deprecated { note: #lit, since: None } };
+			Ok(doc)
+		},
+		Meta::Path(_) => {
+			// #[deprecated]
+			Ok(quote! { #crate_::metadata_ir::DeprecationStatusIR::DeprecatedWithoutNote })
+		},
+		_ => Err(Error::new(
+			attr.span(),
+			deprecation_msg_formatter("Invalid deprecation attribute: expected string literal"),
+		)),
+	}
+}
+
+/// collects deprecation attribute if its present.
+pub fn get_deprecation(crate_: &TokenStream, attrs: &[syn::Attribute]) -> Result<TokenStream> {
+	attrs
+		.iter()
+		.find(|a| a.path().is_ident("deprecated"))
+		.map(|a| parse_deprecated_meta(&crate_, a))
+		.unwrap_or_else(|| Ok(quote! {#crate_::metadata_ir::DeprecationStatusIR::NotDeprecated}))
+}
+
 #[cfg(test)]
 mod tests {
 	use assert_matches::assert_matches;
@@ -329,5 +410,39 @@ mod tests {
 		assert_eq!(filtered.len(), 2);
 		assert_eq!(cfg_std, filtered[0]);
 		assert_eq!(cfg_benchmarks, filtered[1]);
+	}
+
+	#[test]
+	fn check_deprecated_attr() {
+		const FIRST: &'static str = "hello";
+		const SECOND: &'static str = "WORLD";
+
+		let simple: Attribute = parse_quote!(#[deprecated]);
+		let simple_path: Attribute = parse_quote!(#[deprecated = #FIRST]);
+		let meta_list: Attribute = parse_quote!(#[deprecated(note = #FIRST)]);
+		let meta_list_with_since: Attribute =
+			parse_quote!(#[deprecated(note = #FIRST, since = #SECOND)]);
+		let extra_fields: Attribute =
+			parse_quote!(#[deprecated(note = #FIRST, since = #SECOND, extra = "Test")]);
+		assert_eq!(
+			get_deprecation(&quote! { crate }, &[simple]).unwrap().to_string(),
+			quote! { crate::metadata_ir::DeprecationStatusIR::DeprecatedWithoutNote }.to_string()
+		);
+		assert_eq!(
+			get_deprecation(&quote! { crate }, &[simple_path]).unwrap().to_string(),
+			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: None } }.to_string()
+		);
+		assert_eq!(
+			get_deprecation(&quote! { crate }, &[meta_list]).unwrap().to_string(),
+			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: None } }.to_string()
+		);
+		assert_eq!(
+			get_deprecation(&quote! { crate }, &[meta_list_with_since]).unwrap().to_string(),
+			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
+		);
+		assert_eq!(
+			get_deprecation(&quote! { crate }, &[extra_fields]).unwrap().to_string(),
+			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
+		);
 	}
 }
