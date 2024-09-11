@@ -193,6 +193,7 @@ pub struct NotificationsInOpen<TSubstream> {
 	pub handshake: Vec<u8>,
 	/// If the negotiated name is not the "main" protocol name but a fallback, contains the
 	/// name of the negotiated fallback.
+	#[allow(dead_code)]
 	pub negotiated_fallback: Option<ProtocolName>,
 	/// Implementation of `Stream` that allows receives messages from the substream.
 	pub substream: NotificationsInSubstream<TSubstream>,

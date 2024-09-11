@@ -31,6 +31,7 @@ pub trait WeightBounds<RuntimeCall> {
 
 /// A means of getting approximate weight consumption for a given destination message executor and a
 /// message.
+#[allow(dead_code)]
 pub trait UniversalWeigher {
 	/// Get the upper limit of weight required for `dest` to execute `message`.
 	fn weigh(dest: impl Into<Location>, message: Xcm<()>) -> Result<Weight, ()>;

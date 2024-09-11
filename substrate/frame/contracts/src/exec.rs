@@ -455,6 +455,7 @@ pub trait Executable<T: Config>: Sized {
 	fn code_hash(&self) -> &CodeHash<T>;
 
 	/// Size of the contract code in bytes.
+	#[allow(dead_code)]
 	fn code_len(&self) -> u32;
 
 	/// The code does not contain any instructions which could lead to indeterminism.

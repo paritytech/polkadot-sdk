@@ -363,6 +363,7 @@ pub enum NotificationsOut {
 		/// Object that permits sending notifications to the peer.
 		notifications_sink: NotificationsSink,
 		/// Is the connection inbound.
+		#[allow(dead_code)]
 		inbound: bool,
 	},
 

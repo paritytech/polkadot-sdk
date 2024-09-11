@@ -96,12 +96,15 @@ pub enum DiscoveryEvent {
 		peer: PeerId,
 
 		/// Identify protocol version.
+		#[allow(dead_code)]
 		protocol_version: Option<String>,
 
 		/// Identify user agent version.
+		#[allow(dead_code)]
 		user_agent: Option<String>,
 
 		/// Observed address.
+		#[allow(dead_code)]
 		observed_address: Multiaddr,
 
 		/// Listen addresses.

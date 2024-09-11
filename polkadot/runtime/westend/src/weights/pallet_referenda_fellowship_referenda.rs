@@ -48,6 +48,7 @@ use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
 /// Weight functions for `pallet_referenda`.
+#[allow(dead_code)]
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_referenda::WeightInfo for WeightInfo<T> {
 	/// Storage: FellowshipCollective Members (r:1 w:0)

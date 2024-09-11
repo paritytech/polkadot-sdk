@@ -48,6 +48,7 @@ use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
 /// Weight functions for `pallet_nft_fractionalization`.
+#[allow(dead_code)]
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_nft_fractionalization::WeightInfo for WeightInfo<T> {
 	/// Storage: `Nfts::Item` (r:1 w:0)

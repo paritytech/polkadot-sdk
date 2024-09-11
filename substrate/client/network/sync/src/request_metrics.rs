@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Metrics {
 	pub pending_requests: u32,
 	pub active_requests: u32,

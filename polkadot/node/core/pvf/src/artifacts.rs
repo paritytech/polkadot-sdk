@@ -145,6 +145,7 @@ pub enum ArtifactState {
 		/// Size in bytes
 		size: u64,
 		/// Stats produced by successful preparation.
+		#[allow(dead_code)]
 		prepare_stats: PrepareStats,
 	},
 	/// A task to prepare this artifact is scheduled.

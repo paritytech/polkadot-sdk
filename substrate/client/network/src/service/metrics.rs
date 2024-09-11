@@ -72,6 +72,7 @@ pub struct Metrics {
 	pub distinct_peers_connections_opened_total: Counter<U64>,
 	pub incoming_connections_errors_total: CounterVec<U64>,
 	pub incoming_connections_total: Counter<U64>,
+	#[allow(dead_code)]
 	pub issued_light_requests: Counter<U64>,
 	pub kademlia_query_duration: HistogramVec,
 	pub kademlia_random_queries_total: Counter<U64>,

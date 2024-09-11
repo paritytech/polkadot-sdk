@@ -77,6 +77,7 @@ pub enum BehaviourOut {
 	/// This event is generated for statistics purposes.
 	InboundRequest {
 		/// Peer which sent us a request.
+		#[allow(dead_code)]
 		peer: PeerId,
 		/// Protocol name of the request.
 		protocol: ProtocolName,
@@ -90,6 +91,7 @@ pub enum BehaviourOut {
 	/// This event is generated for statistics purposes.
 	RequestFinished {
 		/// Peer that we send a request to.
+		#[allow(dead_code)]
 		peer: PeerId,
 		/// Name of the protocol in question.
 		protocol: ProtocolName,

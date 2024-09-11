@@ -316,6 +316,7 @@ pub struct BlockImportedCandidates {
 	pub block_hash: Hash,
 	pub block_number: BlockNumber,
 	pub block_tick: Tick,
+	#[allow(dead_code)]
 	pub no_show_duration: Tick,
 	pub imported_candidates: Vec<(CandidateHash, CandidateEntry)>,
 }

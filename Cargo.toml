@@ -549,7 +549,7 @@ default-members = [
 [workspace.lints.rust]
 suspicious_double_ref_op = { level = "allow", priority = 2 }
 # `substrate_runtime` is a common `cfg` condition name used in the repo.
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)', 'cfg(build_profile, values("debug"))', 'cfg(build_opt_level, values("3"))', 'cfg(enable_alloc_error_handler)'] }
 
 [workspace.lints.clippy]
 all = { level = "allow", priority = 0 }

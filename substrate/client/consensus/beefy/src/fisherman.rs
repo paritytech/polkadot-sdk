@@ -34,6 +34,7 @@ use std::{marker::PhantomData, sync::Arc};
 
 /// Helper struct containing the id and the key ownership proof for a validator.
 pub struct ProvedValidator<'a, AuthorityId: AuthorityIdBound> {
+	#[allow(dead_code)]
 	pub id: &'a AuthorityId,
 	pub key_owner_proof: OpaqueKeyOwnershipProof,
 }

@@ -101,6 +101,7 @@ pub struct CacheSizes {
 	/// Cache used by approval data.
 	pub approval_data: usize,
 	/// Cache used by session window data
+	#[allow(dead_code)]
 	pub session_data: usize,
 }
 

@@ -182,12 +182,6 @@ where
 	let root = merkelize::<H, _, _>(hashes.into_iter(), &mut collect_proof);
 	let leaf = leaf.expect("Requested `leaf_index` is greater than number of leaves.");
 
-	#[cfg(feature = "debug")]
-	log::debug!(
-		"[merkle_proof] Proof: {:?}",
-		collect_proof.proof.iter().map(hex::encode).collect::<Vec<_>>()
-	);
-
 	MerkleProof { root, proof: collect_proof.proof, number_of_leaves, leaf_index, leaf }
 }
 
@@ -274,8 +268,6 @@ where
 	V: Visitor,
 	I: Iterator<Item = H256>,
 {
-	#[cfg(feature = "debug")]
-	log::debug!("[merkelize_row]");
 	next.clear();
 
 	let hash_len = <H as sp_core::Hasher>::LENGTH;
@@ -285,9 +277,6 @@ where
 		let a = iter.next();
 		let b = iter.next();
 		visitor.visit(index, &a, &b);
-
-		#[cfg(feature = "debug")]
-		log::debug!("  {:?}\n  {:?}", a.as_ref().map(hex::encode), b.as_ref().map(hex::encode));
 
 		index += 2;
 		match (a, b) {
@@ -310,11 +299,6 @@ where
 			(Some(a), None) => return Ok(a),
 			// Finish up, no more items.
 			_ => {
-				#[cfg(feature = "debug")]
-				log::debug!(
-					"[merkelize_row] Next: {:?}",
-					next.iter().map(hex::encode).collect::<Vec<_>>()
-				);
 				return Err(next)
 			},
 		}
