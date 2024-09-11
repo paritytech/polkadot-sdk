@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{log_xt_debug, LOG_TARGET};
+use crate::{log_xt_trace, LOG_TARGET};
 use futures::{channel::mpsc::Receiver, Future};
 use indexmap::IndexMap;
 use sc_transaction_pool_api::error;

@@ -27,7 +27,7 @@ use futures::{
 	stream::{self, Fuse, StreamExt},
 	Future, FutureExt,
 };
-use log::{debug, trace};
+use log::trace;
 use parking_lot::RwLock;
 use sc_utils::mpsc;
 use std::{

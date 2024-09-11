@@ -24,7 +24,7 @@ pub use crate::{
 };
 use crate::{
 	common::enactment_state::{EnactmentAction, EnactmentState},
-	log_xt_debug,
+	log_xt_trace,
 };
 use async_trait::async_trait;
 use futures::{channel::oneshot, future, prelude::*, Future, FutureExt};

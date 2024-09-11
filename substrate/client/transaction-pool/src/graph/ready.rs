@@ -24,7 +24,7 @@ use std::{
 };
 
 use crate::LOG_TARGET;
-use log::{debug, trace};
+use log::trace;
 use sc_transaction_pool_api::error;
 use serde::Serialize;
 use sp_runtime::{traits::Member, transaction_validity::TransactionTag as Tag};

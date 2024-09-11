@@ -32,7 +32,7 @@ use crate::{
 	enactment_state::{EnactmentAction, EnactmentState},
 	fork_aware_txpool::revalidation_worker,
 	graph::{self, base_pool::Transaction, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
-	log_xt_debug, PolledIterator, ReadyIteratorFor, LOG_TARGET,
+	log_xt_trace, PolledIterator, ReadyIteratorFor, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{

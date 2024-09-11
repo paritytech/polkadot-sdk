@@ -29,7 +29,7 @@ use crate::{
 		self, watcher::Watcher, ExtrinsicFor, ExtrinsicHash, IsValidator, ValidatedTransaction,
 		ValidatedTransactionFor,
 	},
-	log_xt_debug, LOG_TARGET,
+	log_xt_trace, LOG_TARGET,
 };
 use parking_lot::Mutex;
 use sc_transaction_pool_api::{PoolStatus, TransactionSource};

@@ -23,7 +23,7 @@
 use std::{cmp::Ordering, collections::HashSet, fmt, hash, sync::Arc};
 
 use crate::LOG_TARGET;
-use log::{debug, warn};
+use log::{trace, warn};
 use sc_transaction_pool_api::{error, InPoolTransaction, PoolStatus};
 use serde::Serialize;
 use sp_core::hexdisplay::HexDisplay;
