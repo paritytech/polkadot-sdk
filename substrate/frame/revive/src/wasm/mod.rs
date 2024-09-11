@@ -45,9 +45,9 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
-	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
+	traits::{fungible::MutateHold, tokens::Precision::BestEffort, IsType},
 };
-use sp_core::Get;
+use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
 /// Validated Wasm module ready for execution.
@@ -123,7 +123,11 @@ impl<T: Config> Token<T> for CodeLoadToken {
 	}
 }
 
-impl<T: Config> WasmBlob<T> {
+impl<T: Config> WasmBlob<T>
+where
+	T::Hash: IsType<H256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+{
 	/// We only check for size and nothing else when the code is uploaded.
 	pub fn from_code(
 		code: Vec<u8>,
@@ -251,7 +255,11 @@ pub struct PreparedCall<'a, E: Ext> {
 	api_version: ApiVersion,
 }
 
-impl<'a, E: Ext> PreparedCall<'a, E> {
+impl<'a, E: Ext> PreparedCall<'a, E>
+where
+	BalanceOf<E::T>: Into<U256>,
+	BalanceOf<E::T>: TryFrom<U256>,
+{
 	pub fn call(mut self) -> ExecResult {
 		let exec_result = loop {
 			let interrupt = self.instance.run();
@@ -315,7 +323,10 @@ impl<T: Config> WasmBlob<T> {
 	}
 }
 
-impl<T: Config> Executable<T> for WasmBlob<T> {
+impl<T: Config> Executable<T> for WasmBlob<T>
+where
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+{
 	fn from_storage(
 		code_hash: sp_core::H256,
 		gas_meter: &mut GasMeter<T>,
