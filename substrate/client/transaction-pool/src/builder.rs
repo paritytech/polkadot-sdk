@@ -208,7 +208,7 @@ where
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
 	) -> Arc<TransactionPoolImpl<Block, Client>> {
-		log::info!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
+		log::debug!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
 		match self.options.txpool_type {
 			TransactionPoolType::SingleState => SingleStateFullPool::new_full(
 				self.options.options,

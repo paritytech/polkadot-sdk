@@ -465,10 +465,10 @@ where
 		// pub fn on_broadcasted(&self, propagated: HashMap<ExtrinsicHash<B>, Vec<String>>) {
 		let mut controllers = self.controllers.write();
 
-		info!(target: LOG_TARGET, "mvl::transactions_dropped: {:?}", dropped);
+		debug!(target: LOG_TARGET, "mvl::transactions_dropped: {:?}", dropped);
 		for tx_hash in dropped {
 			if let Some(tx) = controllers.get(&tx_hash) {
-				info!(target: LOG_TARGET, "[{:?}] transaction_dropped", tx_hash);
+				debug!(target: LOG_TARGET, "[{:?}] transaction_dropped", tx_hash);
 				match tx.unbounded_send(ControllerCommand::TransactionDropped) {
 					Err(e) => {
 						trace!(target: LOG_TARGET, "[{:?}] transactions_dropped: send message failed: {:?}", tx_hash, e);
@@ -539,7 +539,7 @@ mod tests {
 
 		let out = handle.await.unwrap();
 		assert_eq!(out, events);
-		log::info!("out: {:#?}", out);
+		log::debug!("out: {:#?}", out);
 	}
 
 	#[tokio::test]
@@ -574,7 +574,7 @@ mod tests {
 
 		let out = handle.await.unwrap();
 
-		log::info!("out: {:#?}", out);
+		log::debug!("out: {:#?}", out);
 		assert!(out.iter().all(|v| vec![
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
@@ -614,7 +614,7 @@ mod tests {
 		listener.invalidate_transactions(vec![tx_hash]);
 
 		let out = handle.await.unwrap();
-		log::info!("out: {:#?}", out);
+		log::debug!("out: {:#?}", out);
 		assert!(out.iter().all(|v| vec![
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
@@ -668,8 +668,8 @@ mod tests {
 		let out_tx0 = handle0.await.unwrap();
 		let out_tx1 = handle1.await.unwrap();
 
-		log::info!("out_tx0: {:#?}", out_tx0);
-		log::info!("out_tx1: {:#?}", out_tx1);
+		log::debug!("out_tx0: {:#?}", out_tx0);
+		log::debug!("out_tx1: {:#?}", out_tx1);
 		assert!(out_tx0.iter().all(|v| vec![
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
@@ -721,7 +721,7 @@ mod tests {
 		listener.invalidate_transactions(vec![tx_hash]);
 
 		let out = handle.await.unwrap();
-		log::info!("out: {:#?}", out);
+		log::debug!("out: {:#?}", out);
 
 		// invalid shall not be sent
 		assert!(out.iter().all(|v| vec![
@@ -754,7 +754,7 @@ mod tests {
 		listener.add_view_watcher_for_tx(tx_hash, block_hash0, view_stream0.boxed());
 
 		let out = handle.await.unwrap();
-		log::info!("out: {:#?}", out);
+		log::debug!("out: {:#?}", out);
 
 		assert!(out.iter().all(|v| vec![TransactionStatus::Invalid].contains(v)));
 		assert_eq!(out.len(), 1);

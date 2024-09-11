@@ -119,7 +119,7 @@ fn early_nonce_should_be_culled() {
 	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 208).into()))
 		.unwrap();
 
-	log::info!("-> {:?}", pool.validated_pool().status());
+	log::debug!("-> {:?}", pool.validated_pool().status());
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
@@ -1106,7 +1106,7 @@ fn stale_transactions_are_pruned() {
 	block_on(pool.maintain(block_event(header)));
 	// The imported transactions have a different hash and should not evict our initial
 	// transactions.
-	log::info!("-> {:?}", pool.status());
+	log::debug!("-> {:?}", pool.status());
 	assert_eq!(pool.status().future, 3);
 
 	// Import enough blocks to make our transactions stale

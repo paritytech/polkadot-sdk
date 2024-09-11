@@ -151,7 +151,7 @@ where
 			futures
 		};
 		let maybe_watchers = futures::future::join_all(submit_and_watch_futures).await;
-		// log::info!("view::submit_and_watch: maybe_watchers: {:?}", maybe_watchers);
+		// log::debug!("view::submit_and_watch: maybe_watchers: {:?}", maybe_watchers);
 		let maybe_error = maybe_watchers.into_iter().reduce(|mut r, v| {
 			if r.is_err() && v.is_ok() {
 				r = v;

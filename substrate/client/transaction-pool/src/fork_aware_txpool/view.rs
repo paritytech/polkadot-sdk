@@ -255,7 +255,7 @@ where
 		self.metrics.report(|metrics| {
 			metrics.view_revalidation_duration.observe(revalidation_duration.as_secs_f64());
 		});
-		log::info!(
+		log::debug!(
 			target:LOG_TARGET,
 			"view::revalidate_later: at {:?} count: {}/{} took {:?}",
 			self.at.hash,
@@ -392,7 +392,7 @@ where
 				);
 			});
 
-			log::info!(
+			log::debug!(
 				target:LOG_TARGET,
 				"view::finish_revalidation: applying revalidation result invalid: {} revalidated: {} at {:?} took {:?}",
 				revalidation_result.invalid_hashes.len(),

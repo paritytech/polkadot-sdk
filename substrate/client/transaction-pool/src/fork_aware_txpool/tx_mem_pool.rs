@@ -261,7 +261,7 @@ where
 		&self,
 		to_be_removed: &Vec<ExtrinsicHash<ChainApi>>,
 	) {
-		log::info!(target: LOG_TARGET, "remove_dropped_transactions count:{:?}", to_be_removed.len());
+		log::debug!(target: LOG_TARGET, "remove_dropped_transactions count:{:?}", to_be_removed.len());
 		log_xt_trace!(target: LOG_TARGET, to_be_removed, "[{:?}] mempool::remove_dropped_transactions");
 		let mut transactions = self.transactions.write();
 		to_be_removed.iter().for_each(|t| {
@@ -358,7 +358,7 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		log::info!(
+		log::debug!(
 			target: LOG_TARGET,
 			"mempool::revalidate: at {finalized_block:?} count:{input_len}/{count} purged:{} took {duration:?}", invalid_hashes.len(),
 		);
@@ -371,7 +371,7 @@ where
 		&self,
 		finalized_xts: &Vec<ExtrinsicHash<ChainApi>>,
 	) {
-		log::info!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
+		log::debug!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
 		log_xt_trace!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
 		let mut transactions = self.transactions.write();
 		finalized_xts.iter().for_each(|t| {

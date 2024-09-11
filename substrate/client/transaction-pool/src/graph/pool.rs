@@ -260,7 +260,7 @@ impl<B: ChainApi> Pool<B> {
 		parent: <B::Block as BlockT>::Hash,
 		extrinsics: &[RawExtrinsicFor<B>],
 	) {
-		log::info!(
+		log::debug!(
 			target: LOG_TARGET,
 			"Starting pruning of block {:?} (extrinsics: {})",
 			at,
@@ -536,7 +536,7 @@ mod tests {
 		// when
 		let txs = txs.into_iter().map(|x| Arc::from(x)).collect::<Vec<_>>();
 		let hashes = block_on(pool.submit_at(&api.expect_hash_and_number(0), SOURCE, txs));
-		log::info!("--> {hashes:#?}");
+		log::debug!("--> {hashes:#?}");
 
 		// then
 		hashes.into_iter().zip(initial_hashes.into_iter()).for_each(

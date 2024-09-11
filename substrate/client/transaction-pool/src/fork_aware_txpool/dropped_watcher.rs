@@ -118,7 +118,7 @@ where
 		block_hash: BlockHash<C>,
 		event: ViewStreamEvent<C>,
 	) -> Option<ExtrinsicHash<C>> {
-		info!(
+		debug!(
 			target: LOG_TARGET,
 			"dropped_watcher: got event: views:{:#?}, event: {:?} states: {:?}",
 			self.stream_map.get_ref().keys().collect::<Vec<_>>(),
@@ -140,11 +140,11 @@ where
 				if let Some(views_keeping_tx_valid) = self.transaction_states.get_mut(&tx_hash) {
 					views_keeping_tx_valid.remove(&block_hash);
 					if views_keeping_tx_valid.is_disjoint(&current_views) {
-						info!("[{:?}] dropped_watcher: removing tx", tx_hash);
+						debug!("[{:?}] dropped_watcher: removing tx", tx_hash);
 						return Some(tx_hash)
 					}
 				} else {
-					info!("[{:?}] dropped_watcher: removing non tracked tx", tx_hash);
+					debug!("[{:?}] dropped_watcher: removing non tracked tx", tx_hash);
 					return Some(tx_hash)
 				}
 			},
@@ -196,9 +196,9 @@ where
 					},
 
 					event = futures::StreamExt::select_next_some(&mut ctx.stream_map) => {
-						info!(target: LOG_TARGET, "dropped_watcher: select_next_some -> {:#?}", event);
+						debug!(target: LOG_TARGET, "dropped_watcher: select_next_some -> {:#?}", event);
 						if let Some(dropped) = ctx.handle_event(event.0, event.1) {
-							info!("dropped_watcher: sending out: {dropped:?}");
+							debug!("dropped_watcher: sending out: {dropped:?}");
 							return Some((dropped, ctx));
 						}
 					}

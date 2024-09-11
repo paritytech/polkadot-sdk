@@ -346,7 +346,7 @@ where
 		transactions: Vec<ExtrinsicHash<Api>>,
 	) {
 		if transactions.len() > 0 {
-			log::info!(
+			log::debug!(
 				target: LOG_TARGET,
 				"Sent {} transactions to revalidation queue",
 				transactions.len(),
@@ -358,7 +358,7 @@ where
 				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
 			}
 		} else {
-			log::info!(
+			log::debug!(
 				target: LOG_TARGET,
 				"batch_revalidate direct call"
 			);
