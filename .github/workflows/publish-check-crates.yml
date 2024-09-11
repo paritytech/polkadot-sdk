@@ -8,6 +8,10 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-publish:
     runs-on: ubuntu-latest
