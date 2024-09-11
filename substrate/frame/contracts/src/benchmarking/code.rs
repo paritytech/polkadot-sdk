@@ -115,6 +115,7 @@ pub struct ImportedFunction {
 pub struct WasmModule<T: Config> {
 	pub code: Vec<u8>,
 	pub hash: <T::Hashing as Hash>::Output,
+	#[allow(dead_code)]
 	pub memory: Option<ImportedMemory>,
 }
 
