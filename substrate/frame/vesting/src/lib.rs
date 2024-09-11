@@ -547,8 +547,7 @@ impl<T: Config> Pallet<T> {
 
 		T::Currency::transfer(source, target, schedule.locked(), ExistenceRequirement::AllowDeath)?;
 
-		// If adding this vesting schedule fails, all storage changes are undone due to FRAME's
-		// default transactional layers.
+		// We can't let this fail because the currency transfer has already happened.
 		Self::add_vesting_schedule(
 			target,
 			schedule.locked(),
@@ -746,7 +745,8 @@ where
 		Ok(())
 	}
 
-	/// Checks if `add_vesting_schedule` would work against `who`.
+	/// Ensure we can call `add_vesting_schedule` without error. This should always
+	/// be called prior to `add_vesting_schedule`.
 	fn can_add_vesting_schedule(
 		who: &T::AccountId,
 		locked: BalanceOf<T>,
@@ -779,6 +779,8 @@ where
 	}
 }
 
+/// An implementation that allows the Vesting Pallet to handle a vested transfer
+/// on behalf of another Pallet.
 impl<T: Config> VestedTransfer<T::AccountId> for Pallet<T>
 where
 	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
