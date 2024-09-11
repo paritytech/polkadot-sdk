@@ -347,7 +347,6 @@ where
 			log::trace!(target:LOG_TARGET,"insert_new_view: inactive_views: {:?}", self.inactive_views.read().keys());
 		}
 		for hash in &views_to_be_removed {
-			self.listener.remove_view(*hash);
 			self.dropped_stream_controller.remove_view(*hash);
 		}
 	}
@@ -415,6 +414,7 @@ where
 			log::trace!(target:LOG_TARGET,"handle_finalized: inactive_views: {:?}", inactive_views.keys());
 		}
 
+		self.listener.remove_view(finalized_hash);
 		self.listener.remove_stale_controllers();
 
 		finalized_xts
