@@ -2070,9 +2070,15 @@ fn seconded_and_pending_for_para_in_view(
 	para_id: &ParaId,
 ) -> usize {
 	// `known_allowed_relay_parents_under` returns all leaves within the view for the specified
-	// block hash including the block hash itself
+	// block hash including the block hash itself.
+	// If the relay parent is not in the view (unconnected candidate)
+	// `known_allowed_relay_parents_under` will return `None`. In this case we still we just count
+	// the candidate at the specified relay parent.
+	// TODO: what to do when an unconnected candidate becomes connected and potentially we have
+	// accepted more candidates than the claim queue allows?
 	implicit_view
 		.known_allowed_relay_parents_under(relay_parent, Some(*para_id))
+		.or(Some(&[*relay_parent])) // if the relay parent is not in view we still want to count it
 		.map(|ancestors| {
 			ancestors.iter().fold(0, |res, anc| {
 				res + per_relay_parent
