@@ -19,9 +19,10 @@ use std::{collections::btree_map::BTreeMap, pin::Pin, sync::Arc, time::Duration}
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost, Block as PBlock, BlockId, BlockNumber,
-		vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, vstaging::CoreState, Hash as PHash, Header as PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		runtime_api::ParachainHost,
+		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
+		Block as PBlock, BlockId, BlockNumber, Hash as PHash, Header as PHeader,
+		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };

@@ -88,7 +88,6 @@ pub fn dummy_candidate_receipt_bad_sig(
 	}
 }
 
-
 /// Create a candidate receipt with a bogus signature and filler data. Optionally set the commitment
 /// hash with the `commitments` arg.
 pub fn dummy_candidate_receipt_v2_bad_sig(
