@@ -108,6 +108,7 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"riscv",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
