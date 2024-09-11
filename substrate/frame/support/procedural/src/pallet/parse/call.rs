@@ -89,6 +89,8 @@ pub struct CallVariantDef {
 	pub cfg_attrs: Vec<syn::Attribute>,
 	/// The optional `feeless_if` attribute on the `pallet::call`.
 	pub feeless_check: Option<syn::ExprClosure>,
+	/// The return type of the call: `DispatchInfo` or `DispatchResultWithPostInfo`.
+	pub return_type: helper::CallReturnType,
 }
 
 /// Attributes for functions in call impl block.
@@ -260,13 +262,7 @@ impl CallDef {
 					},
 				}
 
-				if let syn::ReturnType::Type(_, type_) = &method.sig.output {
-					helper::check_pallet_call_return_type(type_)?;
-				} else {
-					let msg = "Invalid pallet::call, require return type \
-						DispatchResultWithPostInfo";
-					return Err(syn::Error::new(method.sig.span(), msg))
-				}
+				let return_type = helper::check_pallet_call_return_type(&method.sig)?;
 
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&method.attrs);
 				let mut call_idx_attrs = vec![];
@@ -448,6 +444,7 @@ impl CallDef {
 					attrs: method.attrs.clone(),
 					cfg_attrs,
 					feeless_check,
+					return_type,
 				});
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";
