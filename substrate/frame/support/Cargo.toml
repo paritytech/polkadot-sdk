@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = { workspace = true }
+binary-merkle-tree.workspace = true
 serde = { features = ["alloc", "derive"], workspace = true }
 codec = { features = [
 	"derive",
@@ -44,6 +45,7 @@ sp-staking = { workspace = true }
 sp-weights = { workspace = true }
 sp-debug-derive = { workspace = true }
 sp-metadata-ir = { workspace = true }
+sp-trie = { workspace = true }
 tt-call = { workspace = true }
 macro_magic = { workspace = true }
 frame-support-procedural = { workspace = true }
@@ -73,6 +75,7 @@ sp-crypto-hashing = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"binary-merkle-tree/std",
 	"codec/std",
 	"environmental/std",
 	"frame-metadata/std",
@@ -96,6 +99,7 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-timestamp/std",
+	"sp-trie/std",
 	"sp-tracing/std",
 	"sp-weights/std",
 ]

@@ -12,6 +12,7 @@ homepage.workspace = true
 workspace = true
 
 [dependencies]
+codec.workspace = true
 array-bytes = { optional = true, workspace = true, default-features = true }
 log = { optional = true, workspace = true }
 hash-db = { workspace = true }
