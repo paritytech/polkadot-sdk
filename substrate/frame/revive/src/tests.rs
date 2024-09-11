@@ -4043,15 +4043,15 @@ mod run_tests {
 				builder::bare_instantiate(Code::Upload(wasm.to_vec())).build_and_unwrap_contract();
 
 			// The fixture asserts a non-zero returned free balance of the account;
-			// The ALICE account is endowed;
+			// The ETH_ALICE account is endowed;
 			// Hence we should not revert
 			assert_ok!(builder::call(addr).data(ALICE_ADDR.0.to_vec()).build());
 
 			// The fixture asserts a non-zero returned free balance of the account;
-			// The 0x0..0 account is not endowed;
+			// The ETH_BOB account is not endowed;
 			// Hence we should revert
 			assert_err_ignore_postinfo!(
-				builder::call(addr).data(vec![0; 20]).build(),
+				builder::call(addr).data(BOB_ADDR.0.to_vec()).build(),
 				<Error<Test>>::ContractTrapped
 			);
 		});
