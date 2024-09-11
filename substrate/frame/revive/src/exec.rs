@@ -295,9 +295,6 @@ pub trait Ext: sealing::Sealed {
 	/// Returns a reference to the account id of the current contract.
 	fn account_id(&self) -> &AccountIdOf<Self::T>;
 
-	/// Returns the balance of an AccountId
-	fn account_balance(&self, who: &AccountIdOf<Self::T>) -> U256;
-
 	/// Returns a reference to the [`H160`] address of the current contract.
 	fn address(&self) -> H160 {
 		<Self::T as Config>::AddressMapper::to_address(self.account_id())
@@ -1264,6 +1261,11 @@ where
 	fn allows_reentry(&self, id: &T::AccountId) -> bool {
 		!self.frames().any(|f| &f.account_id == id && !f.allows_reentry)
 	}
+
+	/// Returns the *free* balance of the supplied AccountId.
+	fn account_balance(&self, who: &T::AccountId) -> U256 {
+		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -1469,10 +1471,6 @@ where
 
 	fn account_id(&self) -> &T::AccountId {
 		&self.top_frame().account_id
-	}
-
-	fn account_balance(&self, who: &AccountIdOf<Self::T>) -> U256 {
-		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
 	}
 
 	fn caller(&self) -> Origin<T> {
