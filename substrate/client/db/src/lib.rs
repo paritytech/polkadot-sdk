@@ -834,6 +834,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	finalized_blocks: Vec<(Block::Hash, Option<Justification>)>,
 	set_head: Option<Block::Hash>,
 	commit_state: bool,
+	create_gap: bool,
 	index_ops: Vec<IndexOperation>,
 }
 
@@ -987,6 +988,10 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	fn update_transaction_index(&mut self, index_ops: Vec<IndexOperation>) -> ClientResult<()> {
 		self.index_ops = index_ops;
 		Ok(())
+	}
+
+	fn set_create_gap(&mut self, create_gap: bool) {
+		self.create_gap = create_gap;
 	}
 }
 
@@ -1709,8 +1714,9 @@ impl<Block: BlockT> Backend<Block> {
 							unreachable!("Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406")
 						},
 					}
-				} else if number > best_num + One::one() &&
-					number > One::one() && self.blockchain.header(parent_hash)?.is_none()
+				} else if operation.create_gap &&
+					number > best_num + One::one() &&
+					self.blockchain.header(parent_hash)?.is_none()
 				{
 					let gap = BlockGap {
 						start: best_num + One::one(),
@@ -2072,6 +2078,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			finalized_blocks: Vec::new(),
 			set_head: None,
 			commit_state: false,
+			create_gap: true,
 			index_ops: Default::default(),
 		})
 	}

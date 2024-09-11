@@ -137,7 +137,7 @@ jobs:
     needs: [upload-reports]
     if: github.event_name == 'pull_request'    
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-ecosystem/action-remove-labels@v1
         with:
           labels: GHA-coverage 
