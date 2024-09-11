@@ -390,7 +390,7 @@ force_remove_vesting_schedule {
 
 		// Give target existing locks.
 		add_locks::<T>(&target, l as u8);
-		let _ = add_vesting_schedules::<T>(&target, s)?;
+		add_vesting_schedules::<T>(&target, s)?;
 
 		// The last vesting schedule.
 		let schedule_index = s - 1;
