@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::output;
+use common::{u256_bytes, u64_output};
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -28,17 +28,14 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	output!(balance, [0u8; 8], api::balance,);
-	let balance = u64::from_le_bytes(balance[..].try_into().unwrap());
-
-	output!(minimum_balance, [0u8; 8], api::minimum_balance,);
-	let minimum_balance = u64::from_le_bytes(minimum_balance[..].try_into().unwrap());
+	let balance = u64_output!(api::balance,);
+	let minimum_balance = u64_output!(api::minimum_balance,);
 
 	// Make the transferred value exceed the balance by adding the minimum balance.
 	let balance = balance + minimum_balance;
 
 	// Try to self-destruct by sending more balance to the 0 address.
 	// The call will fail because a contract transfer has a keep alive requirement.
-	let res = api::transfer(&[0u8; 20], &balance.to_le_bytes());
+	let res = api::transfer(&[0u8; 20], &u256_bytes(balance));
 	assert!(matches!(res, Err(uapi::ReturnErrorCode::TransferFailed)));
 }
