@@ -34,7 +34,7 @@ polkadot-runtime-common = { workspace = true, default-features = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 pallet-xcm = { workspace = true }
-xcm-fee-payment-runtime-api = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 westend-runtime = { workspace = true }
 
 # Cumulus

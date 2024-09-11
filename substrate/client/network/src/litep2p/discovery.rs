@@ -33,8 +33,9 @@ use litep2p::{
 		libp2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
-				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, KademliaEvent,
-				KademliaHandle, QueryId, Quorum, Record, RecordKey, RecordsType,
+				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder,
+				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, QueryId, Quorum,
+				Record, RecordKey, RecordsType,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
@@ -52,7 +53,7 @@ use std::{
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 /// Logging target for the file.
@@ -137,6 +138,12 @@ pub enum DiscoveryEvent {
 	QueryFailed {
 		/// Query ID.
 		query_id: QueryId,
+	},
+
+	/// Incoming record to store.
+	IncomingRecord {
+		/// Record.
+		record: Record,
 	},
 }
 
@@ -249,6 +256,7 @@ impl Discovery {
 			KademliaConfigBuilder::new()
 				.with_known_peers(known_peers)
 				.with_protocol_names(protocol_names)
+				.with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
 				.build()
 		};
 
@@ -295,7 +303,7 @@ impl Discovery {
 	) {
 		if self.local_protocols.is_disjoint(&supported_protocols) {
 			log::trace!(
-				target: "sub-libp2p",
+				target: LOG_TARGET,
 				"Ignoring self-reported address of peer {peer} as remote node is not part of the \
 				 Kademlia DHT supported by the local node.",
 			);
@@ -338,6 +346,30 @@ impl Discovery {
 		self.kademlia_handle
 			.put_record(Record::new(RecordKey::new(&key.to_vec()), value))
 			.await
+	}
+
+	/// Store record in the local DHT store.
+	pub async fn store_record(
+		&mut self,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<sc_network_types::PeerId>,
+		expires: Option<Instant>,
+	) {
+		log::debug!(
+			target: LOG_TARGET,
+			"Storing DHT record with key {key:?}, originally published by {publisher:?}, \
+			 expires {expires:?}.",
+		);
+
+		self.kademlia_handle
+			.store_record(Record {
+				key: RecordKey::new(&key.to_vec()),
+				value,
+				publisher: publisher.map(Into::into),
+				expires,
+			})
+			.await;
 	}
 
 	/// Check if the observed address is a known address.
@@ -480,6 +512,16 @@ impl Stream for Discovery {
 					},
 					false => return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id })),
 				}
+			},
+			Poll::Ready(Some(KademliaEvent::IncomingRecord { record })) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"incoming `PUT_RECORD` request with key {:?} from publisher {:?}",
+					record.key,
+					record.publisher,
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
 		}
 

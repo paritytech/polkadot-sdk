@@ -23,16 +23,13 @@
 pub mod middleware;
 pub mod utils;
 
-use std::{
-	convert::Infallible, error::Error as StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
-};
+use std::{error::Error as StdError, net::SocketAddr, num::NonZeroU32, sync::Arc, time::Duration};
 
-use hyper::{
-	server::conn::AddrStream,
-	service::{make_service_fn, service_fn},
-};
 use jsonrpsee::{
-	server::{stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder},
+	core::BoxError,
+	server::{
+		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
+	},
 	Methods, RpcModule,
 };
 use middleware::NodeHealthProxyLayer;
@@ -97,6 +94,7 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
 	metrics: Option<RpcMetrics>,
 	tokio_handle: tokio::runtime::Handle,
 	service_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
+	rate_limit_whitelisted_ips: Arc<Vec<IpNetwork>>,
 }
 
 /// Start RPC server listening on given address.
@@ -124,8 +122,8 @@ where
 		rate_limit_trust_proxy_headers,
 	} = config;
 
-	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
-	let local_addr = std_listener.local_addr().ok();
+	let listener = TcpListener::bind(addrs.as_slice()).await?;
+	let local_addr = listener.local_addr().ok();
 	let host_filter = host_filtering(cors.is_some(), local_addr);
 
 	let http_middleware = tower::ServiceBuilder::new()
@@ -161,20 +159,38 @@ where
 		methods: build_rpc_api(rpc_api).into(),
 		service_builder: builder.to_service_builder(),
 		metrics,
-		tokio_handle,
-		stop_handle: stop_handle.clone(),
+		tokio_handle: tokio_handle.clone(),
+		stop_handle,
+		rate_limit_whitelisted_ips: Arc::new(rate_limit_whitelisted_ips),
 	};
 
-	let make_service = make_service_fn(move |addr: &AddrStream| {
-		let cfg = cfg.clone();
-		let rate_limit_whitelisted_ips = rate_limit_whitelisted_ips.clone();
-		let ip = addr.remote_addr().ip();
+	tokio_handle.spawn(async move {
+		loop {
+			let (sock, remote_addr) = tokio::select! {
+				res = listener.accept() => {
+					match res {
+						Ok(s) => s,
+						Err(e) => {
+							log::debug!(target: "rpc", "Failed to accept ipv4 connection: {:?}", e);
+							continue;
+						}
+					}
+				}
+				_ = cfg.stop_handle.clone().shutdown() => break,
+			};
 
-		async move {
-			let cfg = cfg.clone();
-			let rate_limit_whitelisted_ips = rate_limit_whitelisted_ips.clone();
+			let ip = remote_addr.ip();
+			let cfg2 = cfg.clone();
+			let svc = tower::service_fn(move |req: http::Request<hyper::body::Incoming>| {
+				let PerConnection {
+					methods,
+					service_builder,
+					metrics,
+					tokio_handle,
+					stop_handle,
+					rate_limit_whitelisted_ips,
+				} = cfg2.clone();
 
-			Ok::<_, Infallible>(service_fn(move |req| {
 				let proxy_ip =
 					if rate_limit_trust_proxy_headers { get_proxy_ip(&req) } else { None };
 
@@ -190,9 +206,6 @@ where
 					}
 					rate_limit
 				};
-
-				let PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
-					cfg.clone();
 
 				let is_websocket = ws::is_upgrade_request(&req);
 				let transport_label = if is_websocket { "ws" } else { "http" };
@@ -213,7 +226,6 @@ where
 
 				let rpc_middleware =
 					RpcServiceBuilder::new().option_layer(middleware_layer.clone());
-
 				let mut svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 
@@ -230,17 +242,19 @@ where
 						});
 					}
 
-					svc.call(req).await
+					// https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
+					// to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to
+					// a concrete type as workaround.
+					svc.call(req).await.map_err(|e| BoxError::from(e))
 				}
-			}))
+			});
+
+			cfg.tokio_handle.spawn(serve_with_graceful_shutdown(
+				sock,
+				svc,
+				cfg.stop_handle.clone().shutdown(),
+			));
 		}
-	});
-
-	let server = hyper::Server::from_tcp(std_listener)?.serve(make_service);
-
-	tokio::spawn(async move {
-		let graceful = server.with_graceful_shutdown(async move { stop_handle.shutdown().await });
-		let _ = graceful.await;
 	});
 
 	log::info!(

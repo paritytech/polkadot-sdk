@@ -37,21 +37,22 @@ use sp_runtime::{
 };
 use sp_session::{MembershipProof, ValidatorCount};
 use sp_staking::SessionIndex;
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
 use sp_trie::{
 	trie_types::{TrieDBBuilderV0, TrieDBMutBuilderV0},
-	LayoutV0, MemoryDB, Recorder, Trie, EMPTY_PREFIX,
+	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieRecorder,
 };
 
 use frame_support::{
 	print,
 	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
-	Parameter,
+	Parameter, LOG_TARGET,
 };
 
 use crate::{self as pallet_session, Pallet as Session};
 
 pub use pallet::*;
+use sp_trie::{accessed_nodes_tracker::AccessedNodesTracker, recorder_ext::RecorderExt};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -117,6 +118,16 @@ impl<T: Config> Pallet<T> {
 				Some((new_start, end))
 			}
 		})
+	}
+
+	fn full_id_validators() -> Vec<(T::ValidatorId, T::FullIdentification)> {
+		<Session<T>>::validators()
+			.into_iter()
+			.filter_map(|validator| {
+				T::FullIdentificationOf::convert(validator.clone())
+					.map(|full_id| (validator, full_id))
+			})
+			.collect::<Vec<_>>()
 	}
 }
 
@@ -260,34 +271,16 @@ impl<T: Config> ProvingTrie<T> {
 		Ok(ProvingTrie { db, root })
 	}
 
-	fn from_nodes(root: T::Hash, nodes: &[Vec<u8>]) -> Self {
-		let mut memory_db = MemoryDB::default();
-		for node in nodes {
-			memory_db.insert(EMPTY_PREFIX, &node[..]);
-		}
-
-		ProvingTrie { db: memory_db, root }
+	fn from_proof(root: T::Hash, proof: StorageProof) -> Self {
+		ProvingTrie { db: proof.into_memory_db(), root }
 	}
 
 	/// Prove the full verification data for a given key and key ID.
 	pub fn prove(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Vec<Vec<u8>>> {
 		let mut recorder = Recorder::<LayoutV0<T::Hashing, ()>>::new();
-		{
-			let trie = TrieDBBuilderV0::<T::Hashing, ()>::new(&self.db, &self.root)
-				.with_recorder(&mut recorder)
-				.build();
-			let val_idx = (key_id, key_data).using_encoded(|s| {
-				trie.get(s).ok()?.and_then(|raw| u32::decode(&mut &*raw).ok())
-			})?;
+		self.query(key_id, key_data, Some(&mut recorder));
 
-			val_idx.using_encoded(|s| {
-				trie.get(s)
-					.ok()?
-					.and_then(|raw| <IdentificationTuple<T>>::decode(&mut &*raw).ok())
-			})?;
-		}
-
-		Some(recorder.drain().into_iter().map(|r| r.data).collect())
+		Some(recorder.into_raw_storage_proof())
 	}
 
 	/// Access the underlying trie root.
@@ -295,10 +288,17 @@ impl<T: Config> ProvingTrie<T> {
 		&self.root
 	}
 
-	// Check a proof contained within the current `MemoryDB`. Returns `None` if the
-	// nodes within the current `MemoryDB` are insufficient to query the item.
-	fn query(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<IdentificationTuple<T>> {
-		let trie = TrieDBBuilderV0::<T::Hashing, ()>::new(&self.db, &self.root).build();
+	/// Search for a key inside the proof.
+	fn query(
+		&self,
+		key_id: KeyTypeId,
+		key_data: &[u8],
+		recorder: Option<&mut dyn TrieRecorder<T::Hash, ()>>,
+	) -> Option<IdentificationTuple<T>> {
+		let trie = TrieDBBuilderV0::<T::Hashing, ()>::new(&self.db, &self.root)
+			.with_optional_recorder(recorder)
+			.build();
+
 		let val_idx = (key_id, key_data)
 			.using_encoded(|s| trie.get(s))
 			.ok()?
@@ -317,13 +317,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 
 	fn prove(key: (KeyTypeId, D)) -> Option<Self::Proof> {
 		let session = <Session<T>>::current_index();
-		let validators = <Session<T>>::validators()
-			.into_iter()
-			.filter_map(|validator| {
-				T::FullIdentificationOf::convert(validator.clone())
-					.map(|full_id| (validator, full_id))
-			})
-			.collect::<Vec<_>>();
+		let validators = Self::full_id_validators();
 
 		let count = validators.len() as ValidatorCount;
 
@@ -338,30 +332,35 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 	}
 
 	fn check_proof(key: (KeyTypeId, D), proof: Self::Proof) -> Option<IdentificationTuple<T>> {
-		let (id, data) = key;
-
-		if proof.session == <Session<T>>::current_index() {
-			<Session<T>>::key_owner(id, data.as_ref()).and_then(|owner| {
-				T::FullIdentificationOf::convert(owner.clone()).and_then(move |id| {
-					let count = <Session<T>>::validators().len() as ValidatorCount;
-
-					if count != proof.validator_count {
-						return None
-					}
-
-					Some((owner, id))
-				})
-			})
-		} else {
-			let (root, count) = <HistoricalSessions<T>>::get(&proof.session)?;
-
-			if count != proof.validator_count {
-				return None
-			}
-
-			let trie = ProvingTrie::<T>::from_nodes(root, &proof.trie_nodes);
-			trie.query(id, data.as_ref())
+		fn print_error<E: Debug>(e: E) {
+			log::error!(
+				target: LOG_TARGET,
+				"Rejecting equivocation report because of key ownership proof error: {:?}", e
+			);
 		}
+
+		let (id, data) = key;
+		let (root, count) = if proof.session == <Session<T>>::current_index() {
+			let validators = Self::full_id_validators();
+			let count = validators.len() as ValidatorCount;
+			let trie = ProvingTrie::<T>::generate_for(validators).ok()?;
+			(trie.root, count)
+		} else {
+			<HistoricalSessions<T>>::get(&proof.session)?
+		};
+
+		if count != proof.validator_count {
+			return None
+		}
+
+		let proof = StorageProof::new_with_duplicate_nodes_check(proof.trie_nodes)
+			.map_err(print_error)
+			.ok()?;
+		let mut accessed_nodes_tracker = AccessedNodesTracker::<T::Hash>::new(proof.len());
+		let trie = ProvingTrie::<T>::from_proof(root, proof);
+		let res = trie.query(id, data.as_ref(), Some(&mut accessed_nodes_tracker))?;
+		accessed_nodes_tracker.ensure_no_unused_nodes().map_err(print_error).ok()?;
+		Some(res)
 	}
 }
 

@@ -103,7 +103,7 @@ impl Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Freezer = TestFreezer;
-	type CallbackHandle = AssetsCallbackHandle;
+	type CallbackHandle = (AssetsCallbackHandle, AutoIncAssetId<Test>);
 }
 
 use std::collections::HashMap;
@@ -167,6 +167,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 			// id, account_id, balance
 			(999, 1, 100),
 		],
+		next_asset_id: None,
 	};
 
 	config.assimilate_storage(&mut storage).unwrap();

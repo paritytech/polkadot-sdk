@@ -17,7 +17,12 @@
 use super::*;
 
 use crate::{
-	assigner_on_demand::{mock_helpers::GenesisConfigBuilder, Error},
+	assigner_on_demand::{
+		self,
+		mock_helpers::GenesisConfigBuilder,
+		types::{QueueIndex, ReverseQueueIndex},
+		Error,
+	},
 	initializer::SessionChangeNotification,
 	mock::{
 		new_test_ext, Balances, OnDemandAssigner, Paras, ParasShared, RuntimeOrigin, Scheduler,
@@ -27,8 +32,13 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use pallet_balances::Error as BalancesError;
-use polkadot_primitives::{BlockNumber, SessionIndex, ValidationCode};
-use sp_std::collections::btree_map::BTreeMap;
+use polkadot_primitives::{
+	BlockNumber, SessionIndex, ValidationCode, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
+};
+use sp_std::{
+	cmp::{Ord, Ordering},
+	collections::btree_map::BTreeMap,
+};
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
 	let validation_code: ValidationCode = vec![1, 2, 3].into();
@@ -73,7 +83,7 @@ fn run_to_block(
 		Paras::initializer_initialize(b + 1);
 		Scheduler::initializer_initialize(b + 1);
 
-		// We need to update the spot traffic on every block.
+		// Update the spot traffic and revenue on every block.
 		OnDemandAssigner::on_initialize(b + 1);
 
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
@@ -81,14 +91,24 @@ fn run_to_block(
 	}
 }
 
-fn place_order(para_id: ParaId) {
+fn place_order_run_to_blocknumber(para_id: ParaId, blocknumber: Option<BlockNumber>) {
 	let alice = 100u64;
 	let amt = 10_000_000u128;
 
 	Balances::make_free_balance_be(&alice, amt);
 
-	run_to_block(101, |n| if n == 101 { Some(Default::default()) } else { None });
+	if let Some(bn) = blocknumber {
+		run_to_block(bn, |n| if n == bn { Some(Default::default()) } else { None });
+	}
 	OnDemandAssigner::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id).unwrap()
+}
+
+fn place_order_run_to_101(para_id: ParaId) {
+	place_order_run_to_blocknumber(para_id, Some(101));
+}
+
+fn place_order(para_id: ParaId) {
+	place_order_run_to_blocknumber(para_id, None);
 }
 
 #[test]
@@ -377,8 +397,8 @@ fn push_back_assignment_works() {
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// Add enough assignments to the order queue.
-		place_order(para_a);
-		place_order(para_b);
+		place_order_run_to_101(para_a);
+		place_order_run_to_101(para_b);
 
 		// Pop order a
 		assert_eq!(
@@ -424,9 +444,9 @@ fn affinity_prohibits_parallel_scheduling() {
 		assert!(OnDemandAssigner::get_affinity_map(para_b).is_none());
 
 		// Add 2 assignments for para_a for every para_b.
-		place_order(para_a);
-		place_order(para_a);
-		place_order(para_b);
+		place_order_run_to_101(para_a);
+		place_order_run_to_101(para_a);
+		place_order_run_to_101(para_b);
 
 		// Approximate having 1 core.
 		for _ in 0..3 {
@@ -448,9 +468,9 @@ fn affinity_prohibits_parallel_scheduling() {
 		OnDemandAssigner::report_processed(para_b, 0.into());
 
 		// Add 2 assignments for para_a for every para_b.
-		place_order(para_a);
-		place_order(para_a);
-		place_order(para_b);
+		place_order_run_to_101(para_a);
+		place_order_run_to_101(para_a);
+		place_order_run_to_101(para_b);
 
 		// Approximate having 3 cores. CoreIndex 2 should be unable to obtain an assignment
 		for _ in 0..3 {
@@ -490,7 +510,7 @@ fn affinity_changes_work() {
 
 		// Add enough assignments to the order queue.
 		for _ in 0..10 {
-			place_order(para_a);
+			place_order_run_to_101(para_a);
 		}
 
 		// There should be no affinity before the scheduler pops.
@@ -554,7 +574,7 @@ fn new_affinity_for_a_core_must_come_from_free_entries() {
 
 		// Place orders for all chains.
 		parachains.iter().for_each(|chain| {
-			place_order(*chain);
+			place_order_run_to_101(*chain);
 		});
 
 		// There are 4 entries in free_entries.
@@ -679,8 +699,8 @@ fn queue_status_size_fn_works() {
 		// Place orders for all chains.
 		parachains.iter().for_each(|chain| {
 			// 2 per chain for a total of 6
-			place_order(*chain);
-			place_order(*chain);
+			place_order_run_to_101(*chain);
+			place_order_run_to_101(*chain);
 		});
 
 		// 6 orders in free entries
@@ -705,5 +725,114 @@ fn queue_status_size_fn_works() {
 		assert_eq!(OnDemandAssigner::get_free_entries().len(), 2);
 		// For a total size of 4.
 		assert_eq!(OnDemandAssigner::get_queue_status().size(), 4)
+	});
+}
+
+#[test]
+fn revenue_information_fetching_works() {
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		schedule_blank_para(para_a, ParaKind::Parathread);
+		// Mock assigner sets max revenue history to 10.
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		let revenue = OnDemandAssigner::claim_revenue_until(10);
+
+		// No revenue should be recorded.
+		assert_eq!(revenue, 0);
+
+		// Place one order
+		place_order_run_to_blocknumber(para_a, Some(11));
+		let revenue = OnDemandAssigner::get_revenue();
+		let claim = OnDemandAssigner::claim_revenue_until(11);
+
+		// Revenue until the current block is still zero as "until" is non-inclusive
+		assert_eq!(claim, 0);
+
+		run_to_block(12, |n| if n == 12 { Some(Default::default()) } else { None });
+		let claim = OnDemandAssigner::claim_revenue_until(12);
+
+		// Revenue for a single order should be recorded and shouldn't have been pruned by the
+		// previous call
+		assert_eq!(claim, revenue[0]);
+
+		// Place many orders
+		place_order(para_a);
+		place_order(para_a);
+
+		run_to_block(13, |n| if n == 13 { Some(Default::default()) } else { None });
+
+		place_order(para_a);
+
+		run_to_block(15, |n| if n == 14 { Some(Default::default()) } else { None });
+
+		let revenue = OnDemandAssigner::claim_revenue_until(15);
+
+		// All 3 orders should be accounted for.
+		assert_eq!(revenue, 30_000);
+
+		// Place one order
+		place_order_run_to_blocknumber(para_a, Some(16));
+
+		let revenue = OnDemandAssigner::claim_revenue_until(15);
+
+		// Order is not in range of  the revenue_until call
+		assert_eq!(revenue, 0);
+
+		run_to_block(21, |n| if n == 20 { Some(Default::default()) } else { None });
+		let revenue = OnDemandAssigner::claim_revenue_until(21);
+		assert_eq!(revenue, 10_000);
+
+		// Make sure overdue revenue is accumulated
+		for i in 21..=35 {
+			run_to_block(i, |n| if n % 10 == 0 { Some(Default::default()) } else { None });
+			place_order(para_a);
+		}
+		run_to_block(36, |_| None);
+		let revenue = OnDemandAssigner::claim_revenue_until(36);
+		assert_eq!(revenue, 150_000);
+	});
+}
+
+#[test]
+fn pot_account_is_immortal() {
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let pot = OnDemandAssigner::account_id();
+		assert!(!System::account_exists(&pot));
+		schedule_blank_para(para_a, ParaKind::Parathread);
+		// Mock assigner sets max revenue history to 10.
+
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		place_order_run_to_blocknumber(para_a, Some(12));
+		let purchase_revenue = Balances::free_balance(&pot);
+		assert!(purchase_revenue > 0);
+
+		run_to_block(15, |_| None);
+		let _imb = <Test as assigner_on_demand::Config>::Currency::withdraw(
+			&pot,
+			purchase_revenue,
+			WithdrawReasons::FEE,
+			ExistenceRequirement::AllowDeath,
+		);
+		assert_eq!(Balances::free_balance(&pot), 0);
+		assert!(System::account_exists(&pot));
+		assert_eq!(System::providers(&pot), 1);
+
+		// One more cycle to make sure providers are not increased on every transition from zero
+		run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
+		place_order_run_to_blocknumber(para_a, Some(22));
+		let purchase_revenue = Balances::free_balance(&pot);
+		assert!(purchase_revenue > 0);
+
+		run_to_block(25, |_| None);
+		let _imb = <Test as assigner_on_demand::Config>::Currency::withdraw(
+			&pot,
+			purchase_revenue,
+			WithdrawReasons::FEE,
+			ExistenceRequirement::AllowDeath,
+		);
+		assert_eq!(Balances::free_balance(&pot), 0);
+		assert!(System::account_exists(&pot));
+		assert_eq!(System::providers(&pot), 1);
 	});
 }

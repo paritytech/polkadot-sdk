@@ -16,8 +16,8 @@
 //! # Skip Feeless Payment Pallet
 //!
 //! This pallet allows runtimes that include it to skip payment of transaction fees for
-//! dispatchables marked by [`#[pallet::feeless_if]`](`macro@
-//! frame_support::pallet_prelude::feeless_if`).
+//! dispatchables marked by
+//! [`#[pallet::feeless_if]`](frame_support::pallet_prelude::feeless_if).
 //!
 //! ## Overview
 //!
@@ -30,8 +30,9 @@
 //! ## Integration
 //!
 //! This pallet wraps an existing transaction payment pallet. This means you should both pallets
-//! in your `construct_runtime` macro and include this pallet's
-//! [`SignedExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an argument.
+//! in your [`construct_runtime`](frame_support::construct_runtime) macro and
+//! include this pallet's [`SignedExtension`] ([`SkipCheckIfFeeless`]) that would accept the
+//! existing one as an argument.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

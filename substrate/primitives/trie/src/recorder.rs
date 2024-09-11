@@ -150,7 +150,7 @@ impl<H: Hasher, L: Location> Recorder<H, L> {
 
 	/// Convert the recording to a [`StorageProof`].
 	///
-	/// In contrast to [`Self::drain_storage_proof`] this doesn't consumes and doesn't clears the
+	/// In contrast to [`Self::drain_storage_proof`] this doesn't consume and doesn't clear the
 	/// recordings.
 	///
 	/// Returns the [`StorageProof`].
@@ -434,7 +434,8 @@ impl<'a, H: Hasher, L: Location> trie_db::TrieRecorder<H::Out, L> for TrieRecord
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieRecorder};
+	use crate::tests::create_trie;
+	use trie_db::{Trie, TrieDBBuilder, TrieRecorder};
 
 	type MemoryDB = crate::MemoryDB<sp_core::Blake2Hasher>;
 	type Layout = crate::LayoutV1<sp_core::Blake2Hasher, ()>;
@@ -443,19 +444,9 @@ mod tests {
 	const TEST_DATA: &[(&[u8], &[u8])] =
 		&[(b"key1", &[1; 64]), (b"key2", &[2; 64]), (b"key3", &[3; 64]), (b"key4", &[4; 64])];
 
-	fn create_trie() -> (MemoryDB, TrieHash<Layout>) {
-		let mut db = MemoryDB::default();
-		let mut trie = TrieDBMutBuilder::<Layout>::new(&mut db).build();
-		for (k, v) in TEST_DATA {
-			trie.insert(k, v).expect("Inserts data");
-		}
-		let root = trie.commit().apply_to(&mut db);
-		(db, root)
-	}
-
 	#[test]
 	fn recorder_works() {
-		let (db, root) = create_trie();
+		let (db, root) = create_trie::<Layout>(TEST_DATA);
 
 		let recorder = Recorder::default();
 
@@ -499,7 +490,7 @@ mod tests {
 
 	#[test]
 	fn recorder_transactions_rollback_work() {
-		let (db, root) = create_trie();
+		let (db, root) = create_trie::<Layout>(TEST_DATA);
 
 		let recorder = Recorder::default();
 		let mut stats = vec![RecorderStats::default()];
@@ -548,7 +539,7 @@ mod tests {
 
 	#[test]
 	fn recorder_transactions_commit_work() {
-		let (db, root) = create_trie();
+		let (db, root) = create_trie::<Layout>(TEST_DATA);
 
 		let recorder = Recorder::default();
 
@@ -587,7 +578,7 @@ mod tests {
 
 	#[test]
 	fn recorder_transactions_commit_and_rollback_work() {
-		let (db, root) = create_trie();
+		let (db, root) = create_trie::<Layout>(TEST_DATA);
 
 		let recorder = Recorder::default();
 
@@ -646,7 +637,7 @@ mod tests {
 	#[test]
 	fn recorder_transaction_accessed_keys_works() {
 		let key = TEST_DATA[0].0;
-		let (db, root) = create_trie();
+		let (db, root) = create_trie::<Layout>(TEST_DATA);
 
 		let recorder = Recorder::default();
 

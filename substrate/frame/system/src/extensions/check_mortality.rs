@@ -28,6 +28,9 @@ use sp_runtime::{
 
 /// Check for transaction mortality.
 ///
+/// The extension adds [`Era`] to every signed extrinsic. It also contributes to the signed data, by
+/// including the hash of the block at [`Era::birth`].
+///
 /// # Transaction Validity
 ///
 /// The extension affects `longevity` of the transaction according to the [`Era`] definition.

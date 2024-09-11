@@ -143,7 +143,7 @@ polkadot-node-core-runtime-api = { optional = true, workspace = true, default-fe
 polkadot-statement-distribution = { optional = true, workspace = true, default-features = true }
 
 xcm = { workspace = true, default-features = true }
-xcm-fee-payment-runtime-api = { workspace = true, default-features = true }
+xcm-runtime-apis = { workspace = true, default-features = true }
 
 [dev-dependencies]
 polkadot-test-client = { workspace = true }
@@ -217,7 +217,7 @@ runtime-benchmarks = [
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
-	"xcm-fee-payment-runtime-api/runtime-benchmarks",
+	"xcm-runtime-apis/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
