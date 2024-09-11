@@ -21,7 +21,8 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: !reference [ .ci-unified, variables, CI_IMAGE ]
+  # CI_IMAGE: !reference [ .ci-unified, variables, CI_IMAGE ]
+  CI_IMAGE: "docker.io/paritytech/ci-unified:bullseye-1.81.0-2024-09-11-v202409111034"
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
@@ -39,7 +40,7 @@ default:
       - runner_system_failure
       - unknown_failure
       - api_failure
-  cache: { }
+  cache: {}
   interruptible: true
 
 .collect-artifacts:
@@ -68,8 +69,8 @@ default:
 
 .common-before-script:
   before_script:
-    - !reference [ .job-switcher, before_script ]
-    - !reference [ .pipeline-stopper-vars, script ]
+    - !reference [.job-switcher, before_script]
+    - !reference [.pipeline-stopper-vars, script]
 
 .job-switcher:
   before_script:
@@ -78,8 +79,8 @@ default:
 .kubernetes-env:
   image: "${CI_IMAGE}"
   before_script:
-    - !reference [ .common-before-script, before_script ]
-    - !reference [ .prepare-env, before_script ]
+    - !reference [.common-before-script, before_script]
+    - !reference [.prepare-env, before_script]
   tags:
     - kubernetes-parity-build
 
@@ -107,12 +108,12 @@ default:
 .docker-env:
   image: "${CI_IMAGE}"
   variables:
-    FL_FORKLIFT_VERSION: !reference [ .forklift, variables, FL_FORKLIFT_VERSION ]
+    FL_FORKLIFT_VERSION: !reference [.forklift, variables, FL_FORKLIFT_VERSION]
   before_script:
-    - !reference [ .common-before-script, before_script ]
-    - !reference [ .prepare-env, before_script ]
-    - !reference [ .rust-info-script, script ]
-    - !reference [ .forklift-cache, before_script ]
+    - !reference [.common-before-script, before_script]
+    - !reference [.prepare-env, before_script]
+    - !reference [.rust-info-script, script]
+    - !reference [.forklift-cache, before_script]
   tags:
     - linux-docker
 
