@@ -70,29 +70,27 @@ jobs:
         run: |
           forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
           ls -lsa ./charts
-          mkdir -p ./artifacts/${{ matrix.features.bench }}
-          cp ./charts/${{ matrix.features.bench }}.json ./artifacts/${{ matrix.features.bench }}/${{ matrix.features.bench }}.json || echo "Failed to copy ${{ matrix.features.bench }}"
+          mkdir -p ./charts/${{ matrix.features.bench }}
+          cp ./charts/${{ matrix.features.bench }}.json ./charts/${{ matrix.features.bench }}/${{ matrix.features.bench }}.json || echo "Failed to copy ${{ matrix.features.bench }}"
 
       - name: Generate ${{ matrix.features.bench }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "customSmallerIsBetter"
           name: ${{ matrix.features.bench }}
-          output-file-path: ./artifacts/${{ matrix.features.bench }}/${{ matrix.features.bench }}.json
-          benchmark-data-dir-path: ./artifacts/${{ matrix.features.bench }}
+          output-file-path: ./charts/${{ matrix.features.bench }}/${{ matrix.features.bench }}.json
+          benchmark-data-dir-path: ./charts/${{ matrix.features.bench }}
           auto-push: false
-          skip-fetch-gh-pages: true
-          gh-pages-branch: master
 
       - run: |
-          ls -lsa ./artifacts
-          ls -lsa ./artifacts/${{ matrix.features.bench }}
+          ls -lsa ./charts
+          ls -lsa ./charts/${{ matrix.features.bench }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.3.6
         with:
           name: ${{matrix.features.bench}}
-          path: ./artifacts
+          path: ./charts
 
   publish-benchmarks:
     timeout-minutes: 60
@@ -109,17 +107,17 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4.1.8
         with:
-          path: ./artifacts
+          path: ./charts
 
       - name: Setup git & copy artifacts
         run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
-          ls -lsR ./artifacts
-          cp -r ./artifacts/availability-recovery-regression-bench ./bench/ || echo "Failed to copy availability-recovery-regression-bench"
-          cp -r ./artifacts/statement-distribution-regression-bench ./bench/ || echo "Failed to copy statement-distribution-regression-bench"
-          cp -r ./artifacts/approval-voting-regression-bench ./bench/ || echo "Failed to copy approval-voting-regression-bench"
-          cp -r ./artifacts/statement-distribution-regression-bench ./bench/ || echo "Failed to copy statement-distribution-regression-bench"
+          ls -lsR ./charts
+          cp -r ./charts/availability-recovery-regression-bench ./bench/ || echo "Failed to copy availability-recovery-regression-bench"
+          cp -r ./charts/statement-distribution-regression-bench ./bench/ || echo "Failed to copy statement-distribution-regression-bench"
+          cp -r ./charts/approval-voting-regression-bench ./bench/ || echo "Failed to copy approval-voting-regression-bench"
+          cp -r ./charts/statement-distribution-regression-bench ./bench/ || echo "Failed to copy statement-distribution-regression-bench"
 
       - uses: actions/create-github-app-token@v1
         id: app-token
