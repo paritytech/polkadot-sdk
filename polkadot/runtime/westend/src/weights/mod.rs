@@ -27,6 +27,7 @@ pub mod pallet_fast_unstake;
 pub mod pallet_identity;
 pub mod pallet_indices;
 pub mod pallet_message_queue;
+pub mod pallet_migrations;
 pub mod pallet_mmr;
 pub mod pallet_multisig;
 pub mod pallet_nomination_pools;

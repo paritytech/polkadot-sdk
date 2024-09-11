@@ -2125,7 +2125,10 @@ impl pallet_migrations::Config for Runtime {
 	type Migrations = ();
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
-	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type Migrations = (
+		pallet_migrations::mock_helpers::MockedMigrations,
+		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
+	);
 	type CursorMaxLen = ConstU32<65_536>;
 	type IdentifierMaxLen = ConstU32<256>;
 	type MigrationStatusHandler = ();
