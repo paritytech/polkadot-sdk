@@ -25,8 +25,9 @@
 use polkadot_node_primitives::DisputeStatus;
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, Hash, InvalidDisputeStatementKind, SessionIndex,
-	ValidDisputeStatementKind, ValidatorIndex, ValidatorSignature,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash,
+	InvalidDisputeStatementKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+	ValidatorSignature,
 };
 
 use std::sync::Arc;

@@ -770,7 +770,7 @@ pub trait HypotheticalOrConcreteCandidate {
 	/// Return a reference to the persisted validation data, if present.
 	fn persisted_validation_data(&self) -> Option<&PersistedValidationData>;
 	/// Return a reference to the validation code hash, if present.
-	fn validation_code_hash(&self) -> Option<&ValidationCodeHash>;
+	fn validation_code_hash(&self) -> Option<ValidationCodeHash>;
 	/// Return the parent head hash.
 	fn parent_head_data_hash(&self) -> Hash;
 	/// Return the output head hash, if present.
@@ -790,7 +790,7 @@ impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {
 		self.persisted_validation_data()
 	}
 
-	fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
+	fn validation_code_hash(&self) -> Option<ValidationCodeHash> {
 		self.validation_code_hash()
 	}
 

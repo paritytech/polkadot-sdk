@@ -30,10 +30,10 @@ use futures::Future;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
-	CommittedCandidateReceipt, CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData,
-	Id as ParaId, PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
-	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlakeTwo256, BlockNumber,
+	CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair, CompactStatement, CoreIndex,
+	EncodeAs, Hash, HashT, HeadData, Id as ParaId, PersistedValidationData, SessionIndex, Signed,
+	UncheckedSigned, ValidationCode, ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,

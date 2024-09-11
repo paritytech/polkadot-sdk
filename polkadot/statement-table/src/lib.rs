@@ -35,8 +35,8 @@ pub use generic::{Config, Context, Table};
 pub mod v2 {
 	use crate::generic;
 	use polkadot_primitives::{
-		CandidateHash, CommittedCandidateReceipt, CompactStatement as PrimitiveStatement,
-		CoreIndex, ValidatorIndex, ValidatorSignature,
+		vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash,
+		CompactStatement as PrimitiveStatement, CoreIndex, ValidatorIndex, ValidatorSignature,
 	};
 
 	/// Statements about candidates on the network.

@@ -30,7 +30,9 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_subsystem::{Span, Stage};
 use polkadot_node_subsystem_util::TimeoutExt;
-use polkadot_primitives::{CandidateHash, CommittedCandidateReceipt, Hash};
+use polkadot_primitives::{
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash, Hash,
+};
 
 use crate::{
 	legacy_v1::{COST_WRONG_HASH, LOG_TARGET},

@@ -29,7 +29,7 @@ use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_primitives::{
-	AsyncBackingParams, CoreIndex, CoreState, Hash as RelayHash, Id as ParaId,
+	vstaging::CoreState, AsyncBackingParams, CoreIndex, Hash as RelayHash, Id as ParaId,
 	OccupiedCoreAssumption, ValidationCodeHash,
 };
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};

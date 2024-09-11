@@ -44,7 +44,7 @@ pub fn dummy_candidate_receipt<H: AsRef<[u8]>>(relay_parent: H) -> CandidateRece
 }
 
 /// Creates a v2 candidate receipt with filler data.
-pub fn dummy_candidate_receipt_v2<H: AsRef<[u8]>>(relay_parent: H) -> CandidateReceiptV2<H> {
+pub fn dummy_candidate_receipt_v2<H: AsRef<[u8]> + Copy>(relay_parent: H) -> CandidateReceiptV2<H> {
 	CandidateReceiptV2::<H> {
 		commitments_hash: dummy_candidate_commitments(dummy_head_data()).hash(),
 		descriptor: dummy_candidate_descriptor_v2(relay_parent),
@@ -62,7 +62,7 @@ pub fn dummy_committed_candidate_receipt<H: AsRef<[u8]>>(
 }
 
 /// Creates a v2 committed candidate receipt with filler data.
-pub fn dummy_committed_candidate_receipt_v2<H: AsRef<[u8]>>(
+pub fn dummy_committed_candidate_receipt_v2<H: AsRef<[u8]> + Copy>(
 	relay_parent: H,
 ) -> CommittedCandidateReceiptV2<H> {
 	CommittedCandidateReceiptV2 {
@@ -144,7 +144,9 @@ pub fn dummy_candidate_descriptor<H: AsRef<[u8]>>(relay_parent: H) -> CandidateD
 }
 
 /// Create a v2 candidate descriptor with filler data.
-pub fn dummy_candidate_descriptor_v2<H: AsRef<[u8]>>(relay_parent: H) -> CandidateDescriptorV2<H> {
+pub fn dummy_candidate_descriptor_v2<H: AsRef<[u8]> + Copy>(
+	relay_parent: H,
+) -> CandidateDescriptorV2<H> {
 	let invalid = Hash::zero();
 	let descriptor = make_valid_candidate_descriptor_v2(
 		1.into(),
@@ -269,7 +271,7 @@ pub fn make_valid_candidate_descriptor<H: AsRef<[u8]>>(
 }
 
 /// Create a v2 candidate descriptor.
-pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]>>(
+pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]> + Copy>(
 	para_id: ParaId,
 	relay_parent: H,
 	core_index: CoreIndex,

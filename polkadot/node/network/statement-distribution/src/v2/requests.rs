@@ -47,9 +47,9 @@ use polkadot_node_network_protocol::{
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::{
-	CandidateHash, CommittedCandidateReceipt, CompactStatement, GroupIndex, Hash, Id as ParaId,
-	PersistedValidationData, SessionIndex, SignedStatement, SigningContext, ValidatorId,
-	ValidatorIndex,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash,
+	CompactStatement, GroupIndex, Hash, Id as ParaId, PersistedValidationData, SessionIndex,
+	SignedStatement, SigningContext, ValidatorId, ValidatorIndex,
 };
 
 use futures::{future::BoxFuture, prelude::*, stream::FuturesUnordered};
@@ -696,18 +696,18 @@ fn validate_complete_response(
 	// sanity-check candidate response.
 	// note: roughly ascending cost of operations
 	{
-		if response.candidate_receipt.descriptor.relay_parent != identifier.relay_parent {
+		if response.candidate_receipt.descriptor.relay_parent() != identifier.relay_parent {
 			return invalid_candidate_output()
 		}
 
-		if response.candidate_receipt.descriptor.persisted_validation_data_hash !=
+		if response.candidate_receipt.descriptor.persisted_validation_data_hash() !=
 			response.persisted_validation_data.hash()
 		{
 			return invalid_candidate_output()
 		}
 
 		if !allowed_para_lookup(
-			response.candidate_receipt.descriptor.para_id,
+			response.candidate_receipt.descriptor.para_id(),
 			identifier.group_index,
 		) {
 			return invalid_candidate_output()

@@ -36,8 +36,8 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex, GroupIndex, Hash, HashT,
-	OccupiedCore, SessionIndex,
+	vstaging::OccupiedCore, AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex,
+	GroupIndex, Hash, HashT, SessionIndex,
 };
 use sc_network::ProtocolName;
 
@@ -165,8 +165,8 @@ impl FetchTaskConfig {
 			.with_validator_index(session_info.our_index)
 			.with_chunk_index(chunk_index)
 			.with_uint_tag("group-index", core.group_responsible.0 as u64)
-			.with_relay_parent(core.candidate_descriptor.relay_parent)
-			.with_string_tag("pov-hash", format!("{:?}", core.candidate_descriptor.pov_hash))
+			.with_relay_parent(core.candidate_descriptor.relay_parent())
+			.with_string_tag("pov-hash", format!("{:?}", core.candidate_descriptor.pov_hash()))
 			.with_stage(jaeger::Stage::AvailabilityDistribution);
 
 		let live_in = vec![leaf].into_iter().collect();
@@ -186,8 +186,8 @@ impl FetchTaskConfig {
 				candidate_hash: core.candidate_hash,
 				index: session_info.our_index,
 			},
-			erasure_root: core.candidate_descriptor.erasure_root,
-			relay_parent: core.candidate_descriptor.relay_parent,
+			erasure_root: core.candidate_descriptor.erasure_root(),
+			relay_parent: core.candidate_descriptor.relay_parent(),
 			metrics,
 			sender,
 			span,

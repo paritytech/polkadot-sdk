@@ -20,7 +20,7 @@ use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
 		runtime_api::ParachainHost, Block as PBlock, BlockId, BlockNumber,
-		CommittedCandidateReceipt, CoreState, Hash as PHash, Header as PHeader, InboundHrmpMessage,
+		vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, vstaging::CoreState, Hash as PHash, Header as PHeader, InboundHrmpMessage,
 		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,

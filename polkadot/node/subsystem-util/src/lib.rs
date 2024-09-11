@@ -41,12 +41,15 @@ use codec::Encode;
 use futures::channel::{mpsc, oneshot};
 
 use polkadot_primitives::{
-	async_backing::BackingState, slashing, AsyncBackingParams, AuthorityDiscoveryId,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, EncodeAs,
-	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
-	SigningContext, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	slashing,
+	vstaging::{
+		async_backing::BackingState, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
+	},
+	AsyncBackingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, EncodeAs, ExecutorParams,
+	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 pub use rand;
 use runtime::get_disabled_validators_with_fallback;

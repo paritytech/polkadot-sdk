@@ -136,8 +136,9 @@ use polkadot_node_subsystem_util::inclusion_emulator::{
 	ProspectiveCandidate, RelayChainBlockInfo,
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CandidateHash, CommittedCandidateReceipt, Hash, HeadData,
-	PersistedValidationData, ValidationCodeHash,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlockNumber,
+	CandidateCommitments, CandidateHash, Hash, HeadData, PersistedValidationData,
+	ValidationCodeHash,
 };
 use thiserror::Error;
 
@@ -371,7 +372,8 @@ impl CandidateEntry {
 		persisted_validation_data: PersistedValidationData,
 		state: CandidateState,
 	) -> Result<Self, CandidateEntryError> {
-		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash {
+		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash()
+		{
 			return Err(CandidateEntryError::PersistedValidationDataMismatch)
 		}
 
@@ -386,13 +388,13 @@ impl CandidateEntry {
 			candidate_hash,
 			parent_head_data_hash,
 			output_head_data_hash,
-			relay_parent: candidate.descriptor.relay_parent,
+			relay_parent: candidate.descriptor.relay_parent(),
 			state,
 			candidate: Arc::new(ProspectiveCandidate {
 				commitments: candidate.commitments,
 				persisted_validation_data,
-				pov_hash: candidate.descriptor.pov_hash,
-				validation_code_hash: candidate.descriptor.validation_code_hash,
+				pov_hash: candidate.descriptor.pov_hash(),
+				validation_code_hash: candidate.descriptor.validation_code_hash(),
 			}),
 		})
 	}
@@ -407,8 +409,8 @@ impl HypotheticalOrConcreteCandidate for CandidateEntry {
 		Some(&self.candidate.persisted_validation_data)
 	}
 
-	fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
-		Some(&self.candidate.validation_code_hash)
+	fn validation_code_hash(&self) -> Option<ValidationCodeHash> {
+		Some(self.candidate.validation_code_hash)
 	}
 
 	fn parent_head_data_hash(&self) -> Hash {
@@ -1090,7 +1092,7 @@ impl FragmentChain {
 				&relay_parent,
 				&constraints,
 				commitments,
-				validation_code_hash,
+				&validation_code_hash,
 				pvd,
 			)
 			.map_err(Error::CheckAgainstConstraints)?;

@@ -40,7 +40,7 @@ use polkadot_node_subsystem_util::{
 	runtime::{get_occupied_cores, RuntimeInfo},
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CoreIndex, Hash, OccupiedCore, SessionIndex,
+	vstaging::OccupiedCore, BlockNumber, CandidateHash, CoreIndex, Hash, SessionIndex,
 };
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};

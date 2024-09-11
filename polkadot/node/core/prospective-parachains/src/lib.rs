@@ -49,9 +49,11 @@ use polkadot_node_subsystem_util::{
 	runtime::{fetch_claim_queue, prospective_parachains_mode, ProspectiveParachainsMode},
 };
 use polkadot_primitives::{
-	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash,
-	CommittedCandidateReceipt, CoreState, Hash, HeadData, Header, Id as ParaId,
-	PersistedValidationData,
+	vstaging::{
+		async_backing::CandidatePendingAvailability,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+	},
+	BlockNumber, CandidateHash, Hash, HeadData, Header, Id as ParaId, PersistedValidationData,
 };
 
 use crate::{
@@ -453,12 +455,13 @@ async fn preprocess_candidates_pending_availability<Context>(
 
 	for (i, pending) in pending_availability.into_iter().enumerate() {
 		let Some(relay_parent) =
-			fetch_block_info(ctx, cache, pending.descriptor.relay_parent).await?
+			fetch_block_info(ctx, cache, pending.descriptor.relay_parent()).await?
 		else {
+			let para_id = pending.descriptor.para_id();
 			gum::debug!(
 				target: LOG_TARGET,
 				?pending.candidate_hash,
-				?pending.descriptor.para_id,
+				?para_id,
 				index = ?i,
 				?expected_count,
 				"Had to stop processing pending candidates early due to missing info.",
