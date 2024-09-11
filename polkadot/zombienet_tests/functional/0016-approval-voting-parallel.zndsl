@@ -25,8 +25,8 @@ alice: parachain 2005 block height is at least 10 within 300 seconds
 alice: parachain 2006 block height is at least 10 within 300 seconds
 alice: parachain 2007 block height is at least 10 within 300 seconds
 
-alice: reports substrate_block_height{status="finalized"} is at least 30 within 40000 seconds
-bob: reports substrate_block_height{status="finalized"} is at least 30 within 40000 seconds
+alice: reports substrate_block_height{status="finalized"} is at least 30 within 180 seconds
+bob: reports substrate_block_height{status="finalized"} is at least 30 within 180 seconds
 
 alice: reports polkadot_parachain_approval_checking_finality_lag < 3
 bob: reports polkadot_parachain_approval_checking_finality_lag < 3
