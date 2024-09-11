@@ -16,15 +16,10 @@ use crate::imports::*;
 use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 use bridge_hub_westend_runtime::EthereumInboundQueue;
 use codec::{Decode, Encode};
-use emulated_integration_tests_common::{
-	PenpalBSiblingSovereignAccount, RESERVABLE_ASSET_ID, TELEPORTABLE_ASSET_ID,
-};
+use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
-use rococo_westend_system_emulated_network::{
-	asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner,
-	penpal_emulated_chain::penpal_runtime::xcm_config::RelayLocation,
-};
+use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
 use snowbridge_core::{outbound::OperatingMode, AssetMetadata, TokenIdOf};
 use snowbridge_router_primitives::inbound::{
 	Command, Destination, GlobalConsensusEthereumConvertsFor, MessageV1, VersionedMessage,
