@@ -107,7 +107,7 @@ jobs:
             "statement-distribution-regression-bench"
           )
           for bench in "${benchmarks[@]}"; do
-            cp -r "./charts/${bench}.json" ./bench/${bench} || echo "Failed to copy ${bench}"
+            cp -r "./charts/${bench}" ./bench/${bench} || echo "Failed to copy ${bench}"
           done
 
       - name: Generate ${{ env.BENCH }}
