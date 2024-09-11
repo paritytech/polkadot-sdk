@@ -1165,9 +1165,13 @@ impl<T: Config> Pallet<T> {
 		OldCurrency: frame_support::traits::InspectLockableCurrency<T::AccountId>,
 		BalanceOf<T>: From<OldCurrency::Balance>,
 	{
-		// use frame_support::traits::InspectLockableCurrency;
-		let ledger = Self::ledger(Stash(stash.clone()))?;
+		if Self::is_virtual_staker(stash) {
+			// we don't need to do anything for virtual stakers since their funds are not locked by
+			// this pallet.
+			return Ok(())
+		}
 
+		let ledger = Self::ledger(Stash(stash.clone()))?;
 		const LOCK_ID: frame_support::traits::LockIdentifier = *b"staking ";
 		let locked: BalanceOf<T> = OldCurrency::balance_locked(LOCK_ID, stash).into();
 		let max_hold = asset::stakeable_balance::<T>(&stash);
@@ -1176,8 +1180,9 @@ impl<T: Config> Pallet<T> {
 			// just hold asset.
 			asset::update_stake::<T>(&stash, locked)?;
 		} else {
+			let ed = asset::existential_deposit::<T>();
 			let unsafe_withdraw = locked.saturating_sub(max_hold);
-			log::info!(target: "remote_test", "unsafe_withdraw: {:?} {:?}", stash, unsafe_withdraw);
+			log::info!(target: "remote_test", "unsafe_withdraw from stash: {:?}, value {:?}, active {:?}", stash, unsafe_withdraw/ed, ledger.active/ed);
 
 			// we ignore if active is 0. This amount will get unlocked anyways in the future.
 			StakingLedger {

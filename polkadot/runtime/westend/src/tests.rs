@@ -237,4 +237,64 @@ mod remote_tests {
 			);
 		});
 	}
+
+	#[tokio::test]
+	async fn staking_curr_fun_migrate() {
+		// Intended to be run only manually.
+		if var("RUN_MIGRATION_TESTS").is_err() {
+			return;
+		}
+		use frame_support::assert_ok;
+		sp_tracing::try_init_simple();
+
+		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string()).into();
+		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		let online_config = OnlineConfig {
+			transport,
+			state_snapshot: maybe_state_snapshot.clone(),
+			child_trie: false,
+			pallets: vec!["Staking".into(), "System".into(), "Balances".into()],
+			..Default::default()
+		};
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					online_config,
+				)
+			} else {
+				Mode::Online(online_config)
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(|| {
+			// create an account with some balance
+			let alice = AccountId::from([1u8; 32]);
+			use frame_support::traits::Currency;
+			let _ = Balances::deposit_creating(&alice, 100_000 * UNITS);
+
+			let mut success = 0;
+			let mut err = 0;
+			// iterate over all pools
+			pallet_staking::Ledger::<Runtime>::iter_values().for_each(|ledger| {
+				match pallet_staking::Pallet::<Runtime>::migrate_lock_to_hold::<Balances>(&ledger.stash) {
+					Ok(_) => {
+						success += 1;
+					}
+					Err(e) => {
+						log::error!(target: "remote_test", "Error migrating {:?}: {:?}", ledger.stash, e);
+						err += 1;
+					}
+				}
+			});
+
+			log::info!(
+				target: "remote_test",
+				"Migration stats: success: {}, err: {}",
+				success,
+				err,
+			);
+		});
+	}
 }
