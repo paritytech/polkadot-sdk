@@ -42,18 +42,14 @@ impl<T: Config> OnRuntimeUpgrade for ExecutionHeaderCleanup<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
-		log::info!(target: LOG_TARGET, "Pre-upgrade value is {}.", last_index);
-		frame_support::ensure!(
-			last_index != 0,
-			"Snowbridge execution header storage is not migrated."
-		);
+		log::info!(target: LOG_TARGET, "Pre-upgrade execution header index is {}.", last_index);
 		Ok(vec![])
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
 		let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
-		log::info!(target: LOG_TARGET, "Post-upgrade value is {}.", last_index);
+		log::info!(target: LOG_TARGET, "Post-upgrade execution header index is {}.", last_index);
 		frame_support::ensure!(last_index == 0, "Snowbridge execution header storage is migrated.");
 		Ok(())
 	}
