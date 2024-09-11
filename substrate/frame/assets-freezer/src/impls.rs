@@ -38,6 +38,10 @@ impl<T: Config<I>, I: 'static> FrozenBalance<T::AssetId, T::AccountId, T::Balanc
 		FrozenBalances::<T, I>::remove(asset.clone(), who);
 		Freezes::<T, I>::remove(asset, who);
 	}
+
+	fn contains_freezes(asset: T::AssetId) -> bool {
+		Freezes::<T, I>::contains_prefix(asset)
+	}
 }
 
 // Implement [`fungibles::Inspect`](frame_support::traits::fungibles::Inspect) as it is bound by

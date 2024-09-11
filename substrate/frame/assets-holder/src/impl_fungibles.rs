@@ -28,6 +28,7 @@ use sp_runtime::{
 	traits::{CheckedAdd, CheckedSub, Zero},
 	ArithmeticError,
 };
+use storage::StorageDoubleMap;
 
 // Implements [`BalanceOnHold`] from [`pallet-assets`], so it can understand whether there's some
 // balance on hold for an asset account, and is able to signal to this pallet when to clear the
@@ -40,21 +41,21 @@ impl<T: Config<I>, I: 'static> BalanceOnHold<T::AssetId, T::AccountId, T::Balanc
 	}
 
 	fn died(asset: T::AssetId, who: &T::AccountId) {
-		if pallet_assets::Pallet::<T, I>::can_withdraw(asset.clone(), who, Zero::zero()) ==
-			WithdrawConsequence::Success
-		{
-			defensive_assert!(
-				Holds::<T, I>::get(asset.clone(), who).is_empty(),
-				"The list of Holds should be empty before allowing an account to die"
-			);
-			defensive_assert!(
-				BalancesOnHold::<T, I>::get(asset.clone(), who).is_none(),
-				"The should not be a balance on hold before allowing to die"
-			);
-		}
+		defensive_assert!(
+			Holds::<T, I>::get(asset.clone(), who).is_empty(),
+			"The list of Holds should be empty before allowing an account to die"
+		);
+		defensive_assert!(
+			BalancesOnHold::<T, I>::get(asset.clone(), who).is_none(),
+			"The should not be a balance on hold before allowing to die"
+		);
 
 		Holds::<T, I>::remove(asset.clone(), who);
 		BalancesOnHold::<T, I>::remove(asset, who);
+	}
+
+	fn contains_holds(asset: T::AssetId) -> bool {
+		Holds::<T, I>::contains_prefix(asset)
 	}
 }
 

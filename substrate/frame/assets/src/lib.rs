@@ -693,6 +693,10 @@ pub mod pallet {
 		CallbackFailed,
 		/// The asset ID must be equal to the [`NextAssetId`].
 		BadAssetId,
+		/// The asset cannot be destroyed because some accounts for this asset contain holds.
+		ContainsHolds,
+		/// The asset cannot be destroyed because some accounts for this asset contain freezes.
+		ContainsFreezes,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]

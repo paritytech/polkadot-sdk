@@ -1389,7 +1389,7 @@ fn freezing_and_holds_work() {
 		assert_eq!(Assets::balance(0, 1), 100);
 
 		// Hold 50 of it
-		set_held_balance(0, 1, 50);
+		set_balance_on_hold(0, 1, 50);
 		assert_eq!(Assets::balance(0, 1), 50);
 		assert_eq!(TestHolder::balance_on_hold(0, &1), Some(50));
 
@@ -1400,7 +1400,7 @@ fn freezing_and_holds_work() {
 		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(39));
 
 		// Increasing hold is not necessarily restricted by the frozen balance
-		set_held_balance(0, 1, 62);
+		set_balance_on_hold(0, 1, 62);
 		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(28));
 
 		// Transfers are bound to the spendable amount
@@ -1782,6 +1782,31 @@ fn root_asset_create_should_work() {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_some());
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_none());
+	});
+}
+
+#[test]
+fn asset_start_destroy_fails_if_there_are_holds_or_freezes() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		set_frozen_balance(0, 1, 50);
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsFreezes
+		);
+
+		set_balance_on_hold(0, 1, 50);
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsHolds
+		);
+
+		clear_frozen_balance(0, 1);
+		clear_balance_on_hold(0, 1);
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
 	});
 }
 

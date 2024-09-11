@@ -220,9 +220,10 @@ pub trait FrozenBalance<AssetId, AccountId, Balance> {
 	fn frozen_balance(asset: AssetId, who: &AccountId) -> Option<Balance>;
 
 	/// Called after an account has been removed.
-	///
-	/// NOTE: It is possible that the asset does no longer exist when this hook is called.
 	fn died(asset: AssetId, who: &AccountId);
+
+	/// Return a value that indicates if there are registered freezes for a given asset.
+	fn contains_freezes(asset: AssetId) -> bool;
 }
 
 impl<AssetId, AccountId, Balance> FrozenBalance<AssetId, AccountId, Balance> for () {
@@ -230,6 +231,9 @@ impl<AssetId, AccountId, Balance> FrozenBalance<AssetId, AccountId, Balance> for
 		None
 	}
 	fn died(_: AssetId, _: &AccountId) {}
+	fn contains_freezes(_: AssetId) -> bool {
+		false
+	}
 }
 
 /// This trait indicates a balance that is _on hold_ for an asset account.
@@ -251,9 +255,10 @@ pub trait BalanceOnHold<AssetId, AccountId, Balance> {
 	///
 	/// It is expected that this method is called only when there is not balance
 	/// on hold. Otherwise, an account should not be removed.
-	///
-	/// NOTE: It is possible that the asset no longer exists when this hook is called.
 	fn died(asset: AssetId, who: &AccountId);
+
+	/// Return a value that indicates if there are registered holds for a given asset.
+	fn contains_holds(asset: AssetId) -> bool;
 }
 
 impl<AssetId, AccountId, Balance> BalanceOnHold<AssetId, AccountId, Balance> for () {
@@ -261,6 +266,9 @@ impl<AssetId, AccountId, Balance> BalanceOnHold<AssetId, AccountId, Balance> for
 		None
 	}
 	fn died(_: AssetId, _: &AccountId) {}
+	fn contains_holds(_: AssetId) -> bool {
+		false
+	}
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]

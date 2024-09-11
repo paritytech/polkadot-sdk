@@ -115,23 +115,27 @@ pub enum Hook {
 }
 parameter_types! {
 	static Frozen: HashMap<(u32, u64), u64> = Default::default();
-	static Held: HashMap<(u32, u64), u64> = Default::default();
+	static OnHold: HashMap<(u32, u64), u64> = Default::default();
 	static Hooks: Vec<Hook> = Default::default();
 }
 
 pub struct TestHolder;
 impl BalanceOnHold<u32, u64, u64> for TestHolder {
 	fn balance_on_hold(asset: u32, who: &u64) -> Option<u64> {
-		Held::get().get(&(asset, *who)).cloned()
+		OnHold::get().get(&(asset, *who)).cloned()
 	}
 
 	fn died(_asset: u32, _who: &u64) {
 		// TODO: Connect with existing hooks list
 	}
+
+	fn contains_holds(asset: AssetId) -> bool {
+		!OnHold::get().iter().find(|((k, _), _)| &asset == k).is_none()
+	}
 }
 
-pub(crate) fn set_held_balance(asset: u32, who: u64, amount: u64) {
-	Held::mutate(|v| {
+pub(crate) fn set_balance_on_hold(asset: u32, who: u64, amount: u64) {
+	OnHold::mutate(|v| {
 		let amount_on_hold = v.get(&(asset, who)).unwrap_or(&0);
 
 		if &amount > amount_on_hold {
@@ -149,6 +153,12 @@ pub(crate) fn set_held_balance(asset: u32, who: u64, amount: u64) {
 		v.insert((asset, who), amount);
 	});
 }
+
+pub(crate) fn clear_balance_on_hold(asset: u32, who: u64) {
+	OnHold::mutate(|v| {
+		v.remove(&(asset, who));
+	});
+}
 pub struct TestFreezer;
 impl FrozenBalance<u32, u64, u64> for TestFreezer {
 	fn frozen_balance(asset: u32, who: &u64) -> Option<u64> {
@@ -160,6 +170,11 @@ impl FrozenBalance<u32, u64, u64> for TestFreezer {
 
 		// Sanity check: dead accounts have no balance.
 		assert!(Assets::balance(asset, *who).is_zero());
+	}
+
+	/// Return a value that indicates if there are registered freezes for a given asset.
+	fn contains_freezes(asset: AssetId) -> bool {
+		!Frozen::get().iter().find(|((k, _), _)| &asset == k).is_none()
 	}
 }
 

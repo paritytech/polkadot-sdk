@@ -769,6 +769,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			if let Some(check_owner) = maybe_check_owner {
 				ensure!(details.owner == check_owner, Error::<T, I>::NoPermission);
 			}
+
+			ensure!(!T::Holder::contains_holds(id.clone()), Error::<T, I>::ContainsHolds);
+			ensure!(!T::Freezer::contains_freezes(id.clone()), Error::<T, I>::ContainsFreezes);
+
 			details.status = AssetStatus::Destroying;
 
 			Self::deposit_event(Event::DestructionStarted { asset_id: id });
