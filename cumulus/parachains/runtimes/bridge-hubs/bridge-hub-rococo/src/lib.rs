@@ -546,11 +546,7 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = snowbridge_pallet_ethereum_client::migration::EthereumExecutionHeaderCleanup<
-		Runtime,
-		crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>,
-		ExecutionHeaderCount,
-	>;
+	type Migrations = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
 	type CursorMaxLen = ConstU32<65_536>;

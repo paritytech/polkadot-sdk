@@ -50,7 +50,7 @@ impl<T: Config> OnRuntimeUpgrade for ExecutionHeaderCleanup<T> {
 	fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
 		let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
 		log::info!(target: LOG_TARGET, "Post-upgrade execution header index is {}.", last_index);
-		frame_support::ensure!(last_index == 0, "Snowbridge execution header storage is migrated.");
+		frame_support::ensure!(last_index == 0, "Snowbridge execution header storage has not successfully been migrated.");
 		Ok(())
 	}
 }
