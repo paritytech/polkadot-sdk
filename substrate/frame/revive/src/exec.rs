@@ -64,7 +64,7 @@ pub type ExecResult = Result<ExecReturnValue, ExecError>;
 /// Type for variable sized storage key. Used for transparent hashing.
 type VarSizedKey = BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>;
 
-const FRAME_ALWAYS_EXISTS_ON_INSTANTIATE: &str = "The return value is only `None` if no contract exist at the specified address. This cannot happen on instantiate or delegate; qed";
+const FRAME_ALWAYS_EXISTS_ON_INSTANTIATE: &str = "The return value is only `None` if no contract exists at the specified address. This cannot happen on instantiate or delegate; qed";
 
 /// Combined key type for both fixed and variable sized storage keys.
 pub enum Key {
@@ -2884,7 +2884,7 @@ mod tests {
 			let addr = <Test as Config>::AddressMapper::to_address(&account_id);
 			let balance = ctx.ext.balance();
 
-			// Calling outselves during the constructor will trigger a balance
+			// Calling ourselves during the constructor will trigger a balance
 			// transfer since no contract exist yet.
 			assert_ok!(ctx.ext.call(
 				Weight::zero(),

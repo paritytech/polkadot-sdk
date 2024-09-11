@@ -1482,7 +1482,7 @@ mod run_tests {
 
 			// Contract calls into Django which is no valid contract
 			// This will be a balance transfer into a new account
-			// We more than the contract has which will make the transfer fail
+			// with more than the contract has which will make the transfer fail
 			let result = builder::bare_call(bob.addr)
 				.data(
 					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
@@ -1506,7 +1506,7 @@ mod run_tests {
 				.build_and_unwrap_result();
 			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
 
-			// Send at least the minimum balance should result in success but
+			// Sending at least the minimum balance should result in success but
 			// no code called.
 			assert_eq!(test_utils::get_balance(&ETH_DJANGO), 0);
 			let result = builder::bare_call(bob.addr)
@@ -1526,7 +1526,7 @@ mod run_tests {
 				.value(min_balance * 100)
 				.build_and_unwrap_contract();
 
-			// Sending more then the contract has will make the transfer fail.
+			// Sending more than the contract has will make the transfer fail.
 			let result = builder::bare_call(bob.addr)
 				.data(
 					AsRef::<[u8]>::as_ref(&django.addr)
