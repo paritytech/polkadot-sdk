@@ -103,7 +103,7 @@ impl<T> TracingUnboundedSender<T> {
 
 	/// Proxy function to `async_channel::Sender::try_send`.
 	pub fn unbounded_send(&self, msg: T) -> Result<(), TrySendError<T>> {
-		self.inner.try_send(msg).map(|s| {
+		self.inner.try_send(msg).inspect(|s| {
 			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, SENT_LABEL]).inc();
 			UNBOUNDED_CHANNELS_SIZE
 				.with_label_values(&[self.name])
@@ -144,7 +144,7 @@ impl<T> TracingUnboundedReceiver<T> {
 	/// Proxy function to [`async_channel::Receiver`]
 	/// that discounts the messages taken out.
 	pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
-		self.inner.try_recv().map(|s| {
+		self.inner.try_recv().inspect(|s| {
 			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, RECEIVED_LABEL]).inc();
 			UNBOUNDED_CHANNELS_SIZE
 				.with_label_values(&[self.name])

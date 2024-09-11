@@ -51,7 +51,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn extract_validation_context() {
-		if !cfg!(feature = "test") {
+		if !cfg!(test) {
 			pallet_mmr::UseLocalStorage::<T>::set(true);
 		}
 
@@ -71,7 +71,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn read_peak() {
-		if !cfg!(feature = "test") {
+		if !cfg!(test) {
 			pallet_mmr::UseLocalStorage::<T>::set(true);
 		}
 
@@ -91,7 +91,7 @@ mod benchmarks {
 	/// the verification. We need to account for the peaks separately.
 	#[benchmark]
 	fn n_items_proof_is_non_canonical(n: Linear<2, 512>) {
-		if !cfg!(feature = "test") {
+		if !cfg!(test) {
 			pallet_mmr::UseLocalStorage::<T>::set(true);
 		}
 
