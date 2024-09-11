@@ -1159,6 +1159,39 @@ impl<T: Config> Pallet<T> {
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
+
+	pub fn migrate_lock_to_hold<OldCurrency>(stash: &T::AccountId) -> DispatchResult
+	where
+		OldCurrency: frame_support::traits::InspectLockableCurrency<T::AccountId>,
+		BalanceOf<T>: From<OldCurrency::Balance>,
+	{
+		// use frame_support::traits::InspectLockableCurrency;
+		let ledger = Self::ledger(Stash(stash.clone()))?;
+
+		const LOCK_ID: frame_support::traits::LockIdentifier = *b"staking ";
+		let locked: BalanceOf<T> = OldCurrency::balance_locked(LOCK_ID, stash).into();
+		let max_hold = asset::stakeable_balance::<T>(&stash);
+		if max_hold >= locked {
+			// this is great. easy job for us.
+			// just hold asset.
+			asset::update_stake::<T>(&stash, locked)?;
+		} else {
+			let unsafe_withdraw = locked.saturating_sub(max_hold);
+			log::info!(target: "remote_test", "unsafe_withdraw: {:?} {:?}", stash, unsafe_withdraw);
+
+			// we ignore if active is 0. This amount will get unlocked anyways in the future.
+			StakingLedger {
+				total: max_hold,
+				active: ledger.active.saturating_sub(unsafe_withdraw),
+				// we are not changing the stash, so we can keep the stash.
+				..ledger
+			}
+			.update()?;
+		}
+
+		frame_system::Pallet::<T>::dec_consumers(&stash);
+		Ok(())
+	}
 }
 
 impl<T: Config> Pallet<T> {

@@ -149,25 +149,27 @@ mod remote_tests {
 
 		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string()).into();
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		let online_config = OnlineConfig {
+			transport,
+			state_snapshot: maybe_state_snapshot.clone(),
+			child_trie: false,
+			pallets: vec![
+				"Staking".into(),
+				"System".into(),
+				"Balances".into(),
+				"NominationPools".into(),
+				"DelegatedStaking".into(),
+			],
+			..Default::default()
+		};
 		let mut ext = Builder::<Block>::default()
 			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
 				Mode::OfflineOrElseOnline(
 					OfflineConfig { state_snapshot: state_snapshot.clone() },
-					OnlineConfig {
-						transport,
-						state_snapshot: Some(state_snapshot),
-						pallets: vec![
-							"staking".into(),
-							"system".into(),
-							"balances".into(),
-							"nomination-pools".into(),
-							"delegated-staking".into(),
-						],
-						..Default::default()
-					},
+					online_config,
 				)
 			} else {
-				Mode::Online(OnlineConfig { transport, ..Default::default() })
+				Mode::Online(online_config)
 			})
 			.build()
 			.await
