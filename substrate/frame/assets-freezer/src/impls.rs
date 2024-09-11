@@ -23,6 +23,7 @@ use frame_support::traits::{
 };
 use pallet_assets::FrozenBalance;
 use sp_runtime::traits::Zero;
+use storage::StorageDoubleMap;
 
 // Implements [`FrozenBalance`] from [`pallet-assets`], so it can understand how much of an
 // account balance is frozen, and is able to signal to this pallet when to clear the state of an
