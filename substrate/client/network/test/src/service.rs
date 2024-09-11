@@ -224,7 +224,7 @@ impl TestNetworkBuilder {
 			NotificationMetrics::new(None),
 			&full_net_config,
 			protocol_id.clone(),
-			&None,
+			None,
 			Box::new(sp_consensus::block_validation::DefaultBlockAnnounceValidator),
 			syncing_strategy,
 			chain_sync_network_handle,

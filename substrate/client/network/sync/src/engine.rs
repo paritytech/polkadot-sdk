@@ -279,7 +279,7 @@ where
 		network_metrics: NotificationMetrics,
 		net_config: &FullNetworkConfiguration<B, <B as BlockT>::Hash, N>,
 		protocol_id: ProtocolId,
-		fork_id: &Option<String>,
+		fork_id: Option<&str>,
 		block_announce_validator: Box<dyn BlockAnnounceValidator<B> + Send>,
 		syncing_strategy: Box<dyn SyncingStrategy<B>>,
 		network_service: service::network::NetworkServiceHandle,
@@ -1039,7 +1039,7 @@ where
 	/// Get config for the block announcement protocol
 	fn get_block_announce_proto_config<N: NetworkBackend<B, <B as BlockT>::Hash>>(
 		protocol_id: ProtocolId,
-		fork_id: &Option<String>,
+		fork_id: Option<&str>,
 		roles: Roles,
 		best_number: NumberFor<B>,
 		best_hash: B::Hash,
@@ -1050,7 +1050,7 @@ where
 	) -> (N::NotificationProtocolConfig, Box<dyn NotificationService>) {
 		let block_announces_protocol = {
 			let genesis_hash = genesis_hash.as_ref();
-			if let Some(ref fork_id) = fork_id {
+			if let Some(fork_id) = fork_id {
 				format!(
 					"/{}/{}/block-announces/1",
 					array_bytes::bytes2hex("", genesis_hash),

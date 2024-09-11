@@ -41,7 +41,7 @@ use sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBacke
 use sc_network_sync::{service::network::NetworkServiceProvider, SyncingService};
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{
-	build_default_block_downloader, build_polkadot_syncing_strategy, Configuration, NetworkStarter,
+	build_default_syncing_engine, Configuration, DefaultSyncingEngineConfig, NetworkStarter,
 	SpawnTaskHandle, TaskManager, WarpSyncConfig,
 };
 use sc_telemetry::{log, TelemetryWorkerHandle};
@@ -499,28 +499,27 @@ where
 		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 	);
 
-	let protocol_id = parachain_config.protocol_id();
 	let network_service_provider = NetworkServiceProvider::new();
-	let block_downloader = build_default_block_downloader(
-		&protocol_id,
-		parachain_config.chain_spec.fork_id(),
-		&mut net_config,
-		network_service_provider.handle(),
-		client.clone(),
-		parachain_config.network.default_peers_set.in_peers as usize +
-			parachain_config.network.default_peers_set.out_peers as usize,
-		&spawn_handle,
-	);
-	let syncing_strategy = build_polkadot_syncing_strategy(
-		protocol_id,
-		parachain_config.chain_spec.fork_id(),
-		&mut net_config,
-		warp_sync_config,
-		block_downloader,
-		client.clone(),
-		&spawn_handle,
-		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
-	)?;
+	let (sync_service, block_announce_config) =
+		build_default_syncing_engine(DefaultSyncingEngineConfig {
+			role: parachain_config.role,
+			protocol_id: parachain_config.protocol_id(),
+			fork_id: None,
+			net_config: &mut net_config,
+			block_announce_validator,
+			network_service_handle: network_service_provider.handle(),
+			warp_sync_config,
+			client: client.clone(),
+			import_queue_service: import_queue.service(),
+			num_peers_hint: parachain_config.network.default_peers_set.in_peers as usize +
+				parachain_config.network.default_peers_set.out_peers as usize,
+			spawn_handle: &spawn_handle,
+			metrics_registry: parachain_config
+				.prometheus_config
+				.as_ref()
+				.map(|config| &config.registry),
+			metrics: metrics.clone(),
+		})?;
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,
@@ -529,8 +528,8 @@ where
 		transaction_pool,
 		spawn_handle,
 		import_queue,
-		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
-		syncing_strategy,
+		sync_service,
+		block_announce_config,
 		network_service_provider,
 		metrics,
 	})

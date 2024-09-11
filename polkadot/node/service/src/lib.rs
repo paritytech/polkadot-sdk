@@ -84,7 +84,9 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use prometheus_endpoint::Registry;
 #[cfg(feature = "full-node")]
 use sc_service::KeystoreContainer;
-use sc_service::{build_default_block_downloader, build_polkadot_syncing_strategy, RpcHandlers, SpawnTaskHandle};
+use sc_service::{
+	build_default_syncing_engine, DefaultSyncingEngineConfig, RpcHandlers, SpawnTaskHandle,
+};
 use sc_telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
@@ -118,6 +120,8 @@ pub use {rococo_runtime, rococo_runtime_constants};
 pub use {westend_runtime, westend_runtime_constants};
 
 pub use fake_runtime_api::{GetLastTimestamp, RuntimeApi};
+use sc_consensus::ImportQueue;
+use sp_consensus::block_validation::DefaultBlockAnnounceValidator;
 
 #[cfg(feature = "full-node")]
 pub type FullBackend = sc_service::TFullBackend<Block>;
@@ -1029,29 +1033,24 @@ pub fn new_full<
 		})
 	};
 
-	let protocol_id = config.protocol_id();
-	let spawn_handle = task_manager.spawn_handle();
 	let network_service_provider = NetworkServiceProvider::new();
-	let block_downloader = build_default_block_downloader(
-		&protocol_id,
-		config.chain_spec.fork_id(),
-		&mut net_config,
-		network_service_provider.handle(),
-		client.clone(),
-		config.network.default_peers_set.in_peers as usize +
-			config.network.default_peers_set.out_peers as usize,
-		&spawn_handle,
-	);
-	let syncing_strategy = build_polkadot_syncing_strategy(
-		protocol_id,
-		config.chain_spec.fork_id(),
-		&mut net_config,
-		Some(WarpSyncConfig::WithProvider(warp_sync)),
-		block_downloader,
-		client.clone(),
-		&spawn_handle,
-		config.prometheus_config.as_ref().map(|config| &config.registry),
-	)?;
+	let (sync_service, block_announce_config) =
+		build_default_syncing_engine(DefaultSyncingEngineConfig {
+			role: config.role,
+			protocol_id: config.protocol_id(),
+			fork_id: None,
+			net_config: &mut net_config,
+			block_announce_validator: Box::new(DefaultBlockAnnounceValidator),
+			network_service_handle: network_service_provider.handle(),
+			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
+			client: client.clone(),
+			import_queue_service: import_queue.service(),
+			num_peers_hint: config.network.default_peers_set.in_peers as usize +
+				config.network.default_peers_set.out_peers as usize,
+			spawn_handle: &task_manager.spawn_handle(),
+			metrics_registry: config.prometheus_config.as_ref().map(|config| &config.registry),
+			metrics: metrics.clone(),
+		})?;
 
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
@@ -1061,8 +1060,8 @@ pub fn new_full<
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
-			block_announce_validator_builder: None,
-			syncing_strategy,
+			sync_service,
+			block_announce_config,
 			network_service_provider,
 			metrics,
 		})?;

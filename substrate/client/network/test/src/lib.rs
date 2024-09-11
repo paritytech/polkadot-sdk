@@ -936,7 +936,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				metrics,
 				&full_net_config,
 				protocol_id.clone(),
-				&fork_id,
+				fork_id.as_deref(),
 				block_announce_validator,
 				syncing_strategy,
 				chain_sync_network_handle,
