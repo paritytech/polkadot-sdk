@@ -226,13 +226,16 @@ pub trait RaceState<SourceHeaderId, TargetHeaderId>: Clone + Send + Sync {
 	fn set_best_finalized_source_header_id_at_best_target(&mut self, id: SourceHeaderId);
 
 	/// Best finalized source header id at the source client.
+	#[allow(dead_code)]
 	fn best_finalized_source_header_id_at_source(&self) -> Option<SourceHeaderId>;
 	/// Best finalized source header id at the best block on the target
 	/// client (at the `best_finalized_source_header_id_at_best_target`).
 	fn best_finalized_source_header_id_at_best_target(&self) -> Option<SourceHeaderId>;
 	/// The best header id at the target client.
+	#[allow(dead_code)]
 	fn best_target_header_id(&self) -> Option<TargetHeaderId>;
 	/// Best finalized header id at the target client.
+	#[allow(dead_code)]
 	fn best_finalized_target_header_id(&self) -> Option<TargetHeaderId>;
 
 	/// Returns `true` if we have selected nonces to submit to the target node.
