@@ -1196,3 +1196,43 @@ fn remove_vesting_schedule() {
 		);
 	});
 }
+
+#[test]
+fn vested_transfer_impl_works() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		assert_eq!(Balances::free_balance(&3), 256 * 30);
+		assert_eq!(Balances::free_balance(&4), 256 * 40);
+		// Account 4 should not have any vesting yet.
+		assert_eq!(VestingStorage::<Test>::get(&4), None);
+
+		// Basic working scenario
+		assert_ok!(<Vesting as VestedTransfer<_>>::vested_transfer(
+			&3,
+			&4,
+			ED * 5,
+			ED * 5 / 20,
+			10
+		));
+		// Now account 4 should have vesting.
+		let new_vesting_schedule = VestingInfo::new(
+			ED * 5,
+			(ED * 5) / 20, // Vesting over 20 blocks
+			10,
+		);
+		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![new_vesting_schedule]);
+		// Account 4 has 5 * 256 locked.
+		assert_eq!(Vesting::vesting_balance(&4), Some(256 * 5));
+
+		// If the transfer fails (because they don't have enough balance), no storage is changed.
+		assert_noop!(
+			<Vesting as VestedTransfer<_>>::vested_transfer(&3, &4, ED * 9999, ED * 5 / 20, 10),
+			TokenError::FundsUnavailable
+		);
+
+		// If applying the vesting schedule fails (per block is 0), no storage is changed.
+		assert_noop!(
+			<Vesting as VestedTransfer<_>>::vested_transfer(&3, &4, ED * 5, 0, 10),
+			Error::<Test>::InvalidScheduleParams
+		);
+	});
+}

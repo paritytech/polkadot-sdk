@@ -537,6 +537,14 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::InvalidScheduleParams.into())
 		};
 
+		// Check we can add to this account prior to any storage writes.
+		Self::can_add_vesting_schedule(
+			target,
+			schedule.locked(),
+			schedule.per_block(),
+			schedule.starting_block(),
+		)?;
+
 		T::Currency::transfer(source, target, schedule.locked(), ExistenceRequirement::AllowDeath)?;
 
 		// If adding this vesting schedule fails, all storage changes are undone due to FRAME's
