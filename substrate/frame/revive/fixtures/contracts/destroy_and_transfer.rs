@@ -18,21 +18,20 @@
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api, StorageFlags};
 
 const ADDRESS_KEY: [u8; 32] = [0u8; 32];
-const VALUE: [u8; 8] = [0, 0, 1u8, 0, 0, 0, 0, 0];
+const VALUE: [u8; 32] = u256_bytes(65536);
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn deploy() {
-	input!(code_hash: [u8; 32],);
+	input!(code_hash: &[u8; 32],);
 
 	let input = [0u8; 0];
-	let mut address = [0u8; 32];
-	let address = &mut &mut address[..];
-	let salt = [71u8, 17u8];
+	let mut address = [0u8; 20];
+	let salt = [47u8; 32];
 
 	api::instantiate(
 		code_hash,
@@ -41,27 +40,28 @@ pub extern "C" fn deploy() {
 		None, // No deposit limit.
 		&VALUE,
 		&input,
-		Some(address),
+		Some(&mut address),
 		None,
 		&salt,
 	)
 	.unwrap();
 
 	// Return the deployed contract address.
-	api::set_storage(StorageFlags::empty(), &ADDRESS_KEY, address);
+	api::set_storage(StorageFlags::empty(), &ADDRESS_KEY, &address);
 }
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let mut callee_addr = [0u8; 32];
-	let callee_addr = &mut &mut callee_addr[..];
-	api::get_storage(StorageFlags::empty(), &ADDRESS_KEY, callee_addr).unwrap();
+	let mut callee_addr = [0u8; 20];
+	let callee = &mut &mut callee_addr[..];
+	api::get_storage(StorageFlags::empty(), &ADDRESS_KEY, callee).unwrap();
+	assert!(callee.len() == 20);
 
 	// Calling the destination contract with non-empty input data should fail.
 	let res = api::call(
 		uapi::CallFlags::empty(),
-		callee_addr,
+		&callee_addr,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
@@ -74,7 +74,7 @@ pub extern "C" fn call() {
 	// Call the destination contract regularly, forcing it to self-destruct.
 	api::call(
 		uapi::CallFlags::empty(),
-		callee_addr,
+		&callee_addr,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.

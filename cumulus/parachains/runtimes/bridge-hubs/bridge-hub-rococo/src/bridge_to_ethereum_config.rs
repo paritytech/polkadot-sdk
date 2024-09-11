@@ -41,6 +41,8 @@ use sp_runtime::{
 	FixedU128,
 };
 
+pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
+
 /// Exports message to the Ethereum Gateway contract.
 pub type SnowbridgeExporter = EthereumBlobExporter<
 	UniversalLocation,
@@ -162,6 +164,8 @@ parameter_types! {
 impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
+	// Free consensus update every epoch. Works out to be 225 updates per day.
+	type FreeHeadersInterval = ConstU32<SLOTS_PER_EPOCH>;
 	type WeightInfo = crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>;
 }
 
