@@ -673,7 +673,8 @@ pub trait SteppedMigrations {
 
 	/// The `n`th [`SteppedMigration::id`].
 	///
-	/// Is guaranteed to return `Some` if `n < Self::len()`.
+	/// Is guaranteed to return `Some` if `n < Self::len()`. Calling this with any index larger or
+	/// equal to `Self::len()` MUST return `None`.
 	fn nth_id(n: u32) -> Option<Vec<u8>>;
 
 	/// The [`SteppedMigration::max_steps`] of the `n`th migration.
