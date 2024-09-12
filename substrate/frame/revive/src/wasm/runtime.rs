@@ -574,8 +574,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
 						},
-					Err(TrapReason::Termination) =>
-						Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
+					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
 			},
