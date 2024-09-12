@@ -56,14 +56,14 @@ pub trait HostFn: private::Sealed {
 	///   otherwise.
 	fn lock_delegate_dependency(code_hash: &[u8; 32]);
 
-	/// Stores the *free* balance of the current account into the supplied buffer.
+	/// Stores the **reducible** balance of the current account into the supplied buffer.
 	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the balance.
 	fn balance(output: &mut [u8; 32]);
 
-	/// Stores the *free* balance of the supplied address into the supplied buffer.
+	/// Stores the **reducible** balance of the supplied address into the supplied buffer.
 	///
 	/// # Parameters
 	///
