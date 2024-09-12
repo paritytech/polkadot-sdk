@@ -16,6 +16,7 @@ sp-core = { workspace = true, default-features = true, optional = true }
 sp-io = { workspace = true, default-features = true, optional = true }
 sp-runtime = { workspace = true, default-features = true, optional = true }
 anyhow = { workspace = true, default-features = true, optional = true }
+log = { workspace = true }
 
 [build-dependencies]
 parity-wasm = { workspace = true }
@@ -32,6 +33,7 @@ default = ["std"]
 riscv = []
 # only when std is enabled all fixtures are available
 std = [
+	"log/std",
 	"anyhow",
 	"frame-system",
 	"sp-core",

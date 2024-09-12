@@ -16,10 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	parachain::{self, Runtime},
-	parachain_account_sovereign_account_id,
-	primitives::{AccountId, CENTS},
-	relay_chain, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
+	parachain, parachain_account_sovereign_account_id, primitives::CENTS, relay_chain, MockNet,
+	ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
 };
 use codec::{Decode, Encode};
 use frame_support::traits::{fungibles::Mutate, Currency};
@@ -30,6 +28,7 @@ use pallet_revive::{
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::ReturnErrorCode;
+use sp_core::H160;
 use xcm::{v4::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_simulator::TestExt;
 
@@ -39,41 +38,43 @@ macro_rules! assert_return_code {
 	}};
 }
 
-fn bare_call(dest: sp_runtime::AccountId32) -> BareCallBuilder<parachain::Runtime> {
+fn bare_call(dest: H160) -> BareCallBuilder<parachain::Runtime> {
 	BareCallBuilder::<parachain::Runtime>::bare_call(RawOrigin::Signed(ALICE).into(), dest)
 }
 
 /// Instantiate the tests contract, and fund it with some balance and assets.
-fn instantiate_test_contract(name: &str) -> AccountId {
-	let (wasm, _) = compile_module::<Runtime>(name).unwrap();
+fn instantiate_test_contract(name: &str) -> Contract<parachain::Runtime> {
+	let (wasm, _) = compile_module(name).unwrap();
 
 	// Instantiate contract.
-	let contract_addr = ParaA::execute_with(|| {
+	let contract = ParaA::execute_with(|| {
 		BareInstantiateBuilder::<parachain::Runtime>::bare_instantiate(
 			RawOrigin::Signed(ALICE).into(),
 			Code::Upload(wasm),
 		)
-		.build_and_unwrap_account_id()
+		.storage_deposit_limit(1_000_000_000_000)
+		.build_and_unwrap_contract()
 	});
 
 	// Funds contract account with some balance and assets.
 	ParaA::execute_with(|| {
-		parachain::Balances::make_free_balance_be(&contract_addr, INITIAL_BALANCE);
-		parachain::Assets::mint_into(0u32.into(), &contract_addr, INITIAL_BALANCE).unwrap();
+		parachain::Balances::make_free_balance_be(&contract.account_id, INITIAL_BALANCE);
+		parachain::Assets::mint_into(0u32.into(), &contract.account_id, INITIAL_BALANCE).unwrap();
 	});
 	Relay::execute_with(|| {
-		let sovereign_account = parachain_account_sovereign_account_id(1u32, contract_addr.clone());
+		let sovereign_account =
+			parachain_account_sovereign_account_id(1u32, contract.account_id.clone());
 		relay_chain::Balances::make_free_balance_be(&sovereign_account, INITIAL_BALANCE);
 	});
 
-	contract_addr
+	contract
 }
 
 #[test]
 fn test_xcm_execute() {
 	MockNet::reset();
 
-	let contract_addr = instantiate_test_contract("xcm_execute");
+	let Contract { addr, account_id } = instantiate_test_contract("xcm_execute");
 
 	// Execute XCM instructions through the contract.
 	ParaA::execute_with(|| {
@@ -87,9 +88,7 @@ fn test_xcm_execute() {
 			.deposit_asset(assets, beneficiary)
 			.build();
 
-		let result = bare_call(contract_addr.clone())
-			.data(VersionedXcm::V4(message).encode())
-			.build();
+		let result = bare_call(addr.clone()).data(VersionedXcm::V4(message).encode()).build();
 
 		assert_eq!(result.gas_consumed, result.gas_required);
 		assert_return_code!(&result.result.unwrap(), ReturnErrorCode::Success);
@@ -98,7 +97,7 @@ fn test_xcm_execute() {
 		// Bob.
 		let initial = INITIAL_BALANCE;
 		assert_eq!(ParachainBalances::free_balance(BOB), initial + amount);
-		assert_eq!(ParachainBalances::free_balance(&contract_addr), initial - amount);
+		assert_eq!(ParachainBalances::free_balance(&account_id), initial - amount);
 	});
 }
 
@@ -106,7 +105,7 @@ fn test_xcm_execute() {
 fn test_xcm_execute_incomplete() {
 	MockNet::reset();
 
-	let contract_addr = instantiate_test_contract("xcm_execute");
+	let Contract { addr, account_id } = instantiate_test_contract("xcm_execute");
 	let amount = 10 * CENTS;
 
 	// Execute XCM instructions through the contract.
@@ -124,15 +123,13 @@ fn test_xcm_execute_incomplete() {
 			.deposit_asset(assets, beneficiary)
 			.build();
 
-		let result = bare_call(contract_addr.clone())
-			.data(VersionedXcm::V4(message).encode())
-			.build();
+		let result = bare_call(addr.clone()).data(VersionedXcm::V4(message).encode()).build();
 
 		assert_eq!(result.gas_consumed, result.gas_required);
 		assert_return_code!(&result.result.unwrap(), ReturnErrorCode::XcmExecutionFailed);
 
 		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
-		assert_eq!(ParachainBalances::free_balance(&contract_addr), INITIAL_BALANCE - amount);
+		assert_eq!(ParachainBalances::free_balance(&account_id), INITIAL_BALANCE - amount);
 	});
 }
 
@@ -140,11 +137,11 @@ fn test_xcm_execute_incomplete() {
 fn test_xcm_execute_reentrant_call() {
 	MockNet::reset();
 
-	let contract_addr = instantiate_test_contract("xcm_execute");
+	let Contract { addr, .. } = instantiate_test_contract("xcm_execute");
 
 	ParaA::execute_with(|| {
 		let transact_call = parachain::RuntimeCall::Contracts(pallet_revive::Call::call {
-			dest: contract_addr.clone(),
+			dest: addr.clone(),
 			gas_limit: 1_000_000.into(),
 			storage_deposit_limit: test_utils::deposit_limit::<parachain::Runtime>(),
 			data: vec![],
@@ -157,7 +154,7 @@ fn test_xcm_execute_reentrant_call() {
 			.expect_transact_status(MaybeErrorCode::Success)
 			.build();
 
-		let result = bare_call(contract_addr.clone())
+		let result = bare_call(addr.clone())
 			.data(VersionedXcm::V4(message).encode())
 			.build_and_unwrap_result();
 
@@ -171,7 +168,7 @@ fn test_xcm_execute_reentrant_call() {
 #[test]
 fn test_xcm_send() {
 	MockNet::reset();
-	let contract_addr = instantiate_test_contract("xcm_send");
+	let Contract { addr, account_id } = instantiate_test_contract("xcm_send");
 	let amount = 1_000 * CENTS;
 	let fee = parachain::estimate_message_fee(4); // Accounts for the `DescendOrigin` instruction added by `send_xcm`
 
@@ -188,7 +185,7 @@ fn test_xcm_send() {
 			.deposit_asset(assets, beneficiary)
 			.build();
 
-		let result = bare_call(contract_addr.clone())
+		let result = bare_call(addr.clone())
 			.data((dest, VersionedXcm::V4(message)).encode())
 			.build_and_unwrap_result();
 
@@ -197,7 +194,7 @@ fn test_xcm_send() {
 	});
 
 	Relay::execute_with(|| {
-		let derived_contract_addr = &parachain_account_sovereign_account_id(1, contract_addr);
+		let derived_contract_addr = &parachain_account_sovereign_account_id(1, account_id);
 		assert_eq!(
 			INITIAL_BALANCE - amount,
 			relay_chain::Balances::free_balance(derived_contract_addr)
