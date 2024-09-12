@@ -56,7 +56,7 @@
 //!
 //! ## Implementation Notes
 //!
-//! Internal logic functions such as `update_pool_and_staker_rewards` where deliberately written
+//! Internal logic functions such as `update_pool_and_staker_rewards` were deliberately written
 //! without side-effects.
 //!
 //! Storage interaction such as reads and writes are instead all performed in the top level
@@ -81,11 +81,10 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
 
-use codec::Codec;
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use frame_system::pallet_prelude::BlockNumberFor;
 use frame_support::{
 	traits::{
 		fungibles::{Inspect, Mutate},
@@ -241,13 +240,10 @@ pub mod pallet {
 		/// Freezer for the Assets.
 		type AssetsFreezer: MutateFreeze<
 			Self::AccountId,
-			Id = Self::RuntimeFreezeReason,
+			Id: From<FreezeReason>,
 			AssetId = Self::AssetId,
 			Balance = Self::Balance,
 		>;
-
-		/// The overarching freeze reason.
-		type RuntimeFreezeReason: From<FreezeReason>;
 
 		/// Means for associating a cost with the on-chain storage of pool information, which
 		/// is incurred by the pool creator.
