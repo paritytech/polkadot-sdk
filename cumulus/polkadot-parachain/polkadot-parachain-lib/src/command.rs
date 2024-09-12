@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "runtime-benchmarks")]
-use crate::service::Block;
 use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
@@ -24,30 +22,54 @@ use crate::{
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 			RuntimeResolver,
 		},
-		NodeExtraArgs,
+		spec::DynNodeSpec,
+		types::Block,
+		NodeBlock, NodeExtraArgs,
 	},
-	fake_runtime_api::{
-		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi,
-		aura::RuntimeApi as AuraRuntimeApi,
-	},
-	service::{new_aura_node_spec, DynNodeSpec, ShellNode},
+	fake_runtime_api,
+	runtime::BlockNumber,
+	service::ShellNode,
 };
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use parachains_common::{AssetHubPolkadotAuraId, AuraId};
 use sc_cli::{Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
+use std::panic::{RefUnwindSafe, UnwindSafe};
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
 pub struct RunConfig {
+	/// A custom chain spec loader.
 	pub chain_spec_loader: Box<dyn LoadSpec>,
+	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
+}
+
+pub fn new_aura_node_spec<Block>(
+	aura_id: AuraConsensusId,
+	extra_args: &NodeExtraArgs,
+) -> Box<dyn DynNodeSpec>
+where
+	Block: NodeBlock + UnwindSafe + RefUnwindSafe,
+	Block::BoundedHeader: UnwindSafe + RefUnwindSafe,
+{
+	match aura_id {
+		AuraConsensusId::Sr25519 => crate::service::new_aura_node_spec::<
+			Block,
+			fake_runtime_api::aura_sr25519::RuntimeApi,
+			sp_consensus_aura::sr25519::AuthorityId,
+		>(extra_args),
+		AuraConsensusId::Ed25519 => crate::service::new_aura_node_spec::<
+			Block,
+			fake_runtime_api::aura_ed25519::RuntimeApi,
+			sp_consensus_aura::ed25519::AuthorityId,
+		>(extra_args),
+	}
 }
 
 fn new_node_spec(
@@ -59,11 +81,11 @@ fn new_node_spec(
 
 	Ok(match runtime {
 		Runtime::Shell => Box::new(ShellNode),
-		Runtime::Omni(consensus) => match consensus {
-			Consensus::Aura(AuraConsensusId::Sr25519) =>
-				new_aura_node_spec::<AuraRuntimeApi, AuraId>(extra_args),
-			Consensus::Aura(AuraConsensusId::Ed25519) =>
-				new_aura_node_spec::<AssetHubPolkadotRuntimeApi, AssetHubPolkadotAuraId>(extra_args),
+		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
+			(BlockNumber::U32, Consensus::Aura(aura_id)) =>
+				new_aura_node_spec::<Block<u32>>(aura_id, extra_args),
+			(BlockNumber::U64, Consensus::Aura(aura_id)) =>
+				new_aura_node_spec::<Block<u64>>(aura_id, extra_args),
 		},
 	})
 }
@@ -156,7 +178,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			match cmd {
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Pallet(cmd) => runner.sync_run(|config| {
-					cmd.run_with_spec::<HashingFor<Block>, ReclaimHostFunctions>(Some(
+					cmd.run_with_spec::<HashingFor<Block<u32>>, ReclaimHostFunctions>(Some(
 						config.chain_spec,
 					))
 				}),
@@ -236,7 +258,10 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				let hwbench = (!cli.no_hardware_benchmarks)
 					.then_some(config.database.path().map(|database_path| {
 						let _ = std::fs::create_dir_all(database_path);
-						sc_sysinfo::gather_hwbench(Some(database_path))
+						sc_sysinfo::gather_hwbench(
+							Some(database_path),
+							&SUBSTRATE_REFERENCE_HARDWARE,
+						)
 					}))
 					.flatten();
 
