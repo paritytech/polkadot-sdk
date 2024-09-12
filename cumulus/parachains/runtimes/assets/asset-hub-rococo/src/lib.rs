@@ -63,8 +63,8 @@ use frame_support::{
 		fungible::{self, HoldConsideration},
 		fungibles,
 		tokens::imbalance::ResolveAssetTo,
-		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
-		Equals, InstanceFilter, LinearStoragePrice, TransformOrigin,
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
+		ConstantStoragePrice, EitherOfDiverse, Equals, InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -1023,9 +1023,10 @@ impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v4::Location>
 
 parameter_types! {
 	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/astrd");
-	pub const PoolCreationDeposit: Balance = deposit(1, 95);
 	pub const RewardsPoolCreationHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::AssetRewards(pallet_asset_rewards::HoldReason::PoolCreation);
+	// 1 item, 135 bytes into the storage on pool creation.
+	pub const StakePoolCreationDeposit: Balance = deposit(1, 135);
 }
 
 impl pallet_asset_rewards::Config for Runtime {
@@ -1041,7 +1042,7 @@ impl pallet_asset_rewards::Config for Runtime {
 		AccountId,
 		Balances,
 		RewardsPoolCreationHoldReason,
-		LinearStoragePrice<PoolCreationDeposit, ConstU128<0>, Balance>,
+		ConstantStoragePrice<StakePoolCreationDeposit, Balance>,
 	>;
 	type WeightInfo = weights::pallet_asset_rewards::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1500,6 +1501,12 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
+		}
+	}
+
+	impl pallet_asset_rewards::AssetRewards<Block, Balance> for Runtime {
+		fn pool_creation_cost() -> Balance {
+			StakePoolCreationDeposit::get()
 		}
 	}
 

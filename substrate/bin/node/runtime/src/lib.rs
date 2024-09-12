@@ -49,10 +49,10 @@ use frame_support::{
 			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
 			GetSalary, PayFromAccount,
 		},
-		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
-		EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing,
-		OnUnbalanced, VariantCountOf, WithdrawReasons,
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstantStoragePrice,
+		Contains, Currency, EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance,
+		InsideBoth, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier,
+		Nothing, OnUnbalanced, VariantCountOf, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -1796,6 +1796,8 @@ parameter_types! {
 	pub const StakingRewardsPalletId: PalletId = PalletId(*b"py/stkrd");
 	pub const CreationHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::AssetRewards(pallet_asset_rewards::HoldReason::PoolCreation);
+	// 1 item, 135 bytes into the storage on pool creation.
+	pub const StakePoolCreationDeposit: Balance = deposit(1, 135);
 }
 
 impl pallet_asset_rewards::Config for Runtime {
@@ -1812,7 +1814,7 @@ impl pallet_asset_rewards::Config for Runtime {
 		AccountId,
 		Balances,
 		CreationHoldReason,
-		LinearStoragePrice<ExistentialDeposit, ConstU128<0>, Balance>,
+		ConstantStoragePrice<StakePoolCreationDeposit, Balance>,
 	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
@@ -3363,6 +3365,12 @@ impl_runtime_apis! {
 			encoded: Vec<u8>,
 		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
 			SessionKeys::decode_into_raw_public_keys(&encoded)
+		}
+	}
+
+	impl pallet_asset_rewards::AssetRewards<Block, Balance> for Runtime {
+		fn pool_creation_cost() -> Balance {
+			StakePoolCreationDeposit::get()
 		}
 	}
 

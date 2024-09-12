@@ -389,10 +389,11 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			// The AccountId is at least 8 bytes to contain the unique PalletId.
+			// The AccountId is at least 16 bytes to contain the unique PalletId.
+			let pool_id: PoolId = 1;
 			assert!(
-				<frame_support::PalletId as AccountIdConversion<T::AccountId>>::try_into_account(
-					&T::PalletId::get(),
+				<frame_support::PalletId as AccountIdConversion<T::AccountId>>::try_into_sub_account(
+					&T::PalletId::get(), pool_id,
 				)
 				.is_some()
 			);
@@ -770,8 +771,6 @@ pub mod pallet {
 		}
 
 		/// Derives the current reward per token for this pool.
-		///
-		/// This is a helper function for `update_pool_rewards` and should not be called directly.
 		fn reward_per_token(pool_info: &PoolInfoFor<T>) -> Result<T::Balance, DispatchError> {
 			if pool_info.total_tokens_staked.is_zero() {
 				return Ok(pool_info.reward_per_token_stored)
@@ -810,8 +809,9 @@ pub mod pallet {
 		}
 
 		fn last_block_reward_applicable(pool_expiry_block: BlockNumberFor<T>) -> BlockNumberFor<T> {
-			if frame_system::Pallet::<T>::block_number() < pool_expiry_block {
-				frame_system::Pallet::<T>::block_number()
+			let now = frame_system::Pallet::<T>::block_number();
+			if now < pool_expiry_block {
+				now
 			} else {
 				pool_expiry_block
 			}

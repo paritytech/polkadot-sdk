@@ -170,6 +170,13 @@ mod benchmarks {
 		let staker: T::AccountId = whitelisted_caller();
 		let min_balance = mint_into::<T>(&staker, &T::BenchmarkHelper::staked_asset());
 
+		// stake first to get worth case benchmark.
+		assert_ok!(AssetRewards::<T>::stake(
+			RawOrigin::Signed(staker.clone()).into(),
+			0,
+			min_balance
+		));
+
 		#[extrinsic_call]
 		_(RawOrigin::Signed(staker.clone()), 0, min_balance);
 
@@ -234,6 +241,14 @@ mod benchmarks {
 	fn set_pool_reward_rate_per_block() -> Result<(), BenchmarkError> {
 		let caller_origin = create_reward_pool::<T>()?;
 
+		// stake first to get worth case benchmark.
+		{
+			let staker: T::AccountId = whitelisted_caller();
+			let min_balance = mint_into::<T>(&staker, &T::BenchmarkHelper::staked_asset());
+
+			assert_ok!(AssetRewards::<T>::stake(RawOrigin::Signed(staker).into(), 0, min_balance));
+		}
+
 		let new_reward_rate_per_block =
 			T::Assets::minimum_balance(T::BenchmarkHelper::reward_asset()).max(T::Balance::one()) +
 				T::Balance::one();
@@ -265,6 +280,14 @@ mod benchmarks {
 	#[benchmark]
 	fn set_pool_expiry_block() -> Result<(), BenchmarkError> {
 		let create_origin = create_reward_pool::<T>()?;
+
+		// stake first to get worth case benchmark.
+		{
+			let staker: T::AccountId = whitelisted_caller();
+			let min_balance = mint_into::<T>(&staker, &T::BenchmarkHelper::staked_asset());
+
+			assert_ok!(AssetRewards::<T>::stake(RawOrigin::Signed(staker).into(), 0, min_balance));
+		}
 
 		let new_expiry_block =
 			pool_expire::<T>().evaluate(System::<T>::block_number()) + BlockNumberFor::<T>::one();

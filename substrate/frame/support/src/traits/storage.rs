@@ -200,6 +200,18 @@ where
 	}
 }
 
+/// Constant `Price` regardless of the given [`Footprint`].
+pub struct ConstantStoragePrice<Price, Balance>(PhantomData<(Price, Balance)>);
+impl<Price, Balance> Convert<Footprint, Balance> for ConstantStoragePrice<Price, Balance>
+where
+	Price: Get<Balance>,
+	Balance: From<u64> + sp_runtime::Saturating,
+{
+	fn convert(_: Footprint) -> Balance {
+		Price::get()
+	}
+}
+
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
 /// holding some data [`Footprint`] in state.
 ///
