@@ -25,7 +25,8 @@ use crate::{
 	ops::{add_block_entry, canonicalize, force_approve, NewCandidateInfo},
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, Hash,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, CoreIndex,
+	GroupIndex, Hash,
 };
 
 use polkadot_node_subsystem_util::database::Database;
@@ -77,7 +78,7 @@ fn make_candidate(para_id: ParaId, relay_parent: Hash) -> CandidateReceipt {
 	c.descriptor.para_id = para_id;
 	c.descriptor.relay_parent = relay_parent;
 
-	c
+	c.into()
 }
 
 #[test]

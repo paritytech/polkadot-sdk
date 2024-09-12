@@ -47,7 +47,8 @@ use polkadot_primitives::{
 	SessionInfo, ValidationCode,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_committed_candidate_receipt, dummy_hash, AlwaysZeroRng,
+	dummy_committed_candidate_receipt, dummy_committed_candidate_receipt_v2, dummy_hash,
+	AlwaysZeroRng,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::ProtocolName;
@@ -102,21 +103,24 @@ fn active_head_accepts_only_2_seconded_per_validator() {
 		c.descriptor.relay_parent = parent_hash;
 		c.descriptor.para_id = 1.into();
 		c
-	};
+	}
+	.into();
 
 	let candidate_b = {
 		let mut c = dummy_committed_candidate_receipt(dummy_hash());
 		c.descriptor.relay_parent = parent_hash;
 		c.descriptor.para_id = 2.into();
 		c
-	};
+	}
+	.into();
 
 	let candidate_c = {
 		let mut c = dummy_committed_candidate_receipt(dummy_hash());
 		c.descriptor.relay_parent = parent_hash;
 		c.descriptor.para_id = 3.into();
 		c
-	};
+	}
+	.into();
 
 	let mut head_data = ActiveHeadData::new(
 		IndexedVec::<ValidatorIndex, ValidatorId>::from(validators),
@@ -426,7 +430,8 @@ fn peer_view_update_sends_messages() {
 		c.descriptor.relay_parent = hash_c;
 		c.descriptor.para_id = ParaId::from(1_u32);
 		c
-	};
+	}
+	.into();
 	let candidate_hash = candidate.hash();
 
 	let old_view = view![hash_a, hash_b];
@@ -615,7 +620,8 @@ fn circulated_statement_goes_to_all_peers_with_view() {
 		c.descriptor.relay_parent = hash_b;
 		c.descriptor.para_id = ParaId::from(1_u32);
 		c
-	};
+	}
+	.into();
 
 	let peer_a = PeerId::random();
 	let peer_b = PeerId::random();
@@ -749,7 +755,8 @@ fn receiving_from_one_sends_to_another_and_to_candidate_backing() {
 		c.descriptor.relay_parent = hash_a;
 		c.descriptor.para_id = PARA_ID;
 		c
-	};
+	}
+	.into();
 
 	let peer_a = PeerId::random();
 	let peer_b = PeerId::random();
@@ -2597,7 +2604,7 @@ fn handle_multiple_seconded_statements() {
 	let relay_parent_hash = Hash::repeat_byte(1);
 	let pvd = dummy_pvd();
 
-	let candidate = dummy_committed_candidate_receipt(relay_parent_hash);
+	let candidate = dummy_committed_candidate_receipt_v2(relay_parent_hash);
 	let candidate_hash = candidate.hash();
 
 	// We want to ensure that our peers are not lucky

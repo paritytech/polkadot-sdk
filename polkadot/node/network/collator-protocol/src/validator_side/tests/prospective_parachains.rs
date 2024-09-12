@@ -20,8 +20,8 @@ use super::*;
 
 use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{
-	AsyncBackingParams, BlockNumber, CandidateCommitments, CommittedCandidateReceipt, Header,
-	SigningContext, ValidatorId,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, AsyncBackingParams, BlockNumber, CandidateCommitments,
+	Header, SigningContext, ValidatorId,
 };
 use rstest::rstest;
 
@@ -1177,7 +1177,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		response_channel
 			.send(Ok((
 				request_v2::CollationFetchingResponse::Collation(
-					candidate_a.clone(),
+					candidate_a.into().clone(),
 					PoV { block_data: BlockData(vec![2]) },
 				)
 				.encode(),
@@ -1209,7 +1209,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				incoming_pov,
 			)) => {
 				assert_eq!(head_c, relay_parent);
-				assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id);
+				assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id());
 				assert_eq!(PoV { block_data: BlockData(vec![2]) }, incoming_pov);
 				assert_eq!(PersistedValidationData::<Hash, BlockNumber> {
 					parent_head: HeadData(vec![0]),
@@ -1262,7 +1262,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 					incoming_pov,
 				)) => {
 					assert_eq!(head_c, relay_parent);
-					assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id);
+					assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id());
 					assert_eq!(PoV { block_data: BlockData(vec![1]) }, incoming_pov);
 					assert_eq!(PersistedValidationData::<Hash, BlockNumber> {
 						parent_head: HeadData(vec![1]),
@@ -1290,7 +1290,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			// If candidate A is invalid, B won't be seconded.
 			overseer_send(
 				&mut virtual_overseer,
-				CollatorProtocolMessage::Invalid(head_c, candidate_a),
+				CollatorProtocolMessage::Invalid(head_c, candidate_a.into()),
 			)
 			.await;
 

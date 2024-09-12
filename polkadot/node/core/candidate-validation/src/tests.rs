@@ -52,7 +52,8 @@ fn correctly_checks_included_assumption() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -126,7 +127,8 @@ fn correctly_checks_timed_out_assumption() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -198,7 +200,8 @@ fn check_is_bad_request_if_no_validation_data() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -254,7 +257,8 @@ fn check_is_bad_request_if_no_validation_code() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -322,7 +326,8 @@ fn check_does_not_match() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -423,7 +428,8 @@ fn candidate_validation_ok_is_ok() {
 		head_data.hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -491,7 +497,8 @@ fn candidate_validation_bad_return_is_invalid() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -535,7 +542,8 @@ fn perform_basic_checks_on_valid_candidate(
 		head_data_hash,
 		head_data_hash,
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -729,7 +737,8 @@ fn candidate_validation_retry_on_error_helper(
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -769,7 +778,8 @@ fn candidate_validation_timeout_is_internal_error() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -816,7 +826,8 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 			Sr25519Keyring::Alice,
 		),
 		commitments_hash: Hash::zero(),
-	};
+	}
+	.into();
 
 	// This will result in different commitments for this candidate.
 	let validation_result = WasmValidationResult {
@@ -860,7 +871,8 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -915,7 +927,8 @@ fn compressed_code_works() {
 		head_data.hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let validation_result = WasmValidationResult {
 		head_data,

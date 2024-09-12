@@ -42,15 +42,14 @@ use polkadot_node_subsystem_test_helpers::{
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
 	vstaging::{
-		CandidateDescriptorV2, CandidateReceiptV2 as CandidateReceipt,
+		CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
 	},
 	BlockNumber, CandidateHash, CompactStatement, Hash, Header, Id, PersistedValidationData,
 	SessionInfo, SignedStatement, SigningContext, UncheckedSigned, ValidatorIndex, ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_committed_candidate_receipt, dummy_committed_candidate_receipt_v2, dummy_hash,
-	dummy_head_data, dummy_pvd,
+	dummy_committed_candidate_receipt_v2, dummy_hash, dummy_head_data, dummy_pvd,
 };
 use sc_network::{config::IncomingRequest, ProtocolName};
 use sp_core::{Pair, H256};

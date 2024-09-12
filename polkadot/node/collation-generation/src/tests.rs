@@ -30,7 +30,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::{subsystem_test_harness, TestSubsystemContextHandle};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	async_backing::{BackingState, CandidatePendingAvailability},
+	async_backing::{CandidatePendingAvailability},
+	vstaging::async_backing::BackingState,
 	AsyncBackingParams, BlockNumber, CollatorPair, HeadData, PersistedValidationData,
 	ScheduledCore, ValidationCode,
 };

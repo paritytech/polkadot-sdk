@@ -275,7 +275,7 @@ async fn assert_validate_seconded_candidate(
 		}) if &validation_data == assert_pvd &&
 			&validation_code == assert_validation_code &&
 			&*pov == assert_pov &&
-			&candidate_receipt.descriptor == candidate.descriptor &&
+			candidate_receipt.descriptor == candidate.descriptor &&
 			exec_kind == PvfExecKind::Backing &&
 			candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 		{
@@ -1011,7 +1011,7 @@ fn second_multiple_candidates_per_relay_parent() {
 
 			assert_validate_seconded_candidate(
 				&mut virtual_overseer,
-				candidate.descriptor().relay_parent,
+				candidate.descriptor.relay_parent(),
 				&candidate,
 				&pov,
 				&pvd,
@@ -1064,13 +1064,13 @@ fn second_multiple_candidates_per_relay_parent() {
 						parent_hash,
 						_signed_statement,
 					)
-				) if parent_hash == candidate.descriptor().relay_parent => {}
+				) if parent_hash == candidate.descriptor.relay_parent() => {}
 			);
 
 			assert_matches!(
 				virtual_overseer.recv().await,
 				AllMessages::CollatorProtocol(CollatorProtocolMessage::Seconded(hash, statement)) => {
-					assert_eq!(candidate.descriptor().relay_parent, hash);
+					assert_eq!(candidate.descriptor.relay_parent(), hash);
 					assert_matches!(statement.payload(), Statement::Seconded(_));
 				}
 			);

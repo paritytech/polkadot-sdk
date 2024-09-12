@@ -206,6 +206,8 @@ pub trait MutateDescriptorV2<H> {
 	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash);
 	/// Set the erasure root of the descriptor.
 	fn set_erasure_root(&mut self, erasure_root: Hash);
+	/// Set the para head of the descriptor.
+	fn set_para_head(&mut self, para_head: Hash);
 }
 
 #[cfg(feature = "test")]
@@ -232,6 +234,10 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 
 	fn set_erasure_root(&mut self, erasure_root: Hash) {
 		self.erasure_root = erasure_root;
+	}
+
+	fn set_para_head(&mut self, para_head: Hash) {
+		self.para_head = para_head;
 	}
 }
 

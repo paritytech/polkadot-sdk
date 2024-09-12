@@ -36,8 +36,11 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::{reexports::SubsystemContext, TimeoutExt};
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateDescriptor, CandidateEvent, CandidateReceipt, CoreIndex,
-	GroupIndex, Hash, HashT, HeadData, Id as ParaId,
+	vstaging::{
+		CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
+		CandidateReceiptV2 as CandidateReceipt,
+	},
+	BlakeTwo256, BlockNumber, CoreIndex, GroupIndex, Hash, HashT, HeadData, Id as ParaId,
 };
 use polkadot_primitives_test_helpers::{dummy_collator, dummy_collator_signature, dummy_hash};
 

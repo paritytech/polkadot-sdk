@@ -378,7 +378,9 @@ mod tests {
 	use super::*;
 	use polkadot_node_primitives::DISPUTE_WINDOW;
 	use polkadot_primitives::{Hash, Id as ParaId};
-	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+	use polkadot_primitives_test_helpers::{
+		dummy_candidate_receipt, dummy_candidate_receipt_v2, dummy_hash,
+	};
 
 	fn make_db() -> DbBackend {
 		let db = kvdb_memorydb::create(1);
@@ -404,7 +406,7 @@ mod tests {
 				session,
 				candidate_hash,
 				CandidateVotes {
-					candidate_receipt: dummy_candidate_receipt(dummy_hash()),
+					candidate_receipt: dummy_candidate_receipt_v2(dummy_hash()),
 					valid: Vec::new(),
 					invalid: Vec::new(),
 				},
@@ -496,7 +498,7 @@ mod tests {
 			1,
 			CandidateHash(Hash::repeat_byte(1)),
 			CandidateVotes {
-				candidate_receipt: dummy_candidate_receipt(dummy_hash()),
+				candidate_receipt: dummy_candidate_receipt_v2(dummy_hash()),
 				valid: Vec::new(),
 				invalid: Vec::new(),
 			},
@@ -509,7 +511,7 @@ mod tests {
 					let mut receipt = dummy_candidate_receipt(dummy_hash());
 					receipt.descriptor.para_id = ParaId::from(5_u32);
 
-					receipt
+					receipt.into()
 				},
 				valid: Vec::new(),
 				invalid: Vec::new(),
@@ -533,7 +535,7 @@ mod tests {
 				.unwrap()
 				.candidate_receipt
 				.descriptor
-				.para_id,
+				.para_id(),
 			ParaId::from(5),
 		);
 
@@ -557,7 +559,7 @@ mod tests {
 				.unwrap()
 				.candidate_receipt
 				.descriptor
-				.para_id,
+				.para_id(),
 			ParaId::from(5),
 		);
 	}
@@ -572,13 +574,13 @@ mod tests {
 			1,
 			CandidateHash(Hash::repeat_byte(1)),
 			CandidateVotes {
-				candidate_receipt: dummy_candidate_receipt(Hash::random()),
+				candidate_receipt: dummy_candidate_receipt_v2(Hash::random()),
 				valid: Vec::new(),
 				invalid: Vec::new(),
 			},
 		);
 
-		let receipt = dummy_candidate_receipt(dummy_hash());
+		let receipt = dummy_candidate_receipt_v2(dummy_hash());
 
 		overlay_db.write_candidate_votes(
 			1,
@@ -622,7 +624,7 @@ mod tests {
 		let very_recent = current_session - 1;
 
 		let blank_candidate_votes = || CandidateVotes {
-			candidate_receipt: dummy_candidate_receipt(dummy_hash()),
+			candidate_receipt: dummy_candidate_receipt_v2(dummy_hash()),
 			valid: Vec::new(),
 			invalid: Vec::new(),
 		};

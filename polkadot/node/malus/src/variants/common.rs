@@ -244,7 +244,7 @@ fn create_validation_response(
 
 	gum::debug!(
 		target: MALUS,
-		para_id = ?candidate_receipt.descriptor.para_id,
+		para_id = ?candidate_receipt.descriptor.para_id(),
 		candidate_hash = ?candidate_receipt.hash(),
 		"ValidationResult: {:?}",
 		&result
@@ -350,7 +350,7 @@ where
 								gum::info!(
 									target: MALUS,
 									?behave_maliciously,
-									para_id = ?candidate_receipt.descriptor.para_id,
+									para_id = ?candidate_receipt.descriptor.para_id(),
 									"😈 Maliciously sending invalid validation result: {:?}.",
 									&validation_result,
 								);
@@ -459,7 +459,7 @@ where
 									ValidationResult::Invalid(self.fake_validation_error.into());
 								gum::info!(
 									target: MALUS,
-									para_id = ?candidate_receipt.descriptor.para_id,
+									para_id = ?candidate_receipt.descriptor.para_id(),
 									"😈 Maliciously sending invalid validation result: {:?}.",
 									&validation_result,
 								);

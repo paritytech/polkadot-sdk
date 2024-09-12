@@ -628,7 +628,7 @@ pub(crate) mod tests {
 		node_features::FeatureIndex, ExecutorParams, Id as ParaId, IndexedVec, NodeFeatures,
 		SessionInfo, ValidatorId, ValidatorIndex,
 	};
-	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+	use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2, dummy_hash};
 	use schnellru::{ByLength, LruMap};
 	pub(crate) use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
@@ -772,9 +772,9 @@ pub(crate) mod tests {
 
 			let hash = header.hash();
 			let make_candidate = |para_id| {
-				let mut r = dummy_candidate_receipt(dummy_hash());
-				r.descriptor.para_id = para_id;
-				r.descriptor.relay_parent = hash;
+				let mut r = dummy_candidate_receipt_v2(dummy_hash());
+				r.descriptor.set_para_id(para_id);
+				r.descriptor.set_relay_parent(hash);
 				r
 			};
 			let candidates = vec![
@@ -924,9 +924,9 @@ pub(crate) mod tests {
 
 		let hash = header.hash();
 		let make_candidate = |para_id| {
-			let mut r = dummy_candidate_receipt(dummy_hash());
-			r.descriptor.para_id = para_id;
-			r.descriptor.relay_parent = hash;
+			let mut r = dummy_candidate_receipt_v2(dummy_hash());
+			r.descriptor.set_para_id(para_id);
+			r.descriptor.set_relay_parent(hash);
 			r
 		};
 		let candidates = vec![
@@ -1063,9 +1063,9 @@ pub(crate) mod tests {
 
 		let hash = header.hash();
 		let make_candidate = |para_id| {
-			let mut r = dummy_candidate_receipt(dummy_hash());
-			r.descriptor.para_id = para_id;
-			r.descriptor.relay_parent = hash;
+			let mut r = dummy_candidate_receipt_v2(dummy_hash());
+			r.descriptor.set_para_id(para_id);
+			r.descriptor.set_relay_parent(hash);
 			r
 		};
 		let candidates = vec![
@@ -1156,9 +1156,9 @@ pub(crate) mod tests {
 
 		let hash = header.hash();
 		let make_candidate = |para_id| {
-			let mut r = dummy_candidate_receipt(dummy_hash());
-			r.descriptor.para_id = para_id;
-			r.descriptor.relay_parent = hash;
+			let mut r = dummy_candidate_receipt_v2(dummy_hash());
+			r.descriptor.set_para_id(para_id);
+			r.descriptor.set_relay_parent(hash);
 			r
 		};
 		let candidates = vec![
@@ -1346,9 +1346,9 @@ pub(crate) mod tests {
 
 		let hash = header.hash();
 		let make_candidate = |para_id| {
-			let mut r = dummy_candidate_receipt(dummy_hash());
-			r.descriptor.para_id = para_id;
-			r.descriptor.relay_parent = hash;
+			let mut r = dummy_candidate_receipt_v2(dummy_hash());
+			r.descriptor.set_para_id(para_id);
+			r.descriptor.set_relay_parent(hash);
 			r
 		};
 		let candidates = vec![

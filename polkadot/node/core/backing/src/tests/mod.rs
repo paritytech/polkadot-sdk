@@ -433,7 +433,7 @@ async fn assert_validate_from_exhaustive(
 			},
 		) if validation_data == *assert_pvd &&
 			validation_code == *assert_validation_code &&
-			*pov == *assert_pov && &candidate_receipt.descriptor == assert_candidate.descriptor &&
+			*pov == *assert_pov && candidate_receipt.descriptor == assert_candidate.descriptor &&
 			exec_kind == PvfExecKind::Backing &&
 			candidate_receipt.commitments_hash == assert_candidate.commitments.hash() =>
 		{

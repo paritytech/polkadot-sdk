@@ -23,6 +23,7 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
 sp-tracing = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 rand = { workspace = true }

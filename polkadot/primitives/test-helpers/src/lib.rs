@@ -227,7 +227,7 @@ pub fn make_candidate(
 	parent_head: HeadData,
 	head_data: HeadData,
 	validation_code_hash: ValidationCodeHash,
-) -> (CommittedCandidateReceipt, PersistedValidationData) {
+) -> (CommittedCandidateReceiptV2, PersistedValidationData) {
 	let pvd = dummy_pvd(parent_head, relay_parent_number);
 	let commitments = CandidateCommitments {
 		head_data,
@@ -244,7 +244,8 @@ pub fn make_candidate(
 	candidate.descriptor.para_id = para_id;
 	candidate.descriptor.persisted_validation_data_hash = pvd.hash();
 	candidate.descriptor.validation_code_hash = validation_code_hash;
-	let candidate = CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
+	let candidate =
+		CommittedCandidateReceiptV2 { descriptor: candidate.descriptor.into(), commitments };
 
 	(candidate, pvd)
 }
@@ -354,11 +355,11 @@ impl std::default::Default for TestCandidateBuilder {
 
 impl TestCandidateBuilder {
 	/// Build a `CandidateReceipt`.
-	pub fn build(self) -> CandidateReceipt {
+	pub fn build(self) -> CandidateReceiptV2 {
 		let mut descriptor = dummy_candidate_descriptor(self.relay_parent);
 		descriptor.para_id = self.para_id;
 		descriptor.pov_hash = self.pov_hash;
-		CandidateReceipt { descriptor, commitments_hash: self.commitments_hash }
+		CandidateReceipt { descriptor, commitments_hash: self.commitments_hash }.into()
 	}
 }
 

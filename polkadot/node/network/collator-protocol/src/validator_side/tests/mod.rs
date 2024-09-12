@@ -42,8 +42,9 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	CandidateReceipt, CollatorPair, CoreIndex, CoreState, GroupIndex, GroupRotationInfo, HeadData,
-	OccupiedCore, PersistedValidationData, ScheduledCore, ValidatorId, ValidatorIndex,
+	vstaging::{CandidateReceiptV2 as CandidateReceipt, CoreState, OccupiedCore},
+	CollatorPair, CoreIndex, GroupIndex, GroupRotationInfo, HeadData, PersistedValidationData,
+	ScheduledCore, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_candidate_receipt_bad_sig, dummy_hash,
