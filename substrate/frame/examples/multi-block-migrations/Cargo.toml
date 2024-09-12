@@ -34,7 +34,6 @@ std = [
 	"pallet-migrations/std",
 	"scale-info/std",
 	"sp-io/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

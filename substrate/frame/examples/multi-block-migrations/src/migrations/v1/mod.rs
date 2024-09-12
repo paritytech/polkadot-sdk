@@ -30,10 +30,10 @@ use frame_support::{
 };
 
 #[cfg(feature = "try-runtime")]
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 
 #[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 mod benchmarks;
 mod tests;
