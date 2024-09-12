@@ -265,6 +265,12 @@ where
 				let bridge_location = Location::new(2, GlobalConsensus(network));
 
 				instructions.extend(vec![
+					// After program finishes deposit any leftover assets to the snowbridge
+					// sovereign.
+					SetAppendix(Xcm(vec![DepositAsset {
+						assets: Wild(AllCounted(2)),
+						beneficiary: bridge_location,
+					}])),
 					// Perform a deposit reserve to send to destination chain.
 					DepositReserveAsset {
 						assets: Definite(vec![dest_para_fee_asset.clone(), asset].into()),
@@ -277,8 +283,6 @@ where
 						]
 						.into(),
 					},
-					// Deposit any leftover unspent AH fees to the snowbridge sovereign.
-					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: bridge_location },
 				]);
 			},
 			None => {
