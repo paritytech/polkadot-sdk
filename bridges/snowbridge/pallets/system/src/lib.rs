@@ -628,9 +628,7 @@ pub mod pallet {
 			let location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			let pays_fee = PaysFee::<T>::No;
-
-			Self::do_register_token(&location, metadata, pays_fee)?;
+			Self::do_register_token(&location, metadata, PaysFee::<T>::No)?;
 
 			Ok(PostDispatchInfo {
 				actual_weight: Some(T::WeightInfo::register_token()),
