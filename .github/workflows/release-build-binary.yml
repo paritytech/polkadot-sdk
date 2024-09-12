@@ -62,6 +62,7 @@ jobs:
           # Install pgpkms that is used to sign build artifacts
           python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
           which pgpkms
+          export PATH="$(which pgpkms):$PATH"
 
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
