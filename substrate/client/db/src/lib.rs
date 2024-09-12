@@ -1683,6 +1683,16 @@ impl<Block: BlockT> Backend<Block> {
 			let should_check_block_gap = !existing_header || !body_exists;
 
 			if should_check_block_gap {
+				let insert_new_gap = |transaction: &mut Transaction<DbHash>,
+				                      gap: BlockGap<NumberFor<Block>>| {
+					transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
+					transaction.set(
+						columns::META,
+						meta_keys::BLOCK_GAP_VERSION,
+						&BLOCK_GAP_CURRENT_VERSION.encode(),
+					);
+				};
+
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
 						BlockGapType::MissingHeaderAndBody =>
@@ -1700,18 +1710,9 @@ impl<Block: BlockT> Backend<Block> {
 									block_gap = None;
 									debug!(target: "db", "Removed block gap.");
 								} else {
+									insert_new_gap(&mut transaction, gap);
 									block_gap = Some(gap);
 									debug!(target: "db", "Update block gap. {block_gap:?}");
-									transaction.set(
-										columns::META,
-										meta_keys::BLOCK_GAP,
-										&gap.encode(),
-									);
-									transaction.set(
-										columns::META,
-										meta_keys::BLOCK_GAP_VERSION,
-										&BLOCK_GAP_CURRENT_VERSION.encode(),
-									);
 								}
 								block_gap_updated = true;
 							},
@@ -1725,14 +1726,9 @@ impl<Block: BlockT> Backend<Block> {
 									number,
 									hash,
 								)?;
+								insert_new_gap(&mut transaction, gap);
 								block_gap = Some(gap);
 								debug!(target: "db", "Update block gap. {block_gap:?}");
-								transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
-								transaction.set(
-									columns::META,
-									meta_keys::BLOCK_GAP_VERSION,
-									&BLOCK_GAP_CURRENT_VERSION.encode(),
-								);
 								block_gap_updated = true;
 							// Gap decreased when downloading the full blocks.
 							} else if number == gap.start && body_exists {
@@ -1743,18 +1739,9 @@ impl<Block: BlockT> Backend<Block> {
 									block_gap = None;
 									debug!(target: "db", "Removed block gap.");
 								} else {
+									insert_new_gap(&mut transaction, gap);
 									block_gap = Some(gap);
 									debug!(target: "db", "Update block gap. {block_gap:?}");
-									transaction.set(
-										columns::META,
-										meta_keys::BLOCK_GAP,
-										&gap.encode(),
-									);
-									transaction.set(
-										columns::META,
-										meta_keys::BLOCK_GAP_VERSION,
-										&BLOCK_GAP_CURRENT_VERSION.encode(),
-									);
 								}
 								block_gap_updated = true;
 							}
@@ -1769,12 +1756,7 @@ impl<Block: BlockT> Backend<Block> {
 							end: number - One::one(),
 							gap_type: BlockGapType::MissingHeaderAndBody,
 						};
-						transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
-						transaction.set(
-							columns::META,
-							meta_keys::BLOCK_GAP_VERSION,
-							&BLOCK_GAP_CURRENT_VERSION.encode(),
-						);
+						insert_new_gap(&mut transaction, gap);
 						block_gap = Some(gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
@@ -1787,12 +1769,7 @@ impl<Block: BlockT> Backend<Block> {
 							end: number,
 							gap_type: BlockGapType::MissingBody,
 						};
-						transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
-						transaction.set(
-							columns::META,
-							meta_keys::BLOCK_GAP_VERSION,
-							&BLOCK_GAP_CURRENT_VERSION.encode(),
-						);
+						insert_new_gap(&mut transaction, gap);
 						block_gap = Some(gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (fast sync) {block_gap:?}");
