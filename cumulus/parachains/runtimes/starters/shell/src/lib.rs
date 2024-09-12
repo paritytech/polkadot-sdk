@@ -43,7 +43,7 @@ use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
@@ -82,8 +82,8 @@ impl_opaque_keys! {
 /// This runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("shell"),
-	impl_name: create_runtime_str!("shell"),
+	spec_name: alloc::borrow::Cow::Borrowed("shell"),
+	impl_name: alloc::borrow::Cow::Borrowed("shell"),
 	authoring_version: 1,
 	spec_version: 2,
 	impl_version: 0,

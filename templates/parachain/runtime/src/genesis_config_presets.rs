@@ -148,9 +148,9 @@ fn development_config_genesis() -> Value {
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<vec::Vec<u8>> {
-	let patch = match id.try_into() {
-		Ok(PRESET_LOCAL_TESTNET) => local_testnet_genesis(),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
+	let patch = match id.as_ref() {
+		PRESET_LOCAL_TESTNET => local_testnet_genesis(),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => development_config_genesis(),
 		_ => return None,
 	};
 	Some(

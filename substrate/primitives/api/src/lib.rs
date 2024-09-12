@@ -105,7 +105,7 @@ pub mod __private {
 		generic::BlockId,
 		traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, NumberFor},
 		transaction_validity::TransactionValidity,
-		ExtrinsicInclusionMode, RuntimeString, TransactionOutcome,
+		ExtrinsicInclusionMode, TransactionOutcome,
 	};
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
 
@@ -286,7 +286,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// # Example
 ///
 /// ```rust
-/// use sp_version::create_runtime_str;
+/// extern crate alloc;
 /// #
 /// # use sp_runtime::{ExtrinsicInclusionMode, traits::Block as BlockT};
 /// # use sp_test_primitives::Block;
@@ -338,8 +338,8 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 ///
 /// /// Runtime version. This needs to be declared for each runtime.
 /// pub const VERSION: sp_version::RuntimeVersion = sp_version::RuntimeVersion {
-///     spec_name: create_runtime_str!("node"),
-///     impl_name: create_runtime_str!("test-node"),
+///     spec_name: alloc::borrow::Cow::Borrowed("node"),
+///     impl_name: alloc::borrow::Cow::Borrowed("test-node"),
 ///     authoring_version: 1,
 ///     spec_version: 1,
 ///     impl_version: 0,

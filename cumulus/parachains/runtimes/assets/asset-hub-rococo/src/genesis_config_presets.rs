@@ -85,8 +85,8 @@ mod preset_names {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
-	let patch = match id.try_into() {
-		Ok(PRESET_GENESIS) => asset_hub_rococo_genesis(
+	let patch = match id.as_ref() {
+		PRESET_GENESIS => asset_hub_rococo_genesis(
 			// initial collators.
 			vec![
 				// E8XC6rTJRsioKCp6KMy6zd24ykj4gWsusZ3AkSeyavpVBAG
@@ -118,7 +118,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			ASSET_HUB_ROCOCO_ED * 524_288,
 			1000.into(),
 		),
-		Ok(PRESET_LOCAL) => asset_hub_rococo_genesis(
+		PRESET_LOCAL => asset_hub_rococo_genesis(
 			// initial collators.
 			vec![
 				(
@@ -147,7 +147,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
 			1000.into(),
 		),
-		Ok(PRESET_DEVELOPMENT) => asset_hub_rococo_genesis(
+		PRESET_DEVELOPMENT => asset_hub_rococo_genesis(
 			// initial collators.
 			vec![(
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -162,7 +162,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
 			1000.into(),
 		),
-		Err(_) | Ok(_) => return None,
+		_ => return None,
 	};
 
 	Some(

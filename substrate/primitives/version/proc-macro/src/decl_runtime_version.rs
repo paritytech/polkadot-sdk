@@ -182,21 +182,30 @@ impl ParseRuntimeVersion {
 	}
 
 	fn parse_str_literal(expr: &Expr) -> Result<String> {
-		let mac = match *expr {
-			Expr::Macro(syn::ExprMacro { ref mac, .. }) => mac,
-			_ => return Err(Error::new(expr.span(), "a macro expression is expected here")),
-		};
+		match expr {
+			Expr::Call(call) => {
+				if call.args.len() != 1 {
+					return Err(Error::new(
+						expr.span(),
+						"a single literal argument is expected, but parsing is failed",
+					));
+				}
+				let Expr::Lit(lit) = call.args.first().expect("Length checked above; qed") else {
+					return Err(Error::new(
+						expr.span(),
+						"a single literal argument is expected, but parsing is failed",
+					));
+				};
 
-		let lit: ExprLit = mac.parse_body().map_err(|e| {
-			Error::new(
-				e.span(),
-				format!("a single literal argument is expected, but parsing is failed: {}", e),
-			)
-		})?;
-
-		match lit.lit {
-			Lit::Str(ref lit) => Ok(lit.value()),
-			_ => Err(Error::new(lit.span(), "only string literals are supported here")),
+				match lit.lit {
+					Lit::Str(ref lit) => Ok(lit.value()),
+					_ => Err(Error::new(lit.span(), "only string literals are supported here")),
+				}
+			},
+			_ => Err(Error::new(
+				expr.span(),
+				format!("a macro expression is expected here: {expr:?}"),
+			)),
 		}
 	}
 

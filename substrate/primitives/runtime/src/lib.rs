@@ -49,7 +49,7 @@
 extern crate alloc;
 
 #[doc(hidden)]
-pub use alloc::{format, vec::Vec};
+pub use alloc::vec::Vec;
 #[doc(hidden)]
 pub use codec;
 #[doc(hidden)]
@@ -90,14 +90,11 @@ mod multiaddress;
 pub mod offchain;
 pub mod proving_trie;
 pub mod runtime_logger;
-mod runtime_string;
 #[cfg(feature = "std")]
 pub mod testing;
 pub mod traits;
 pub mod transaction_validity;
 pub mod type_with_default;
-
-pub use crate::runtime_string::*;
 
 // Re-export Multiaddress
 pub use multiaddress::MultiAddress;
@@ -951,7 +948,7 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	{
 		let r = ::sp_core::bytes::deserialize(de)?;
 		Decode::decode(&mut &r[..])
-			.map_err(|e| ::serde::de::Error::custom(format!("Decode error: {}", e)))
+			.map_err(|e| ::serde::de::Error::custom(alloc::format!("Decode error: {}", e)))
 	}
 }
 

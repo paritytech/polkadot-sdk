@@ -46,8 +46,7 @@ use std::collections::HashSet;
 pub use alloc::borrow::Cow;
 use codec::{Decode, Encode, Input};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeString;
-pub use sp_runtime::{create_runtime_str, StateVersion};
+pub use sp_runtime::StateVersion;
 #[doc(hidden)]
 pub use sp_std;
 
@@ -72,12 +71,15 @@ pub mod embed;
 /// This macro accepts a const item like the following:
 ///
 /// ```rust
-/// use sp_version::{create_runtime_str, RuntimeVersion};
+/// extern crate alloc;
+///
+/// use alloc::borrow::Cow;
+/// use sp_version::RuntimeVersion;
 ///
 /// #[sp_version::runtime_version]
 /// pub const VERSION: RuntimeVersion = RuntimeVersion {
-/// 	spec_name: create_runtime_str!("test"),
-/// 	impl_name: create_runtime_str!("test"),
+/// 	spec_name: Cow::Borrowed("test"),
+/// 	impl_name: Cow::Borrowed("test"),
 /// 	authoring_version: 10,
 /// 	spec_version: 265,
 /// 	impl_version: 1,
@@ -164,14 +166,14 @@ pub struct RuntimeVersion {
 	/// Identifies the different Substrate runtimes. There'll be at least polkadot and node.
 	/// A different on-chain spec_name to that of the native runtime would normally result
 	/// in node not attempting to sync or author blocks.
-	pub spec_name: RuntimeString,
+	pub spec_name: Cow<'static, str>,
 
 	/// Name of the implementation of the spec. This is of little consequence for the node
 	/// and serves only to differentiate code of different implementation teams. For this
 	/// codebase, it will be parity-polkadot. If there were a non-Rust implementation of the
 	/// Polkadot runtime (e.g. C++), then it would identify itself with an accordingly different
 	/// `impl_name`.
-	pub impl_name: RuntimeString,
+	pub impl_name: Cow<'static, str>,
 
 	/// `authoring_version` is the version of the authorship interface. An authoring node
 	/// will not attempt to author blocks unless this is equal to its native runtime.
@@ -472,8 +474,8 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 			where
 				A: serde::de::MapAccess<'de>,
 			{
-				let mut spec_name: Option<RuntimeString> = None;
-				let mut impl_name: Option<RuntimeString> = None;
+				let mut spec_name: Option<Cow<'static, str>> = None;
+				let mut impl_name: Option<Cow<'static, str>> = None;
 				let mut authoring_version: Option<u32> = None;
 				let mut spec_version: Option<u32> = None;
 				let mut impl_version: Option<u32> = None;
