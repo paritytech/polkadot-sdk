@@ -9,8 +9,8 @@ doc:
       The metrics are names `cumulus_rpc_request_{method}` and can be scraped by prometheus agents from the relaychain minimal node's prometheus exporter. The metrics provide information about `count`, `sum` and `duration` in seconds (with exponential buckets with parameters as start = 0.001, factor = 4, count = 9).
 crates: 
   - name: cumulus-relay-chain-rpc-interface
-    bump: minor
+    bump: major
   - name: cumulus-relay-chain-minimal-node
-    bump: minor
+    bump: patch
   - name: cumulus-test-service
     bump: patch
