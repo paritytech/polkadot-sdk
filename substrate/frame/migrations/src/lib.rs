@@ -286,13 +286,6 @@ pub trait MockedMigrations: SteppedMigrations {
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, Default)]
 struct PreUpgradeBytesWrapper(pub Vec<u8>);
 
-#[cfg(feature = "try-runtime")]
-impl MaxEncodedLen for PreUpgradeBytesWrapper {
-	fn max_encoded_len() -> usize {
-		0
-	}
-}
-
 /// Data stored by the pre-upgrade hook of the MBMs. Only used for `try-runtime` testing.
 ///
 /// Define this outside of the pallet so it is not confused with actual storage.
