@@ -125,6 +125,7 @@ mod sys {
 		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32) -> ReturnCode;
 		pub fn xcm_send(
 			dest_ptr: *const u8,
+			dest_len: *const u8,
 			msg_ptr: *const u8,
 			msg_len: u32,
 			out_ptr: *mut u8,
@@ -535,7 +536,13 @@ impl HostFn for HostFnImpl {
 
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result {
 		let ret_code = unsafe {
-			sys::xcm_send(dest.as_ptr(), msg.as_ptr(), msg.len() as _, output.as_mut_ptr())
+			sys::xcm_send(
+				dest.as_ptr(),
+				dest.len() as _,
+				msg.as_ptr(),
+				msg.len() as _,
+				output.as_mut_ptr(),
+			)
 		};
 		ret_code.into()
 	}
