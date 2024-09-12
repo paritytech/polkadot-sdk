@@ -23,34 +23,44 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
+      - id: set_runner
+        run: |
+          # Run merge queues on persistent runners
+          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
+          else
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+          fi
 
   build:
     timeout-minutes: 80
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-benchmark
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     strategy:
       fail-fast: false
       matrix:
-        features: [
+        features:
+          [
             {
               name: "polkadot-availability-recovery",
               bench: "availability-recovery-regression-bench",
             },
-            # {
-            #   name: "polkadot-availability-distribution",
-            #   bench: "availability-distribution-regression-bench",
-            # },
-            # {
-            #   name: "polkadot-node-core-approval-voting",
-            #   bench: "approval-voting-regression-bench",
-            # },
+            {
+              name: "polkadot-availability-distribution",
+              bench: "availability-distribution-regression-bench",
+            },
+            {
+              name: "polkadot-node-core-approval-voting",
+              bench: "approval-voting-regression-bench",
+            },
             {
               name: "polkadot-statement-distribution",
               bench: "statement-distribution-regression-bench",
@@ -97,7 +107,7 @@ jobs:
         with:
           path: ./charts
 
-      - name: Setup git & copy artifacts
+      - name: Setup git
         run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
@@ -123,7 +133,7 @@ jobs:
 
       - name: Generate ${{ env.BENCH }}
         env:
-          BENCH: statement-distribution-regression-bench
+          BENCH: availability-distribution-regression-bench
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "customSmallerIsBetter"
@@ -133,20 +143,26 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
 
-      - run: |
-          ls -lsaR ./bench
-          ls -lsaR ./charts
-          git status
-          git diff
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: approval-voting-regression-bench
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
 
-      # - name: Push changes
-      #   run: |
-      #     git config --global user.email "action@github.com"
-      #     git config --global user.name "GitHub Action"
-      #     git remote remove origin
-      #     git remote add origin https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}
-      #     git status
-      #     git diff
-      #     git add ./bench
-      #     git commit -m "Update subsystem benchmarks"
-      #     git push --set-upstream origin gh-pages
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: statement-distribution-regression-bench
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
