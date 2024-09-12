@@ -348,7 +348,7 @@ jobs:
 
   cargo-check-each-crate-macos:
     timeout-minutes: 30
-    runs-on: parity-macos
+    runs-on: macOS
     env:
       SKIP_WASM_BUILD: 1
     steps:
@@ -360,7 +360,8 @@ jobs:
           echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
-      - uses: actions-rust-lang/setup-rust-toolchain@1fbea72663f6d4c03efaab13560c8a24cfd2a7cc # v1.9.0
+      - name: Install rust ${{ env.RUST_VERSION }}
+        uses: actions-rust-lang/setup-rust-toolchain@1fbea72663f6d4c03efaab13560c8a24cfd2a7cc # v1.9.0
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}
