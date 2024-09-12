@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Update parity-common crates
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Update parity-common deps see https://github.com/paritytech/parity-common/pull/860
+      for more details
+
+crates:
+  - name: bp-polkadot-core
+    bump: patch
+  - name: penpal-runtime 
+    bump: patch
+  - name: pallet-babe
+    bump: patch
+  - name: pallet-revive
+    bump: patch
