@@ -19,7 +19,7 @@ pub mod parachain;
 pub mod primitives;
 pub mod relay_chain;
 
-#[cfg(all(test, feature = "FAIL-CI @pg"))]
+#[cfg(all(test, feature = "riscv"))]
 mod tests;
 
 use crate::primitives::{AccountId, UNITS};

@@ -39,7 +39,6 @@ pub struct RelayReference<
 	TargetClient: MessageLaneTargetClient<P>,
 > {
 	/// The client that is connected to the message lane source node.
-	#[allow(dead_code)]
 	pub lane_source_client: SourceClient,
 	/// The client that is connected to the message lane target node.
 	#[allow(dead_code)]
