@@ -811,21 +811,18 @@ impl<T: Config> Pallet<T> {
 	///
 	/// When the `try-runtime` feature is enabled, this function will panic.
 	// Allow unreachable code so it can compile without warnings when `try-runtime` is enabled.
-	#[cfg_attr(feature = "try-runtime", allow(unreachable_code))]
 	fn upgrade_failed(migration: Option<u32>) {
 		use FailedMigrationHandling::*;
 		Self::deposit_event(Event::UpgradeFailed);
 
-		#[cfg(feature = "try-runtime")]
-		{
-			log::error!("Migration at index {:?} failed.", migration);
-			panic!("A multi-block migration failed. Run with RUST_LOG=trace for all logs.");
-		}
-
-		match T::FailedMigrationHandler::failed(migration) {
-			KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
-			ForceUnstuck => Cursor::<T>::kill(),
-			Ignore => {},
+		if cfg!(feature = "try-runtime") {
+			panic!("Migration with index {:?} failed.", migration);
+		} else {
+			match T::FailedMigrationHandler::failed(migration) {
+				KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
+				ForceUnstuck => Cursor::<T>::kill(),
+				Ignore => {},
+			}
 		}
 	}
 

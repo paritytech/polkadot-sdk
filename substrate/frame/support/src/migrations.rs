@@ -530,18 +530,20 @@ pub trait SteppedMigration {
 		.map_err(|()| SteppedMigrationError::Failed)?
 	}
 
-	/// Executed prior to the migration starting.
+	/// Hook for testing that is run before the migration is started.
 	///
 	/// Returns some bytes which are passed into `post_upgrade` after the migration is completed.
+	/// This is not run for the real migration, so panicking is not an issue here.
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		Ok(Vec::new())
 	}
 
-	/// Executed after the migration is completed.
+	/// Hook for testing that is run after the migration is completed.
 	///
 	/// Should be used to verify the state of the chain after the migration. The `state` parameter
-	/// is the return value from `pre_upgrade`.
+	/// is the return value from `pre_upgrade`. This is not run for the real migration, so panicking
+	/// is not an issue here.
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		Ok(())
@@ -716,16 +718,16 @@ pub trait SteppedMigrations {
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>>;
 
-	#[cfg(feature = "try-runtime")]
 	/// Call the pre-upgrade hooks of the `n`th migration.
 	///
 	/// Returns `None` if the index is out of bounds.
+	#[cfg(feature = "try-runtime")]
 	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>>;
 
-	#[cfg(feature = "try-runtime")]
 	/// Call the post-upgrade hooks of the `n`th migration.
 	///
 	/// Returns `None` if the index is out of bounds.
+	#[cfg(feature = "try-runtime")]
 	fn nth_post_upgrade(n: u32, _state: Vec<u8>)
 		-> Option<Result<(), sp_runtime::TryRuntimeError>>;
 
