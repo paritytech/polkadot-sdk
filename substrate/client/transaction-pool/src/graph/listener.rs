@@ -18,7 +18,6 @@
 
 use std::{collections::HashMap, fmt::Debug, hash};
 
-// use crate::LOG_TARGET;
 use linked_hash_map::LinkedHashMap;
 use log::trace;
 use sc_transaction_pool_api::TransactionStatus;
