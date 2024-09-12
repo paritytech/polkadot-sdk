@@ -23,6 +23,7 @@ use node_cli::service::{create_extrinsic, fetch_nonce, FullClient, TransactionPo
 use node_primitives::AccountId;
 use polkadot_sdk::{
 	sc_service::config::{ExecutorConfiguration, RpcConfiguration},
+	sc_transaction_pool_api::TransactionPool as _,
 	*,
 };
 use sc_service::{
@@ -240,7 +241,7 @@ fn transaction_pool_benchmarks(c: &mut Criterion) {
 
 					runtime.block_on(future::join_all(prepare_extrinsics.into_iter().map(|tx| {
 						submit_tx_and_wait_for_inclusion(
-							&*node.transaction_pool,
+							&node.transaction_pool,
 							tx,
 							&node.client,
 							true,
@@ -252,7 +253,7 @@ fn transaction_pool_benchmarks(c: &mut Criterion) {
 				|extrinsics| {
 					runtime.block_on(future::join_all(extrinsics.into_iter().map(|tx| {
 						submit_tx_and_wait_for_inclusion(
-							&*node.transaction_pool,
+							&node.transaction_pool,
 							tx,
 							&node.client,
 							false,

@@ -434,9 +434,9 @@ where
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
-	) -> Box<Self> {
+	) -> Arc<Self> {
 		let pool_api = Arc::new(FullChainApi::new(client.clone(), prometheus, &spawner));
-		let pool = Box::new(Self::with_revalidation_type(
+		let pool = Arc::new(Self::with_revalidation_type(
 			options,
 			is_validator,
 			pool_api,
