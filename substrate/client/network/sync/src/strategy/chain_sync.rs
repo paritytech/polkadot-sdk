@@ -2285,24 +2285,6 @@ pub fn validate_blocks<Block: BlockT>(
 				return Err(BadPeer(*peer_id, rep::BAD_BLOCK));
 			}
 		}
-		if let (Some(header), Some(body)) = (&b.header, &b.body) {
-			let expected = *header.extrinsics_root();
-			let got = HashingFor::<Block>::ordered_trie_root(
-				body.iter().map(Encode::encode).collect(),
-				sp_runtime::StateVersion::V0,
-			);
-			if expected != got {
-				debug!(
-					target: LOG_TARGET,
-					"Bad extrinsic root for a block {} received from {}. Expected {:?}, got {:?}",
-					b.hash,
-					peer_id,
-					expected,
-					got,
-				);
-				return Err(BadPeer(*peer_id, rep::BAD_BLOCK));
-			}
-		}
 	}
 
 	Ok(blocks.first().and_then(|b| b.header.as_ref()).map(|h| *h.number()))
