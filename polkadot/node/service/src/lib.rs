@@ -512,14 +512,16 @@ fn new_partial<ChainSelection>(
 where
 	ChainSelection: 'static + SelectChain<Block>,
 {
-	let transaction_pool = sc_transaction_pool::Builder::new()
-		.with_options(config.transaction_pool.clone())
-		.build(
-			config.role.is_authority().into(),
-			config.prometheus_registry(),
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-		);
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new()
+			.with_options(config.transaction_pool.clone())
+			.build(
+				config.role.is_authority().into(),
+				config.prometheus_registry(),
+				task_manager.spawn_essential_handle(),
+				client.clone(),
+			),
+	);
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
 		grandpa_support::kusama_hard_forks()

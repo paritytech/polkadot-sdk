@@ -1,6 +1,8 @@
-use std::{future::Future, pin::Pin, sync::Arc};
-
-use crate::builder::FullClientTransactionPool;
+use crate::{
+	builder::FullClientTransactionPool,
+	graph::{base_pool::Transaction, ExtrinsicFor, ExtrinsicHash},
+	ChainApi, FullChainApi,
+};
 use async_trait::async_trait;
 use sc_transaction_pool_api::{
 	ChainEvent, ImportNotificationStream, LocalTransactionFor, LocalTransactionPool,
@@ -8,16 +10,13 @@ use sc_transaction_pool_api::{
 	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
 };
 use sp_runtime::traits::Block as BlockT;
-use std::collections::HashMap;
-
-use crate::{
-	graph::{base_pool::Transaction, ExtrinsicFor, ExtrinsicHash},
-	ChainApi, FullChainApi,
-};
+use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
 /// The wrapper for actual object providing implementation of TransactionPool.
+///
+/// This wraps actual implementation of the TransactionPool, e.g. fork-aware or single-state.
 pub struct TransactionPoolWrapper<Block, Client>(
-	pub Arc<dyn FullClientTransactionPool<Block, Client>>,
+	pub Box<dyn FullClientTransactionPool<Block, Client>>,
 )
 where
 	Block: BlockT,
@@ -28,22 +27,6 @@ where
 		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ 'static,
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>;
-
-impl<Block, Client> Clone for TransactionPoolWrapper<Block, Client>
-where
-	Block: BlockT,
-	Client: sp_api::ProvideRuntimeApi<Block>
-		+ sc_client_api::BlockBackend<Block>
-		+ sc_client_api::blockchain::HeaderBackend<Block>
-		+ sp_runtime::traits::BlockIdTo<Block>
-		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ 'static,
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
-{
-	fn clone(&self) -> Self {
-		Self(self.0.clone())
-	}
-}
 
 impl<Block, Client> TransactionPool for TransactionPoolWrapper<Block, Client>
 where

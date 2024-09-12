@@ -207,16 +207,16 @@ where
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
-	) -> Arc<TransactionPoolImpl<Block, Client>> {
+	) -> TransactionPoolImpl<Block, Client> {
 		log::debug!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
-		Arc::from(TransactionPoolWrapper::<Block, Client>(match self.options.txpool_type {
+		TransactionPoolWrapper::<Block, Client>(match self.options.txpool_type {
 			TransactionPoolType::SingleState => SingleStateFullPool::new_full(
 				self.options.options,
 				is_validator,
 				prometheus,
 				spawner,
 				client,
-			) as Arc<_>,
+			),
 			TransactionPoolType::ForkAware => ForkAwareFullPool::new_full(
 				self.options.options,
 				is_validator,
@@ -224,6 +224,6 @@ where
 				spawner,
 				client,
 			),
-		}))
+		})
 	}
 }
