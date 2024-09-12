@@ -208,7 +208,15 @@ fn rococo_testnet_genesis(
 		},
 		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
 		sudo: SudoConfig { key: Some(root_key.clone()) },
-		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
+		configuration: ConfigurationConfig {
+			config: polkadot_runtime_parachains::configuration::HostConfiguration {
+				scheduler_params: SchedulerParams {
+					max_validators_per_core: Some(1),
+					..default_parachains_host_configuration().scheduler_params
+				},
+				..default_parachains_host_configuration()
+			},
+		},
 		registrar: RegistrarConfig {
 			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
 			..Default::default()
