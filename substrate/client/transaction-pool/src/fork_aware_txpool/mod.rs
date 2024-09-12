@@ -295,8 +295,8 @@
 //! [`ViewStore`]: crate::fork_aware_txpool::view_store::ViewStore
 //! [`finish_background_revalidations`]: crate::fork_aware_txpool::view_store::ViewStore::finish_background_revalidations
 //! [find_best_view]: crate::fork_aware_txpool::view_store::ViewStore::find_best_view
-//! [`active_views`]: crate::fork_aware_txpool::view_store::ViewStore::views
-//! [`inactive_views`]: crate::fork_aware_txpool::view_store::ViewStore::retracted_views
+//! [`active_views`]: crate::fork_aware_txpool::view_store::ViewStore::active_views
+//! [`inactive_views`]: crate::fork_aware_txpool::view_store::ViewStore::inactive_views
 //! [`TxMemPool`]: crate::fork_aware_txpool::tx_mem_pool::TxMemPool
 //! [`mp::revalidate`]: crate::fork_aware_txpool::tx_mem_pool::TxMemPool::revalidate
 //! [`batch_size`]: crate::fork_aware_txpool::tx_mem_pool::TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE

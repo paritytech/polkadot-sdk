@@ -46,12 +46,12 @@ where
 	/// Active views at tips of the forks.
 	///
 	/// Active views are updated with incoming transactions.
-	pub(super) views: RwLock<HashMap<Block::Hash, Arc<View<ChainApi>>>>,
+	pub(super) active_views: RwLock<HashMap<Block::Hash, Arc<View<ChainApi>>>>,
 	/// Inactive views at intermediary blocks that are no longer tips of the forks.
 	///
 	/// Inactive views are not updated with incoming transactions, while they can still be used to
 	/// build new blocks upon them.
-	pub(super) retracted_views: RwLock<HashMap<Block::Hash, Arc<View<ChainApi>>>>,
+	pub(super) inactive_views: RwLock<HashMap<Block::Hash, Arc<View<ChainApi>>>>,
 	/// Listener for controlling external watchers of transactions.
 	///
 	/// Provides a side-channel allowing to send per-transaction state changes notification.
@@ -77,8 +77,8 @@ where
 	) -> Self {
 		Self {
 			api,
-			views: Default::default(),
-			retracted_views: Default::default(),
+			active_views: Default::default(),
+			inactive_views: Default::default(),
 			listener,
 			most_recent_view: RwLock::from(None),
 			dropped_stream_controller,
@@ -92,8 +92,8 @@ where
 		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
 		let submit_futures = {
-			let views = self.views.read();
-			let futures = views
+			let active_views = self.active_views.read();
+			let futures = active_views
 				.iter()
 				.map(|(_, view)| {
 					let view = view.clone();
@@ -126,8 +126,8 @@ where
 			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
 		};
 		let submit_and_watch_futures = {
-			let views = self.views.read();
-			let futures = views
+			let active_views = self.active_views.read();
+			let futures = active_views
 				.iter()
 				.map(|(_, view)| {
 					let view = view.clone();
@@ -168,12 +168,12 @@ where
 
 	/// Returns the pool status for every active view.
 	pub(super) fn status(&self) -> HashMap<Block::Hash, PoolStatus> {
-		self.views.read().iter().map(|(h, v)| (*h, v.status())).collect()
+		self.active_views.read().iter().map(|(h, v)| (*h, v.status())).collect()
 	}
 
 	/// Returns true if there are no active views.
 	pub(super) fn is_empty(&self) -> bool {
-		self.views.read().is_empty() && self.retracted_views.read().is_empty()
+		self.active_views.read().is_empty() && self.inactive_views.read().is_empty()
 	}
 
 	/// Finds the best existing active view to clone from along the path.
@@ -193,7 +193,7 @@ where
 		&self,
 		tree_route: &TreeRoute<Block>,
 	) -> Option<Arc<View<ChainApi>>> {
-		let views = self.views.read();
+		let active_views = self.active_views.read();
 		let best_view = {
 			tree_route
 				.retracted()
@@ -201,10 +201,13 @@ where
 				.chain(std::iter::once(tree_route.common_block()))
 				.chain(tree_route.enacted().iter())
 				.rev()
-				.find(|block| views.contains_key(&block.hash))
+				.find(|block| active_views.contains_key(&block.hash))
 		};
 		best_view.map(|h| {
-			views.get(&h.hash).expect("hash was just found in the map's keys. qed").clone()
+			active_views
+				.get(&h.hash)
+				.expect("hash was just found in the map's keys. qed")
+				.clone()
 		})
 	}
 
@@ -297,7 +300,7 @@ where
 		at: Block::Hash,
 		tx_hash: &ExtrinsicHash<ChainApi>,
 	) -> Option<TransactionFor<ChainApi>> {
-		self.views
+		self.active_views
 			.read()
 			.get(&at)
 			.and_then(|v| v.pool.validated_pool().ready_by_hash(tx_hash))
@@ -307,7 +310,7 @@ where
 	///
 	/// All the views associated with the blocks which are on enacted path (including common
 	/// ancestor) will be:
-	/// - moved to the inactive views set (`retracted_views`),
+	/// - moved to the inactive views set (`inactive_views`),
 	/// - removed from the multi view listeners.
 	///
 	/// The `most_recent_view` is update with the reference to the newly inserted view.
@@ -325,23 +328,23 @@ where
 		//todo: refactor this: maybe single object with one mutex?
 		let views_to_be_removed = {
 			let mut most_recent_view_lock = self.most_recent_view.write();
-			let mut views = self.views.write();
-			let mut retracted_views = self.retracted_views.write();
+			let mut active_views = self.active_views.write();
+			let mut inactive_views = self.inactive_views.write();
 			views_to_be_removed.retain(|hash| {
-				let view = views.remove(hash);
+				let view = active_views.remove(hash);
 				if let Some(view) = view {
-					retracted_views.insert(*hash, view);
+					inactive_views.insert(*hash, view);
 					true
 				} else {
 					false
 				}
 			});
-			views.insert(view.at.hash, view.clone());
+			active_views.insert(view.at.hash, view.clone());
 			most_recent_view_lock.replace(view.at.hash);
 			views_to_be_removed
 		};
 		{
-			log::trace!(target:LOG_TARGET,"insert_new_view: retracted_views: {:?}", self.retracted_views.read().keys());
+			log::trace!(target:LOG_TARGET,"insert_new_view: inactive_views: {:?}", self.inactive_views.read().keys());
 		}
 		for hash in &views_to_be_removed {
 			self.listener.remove_view(*hash);
@@ -359,11 +362,11 @@ where
 		at: Block::Hash,
 		allow_retracted: bool,
 	) -> Option<(Arc<View<ChainApi>>, bool)> {
-		if let Some(view) = self.views.read().get(&at) {
+		if let Some(view) = self.active_views.read().get(&at) {
 			return Some((view.clone(), false));
 		}
 		if allow_retracted {
-			if let Some(view) = self.retracted_views.read().get(&at) {
+			if let Some(view) = self.inactive_views.read().get(&at) {
 				return Some((view.clone(), true))
 			}
 		};
@@ -394,8 +397,8 @@ where
 
 		//clean up older then finalized
 		{
-			let mut views = self.views.write();
-			views.retain(|hash, v| match finalized_number {
+			let mut active_views = self.active_views.write();
+			active_views.retain(|hash, v| match finalized_number {
 				Err(_) | Ok(None) => *hash == finalized_hash,
 				Ok(Some(n)) if v.at.number == n => *hash == finalized_hash,
 				Ok(Some(n)) => v.at.number > n,
@@ -403,13 +406,13 @@ where
 		}
 
 		{
-			let mut retracted_views = self.retracted_views.write();
-			retracted_views.retain(|_, v| match finalized_number {
+			let mut inactive_views = self.inactive_views.write();
+			inactive_views.retain(|_, v| match finalized_number {
 				Err(_) | Ok(None) => false,
 				Ok(Some(n)) => v.at.number >= n,
 			});
 
-			log::trace!(target:LOG_TARGET,"handle_finalized: retracted_views: {:?}", retracted_views.keys());
+			log::trace!(target:LOG_TARGET,"handle_finalized: inactive_views: {:?}", inactive_views.keys());
 		}
 
 		self.listener.remove_stale_controllers();
@@ -424,8 +427,8 @@ where
 	pub(crate) async fn finish_background_revalidations(&self) {
 		let start = Instant::now();
 		let finish_revalidation_futures = {
-			let views = self.views.read();
-			let futures = views
+			let active_views = self.active_views.read();
+			let futures = active_views
 				.iter()
 				.map(|(_, view)| {
 					let view = view.clone();

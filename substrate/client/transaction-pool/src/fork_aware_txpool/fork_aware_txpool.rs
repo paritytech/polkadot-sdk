@@ -303,13 +303,13 @@ where
 	}
 
 	/// Provides a number of views at the tips of the forks.
-	pub fn views_count(&self) -> usize {
-		self.view_store.views.read().len()
+	pub fn active_views_count(&self) -> usize {
+		self.view_store.active_views.read().len()
 	}
 
 	/// Provides a number of views at the tips of the forks.
-	pub fn retracted_views_count(&self) -> usize {
-		self.view_store.retracted_views.read().len()
+	pub fn inactive_views_count(&self) -> usize {
+		self.view_store.inactive_views.read().len()
 	}
 
 	/// Provides internal views statistics.
@@ -318,7 +318,7 @@ where
 	/// suitable for printing log information.
 	fn views_stats(&self) -> Vec<(NumberFor<Block>, usize, usize)> {
 		self.view_store
-			.views
+			.active_views
 			.read()
 			.iter()
 			.map(|v| (v.1.at.number, v.1.status().ready, v.1.status().future))
@@ -327,7 +327,7 @@ where
 
 	/// Checks if there is a view at the tip of the fork with given hash.
 	pub fn has_view(&self, hash: &Block::Hash) -> bool {
-		self.view_store.views.read().contains_key(hash)
+		self.view_store.active_views.read().contains_key(hash)
 	}
 
 	/// Returns a number of unwatched and watched transactions in internal mempool.
@@ -356,12 +356,12 @@ where
 		};
 
 		let (best_view, best_tree_route) = {
-			let views = self.view_store.views.read();
-			let retracted_views = self.view_store.retracted_views.read();
+			let views = self.view_store.active_views.read();
+			let inactive_views = self.view_store.inactive_views.read();
 			let mut best_tree_route = None;
 			let mut best_view = None;
 			let mut best_enacted_len = usize::MAX;
-			for v in views.values().chain(retracted_views.values()) {
+			for v in views.values().chain(inactive_views.values()) {
 				let tree_route = self.api.tree_route(v.at.hash, at);
 				if let Ok(tree_route) = tree_route {
 					log::trace!(target: LOG_TARGET, "fatp::ready_at_light {} tree_route from: {} e:{} r:{}", at,v.at.hash,tree_route.enacted().len(), tree_route.retracted().len());
@@ -559,7 +559,7 @@ where
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let view_store = self.view_store.clone();
-		log::debug!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.views_count());
+		log::debug!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.active_views_count());
 		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
 		let mempool_result = self.mempool.extend_unwatched(source, xts.clone());
@@ -609,7 +609,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
-		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
+		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.active_views_count());
 		let result_future = self.submit_at(_at, source, vec![xt]);
 		async move {
 			let result = result_future.await;
@@ -633,7 +633,7 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		//todo: should send to view first, and check if not Dropped [#5494]
-		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
+		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.active_views_count());
 		let xt = Arc::from(xt);
 		if let Err(e) = self.mempool.push_watched(source, xt.clone()) {
 			return future::ready(Err(e)).boxed();
@@ -957,7 +957,7 @@ where
 			"update_view: {:?} xts:{:?} v:{}",
 			view.at,
 			self.mempool.unwatched_and_watched_count(),
-			self.views_count()
+			self.active_views_count()
 		);
 		//todo: this could be collected/cached in view
 		let included_xts = self.extrinsics_included_since_finalized(view.at.hash).await;
@@ -1175,7 +1175,7 @@ where
 
 	async fn handle_finalized(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
-		log::debug!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?} views_count:{}", self.views_count());
+		log::debug!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?} views_count:{}", self.active_views_count());
 
 		let finalized_xts = self.view_store.handle_finalized(finalized_hash, tree_route).await;
 
@@ -1197,7 +1197,7 @@ where
 		}
 
 		self.ready_poll.lock().remove_cancelled();
-		log::trace!(target: LOG_TARGET, "handle_finalized after views_count:{:?}", self.views_count());
+		log::trace!(target: LOG_TARGET, "handle_finalized after views_count:{:?}", self.active_views_count());
 	}
 
 	fn tx_hash(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
@@ -1211,7 +1211,7 @@ where
 		log::debug!(target:LOG_TARGET, "fatp::verify++");
 
 		let views_ready_txs = {
-			let views = self.view_store.views.read();
+			let views = self.view_store.active_views.read();
 
 			views
 				.values()
@@ -1316,7 +1316,7 @@ where
 			target: LOG_TARGET,
 			"maintain: txs:{:?} views:[{};{:?}] event:{event:?}  took:{:?}",
 			self.mempool_len(),
-			self.views_count(),
+			self.active_views_count(),
 			self.views_stats(),
 			maintain_duration
 		);
@@ -1324,8 +1324,8 @@ where
 		self.metrics.report(|metrics| {
 			let (unwatched, watched) = self.mempool_len();
 			let _ = (
-				self.views_count().try_into().map(|v| metrics.active_views.set(v)),
-				self.retracted_views_count().try_into().map(|v| metrics.inactive_views.set(v)),
+				self.active_views_count().try_into().map(|v| metrics.active_views.set(v)),
+				self.inactive_views_count().try_into().map(|v| metrics.inactive_views.set(v)),
 				watched.try_into().map(|v| metrics.watched_txs.set(v)),
 				unwatched.try_into().map(|v| metrics.unwatched_txs.set(v)),
 			);
