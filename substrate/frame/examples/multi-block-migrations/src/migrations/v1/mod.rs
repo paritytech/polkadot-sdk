@@ -148,9 +148,10 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 		);
 
 		for (key, value) in prev_map {
-			let value = MyMap::<T>::get(key).expect("Failed to get the value after the migration");
+			let new_value =
+				MyMap::<T>::get(key).expect("Failed to get the value after the migration");
 			assert_eq!(
-				value, value as u64,
+				value as u64, new_value,
 				"Migration failed: the value after the migration is not the same as before"
 			);
 		}
