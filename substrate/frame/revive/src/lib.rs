@@ -50,7 +50,7 @@ use crate::{
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
-use codec::{Codec, Decode, Encode, HasCompact};
+use codec::{Codec, Decode, Encode};
 use core::fmt::Debug;
 use environmental::*;
 use frame_support::{
@@ -735,7 +735,6 @@ pub mod pallet {
 	impl<T: Config> Pallet<T>
 	where
 		T::Hash: IsType<H256>,
-		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		MomentOf<T>: Into<U256>,
 	{

@@ -25,7 +25,7 @@ use crate::{
 	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, TypeInfo, WasmBlob, Weight,
 };
 use alloc::{vec, vec::Vec};
-use codec::{Encode, HasCompact};
+use codec::Encode;
 use core::fmt::Debug;
 use frame_benchmarking::benchmarking;
 use frame_support::traits::IsType;
@@ -49,7 +49,6 @@ pub struct CallSetup<T: Config> {
 impl<T> Default for CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
-	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	T::Hash: IsType<H256>,
 	MomentOf<T>: Into<U256>,
@@ -63,7 +62,6 @@ impl<T> CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
 	T::Hash: IsType<H256>,
-	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 {

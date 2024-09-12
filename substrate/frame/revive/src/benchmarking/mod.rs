@@ -68,7 +68,6 @@ struct Contract<T: Config> {
 impl<T> Contract<T>
 where
 	T: Config + pallet_balances::Config,
-	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: IsType<H256>,
@@ -221,7 +220,6 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 
 #[benchmarks(
 	where
-		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 		BalanceOf<T>: From<<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance> + Into<U256> + TryFrom<U256>,
 		T: Config + pallet_balances::Config,
 		MomentOf<T>: Into<U256>,
