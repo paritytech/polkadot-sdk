@@ -224,10 +224,10 @@ where
 	) {
 		loop {
 			let Some(dropped) = dropped_stream.next().await else {
-				log::debug!("fatp::dropped_monitor_task: terminated...");
+				log::debug!(target: LOG_TARGET, "fatp::dropped_monitor_task: terminated...");
 				break;
 			};
-			log::trace!("[{:?}] fatp::dropped notification, removing", dropped);
+			log::trace!(target: LOG_TARGET, "[{:?}] fatp::dropped notification, removing", dropped);
 			mempool.remove_dropped_transactions(&vec![dropped]).await;
 		}
 	}
