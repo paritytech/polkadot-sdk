@@ -348,7 +348,7 @@ jobs:
 
   cargo-check-each-crate-macos:
     timeout-minutes: 30
-    runs-on: macOS
+    runs-on: parity-macos
     env:
       SKIP_WASM_BUILD: 1
     steps:
