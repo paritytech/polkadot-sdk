@@ -1100,7 +1100,6 @@ where
 			tree_route
 				.enacted()
 				.iter()
-				// .chain(std::iter::once(&hash_and_number))
 				.map(|h| crate::prune_known_txs_for_block(h, &*api, &view.pool)),
 		)
 		.await
