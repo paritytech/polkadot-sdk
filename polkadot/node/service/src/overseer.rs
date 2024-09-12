@@ -557,6 +557,7 @@ where
 			Box::new(sync_service.clone()),
 			approval_voting_parallel_metrics,
 			spawner.clone(),
+			overseer_message_channel_capacity_override,
 		))
 		.gossip_support(GossipSupportSubsystem::new(
 			keystore.clone(),

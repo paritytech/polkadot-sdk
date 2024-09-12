@@ -73,8 +73,9 @@ const WAIT_FOR_SIGS_GATHER_TIMEOUT: Duration = Duration::from_millis(2000);
 /// The number of workers used for running the approval-distribution logic.
 pub const APPROVAL_DISTRIBUTION_WORKER_COUNT: usize = 4;
 
-/// The channel size for the workers.
-pub const WORKERS_CHANNEL_SIZE: usize = 64000 / APPROVAL_DISTRIBUTION_WORKER_COUNT;
+/// The default channel size for the workers, can be overridden by the user through
+/// `overseer_channel_capacity_override`
+pub const DEFAULT_WORKERS_CHANNEL_SIZE: usize = 64000 / APPROVAL_DISTRIBUTION_WORKER_COUNT;
 
 fn prio_right<'a>(_val: &'a mut ()) -> PollNext {
 	PollNext::Right
@@ -93,6 +94,7 @@ pub struct ApprovalVotingParallelSubsystem {
 	metrics: Metrics,
 	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
 	clock: Arc<dyn Clock + Send + Sync>,
+	overseer_message_channel_capacity_override: Option<usize>,
 }
 
 impl ApprovalVotingParallelSubsystem {
@@ -104,6 +106,7 @@ impl ApprovalVotingParallelSubsystem {
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
 		spawner: impl overseer::gen::Spawner + 'static + Clone,
+		overseer_message_channel_capacity_override: Option<usize>,
 	) -> Self {
 		ApprovalVotingParallelSubsystem::with_config_and_clock(
 			config,
@@ -113,6 +116,7 @@ impl ApprovalVotingParallelSubsystem {
 			metrics,
 			Arc::new(SystemClock {}),
 			spawner,
+			overseer_message_channel_capacity_override,
 		)
 	}
 
@@ -125,6 +129,7 @@ impl ApprovalVotingParallelSubsystem {
 		metrics: Metrics,
 		clock: Arc<dyn Clock + Send + Sync>,
 		spawner: impl overseer::gen::Spawner + 'static,
+		overseer_message_channel_capacity_override: Option<usize>,
 	) -> Self {
 		ApprovalVotingParallelSubsystem {
 			keystore,
@@ -135,7 +140,14 @@ impl ApprovalVotingParallelSubsystem {
 			metrics,
 			spawner: Arc::new(spawner),
 			clock,
+			overseer_message_channel_capacity_override,
 		}
+	}
+
+	/// The size of the channel used for the workers.
+	fn workers_channel_size(&self) -> usize {
+		self.overseer_message_channel_capacity_override
+			.unwrap_or(DEFAULT_WORKERS_CHANNEL_SIZE)
 	}
 }
 
@@ -167,7 +179,7 @@ where
 	// Build approval voting handles.
 	let (to_approval_voting_worker, approval_voting_work_provider) = build_worker_handles(
 		"approval-voting-parallel-db".into(),
-		WORKERS_CHANNEL_SIZE,
+		subsystem.workers_channel_size(),
 		metrics_watcher,
 		prio_right,
 	);
@@ -190,7 +202,7 @@ where
 		let (to_approval_distribution_worker, mut approval_distribution_work_provider) =
 			build_worker_handles(
 				task_name.clone(),
-				WORKERS_CHANNEL_SIZE,
+				subsystem.workers_channel_size(),
 				metrics_watcher,
 				prio_right,
 			);

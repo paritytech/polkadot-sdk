@@ -875,6 +875,7 @@ fn build_overseer(
 			state.approval_voting_parallel_metrics.clone(),
 			Arc::new(system_clock.clone()),
 			SpawnGlue(spawn_task_handle.clone()),
+			None,
 		);
 		dummy
 			.replace_approval_voting_parallel(|_| approval_voting_parallel)

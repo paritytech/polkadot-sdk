@@ -10,58 +10,47 @@ description = "Approval Voting Subsystem running approval work in parallel"
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
-futures-timer = "3.0.2"
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
-gum = { package = "tracing-gum", path = "../../gum" }
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-schnellru = "0.2.1"
-merlin = "3.0"
-schnorrkel = "0.11.4"
-kvdb = "0.13.0"
-derive_more = "0.99.17"
-thiserror = { workspace = true }
-itertools = "0.11"
 async-trait = { workspace = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+gum = { package = "tracing-gum", path = "../../gum" }
+itertools = { workspace = true }
+thiserror = { workspace = true }
 
-polkadot-node-core-approval-voting = {  workspace = true, default-features = true }
-polkadot-approval-distribution = {  workspace = true, default-features = true }
-
-
-polkadot-node-subsystem = {  workspace = true, default-features = true }
-polkadot-node-subsystem-util = {  workspace = true, default-features = true }
-polkadot-overseer = { workspace = true, default-features = true  }
-polkadot-primitives = {  workspace = true, default-features = true  }
-polkadot-node-primitives = {  workspace = true, default-features = true }
-polkadot-node-jaeger = {  workspace = true, default-features = true }
-
-sc-keystore = {  workspace = true, default-features = false }
-sp-consensus = { workspace = true, default-features = false }
-sp-consensus-slots = {  workspace = true, default-features = false }
-sp-application-crypto = {  workspace = true, default-features = false, features = ["full_crypto"] }
-sp-runtime = {  workspace = true, default-features = false }
+polkadot-node-core-approval-voting = { workspace = true, default-features = true }
+polkadot-approval-distribution = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-jaeger = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
-polkadot-node-metrics = { workspace = true, default-features = true}
+polkadot-node-metrics = { workspace = true, default-features = true }
 
-rand = "0.8.5"
+sc-keystore = { workspace = true, default-features = false }
+sp-consensus = { workspace = true, default-features = false }
+sp-consensus-slots = { workspace = true, default-features = false }
+sp-application-crypto = { workspace = true, default-features = false, features = ["full_crypto"] }
+sp-runtime = { workspace = true, default-features = false }
 
-# rand_core should match schnorrkel
-rand_core = "0.6.2"
-rand_chacha = { version = "0.3.1" }
+rand = { workspace = true }
+rand_core = { workspace = true }
+rand_chacha = { workspace = true }
 
 [dev-dependencies]
-async-trait = "0.1.79"
-parking_lot = "0.12.1"
+async-trait = { workspace = true }
+parking_lot = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
-sp-keystore = {workspace = true, default-features = true}
-sp-core = { workspace = true, default-features = true}
+sp-keystore = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true, default-features = true}
-assert_matches = "1.4.0"
-kvdb-memorydb = "0.13.0"
+polkadot-node-subsystem-test-helpers = { workspace = true, default-features = true }
+assert_matches = { workspace = true }
+kvdb-memorydb = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-
-polkadot-subsystem-bench = { workspace = true, default-features = true}
+polkadot-subsystem-bench = { workspace = true, default-features = true }
+schnorrkel = { workspace = true, default-features = true }
 

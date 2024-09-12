@@ -147,6 +147,7 @@ fn build_subsystem(
 			Metrics::default(),
 			clock.clone(),
 			SpawnGlue(pool),
+			None,
 		),
 		context,
 		virtual_overseer,
