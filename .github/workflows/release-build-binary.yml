@@ -88,6 +88,7 @@ jobs:
       - name: Sign artifacts
         working-directory: /artifacts/${{ matrix.binaries }}
         run: |
+          which pgpgkms
           pgpgkms sign --inputs ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
           ls -la
 
