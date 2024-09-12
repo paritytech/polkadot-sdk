@@ -282,7 +282,9 @@ impl Queue {
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
 
 		if let Some(deadline) = job.exec_deadline {
-			if Instant::now() > deadline {
+			let now = Instant::now();
+			gum::debug!(target: LOG_TARGET, ?priority, ?deadline, ?now, "Job has a deadline");
+			if now > deadline {
 				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
 				gum::warn!(
 					target: LOG_TARGET,
@@ -790,6 +792,11 @@ impl Unscheduled {
 		if self.counter.values().sum::<usize>() >= Self::MAX_COUNT {
 			self.reset_counter();
 		}
+		gum::debug!(
+			target: LOG_TARGET,
+			?priority,
+			"Job marked as scheduled",
+		);
 	}
 
 	fn reset_counter(&mut self) {
