@@ -78,8 +78,12 @@ fn assert_hypothetically_earned(
 		// Harvest the rewards.
 		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker), pool_id));
 
-		// Sanity check: staker rewards are reset to 0.
-		assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, staker).unwrap().rewards, 0);
+		// Sanity check: staker rewards are reset to 0 if some `amount` is still staked, otherwise
+		// the storage item removed.
+		if let Some(staker_pool) = PoolStakers::<MockRuntime>::get(pool_id, staker) {
+			assert!(staker_pool.rewards == 0);
+			assert!(staker_pool.amount > 0);
+		}
 
 		// Check that the staker has earned the expected amount.
 		let balance_after =
@@ -530,8 +534,8 @@ mod unstake {
 			// User unstakes remaining tokens
 			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 500));
 
-			// Check that the user's staked amount is zero
-			assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, user).unwrap().amount, 0);
+			// Check that the storage items is removed since stake amount and rewards are zero.
+			assert!(PoolStakers::<MockRuntime>::get(pool_id, user).is_none());
 
 			// Check that the pool's total tokens staked is zero
 			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 0);

@@ -550,7 +550,12 @@ pub mod pallet {
 
 			// Update PoolStakers.
 			staker_info.amount.ensure_sub_assign(amount)?;
-			PoolStakers::<T>::insert(pool_id, &caller, staker_info);
+
+			if staker_info.amount.is_zero() && staker_info.rewards.is_zero() {
+				PoolStakers::<T>::remove(&pool_id, &caller);
+			} else {
+				PoolStakers::<T>::insert(&pool_id, &caller, staker_info);
+			}
 
 			// Emit event.
 			Self::deposit_event(Event::Unstaked { caller, pool_id, amount });
@@ -589,7 +594,12 @@ pub mod pallet {
 
 			// Reset staker rewards.
 			staker_info.rewards = 0u32.into();
-			PoolStakers::<T>::insert(pool_id, &staker, staker_info);
+
+			if staker_info.amount.is_zero() {
+				PoolStakers::<T>::remove(&pool_id, &staker);
+			} else {
+				PoolStakers::<T>::insert(&pool_id, &staker, staker_info);
+			}
 
 			Ok(())
 		}
