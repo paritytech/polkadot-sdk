@@ -29,3 +29,5 @@ crates:
     bump: patch
   - name: polkadot-parachain-bin
     bump: patch
+  - name: polkadot-runtime-parachains
+    bump: patch
