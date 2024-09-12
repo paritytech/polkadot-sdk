@@ -33,9 +33,9 @@ default = ["std"]
 riscv = []
 # only when std is enabled all fixtures are available
 std = [
-	"log/std",
 	"anyhow",
 	"frame-system",
+	"log/std",
 	"sp-core",
 	"sp-io",
 	"sp-runtime",

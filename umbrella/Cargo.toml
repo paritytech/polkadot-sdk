@@ -607,8 +607,8 @@ tuples-96 = [
 ]
 riscv = [
 	"pallet-revive-fixtures?/riscv",
+	"pallet-revive-mock-network?/riscv",
 	"pallet-revive?/riscv",
-	"pallet-revive-mock-network?/riscv"
 ]
 
 [package.edition]
