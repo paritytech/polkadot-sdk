@@ -84,7 +84,6 @@
 pub use pallet::*;
 
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
-use frame_system::pallet_prelude::BlockNumberFor;
 use frame_support::{
 	traits::{
 		fungibles::{Inspect, Mutate},
@@ -93,6 +92,7 @@ use frame_support::{
 	},
 	PalletId,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
@@ -240,10 +240,13 @@ pub mod pallet {
 		/// Freezer for the Assets.
 		type AssetsFreezer: MutateFreeze<
 			Self::AccountId,
-			Id: From<FreezeReason>,
+			Id = Self::RuntimeFreezeReason,
 			AssetId = Self::AssetId,
 			Balance = Self::Balance,
 		>;
+
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
 
 		/// Means for associating a cost with the on-chain storage of pool information, which
 		/// is incurred by the pool creator.
