@@ -24,7 +24,7 @@ use crate::{
 	protocol::{CustomMessageOutcome, NotificationsSink, Protocol},
 	protocol_controller::SetId,
 	request_responses::{
-		self, CustomInboundFailure, CustomMessage, CustomOutboundFailure, IfDisconnected,
+		self, CustomInboundFailure, CustomMessage, OutboundFailure, IfDisconnected,
 		InboundRequestId, OutboundRequestId, ProtocolConfig, RequestFailure,
 	},
 	service::traits::Direction,
@@ -51,7 +51,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-pub use crate::request_responses::{InboundFailure, OutboundFailure, ResponseFailure};
+pub use crate::request_responses::{InboundFailure, ResponseFailure};
 
 /// General behaviour of the network. Combines all protocols together.
 #[derive(NetworkBehaviour)]
@@ -114,13 +114,13 @@ pub enum BehaviourOut {
 	},
 
 	/// An outbound request failed.
-	CustomOutboundFailure {
+	OutboundFailure {
 		/// The peer to whom the request was sent.
 		peer: PeerId,
 		/// The (local) ID of the failed request.
 		request_id: OutboundRequestId,
 		/// The error that occurred.
-		error: CustomOutboundFailure,
+		error: OutboundFailure,
 	},
 	/// An inbound request failed.
 	CustomInboundFailure {
@@ -399,8 +399,8 @@ impl From<request_responses::Event> for BehaviourOut {
 				BehaviourOut::ReputationChanges { peer, changes },
 			request_responses::Event::Message { peer, message } =>
 				BehaviourOut::Message { peer, message },
-			request_responses::Event::CustomOutboundFailure { peer, request_id, error } =>
-				BehaviourOut::CustomOutboundFailure { peer, request_id, error },
+			request_responses::Event::OutboundFailure { peer, request_id, error } =>
+				BehaviourOut::OutboundFailure { peer, request_id, error },
 			request_responses::Event::CustomInboundFailure { peer, request_id, error } =>
 				BehaviourOut::CustomInboundFailure { peer, request_id, error },
 			request_responses::Event::CustomResponseSent { peer, request_id } =>

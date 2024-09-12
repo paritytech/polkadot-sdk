@@ -23,11 +23,11 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 
 use codec::Encode;
-use sc_network::request_responses::CustomOutboundFailure;
+use sc_network::request_responses::OutboundFailure;
 
 use sc_network::{
 	config::parse_addr, multiaddr::Multiaddr, service::traits::NetworkService, types::ProtocolName,
-	IfDisconnected, MessageSink, OutboundFailure, ReputationChange, RequestFailure,
+	IfDisconnected, MessageSink, ReputationChange, RequestFailure,
 };
 
 use polkadot_node_network_protocol::{
@@ -315,7 +315,7 @@ impl Network for Arc<dyn NetworkService> {
 			None => {
 				gum::debug!(target: LOG_TARGET, "Discovering authority failed");
 				match pending_response
-					.send(Err(RequestFailure::Network(CustomOutboundFailure::DialFailure)))
+					.send(Err(RequestFailure::Network(OutboundFailure::DialFailure)))
 				{
 					Err(_) => {
 						gum::debug!(target: LOG_TARGET, "Sending failed request response failed.")

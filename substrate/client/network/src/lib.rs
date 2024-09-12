@@ -286,7 +286,7 @@ pub use service::{
 		NotificationSender as NotificationSenderT, NotificationSenderError,
 		NotificationSenderReady, NotificationService,
 	},
-	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
+	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender,
 	PublicKey,
 };
 pub use types::ProtocolName;

@@ -56,7 +56,7 @@ use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
 use sc_network::{
 	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
 	peer_store::PeerStoreProvider,
-	request_responses::{CustomOutboundFailure, IfDisconnected, RequestFailure},
+	request_responses::{OutboundFailure, IfDisconnected, RequestFailure},
 	service::{
 		traits::{Direction, NotificationConfig, NotificationEvent, ValidationResult},
 		NotificationMetrics,
@@ -1196,19 +1196,19 @@ where
 			Ok(Err(e)) => {
 				debug!(target: LOG_TARGET, "Request to peer {peer_id:?} failed: {e:?}.");
 
-				// Using Our custom type Network(CustomOutboundFailure)
+				// Using Our custom type Network(OutboundFailure)
 				match e {
-					RequestFailure::Network(CustomOutboundFailure::Timeout) => {
+					RequestFailure::Network(OutboundFailure::Timeout) => {
 						self.network_service.report_peer(peer_id, rep::TIMEOUT);
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network(CustomOutboundFailure::UnsupportedProtocols) => {
+					RequestFailure::Network(OutboundFailure::UnsupportedProtocols) => {
 						self.network_service.report_peer(peer_id, rep::BAD_PROTOCOL);
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network(CustomOutboundFailure::DialFailure) => {
+					RequestFailure::Network(OutboundFailure::DialFailure) => {
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
@@ -1217,7 +1217,7 @@ where
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network(CustomOutboundFailure::ConnectionClosed) |
+					RequestFailure::Network(OutboundFailure::ConnectionClosed) |
 					RequestFailure::NotConnected => {
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());

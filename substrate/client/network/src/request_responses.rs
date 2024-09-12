@@ -65,12 +65,12 @@ use std::{
 	fmt::{Display,Formatter},
 };
 
-pub use libp2p::request_response::{Config, InboundFailure, OutboundFailure, RequestId};
+pub use libp2p::request_response::{Config, InboundFailure, RequestId};
 
 /// Adding a custom OutboundFailure, not depending on libp2p
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
-pub enum CustomOutboundFailure {
+pub enum OutboundFailure {
 	/// The request could not be sent because a dialing attempt failed.
 	DialFailure,
 	/// The request timed out before a response was received.
@@ -81,13 +81,13 @@ pub enum CustomOutboundFailure {
 	UnsupportedProtocols,
 }
 
-impl Display for CustomOutboundFailure{
+impl Display for OutboundFailure{
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result{
 		match self {
-			CustomOutboundFailure::DialFailure => write!(f, "DialFailure"),
-			CustomOutboundFailure::Timeout => write!(f, "Timeout"),
-			CustomOutboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
-			CustomOutboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
+			OutboundFailure::DialFailure => write!(f, "DialFailure"),
+			OutboundFailure::Timeout => write!(f, "Timeout"),
+			OutboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
+			OutboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
 		}
 	}
 }
@@ -134,7 +134,7 @@ impl Display for CustomInboundFailure{
 	}
 }
 
-/// In preparation for a CustomOutBoundFailure Event
+/// In preparation for a OutboundFailure Event
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct OutboundRequestId(u64);
 
@@ -144,7 +144,7 @@ impl fmt::Display for OutboundRequestId {
 	}
 }
 
-/// In preparation for a CustomOutBoundFailure Event
+/// In preparation for a OutboundFailure Event
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct InboundRequestId(u64);
 
@@ -167,7 +167,7 @@ pub enum RequestFailure {
 	#[error("The remote replied, but the local node is no longer interested in the response.")]
 	Obsolete,
 	#[error("Problem on the network: {0}")]
-	Network(CustomOutboundFailure),
+	Network(OutboundFailure),
 }
 
 /// Configuration for a single request-response protocol.
@@ -345,13 +345,13 @@ pub enum Event {
 	},
 
 	/// An outbound request failed.
-	CustomOutboundFailure {
+	OutboundFailure {
 		/// The peer to whom the request was sent.
 		peer: PeerId,
 		/// The (local) ID of the failed request.
 		request_id: OutboundRequestId,
 		/// The error that occurred.
-		error: CustomOutboundFailure,
+		error: OutboundFailure,
 	},
 
 	/// An inbound request failed.
@@ -937,9 +937,9 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								}) => {
 									// Try using the fallback request if the protocol was not
 									// supported.
-									if let OutboundFailure::UnsupportedProtocols = error {
+									if let request_response::OutboundFailure::UnsupportedProtocols = error {
 										let error_bis_out =
-											CustomOutboundFailure::UnsupportedProtocols;
+											OutboundFailure::UnsupportedProtocols;
 										if let Some((fallback_request, fallback_protocol)) =
 											fallback_request
 										{
@@ -961,7 +961,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 
 									if response_tx
 										.send(Err(RequestFailure::Network(
-											CustomOutboundFailure::Timeout,
+											OutboundFailure::Timeout,
 										)))
 										.is_err()
 									{
@@ -984,7 +984,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									continue
 								},
 							};
-							let error_bis_out = CustomOutboundFailure::Timeout;
+							let error_bis_out = OutboundFailure::Timeout;
 							let out = Event::RequestFinished {
 								peer,
 								protocol: protocol.clone(),
@@ -1462,7 +1462,7 @@ mod tests {
 			}
 
 			match response_receiver.unwrap().await.unwrap().unwrap_err() {
-				RequestFailure::Network(CustomOutboundFailure::ConnectionClosed) => {},
+				RequestFailure::Network(OutboundFailure::ConnectionClosed) => {},
 				_ => panic!(),
 			}
 		});
@@ -1833,7 +1833,7 @@ mod tests {
 					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
 						assert_matches!(
 							result.unwrap_err(),
-							RequestFailure::Network(CustomOutboundFailure::UnsupportedProtocols)
+							RequestFailure::Network(OutboundFailure::UnsupportedProtocols)
 						);
 						break
 					},

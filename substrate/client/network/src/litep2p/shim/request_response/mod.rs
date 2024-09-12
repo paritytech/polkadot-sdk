@@ -27,7 +27,7 @@ use crate::{
 	IfDisconnected, ProtocolName, RequestFailure,
 };
 
-use crate::request_responses::CustomOutboundFailure;
+use crate::request_responses::OutboundFailure;
 use futures::{channel::oneshot, future::BoxFuture, stream::FuturesUnordered, StreamExt};
 use litep2p::{
 	error::{ImmediateDialError, NegotiationError, SubstreamError},
@@ -402,7 +402,7 @@ impl RequestResponseProtocol {
 				Some((RequestFailure::Refused, reason))
 			},
 			RequestResponseError::Timeout =>
-				Some((RequestFailure::Network(CustomOutboundFailure::Timeout), "timeout")),
+				Some((RequestFailure::Network(OutboundFailure::Timeout), "timeout")),
 			RequestResponseError::Canceled => {
 				log::debug!(
 					target: LOG_TARGET,

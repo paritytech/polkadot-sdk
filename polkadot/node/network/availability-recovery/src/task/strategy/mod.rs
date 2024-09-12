@@ -44,7 +44,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_primitives::{AuthorityDiscoveryId, BlakeTwo256, ChunkIndex, HashT, ValidatorIndex};
 use sc_network::{
-	request_responses::CustomOutboundFailure, IfDisconnected, OutboundFailure, ProtocolName,
+	request_responses::OutboundFailure, IfDisconnected, ProtocolName,
 	RequestFailure,
 };
 use std::{
@@ -568,7 +568,7 @@ impl State {
 						RequestError::NetworkError(err) => {
 							// No debug logs on general network errors - that became very
 							// spammy occasionally.
-							if let RequestFailure::Network(CustomOutboundFailure::Timeout) = err {
+							if let RequestFailure::Network(OutboundFailure::Timeout) = err {
 								metrics.on_chunk_request_timeout(strategy_type);
 							} else {
 								metrics.on_chunk_request_error(strategy_type);

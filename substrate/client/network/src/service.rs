@@ -89,9 +89,9 @@ use sc_network_common::{
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 
-pub use behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
+pub use behaviour::{InboundFailure, ResponseFailure};
 // Import our custom type
-use crate::request_responses::{CustomInboundFailure, CustomOutboundFailure};
+use crate::request_responses::{CustomInboundFailure, OutboundFailure};
 pub use libp2p::identity::{DecodingError, Keypair, PublicKey};
 pub use metrics::NotificationMetrics;
 pub use protocol::NotificationsSink;
@@ -1232,7 +1232,7 @@ where
 			// The channel can only be closed if the network worker no longer exists. If the
 			// network worker no longer exists, then all connections to `target` are necessarily
 			// closed, and we legitimately report this situation as a "ConnectionClosed".
-			Err(_) => Err(RequestFailure::Network(CustomOutboundFailure::ConnectionClosed)),
+			Err(_) => Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)),
 		}
 	}
 
@@ -1566,15 +1566,15 @@ where
 								RequestFailure::Refused => "refused",
 								RequestFailure::Obsolete => "obsolete",
 
-								RequestFailure::Network(CustomOutboundFailure::DialFailure) =>
+								RequestFailure::Network(OutboundFailure::DialFailure) =>
 									"dial-failure",
-								RequestFailure::Network(CustomOutboundFailure::Timeout) =>
+								RequestFailure::Network(OutboundFailure::Timeout) =>
 									"timeout",
 								RequestFailure::Network(
-									CustomOutboundFailure::ConnectionClosed,
+									OutboundFailure::ConnectionClosed,
 								) => "connection-closed",
 								RequestFailure::Network(
-									CustomOutboundFailure::UnsupportedProtocols,
+									OutboundFailure::UnsupportedProtocols,
 								) => "unsupported",
 							};
 
@@ -1705,7 +1705,7 @@ where
 			SwarmEvent::Behaviour(BehaviourOut::Message { peer, message }) => {
 				// Ignored event from lower layers.
 			},
-			SwarmEvent::Behaviour(BehaviourOut::CustomOutboundFailure {
+			SwarmEvent::Behaviour(BehaviourOut::OutboundFailure {
 				peer,
 				request_id,
 				error,

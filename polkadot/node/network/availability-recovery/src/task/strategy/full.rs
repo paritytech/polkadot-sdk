@@ -28,7 +28,7 @@ use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, overseer, Recove
 use polkadot_primitives::ValidatorIndex;
 use rand::seq::SliceRandom;
 use sc_network::{
-	request_responses::CustomOutboundFailure, IfDisconnected, OutboundFailure, RequestFailure,
+	request_responses::OutboundFailure, IfDisconnected, RequestFailure,
 };
 
 /// Parameters specific to the `FetchFull` strategy.
@@ -154,7 +154,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 						RequestError::InvalidResponse(_) =>
 							common_params.metrics.on_full_request_invalid(),
 						RequestError::NetworkError(req_failure) => {
-							if let RequestFailure::Network(CustomOutboundFailure::Timeout) =
+							if let RequestFailure::Network(OutboundFailure::Timeout) =
 								req_failure
 							{
 								common_params.metrics.on_full_request_timeout();
