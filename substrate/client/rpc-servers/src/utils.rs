@@ -284,7 +284,7 @@ pub(crate) fn get_proxy_ip<B>(req: &http::Request<B>) -> Option<IpAddr> {
 /// Get the `deny_unsafe` setting based on the address and the RPC methods exposed by the interface.
 pub fn deny_unsafe(addr: &SocketAddr, methods: &RpcMethods) -> DenyUnsafe {
 	match (addr.ip().is_loopback(), methods) {
-		| (_, RpcMethods::Unsafe) | (false, RpcMethods::Auto) => DenyUnsafe::No,
+		(_, RpcMethods::Unsafe) | (true, RpcMethods::Auto) => DenyUnsafe::No,
 		_ => DenyUnsafe::Yes,
 	}
 }

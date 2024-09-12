@@ -581,8 +581,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
 						},
-					Err(TrapReason::Termination) =>
-						Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
+					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
 			},
@@ -1791,6 +1790,7 @@ pub mod env {
 		&mut self,
 		memory: &mut M,
 		dest_ptr: u32,
+		dest_len: u32,
 		msg_ptr: u32,
 		msg_len: u32,
 		output_ptr: u32,
@@ -1798,10 +1798,12 @@ pub mod env {
 		use xcm::{VersionedLocation, VersionedXcm};
 		use xcm_builder::{SendController, SendControllerWeightInfo};
 
-		self.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
-		let dest: VersionedLocation = memory.read_as(dest_ptr)?;
+		self.charge_gas(RuntimeCosts::CopyFromContract(dest_len))?;
+		let dest: VersionedLocation = memory.read_as_unbounded(dest_ptr, dest_len)?;
 
+		self.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let message: VersionedXcm<()> = memory.read_as_unbounded(msg_ptr, msg_len)?;
+
 		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
 		self.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 		let origin = crate::RawOrigin::Signed(self.ext.account_id().clone()).into();
