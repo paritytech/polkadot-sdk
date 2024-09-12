@@ -66,7 +66,7 @@ impl TransactionPoolParams {
 	pub fn transaction_pool(&self, is_dev: bool) -> TransactionPoolOptions {
 		TransactionPoolOptions::new_with_params(
 			self.pool_limit,
-			self.pool_kbytes,
+			self.pool_kbytes * 1024,
 			self.tx_ban_seconds,
 			self.pool_type.into(),
 			is_dev,

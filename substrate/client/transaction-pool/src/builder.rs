@@ -57,7 +57,7 @@ impl TransactionPoolOptions {
 	/// Creates the options for the transaction pool using given parameters.
 	pub fn new_with_params(
 		pool_limit: usize,
-		pool_kbytes: usize,
+		pool_bytes: usize,
 		tx_ban_seconds: Option<u64>,
 		txpool_type: TransactionPoolType,
 		is_dev: bool,
@@ -66,12 +66,12 @@ impl TransactionPoolOptions {
 
 		// ready queue
 		options.ready.count = pool_limit;
-		options.ready.total_bytes = pool_kbytes * 1024;
+		options.ready.total_bytes = pool_bytes;
 
 		// future queue
 		let factor = 10;
 		options.future.count = pool_limit / factor;
-		options.future.total_bytes = pool_kbytes * 1024 / factor;
+		options.future.total_bytes = pool_bytes / factor;
 
 		options.ban_time = if let Some(ban_seconds) = tx_ban_seconds {
 			Duration::from_secs(ban_seconds)
