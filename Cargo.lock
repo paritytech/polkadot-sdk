@@ -10666,7 +10666,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-io",
- "sp-std 14.0.0",
 ]
 
 [[package]]
