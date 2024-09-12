@@ -11,39 +11,33 @@ doc:
     same signature and implications as for single-block migrations.
 
     ## Integration
-
         
-    To make use of this in your Multi-Block-Migration, just implement the two new
-        hooks and test pre- and post-conditions in them:
+    To make use of this in your Multi-Block-Migration, just implement the two new hooks and test pre- and post-conditions in them:
 
     ```rust
-    #[cfg(feature =
-        "try-runtime")]
+    #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError>
-        {
-    t// ...
+    {
+      // ...
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade(prev: Vec<u8>)
-        -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+    fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
         // ...
     }
-
-        ```
+    ```
 
     You may return an error or panic in these functions to indicate failure.
-        This will then show up in the try-runtime-CLI and can be used in CI for testing.
+    This will then show up in the try-runtime-CLI and can be used in CI for testing.
 
         
     Changes:
     - Adds `try-runtime` gated methods `pre_upgrade` and `post_upgrade`
-        on `SteppedMigration`
+      on `SteppedMigration`
     - Adds `try-runtime` gated methods `nth_pre_upgrade`
-        and `nth_post_upgrade` on `SteppedMigrations`
+      and `nth_post_upgrade` on `SteppedMigrations`
     - Modifies `pallet_migrations`
-        implementation to run pre_upgrade and post_upgrade steps at the appropriate
-        times, and panic in the event of migration failure.
+      implementation to run pre_upgrade and post_upgrade steps at the appropriate times, and panic in the event of migration failure.
 crates:
 - name: asset-hub-rococo-runtime
   bump: minor
