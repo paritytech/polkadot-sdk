@@ -162,6 +162,24 @@ fn transact_hardcoded_weights_are_sane() {
 		);
 	});
 
+	// Check that the assign_core message was processed successfully.
+	// This will fail if the weights are misconfigured.
+	Rococo::execute_with(|| {
+		Rococo::assert_ump_queue_processed(true, Some(CoretimeRococo::para_id()), None);
+
+		assert_expected_events!(
+			Rococo,
+			vec![
+				RelayEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+				RelayEvent::Coretime(
+					polkadot_runtime_parachains::coretime::Event::CoreAssigned { .. }
+				) => {},
+			]
+		);
+	});
+
 	// In this block we trigger request revenue.
 	CoretimeRococo::execute_with(|| {
 		// Hooks don't run in emulated tests - workaround.
@@ -179,7 +197,7 @@ fn transact_hardcoded_weights_are_sane() {
 		);
 	});
 
-	// Check that the assign_core and request_revenue_info_at messages were processed successfully.
+	// Check that the request_revenue_info_at message was processed successfully.
 	// This will fail if the weights are misconfigured.
 	Rococo::execute_with(|| {
 		Rococo::assert_ump_queue_processed(true, Some(CoretimeRococo::para_id()), None);
@@ -189,12 +207,6 @@ fn transact_hardcoded_weights_are_sane() {
 			vec![
 				RelayEvent::MessageQueue(
 					pallet_message_queue::Event::Processed { success: true, .. }
-				) => {},
-				RelayEvent::MessageQueue(
-					pallet_message_queue::Event::Processed { success: true, .. }
-				) => {},
-				RelayEvent::Coretime(
-					polkadot_runtime_parachains::coretime::Event::CoreAssigned { .. }
 				) => {},
 			]
 		);
