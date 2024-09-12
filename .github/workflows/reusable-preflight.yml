@@ -1,0 +1,125 @@
+# Reusable workflow to set various useful variables
+# and to perform checks and generate conditions for other workflows.
+# Currently it checks if any Rust (build-related) file is changed
+# and if the current (caller) workflow file is changed.
+# Example:
+#
+# jobs:
+#   preflight:
+#     uses: ./.github/workflows/reusable-check-changed-files.yml
+#   some-job:
+#     needs: changes
+#     if: ${{ needs.preflight.outputs.changes_rust }}
+#  .......
+
+name: Preflight
+
+on:
+  workflow_call:
+    # Map the workflow outputs to job outputs
+    outputs:
+      changes_rust:
+        value: ${{ jobs.changes.outputs.changes_rust }}
+      changes_currentWorkflow:
+        value: ${{ jobs.changes.outputs.changes_currentWorkflow }}
+
+      IMAGE:
+        value: ${{ jobs.changes.outputs.IMAGE }}
+        description: "CI image"
+      RUNNER:
+        value: ${{ jobs.changes.outputs.RUNNER }}
+        description: |
+          Runner name.
+          By default we use spot machines that can be terminated at any time.
+          Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      SOURCE_REF_NAME:
+        value: ${{ jobs.changes.outputs.SOURCE_REF_NAME }}
+        description: "Name of the current branch for `push` or source branch for `pull_request`"
+      COMMIT_SHA:
+        value: ${{ jobs.changes.outputs.COMMIT_SHA }}
+        description: "Sha of the current commit for `push` or head of the source branch for `pull_request`"
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changes_rust: ${{ steps.set_changes.outputs.rust_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_currentWorkflow: ${{ steps.set_changes.outputs.currentWorkflow_any_changed }}
+
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
+
+      SOURCE_REF_NAME: ${{ steps.set_vars.outputs.SOURCE_REF_NAME }}
+      COMMIT_SHA: ${{ steps.set_vars.outputs.COMMIT_SHA }}
+
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      #
+      # Set changes
+      #
+      - id: current_file
+        shell: bash
+        run: |
+          echo "currentWorkflowFile=$(echo ${{ github.workflow_ref }} | sed -nE "s/.*(\.github\/workflows\/[a-zA-Z0-9_-]*\.y[a]?ml)@refs.*/\1/p")" >> $GITHUB_OUTPUT
+          echo "currentActionDir=$(echo ${{ github.action_path }} | sed -nE "s/.*(\.github\/actions\/[a-zA-Z0-9_-]*)/\1/p")" >> $GITHUB_OUTPUT
+
+      - name: Set changes
+        id: set_changes
+        uses: tj-actions/changed-files@v45
+        with:
+          files_yaml: |
+            rust:
+              - '**/*'
+              - '!.github/**/*'
+              - '!prdoc/**/*'
+              - '!docs/**/*'
+            currentWorkflow:
+              - '${{ steps.current_file.outputs.currentWorkflowFile }}'
+              - '.github/workflows/reusable-preflight.yml'
+
+      #
+      # Set image
+      #
+      - name: Set image
+        id: set_image
+        shell: bash
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+      #
+      # Set runner
+      #
+      # By default we use spot machines that can be terminated at any time.
+      # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      #
+      - id: set_runner
+        shell: bash
+        run: |
+          # Run merge queues on persistent runners
+          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
+          else
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+          fi
+
+      #
+      # Set vars
+      #
+      - id: set_vars
+        shell: bash
+        run: |
+          export BRANCH_NAME=${{ github.head_ref || github.ref_name }}
+          echo "SOURCE_REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
+          echo "COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}" >> $GITHUB_OUTPUT
+
+
+      - name: log
+        shell: bash
+        run: |
+          echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
+          echo "Modified: ${{ steps.set_changes.outputs.modified_keys }}"
+          echo "github.ref: ${{ github.ref }}"
+          echo "github.ref_name: ${{ github.ref_name }}"
+          echo "github.sha: ${{ github.sha }}"
