@@ -41,16 +41,13 @@ pub struct RelayReference<
 	/// The client that is connected to the message lane source node.
 	pub lane_source_client: SourceClient,
 	/// The client that is connected to the message lane target node.
-	#[allow(dead_code)]
 	pub lane_target_client: TargetClient,
 	/// Metrics reference.
-	#[allow(dead_code)]
 	pub metrics: Option<MessageLaneLoopMetrics>,
 	/// Messages size summary
 	pub selected_size: u32,
 
 	/// Hard check begin nonce
-	#[allow(dead_code)]
 	pub hard_selected_begin_nonce: MessageNonce,
 
 	/// Index by all ready nonces
@@ -74,13 +71,10 @@ pub struct RelayMessagesBatchReference<
 	/// Maximal cumulative size of relayed messages in single delivery transaction.
 	pub max_messages_size_in_single_batch: u32,
 	/// The client that is connected to the message lane source node.
-	#[allow(dead_code)]
 	pub lane_source_client: SourceClient,
 	/// The client that is connected to the message lane target node.
-	#[allow(dead_code)]
 	pub lane_target_client: TargetClient,
 	/// Metrics reference.
-	#[allow(dead_code)]
 	pub metrics: Option<MessageLaneLoopMetrics>,
 	/// Best available nonce at the **best** target block. We do not want to deliver nonces
 	/// less than this nonce, even though the block may be retracted.
