@@ -67,6 +67,7 @@ jobs:
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
         with:
           ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
 
       - name: Import gpg keys
         run: |
