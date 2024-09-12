@@ -1361,9 +1361,9 @@ where
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
-	) -> Box<Self> {
+	) -> Self {
 		let pool_api = Arc::new(FullChainApi::new(client.clone(), prometheus, &spawner));
-		let pool = Box::new(Self::new_with_background_worker(
+		let pool = Self::new_with_background_worker(
 			options,
 			is_validator,
 			pool_api,
@@ -1372,7 +1372,7 @@ where
 			client.usage_info().chain.best_number,
 			client.usage_info().chain.best_hash,
 			client.usage_info().chain.finalized_hash,
-		));
+		);
 
 		pool
 	}

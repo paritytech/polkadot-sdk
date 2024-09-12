@@ -210,20 +210,20 @@ where
 	) -> TransactionPoolImpl<Block, Client> {
 		log::info!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
 		TransactionPoolWrapper::<Block, Client>(match self.options.txpool_type {
-			TransactionPoolType::SingleState => SingleStateFullPool::new_full(
+			TransactionPoolType::SingleState => Box::new(SingleStateFullPool::new_full(
 				self.options.options,
 				is_validator,
 				prometheus,
 				spawner,
 				client,
-			),
-			TransactionPoolType::ForkAware => ForkAwareFullPool::new_full(
+			)),
+			TransactionPoolType::ForkAware => Box::new(ForkAwareFullPool::new_full(
 				self.options.options,
 				is_validator,
 				prometheus,
 				spawner,
 				client,
-			),
+			)),
 		})
 	}
 }
