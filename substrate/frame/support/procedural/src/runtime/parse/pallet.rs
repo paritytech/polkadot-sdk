@@ -49,7 +49,7 @@ impl Pallet {
 				return Err(Error::new(
 					attr_span,
 					"Invalid pallet declaration, expected a path or a trait object",
-				))
+				));
 			};
 		}
 
@@ -91,6 +91,7 @@ impl Pallet {
 			cfg_pattern,
 			pallet_parts,
 			docs,
+			attrs: item.attrs.clone(),
 		})
 	}
 }

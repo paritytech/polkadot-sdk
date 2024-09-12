@@ -814,7 +814,8 @@ fn build_overseer(
 		Arc::new(keystore),
 		Box::new(TestSyncOracle {}),
 		state.approval_voting_metrics.clone(),
-		Box::new(system_clock.clone()),
+		Arc::new(system_clock.clone()),
+		Arc::new(SpawnGlue(spawn_task_handle.clone())),
 	);
 
 	let approval_distribution = ApprovalDistribution::new_with_clock(
