@@ -171,18 +171,6 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 	}
 
-	/// Set the PoV size in the descriptor. Only for tests.
-	#[cfg(feature = "test")]
-	pub fn set_pov_hash(&mut self, pov_hash: Hash) {
-		self.pov_hash = pov_hash;
-	}
-
-	/// Set the version in the descriptor. Only for tests.
-	#[cfg(feature = "test")]
-	pub fn set_version(&mut self, version: InternalVersion) {
-		self.version = version;
-	}
-
 	/// Check the signature of the collator within this descriptor.
 	pub fn check_collator_signature(&self) -> Result<(), ()> {
 		// Return `Ok` if collator signature is not included (v2+ descriptor).
@@ -199,6 +187,51 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			&collator,
 			&signature,
 		)
+	}
+}
+
+/// A trait to allow changing the descriptor field values in tests.
+#[cfg(feature = "test")]
+
+pub trait MutateDescriptorV2<H> {
+	/// Set the relay parent of the descriptor.
+	fn set_relay_parent(&mut self, relay_parent: H);
+	/// Set the `ParaId` of the descriptor.
+	fn set_para_id(&mut self, para_id: Id);
+	/// Set the PoV hash of the descriptor.
+	fn set_pov_hash(&mut self, pov_hash: Hash);
+	/// Set the version field of the descriptor.
+	fn set_version(&mut self, version: InternalVersion);
+	/// Set the PVD of the descriptor.
+	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash);
+	/// Set the erasure root of the descriptor.
+	fn set_erasure_root(&mut self, erasure_root: Hash);
+}
+
+#[cfg(feature = "test")]
+impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
+	fn set_para_id(&mut self, para_id: Id) {
+		self.para_id = para_id;
+	}
+
+	fn set_relay_parent(&mut self, relay_parent: H) {
+		self.relay_parent = relay_parent;
+	}
+
+	fn set_pov_hash(&mut self, pov_hash: Hash) {
+		self.pov_hash = pov_hash;
+	}
+
+	fn set_version(&mut self, version: InternalVersion) {
+		self.version = version;
+	}
+
+	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash) {
+		self.persisted_validation_data_hash = persisted_validation_data_hash;
+	}
+
+	fn set_erasure_root(&mut self, erasure_root: Hash) {
+		self.erasure_root = erasure_root;
 	}
 }
 
@@ -276,6 +309,15 @@ impl<H> CandidateReceiptV2<H> {
 		H: Encode,
 	{
 		CandidateHash(BlakeTwo256::hash_of(self))
+	}
+}
+
+impl<H: Copy> From<super::v8::CandidateReceipt<H>> for CandidateReceiptV2<H> {
+	fn from(value: super::v8::CandidateReceipt<H>) -> Self {
+		CandidateReceiptV2 {
+			descriptor: value.descriptor.into(),
+			commitments_hash: value.commitments_hash,
+		}
 	}
 }
 
@@ -414,7 +456,7 @@ pub enum CandidateReceiptError {
 
 macro_rules! impl_getter {
 	($field:ident, $type:ident) => {
-		/// Returns the value of $field field.
+		/// Returns the value of `$field`` field.
 		pub fn $field(&self) -> $type {
 			self.$field
 		}
