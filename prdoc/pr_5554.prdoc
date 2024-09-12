@@ -4,16 +4,13 @@
 title: Identity Decouple usernames from identities
 
 doc:
-  - audience: Runtime Dev
+  - audience: [Runtime Dev, Runtime User]
     description: |
       This PR refactors pallet-identity to decouple usernames from identities. Usernames are now
       separated from identities in storage, allowing for correct deposit accounting and for
       authorities to put up their own deposit to create a username and remove usernames. Various
-      storage maps had to be refactored and migrated to allow this to happen.
-  - audience: Node Dev
-    description: |
-      This PR refactors pallet-identity to decouple usernames from identities. Authorities can now
-      put up their own deposit to create a username and remove usernames. 
+      storage maps had to be refactored and migrated to allow this to happen. The call to remove a
+      dangling username is now replaced by the permissioned `kill_username` call.
 
 crates:
   - name: pallet-identity

@@ -1238,49 +1238,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Remove a username that corresponds to an account with no primary username. Exists when a
-		/// user gets a username but then the authority removes it.
-		#[pallet::call_index(21)]
-		#[pallet::weight(T::WeightInfo::remove_dangling_username())]
-		pub fn remove_dangling_username(
-			origin: OriginFor<T>,
-			username: Username<T>,
-		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
-			let username_info =
-				UsernameInfoOf::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
-			ensure!(
-				!UsernameOf::<T>::contains_key(&username_info.owner),
-				Error::<T>::InvalidUsername
-			);
-			match username_info.provider {
-				Provider::AuthorityDeposit(username_deposit) => {
-					let suffix =
-						Self::suffix_of_username(&username).ok_or(Error::<T>::InvalidUsername)?;
-					if let Some(authority_account) =
-						AuthorityOf::<T>::get(&suffix).map(|auth_info| auth_info.account_id)
-					{
-						let err_amount =
-							T::Currency::unreserve(&authority_account, username_deposit);
-						debug_assert!(err_amount.is_zero());
-					}
-				},
-				Provider::Allocation => {
-					// We don't refund the allocation, it is lost.
-				},
-				Provider::System => return Err(Error::<T>::InvalidTarget.into()),
-			}
-			Self::deposit_event(Event::DanglingUsernameRemoved {
-				who: username_info.owner.clone(),
-				username,
-			});
-			Ok(Pays::No.into())
-		}
-
 		/// Start the process of removing a username by placing it in the unbinding usernames map.
 		/// Once the grace period has passed, the username can be deleted by calling
 		/// [remove_username](crate::Call::remove_username).
-		#[pallet::call_index(22)]
+		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::unbind_username())]
 		pub fn unbind_username(origin: OriginFor<T>, username: Username<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -1311,7 +1272,7 @@ pub mod pallet {
 
 		/// Permanently delete a username which has been unbinding for longer than the grace period.
 		/// Caller is refunded the fee if the username expired and the removal was successful.
-		#[pallet::call_index(23)]
+		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::remove_username())]
 		pub fn remove_username(
 			origin: OriginFor<T>,
@@ -1355,7 +1316,7 @@ pub mod pallet {
 
 		/// Call with [ForceOrigin](crate::Config::ForceOrigin) privileges which deletes a username
 		/// and slashes any deposit associated with it.
-		#[pallet::call_index(24)]
+		#[pallet::call_index(23)]
 		#[pallet::weight(T::WeightInfo::kill_username(0))]
 		pub fn kill_username(
 			origin: OriginFor<T>,

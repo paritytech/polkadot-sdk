@@ -759,28 +759,6 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn remove_dangling_username() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
-		let first_username = bounded_username::<T>(bench_username(), bench_suffix());
-		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
-
-		// First one will be set as primary. Second will not be.
-		Identity::<T>::insert_username(&caller, first_username.clone(), Provider::Allocation);
-		Identity::<T>::insert_username(&caller, second_username.clone(), Provider::Allocation);
-
-		// Root calls `kill_username`, leaving their second username as "dangling"
-		Identity::<T>::kill_username(RawOrigin::Root.into(), first_username.into())?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), second_username.clone());
-
-		assert_last_event::<T>(
-			Event::<T>::DanglingUsernameRemoved { who: caller, username: second_username }.into(),
-		);
-		Ok(())
-	}
-
-	#[benchmark]
 	fn unbind_username() -> Result<(), BenchmarkError> {
 		// Set up a username authority.
 		let auth_origin =

@@ -73,7 +73,6 @@ pub trait WeightInfo {
 	fn accept_username() -> Weight;
 	fn remove_expired_approval(p: u32) -> Weight;
 	fn set_primary_username() -> Weight;
-	fn remove_dangling_username() -> Weight;
 	fn unbind_username() -> Weight;
 	fn remove_username() -> Weight;
 	fn kill_username(p: u32) -> Weight;
@@ -434,19 +433,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `11037`
 		// Minimum execution time: 16_771_000 picoseconds.
 		Weight::from_parts(17_333_000, 11037)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Identity::AccountOfUsername` (r:1 w:1)
-	/// Proof: `Identity::AccountOfUsername` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
-	/// Storage: `Identity::IdentityOf` (r:1 w:0)
-	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
-	fn remove_dangling_username() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `98`
-		//  Estimated: `11037`
-		// Minimum execution time: 12_017_000 picoseconds.
-		Weight::from_parts(12_389_000, 11037)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -827,19 +813,6 @@ impl WeightInfo for () {
 		//  Estimated: `11037`
 		// Minimum execution time: 16_771_000 picoseconds.
 		Weight::from_parts(17_333_000, 11037)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Identity::AccountOfUsername` (r:1 w:1)
-	/// Proof: `Identity::AccountOfUsername` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
-	/// Storage: `Identity::IdentityOf` (r:1 w:0)
-	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
-	fn remove_dangling_username() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `98`
-		//  Estimated: `11037`
-		// Minimum execution time: 12_017_000 picoseconds.
-		Weight::from_parts(12_389_000, 11037)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

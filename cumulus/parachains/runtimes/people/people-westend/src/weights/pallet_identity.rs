@@ -392,20 +392,6 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `Identity::AccountOfUsername` (r:1 w:1)
-	/// Proof: `Identity::AccountOfUsername` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
-	/// Storage: `Identity::IdentityOf` (r:1 w:0)
-	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
-	fn remove_dangling_username() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `126`
-		//  Estimated: `11037`
-		// Minimum execution time: 15_997_000 picoseconds.
-		Weight::from_parts(15_997_000, 0)
-			.saturating_add(Weight::from_parts(0, 11037))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 	fn unbind_username() -> Weight {
 		Weight::zero()
 	}
