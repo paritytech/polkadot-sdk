@@ -70,6 +70,7 @@ jobs:
           fetch-depth: 0
 
       - name: Import gpg keys
+        shell: bash
         run: |
           . ./.github/scripts/common/lib.sh
 
