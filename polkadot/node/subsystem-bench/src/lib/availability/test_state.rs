@@ -34,9 +34,9 @@ use polkadot_node_subsystem_test_helpers::{
 use polkadot_node_subsystem_util::availability_chunks::availability_chunk_indices;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, AvailabilityBitfield, BlockNumber,
-	CandidateHash, ChunkIndex, CoreIndex, Hash, HeadData, Header, PersistedValidationData, Signed,
-	SigningContext, ValidatorIndex,
+	vstaging::{CandidateReceiptV2 as CandidateReceipt, MutateDescriptorV2},
+	AvailabilityBitfield, BlockNumber, CandidateHash, ChunkIndex, CoreIndex, Hash, HeadData,
+	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sp_core::H256;
@@ -193,7 +193,9 @@ impl TestState {
 					test_state.candidate_receipt_templates[candidate_index].clone();
 
 				// Make it unique.
-				candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
+				candidate_receipt
+					.descriptor
+					.set_relay_parent(Hash::from_low_u64_be(index as u64));
 				// Store the new candidate in the state
 				test_state.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
 
