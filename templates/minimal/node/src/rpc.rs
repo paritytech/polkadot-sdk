@@ -32,7 +32,7 @@ use polkadot_sdk::{
 use std::sync::Arc;
 
 /// Full client dependencies.
-pub struct FullDeps<C, P: ?Sized> {
+pub struct FullDeps<C, P> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
@@ -54,7 +54,7 @@ where
 		+ 'static,
 	C::Api: sp_block_builder::BlockBuilder<OpaqueBlock>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
-	P: TransactionPool<Block = OpaqueBlock> + 'static + ?Sized,
+	P: TransactionPool + 'static,
 {
 	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 	let mut module = RpcModule::new(());

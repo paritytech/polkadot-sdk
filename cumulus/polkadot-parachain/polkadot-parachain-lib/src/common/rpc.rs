@@ -32,7 +32,7 @@ use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
-pub(crate) trait BuildRpcExtensions<Client, Backend, Pool: ?Sized> {
+pub(crate) trait BuildRpcExtensions<Client, Backend, Pool> {
 	fn build_rpc_extensions(
 		client: Arc<Client>,
 		backend: Arc<Backend>,
