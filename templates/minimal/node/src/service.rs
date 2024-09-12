@@ -78,14 +78,16 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = sc_transaction_pool::Builder::new()
-		.with_options(config.transaction_pool.clone())
-		.build(
-			config.role.is_authority().into(),
-			config.prometheus_registry(),
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-		);
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new()
+			.with_options(config.transaction_pool.clone())
+			.build(
+				config.role.is_authority().into(),
+				config.prometheus_registry(),
+				task_manager.spawn_essential_handle(),
+				client.clone(),
+			),
+	);
 
 	let import_queue = sc_consensus_manual_seal::import_queue(
 		Box::new(client.clone()),

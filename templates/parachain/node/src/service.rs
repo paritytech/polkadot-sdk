@@ -105,14 +105,16 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		telemetry
 	});
 
-	let transaction_pool = sc_transaction_pool::Builder::new()
-		.with_options(config.transaction_pool.clone())
-		.build(
-			config.role.is_authority().into(),
-			config.prometheus_registry(),
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-		);
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new()
+			.with_options(config.transaction_pool.clone())
+			.build(
+				config.role.is_authority().into(),
+				config.prometheus_registry(),
+				task_manager.spawn_essential_handle(),
+				client.clone(),
+			),
+	);
 
 	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
