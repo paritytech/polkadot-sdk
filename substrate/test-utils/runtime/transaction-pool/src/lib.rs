@@ -423,7 +423,6 @@ impl ChainApi for TestApi {
 
 			if self.enable_stale_check && transfer.nonce < chain_nonce {
 				log::info!("test_api::validate_transaction: invalid_transaction(stale)....");
-				// return InvalidTransaction::Stale.into()
 				return ready(Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))))
 			}
 
