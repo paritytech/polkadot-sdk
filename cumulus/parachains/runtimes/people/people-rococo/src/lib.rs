@@ -189,6 +189,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = ConstU32<16>;
+	type MultiBlockMigrator = MultiBlockMigrations;
 }
 
 impl pallet_timestamp::Config for Runtime {

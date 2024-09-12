@@ -223,6 +223,7 @@ impl frame_system::Config for Runtime {
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MultiBlockMigrator = MultiBlockMigrations;
 }
 
 parameter_types! {
