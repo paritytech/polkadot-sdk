@@ -639,13 +639,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 
 		let hashof0 = client.info().genesis_hash;
 		block_on(txpool.submit_at(hashof0, SOURCE, vec![extrinsic(0), extrinsic(1)])).unwrap();
@@ -692,13 +692,13 @@ mod tests {
 	fn should_not_panic_when_deadline_is_reached() {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 
 		let mut proposer_factory =
 			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
@@ -729,13 +729,13 @@ mod tests {
 		let (client, backend) = TestClientBuilder::new().build_with_backend();
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 
 		let genesis_hash = client.info().best_hash;
 
@@ -785,13 +785,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 
 		let medium = |nonce| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(MEDIUM))
@@ -893,13 +893,13 @@ mod tests {
 	fn should_cease_building_block_when_block_limit_is_reached() {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 		let genesis_hash = client.info().genesis_hash;
 		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
 
@@ -998,13 +998,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |nonce| {
@@ -1067,13 +1067,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = BasicPool::new_full(
+		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		);
+		));
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |who| {

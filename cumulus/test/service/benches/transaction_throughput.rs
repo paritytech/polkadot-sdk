@@ -20,7 +20,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughpu
 use cumulus_client_cli::get_raw_genesis_header;
 use cumulus_test_runtime::{AccountId, BalancesCall, ExistentialDeposit, SudoCall};
 use futures::{future, StreamExt};
-use sc_transaction_pool_api::{TransactionSource, TransactionStatus};
+use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, TransactionStatus};
 use sp_core::{crypto::Pair, sr25519};
 use sp_runtime::OpaqueExtrinsic;
 

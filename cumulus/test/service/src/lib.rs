@@ -218,14 +218,16 @@ pub fn new_partial(
 
 	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
-	let transaction_pool = sc_transaction_pool::Builder::new()
-		.with_options(config.transaction_pool.clone())
-		.build(
-			config.role.is_authority().into(),
-			config.prometheus_registry(),
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-		);
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new()
+			.with_options(config.transaction_pool.clone())
+			.build(
+				config.role.is_authority().into(),
+				config.prometheus_registry(),
+				task_manager.spawn_essential_handle(),
+				client.clone(),
+			),
+	);
 
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 	let import_queue = cumulus_client_consensus_aura::import_queue::<AuthorityPair, _, _, _, _, _>(
