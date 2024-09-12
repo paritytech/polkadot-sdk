@@ -154,7 +154,21 @@ pub const SECONDARY_GOVERNANCE_CHANNEL: ChannelId =
 /// Metadata to include in the instantiated ERC20 token contract
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct AssetMetadata {
-	pub name: BoundedVec<u8, ConstU32<32>>,
-	pub symbol: BoundedVec<u8, ConstU32<32>>,
+	pub name: BoundedVec<u8, ConstU32<METADATA_FIELD_MAX_LEN>>,
+	pub symbol: BoundedVec<u8, ConstU32<METADATA_FIELD_MAX_LEN>>,
 	pub decimals: u8,
 }
+
+#[cfg(any(test, feature = "std", feature = "runtime-benchmarks"))]
+impl Default for AssetMetadata {
+	fn default() -> Self {
+		AssetMetadata {
+			name: BoundedVec::truncate_from(vec![]),
+			symbol: BoundedVec::truncate_from(vec![]),
+			decimals: 0,
+		}
+	}
+}
+
+/// Maximum length of a string field in ERC20 token metada
+const METADATA_FIELD_MAX_LEN: u32 = 32;
