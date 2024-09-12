@@ -1597,6 +1597,8 @@ fn fair_collation_fetches() {
 	});
 }
 
+// This should not happen in practice since claim queue is supported on all networks but just in
+// case validate that the fallback works as expected
 #[test]
 fn collation_fetches_without_claimqueue() {
 	let test_state = TestState::without_claim_queue();
@@ -1659,18 +1661,16 @@ fn collation_fetches_without_claimqueue() {
 			}
 		);
 
-		// in fallback mode up to `max_candidate_depth` collations are accepted
-		for i in 0..test_state.async_backing_params.max_candidate_depth + 1 {
-			submit_second_and_assert(
-				&mut virtual_overseer,
-				keystore.clone(),
-				ParaId::from(TestState::CHAIN_IDS[0]),
-				head_b,
-				peer_a,
-				HeadData(vec![i as u8]),
-			)
-			.await;
-		}
+		// in fallback mode we only accept what's scheduled on the core
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(TestState::CHAIN_IDS[0]),
+			head_b,
+			peer_a,
+			HeadData(vec![0 as u8]),
+		)
+		.await;
 
 		// `peer_a` sends another advertisement and it is ignored
 		let candidate_hash = CandidateHash(Hash::repeat_byte(0xAA));
