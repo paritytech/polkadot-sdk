@@ -35,11 +35,11 @@ use polkadot_node_subsystem::{
 	messages::{
 		AllMessages, ApprovalVotingMessage, AssignmentCheckResult, AvailabilityRecoveryMessage,
 	},
-	ActiveLeavesUpdate,
+	ActiveLeavesUpdate, SubsystemContext,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
-use polkadot_overseer::HeadSupportsParachains;
+use polkadot_overseer::{HeadSupportsParachains, SpawnGlue};
 use polkadot_primitives::{
 	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
 	Header, Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
@@ -537,7 +537,7 @@ impl Default for HarnessConfig {
 
 struct TestHarness {
 	virtual_overseer: VirtualOverseer,
-	clock: Box<MockClock>,
+	clock: Arc<MockClock>,
 	sync_oracle_handle: TestSyncOracleHandle,
 }
 
@@ -551,8 +551,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		config;
 
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) =
-		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
+	let (mut context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let keystore = LocalKeystore::in_memory();
 	let _ = keystore.sr25519_generate_new(
@@ -560,12 +560,14 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		Some(&Sr25519Keyring::Alice.to_seed()),
 	);
 
-	let clock = Box::new(clock);
+	let clock = Arc::new(clock);
 	let db = kvdb_memorydb::create(test_constants::NUM_COLUMNS);
 	let db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
-
+	let sender = context.sender().clone();
 	let subsystem = run(
 		context,
+		sender.clone(),
+		sender.clone(),
 		ApprovalVotingSubsystem::with_config_and_clock(
 			Config {
 				col_approval_data: test_constants::TEST_CONFIG.col_approval_data,
@@ -576,6 +578,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 			sync_oracle,
 			Metrics::default(),
 			clock.clone(),
+			Arc::new(SpawnGlue(pool)),
 		),
 		assignment_criteria,
 		backend,
@@ -4115,7 +4118,7 @@ async fn handle_approval_on_max_coalesce_count(
 async fn handle_approval_on_max_wait_time(
 	virtual_overseer: &mut VirtualOverseer,
 	candidate_indices: Vec<CandidateIndex>,
-	clock: Box<MockClock>,
+	clock: Arc<MockClock>,
 ) {
 	const TICK_NOW_BEGIN: u64 = 1;
 	const MAX_COALESCE_COUNT: u32 = 3;
@@ -4413,7 +4416,7 @@ async fn build_chain_with_two_blocks_with_one_candidate_each(
 async fn setup_overseer_with_two_blocks_each_with_one_assignment_triggered(
 	virtual_overseer: &mut VirtualOverseer,
 	store: TestStore,
-	clock: &Box<MockClock>,
+	clock: &Arc<MockClock>,
 	sync_oracle_handle: TestSyncOracleHandle,
 ) {
 	assert_matches!(
@@ -4927,7 +4930,7 @@ fn test_gathering_assignments_statements() {
 	let mut state = State {
 		keystore: Arc::new(LocalKeystore::in_memory()),
 		slot_duration_millis: 6_000,
-		clock: Box::new(MockClock::default()),
+		clock: Arc::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
 		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
@@ -5022,7 +5025,7 @@ fn test_observe_assignment_gathering_status() {
 	let mut state = State {
 		keystore: Arc::new(LocalKeystore::in_memory()),
 		slot_duration_millis: 6_000,
-		clock: Box::new(MockClock::default()),
+		clock: Arc::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
 		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(

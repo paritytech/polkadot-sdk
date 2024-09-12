@@ -1051,6 +1051,12 @@ pub mod pallet_prelude {
 /// [`StorageInfoTrait`](frame_support::traits::StorageInfoTrait) for the pallet using the
 /// [`PartialStorageInfoTrait`](frame_support::traits::PartialStorageInfoTrait)
 /// implementation of storages.
+///
+/// ## Note on deprecation.
+///
+/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+///   metadata.
+/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 pub use frame_support_procedural::pallet;
 
 /// Contains macro stubs for all of the `pallet::` macros
@@ -1892,6 +1898,15 @@ pub mod pallet_macros {
 	///
 	/// The macro also implements `From<Error<T>>` for `&'static str` and `From<Error<T>>` for
 	/// `DispatchError`.
+	///
+	/// ## Note on deprecation of Errors
+	///
+	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+	///   metadata where the item was declared.
+	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - It's possible to deprecated either certain variants inside the `Error` or the whole
+	///   `Error` itself. If both the `Error` and its variants are deprecated a compile error
+	///   will be returned.
 	pub use frame_support_procedural::error;
 
 	/// Allows defining pallet events.
@@ -1933,6 +1948,15 @@ pub mod pallet_macros {
 	/// Each field must implement [`Clone`], [`Eq`], [`PartialEq`], [`codec::Encode`],
 	/// [`codec::Decode`], and [`Debug`] (on std only). For ease of use, bound by the trait
 	/// `Member`, available in [`frame_support::pallet_prelude`].
+	///
+	/// ## Note on deprecation of Events
+	///
+	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+	///   metadata where the item was declared.
+	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - It's possible to deprecated either certain variants inside the `Event` or the whole
+	///   `Event` itself. If both the `Event` and its variants are deprecated a compile error
+	///   will be returned.
 	pub use frame_support_procedural::event;
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*.
@@ -2053,6 +2077,12 @@ pub mod pallet_macros {
 	/// 	pub trait Config: frame_system::Config {}
 	/// }
 	/// ```
+	///
+	/// ## Note on deprecation of Calls
+	///
+	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+	///   metadata where the item was declared.
+	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 	pub use frame_support_procedural::call;
 
 	/// Enforce the index of a variant in the generated `enum Call`.
@@ -2185,6 +2215,12 @@ pub mod pallet_macros {
 	/// 	}
 	/// }
 	/// ```
+	///
+	/// ## Note on deprecation of constants
+	///
+	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+	///   metadata where the item was declared.
+	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 	pub use frame_support_procedural::constant;
 
 	/// Declares a type alias as a storage item.
@@ -2403,6 +2439,12 @@ pub mod pallet_macros {
 	///     pub type Foo<T> = StorageValue<_, u32, ValueQuery>;
 	/// }
 	/// ```
+	///
+	/// ## Note on deprecation of storage items
+	///
+	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
+	///   metadata where the storage item was declared.
+	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 	pub use frame_support_procedural::storage;
 
 	pub use frame_support_procedural::{

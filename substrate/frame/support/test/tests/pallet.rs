@@ -14,6 +14,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(useless_deprecated, deprecated, clippy::deprecated_semver)]
+
+use std::collections::BTreeMap;
 
 use frame_support::{
 	assert_ok, derive_impl,
@@ -212,6 +215,7 @@ pub mod pallet {
 		/// call foo doc comment put in metadata
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
+		#[deprecated = "test"]
 		pub fn foo(
 			origin: OriginFor<T>,
 			#[pallet::compact] foo: u32,
@@ -272,6 +276,7 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// error doc comment put in metadata
 		InsufficientProposersBalance,
+		#[deprecated = "test"]
 		NonExistentStorageValue,
 		Code(u8),
 		#[codec(skip)]
@@ -283,6 +288,7 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(fn deposit_event)]
+	#[deprecated = "test"]
 	pub enum Event<T: Config>
 	where
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
@@ -486,7 +492,7 @@ pub mod pallet {
 			let _ = T::AccountId::from(SomeType1); // Test for where clause
 			let _ = T::AccountId::from(SomeType5); // Test for where clause
 			if matches!(call, Call::foo_storage_layer { .. }) {
-				return Ok(ValidTransaction::default())
+				return Ok(ValidTransaction::default());
 			}
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		}
@@ -553,6 +559,7 @@ pub mod pallet {
 // Test that a pallet with non generic event and generic genesis_config is correctly handled
 // and that a pallet with the attribute without_storage_info is correctly handled.
 #[frame_support::pallet]
+#[deprecated = "test"]
 pub mod pallet2 {
 	use super::{SomeAssociation1, SomeType1, UpdateStorageVersion};
 	use frame_support::pallet_prelude::*;
@@ -2477,5 +2484,58 @@ fn test_error_feature_parsing() {
 		#[cfg(feature = "frame-feature-testing")]
 		pallet::Error::FeatureTest => (),
 		pallet::Error::__Ignore(_, _) => (),
+	}
+}
+
+#[test]
+fn pallet_metadata() {
+	use sp_metadata_ir::{DeprecationInfoIR, DeprecationStatusIR};
+	let pallets = Runtime::metadata_ir().pallets;
+	let example = pallets[0].clone();
+	let example2 = pallets[1].clone();
+	{
+		// Example2 pallet is deprecated
+		assert_eq!(
+			&DeprecationStatusIR::Deprecated { note: "test", since: None },
+			&example2.deprecation_info
+		)
+	}
+	{
+		// Example pallet calls is fully and partially deprecated
+		let meta = &example.calls.unwrap();
+		assert_eq!(
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
+				codec::Compact(0),
+				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			)])),
+			meta.deprecation_info
+		)
+	}
+	{
+		// Example pallet errors are partially and fully deprecated
+		let meta = &example.error.unwrap();
+		assert_eq!(
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
+				codec::Compact(2),
+				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			)])),
+			meta.deprecation_info
+		)
+	}
+	{
+		// Example pallet events are partially and fully deprecated
+		let meta = example.event.unwrap();
+		assert_eq!(
+			DeprecationInfoIR::ItemDeprecated(DeprecationStatusIR::Deprecated {
+				note: "test",
+				since: None
+			}),
+			meta.deprecation_info
+		);
+	}
+	{
+		// Example2 pallet events are not deprecated
+		let meta = example2.event.unwrap();
+		assert_eq!(DeprecationInfoIR::NotDeprecated, meta.deprecation_info);
 	}
 }
