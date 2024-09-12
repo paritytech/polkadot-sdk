@@ -341,8 +341,12 @@ async fn run_main_loop<Context>(
 						// The message the approval voting subsystem would've handled.
 						ApprovalVotingParallelMessage::ApprovedAncestor(_, _,_) |
 						ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(_, _)  => {
-							// Safe to unwrap because we know the message is of the right type.
-							to_approval_voting_worker.send_message(msg.try_into().unwrap()).await;
+							to_approval_voting_worker.send_message(
+								msg.try_into().expect(
+									"Message is one of ApprovedAncestor, GetApprovalSignaturesForCandidate
+									 and that can be safely converted to ApprovalVotingMessage; qed"
+								)
+							).await;
 						},
 						// Now the message the approval distribution subsystem would've handled and need to
 						// be forwarded to the workers.
