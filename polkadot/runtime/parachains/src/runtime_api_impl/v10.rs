@@ -22,22 +22,26 @@ use crate::{
 	scheduler::{self, CoreOccupied},
 	session_info, shared,
 };
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	async_backing::{
-		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
-		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
+		AsyncBackingParams, Constraints, InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	NodeFeatures, OccupiedCore, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	slashing,
+	vstaging::{
+		async_backing::{BackingState, CandidatePendingAvailability},
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		OccupiedCore, ScrapedOnChainVotes,
+	},
+	ApprovalVotingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, DisputeState,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::traits::One;
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// Implementation for the `validators` function of the runtime API.
 pub fn validators<T: initializer::Config>() -> Vec<ValidatorId> {
@@ -66,7 +70,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 	//
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
-	scheduler::Pallet::<T>::free_cores_and_fill_claimqueue(Vec::new(), now);
+	scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(Vec::new(), now);
 
 	let time_out_for = scheduler::Pallet::<T>::availability_timeout_predicate();
 
@@ -305,7 +309,7 @@ pub fn validation_code<T: initializer::Config>(
 
 /// Implementation for the `candidate_pending_availability` function of the runtime API.
 #[deprecated(
-	note = "`candidate_pending_availability` will be removed. Use `candidates_pending_availability` to query 
+	note = "`candidate_pending_availability` will be removed. Use `candidates_pending_availability` to query
 	all candidates pending availability"
 )]
 pub fn candidate_pending_availability<T: initializer::Config>(

@@ -76,7 +76,6 @@ impl Def {
 	pub fn try_from(mut item: syn::ItemMod, dev_mode: bool) -> syn::Result<Self> {
 		let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 		let frame_support = generate_access_from_frame_or_crate("frame-support")?;
-
 		let item_span = item.span();
 		let items = &mut item
 			.content
@@ -109,10 +108,9 @@ impl Def {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
-				Some(PalletAttr::Config(span, with_default)) if config.is_none() =>
+				Some(PalletAttr::Config(_, with_default)) if config.is_none() =>
 					config = Some(config::ConfigDef::try_from(
 						&frame_system,
-						span,
 						index,
 						item,
 						with_default,
@@ -122,7 +120,7 @@ impl Def {
 					pallet_struct = Some(p);
 				},
 				Some(PalletAttr::Hooks(span)) if hooks.is_none() => {
-					let m = hooks::HooksDef::try_from(span, index, item)?;
+					let m = hooks::HooksDef::try_from(span, item)?;
 					hooks = Some(m);
 				},
 				Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() =>
@@ -162,27 +160,27 @@ impl Def {
 					genesis_config = Some(g);
 				},
 				Some(PalletAttr::GenesisBuild(span)) if genesis_build.is_none() => {
-					let g = genesis_build::GenesisBuildDef::try_from(span, index, item)?;
+					let g = genesis_build::GenesisBuildDef::try_from(span, item)?;
 					genesis_build = Some(g);
 				},
 				Some(PalletAttr::RuntimeOrigin(_)) if origin.is_none() =>
-					origin = Some(origin::OriginDef::try_from(index, item)?),
+					origin = Some(origin::OriginDef::try_from(item)?),
 				Some(PalletAttr::Inherent(_)) if inherent.is_none() =>
-					inherent = Some(inherent::InherentDef::try_from(index, item)?),
+					inherent = Some(inherent::InherentDef::try_from(item)?),
 				Some(PalletAttr::Storage(span)) =>
 					storages.push(storage::StorageDef::try_from(span, index, item, dev_mode)?),
 				Some(PalletAttr::ValidateUnsigned(_)) if validate_unsigned.is_none() => {
-					let v = validate_unsigned::ValidateUnsignedDef::try_from(index, item)?;
+					let v = validate_unsigned::ValidateUnsignedDef::try_from(item)?;
 					validate_unsigned = Some(v);
 				},
 				Some(PalletAttr::TypeValue(span)) =>
 					type_values.push(type_value::TypeValueDef::try_from(span, index, item)?),
 				Some(PalletAttr::ExtraConstants(_)) =>
 					extra_constants =
-						Some(extra_constants::ExtraConstantsDef::try_from(index, item)?),
+						Some(extra_constants::ExtraConstantsDef::try_from(item)?),
 				Some(PalletAttr::Composite(span)) => {
 					let composite =
-						composite::CompositeDef::try_from(span, index, &frame_support, item)?;
+						composite::CompositeDef::try_from(span, &frame_support, item)?;
 					if composites.iter().any(|def| {
 						match (&def.composite_keyword, &composite.composite_keyword) {
 							(
@@ -222,7 +220,7 @@ impl Def {
 				genesis_config.as_ref().map_or("unused", |_| "used"),
 				genesis_build.as_ref().map_or("unused", |_| "used"),
 			);
-			return Err(syn::Error::new(item_span, msg))
+			return Err(syn::Error::new(item_span, msg));
 		}
 
 		Self::resolve_tasks(&item_span, &mut tasks, &mut task_enum, items)?;
@@ -285,7 +283,7 @@ impl Def {
 						tasks.item_impl.impl_token.span(),
 						"A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
 						task enum has been omitted",
-					))
+					));
 				} else {
 				},
 			_ => (),
@@ -314,7 +312,7 @@ impl Def {
 				// `task_enum`. We use a no-op instead of simply removing it from the vec
 				// so that any indices collected by `Def::try_from` remain accurate
 				*item = syn::Item::Verbatim(quote::quote!());
-				break
+				break;
 			}
 		}
 		*task_enum = result;
@@ -337,7 +335,7 @@ impl Def {
 			let syn::Type::Path(target_path) = &*item_impl.self_ty else { continue };
 			let target_path = target_path.path.segments.iter().collect::<Vec<_>>();
 			let (Some(target_ident), None) = (target_path.get(0), target_path.get(1)) else {
-				continue
+				continue;
 			};
 			let matches_task_enum = match task_enum {
 				Some(task_enum) => task_enum.item_enum.ident == target_ident.ident,
@@ -345,7 +343,7 @@ impl Def {
 			};
 			if trait_last_seg.ident == "Task" && matches_task_enum {
 				result = Some(syn::parse2::<tasks::TasksDef>(item_impl.to_token_stream())?);
-				break
+				break;
 			}
 		}
 		*tasks = result;
@@ -408,7 +406,7 @@ impl Def {
 
 		let mut errors = instances.into_iter().filter_map(|instances| {
 			if instances.has_instance == self.config.has_instance {
-				return None
+				return None;
 			}
 			let msg = if self.config.has_instance {
 				"Invalid generic declaration, trait is defined with instance but generic use none"
@@ -722,7 +720,6 @@ impl syn::parse::Parse for PalletAttr {
 #[derive(Clone)]
 pub struct InheritedCallWeightAttr {
 	pub typename: syn::Type,
-	pub span: proc_macro2::Span,
 }
 
 impl syn::parse::Parse for InheritedCallWeightAttr {
@@ -741,9 +738,9 @@ impl syn::parse::Parse for InheritedCallWeightAttr {
 			content.parse::<syn::Token![=]>().expect("peeked");
 			content
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		};
 
-		Ok(Self { typename: buffer.parse()?, span: input.span() })
+		Ok(Self { typename: buffer.parse()? })
 	}
 }

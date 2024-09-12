@@ -10,6 +10,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-polkadot-overseer = { path = "../overseer" }
-polkadot-node-subsystem-types = { path = "../subsystem-types" }
-polkadot-node-jaeger = { path = "../jaeger" }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-node-subsystem-types = { workspace = true, default-features = true }
+polkadot-node-jaeger = { workspace = true, default-features = true }

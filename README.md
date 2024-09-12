@@ -10,10 +10,7 @@
 forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 <!-- markdownlint-disable-next-line MD013 -->
-[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)
-
-![GitHub lines of code](https://tokei.rs/b1/github/paritytech/polkadot-sdk)&nbsp;&nbsp;
-![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
+[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
 
 > The Polkadot SDK repository provides all the components needed to start building on the
 > [Polkadot](https://polkadot.network) network, a multi-chain blockchain platform that enables
@@ -21,34 +18,41 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 </div>
 
+## ⚡ Quickstart
+If you want to get an example node running quickly you can execute the following getting started script:
+```
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
+```
+
 ## 📚 Documentation
 
 * [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html)
- * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
-   to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
+  * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
+	to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
+  * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html),
+	namely how to build your first FRAME pallet.
+  * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
+    for starting a new project.
 * Other Resources:
   * [Polkadot Wiki -> Build](https://wiki.polkadot.network/docs/build-guide)
 
 ## 🚀 Releases
 
-> [!NOTE]
-> Our release process is still Work-In-Progress and may not yet reflect the aspired outline
-> here.
+<!-- markdownlint-disable-next-line MD013 -->
+![Current Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-latest.svg)&nbsp;&nbsp;![Next Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-next.svg)
 
-The Polkadot-SDK has two release channels: `stable` and `nightly`. Production software is advised to
-only use `stable`. `nightly` is meant for tinkerers to try out the latest features. The detailed
-release process is described in [RELEASE.md](docs/RELEASE.md).
+The Polkadot-SDK is released every three months as a `stableYYMMDD` release. They are supported for
+one year with patches. See the next upcoming versions in the [Release
+Registry](https://github.com/paritytech/release-registry/).
 
-### 😌 Stable
+You can use [`psvm`](https://github.com/paritytech/psvm) to update all dependencies to a specific
+version without needing to manually select the correct version for each crate.
 
-`stable` releases have a support duration of **three months**. In this period, the release will not
-have any breaking changes. It will receive bug fixes, security fixes, performance fixes and new
-non-breaking features on a **two week** cadence.
+## 🛠️ Tooling
 
-### 🤠 Nightly
-
-`nightly` releases are released every night from the `master` branch, potentially with breaking
-changes. They have pre-release version numbers in the format `major.0.0-nightlyYYMMDD`.
+[Polkadot SDK Version Manager](https://github.com/paritytech/psvm):
+A simple tool to manage and update the Polkadot SDK dependencies in any Cargo.toml file.
+It will automatically update the Polkadot SDK dependencies to their correct crates.io version.
 
 ## 🔐 Security
 
@@ -81,7 +85,3 @@ fellowship, this separation, the RFC process
 This repository is the amalgamation of 3 separate repositories that used to make up Polkadot SDK,
 namely Substrate, Polkadot and Cumulus. Read more about the merge and its history
 [here](https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f).
-
-## Other useful resources and tooling
-
-* A simple tool to manage and update the Polkadot SDK dependencies (https://github.com/paritytech/psvm)

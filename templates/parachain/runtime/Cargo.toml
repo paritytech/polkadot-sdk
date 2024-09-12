@@ -13,80 +13,80 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }
-docify = "0.2.8"
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+docify = { workspace = true }
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+codec = { features = [
 	"derive",
-] }
-hex-literal = { version = "0.4.1", optional = true }
+], workspace = true }
+hex-literal = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = [
+scale-info = { features = [
 	"derive",
-] }
-smallvec = "1.11.0"
-docify = "0.2.8"
+], workspace = true }
+smallvec = { workspace = true, default-features = true }
+docify = { workspace = true }
+serde_json = { workspace = true, default-features = false }
 
 # Local
-pallet-parachain-template = { path = "../pallets/template", default-features = false }
+pallet-parachain-template = { workspace = true }
 
 # Substrate / FRAME
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
-frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
-frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
-frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-executive = { workspace = true }
+frame-metadata-hash-extension = { workspace = true }
+frame-support = { features = ["experimental"], workspace = true }
+frame-system = { workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
+frame-system-rpc-runtime-api = { workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
 
 # FRAME Pallets
-pallet-aura = { path = "../../../substrate/frame/aura", default-features = false }
-pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
-pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
-pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
-pallet-session = { path = "../../../substrate/frame/session", default-features = false }
-pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
-pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
+pallet-aura = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-session = { workspace = true }
+pallet-sudo = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 
 # Substrate	Primitives
-sp-api = { path = "../../../substrate/primitives/api", default-features = false }
-sp-block-builder = { path = "../../../substrate/primitives/block-builder", default-features = false }
-sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
-sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false }
-sp-offchain = { path = "../../../substrate/primitives/offchain", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-session = { path = "../../../substrate/primitives/session", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-transaction-pool = { path = "../../../substrate/primitives/transaction-pool", default-features = false }
-sp-version = { path = "../../../substrate/primitives/version", default-features = false }
+sp-api = { workspace = true }
+sp-block-builder = { workspace = true }
+sp-consensus-aura = { workspace = true }
+sp-core = { workspace = true }
+sp-genesis-builder = { workspace = true }
+sp-inherents = { workspace = true }
+sp-offchain = { workspace = true }
+sp-runtime = { workspace = true }
+sp-session = { workspace = true }
+sp-transaction-pool = { workspace = true }
+sp-version = { workspace = true }
 
 # Polkadot
-pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false }
-polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false }
-polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
+pallet-xcm = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
 
 # Cumulus
-cumulus-pallet-aura-ext = { path = "../../../cumulus/pallets/aura-ext", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../cumulus/pallets/parachain-system", default-features = false }
-cumulus-pallet-session-benchmarking = { path = "../../../cumulus/pallets/session-benchmarking", default-features = false }
-cumulus-pallet-xcm = { path = "../../../cumulus/pallets/xcm", default-features = false }
-cumulus-pallet-xcmp-queue = { path = "../../../cumulus/pallets/xcmp-queue", default-features = false }
-cumulus-primitives-aura = { path = "../../../cumulus/primitives/aura", default-features = false }
-cumulus-primitives-core = { path = "../../../cumulus/primitives/core", default-features = false }
-cumulus-primitives-utility = { path = "../../../cumulus/primitives/utility", default-features = false }
-cumulus-primitives-storage-weight-reclaim = { path = "../../../cumulus/primitives/storage-weight-reclaim", default-features = false }
-pallet-collator-selection = { path = "../../../cumulus/pallets/collator-selection", default-features = false }
-parachains-common = { path = "../../../cumulus/parachains/common", default-features = false }
-parachain-info = { package = "staging-parachain-info", path = "../../../cumulus/parachains/pallets/parachain-info", default-features = false }
+cumulus-pallet-aura-ext = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-session-benchmarking = { workspace = true }
+cumulus-pallet-xcm = { workspace = true }
+cumulus-pallet-xcmp-queue = { workspace = true }
+cumulus-primitives-aura = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-utility = { workspace = true }
+cumulus-primitives-storage-weight-reclaim = { workspace = true }
+pallet-collator-selection = { workspace = true }
+parachains-common = { workspace = true }
+parachain-info = { workspace = true }
 
 [features]
 default = ["std"]
@@ -127,6 +127,7 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"scale-info/std",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -136,7 +137,6 @@ std = [
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
-	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",

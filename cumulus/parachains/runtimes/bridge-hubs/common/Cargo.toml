@@ -7,16 +7,16 @@ description = "Bridge hub common utilities"
 license = "Apache-2.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
-cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+frame-support = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+xcm = { workspace = true }
+pallet-message-queue = { workspace = true }
+snowbridge-core = { workspace = true }
 
 [features]
 default = ["std"]

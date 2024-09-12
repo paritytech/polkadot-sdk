@@ -5,7 +5,7 @@ version = "0.33.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 documentation = "https://docs.rs/sc-network-light"
 
@@ -16,21 +16,21 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [build-dependencies]
-prost-build = "0.12.4"
+prost-build = { workspace = true }
 
 [dependencies]
-async-channel = "1.8.0"
-array-bytes = "6.2.2"
-codec = { package = "parity-scale-codec", version = "3.6.12", features = [
+async-channel = { workspace = true }
+array-bytes = { workspace = true, default-features = true }
+codec = { features = [
 	"derive",
-] }
-futures = "0.3.30"
+], workspace = true, default-features = true }
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
-prost = "0.12.4"
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sc-client-api = { path = "../../api" }
-sc-network-types = { path = "../types" }
-sc-network = { path = ".." }
-sp-core = { path = "../../../primitives/core" }
-sp-runtime = { path = "../../../primitives/runtime" }
+prost = { workspace = true }
+sp-blockchain = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }

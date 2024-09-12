@@ -77,7 +77,7 @@ pub trait SubstrateFinalitySyncPipeline: BaseSubstrateFinalitySyncPipeline {
 
 	/// Add relay guards if required.
 	async fn start_relay_guards(
-		target_client: &Client<Self::TargetChain>,
+		target_client: &impl Client<Self::TargetChain>,
 		enable_version_guard: bool,
 	) -> relay_substrate_client::Result<()> {
 		if enable_version_guard {
@@ -240,8 +240,8 @@ macro_rules! generate_submit_finality_proof_ex_call_builder {
 
 /// Run Substrate-to-Substrate finality sync loop.
 pub async fn run<P: SubstrateFinalitySyncPipeline>(
-	source_client: Client<P::SourceChain>,
-	target_client: Client<P::TargetChain>,
+	source_client: impl Client<P::SourceChain>,
+	target_client: impl Client<P::TargetChain>,
 	headers_to_relay: HeadersToRelay,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	metrics_params: MetricsParams,
@@ -255,8 +255,8 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 	);
 
 	finality_relay::run(
-		SubstrateFinalitySource::<P>::new(source_client, None),
-		SubstrateFinalityTarget::<P>::new(target_client, transaction_params.clone()),
+		SubstrateFinalitySource::<P, _>::new(source_client, None),
+		SubstrateFinalityTarget::<P, _>::new(target_client, transaction_params.clone()),
 		finality_relay::FinalitySyncParams {
 			tick: std::cmp::max(
 				P::SourceChain::AVERAGE_BLOCK_INTERVAL,
@@ -279,12 +279,12 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 
 /// Relay single header. No checks are made to ensure that transaction will succeed.
 pub async fn relay_single_header<P: SubstrateFinalitySyncPipeline>(
-	source_client: Client<P::SourceChain>,
-	target_client: Client<P::TargetChain>,
+	source_client: impl Client<P::SourceChain>,
+	target_client: impl Client<P::TargetChain>,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	header_number: BlockNumberOf<P::SourceChain>,
 ) -> anyhow::Result<()> {
-	let finality_source = SubstrateFinalitySource::<P>::new(source_client, None);
+	let finality_source = SubstrateFinalitySource::<P, _>::new(source_client, None);
 	let (header, proof) = finality_source.header_and_finality_proof(header_number).await?;
 	let Some(proof) = proof else {
 		return Err(anyhow::format_err!(
@@ -295,7 +295,7 @@ pub async fn relay_single_header<P: SubstrateFinalitySyncPipeline>(
 		));
 	};
 
-	let finality_target = SubstrateFinalityTarget::<P>::new(target_client, transaction_params);
+	let finality_target = SubstrateFinalityTarget::<P, _>::new(target_client, transaction_params);
 	let tx_tracker = finality_target.submit_finality_proof(header, proof, false).await?;
 	match tx_tracker.wait().await {
 		TrackedTransactionStatus::Finalized(_) => Ok(()),

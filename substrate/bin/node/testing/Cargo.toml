@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Test utilities for Substrate node."
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -16,36 +16,36 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-fs_extra = "1"
-futures = "0.3.30"
+codec = { workspace = true, default-features = true }
+fs_extra = { workspace = true }
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
-tempfile = "3.1.0"
-frame-metadata-hash-extension = { path = "../../../frame/metadata-hash-extension" }
-frame-system = { path = "../../../frame/system" }
-node-cli = { package = "staging-node-cli", path = "../cli" }
-node-primitives = { path = "../primitives" }
-kitchensink-runtime = { path = "../runtime" }
-pallet-asset-conversion = { path = "../../../frame/asset-conversion" }
-pallet-assets = { path = "../../../frame/assets" }
-pallet-asset-conversion-tx-payment = { path = "../../../frame/transaction-payment/asset-conversion-tx-payment" }
-pallet-asset-tx-payment = { path = "../../../frame/transaction-payment/asset-tx-payment" }
-pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment" }
-sc-block-builder = { path = "../../../client/block-builder" }
-sc-client-api = { path = "../../../client/api" }
-sc-client-db = { path = "../../../client/db", features = ["rocksdb"] }
-sc-consensus = { path = "../../../client/consensus/common" }
-sc-executor = { path = "../../../client/executor" }
-sc-service = { path = "../../../client/service", features = ["rocksdb", "test-helpers"] }
-sp-api = { path = "../../../primitives/api" }
-sp-block-builder = { path = "../../../primitives/block-builder" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-core = { path = "../../../primitives/core" }
-sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
-sp-inherents = { path = "../../../primitives/inherents" }
-sp-io = { path = "../../../primitives/io" }
-sp-keyring = { path = "../../../primitives/keyring" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-timestamp = { path = "../../../primitives/timestamp", default-features = false }
-substrate-test-client = { path = "../../../test-utils/client" }
+tempfile = { workspace = true }
+frame-metadata-hash-extension = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+node-cli = { workspace = true }
+node-primitives = { workspace = true, default-features = true }
+kitchensink-runtime = { workspace = true }
+pallet-asset-conversion = { workspace = true, default-features = true }
+pallet-assets = { workspace = true, default-features = true }
+pallet-asset-conversion-tx-payment = { workspace = true, default-features = true }
+pallet-asset-tx-payment = { workspace = true, default-features = true }
+pallet-skip-feeless-payment = { workspace = true, default-features = true }
+sc-block-builder = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-client-db = { features = ["rocksdb"], workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sc-service = { features = ["rocksdb", "test-helpers"], workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-block-builder = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true }
+substrate-test-client = { workspace = true }

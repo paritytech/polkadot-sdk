@@ -34,7 +34,6 @@ use frame_support::{
 use polkadot_primitives::{well_known_keys, Id as ParaId, UpwardMessage};
 use sp_crypto_hashing::{blake2_256, twox_64};
 use sp_runtime::traits::Bounded;
-use sp_std::prelude::*;
 
 pub(super) struct GenesisConfigBuilder {
 	max_upward_message_size: u32,

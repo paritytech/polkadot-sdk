@@ -208,7 +208,7 @@ fn check_ancestry_lookup_in_same_session() {
 
 	test_harness(test_state.clone(), |mut ctx| async move {
 		let chain = &test_state.relay_chain;
-		let spans: HashMap<Hash, jaeger::PerLeafSpan> = HashMap::new();
+		let spans: HashMap<Hash, (u32, jaeger::PerLeafSpan)> = HashMap::new();
 		let block_number = 1;
 		let update = ActiveLeavesUpdate {
 			activated: Some(new_leaf(chain[block_number], block_number as u32)),
@@ -281,7 +281,7 @@ fn check_ancestry_lookup_in_different_sessions() {
 
 	test_harness(test_state.clone(), |mut ctx| async move {
 		let chain = &test_state.relay_chain;
-		let spans: HashMap<Hash, jaeger::PerLeafSpan> = HashMap::new();
+		let spans: HashMap<Hash, (u32, jaeger::PerLeafSpan)> = HashMap::new();
 		let block_number = 3;
 		let update = ActiveLeavesUpdate {
 			activated: Some(new_leaf(chain[block_number], block_number as u32)),

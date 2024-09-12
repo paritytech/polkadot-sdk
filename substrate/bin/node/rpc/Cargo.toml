@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Substrate node rpc methods."
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -16,33 +16,31 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.22", features = ["server"] }
-node-primitives = { path = "../primitives" }
-pallet-transaction-payment-rpc = { path = "../../../frame/transaction-payment/rpc" }
-mmr-rpc = { path = "../../../client/merkle-mountain-range/rpc" }
-sc-chain-spec = { path = "../../../client/chain-spec" }
-sc-client-api = { path = "../../../client/api" }
-sc-consensus-babe = { path = "../../../client/consensus/babe" }
-sc-consensus-babe-rpc = { path = "../../../client/consensus/babe/rpc" }
-sc-consensus-beefy = { path = "../../../client/consensus/beefy" }
-sc-consensus-beefy-rpc = { path = "../../../client/consensus/beefy/rpc" }
-sp-consensus-beefy = { path = "../../../primitives/consensus/beefy" }
-sc-consensus-grandpa = { path = "../../../client/consensus/grandpa" }
-sc-consensus-grandpa-rpc = { path = "../../../client/consensus/grandpa/rpc" }
-sc-mixnet = { path = "../../../client/mixnet" }
-sc-rpc = { path = "../../../client/rpc" }
-sc-rpc-api = { path = "../../../client/rpc-api" }
-sc-rpc-spec-v2 = { path = "../../../client/rpc-spec-v2" }
-sc-sync-state-rpc = { path = "../../../client/sync-state-rpc" }
-sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
-sp-api = { path = "../../../primitives/api" }
-sp-block-builder = { path = "../../../primitives/block-builder" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
-sp-keystore = { path = "../../../primitives/keystore" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-application-crypto = { path = "../../../primitives/application-crypto" }
-sp-statement-store = { path = "../../../primitives/statement-store" }
-substrate-frame-rpc-system = { path = "../../../utils/frame/rpc/system" }
-substrate-state-trie-migration-rpc = { path = "../../../utils/frame/rpc/state-trie-migration-rpc" }
+jsonrpsee = { features = ["server"], workspace = true }
+node-primitives = { workspace = true, default-features = true }
+pallet-transaction-payment-rpc = { workspace = true, default-features = true }
+mmr-rpc = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-consensus-babe = { workspace = true, default-features = true }
+sc-consensus-babe-rpc = { workspace = true, default-features = true }
+sc-consensus-beefy = { workspace = true, default-features = true }
+sc-consensus-beefy-rpc = { workspace = true, default-features = true }
+sp-consensus-beefy = { workspace = true, default-features = true }
+sc-consensus-grandpa = { workspace = true, default-features = true }
+sc-consensus-grandpa-rpc = { workspace = true, default-features = true }
+sc-mixnet = { workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true }
+sc-sync-state-rpc = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-block-builder = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
+substrate-frame-rpc-system = { workspace = true, default-features = true }
+substrate-state-trie-migration-rpc = { workspace = true, default-features = true }

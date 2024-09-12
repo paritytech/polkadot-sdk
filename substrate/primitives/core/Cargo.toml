@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Shareable Substrate types."
 documentation = "https://docs.rs/sp-core"
@@ -16,60 +16,60 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
-bounded-collections = { version = "0.2.0", default-features = false }
-primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "scale-info"] }
-impl-serde = { version = "0.4.0", default-features = false, optional = true }
-hash-db = { version = "0.16.0", default-features = false }
-hash256-std-hasher = { version = "0.15.2", default-features = false }
-bs58 = { version = "0.5.0", default-features = false, optional = true }
-rand = { version = "0.8.5", features = ["small_rng"], optional = true }
-substrate-bip39 = { path = "../../utils/substrate-bip39", default-features = false }
+bounded-collections = { workspace = true }
+primitive-types = { features = ["codec", "scale-info"], workspace = true }
+impl-serde = { optional = true, workspace = true }
+hash-db = { workspace = true }
+hash256-std-hasher = { workspace = true }
+bs58 = { optional = true, workspace = true }
+rand = { features = ["small_rng"], optional = true, workspace = true, default-features = true }
+substrate-bip39 = { workspace = true }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false, features = ["alloc"] }
-zeroize = { version = "1.4.3", default-features = false }
-secrecy = { version = "0.8.0", default-features = false, features = ["alloc"] }
-parking_lot = { version = "0.12.1", optional = true }
-ss58-registry = { version = "1.34.0", default-features = false }
-sp-std = { path = "../std", default-features = false }
-sp-debug-derive = { path = "../debug-derive", default-features = false }
-sp-storage = { path = "../storage", default-features = false }
-sp-externalities = { path = "../externalities", optional = true, default-features = false }
-futures = { version = "0.3.30", optional = true }
-dyn-clonable = { version = "0.9.0", optional = true }
+zeroize = { workspace = true }
+secrecy = { features = ["alloc"], workspace = true }
+parking_lot = { optional = true, workspace = true, default-features = true }
+ss58-registry = { workspace = true }
+sp-std = { workspace = true }
+sp-debug-derive = { workspace = true }
+sp-storage = { workspace = true }
+sp-externalities = { optional = true, workspace = true }
+futures = { optional = true, workspace = true }
+dyn-clonable = { optional = true, workspace = true }
 thiserror = { optional = true, workspace = true }
-tracing = { version = "0.1.29", optional = true }
-bitflags = "1.3"
-paste = "1.0.7"
-itertools = { version = "0.11", optional = true }
+tracing = { optional = true, workspace = true, default-features = true }
+bitflags = { workspace = true }
+paste = { workspace = true, default-features = true }
+itertools = { optional = true, workspace = true }
 
 # full crypto
-array-bytes = { version = "6.2.2" }
-ed25519-zebra = { version = "4.0.3", default-features = false }
-blake2 = { version = "0.10.4", default-features = false, optional = true }
-libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"] }
-schnorrkel = { version = "0.11.4", features = ["preaudit_deprecated"], default-features = false }
-merlin = { version = "3.0", default-features = false }
-sp-crypto-hashing = { path = "../crypto/hashing", default-features = false }
-sp-runtime-interface = { path = "../runtime-interface", default-features = false }
+array-bytes = { workspace = true, default-features = true }
+ed25519-zebra = { workspace = true }
+blake2 = { optional = true, workspace = true }
+libsecp256k1 = { features = ["static-context"], workspace = true }
+schnorrkel = { features = ["preaudit_deprecated"], workspace = true }
+merlin = { workspace = true }
+sp-crypto-hashing = { workspace = true }
+sp-runtime-interface = { workspace = true }
 # k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
-k256 = { version = "0.13.3", features = ["alloc", "ecdsa"], default-features = false }
+k256 = { features = ["alloc", "ecdsa"], workspace = true }
 # secp256k1 crate, better performance, intended to be used on host side (std)
-secp256k1 = { version = "0.28.0", default-features = false, features = ["alloc", "recovery"], optional = true }
+secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = true }
 
 # bls crypto
-w3f-bls = { version = "0.1.3", default-features = false, optional = true }
+w3f-bls = { optional = true, workspace = true }
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "e9782f9", default-features = false, features = ["substrate-curves"], optional = true }
+bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "0fef826", default-features = false, features = ["substrate-curves"], optional = true }
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-lazy_static = "1.4.0"
-regex = "1.6.0"
+lazy_static = { workspace = true }
+regex = { workspace = true }
 
 [[bench]]
 name = "bench"

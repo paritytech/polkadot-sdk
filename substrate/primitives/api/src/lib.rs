@@ -70,6 +70,8 @@
 // Make doc tests happy
 extern crate self as sp_api;
 
+extern crate alloc;
+
 /// Private exports used by the macros.
 ///
 /// This is seen as internal API and can change at any point.
@@ -90,7 +92,9 @@ pub mod __private {
 	pub use std_imports::*;
 
 	pub use crate::*;
+	pub use alloc::vec;
 	pub use codec::{self, Decode, DecodeLimit, Encode};
+	pub use core::{mem, slice};
 	pub use scale_info;
 	pub use sp_core::offchain;
 	#[cfg(not(feature = "std"))]
@@ -103,7 +107,6 @@ pub mod __private {
 		transaction_validity::TransactionValidity,
 		ExtrinsicInclusionMode, RuntimeString, TransactionOutcome,
 	};
-	pub use sp_std::{mem, slice, vec};
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
 
 	#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
@@ -255,6 +258,11 @@ pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
 /// ```
 /// Note that the latest version (4 in our example above) always contains all methods from all
 /// the versions before.
+///
+/// ## Note on deprecation.
+///
+/// - Usage of `deprecated` attribute will propagate deprecation information to the metadata.
+/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 pub use sp_api_proc_macro::decl_runtime_apis;
 
 /// Tags given trait implementations as runtime apis.
@@ -338,7 +346,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 ///     // Here we are exposing the runtime api versions.
 ///     apis: RUNTIME_API_VERSIONS,
 ///     transaction_version: 1,
-///     state_version: 1,
+///     system_version: 1,
 /// };
 ///
 /// # fn main() {}
@@ -532,6 +540,7 @@ pub trait ConstructRuntimeApi<Block: BlockT, C: CallApiAt<Block>> {
 	fn construct_runtime_api(call: &C) -> ApiRef<Self::RuntimeApi>;
 }
 
+#[docify::export]
 /// Init the [`RuntimeLogger`](sp_runtime::runtime_logger::RuntimeLogger).
 pub fn init_runtime_logger() {
 	#[cfg(not(feature = "disable-logging"))]
@@ -832,7 +841,7 @@ decl_runtime_apis! {
 		/// Returns the supported metadata versions.
 		///
 		/// This can be used to call `metadata_at_version`.
-		fn metadata_versions() -> sp_std::vec::Vec<u32>;
+		fn metadata_versions() -> alloc::vec::Vec<u32>;
 	}
 }
 

@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Types and traits for interfacing between the host and the wasm runtime."
 documentation = "https://docs.rs/sp-wasm-interface"
@@ -16,14 +16,14 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-bounded-collections = { version = "0.2.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+bounded-collections = { workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
-smallvec = "1.11.0"
-sp-arithmetic = { path = "../arithmetic", default-features = false }
-sp-debug-derive = { path = "../debug-derive", default-features = false }
-schemars = { version = "0.8.3", default-features = false, optional = true }
+smallvec = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true }
+sp-debug-derive = { workspace = true }
+schemars = { optional = true, workspace = true }
 
 [features]
 default = ["std"]

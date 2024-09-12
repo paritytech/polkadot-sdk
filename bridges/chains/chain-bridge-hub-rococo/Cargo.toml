@@ -7,22 +7,26 @@ edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 repository.workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [lints]
 workspace = true
 
 [dependencies]
-# Bridge Dependencies
+codec = { features = ["derive"], workspace = true }
 
-bp-bridge-hub-cumulus = { path = "../chain-bridge-hub-cumulus", default-features = false }
-bp-runtime = { path = "../../primitives/runtime", default-features = false }
-bp-messages = { path = "../../primitives/messages", default-features = false }
+# Bridge Dependencies
+bp-bridge-hub-cumulus = { workspace = true }
+bp-runtime = { workspace = true }
+bp-messages = { workspace = true }
+bp-xcm-bridge-hub = { workspace = true }
 
 # Substrate Based Dependencies
-
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-sp-api = { path = "../../../substrate/primitives/api", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-support = { workspace = true }
+sp-api = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 [features]
 default = ["std"]
@@ -30,6 +34,8 @@ std = [
 	"bp-bridge-hub-cumulus/std",
 	"bp-messages/std",
 	"bp-runtime/std",
+	"bp-xcm-bridge-hub/std",
+	"codec/std",
 	"frame-support/std",
 	"sp-api/std",
 	"sp-runtime/std",

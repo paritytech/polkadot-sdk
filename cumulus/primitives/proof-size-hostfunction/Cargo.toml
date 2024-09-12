@@ -10,14 +10,14 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-sp-runtime-interface = { path = "../../../substrate/primitives/runtime-interface", default-features = false }
-sp-externalities = { path = "../../../substrate/primitives/externalities", default-features = false }
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+sp-runtime-interface = { workspace = true }
+sp-externalities = { workspace = true }
+sp-trie = { workspace = true }
 
 [dev-dependencies]
-sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-io = { path = "../../../substrate/primitives/io" }
+sp-state-machine = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

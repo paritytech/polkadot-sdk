@@ -37,8 +37,8 @@ pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
 	polkadot_parachain_primitives::write_result(&ValidationResult {
 		head_data: GenericHeadData(new_head.encode()),
 		new_validation_code: None,
-		upward_messages: sp_std::vec::Vec::new().try_into().expect("empty vec fits within bounds"),
-		horizontal_messages: sp_std::vec::Vec::new()
+		upward_messages: alloc::vec::Vec::new().try_into().expect("empty vec fits within bounds"),
+		horizontal_messages: alloc::vec::Vec::new()
 			.try_into()
 			.expect("empty vec fits within bounds"),
 		processed_downward_messages: 0,

@@ -48,6 +48,7 @@ use crate::{
 	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, Event,
 	HoldReason, Pallet, PristineCode, Schedule, Weight, LOG_TARGET,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
@@ -56,8 +57,7 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
-use sp_std::prelude::*;
-use wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
+use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 
@@ -142,11 +142,6 @@ struct CodeLoadToken(u32);
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
-		// When loading the contract, we already covered the general costs of
-		// calling the storage but still need to account for the actual size of the
-		// contract code. This is why we subtract `T::*::(0)`. We need to do this at this
-		// point because when charging the general weight for calling the contract we don't know the
-		// size of the contract.
 		T::WeightInfo::call_with_code_per_byte(self.0)
 			.saturating_sub(T::WeightInfo::call_with_code_per_byte(0))
 	}
@@ -351,9 +346,9 @@ impl<T: Config> WasmBlob<T> {
 		mut store: Store<Runtime<E>>,
 		result: Result<(), wasmi::Error>,
 	) -> ExecResult {
-		let engine_consumed_total = store.fuel_consumed().expect("Fuel metering is enabled; qed");
+		let engine_fuel = store.get_fuel().expect("Fuel metering is enabled; qed");
 		let gas_meter = store.data_mut().ext().gas_meter_mut();
-		let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
+		let _ = gas_meter.sync_from_executor(engine_fuel)?;
 		store.into_data().to_execution_result(result)
 	}
 
@@ -364,8 +359,13 @@ impl<T: Config> WasmBlob<T> {
 		input_data: Vec<u8>,
 	) -> (Func, Store<Runtime<E>>) {
 		use InstanceOrExecReturn::*;
-		match Self::prepare_execute(self, Runtime::new(ext, input_data), &ExportedFunction::Call)
-			.expect("Benchmark should provide valid module")
+		match Self::prepare_execute(
+			self,
+			Runtime::new(ext, input_data),
+			&ExportedFunction::Call,
+			CompilationMode::Eager,
+		)
+		.expect("Benchmark should provide valid module")
 		{
 			Instance((func, store)) => (func, store),
 			ExecReturn(_) => panic!("Expected Instance"),
@@ -376,6 +376,7 @@ impl<T: Config> WasmBlob<T> {
 		self,
 		runtime: Runtime<'a, E>,
 		function: &'a ExportedFunction,
+		compilation_mode: CompilationMode,
 	) -> PreExecResult<'a, E> {
 		let code = self.code.as_slice();
 		// Instantiate the Wasm module to the engine.
@@ -386,6 +387,7 @@ impl<T: Config> WasmBlob<T> {
 			self.code_info.determinism,
 			Some(StackLimits::default()),
 			LoadingMode::Unchecked,
+			compilation_mode,
 		)
 		.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create wasmi module: {err:?}");
@@ -415,10 +417,10 @@ impl<T: Config> WasmBlob<T> {
 			.gas_meter_mut()
 			.gas_left()
 			.ref_time()
-			.checked_div(T::Schedule::get().instruction_weights.base as u64)
+			.checked_div(T::Schedule::get().ref_time_by_fuel())
 			.ok_or(Error::<T>::InvalidSchedule)?;
 		store
-			.add_fuel(fuel_limit)
+			.set_fuel(fuel_limit)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
 		// Start function should already see the correct refcount in case it will be ever inspected.
@@ -464,7 +466,12 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		use InstanceOrExecReturn::*;
-		match Self::prepare_execute(self, Runtime::new(ext, input_data), function)? {
+		match Self::prepare_execute(
+			self,
+			Runtime::new(ext, input_data),
+			function,
+			CompilationMode::Lazy,
+		)? {
 			Instance((func, mut store)) => {
 				let result = func.call(&mut store, &[], &mut []);
 				Self::process_result(store, result)
@@ -499,6 +506,7 @@ mod tests {
 		primitives::ExecReturnValue,
 		storage::WriteOutcome,
 		tests::{RuntimeCall, Test, ALICE, BOB},
+		transient_storage::TransientStorage,
 		BalanceOf, CodeHash, Error, Origin, Pallet as Contracts,
 	};
 	use assert_matches::assert_matches;
@@ -556,6 +564,7 @@ mod tests {
 
 	pub struct MockExt {
 		storage: HashMap<Vec<u8>, Vec<u8>>,
+		transient_storage: TransientStorage<Test>,
 		instantiates: Vec<InstantiateEntry>,
 		terminations: Vec<TerminationEntry>,
 		calls: Vec<CallEntry>,
@@ -584,6 +593,7 @@ mod tests {
 			Self {
 				code_hashes: Default::default(),
 				storage: Default::default(),
+				transient_storage: TransientStorage::new(1024 * 1024),
 				instantiates: Default::default(),
 				terminations: Default::default(),
 				calls: Default::default(),
@@ -684,6 +694,21 @@ mod tests {
 			}
 			Ok(result)
 		}
+		fn get_transient_storage(&self, key: &Key<Self::T>) -> Option<Vec<u8>> {
+			self.transient_storage.read(self.address(), key)
+		}
+		fn get_transient_storage_size(&self, key: &Key<Self::T>) -> Option<u32> {
+			self.transient_storage.read(self.address(), key).map(|value| value.len() as _)
+		}
+		fn set_transient_storage(
+			&mut self,
+			key: &Key<Self::T>,
+			value: Option<Vec<u8>>,
+			take_old: bool,
+		) -> Result<WriteOutcome, DispatchError> {
+			let account_id = self.address().clone();
+			self.transient_storage.write(&account_id, key, value, take_old)
+		}
 		fn caller(&self) -> Origin<Self::T> {
 			self.caller.clone()
 		}
@@ -775,6 +800,10 @@ mod tests {
 			true
 		}
 		fn contract_info(&mut self) -> &mut crate::ContractInfo<Self::T> {
+			unimplemented!()
+		}
+		#[cfg(feature = "runtime-benchmarks")]
+		fn transient_storage(&mut self) -> &mut TransientStorage<Self::T> {
 			unimplemented!()
 		}
 		fn ecdsa_to_eth_address(&self, _pk: &[u8; 33]) -> Result<[u8; 20], ()> {
@@ -3036,6 +3065,337 @@ mod tests {
 			ReturnErrorCode::Success as u32
 		);
 		assert_eq!(ext.storage.get(&[2u8; 19].to_vec()), None);
+		assert_eq!(&result.data[4..], &[0u8; 0]);
+	}
+
+	#[test]
+	fn set_transient_storage_works() {
+		const CODE: &str = r#"
+(module
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "seal0" "set_transient_storage" (func $set_transient_storage (param i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+
+	;; [0, 4) size of input buffer
+	;; 4k in little endian
+	(data (i32.const 0) "\00\10")
+
+	;; [4, 4100) input buffer
+
+	(func (export "call")
+		;; Receive (key ++ value_to_write)
+		(call $seal_input
+			(i32.const 4)	;; Pointer to the input buffer
+			(i32.const 0)	;; Size of the input buffer
+		)
+		;; Store the passed value to the passed key and store result to memory
+		(i32.store (i32.const 168)
+			(call $set_transient_storage
+				(i32.const 8)				;; key_ptr
+				(i32.load (i32.const 4))		;; key_len
+				(i32.add				;; value_ptr = 8 + key_len
+					(i32.const 8)
+					(i32.load (i32.const 4)))
+				(i32.sub				;; value_len (input_size - (key_len + key_len_len))
+					(i32.load (i32.const 0))
+					(i32.add
+						(i32.load (i32.const 4))
+						(i32.const 4)
+					)
+				)
+			)
+		)
+		(call $seal_return
+			(i32.const 0)	;; flags
+			(i32.const 168)	;; ptr to returned value
+			(i32.const 4)	;; length of returned value
+		)
+	)
+
+	(func (export "deploy"))
+)
+"#;
+
+		let mut ext = MockExt::default();
+
+		// value did not exist before -> sentinel returned
+		let input = (32, [1u8; 32], [42u8, 48]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		assert_eq!(u32::from_le_bytes(result.data.try_into().unwrap()), crate::SENTINEL);
+		assert_eq!(
+			ext.get_transient_storage(&Key::<Test>::try_from_var([1u8; 32].to_vec()).unwrap()),
+			Some(vec![42, 48])
+		);
+
+		// value do exist -> length of old value returned
+		let input = (32, [1u8; 32], [0u8; 0]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		assert_eq!(u32::from_le_bytes(result.data.try_into().unwrap()), 2);
+		assert_eq!(
+			ext.get_transient_storage(&Key::<Test>::try_from_var([1u8; 32].to_vec()).unwrap()),
+			Some(vec![])
+		);
+
+		// value do exist -> length of old value returned (test for zero sized val)
+		let input = (32, [1u8; 32], [99u8]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		assert_eq!(u32::from_le_bytes(result.data.try_into().unwrap()), 0);
+		assert_eq!(
+			ext.get_transient_storage(&Key::<Test>::try_from_var([1u8; 32].to_vec()).unwrap()),
+			Some(vec![99])
+		);
+	}
+
+	#[test]
+	fn get_transient_storage_works() {
+		const CODE: &str = r#"
+(module
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "seal0" "get_transient_storage" (func $get_transient_storage (param i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+
+	;; [0, 4) size of input buffer (160 bytes as we copy the key+len here)
+	(data (i32.const 0) "\A0")
+
+	;; [4, 8) size of output buffer
+	;; 4k in little endian
+	(data (i32.const 4) "\00\10")
+
+	;; [8, 168) input buffer
+	;; [168, 4264) output buffer
+
+	(func (export "call")
+		;; Receive (key ++ value_to_write)
+		(call $seal_input
+			(i32.const 8)	;; Pointer to the input buffer
+			(i32.const 0)	;; Size of the input buffer
+		)
+		;; Load a storage value and result of this call into the output buffer
+		(i32.store (i32.const 168)
+			(call $get_transient_storage
+				(i32.const 12)			;; key_ptr
+				(i32.load (i32.const 8))	;; key_len
+				(i32.const 172)			;; Pointer to the output buffer
+				(i32.const 4)			;; Pointer to the size of the buffer
+			)
+		)
+		(call $seal_return
+			(i32.const 0)				;; flags
+			(i32.const 168)				;; output buffer ptr
+			(i32.add				;; length: output size + 4 (retval)
+				(i32.load (i32.const 4))
+				(i32.const 4)
+			)
+		)
+	)
+
+	(func (export "deploy"))
+)
+"#;
+
+		let mut ext = MockExt::default();
+
+		assert_ok!(ext.set_transient_storage(
+			&Key::<Test>::try_from_var([1u8; 64].to_vec()).unwrap(),
+			Some(vec![42u8]),
+			false
+		));
+		assert_ok!(ext.set_transient_storage(
+			&Key::<Test>::try_from_var([2u8; 19].to_vec()).unwrap(),
+			Some(vec![]),
+			false
+		));
+
+		// value does not exist
+		let input = (63, [1u8; 64]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		assert_eq!(
+			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
+			ReturnErrorCode::KeyNotFound as u32
+		);
+
+		// value exists
+		let input = (64, [1u8; 64]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		assert_eq!(
+			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
+			ReturnErrorCode::Success as u32
+		);
+		assert_eq!(&result.data[4..], &[42u8]);
+
+		// value exists (test for 0 sized)
+		let input = (19, [2u8; 19]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		assert_eq!(
+			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
+			ReturnErrorCode::Success as u32
+		);
+		assert_eq!(&result.data[4..], &([] as [u8; 0]));
+	}
+
+	#[test]
+	fn clear_transient_storage_works() {
+		const CODE: &str = r#"
+(module
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "seal0" "clear_transient_storage" (func $clear_transient_storage (param i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+
+	;; size of input buffer
+	;; [0, 4) size of input buffer (128+32 = 160 bytes = 0xA0)
+	(data (i32.const 0) "\A0")
+
+	;; [4, 164) input buffer
+
+	(func (export "call")
+		;; Receive key
+		(call $seal_input
+			(i32.const 4)	;; Where we take input and store it
+			(i32.const 0)	;; Where we take and store the length of thedata
+		)
+		;; Call seal_clear_storage and save what it returns at 0
+		(i32.store (i32.const 0)
+			(call $clear_transient_storage
+				(i32.const 8)			;; key_ptr
+				(i32.load (i32.const 4))	;; key_len
+			)
+		)
+		(call $seal_return
+			(i32.const 0)	;; flags
+			(i32.const 0)	;; returned value
+			(i32.const 4)	;; length of returned value
+		)
+	)
+
+	(func (export "deploy"))
+)
+"#;
+
+		let mut ext = MockExt::default();
+
+		assert_ok!(ext.set_transient_storage(
+			&Key::<Test>::try_from_var([1u8; 64].to_vec()).unwrap(),
+			Some(vec![42u8]),
+			false
+		));
+
+		// value did not exist
+		let input = (32, [3u8; 32]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		// sentinel returned
+		assert_eq!(u32::from_le_bytes(result.data.try_into().unwrap()), crate::SENTINEL);
+
+		// value did exist
+		let input = (64, [1u8; 64]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		// length returned
+		assert_eq!(u32::from_le_bytes(result.data.try_into().unwrap()), 1);
+		// value cleared
+		assert_eq!(
+			ext.get_transient_storage(&Key::<Test>::try_from_var([1u8; 64].to_vec()).unwrap()),
+			None
+		);
+	}
+
+	#[test]
+	fn take_transient_storage_works() {
+		const CODE: &str = r#"
+(module
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "take_transient_storage" (func $take_transient_storage (param i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+
+	;; [0, 4) size of input buffer (160 bytes as we copy the key+len here)
+	(data (i32.const 0) "\A0")
+
+	;; [4, 8) size of output buffer
+	;; 4k in little endian
+	(data (i32.const 4) "\00\10")
+
+	;; [8, 168) input buffer
+	;; [168, 4264) output buffer
+
+	(func (export "call")
+		;; Receive key
+		(call $seal_input
+			(i32.const 8)	;; Pointer to the input buffer
+			(i32.const 0)	;; Size of the length buffer
+		)
+
+		;; Load a storage value and result of this call into the output buffer
+		(i32.store (i32.const 168)
+			(call $take_transient_storage
+				(i32.const 12)			;; key_ptr
+				(i32.load (i32.const 8))	;; key_len
+				(i32.const 172)			;; Pointer to the output buffer
+				(i32.const 4)			;; Pointer to the size of the buffer
+			)
+		)
+
+		;; Return the contents of the buffer
+		(call $seal_return
+			(i32.const 0)				;; flags
+			(i32.const 168)				;; output buffer ptr
+			(i32.add				;; length: storage size + 4 (retval)
+				(i32.load (i32.const 4))
+				(i32.const 4)
+			)
+		)
+	)
+
+	(func (export "deploy"))
+)
+"#;
+
+		let mut ext = MockExt::default();
+
+		assert_ok!(ext.set_transient_storage(
+			&Key::<Test>::try_from_var([1u8; 64].to_vec()).unwrap(),
+			Some(vec![42u8]),
+			false
+		));
+		assert_ok!(ext.set_transient_storage(
+			&Key::<Test>::try_from_var([2u8; 19].to_vec()).unwrap(),
+			Some(vec![]),
+			false
+		));
+
+		// value does not exist -> error returned
+		let input = (63, [1u8; 64]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		assert_eq!(
+			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
+			ReturnErrorCode::KeyNotFound as u32
+		);
+
+		// value did exist -> value returned
+		let input = (64, [1u8; 64]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		assert_eq!(
+			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
+			ReturnErrorCode::Success as u32
+		);
+		assert_eq!(
+			ext.get_transient_storage(&Key::<Test>::try_from_var([1u8; 64].to_vec()).unwrap()),
+			None
+		);
+		assert_eq!(&result.data[4..], &[42u8]);
+
+		// value did exist -> length returned (test for 0 sized)
+		let input = (19, [2u8; 19]).encode();
+		let result = execute(CODE, input, &mut ext).unwrap();
+		assert_eq!(
+			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
+			ReturnErrorCode::Success as u32
+		);
+		assert_eq!(
+			ext.get_transient_storage(&Key::<Test>::try_from_var([2u8; 19].to_vec()).unwrap()),
+			None
+		);
 		assert_eq!(&result.data[4..], &[0u8; 0]);
 	}
 

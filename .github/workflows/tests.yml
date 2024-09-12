@@ -5,25 +5,18 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [ opened, synchronize, reopened, ready_for_review ]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  FORKLIFT_storage_s3_bucketName: ${{ secrets.FORKLIFT_storage_s3_bucketName }}
-  FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
-  FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
-  FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
-  FORKLIFT_metrics_pushEndpoint: ${{ secrets.FORKLIFT_metrics_pushEndpoint }}
-
 jobs:
-
-  changes:
-    permissions:
-      pull-requests: read
-    uses: ./.github/workflows/check-changed-files.yml
+  # disabled because currently doesn't work in merge queue
+  # changes:
+  #   permissions:
+  #     pull-requests: read
+  #   uses: ./.github/workflows/reusable-check-changed-files.yml
 
   set-image:
     # GitHub Actions allows using 'env' in a container context.
@@ -32,17 +25,29 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
+      # By default we use spot machines that can be terminated at any time.
+      # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      - id: set_runner
+        run: |
+          # Run merge queues on persistent runners
+          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
+          else
+            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+          fi
 
+  # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
   quick-benchmarks:
-    needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}    
-    runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 30
+    needs: [ set-image ]
+    # if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -54,14 +59,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: time forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
-  
+        run: forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
+
   # cf https://github.com/paritytech/polkadot-sdk/issues/1652
   test-syscalls:
-    needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}    
-    runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 30
+    needs: [ set-image ]
+    # if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     continue-on-error: true # this rarely triggers in practice
@@ -71,22 +76,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
+        id: test
         run: |
           forklift cargo build --locked --profile production --target x86_64-unknown-linux-musl --bin polkadot-execute-worker --bin polkadot-prepare-worker
           cd polkadot/scripts/list-syscalls
           ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-execute-worker --only-used-syscalls | diff -u execute-worker-syscalls -
           ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
-    # todo:
-    # after_script:
-    # - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
-    #   printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
-    #   fi
-  
+      - name: on_failure
+        if: failure() && steps.test.outcome == 'failure'
+        run: |
+          echo "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed." >> $GITHUB_STEP_SUMMARY
+
+
   cargo-check-all-benches:
-    needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}    
-    runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 30
+    needs: [ set-image ]
+    # if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -95,4 +101,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: time forklift cargo check --all --benches
+        run: forklift cargo check --all --benches

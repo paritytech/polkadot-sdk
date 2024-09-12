@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -16,59 +16,59 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
-sp-consensus-aura = { path = "../../primitives/consensus/aura", default-features = false, features = ["serde"] }
-sp-consensus-babe = { path = "../../primitives/consensus/babe", default-features = false, features = ["serde"] }
-sp-genesis-builder = { path = "../../primitives/genesis-builder", default-features = false }
-sp-block-builder = { path = "../../primitives/block-builder", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-sp-inherents = { path = "../../primitives/inherents", default-features = false }
-sp-keyring = { path = "../../primitives/keyring", default-features = false }
-sp-offchain = { path = "../../primitives/offchain", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-frame-support = { path = "../../frame/support", default-features = false }
-sp-version = { path = "../../primitives/version", default-features = false }
-sp-session = { path = "../../primitives/session", default-features = false }
-sp-api = { path = "../../primitives/api", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-pallet-babe = { path = "../../frame/babe", default-features = false }
-pallet-balances = { path = "../../frame/balances", default-features = false }
-frame-executive = { path = "../../frame/executive", default-features = false }
-frame-metadata-hash-extension = { path = "../../frame/metadata-hash-extension", default-features = false }
-frame-system = { path = "../../frame/system", default-features = false }
-frame-system-rpc-runtime-api = { path = "../../frame/system/rpc/runtime-api", default-features = false }
-pallet-timestamp = { path = "../../frame/timestamp", default-features = false }
-sp-consensus-grandpa = { path = "../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
-sp-trie = { path = "../../primitives/trie", default-features = false }
-sp-transaction-pool = { path = "../../primitives/transaction-pool", default-features = false }
-trie-db = { version = "0.29.0", default-features = false }
-sc-service = { path = "../../client/service", default-features = false, features = ["test-helpers"], optional = true }
-sp-state-machine = { path = "../../primitives/state-machine", default-features = false }
-sp-externalities = { path = "../../primitives/externalities", default-features = false }
+sp-application-crypto = { features = ["serde"], workspace = true }
+sp-consensus-aura = { features = ["serde"], workspace = true }
+sp-consensus-babe = { features = ["serde"], workspace = true }
+sp-genesis-builder = { workspace = true }
+sp-block-builder = { workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+sp-inherents = { workspace = true }
+sp-keyring = { workspace = true }
+sp-offchain = { workspace = true }
+sp-core = { features = ["serde"], workspace = true }
+sp-crypto-hashing = { workspace = true }
+sp-io = { workspace = true }
+frame-support = { workspace = true }
+sp-version = { workspace = true }
+sp-session = { workspace = true }
+sp-api = { workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+pallet-babe = { workspace = true }
+pallet-balances = { workspace = true }
+frame-executive = { workspace = true }
+frame-metadata-hash-extension = { workspace = true }
+frame-system = { workspace = true }
+frame-system-rpc-runtime-api = { workspace = true }
+pallet-timestamp = { workspace = true }
+sp-consensus-grandpa = { features = ["serde"], workspace = true }
+sp-trie = { workspace = true }
+sp-transaction-pool = { workspace = true }
+trie-db = { workspace = true }
+sc-service = { features = ["test-helpers"], optional = true, workspace = true }
+sp-state-machine = { workspace = true }
+sp-externalities = { workspace = true }
 
 # 3rd party
-array-bytes = { version = "6.2.2", optional = true }
+array-bytes = { optional = true, workspace = true, default-features = true }
 serde_json = { workspace = true, features = ["alloc"] }
 log = { workspace = true }
-hex-literal = { version = "0.4.1" }
+tracing = { workspace = true, default-features = false }
 
 [dev-dependencies]
-futures = "0.3.30"
-sc-block-builder = { path = "../../client/block-builder" }
-sc-chain-spec = { path = "../../client/chain-spec" }
-sc-executor = { path = "../../client/executor" }
-sc-executor-common = { path = "../../client/executor/common" }
-sp-consensus = { path = "../../primitives/consensus/common" }
-substrate-test-runtime-client = { path = "client" }
-sp-tracing = { path = "../../primitives/tracing" }
+futures = { workspace = true }
+sc-block-builder = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sc-executor-common = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true, features = ["metadata-hash"] }
+substrate-wasm-builder = { optional = true, features = ["metadata-hash"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -112,6 +112,7 @@ std = [
 	"sp-trie/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"tracing/std",
 	"trie-db/std",
 ]
 

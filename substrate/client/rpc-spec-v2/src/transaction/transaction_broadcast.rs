@@ -27,7 +27,7 @@ use futures::{FutureExt, Stream, StreamExt};
 use futures_util::stream::AbortHandle;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
-	ConnectionDetails,
+	ConnectionId, Extensions,
 };
 use parking_lot::RwLock;
 use rand::{distributions::Alphanumeric, Rng};
@@ -121,19 +121,18 @@ where
 	<Pool::Block as BlockT>::Hash: Unpin,
 	Client: HeaderBackend<Pool::Block> + BlockchainEvents<Pool::Block> + Send + Sync + 'static,
 {
-	async fn broadcast(
-		&self,
-		connection_details: ConnectionDetails,
-		bytes: Bytes,
-	) -> RpcResult<Option<String>> {
+	async fn broadcast(&self, ext: &Extensions, bytes: Bytes) -> RpcResult<Option<String>> {
 		let pool = self.pool.clone();
+		let conn_id = ext
+			.get::<ConnectionId>()
+			.copied()
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		// The unique ID of this operation.
 		let id = self.generate_unique_id();
 
 		// Ensure that the connection has not reached the maximum number of active operations.
-		let Some(reserved_connection) = self.rpc_connections.reserve_space(connection_details.id())
-		else {
+		let Some(reserved_connection) = self.rpc_connections.reserve_space(conn_id) else {
 			return Ok(None)
 		};
 		let Some(reserved_identifier) = reserved_connection.register(id.clone()) else {
@@ -245,11 +244,16 @@ where
 
 	async fn stop_broadcast(
 		&self,
-		connection_details: ConnectionDetails,
+		ext: &Extensions,
 		operation_id: String,
 	) -> Result<(), ErrorBroadcast> {
+		let conn_id = ext
+			.get::<ConnectionId>()
+			.copied()
+			.expect("ConnectionId is always set by jsonrpsee; qed");
+
 		// The operation ID must correlate to the same connection ID.
-		if !self.rpc_connections.contains_identifier(connection_details.id(), &operation_id) {
+		if !self.rpc_connections.contains_identifier(conn_id, &operation_id) {
 			return Err(ErrorBroadcast::InvalidOperationID)
 		}
 

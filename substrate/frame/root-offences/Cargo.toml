@@ -4,7 +4,7 @@ version = "25.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME root offences pallet"
 readme = "README.md"
@@ -16,27 +16,27 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
-pallet-session = { path = "../session", default-features = false, features = ["historical"] }
-pallet-staking = { path = "../staking", default-features = false }
+pallet-session = { features = ["historical"], workspace = true }
+pallet-staking = { workspace = true }
 
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-staking = { path = "../../primitives/staking", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../balances" }
-pallet-timestamp = { path = "../timestamp" }
-pallet-staking-reward-curve = { path = "../staking/reward-curve" }
+pallet-balances = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
 
-sp-core = { path = "../../primitives/core" }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-std = { path = "../../primitives/std" }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true }
+sp-std = { workspace = true, default-features = true }
 
-frame-election-provider-support = { path = "../election-provider-support" }
+frame-election-provider-support = { workspace = true, default-features = true }
 
 [features]
 runtime-benchmarks = [

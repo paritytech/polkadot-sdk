@@ -17,9 +17,10 @@
 //! Genesis configs presets for the Rococo runtime
 
 use crate::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
-use polkadot_primitives::{
-	vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId,
-};
+#[cfg(not(feature = "std"))]
+use alloc::format;
+use alloc::vec::Vec;
+use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, SchedulerParams, ValidatorId};
 use rococo_runtime_constants::currency::UNITS as ROC;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
@@ -27,9 +28,6 @@ use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::IdentifyAccount;
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::format;
-use sp_std::vec::Vec;
 
 /// Helper function to generate a crypto pair from seed
 fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -530,7 +528,7 @@ fn wococo_local_testnet_genesis() -> serde_json::Value {
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
-pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
+pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>> {
 	let patch = match id.try_into() {
 		Ok("local_testnet") => rococo_local_testnet_genesis(),
 		Ok("development") => rococo_development_config_genesis(),

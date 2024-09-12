@@ -1,12 +1,16 @@
 name: Check PRdoc
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     types: [labeled, opened, synchronize, unlabeled]
   merge_group:
 
 env:
-  IMAGE: docker.io/paritytech/prdoc:v0.0.7
+  IMAGE: docker.io/paritytech/prdoc:v0.1.1
   API_BASE: https://api.github.com/repos
   REPO: ${{ github.repository }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -20,7 +24,7 @@ jobs:
     if: github.event.pull_request.number != ''
     steps:
       - name: Checkout repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc #v4.1.7
       # we cannot show the version in this step (ie before checking out the repo)
       # due to https://github.com/paritytech/prdoc/issues/15
       - name: Check if PRdoc is required

@@ -22,7 +22,11 @@ use crate::{mock::*, Error};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
-	traits::{fungibles::InspectEnumerable, tokens::Preservation::Protect, Currency},
+	traits::{
+		fungibles::InspectEnumerable,
+		tokens::{Preservation::Protect, Provenance},
+		Currency,
+	},
 };
 use pallet_balances::Error as BalancesError;
 use sp_io::storage;
@@ -792,6 +796,49 @@ fn transferring_to_blocked_account_should_not_work() {
 		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 1));
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(2), 0, 1, 50));
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50));
+	});
+}
+
+#[test]
+fn transfer_all_works_1() {
+	new_test_ext().execute_with(|| {
+		// setup
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 0, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 1, 200));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 2, 100));
+		// transfer all and allow death
+		assert_ok!(Assets::transfer_all(Some(1).into(), 0, 2, false));
+		assert_eq!(Assets::balance(0, &1), 0);
+		assert_eq!(Assets::balance(0, &2), 300);
+	});
+}
+
+#[test]
+fn transfer_all_works_2() {
+	new_test_ext().execute_with(|| {
+		// setup
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 0, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 1, 200));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 2, 100));
+		// transfer all and allow death
+		assert_ok!(Assets::transfer_all(Some(1).into(), 0, 2, true));
+		assert_eq!(Assets::balance(0, &1), 100);
+		assert_eq!(Assets::balance(0, &2), 200);
+	});
+}
+
+#[test]
+fn transfer_all_works_3() {
+	new_test_ext().execute_with(|| {
+		// setup
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 0, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 1, 210));
+		set_frozen_balance(0, 1, 10);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 2, 100));
+		// transfer all and allow death w/ frozen
+		assert_ok!(Assets::transfer_all(Some(1).into(), 0, 2, false));
+		assert_eq!(Assets::balance(0, &1), 110);
+		assert_eq!(Assets::balance(0, &2), 200);
 	});
 }
 
@@ -1775,5 +1822,102 @@ fn asset_destroy_refund_existence_deposit() {
 		assert_eq!(Balances::reserved_balance(&account2), 0);
 		assert_eq!(Balances::reserved_balance(&account3), 0);
 		assert_eq!(Balances::reserved_balance(&admin), 0);
+	});
+}
+
+#[test]
+fn increasing_or_decreasing_destroying_asset_should_not_work() {
+	new_test_ext().execute_with(|| {
+		use frame_support::traits::fungibles::Inspect;
+
+		let admin = 1;
+		let admin_origin = RuntimeOrigin::signed(admin);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, admin, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::balance(0, 1), 100);
+
+		assert_eq!(Assets::can_deposit(0, &1, 10, Provenance::Extant), DepositConsequence::Success);
+		assert_eq!(Assets::can_withdraw(0, &1, 10), WithdrawConsequence::<_>::Success);
+		assert_eq!(Assets::can_increase(0, &1, 10, false), DepositConsequence::Success);
+		assert_eq!(Assets::can_decrease(0, &1, 10, false), WithdrawConsequence::<_>::Success);
+
+		assert_ok!(Assets::start_destroy(admin_origin, 0));
+
+		assert_eq!(
+			Assets::can_deposit(0, &1, 10, Provenance::Extant),
+			DepositConsequence::UnknownAsset
+		);
+		assert_eq!(Assets::can_withdraw(0, &1, 10), WithdrawConsequence::<_>::UnknownAsset);
+		assert_eq!(Assets::can_increase(0, &1, 10, false), DepositConsequence::UnknownAsset);
+		assert_eq!(Assets::can_decrease(0, &1, 10, false), WithdrawConsequence::<_>::UnknownAsset);
+	});
+}
+
+#[test]
+fn asset_id_cannot_be_reused() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&1, 100);
+		// Asset id can be reused till auto increment is not enabled.
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
+
+		assert!(!Asset::<Test>::contains_key(0));
+
+		// Asset id `0` is reused.
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert!(Asset::<Test>::contains_key(0));
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
+
+		assert!(!Asset::<Test>::contains_key(0));
+
+		// Enable auto increment. Next asset id must be 5.
+		pallet::NextAssetId::<Test>::put(5);
+
+		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1), Error::<Test>::BadAssetId);
+		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 1, 1, 1), Error::<Test>::BadAssetId);
+		assert_noop!(
+			Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1),
+			Error::<Test>::BadAssetId
+		);
+		assert_noop!(
+			Assets::force_create(RuntimeOrigin::root(), 1, 1, true, 1),
+			Error::<Test>::BadAssetId
+		);
+
+		// Asset with id `5` is created.
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 5, 1, 1));
+		assert!(Asset::<Test>::contains_key(5));
+
+		// Destroy asset with id `6`.
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 5));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 5));
+
+		assert!(!Asset::<Test>::contains_key(0));
+
+		// Asset id `5` cannot be reused.
+		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 5, 1, 1), Error::<Test>::BadAssetId);
+
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 6, 1, 1));
+		assert!(Asset::<Test>::contains_key(6));
+
+		// Destroy asset with id `6`.
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 6));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 6));
+
+		assert!(!Asset::<Test>::contains_key(6));
+
+		// Asset id `6` cannot be reused with force.
+		assert_noop!(
+			Assets::force_create(RuntimeOrigin::root(), 6, 1, false, 1),
+			Error::<Test>::BadAssetId
+		);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 7, 1, false, 1));
+		assert!(Asset::<Test>::contains_key(7));
 	});
 }

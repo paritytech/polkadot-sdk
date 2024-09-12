@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Host functions for common Arkworks elliptic curve operations"
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 
 [lints]
@@ -15,19 +15,19 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-ark-ec = { version = "0.4.2", default-features = false, optional = true }
-ark-bls12-377-ext = { version = "0.4.1", default-features = false, optional = true }
-ark-bls12-377 = { version = "0.4.0", default-features = false, features = ["curve"], optional = true }
-ark-bls12-381-ext = { version = "0.4.1", default-features = false, optional = true }
-ark-bls12-381 = { version = "0.4.0", default-features = false, features = ["curve"], optional = true }
-ark-bw6-761-ext = { version = "0.4.1", default-features = false, optional = true }
-ark-bw6-761 = { version = "0.4.0", default-features = false, optional = true }
-ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.4.1", default-features = false, optional = true }
-ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false, optional = true }
-ark-ed-on-bls12-377-ext = { version = "0.4.1", default-features = false, optional = true }
-ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false, optional = true }
-ark-scale = { version = "0.0.12", default-features = false, features = ["hazmat"], optional = true }
-sp-runtime-interface = { path = "../../runtime-interface", default-features = false, optional = true }
+ark-ec = { optional = true, workspace = true }
+ark-bls12-377-ext = { optional = true, workspace = true }
+ark-bls12-377 = { features = ["curve"], optional = true, workspace = true }
+ark-bls12-381-ext = { optional = true, workspace = true }
+ark-bls12-381 = { features = ["curve"], optional = true, workspace = true }
+ark-bw6-761-ext = { optional = true, workspace = true }
+ark-bw6-761 = { optional = true, workspace = true }
+ark-ed-on-bls12-381-bandersnatch-ext = { optional = true, workspace = true }
+ark-ed-on-bls12-381-bandersnatch = { optional = true, workspace = true }
+ark-ed-on-bls12-377-ext = { optional = true, workspace = true }
+ark-ed-on-bls12-377 = { optional = true, workspace = true }
+ark-scale = { features = ["hazmat"], optional = true, workspace = true }
+sp-runtime-interface = { optional = true, workspace = true }
 
 [features]
 default = ["std"]
