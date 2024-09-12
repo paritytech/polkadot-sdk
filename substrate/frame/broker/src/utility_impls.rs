@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns the current block number of Relay Chain
-	pub(crate) fn relay_height() -> RelayBlockNumberOf<T> {
+	pub fn relay_height() -> RelayBlockNumberOf<T> {
 		<<<T as crate::Config>::Coretime as CoretimeInterface>::RelayChainBlockNumberProvider as BlockNumberProvider>::current_block_number()
 	}
 }

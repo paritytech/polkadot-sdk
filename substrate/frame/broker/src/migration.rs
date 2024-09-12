@@ -165,6 +165,7 @@ mod v3 {
 
 	#[storage_alias]
 	pub type Configuration<T: Config> = StorageValue<Pallet<T>, ConfigRecordOf<T>, OptionQuery>;
+	pub type ConfigRecordOf<T> = ConfigRecord<frame_system::pallet_prelude::BlockNumberFor<T>, RelayBlockNumberOf<T>>;
 
 	// types added here for v4 migration
 	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -225,13 +226,18 @@ mod v3 {
 	}
 }
 
-mod v4 {
+pub mod v4 {
 	use super::*;
 
-	pub struct MigrateToV4Impl<T>(PhantomData<T>);
-	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV4Impl<T>
-	where
-		RelayBlockNumberOf<T>: TryFrom<frame_system::pallet_prelude::BlockNumberFor<T>>,
+	pub trait BlockToRelayHeightTranslation<T: Config> {
+		fn convert_block_number_to_relay_height(
+			block_number: frame_system::pallet_prelude::BlockNumberFor<T>,
+		) -> RelayBlockNumberOf<T>;
+	}
+
+	pub struct MigrateToV4Impl<T, BlockTranslation>(PhantomData<T>, PhantomData<BlockTranslation>);
+	impl<T: Config, BlockTranslation: BlockToRelayHeightTranslation<T>> UncheckedOnRuntimeUpgrade
+		for MigrateToV4Impl<T, BlockTranslation>
 	{
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
@@ -260,33 +266,17 @@ mod v4 {
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let mut weight = T::DbWeight::get().reads(1);
 
-			// using a u32::MAX as sentinel value in case TryFrom fails.
-			// Ref: https://github.com/paritytech/polkadot-sdk/pull/3331#discussion_r1499014975
-			let current_block: RelayBlockNumberOf<T> =
-				match TryFrom::try_from(frame_system::Pallet::<T>::block_number()) {
-					Ok(val) => val,
-					Err(_) => u32::MAX.into(),
-				};
-			let current_relay_number = crate::Pallet::<T>::relay_height();
-			let offset = current_relay_number - current_block * 2;
-
-			let translate_old_block_number_to_relay_height =
-				|old_block_number: RelayBlockNumberOf<T>| offset + old_block_number * 2u32.into();
-
 			if let Some(config_record) = v3::Configuration::<T>::take() {
 				log::info!(target: LOG_TARGET, "migrating Configuration record");
 
 				let updated_interlude_length: RelayBlockNumberOf<T> =
-					match TryFrom::try_from(config_record.interlude_length) {
-						Ok(val) => translate_old_block_number_to_relay_height(val),
-						Err(_) => u32::MAX.into(),
-					};
-
+					BlockTranslation::convert_block_number_to_relay_height(
+						config_record.interlude_length,
+					);
 				let updated_leadin_length: RelayBlockNumberOf<T> =
-					match TryFrom::try_from(config_record.leadin_length) {
-						Ok(val) => translate_old_block_number_to_relay_height(val),
-						Err(_) => u32::MAX.into(),
-					};
+					BlockTranslation::convert_block_number_to_relay_height(
+						config_record.leadin_length,
+					);
 
 				let updated_config_record = ConfigRecord {
 					interlude_length: updated_interlude_length,
@@ -306,16 +296,9 @@ mod v4 {
 				log::info!(target: LOG_TARGET, "migrating SaleInfo record");
 
 				let updated_sale_start: RelayBlockNumberOf<T> =
-					match TryFrom::try_from(sale_info.sale_start) {
-						Ok(val) => translate_old_block_number_to_relay_height(val),
-						Err(_) => u32::MAX.into(),
-					};
-
+					BlockTranslation::convert_block_number_to_relay_height(sale_info.sale_start);
 				let updated_leadin_length: RelayBlockNumberOf<T> =
-					match TryFrom::try_from(sale_info.leadin_length) {
-						Ok(val) => translate_old_block_number_to_relay_height(val),
-						Err(_) => u32::MAX.into(),
-					};
+					BlockTranslation::convert_block_number_to_relay_height(sale_info.leadin_length);
 
 				let updated_sale_info = SaleInfoRecord {
 					sale_start: updated_sale_start,
@@ -415,10 +398,11 @@ pub type MigrateV2ToV3<T> = frame_support::migrations::VersionedMigration<
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
-pub type MigrateV3ToV4<T> = frame_support::migrations::VersionedMigration<
+
+pub type MigrateV3ToV4<T, BlockTranslation> = frame_support::migrations::VersionedMigration<
 	3,
 	4,
-	v4::MigrateToV4Impl<T>,
+	v4::MigrateToV4Impl<T, BlockTranslation>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
