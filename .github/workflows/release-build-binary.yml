@@ -1,0 +1,115 @@
+name: Release - Build Binary
+
+on:
+  workflow_dispatch:
+    inputs:
+      binary:
+        description: Binary to be build for the release
+        required: true
+        default: polkadot
+        type: choice
+        options:
+          - polkadot
+          - polkadot-parachain
+          - all
+
+      release_tag:
+        description: Tag matching the actual release candidate with the format vX.XX.X-rcX or stableYYMM
+        required: true
+        type: string
+
+env:
+  PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
+  PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+jobs:
+  # TODO: Activate this job when the pipeline is moved to the fork in the `paritytech-release` org
+  # check-workflow-can-run:
+  #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
+
+  set-image:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+  build-polkadot-binary:
+    # needs: [check-workflow-can-run]
+    needs: [set-image]
+    if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
+    runs-on: ubuntu-latest
+    environment: release
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    strategy:
+      matrix:
+        binaries: [polkadot, polkadot-prepare-worker, polkadot-execute-worker]
+
+    steps:
+      - name: Install pgpkkms
+        run: |
+          # Install pgpkms that is used to sign build artifacts
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
+          which pgpkms
+
+      - name: Checkout sources
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+        with:
+          ref: ${{ inputs.release_tag }}
+
+      - name: Import gpg keys
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          import_gpg_keys
+
+      - name: Build binary
+        run: |
+          ARTIFACTS=/artifacts/${{ matrix.binaries }}
+          echo "Artifacts will be copied into $ARTIFACTS"
+          mkdir -p "$ARTIFACTS"
+          cd $ARTIFACTS
+          echo "Test" >> ${{ matrix.binaries }}.txt
+          # ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.binary }}
+
+      - name: Sign artifacts
+        working-directory: /artifacts/${{ matrix.binaries }}
+        run: |
+          python3 -m pgpgkms sign --inputs ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
+          ls -la
+
+      # - name: Build deb package
+      # - name: Upload artifacts to github
+      # - name: Upload artifacts to s3
+
+  # build-polkadot-parachain-binary:
+  #   # needs: [check-workflow-can-run]
+  #   if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
+  #   runs-on: ubuntu-latest
+  #   environment: release
+
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+  #       with:
+  #         ref: ${{ inputs.release_tag }}
+
+  #     - name: Build binary
+  #       run: |
+  #         ./.github/scripts/release/build-linux-release.sh ${{ inputs.binary }} ${{ inputs.binary }}-bin
+
+      # - name: Sign artifacts
+      # - name: Build deb package
+      # - name: Upload artifacts to github
+      # - name: Upload artifacts to s3
