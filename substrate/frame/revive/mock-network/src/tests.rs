@@ -88,7 +88,7 @@ fn test_xcm_execute() {
 			.deposit_asset(assets, beneficiary)
 			.build();
 
-		let result = bare_call(addr.clone()).data(VersionedXcm::V4(message).encode()).build();
+		let result = bare_call(addr).data(VersionedXcm::V4(message).encode()).build();
 
 		assert_eq!(result.gas_consumed, result.gas_required);
 		assert_return_code!(&result.result.unwrap(), ReturnErrorCode::Success);
@@ -123,7 +123,7 @@ fn test_xcm_execute_incomplete() {
 			.deposit_asset(assets, beneficiary)
 			.build();
 
-		let result = bare_call(addr.clone()).data(VersionedXcm::V4(message).encode()).build();
+		let result = bare_call(addr).data(VersionedXcm::V4(message).encode()).build();
 
 		assert_eq!(result.gas_consumed, result.gas_required);
 		assert_return_code!(&result.result.unwrap(), ReturnErrorCode::XcmExecutionFailed);
@@ -141,7 +141,7 @@ fn test_xcm_execute_reentrant_call() {
 
 	ParaA::execute_with(|| {
 		let transact_call = parachain::RuntimeCall::Contracts(pallet_revive::Call::call {
-			dest: addr.clone(),
+			dest: addr,
 			gas_limit: 1_000_000.into(),
 			storage_deposit_limit: test_utils::deposit_limit::<parachain::Runtime>(),
 			data: vec![],
@@ -154,7 +154,7 @@ fn test_xcm_execute_reentrant_call() {
 			.expect_transact_status(MaybeErrorCode::Success)
 			.build();
 
-		let result = bare_call(addr.clone())
+		let result = bare_call(addr)
 			.data(VersionedXcm::V4(message).encode())
 			.build_and_unwrap_result();
 
@@ -185,7 +185,7 @@ fn test_xcm_send() {
 			.deposit_asset(assets, beneficiary)
 			.build();
 
-		let result = bare_call(addr.clone())
+		let result = bare_call(addr)
 			.data((dest, VersionedXcm::V4(message)).encode())
 			.build_and_unwrap_result();
 
