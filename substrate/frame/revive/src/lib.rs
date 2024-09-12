@@ -51,7 +51,6 @@ use crate::{
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
 use codec::{Codec, Decode, Encode};
-use core::fmt::Debug;
 use environmental::*;
 use frame_support::{
 	dispatch::{

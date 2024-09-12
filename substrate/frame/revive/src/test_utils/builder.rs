@@ -21,11 +21,8 @@ use crate::{
 	ContractExecResult, ContractInstantiateResult, DebugInfo, EventRecordOf, ExecReturnValue,
 	InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
-use codec::Encode;
-use core::fmt::Debug;
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
-use scale_info::TypeInfo;
 use sp_core::H160;
 
 /// Helper macro to generate a builder for contract API calls.
