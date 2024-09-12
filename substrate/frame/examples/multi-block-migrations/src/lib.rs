@@ -69,8 +69,6 @@
 pub mod migrations;
 mod mock;
 
-extern crate alloc;
-
 pub use pallet::*;
 
 #[frame_support::pallet]

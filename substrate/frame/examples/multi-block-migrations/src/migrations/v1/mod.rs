@@ -21,6 +21,8 @@
 //! [`v0::MyMap`](`crate::migrations::v1::v0::MyMap`) storage map, transforms them,
 //! and inserts them into the [`MyMap`](`crate::pallet::MyMap`) storage map.
 
+extern crate alloc;
+
 use super::PALLET_MIGRATIONS_ID;
 use crate::pallet::{Config, MyMap};
 use frame_support::{
