@@ -346,7 +346,7 @@ jobs:
           cp .forklift/config.toml /github/home/.forklift/config.toml
           PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
 
-  cargo-check-each-crate-macos:
+  cargo-check-all-crate-macos:
     timeout-minutes: 30
     runs-on: parity-macos
     env:
