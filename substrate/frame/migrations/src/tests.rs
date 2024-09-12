@@ -17,24 +17,13 @@
 
 #![cfg(test)]
 
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
 
-#[cfg(not(feature = "try-runtime"))]
 use crate::{
 	mock::{Test as T, *},
 	mock_helpers::{MockedMigrationKind::*, *},
 	Cursor, Event, FailedMigrationHandling, MigrationCursor,
 };
-
-#[cfg(feature = "try-runtime")]
-use crate::{
-	mock::*,
-	mock_helpers::{MockedMigrationKind::*, *},
-	Event,
-};
-
-#[cfg(not(feature = "try-runtime"))]
-use frame_support::pallet_prelude::Weight;
 
 #[docify::export]
 #[test]
@@ -72,8 +61,8 @@ fn simple_works() {
 	});
 }
 
-#[cfg(not(feature = "try-runtime"))]
 #[test]
+#[cfg_attr(feature = "try-runtime", should_panic)]
 fn failing_migration_sets_cursor_to_stuck() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedMigrationHandling::KeepStuck);
@@ -103,8 +92,8 @@ fn failing_migration_sets_cursor_to_stuck() {
 	});
 }
 
-#[cfg(not(feature = "try-runtime"))]
 #[test]
+#[cfg_attr(feature = "try-runtime", should_panic)]
 fn failing_migration_force_unstuck_works() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedMigrationHandling::ForceUnstuck);
@@ -136,8 +125,8 @@ fn failing_migration_force_unstuck_works() {
 
 /// A migration that reports not getting enough weight errors if it is the first one to run in that
 /// block.
-#[cfg(not(feature = "try-runtime"))]
 #[test]
+#[cfg_attr(feature = "try-runtime", should_panic)]
 fn high_weight_migration_singular_fails() {
 	test_closure(|| {
 		MockedMigrations::set(vec![(HighWeightAfter(Weight::zero()), 2)]);
@@ -165,8 +154,8 @@ fn high_weight_migration_singular_fails() {
 
 /// A migration that reports of not getting enough weight is retried once, if it is not the first
 /// one to run in a block.
-#[cfg(not(feature = "try-runtime"))]
 #[test]
+#[cfg_attr(feature = "try-runtime", should_panic)]
 fn high_weight_migration_retries_once() {
 	test_closure(|| {
 		MockedMigrations::set(vec![(SucceedAfter, 0), (HighWeightAfter(Weight::zero()), 0)]);
@@ -195,8 +184,8 @@ fn high_weight_migration_retries_once() {
 /// not the first one in the block.
 // Note: Same as `high_weight_migration_retries_once` but with different required weight for the
 // migration.
-#[cfg(not(feature = "try-runtime"))]
 #[test]
+#[cfg_attr(feature = "try-runtime", should_panic)]
 fn high_weight_migration_permanently_overweight_fails() {
 	test_closure(|| {
 		MockedMigrations::set(vec![(SucceedAfter, 0), (HighWeightAfter(Weight::MAX), 0)]);
@@ -291,8 +280,8 @@ fn historic_skipping_works() {
 
 /// When another upgrade happens while a migration is still running, it should set the cursor to
 /// stuck.
-#[cfg(not(feature = "try-runtime"))]
 #[test]
+#[cfg_attr(feature = "try-runtime", should_panic)]
 fn upgrade_fails_when_migration_active() {
 	test_closure(|| {
 		MockedMigrations::set(vec![(SucceedAfter, 10)]);
@@ -318,8 +307,8 @@ fn upgrade_fails_when_migration_active() {
 	});
 }
 
-#[cfg(not(feature = "try-runtime"))]
 #[test]
+#[cfg_attr(feature = "try-runtime", should_panic)]
 fn migration_timeout_errors() {
 	test_closure(|| {
 		MockedMigrations::set(vec![(TimeoutAfter, 3)]);
@@ -379,8 +368,8 @@ fn try_runtime_success_case() {
 	});
 }
 
-#[cfg(feature = "try-runtime")]
 #[test]
+#[cfg(feature = "try-runtime")]
 #[should_panic]
 fn try_runtime_pre_upgrade_failure() {
 	test_closure(|| {
@@ -395,8 +384,8 @@ fn try_runtime_pre_upgrade_failure() {
 	});
 }
 
-#[cfg(feature = "try-runtime")]
 #[test]
+#[cfg(feature = "try-runtime")]
 #[should_panic]
 fn try_runtime_post_upgrade_failure() {
 	test_closure(|| {
@@ -411,8 +400,8 @@ fn try_runtime_post_upgrade_failure() {
 	});
 }
 
-#[cfg(feature = "try-runtime")]
 #[test]
+#[cfg(feature = "try-runtime")]
 #[should_panic]
 fn try_runtime_migration_failure() {
 	test_closure(|| {
@@ -427,7 +416,6 @@ fn try_runtime_migration_failure() {
 	});
 }
 
-#[cfg(feature = "try-runtime")]
 #[test]
 fn try_runtime_no_migrations() {
 	test_closure(|| {
