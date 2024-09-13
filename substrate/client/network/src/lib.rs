@@ -290,6 +290,7 @@ pub use service::{
 	PublicKey,
 };
 pub use types::ProtocolName;
+pub use crate::request_responses::OutboundFailure;
 
 /// The maximum allowed number of established connections per peer.
 ///
