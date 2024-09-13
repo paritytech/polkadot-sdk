@@ -20,7 +20,6 @@ pallet-xcm = { workspace = true, default-features = true }
 polkadot-test-client = { workspace = true }
 polkadot-test-runtime = { workspace = true }
 polkadot-test-service = { workspace = true }
-polkadot-service = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }

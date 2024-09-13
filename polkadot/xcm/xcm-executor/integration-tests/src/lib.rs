@@ -18,7 +18,6 @@
 
 use codec::Encode;
 use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
-use polkadot_service::chain_spec::get_account_id_from_seed;
 use polkadot_test_client::{
 	BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
 	TestClientBuilder, TestClientBuilderExt,
@@ -323,6 +322,23 @@ fn query_response_elicits_handler() {
 			)) if *q == query_id && matches!(location.unpack(), (0, [Junction::AccountId32 { .. }])),
 		)));
 	});
+}
+
+/// Helper function to generate a crypto pair from seed
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/5705
+fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+	TPublic::Pair::from_string(&format!("//{}", seed), None)
+		.expect("static values are valid; qed")
+		.public()
+}
+
+/// Helper function to generate an account ID from seed
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/5705
+fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+where
+	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+{
+	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
 /// Simulates a cross-chain message from Parachain to Parachain through Relay Chain

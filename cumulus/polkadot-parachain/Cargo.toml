@@ -52,7 +52,6 @@ sc-service = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-service = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 
 # Cumulus
@@ -67,7 +66,6 @@ runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-lib/runtime-benchmarks",
-	"polkadot-service/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 
 	"asset-hub-rococo-runtime/runtime-benchmarks",
@@ -86,7 +84,6 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"polkadot-parachain-lib/try-runtime",
-	"polkadot-service/try-runtime",
 
 	"asset-hub-rococo-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",
