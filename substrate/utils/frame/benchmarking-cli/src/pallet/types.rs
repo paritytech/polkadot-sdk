@@ -32,8 +32,10 @@ pub enum GenesisBuilder {
 	None,
 	/// Let the runtime build the genesis state through its `BuildGenesisConfig` runtime API.
 	Runtime,
+	// Use the runtime from the Spec file to build the genesis state.
+	SpecRuntime,
 	/// Use the spec file to build the genesis state. This fails when there is no spec.
-	Spec,
+	SpecGenesis,
 }
 
 /// A runtime blob that was either fetched from genesis storage or loaded from a file.
