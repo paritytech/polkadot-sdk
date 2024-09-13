@@ -1525,15 +1525,8 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 			} else {
 				// No core index is fine, if para has just 1 core assigned.
 				if scheduled_cores.len() == 1 {
-					backed_candidates_with_core.insert(
-						para_id,
-						vec![(
-							// We need the first one here, as we assume candidates of a
-							// para are in dependency order.
-							candidate,
-							scheduled_cores.pop_first().expect("Length is 1"),
-						)],
-					);
+					temp_backed_candidates
+						.push((candidate, scheduled_cores.pop_first().expect("Length is 1")));
 					break;
 				}
 
@@ -1543,7 +1536,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 
 				log::debug!(
 					target: LOG_TARGET,
-					"Found a backed candidate {:?} without core index informationm, but paraid {:?} has multiple scheduled cores.",
+					"Found a backed candidate {:?} without core index information, but paraid {:?} has multiple scheduled cores.",
 					candidate.candidate().hash(),
 					candidate.descriptor().para_id()
 				);

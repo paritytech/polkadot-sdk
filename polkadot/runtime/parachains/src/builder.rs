@@ -689,7 +689,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								para_id,
 								relay_parent,
 								core_idx,
-								2,
+								self.target_session,
 								persisted_validation_data_hash,
 								pov_hash,
 								Default::default(),

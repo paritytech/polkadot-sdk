@@ -228,9 +228,11 @@ mod enter {
 	}
 
 	#[rstest]
-	#[case(true)]
-	#[case(false)]
-	fn include_backed_candidates_elastic_scaling(#[case] v2_descriptor: bool) {
+	#[case((true, false))]
+	#[case((true, true))]
+	#[case((false, true))]
+	fn include_backed_candidates_elastic_scaling(#[case] params: (bool, bool)) {
+		let (v2_descriptor, injected_core) = params;
 		// ParaId 0 has one pending candidate on core 0.
 		// ParaId 1 has one pending candidate on core 1.
 		// ParaId 2 has three pending candidates on cores 2, 3 and 4.
@@ -243,7 +245,7 @@ mod enter {
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::ElasticScalingMVP as u8,
-				true,
+				injected_core,
 			)
 			.unwrap();
 
@@ -1707,7 +1709,7 @@ mod enter {
 				fill_claimqueue: true,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				v2_descriptor: false,
+				v2_descriptor: true,
 				candidate_modifier: None,
 			});
 

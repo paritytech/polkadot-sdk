@@ -26,7 +26,7 @@ use alloc::{
 use frame_support::{pallet_prelude::*, traits::DisabledValidators};
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{
-	vstaging::remap_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
+	vstaging::transpose_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use sp_runtime::traits::AtLeast32BitUnsigned;
 
@@ -56,7 +56,7 @@ pub struct RelayParentInfo<Hash> {
 	pub state_root: Hash,
 	// Claim queue snapshot, optimized for accessing the assignments by `ParaId`.
 	// For each para we store the cores assigned per depth.
-	pub claim_queue: BTreeMap<Id, VecDeque<BTreeSet<CoreIndex>>>,
+	pub claim_queue: BTreeMap<Id, BTreeMap<u8, BTreeSet<CoreIndex>>>,
 }
 
 /// Keeps tracks of information about all viable relay parents.
@@ -88,7 +88,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		number: BlockNumber,
 		max_ancestry_len: u32,
 	) {
-		let claim_queue = remap_claim_queue(claim_queue);
+		let claim_queue = transpose_claim_queue(claim_queue);
 
 		// + 1 for the most recent block, which is always allowed.
 		let buffer_size_limit = max_ancestry_len as usize + 1;
