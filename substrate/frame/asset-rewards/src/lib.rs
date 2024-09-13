@@ -37,8 +37,7 @@
 //! Care should be taken by the pool operator to keep pool accounts adequately funded with the
 //! reward asset.
 //!
-//! The pool admin may adjust the pool configuration such as reward rate per block, expiry block,
-//! and admin.
+//! The pool admin may increase reward rate per block, increase expiry block, and change admin.
 //!
 //! ## Disambiguation
 //!
@@ -148,9 +147,7 @@ pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	/// The block the pool will cease distributing rewards.
 	expiry_block: BlockNumber,
 	/// The account authorized to manage this pool.
-	///
-	/// If set to `None`, the pool cannot be altered after creation.
-	admin: Option<AccountId>,
+	admin: AccountId,
 	/// The total amount of tokens staked in this pool.
 	total_tokens_staked: Balance,
 	/// Total rewards accumulated per token, up to the `last_update_block`.
@@ -337,7 +334,7 @@ pub mod pallet {
 			/// The block the pool will cease to accumulate rewards.
 			expiry_block: BlockNumberFor<T>,
 			/// The account allowed to modify the pool.
-			admin: Option<T::AccountId>,
+			admin: T::AccountId,
 		},
 		/// A pool reward rate was modified by the admin.
 		PoolRewardRateModified {
@@ -351,9 +348,7 @@ pub mod pallet {
 			/// The modified pool.
 			pool_id: PoolId,
 			/// The new admin.
-			///
-			/// If `None`, the pool cannot be altered anymore.
-			new_admin: Option<T::AccountId>,
+			new_admin: T::AccountId,
 		},
 		/// A pool expiry block was modified by the admin.
 		PoolExpiryBlockModified {
@@ -421,7 +416,7 @@ pub mod pallet {
 		///   [`DispatchTime::After`] variant evaluated at the execution time.
 		/// - `admin`: the account allowed to extend the pool expiration, increase the rewards rate
 		///   and receive the unutilized reward tokens back after the pool completion. If `None`,
-		///   the pool cannot be altered.
+		///   the caller is set as an admin.
 		#[pallet::call_index(0)]
 		pub fn create_pool(
 			origin: OriginFor<T>,
@@ -456,6 +451,8 @@ pub mod pallet {
 			let footprint = Self::pool_creation_footprint();
 			let cost = T::Consideration::new(&creator, footprint)?;
 			PoolCost::<T>::insert(pool_id, (creator.clone(), cost));
+
+			let admin = admin.unwrap_or(creator.clone());
 
 			// Create the pool.
 			let pool = PoolInfoFor::<T> {
@@ -627,7 +624,7 @@ pub mod pallet {
 				.or_else(|_| ensure_signed(origin))?;
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
+			ensure!(pool_info.admin == caller, BadOrigin);
 			ensure!(
 				new_reward_rate_per_block > pool_info.reward_rate_per_block,
 				Error::<T>::RewardRateCut
@@ -655,13 +652,13 @@ pub mod pallet {
 		pub fn set_pool_admin(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
-			new_admin: Option<T::AccountId>,
+			new_admin: T::AccountId,
 		) -> DispatchResult {
 			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
 
 			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
+			ensure!(pool_info.admin == caller, BadOrigin);
 
 			pool_info.admin = new_admin.clone();
 			Pools::<T>::insert(pool_id, pool_info);
@@ -692,7 +689,7 @@ pub mod pallet {
 			);
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin.as_ref().map_or(false, |admin| admin == &caller), BadOrigin);
+			ensure!(pool_info.admin == caller, BadOrigin);
 			ensure!(new_expiry > pool_info.expiry_block, Error::<T>::ExpiryCut);
 
 			// Always start by updating the pool rewards.
@@ -744,8 +741,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let admin = pool_info.admin.as_ref().ok_or(BadOrigin)?;
-			ensure!(admin == &who, BadOrigin);
+			ensure!(pool_info.admin == who, BadOrigin);
 
 			let stakers = PoolStakers::<T>::iter_key_prefix(pool_id).next();
 			ensure!(stakers.is_none(), Error::<T>::NonEmptyPool);
@@ -759,7 +755,7 @@ pub mod pallet {
 			T::Assets::transfer(
 				pool_info.reward_asset_id,
 				&pool_info.account,
-				&admin,
+				&pool_info.admin,
 				pool_balance,
 				Preservation::Expendable,
 			)?;
