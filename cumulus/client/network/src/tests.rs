@@ -327,7 +327,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 			impl_version: 0,
 			apis: Cow::Owned(apis),
 			transaction_version: 5,
-			state_version: 1,
+			system_version: 1,
 		})
 	}
 
