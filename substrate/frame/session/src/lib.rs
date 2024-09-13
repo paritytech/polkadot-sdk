@@ -487,12 +487,17 @@ pub mod pallet {
 			// Tell everyone about the genesis session keys
 			T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);
 
+			OldValidators::<T>::put(&initial_validators_0);
 			Validators::<T>::put(initial_validators_0);
 			QueuedKeys::<T>::put(queued_keys);
 
 			T::SessionManager::start_session(0);
 		}
 	}
+
+	/// The previous set of validators.
+	#[pallet::storage]
+	pub type OldValidators<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 
 	/// The current set of validators.
 	#[pallet::storage]
@@ -646,6 +651,9 @@ impl<T: Config> Pallet<T> {
 		// Inform the session handlers that a session is going to end.
 		T::SessionHandler::on_before_session_ending();
 		T::SessionManager::end_session(session_index);
+
+		// Buffer validator set of previous session for author lookup.
+		OldValidators::<T>::put(Validators::<T>::get());
 
 		// Get queued session keys and validators.
 		let session_keys = QueuedKeys::<T>::get();
@@ -946,16 +954,18 @@ impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 /// registering account-ID of that session key index.
 pub struct FindAccountFromAuthorIndex<T, Inner>(core::marker::PhantomData<(T, Inner)>);
 
-impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::ValidatorId>
-	for FindAccountFromAuthorIndex<T, Inner>
-{
+impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::ValidatorId> for FindAccountFromAuthorIndex<T, Inner> {
 	fn find_author<'a, I>(digests: I) -> Option<T::ValidatorId>
 	where
-		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])> + Clone,
 	{
-		let i = Inner::find_author(digests)?;
+		let i = Inner::find_author(digests.clone())?;
 
-		let validators = Validators::<T>::get();
+		let validators = if Inner::has_authorities_change(digests) {
+			OldValidators::<T>::get()
+		} else {
+			Validators::<T>::get()
+		};
 		validators.get(i as usize).cloned()
 	}
 }
