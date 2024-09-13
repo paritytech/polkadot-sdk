@@ -39,6 +39,14 @@ A Polkadot SDK based project such as this one consists of:
 * 🛠️ Depending on your operating system and Rust version, there might be additional
 packages required to compile this template - please take note of the Rust compiler output.
 
+Fetch parachain template code:
+
+```sh
+git clone https://github.com/paritytech/polkadot-sdk-parachain-template.git parachain-template
+
+cd parachain-template
+```
+
 ### Build
 
 🔨 Use the following command to build the node without launching it:
