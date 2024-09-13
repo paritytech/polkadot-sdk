@@ -55,6 +55,7 @@ pub trait WeightInfo {
 	fn set_pool_admin() -> Weight;
 	fn set_pool_expiry_block() -> Weight;
 	fn deposit_reward_tokens() -> Weight;
+	fn cleanup_pool() -> Weight;
 }
 
 /// Weights for `pallet_asset_rewards` using the Substrate node and recommended hardware.
@@ -188,6 +189,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
+	// TODO: replace with actual weight.
+	fn cleanup_pool() -> Weight {
+		Weight::MAX
+	}
 }
 
 // For backwards compatibility and tests.
@@ -319,5 +324,9 @@ impl WeightInfo for () {
 		Weight::from_parts(578_000_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	// TODO: replace with actual weight.
+	fn cleanup_pool() -> Weight {
+		Weight::MAX
 	}
 }

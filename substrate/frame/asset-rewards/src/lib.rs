@@ -178,7 +178,7 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{
 			fungibles::MutateFreeze,
-			tokens::{AssetId, Preservation},
+			tokens::{AssetId, Fortitude, Preservation},
 			Consideration, Footprint,
 		},
 	};
@@ -362,6 +362,11 @@ pub mod pallet {
 			/// The new expiry block.
 			new_expiry_block: BlockNumberFor<T>,
 		},
+		/// A pool information was cleared after it's completion.
+		PoolCleanedUp {
+			/// The cleared pool.
+			pool_id: PoolId,
+		},
 	}
 
 	#[pallet::error]
@@ -384,6 +389,8 @@ pub mod pallet {
 		ExpiryCut,
 		/// The reward rate per block can be only increased.
 		RewardRateCut,
+		/// The pool still has staked tokens or rewards.
+		NonEmptyPool,
 	}
 
 	#[pallet::hooks]
@@ -412,8 +419,9 @@ pub mod pallet {
 		/// - `reward_rate_per_block`: the amount of reward tokens distributed per block;
 		/// - `expiry`: the block number at which the pool will cease to accumulate rewards. The
 		///   [`DispatchTime::After`] variant evaluated at the execution time.
-		/// - `admin`: the account allowed to modify the pool. If `None`, the pool cannot be
-		///   altered.
+		/// - `admin`: the account allowed to extend the pool expiration, increase the rewards rate
+		///   and receive the unutilized reward tokens back after the pool completion. If `None`,
+		///   the pool cannot be altered.
 		#[pallet::call_index(0)]
 		pub fn create_pool(
 			origin: OriginFor<T>,
@@ -722,6 +730,48 @@ pub mod pallet {
 				amount,
 				Preservation::Preserve,
 			)?;
+			Ok(())
+		}
+
+		/// Cleanup a pool.
+		///
+		/// Origin must be the pool admin.
+		///
+		/// Cleanup storage, release any associated storage cost and return the remaining reward
+		/// tokens to the admin.
+		#[pallet::call_index(8)]
+		pub fn cleanup_pool(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
+			let admin = pool_info.admin.as_ref().ok_or(BadOrigin)?;
+			ensure!(admin == &who, BadOrigin);
+
+			let stakers = PoolStakers::<T>::iter_key_prefix(pool_id).next();
+			ensure!(stakers.is_none(), Error::<T>::NonEmptyPool);
+
+			let pool_balance = T::Assets::reducible_balance(
+				pool_info.reward_asset_id.clone(),
+				&pool_info.account,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			);
+			T::Assets::transfer(
+				pool_info.reward_asset_id,
+				&pool_info.account,
+				&admin,
+				pool_balance,
+				Preservation::Expendable,
+			)?;
+
+			if let Some((who, cost)) = PoolCost::<T>::take(pool_id) {
+				T::Consideration::drop(cost, &who)?;
+			}
+
+			Pools::<T>::remove(pool_id);
+
+			Self::deposit_event(Event::PoolCleanedUp { pool_id });
+
 			Ok(())
 		}
 	}

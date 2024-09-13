@@ -19,6 +19,7 @@ use crate::{mock::*, *};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, hypothetically,
 	traits::{
+		fungible,
 		fungible::NativeOrWithId,
 		fungibles,
 		tokens::{Fortitude, Preservation},
@@ -1166,6 +1167,83 @@ mod deposit_reward_tokens {
 			assert_err!(
 				StakingRewards::deposit_reward_tokens(RuntimeOrigin::signed(1), 0, 100_000_000),
 				ArithmeticError::Underflow
+			);
+		});
+	}
+}
+
+mod cleanup_pool {
+	use super::*;
+
+	#[test]
+	fn success() {
+		new_test_ext().execute_with(|| {
+			let pool_id = 0;
+			let admin = DEFAULT_ADMIN;
+			let admin_balance_before = <Balances as fungible::Inspect<u128>>::balance(&admin);
+
+			create_default_pool();
+			assert!(Pools::<MockRuntime>::get(pool_id).is_some());
+
+			assert_ok!(StakingRewards::cleanup_pool(RuntimeOrigin::signed(admin), pool_id));
+
+			assert_eq!(
+				<Balances as fungible::Inspect<u128>>::balance(&admin),
+				// `100_000` initial pool account balance from Genesis config
+				admin_balance_before + 100_000,
+			);
+			assert_eq!(Pools::<MockRuntime>::get(pool_id), None);
+			assert_eq!(PoolStakers::<MockRuntime>::iter_prefix_values(pool_id).count(), 0);
+			assert_eq!(PoolCost::<MockRuntime>::get(pool_id), None);
+		});
+	}
+
+	#[test]
+	fn success_only_when_pool_empty() {
+		new_test_ext().execute_with(|| {
+			let pool_id = 0;
+			let staker = 20;
+			let admin = DEFAULT_ADMIN;
+
+			create_default_pool();
+
+			// stake to prevent pool cleanup
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 100));
+
+			assert_noop!(
+				StakingRewards::cleanup_pool(RuntimeOrigin::signed(admin), pool_id),
+				Error::<MockRuntime>::NonEmptyPool
+			);
+
+			// unstake partially
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker), pool_id, 50));
+
+			assert_noop!(
+				StakingRewards::cleanup_pool(RuntimeOrigin::signed(admin), pool_id),
+				Error::<MockRuntime>::NonEmptyPool
+			);
+
+			// unstake all
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker), pool_id, 50));
+
+			assert_ok!(StakingRewards::cleanup_pool(RuntimeOrigin::signed(admin), pool_id),);
+
+			assert_eq!(Pools::<MockRuntime>::get(pool_id), None);
+			assert_eq!(PoolStakers::<MockRuntime>::iter_prefix_values(pool_id).count(), 0);
+			assert_eq!(PoolCost::<MockRuntime>::get(pool_id), None);
+		});
+	}
+
+	#[test]
+	fn fails_on_wrong_origin() {
+		new_test_ext().execute_with(|| {
+			let caller = 888;
+			let pool_id = 0;
+			create_default_pool();
+
+			assert_noop!(
+				StakingRewards::cleanup_pool(RuntimeOrigin::signed(caller), pool_id),
+				BadOrigin
 			);
 		});
 	}

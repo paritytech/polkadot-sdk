@@ -164,4 +164,8 @@ impl<T: frame_system::Config> pallet_asset_rewards::WeightInfo for WeightInfo<T>
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	// TODO: replace with actual weight.
+	fn cleanup_pool() -> Weight {
+		Weight::MAX
+	}
 }

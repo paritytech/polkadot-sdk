@@ -323,5 +323,30 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn cleanup_pool() -> Result<(), BenchmarkError> {
+		let create_origin = create_reward_pool::<T>()?;
+		let caller = T::CreatePoolOrigin::ensure_origin(create_origin.clone()).unwrap();
+
+		// deposit rewards tokens to get worth case benchmark.
+		{
+			let caller = whitelisted_caller();
+			let reward_asset = T::BenchmarkHelper::reward_asset();
+			let min_balance = mint_into::<T>(&caller, &reward_asset);
+			assert_ok!(AssetRewards::<T>::deposit_reward_tokens(
+				RawOrigin::Signed(caller).into(),
+				0,
+				min_balance
+			));
+		}
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), 0);
+
+		assert_last_event::<T>(Event::PoolCleanedUp { pool_id: 0 }.into());
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(AssetRewards, crate::mock::new_test_ext(), crate::mock::MockRuntime);
 }
