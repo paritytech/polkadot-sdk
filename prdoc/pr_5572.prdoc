@@ -6,7 +6,7 @@ title: added RPC metrics for the collator
 doc:
   - audience: [ Node Dev, Node Operator ]
     description: |
-      The metrics are names `cumulus_rpc_request_{method}` and can be scraped by prometheus agents from the relaychain minimal node's prometheus exporter. The metrics provide information about `count`, `sum` and `duration` in seconds (with exponential buckets with parameters as start = 0.001, factor = 4, count = 9).
+      The metric is named `polkadot_parachain_relay_chain_rpc_interface` and can be scraped by prometheus agents from the relaychain minimal node's prometheus exporter. The metric provide information about `count`, `sum` and `duration` in seconds (with exponential buckets with parameters as start = 0.001, factor = 4, count = 9) for all RPC requests made with the `relay-chain-rpc-interface`.
 crates: 
   - name: cumulus-relay-chain-rpc-interface
     bump: major
