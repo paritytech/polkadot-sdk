@@ -365,11 +365,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		use ExistenceReason::*;
 
 		ensure!(
-			T::Holder::balance_on_hold(id.clone(), who).is_none(),
+			T::Holder::balance_on_hold(id.clone(), &who).is_none(),
 			Error::<T, I>::ContainsHolds
 		);
 		ensure!(
-			T::Freezer::frozen_balance(id.clone(), who).is_none(),
+			T::Freezer::frozen_balance(id.clone(), &who).is_none(),
 			Error::<T, I>::ContainsFreezes
 		);
 
