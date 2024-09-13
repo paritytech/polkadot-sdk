@@ -27,6 +27,7 @@ scale-info = { features = [
 ], workspace = true }
 frame-metadata = { features = [
 	"current",
+	"unstable",
 ], workspace = true }
 sp-api = { features = [
 	"frame-metadata",

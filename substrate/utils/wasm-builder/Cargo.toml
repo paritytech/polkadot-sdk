@@ -35,7 +35,7 @@ sc-executor = { optional = true, workspace = true, default-features = true }
 sp-core = { optional = true, workspace = true, default-features = true }
 sp-io = { optional = true, workspace = true, default-features = true }
 sp-version = { optional = true, workspace = true, default-features = true }
-frame-metadata = { features = ["current"], optional = true, workspace = true, default-features = true }
+frame-metadata = { features = ["current","unstable"], optional = true, workspace = true, default-features = true }
 codec = { optional = true, workspace = true, default-features = true }
 array-bytes = { optional = true, workspace = true, default-features = true }
 sp-tracing = { optional = true, workspace = true, default-features = true }

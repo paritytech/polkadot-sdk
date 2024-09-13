@@ -24,7 +24,7 @@ substrate-test-runtime-client = { workspace = true }
 sp-api = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
 merkleized-metadata = { workspace = true }
-frame-metadata = { features = ["current"], workspace = true, default-features = true }
+frame-metadata = { features = ["current","unstable"], workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [features]

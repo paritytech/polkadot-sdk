@@ -57,7 +57,7 @@ pub fn into_version(metadata: MetadataIR, version: u32) -> Option<RuntimeMetadat
 		// Version V15 - latest stable.
 		V15 => Some(into_latest(metadata)),
 
-		// Unstable metadata under `u32::MAX`.s
+		// Unstable metadata under `u32::MAX`.
 		UNSTABLE_V16 => Some(into_unstable(metadata)),
 
 		_ => None,
