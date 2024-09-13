@@ -82,6 +82,7 @@ const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_secs(3);
 #[cfg(test)]
 const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 
+// TODO: Change comment
 // The task queue size is chosen to be somewhat bigger than the PVF host incoming queue size
 // to allow exhaustive validation messages to fall through in case the tasks are clogged with
 // `ValidateFromChainState` messages awaiting data from the runtime
@@ -155,29 +156,6 @@ where
 	S: SubsystemSender<RuntimeApiMessage>,
 {
 	match msg {
-		CandidateValidationMessage::ValidateFromChainState {
-			candidate_receipt,
-			pov,
-			executor_params,
-			exec_kind,
-			response_sender,
-			..
-		} => async move {
-			let res = validate_from_chain_state(
-				&mut sender,
-				validation_host,
-				candidate_receipt,
-				pov,
-				executor_params,
-				exec_kind,
-				&metrics,
-			)
-			.await;
-
-			metrics.on_validation_event(&res);
-			let _ = response_sender.send(res);
-		}
-		.boxed(),
 		CandidateValidationMessage::ValidateFromExhaustive {
 			validation_data,
 			validation_code,
@@ -763,61 +741,6 @@ where
 		AssumptionCheckOutcome::BadRequest =>
 			Err(ValidationFailed("Assumption Check: Bad request".into())),
 	}
-}
-
-async fn validate_from_chain_state<Sender>(
-	sender: &mut Sender,
-	validation_host: ValidationHost,
-	candidate_receipt: CandidateReceipt,
-	pov: Arc<PoV>,
-	executor_params: ExecutorParams,
-	exec_kind: PvfExecKind,
-	metrics: &Metrics,
-) -> Result<ValidationResult, ValidationFailed>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	let mut new_sender = sender.clone();
-	let (validation_data, validation_code) =
-		match find_validation_data(&mut new_sender, &candidate_receipt.descriptor).await? {
-			Some((validation_data, validation_code)) => (validation_data, validation_code),
-			None => return Ok(ValidationResult::Invalid(InvalidCandidate::BadParent)),
-		};
-
-	let validation_result = validate_candidate_exhaustive(
-		validation_host,
-		validation_data,
-		validation_code,
-		candidate_receipt.clone(),
-		pov,
-		executor_params,
-		exec_kind,
-		metrics,
-	)
-	.await;
-
-	if let Ok(ValidationResult::Valid(ref outputs, _)) = validation_result {
-		let (tx, rx) = oneshot::channel();
-		match runtime_api_request(
-			sender,
-			candidate_receipt.descriptor.relay_parent,
-			RuntimeApiRequest::CheckValidationOutputs(
-				candidate_receipt.descriptor.para_id,
-				outputs.clone(),
-				tx,
-			),
-			rx,
-		)
-		.await
-		{
-			Ok(true) => {},
-			Ok(false) => return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidOutputs)),
-			Err(RuntimeRequestFailed) =>
-				return Err(ValidationFailed("Check Validation Outputs: Bad request".into())),
-		}
-	}
-
-	validation_result
 }
 
 async fn validate_candidate_exhaustive(
