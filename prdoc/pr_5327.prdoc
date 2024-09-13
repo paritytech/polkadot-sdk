@@ -32,6 +32,6 @@ crates:
   - name: polkadot-runtime-parachains
     bump: patch
   - name: polkadot-service
-    bump: patch
+    bump: major
   - name: polkadot-cli
     bump: patch

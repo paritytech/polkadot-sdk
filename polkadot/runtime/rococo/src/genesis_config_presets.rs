@@ -507,28 +507,12 @@ fn versi_local_testnet_genesis() -> serde_json::Value {
 	)
 }
 
-/// Wococo is a temporary testnet that uses almost the same runtime as rococo.
-//wococo_local_testnet
-fn wococo_local_testnet_genesis() -> serde_json::Value {
-	rococo_testnet_genesis(
-		Vec::from([
-			get_authority_keys_from_seed("Alice"),
-			get_authority_keys_from_seed("Bob"),
-			get_authority_keys_from_seed("Charlie"),
-			get_authority_keys_from_seed("Dave"),
-		]),
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		None,
-	)
-}
-
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.try_into() {
 		Ok("local_testnet") => rococo_local_testnet_genesis(),
 		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => rococo_development_config_genesis(),
 		Ok("staging_testnet") => rococo_staging_testnet_config_genesis(),
-		Ok("wococo_local_testnet") => wococo_local_testnet_genesis(),
 		Ok("versi_local_testnet") => versi_local_testnet_genesis(),
 		_ => return None,
 	};
@@ -545,7 +529,6 @@ pub fn preset_names() -> Vec<PresetId> {
 		PresetId::from("local_testnet"),
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from("staging_testnet"),
-		PresetId::from("wococo_local_testnet"),
 		PresetId::from("versi_local_testnet"),
 	]
 }
