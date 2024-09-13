@@ -48,6 +48,7 @@ pallet-revive-fixtures = { workspace = true }
 
 [features]
 default = ["std"]
+riscv = ["pallet-revive-fixtures/riscv"]
 std = [
 	"codec/std",
 	"frame-support/std",

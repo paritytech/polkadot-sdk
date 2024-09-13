@@ -346,30 +346,37 @@ jobs:
           cp .forklift/config.toml /github/home/.forklift/config.toml
           PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
 
-  # cargo-check-each-crate-macos:
-  #   timeout-minutes: 120
-  #   needs: [ set-image ]
-  #   runs-on: macOS
-  #   env:
-  #     RUSTFLAGS: "-D warnings"
-  #     CI_JOB_NAME: cargo-check-each-crate
-  #     IMAGE: ${{ needs.set-image.outputs.IMAGE }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       index: [ 1,2,3,4,5,6,7,8,9,10 ] # 10 parallel jobs
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-
-  #     - name: Install dependencies
-  #       uses: ./.github/actions/set-up-mac
-  #       with:
-  #         IMAGE: ${{ needs.set-image.outputs.IMAGE }}
-
-  #     - name: script
-  #       run: |
-  #         PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }} True
+  cargo-check-all-crate-macos:
+    timeout-minutes: 30
+    runs-on: parity-macos
+    env:
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Set rust version from env file
+        run: |
+          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
+          echo $RUST_VERSION
+          echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
+      - name: Install rust ${{ env.RUST_VERSION }}
+        uses: actions-rust-lang/setup-rust-toolchain@1fbea72663f6d4c03efaab13560c8a24cfd2a7cc # v1.9.0
+        with:
+          cache: false
+          toolchain: ${{ env.RUST_VERSION }}
+          target: wasm32-unknown-unknown
+          components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
+      - name: Install protobuf
+        run: brew install protobuf
+      - name: cargo info
+        run: |
+          echo "######## rustup show ########"
+          rustup show
+          echo "######## cargo --version ########"
+          cargo --version
+      - name: Run cargo check
+        run: cargo check --workspace --locked
 
   confirm-required-test-misc-jobs-passed:
     runs-on: ubuntu-latest
