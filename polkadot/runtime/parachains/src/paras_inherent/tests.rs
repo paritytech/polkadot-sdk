@@ -231,8 +231,7 @@ mod enter {
 	#[case((true, false))]
 	#[case((true, true))]
 	#[case((false, true))]
-	fn include_backed_candidates_elastic_scaling(#[case] params: (bool, bool)) {
-		let (v2_descriptor, injected_core) = params;
+	fn include_backed_candidates_elastic_scaling(#[case] v2_descriptor: bool, injected_core: bool) {
 		// ParaId 0 has one pending candidate on core 0.
 		// ParaId 1 has one pending candidate on core 1.
 		// ParaId 2 has three pending candidates on cores 2, 3 and 4.
