@@ -1428,6 +1428,7 @@ mod reduce_multiview_result_tests {
 
 	#[test]
 	#[should_panic]
+	#[cfg(debug_assertions)]
 	fn invalid_lengths() {
 		sp_tracing::try_init_simple();
 		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
