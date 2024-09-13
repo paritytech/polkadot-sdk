@@ -810,6 +810,9 @@ pub mod pallet {
 		///
 		/// - `id`: The identifier of the asset to be destroyed. This must identify an existing
 		///   asset.
+		///
+		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
+		/// an account has holds or freezes in place.
 		#[pallet::call_index(2)]
 		pub fn start_destroy(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			let maybe_check_owner = match T::ForceOrigin::try_origin(origin) {

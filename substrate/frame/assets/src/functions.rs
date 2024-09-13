@@ -363,6 +363,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub(super) fn do_refund(id: T::AssetId, who: T::AccountId, allow_burn: bool) -> DispatchResult {
 		use AssetStatus::*;
 		use ExistenceReason::*;
+
+		ensure!(
+			T::Holder::balance_on_hold(id.clone(), who).is_none(),
+			Error::<T, I>::ContainsHolds
+		);
+		ensure!(
+			T::Freezer::frozen_balance(id.clone(), who).is_none(),
+			Error::<T, I>::ContainsFreezes
+		);
+
 		let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?;
 		ensure!(matches!(account.reason, Consumer | DepositHeld(..)), Error::<T, I>::NoDeposit);
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
@@ -397,6 +407,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: &T::AccountId,
 		maybe_check_caller: Option<T::AccountId>,
 	) -> DispatchResult {
+		ensure!(
+			T::Holder::balance_on_hold(id.clone(), who).is_none(),
+			Error::<T, I>::ContainsHolds
+		);
+		ensure!(
+			T::Freezer::frozen_balance(id.clone(), who).is_none(),
+			Error::<T, I>::ContainsFreezes
+		);
+
 		let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?;
 		let (depositor, deposit) =
 			account.reason.take_deposit_from().ok_or(Error::<T, I>::NoDeposit)?;
