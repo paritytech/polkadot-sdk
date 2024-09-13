@@ -314,6 +314,8 @@ pub enum RuntimeCosts {
 	GasLeft,
 	/// Weight of calling `seal_balance`.
 	Balance,
+	/// Weight of calling `seal_balance_of`.
+	BalanceOf,
 	/// Weight of calling `seal_value_transferred`.
 	ValueTransferred,
 	/// Weight of calling `seal_minimum_balance`.
@@ -457,6 +459,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Address => T::WeightInfo::seal_address(),
 			GasLeft => T::WeightInfo::seal_gas_left(),
 			Balance => T::WeightInfo::seal_balance(),
+			BalanceOf => T::WeightInfo::seal_balance_of(),
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
@@ -1515,6 +1518,27 @@ pub mod env {
 		)?)
 	}
 
+	/// Stores the *free* balance of the supplied address into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::balance`].
+	#[api_version(0)]
+	fn balance_of(
+		&mut self,
+		memory: &mut M,
+		addr_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BalanceOf)?;
+		let mut address = H160::zero();
+		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&as_bytes(self.ext.balance_of(&address)),
+			false,
+			already_charged,
+		)?)
+	}
+
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::value_transferred`].
 	#[api_version(0)]
@@ -1790,6 +1814,7 @@ pub mod env {
 		&mut self,
 		memory: &mut M,
 		dest_ptr: u32,
+		dest_len: u32,
 		msg_ptr: u32,
 		msg_len: u32,
 		output_ptr: u32,
@@ -1797,10 +1822,12 @@ pub mod env {
 		use xcm::{VersionedLocation, VersionedXcm};
 		use xcm_builder::{SendController, SendControllerWeightInfo};
 
-		self.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
-		let dest: VersionedLocation = memory.read_as(dest_ptr)?;
+		self.charge_gas(RuntimeCosts::CopyFromContract(dest_len))?;
+		let dest: VersionedLocation = memory.read_as_unbounded(dest_ptr, dest_len)?;
 
+		self.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let message: VersionedXcm<()> = memory.read_as_unbounded(msg_ptr, msg_len)?;
+
 		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
 		self.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 		let origin = crate::RawOrigin::Signed(self.ext.account_id().clone()).into();
