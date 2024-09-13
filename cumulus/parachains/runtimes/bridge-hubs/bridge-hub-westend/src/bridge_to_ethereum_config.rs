@@ -69,7 +69,7 @@ parameter_types! {
 		rewards: Rewards { local: 1 * UNITS, remote: meth(1) },
 		multiplier: FixedU128::from_rational(1, 1),
 	};
-	pub GlobalAssetHub: Location = Location::new(1,[GlobalConsensus(RelayNetwork::get()),Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
+	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(RelayNetwork::get()),Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
 	pub EthereumUniversalLocation: InteriorLocation = [GlobalConsensus(EthereumNetwork::get())].into();
 }
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
@@ -92,7 +92,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 		Balance,
 		EthereumSystem,
 		EthereumUniversalLocation,
-		GlobalAssetHub,
+		AssetHubFromEthereum,
 	>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
