@@ -78,7 +78,11 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMort
 	type Val = ();
 
 	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality()
+		if self.0.is_immortal() {
+			<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality_immortal_transaction()
+		} else {
+			<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality_mortal_transaction()
+		}
 	}
 
 	fn validate(

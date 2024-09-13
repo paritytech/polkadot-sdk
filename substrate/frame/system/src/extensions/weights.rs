@@ -52,7 +52,8 @@ use core::marker::PhantomData;
 /// Weight functions needed for `frame_system_extensions`.
 pub trait WeightInfo {
 	fn check_genesis() -> Weight;
-	fn check_mortality() -> Weight;
+	fn check_mortality_mortal_transaction() -> Weight;
+	fn check_mortality_immortal_transaction() -> Weight;
 	fn check_non_zero_sender() -> Weight;
 	fn check_nonce() -> Weight;
 	fn check_spec_version() -> Weight;
@@ -75,7 +76,17 @@ impl<T: crate::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `System::BlockHash` (r:1 w:0)
 	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
-	fn check_mortality() -> Weight {
+	fn check_mortality_mortal_transaction() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `92`
+		//  Estimated: `3509`
+		// Minimum execution time: 6_296_000 picoseconds.
+		Weight::from_parts(6_523_000, 3509)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: `System::BlockHash` (r:1 w:0)
+	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
+	fn check_mortality_immortal_transaction() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `92`
 		//  Estimated: `3509`
@@ -142,7 +153,17 @@ impl WeightInfo for () {
 	}
 	/// Storage: `System::BlockHash` (r:1 w:0)
 	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
-	fn check_mortality() -> Weight {
+	fn check_mortality_mortal_transaction() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `92`
+		//  Estimated: `3509`
+		// Minimum execution time: 6_296_000 picoseconds.
+		Weight::from_parts(6_523_000, 3509)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `System::BlockHash` (r:1 w:0)
+	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
+	fn check_mortality_immortal_transaction() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `92`
 		//  Estimated: `3509`

@@ -45,7 +45,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn charge_asset_tx_payment_zero() {
-		let caller: T::AccountId = whitelisted_caller();
+		let caller: T::AccountId = account("caller", 0, 0);
 		let ext: ChargeAssetTxPayment<T> = ChargeAssetTxPayment::from(0u32.into(), None);
 		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
@@ -67,7 +67,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn charge_asset_tx_payment_native() {
-		let caller: T::AccountId = whitelisted_caller();
+		let caller: T::AccountId = account("caller", 0, 0);
 		let (fun_asset_id, _) = <T as Config>::BenchmarkHelper::create_asset_id_parameter(1);
 		<T as Config>::BenchmarkHelper::setup_balances_and_pool(fun_asset_id, caller.clone());
 		let ext: ChargeAssetTxPayment<T> = ChargeAssetTxPayment::from(10u32.into(), None);
@@ -95,7 +95,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn charge_asset_tx_payment_asset() {
-		let caller: T::AccountId = whitelisted_caller();
+		let caller: T::AccountId = account("caller", 0, 0);
 		let (fun_asset_id, asset_id) = <T as Config>::BenchmarkHelper::create_asset_id_parameter(1);
 		<T as Config>::BenchmarkHelper::setup_balances_and_pool(
 			fun_asset_id.clone(),
