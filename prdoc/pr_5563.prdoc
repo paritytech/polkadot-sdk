@@ -10,3 +10,5 @@ doc:
 crates:
   - name: snowbridge-router-primitives
     bump: patch
+  - name: snowbridge-pallet-inbound-queue
+    bump: patch
