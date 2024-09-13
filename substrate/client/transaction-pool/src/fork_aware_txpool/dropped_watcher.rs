@@ -128,10 +128,7 @@ where
 		let (tx_hash, status) = event;
 		match status {
 			TransactionStatus::Ready | TransactionStatus::Future => {
-				self.transaction_states
-					.entry(tx_hash)
-					.or_insert(Default::default())
-					.insert(block_hash);
+				self.transaction_states.entry(tx_hash).or_default().insert(block_hash);
 			},
 			TransactionStatus::Dropped | TransactionStatus::Usurped(_) => {
 				let current_views = HashSet::<BlockHash<C>>::from_iter(
@@ -162,7 +159,7 @@ where
 		//note: 64 allows to avoid warning messages during execution of unit tests.
 		const CHANNEL_SIZE: usize = 64;
 		let (sender, receiver) = sc_utils::mpsc::tracing_unbounded::<Command<C>>(
-			"import-notification-sink",
+			"tx-pool-dropped-watcher-cmd-stream",
 			CHANNEL_SIZE,
 		);
 
@@ -181,17 +178,15 @@ where
 				tokio::select! {
 					biased;
 					cmd = ctx.command_receiver.next() => {
-						match cmd {
-							Some(Command::AddView(key,stream)) => {
+						match cmd? {
+							Command::AddView(key,stream) => {
 								trace!(target: LOG_TARGET,"dropped_watcher: Command::AddView {key:?}");
 								ctx.stream_map.get_mut().insert(key,stream);
 							},
-							Some(Command::RemoveView(key)) => {
+							Command::RemoveView(key) => {
 								trace!(target: LOG_TARGET,"dropped_watcher: Command::RemoveView {key:?}");
 								ctx.stream_map.get_mut().remove(&key);
 							},
-							//controller sender is terminated, terminate the map as well
-							None => { return None }
 						}
 					},
 
@@ -211,11 +206,11 @@ where
 	}
 }
 
-#[derive(Clone)]
 /// The controller for manipulating the state of the [`StreamOfDropped`].
 ///
 /// This struct provides methods to add and remove streams associated with views to and from the
 /// stream.
+#[derive(Clone)]
 pub struct MultiViewDroppedWatcherController<C: ChainApi> {
 	/// A controller allowing to update the state of the associated [`StreamOfDropped`].
 	controller: Controller<Command<C>>,
