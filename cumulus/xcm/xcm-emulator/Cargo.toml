@@ -15,6 +15,7 @@ paste = { workspace = true, default-features = true }
 log = { workspace = true }
 lazy_static = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
+hex = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true, default-features = true }

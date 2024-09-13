@@ -24249,6 +24249,7 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "frame-support",
  "frame-system",
+ "hex",
  "impl-trait-for-tuples",
  "lazy_static",
  "log",
