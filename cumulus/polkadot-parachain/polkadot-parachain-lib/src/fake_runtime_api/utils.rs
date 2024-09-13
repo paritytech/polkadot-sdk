@@ -156,7 +156,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			impl cumulus_primitives_core::FetchClaimQueueOffset<$block> for Runtime {
+			impl cumulus_primitives_core::FetchClaimQueueOffset<$block> for $runtime {
 				fn fetch_claim_queue_offset() -> u8 {
 					unimplemented!()
 				}
