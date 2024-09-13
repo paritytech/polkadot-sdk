@@ -30,6 +30,7 @@ mod types;
 use frame_metadata::RuntimeMetadataPrefixed;
 pub use types::*;
 
+mod unstable;
 mod v14;
 mod v15;
 
@@ -39,16 +40,26 @@ const V14: u32 = 14;
 /// Metadata V15.
 const V15: u32 = 15;
 
+/// Unstable metadata V16.
+const UNSTABLE_V16: u32 = u32::MAX;
+
 /// Transform the IR to the specified version.
 ///
 /// Use [`supported_versions`] to find supported versions.
 pub fn into_version(metadata: MetadataIR, version: u32) -> Option<RuntimeMetadataPrefixed> {
 	// Note: Unstable metadata version is `u32::MAX` until stabilized.
 	match version {
-		// Latest stable version.
+		// Version V14. This needs to be around until the
+		// deprecation of the `Metadata_metadata` runtime call in favor of
+		// `Metadata_metadata_at_version.
 		V14 => Some(into_v14(metadata)),
-		// Unstable metadata.
+
+		// Version V15 - latest stable.
 		V15 => Some(into_latest(metadata)),
+
+		// Unstable metadata under `u32::MAX`.s
+		UNSTABLE_V16 => Some(into_unstable(metadata)),
+
 		_ => None,
 	}
 }
@@ -66,6 +77,12 @@ pub fn into_latest(metadata: MetadataIR) -> RuntimeMetadataPrefixed {
 
 /// Transform the IR to metadata version 14.
 pub fn into_v14(metadata: MetadataIR) -> RuntimeMetadataPrefixed {
+	let latest: frame_metadata::v14::RuntimeMetadataV14 = metadata.into();
+	latest.into()
+}
+
+/// Transform the IR to unstable metadata version 16.
+pub fn into_unstable(metadata: MetadataIR) -> RuntimeMetadataPrefixed {
 	let latest: frame_metadata::v14::RuntimeMetadataV14 = metadata.into();
 	latest.into()
 }
