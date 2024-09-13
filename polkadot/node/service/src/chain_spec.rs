@@ -110,11 +110,6 @@ pub fn rococo_config() -> Result<RococoChainSpec, String> {
 	RococoChainSpec::from_json_bytes(&include_bytes!("../chain-specs/rococo.json")[..])
 }
 
-/// This is a temporary testnet that uses the same runtime as rococo.
-pub fn wococo_config() -> Result<RococoChainSpec, String> {
-	RococoChainSpec::from_json_bytes(&include_bytes!("../chain-specs/wococo.json")[..])
-}
-
 /// The default parachains host configuration.
 #[cfg(feature = "westend-native")]
 fn default_parachains_host_configuration(
@@ -629,22 +624,6 @@ pub fn versi_development_config() -> Result<RococoChainSpec, String> {
 	.build())
 }
 
-/// Wococo development config (single validator Alice)
-#[cfg(feature = "rococo-native")]
-pub fn wococo_development_config() -> Result<RococoChainSpec, String> {
-	const WOCOCO_DEV_PROTOCOL_ID: &str = "woco";
-	Ok(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?,
-		Default::default(),
-	)
-	.with_name("Development")
-	.with_id("wococo_dev")
-	.with_chain_type(ChainType::Development)
-	.with_genesis_config_preset_name("development")
-	.with_protocol_id(WOCOCO_DEV_PROTOCOL_ID)
-	.build())
-}
-
 #[cfg(feature = "westend-native")]
 fn westend_local_testnet_genesis() -> serde_json::Value {
 	westend_testnet_genesis(
@@ -681,21 +660,6 @@ pub fn rococo_local_testnet_config() -> Result<RococoChainSpec, String> {
 	.with_id("rococo_local_testnet")
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_preset_name("local_testnet")
-	.with_protocol_id(DEFAULT_PROTOCOL_ID)
-	.build())
-}
-
-/// Wococo local testnet config (multivalidator Alice + Bob + Charlie + Dave)
-#[cfg(feature = "rococo-native")]
-pub fn wococo_local_testnet_config() -> Result<RococoChainSpec, String> {
-	Ok(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or("Rococo development wasm (used for wococo) not available")?,
-		Default::default(),
-	)
-	.with_name("Wococo Local Testnet")
-	.with_id("wococo_local_testnet")
-	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name("wococo_local_testnet")
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
 }

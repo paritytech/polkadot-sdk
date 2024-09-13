@@ -290,9 +290,6 @@ pub trait IdentifyVariant {
 	/// Returns if this is a configuration for the `Rococo` network.
 	fn is_rococo(&self) -> bool;
 
-	/// Returns if this is a configuration for the `Wococo` test network.
-	fn is_wococo(&self) -> bool;
-
 	/// Returns if this is a configuration for the `Versi` test network.
 	fn is_versi(&self) -> bool;
 
@@ -316,9 +313,6 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 	fn is_rococo(&self) -> bool {
 		self.id().starts_with("rococo") || self.id().starts_with("rco")
 	}
-	fn is_wococo(&self) -> bool {
-		self.id().starts_with("wococo") || self.id().starts_with("wco")
-	}
 	fn is_versi(&self) -> bool {
 		self.id().starts_with("versi") || self.id().starts_with("vrs")
 	}
@@ -332,7 +326,7 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 			Chain::Kusama
 		} else if self.is_westend() {
 			Chain::Westend
-		} else if self.is_rococo() || self.is_versi() || self.is_wococo() {
+		} else if self.is_rococo() || self.is_versi() {
 			Chain::Rococo
 		} else {
 			Chain::Unknown
@@ -778,7 +772,6 @@ pub fn new_full<
 		let mut backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
 
 		if config.chain_spec.is_rococo() ||
-			config.chain_spec.is_wococo() ||
 			config.chain_spec.is_versi() ||
 			config.chain_spec.is_dev()
 		{
@@ -1317,7 +1310,7 @@ pub fn new_full<
 			runtime: client.clone(),
 			key_store: keystore_opt.clone(),
 			network_params,
-			min_block_delta: if chain_spec.is_wococo() { 4 } else { 8 },
+			min_block_delta: 8,
 			prometheus_registry: prometheus_registry.clone(),
 			links: beefy_links,
 			on_demand_justifications_handler: beefy_on_demand_justifications_handler,
@@ -1448,10 +1441,7 @@ pub fn new_chain_ops(
 {
 	config.keystore = sc_service::config::KeystoreConfig::InMemory;
 
-	if config.chain_spec.is_rococo() ||
-		config.chain_spec.is_wococo() ||
-		config.chain_spec.is_versi()
-	{
+	if config.chain_spec.is_rococo() || config.chain_spec.is_versi() {
 		chain_ops!(config, jaeger_agent, None)
 	} else if config.chain_spec.is_kusama() {
 		chain_ops!(config, jaeger_agent, None)
