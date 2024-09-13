@@ -305,6 +305,11 @@ pub trait Ext: sealing::Sealed {
 	/// The `value_transferred` is already added.
 	fn balance(&self) -> U256;
 
+	/// Returns the balance of the supplied account.
+	///
+	/// The `value_transferred` is already added.
+	fn balance_of(&self, address: &H160) -> U256;
+
 	/// Returns the value transferred along with this call.
 	fn value_transferred(&self) -> U256;
 
@@ -1256,6 +1261,11 @@ where
 	fn allows_reentry(&self, id: &T::AccountId) -> bool {
 		!self.frames().any(|f| &f.account_id == id && !f.allows_reentry)
 	}
+
+	/// Returns the *free* balance of the supplied AccountId.
+	fn account_balance(&self, who: &T::AccountId) -> U256 {
+		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -1496,12 +1506,11 @@ where
 	}
 
 	fn balance(&self) -> U256 {
-		T::Currency::reducible_balance(
-			&self.top_frame().account_id,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		)
-		.into()
+		self.account_balance(&self.top_frame().account_id)
+	}
+
+	fn balance_of(&self, address: &H160) -> U256 {
+		self.account_balance(&<Self::T as Config>::AddressMapper::to_account_id(address))
 	}
 
 	fn value_transferred(&self) -> U256 {
