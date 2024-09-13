@@ -229,8 +229,7 @@ impl<Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues>
 		QueryKind,
 		OnEmpty,
 		MaxValues,
-	>
-where
+	> where
 	Prefix: StorageInstance,
 	Hasher1: StorageHasher,
 	Key1: FullCodec,
