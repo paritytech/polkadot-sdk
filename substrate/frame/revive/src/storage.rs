@@ -83,16 +83,16 @@ impl<T: Config> ContractInfo<T> {
 	/// This returns an `Err` if an contract with the supplied `account` already exists
 	/// in storage.
 	pub fn new(
-		account: &H160,
+		address: &H160,
 		nonce: T::Nonce,
 		code_hash: sp_core::H256,
 	) -> Result<Self, DispatchError> {
-		if <ContractInfoOf<T>>::contains_key(account) {
+		if <ContractInfoOf<T>>::contains_key(address) {
 			return Err(Error::<T>::DuplicateContract.into())
 		}
 
 		let trie_id = {
-			let buf = ("bcontract_trie_v1", account, nonce).using_encoded(T::Hashing::hash);
+			let buf = ("bcontract_trie_v1", address, nonce).using_encoded(T::Hashing::hash);
 			buf.as_ref()
 				.to_vec()
 				.try_into()
