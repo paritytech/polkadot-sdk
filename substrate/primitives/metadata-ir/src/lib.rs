@@ -66,7 +66,7 @@ pub fn into_version(metadata: MetadataIR, version: u32) -> Option<RuntimeMetadat
 
 /// Returns the supported metadata versions.
 pub fn supported_versions() -> alloc::vec::Vec<u32> {
-	alloc::vec![V14, V15]
+	alloc::vec![V14, V15, UNSTABLE_V16]
 }
 
 /// Transform the IR to the latest stable metadata version.
