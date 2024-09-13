@@ -812,7 +812,7 @@ pub mod pallet {
 		///   asset.
 		///
 		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
-		/// an account has holds or freezes in place.
+		/// an account contains holds or freezes in place.
 		#[pallet::call_index(2)]
 		pub fn start_destroy(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			let maybe_check_owner = match T::ForceOrigin::try_origin(origin) {
@@ -1627,6 +1627,9 @@ pub mod pallet {
 		///   refunded.
 		/// - `allow_burn`: If `true` then assets may be destroyed in order to complete the refund.
 		///
+		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
+		/// the asset account contains holds or freezes in place.
+		///
 		/// Emits `Refunded` event when successful.
 		#[pallet::call_index(27)]
 		#[pallet::weight(T::WeightInfo::refund())]
@@ -1716,6 +1719,9 @@ pub mod pallet {
 		///
 		/// - `id`: The identifier of the asset for the account holding a deposit.
 		/// - `who`: The account to refund.
+		///
+		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
+		/// the asset account contains holds or freezes in place.
 		///
 		/// Emits `Refunded` event when successful.
 		#[pallet::call_index(30)]
