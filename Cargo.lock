@@ -24269,7 +24269,6 @@ name = "xcm-executor-integration-tests"
 version = "1.0.0"
 dependencies = [
  "frame-support",
- "frame-system",
  "futures",
  "pallet-transaction-payment",
  "pallet-xcm",

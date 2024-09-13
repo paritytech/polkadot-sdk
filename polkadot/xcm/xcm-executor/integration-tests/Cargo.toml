@@ -13,7 +13,6 @@ workspace = true
 [dependencies]
 codec = { workspace = true, default-features = true }
 frame-support = { workspace = true }
-frame-system = { workspace = true, default-features = true }
 futures = { workspace = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-xcm = { workspace = true, default-features = true }
