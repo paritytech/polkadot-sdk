@@ -50,7 +50,6 @@ use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_candidate_receipt_bad_sig, dummy_hash,
 };
 
-// mod collation;
 mod prospective_parachains;
 
 const ACTIVITY_TIMEOUT: Duration = Duration::from_millis(500);
