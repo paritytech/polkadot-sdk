@@ -122,7 +122,7 @@ mod v1 {
 			let rp_tracker = AllowedRelayParents::<T>::get();
 
 			ensure!(
-				relay_parent_count == rp_tracker.buffer.len(),
+				relay_parent_count as usize == rp_tracker.buffer.len(),
 				"Number of allowed relay parents should be the same as the one before the upgrade."
 			);
 
