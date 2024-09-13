@@ -163,7 +163,6 @@ where
 			response_sender,
 			..
 		} => async move {
-			let _timer = metrics.time_validate_from_chain_state();
 			let res = validate_from_chain_state(
 				&mut sender,
 				validation_host,
