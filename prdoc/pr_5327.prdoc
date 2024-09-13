@@ -13,6 +13,8 @@ crates:
     bump: patch
   - name: rococo-runtime
     bump: patch
+  - name: westend-runtime
+    bump: patch
   - name: parachains-common
     bump: patch
   - name: testnet-parachains-constants
