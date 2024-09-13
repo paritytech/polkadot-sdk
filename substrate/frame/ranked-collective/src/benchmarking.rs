@@ -147,7 +147,7 @@ benchmarks_instance_pallet! {
 		let n in 0 .. 100;
 
 		// Create a poll
-		let class = T::Polls::classes().into_iter().next().ok_or(BenchmarkError::Skip)?;
+		let class = T::Polls::classes().into_iter().next().unwrap_or_else(|| Default::default());
 		let rank = T::MinRankOfClass::convert(class.clone());
 		let poll = T::Polls::create_ongoing(class).expect("Must always be able to create a poll");
 
