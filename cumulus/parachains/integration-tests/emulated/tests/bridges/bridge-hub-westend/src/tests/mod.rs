@@ -18,8 +18,9 @@ use crate::imports::*;
 mod asset_transfers;
 mod claim_assets;
 mod send_xcm;
-mod snowbridge;
 mod teleport;
+
+mod snowbridge;
 
 pub(crate) fn asset_hub_rococo_location() -> Location {
 	Location::new(2, [GlobalConsensus(Rococo), Parachain(AssetHubRococo::para_id().into())])
