@@ -15,9 +15,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Utilities for dealing with crypto primitives. Sometimes we need to use these from inside WASM
-//! contracts, where crypto calculations have weak performance.
+use codec::{Decode, Encode};
 
-pub mod ecdsa;
-#[cfg(any(feature = "std", test))]
-pub mod mock;
+#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, scale_info::TypeInfo)]
+pub struct AccountU64(u64);
+impl sp_runtime::traits::IdentifyAccount for AccountU64 {
+	type AccountId = u64;
+	fn into_account(self) -> u64 {
+		self.0
+	}
+}
+
+impl sp_runtime::traits::Verify for AccountU64 {
+	type Signer = AccountU64;
+	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(
+		&self,
+		_msg: L,
+		_signer: &<Self::Signer as sp_runtime::traits::IdentifyAccount>::AccountId,
+	) -> bool {
+		true
+	}
+}
+
+impl From<u64> for AccountU64 {
+	fn from(value: u64) -> Self {
+		Self(value)
+	}
+}

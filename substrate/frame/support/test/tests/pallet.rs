@@ -19,7 +19,9 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_ok, derive_impl,
+	assert_ok,
+	crypto::mock::AccountU64,
+	derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Parameter, Pays},
 	dispatch_context::with_context,
 	pallet_prelude::{StorageInfoTrait, ValueQuery},
@@ -750,40 +752,12 @@ impl pallet5::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 }
 
-#[derive(
-	Clone, Debug, codec::Encode, codec::Decode, PartialEq, Eq, PartialOrd, Ord, scale_info::TypeInfo,
-)]
-pub struct AccountU64(u64);
-impl sp_runtime::traits::IdentifyAccount for AccountU64 {
-	type AccountId = u64;
-	fn into_account(self) -> u64 {
-		self.0
-	}
-}
-
-impl sp_runtime::traits::Verify for AccountU64 {
-	type Signer = AccountU64;
-	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(
-		&self,
-		_msg: L,
-		_signer: &<Self::Signer as sp_runtime::traits::IdentifyAccount>::AccountId,
-	) -> bool {
-		true
-	}
-}
-
-impl From<u64> for AccountU64 {
-	fn from(value: u64) -> Self {
-		Self(value)
-	}
-}
-
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
 	u64,
 	RuntimeCall,
-	AccountU64,
+	frame_support::crypto::mock::AccountU64,
 	frame_system::CheckNonZeroSender<Runtime>,
 >;
 pub type UncheckedSignaturePayload = sp_runtime::generic::UncheckedSignaturePayload<
