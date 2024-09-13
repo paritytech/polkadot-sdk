@@ -41,8 +41,9 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_overseer::HeadSupportsParachains;
 use polkadot_primitives::{
-	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
-	Header, Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
+	vstaging::{CandidateEvent, MutateDescriptorV2},
+	ApprovalVote, CandidateCommitments, CoreIndex, DisputeStatement, GroupIndex, Header,
+	Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
 	ValidatorSignature,
 };
 use std::{cmp::max, time::Duration};
@@ -1332,8 +1333,8 @@ fn subsystem_rejects_approval_before_assignment() {
 		let candidate_hash = {
 			let mut candidate_receipt =
 				dummy_candidate_receipt_v2_bad_sig(block_hash, Some(Default::default()));
-			candidate_receipt.descriptor.para_id = ParaId::from(0_u32);
-			candidate_receipt.descriptor.relay_parent = block_hash;
+			candidate_receipt.descriptor.set_para_id(ParaId::from(0_u32));
+			candidate_receipt.descriptor.set_relay_parent(block_hash);
 			candidate_receipt.hash()
 		};
 
@@ -1398,13 +1399,13 @@ fn subsystem_accepts_duplicate_assignment() {
 
 		let candidate_receipt1 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt
 		}
 		.into();
 		let candidate_receipt2 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt
 		}
 		.into();
@@ -1582,8 +1583,8 @@ fn subsystem_accepts_and_imports_approval_after_assignment() {
 		let candidate_hash = {
 			let mut candidate_receipt =
 				dummy_candidate_receipt_v2_bad_sig(block_hash, Some(Default::default()));
-			candidate_receipt.descriptor.para_id = ParaId::from(0_u32);
-			candidate_receipt.descriptor.relay_parent = block_hash;
+			candidate_receipt.descriptor.set_para_id(ParaId::from(0_u32));
+			candidate_receipt.descriptor.set_relay_parent(block_hash);
 			candidate_receipt.hash()
 		};
 
@@ -1653,8 +1654,8 @@ fn subsystem_second_approval_import_only_schedules_wakeups() {
 		let candidate_hash = {
 			let mut candidate_receipt =
 				dummy_candidate_receipt_v2_bad_sig(block_hash, Some(Default::default()));
-			candidate_receipt.descriptor.para_id = ParaId::from(0_u32);
-			candidate_receipt.descriptor.relay_parent = block_hash;
+			candidate_receipt.descriptor.set_para_id(ParaId::from(0_u32));
+			candidate_receipt.descriptor.set_relay_parent(block_hash);
 			candidate_receipt.hash()
 		};
 
@@ -2412,12 +2413,12 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 
 		let candidate_receipt1 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt
 		};
 		let candidate_receipt2 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt
 		};
 		let candidate_hash1 = candidate_receipt1.hash();
@@ -2576,17 +2577,17 @@ fn inclusion_events_can_be_unordered_by_core_index() {
 
 		let candidate_receipt0 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(0_u32);
+			receipt.descriptor.set_para_id(ParaId::from(0_u32));
 			receipt
 		};
 		let candidate_receipt1 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt
 		};
 		let candidate_receipt2 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt
 		};
 		let candidate_index0 = 0;
@@ -2720,7 +2721,7 @@ fn approved_ancestor_test(
 			.enumerate()
 			.map(|(i, hash)| {
 				let mut candidate_receipt = dummy_candidate_receipt_v2(*hash);
-				candidate_receipt.descriptor.para_id = i.into();
+				candidate_receipt.descriptor.set_para_id(i.into());
 				candidate_receipt
 			})
 			.collect();
@@ -3022,12 +3023,12 @@ fn subsystem_doesnt_distribute_duplicate_compact_assignments() {
 
 		let candidate_receipt1 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt
 		};
 		let candidate_receipt2 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt
 		};
 		let candidate_index1 = 0;
@@ -3975,7 +3976,7 @@ fn test_approval_is_sent_on_max_approval_coalesce_count() {
 
 		let candidate_receipt1 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt.commitments_hash = candidate_commitments.hash();
 			receipt
 		};
@@ -3984,7 +3985,7 @@ fn test_approval_is_sent_on_max_approval_coalesce_count() {
 
 		let candidate_receipt2 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt.commitments_hash = candidate_commitments.hash();
 			receipt
 		};
@@ -4276,7 +4277,7 @@ fn test_approval_is_sent_on_max_approval_coalesce_wait() {
 
 		let candidate_receipt1 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt.commitments_hash = candidate_commitments.hash();
 			receipt
 		};
@@ -4285,7 +4286,7 @@ fn test_approval_is_sent_on_max_approval_coalesce_wait() {
 
 		let candidate_receipt2 = {
 			let mut receipt = dummy_candidate_receipt_v2(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt.commitments_hash = candidate_commitments.hash();
 			receipt
 		};

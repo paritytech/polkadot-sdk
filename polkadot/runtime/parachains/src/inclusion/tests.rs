@@ -36,7 +36,7 @@ use frame_support::assert_noop;
 use polkadot_primitives::{
 	BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
 	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
-	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
+	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID, vstaging::MutateDescriptorV2,
 };
 use polkadot_primitives_test_helpers::dummy_validation_code;
 use sc_keystore::LocalKeystore;

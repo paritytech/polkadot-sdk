@@ -20,12 +20,12 @@ use polkadot_primitives::{
 	vstaging::{MutateDescriptorV2, OccupiedCore},
 	ScheduledCore,
 };
-use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
+use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
 
 const MOCK_GROUP_SIZE: usize = 5;
 
 pub fn occupied_core(para_id: u32) -> CoreState {
-	let mut candidate_descriptor = dummy_candidate_descriptor(dummy_hash());
+	let mut candidate_descriptor = dummy_candidate_descriptor_v2(dummy_hash());
 	candidate_descriptor.set_para_id(para_id.into());
 
 	CoreState::Occupied(OccupiedCore {
@@ -257,9 +257,10 @@ mod select_candidates {
 	use polkadot_node_subsystem_test_helpers::TestSubsystemSender;
 	use polkadot_node_subsystem_util::runtime::ProspectiveParachainsMode;
 	use polkadot_primitives::{
-		BlockNumber, CandidateCommitments, CommittedCandidateReceipt, PersistedValidationData,
+		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2},
+		BlockNumber, CandidateCommitments, PersistedValidationData,
 	};
-	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
+	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
 	use rstest::rstest;
 	use std::ops::Not;
 	use CoreState::{Free, Scheduled};
@@ -269,8 +270,8 @@ mod select_candidates {
 	fn dummy_candidate_template() -> CandidateReceipt {
 		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
 
-		let mut descriptor_template = dummy_candidate_descriptor(dummy_hash());
-		descriptor_template.persisted_validation_data_hash = empty_hash;
+		let mut descriptor_template = dummy_candidate_descriptor_v2(dummy_hash());
+		descriptor_template.set_persisted_validation_data_hash(empty_hash);
 		CandidateReceipt {
 			descriptor: descriptor_template,
 			commitments_hash: CandidateCommitments::default().hash(),
@@ -810,7 +811,7 @@ mod select_candidates {
 
 		let committed_receipts: Vec<_> = (0..=mock_cores.len())
 			.map(|i| {
-				let mut descriptor = dummy_candidate_descriptor(dummy_hash());
+				let mut descriptor = dummy_candidate_descriptor_v2(dummy_hash());
 				descriptor.set_para_id(i.into());
 				descriptor.set_persisted_validation_data_hash(empty_hash);
 				CommittedCandidateReceipt {
@@ -920,14 +921,14 @@ mod select_candidates {
 
 		let committed_receipts: Vec<_> = (0..mock_cores.len())
 			.map(|i| {
-				let mut descriptor = dummy_candidate_descriptor(dummy_hash());
+				let mut descriptor = dummy_candidate_descriptor_v2(dummy_hash());
 				descriptor.set_para_id(if let Scheduled(scheduled_core) = &mock_cores[i] {
 					scheduled_core.para_id
 				} else {
 					panic!("`mock_cores` is not initialized with `Scheduled`?")
 				});
-				descriptor.persisted_validation_data_hash = empty_hash;
-				descriptor.pov_hash = Hash::from_low_u64_be(i as u64);
+				descriptor.set_persisted_validation_data_hash(empty_hash);
+				descriptor.set_pov_hash(Hash::from_low_u64_be(i as u64));
 				CommittedCandidateReceipt {
 					descriptor,
 					commitments: CandidateCommitments {

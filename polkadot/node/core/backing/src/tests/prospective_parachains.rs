@@ -20,7 +20,7 @@ use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, HypotheticalMembership},
 	ActivatedLeaf, TimeoutExt,
 };
-use polkadot_primitives::{AsyncBackingParams, BlockNumber, Header, OccupiedCore};
+use polkadot_primitives::{vstaging::OccupiedCore, AsyncBackingParams, BlockNumber, Header};
 
 use super::*;
 
@@ -890,7 +890,7 @@ fn prospective_parachains_reject_candidate() {
 			AllMessages::CollatorProtocol(CollatorProtocolMessage::Invalid(
 				relay_parent,
 				candidate_receipt,
-			)) if candidate_receipt.descriptor() == candidate.descriptor() &&
+			)) if candidate_receipt.descriptor == candidate.descriptor &&
 				candidate_receipt.commitments_hash == candidate.commitments.hash() &&
 				relay_parent == leaf_a_parent
 		);
@@ -1179,7 +1179,7 @@ fn backing_works() {
 
 		assert_validate_seconded_candidate(
 			&mut virtual_overseer,
-			candidate_a.descriptor().relay_parent,
+			candidate_a.descriptor.relay_parent(),
 			&candidate_a,
 			&pov,
 			&pvd,
@@ -1544,7 +1544,7 @@ fn seconding_sanity_check_occupy_same_depth() {
 
 			assert_validate_seconded_candidate(
 				&mut virtual_overseer,
-				candidate.descriptor().relay_parent,
+				candidate.descriptor.relay_parent(),
 				&candidate,
 				&pov,
 				&pvd,
@@ -1599,13 +1599,13 @@ fn seconding_sanity_check_occupy_same_depth() {
 						parent_hash,
 						_signed_statement,
 					)
-				) if parent_hash == candidate.descriptor().relay_parent => {}
+				) if parent_hash == candidate.descriptor.relay_parent() => {}
 			);
 
 			assert_matches!(
 				virtual_overseer.recv().await,
 				AllMessages::CollatorProtocol(CollatorProtocolMessage::Seconded(hash, statement)) => {
-					assert_eq!(candidate.descriptor().relay_parent, hash);
+					assert_eq!(candidate.descriptor.relay_parent(), hash);
 					assert_matches!(statement.payload(), Statement::Seconded(_));
 				}
 			);

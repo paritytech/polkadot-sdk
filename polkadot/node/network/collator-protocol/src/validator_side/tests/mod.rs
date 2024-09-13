@@ -342,7 +342,7 @@ async fn assert_candidate_backing_second(
 			incoming_pov,
 		)) => {
 			assert_eq!(expected_relay_parent, relay_parent);
-			assert_eq!(expected_para_id, candidate_receipt.descriptor.para_id);
+			assert_eq!(expected_para_id, candidate_receipt.descriptor.para_id());
 			assert_eq!(*expected_pov, incoming_pov);
 			assert_eq!(pvd, received_pvd);
 			candidate_receipt
@@ -592,7 +592,7 @@ fn act_on_advertisement_v2() {
 
 		response_channel
 			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone().into(), pov.clone())
 					.encode(),
 				ProtocolName::from(""),
 			)))
@@ -794,7 +794,7 @@ fn fetch_one_collation_at_a_time() {
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
 			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone().into(), pov.clone())
 					.encode(),
 				ProtocolName::from(""),
 			)))
@@ -918,7 +918,7 @@ fn fetches_next_collation() {
 		// First request finishes now:
 		response_channel_non_exclusive
 			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone().into(), pov.clone())
 					.encode(),
 				ProtocolName::from(""),
 			)))
@@ -926,7 +926,7 @@ fn fetches_next_collation() {
 
 		response_channel
 			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone().into(), pov.clone())
 					.encode(),
 				ProtocolName::from(""),
 			)))
@@ -1056,7 +1056,7 @@ fn fetch_next_collation_on_invalid_collation() {
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
 			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone().into(), pov.clone())
 					.encode(),
 				ProtocolName::from(""),
 			)))

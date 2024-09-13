@@ -439,7 +439,7 @@ async fn introduce_seconded_candidate(
 	pvd: PersistedValidationData,
 ) {
 	let req = IntroduceSecondedCandidateRequest {
-		candidate_para: candidate.descriptor().para_id,
+		candidate_para: candidate.descriptor.para_id(),
 		candidate_receipt: candidate,
 		persisted_validation_data: pvd,
 	};
@@ -458,7 +458,7 @@ async fn introduce_seconded_candidate_failed(
 	pvd: PersistedValidationData,
 ) {
 	let req = IntroduceSecondedCandidateRequest {
-		candidate_para: candidate.descriptor().para_id,
+		candidate_para: candidate.descriptor.para_id(),
 		candidate_receipt: candidate,
 		persisted_validation_data: pvd,
 	};
@@ -479,7 +479,7 @@ async fn back_candidate(
 	virtual_overseer
 		.send(overseer::FromOrchestra::Communication {
 			msg: ProspectiveParachainsMessage::CandidateBacked(
-				candidate.descriptor.para_id,
+				candidate.descriptor.para_id(),
 				candidate_hash,
 			),
 		})

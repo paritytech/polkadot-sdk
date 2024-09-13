@@ -23,8 +23,8 @@ use sp_keyring::Sr25519Keyring;
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV, Proof};
 use polkadot_primitives::{
-	CandidateCommitments, CandidateDescriptor, CandidateHash, ChunkIndex,
-	CommittedCandidateReceipt, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, OccupiedCore,
+	CandidateCommitments, vstaging::CandidateDescriptorV2 as CandidateDescriptor, CandidateHash, ChunkIndex,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, vstaging::OccupiedCore,
 	PersistedValidationData, SessionInfo, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{

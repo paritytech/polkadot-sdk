@@ -35,3 +35,5 @@ assert_matches = { workspace = true }
 rstest = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
+

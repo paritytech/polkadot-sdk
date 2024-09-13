@@ -20,8 +20,8 @@ use super::*;
 
 use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, AsyncBackingParams, BlockNumber, CandidateCommitments,
-	Header, SigningContext, ValidatorId,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, AsyncBackingParams,
+	BlockNumber, CandidateCommitments, Header, SigningContext, ValidatorId,
 };
 use rstest::rstest;
 
