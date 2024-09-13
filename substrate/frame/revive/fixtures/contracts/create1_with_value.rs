@@ -23,10 +23,7 @@ use uapi::{HostFn, HostFnImpl as api, ReturnErrorCode};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {
-	//let value = u64_output!(api::value_transferred,);
-	//assert_ne!(value, 0);
-}
+pub extern "C" fn deploy() {}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
