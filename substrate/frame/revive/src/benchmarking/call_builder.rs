@@ -22,11 +22,9 @@ use crate::{
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	wasm::{ApiVersion, PreparedCall, Runtime},
-	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, TypeInfo, WasmBlob, Weight,
+	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, WasmBlob, Weight,
 };
 use alloc::{vec, vec::Vec};
-use codec::Encode;
-use core::fmt::Debug;
 use frame_benchmarking::benchmarking;
 use frame_support::traits::IsType;
 use sp_core::{H256, U256};
