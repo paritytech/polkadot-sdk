@@ -185,7 +185,7 @@ where
 		let dropped_monitor_task = Self::dropped_monitor_task(dropped_stream, mempool.clone());
 
 		let combined_tasks = async move {
-			futures::select! {
+			tokio::select! {
 				_ = import_notification_sink_task => {},
 				_ = dropped_monitor_task => {}
 			}
@@ -265,7 +265,7 @@ where
 		let dropped_monitor_task = Self::dropped_monitor_task(dropped_stream, mempool.clone());
 
 		let combined_tasks = async move {
-			futures::select! {
+			tokio::select! {
 				_ = revalidation_task => {},
 				_ = import_notification_sink_task => {},
 				_ = dropped_monitor_task => {}
@@ -406,7 +406,14 @@ where
 				}
 
 				let before_count = tmp_view.pool.validated_pool().status().ready;
-				let tags = tmp_view.pool.validated_pool().extrinsics_tags(&all_extrinsics).into_iter().flatten().collect::<Vec<_>>();
+				let tags = tmp_view
+					.pool
+					.validated_pool()
+					.extrinsics_tags(&all_extrinsics)
+					.into_iter()
+					.flatten()
+					.flatten()
+					.collect::<Vec<_>>();
 				let _ = tmp_view.pool.validated_pool().prune_tags(tags);
 
 				let after_count = tmp_view.pool.validated_pool().status().ready;
@@ -643,7 +650,8 @@ where
 		if !hashes.is_empty() {
 			log::debug!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
 			log_xt_trace!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
-			self.metrics.report(|metrics| metrics.removed_invalid_txs.inc_by(hashes.len() as _));
+			self.metrics
+				.report(|metrics| metrics.removed_invalid_txs.inc_by(hashes.len() as _));
 		}
 		Default::default()
 	}
