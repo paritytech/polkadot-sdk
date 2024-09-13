@@ -73,12 +73,19 @@ fn setup_proposal<T: Config<I>, I: 'static>(
 
 // Create proposals that are approved for use in `on_initialize`.
 fn create_approved_proposals<T: Config<I>, I: 'static>(n: u32) -> Result<(), &'static str> {
-	let origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+	let spender = T::SpendOrigin::try_successful_origin();
+
 	for i in 0..n {
 		let (_, value, lookup) = setup_proposal::<T, I>(i);
-		Treasury::<T, I>::spend_local(origin.clone(), value, lookup)?;
+
+		if let Ok(origin) = &spender {
+			Treasury::<T, I>::spend_local(origin.clone(), value, lookup)?;
+		}
 	}
-	ensure!(Approvals::<T, I>::get().len() == n as usize, "Not all approved");
+
+	if spender.is_ok() {
+		ensure!(Approvals::<T, I>::get().len() == n as usize, "Not all approved");
+	}
 	Ok(())
 }
 
