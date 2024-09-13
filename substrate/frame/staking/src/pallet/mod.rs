@@ -893,6 +893,9 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
+		/// Staking balance migrated from locks to holds, with any balance that could not be held
+		/// is force withdrawn.
+		CurrencyMigrated { stash: T::AccountId, force_withdraw: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -966,6 +969,8 @@ pub mod pallet {
 		VirtualStakerNotAllowed,
 		/// Stash could not be reaped as other pallet might depend on it.
 		CannotReapStash,
+		/// The stake of this account is already migrated to `Fungible` holds.
+		AlreadyMigrated,
 	}
 
 	#[pallet::hooks]

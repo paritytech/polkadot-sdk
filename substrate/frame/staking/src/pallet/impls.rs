@@ -61,6 +61,7 @@ use super::pallet::*;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+use frame_support::traits::LockIdentifier;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
@@ -1160,41 +1161,46 @@ impl<T: Config> Pallet<T> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
 
-	pub fn migrate_lock_to_hold<OldCurrency>(stash: &T::AccountId) -> DispatchResult
-	where
-		OldCurrency: frame_support::traits::InspectLockableCurrency<T::AccountId>,
-		BalanceOf<T>: From<OldCurrency::Balance>,
-	{
-		if Self::is_virtual_staker(stash) {
-			// we don't need to do anything for virtual stakers since their funds are not locked by
-			// this pallet.
-			return Ok(())
-		}
+	pub fn migrate_currency(stash: &T::AccountId) -> DispatchResult {
+		use frame_support::traits::{InspectLockableCurrency, LockIdentifier, LockableCurrency};
 
+		// we can't do anything for virtual stakers since their funds are not managed/held by
+		// this pallet.
+		ensure!(!Self::is_virtual_staker(stash), Error::<T>::VirtualStakerNotAllowed);
 		let ledger = Self::ledger(Stash(stash.clone()))?;
-		const LOCK_ID: frame_support::traits::LockIdentifier = *b"staking ";
-		let locked: BalanceOf<T> = OldCurrency::balance_locked(LOCK_ID, stash).into();
-		let max_hold = asset::stakeable_balance::<T>(&stash);
-		if max_hold >= locked {
-			// this is great. easy job for us.
-			// just hold asset.
-			asset::update_stake::<T>(&stash, locked)?;
-		} else {
-			let ed = asset::existential_deposit::<T>();
-			let unsafe_withdraw = locked.saturating_sub(max_hold);
-			log::info!(target: "remote_test", "unsafe_withdraw from stash: {:?}, value {:?}, active {:?}", stash, unsafe_withdraw/ed, ledger.active/ed);
+		const LOCK_ID: LockIdentifier = *b"staking ";
+		let locked: BalanceOf<T> = T::OldCurrency::balance_locked(LOCK_ID, stash).into();
+		ensure!(!locked.is_zero(), Error::<T>::AlreadyMigrated);
+		ensure!(ledger.total == locked, Error::<T>::BadState);
 
-			// we ignore if active is 0. This amount will get unlocked anyways in the future.
+		let max_hold = asset::stakeable_balance::<T>(&stash);
+		let force_withdraw = if max_hold >= locked {
+			// this means we can replace all locked with stake. yay!
+			asset::update_stake::<T>(&stash, locked)?;
+			Zero::zero()
+		} else {
+			// if we are here, it means we cannot hold all funds. We will do a force withdraw from
+			// ledger which will mean the stake of the user will abruptly reduce.
+			let force_withdraw = locked.saturating_sub(max_hold);
+			log::info!(target: "remote_test", "force_withdraw from stash: {:?}, value {:?}, active {:?}", stash, force_withdraw, ledger.active);
+
+			// we ignore if active is 0. It implies the locked amount is not actively staked. The
+			// account can still get away from potential slash but we can't do much better here.
 			StakingLedger {
 				total: max_hold,
-				active: ledger.active.saturating_sub(unsafe_withdraw),
+				active: ledger.active.saturating_sub(force_withdraw),
 				// we are not changing the stash, so we can keep the stash.
 				..ledger
 			}
 			.update()?;
-		}
+			force_withdraw
+		};
 
+		// We used to have an extra consumer before. Get rid of it.
 		frame_system::Pallet::<T>::dec_consumers(&stash);
+
+		Self::deposit_event(Event::<T>::CurrencyMigrated { stash: stash.clone(), force_withdraw });
+
 		Ok(())
 	}
 }
