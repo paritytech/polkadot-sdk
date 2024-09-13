@@ -66,8 +66,6 @@ use std::{
 };
 use tokio::select;
 
-pub type FullPool<Block, Client> = ForkAwareTxPool<FullChainApi<Client, Block>, Block>;
-
 /// Fork aware transaction pool task, that needs to be polled.
 pub type ForkAwareTxPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
@@ -1332,7 +1330,7 @@ where
 	}
 }
 
-impl<Block, Client> FullPool<Block, Client>
+impl<Block, Client> ForkAwareTxPool<FullChainApi<Client, Block>, Block>
 where
 	Block: BlockT,
 	Client: sp_api::ProvideRuntimeApi<Block>
@@ -1348,7 +1346,7 @@ where
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 	<Block as BlockT>::Hash: std::marker::Unpin,
 {
-	/// Create new basic transaction pool for a full node with the provided api.
+	/// Create new fork aware transaction pool for a full node with the provided api.
 	pub fn new_full(
 		options: Options,
 		is_validator: IsValidator,

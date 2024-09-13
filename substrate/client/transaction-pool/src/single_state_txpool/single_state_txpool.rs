@@ -18,49 +18,44 @@
 
 //! Substrate transaction pool implementation.
 
+use super::{metrics::MetricsLink as PrometheusMetrics, revalidation};
 pub use crate::{
 	api::FullChainApi,
 	graph::{ChainApi, ValidatedTransaction},
 };
 use crate::{
-	common::enactment_state::{EnactmentAction, EnactmentState},
-	log_xt_trace,
+	common::{
+		enactment_state::{EnactmentAction, EnactmentState},
+		error,
+	},
+	graph,
+	graph::{ExtrinsicHash, IsValidator},
+	log_xt_trace, PolledIterator, ReadyIteratorFor,
 };
 use async_trait::async_trait;
 use futures::{channel::oneshot, future, prelude::*, Future, FutureExt};
 use parking_lot::Mutex;
-use std::{
-	collections::{HashMap, HashSet},
-	pin::Pin,
-	sync::Arc,
-};
-use tokio::select;
-
-use crate::graph::{ExtrinsicHash, IsValidator};
+use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
 	PoolFuture, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatusStreamFor, TxHash,
 };
+use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{AtLeast32Bit, Block as BlockT, Extrinsic, Header as HeaderT, NumberFor, Zero},
 };
-use std::time::Instant;
-
-use super::{metrics::MetricsLink as PrometheusMetrics, revalidation};
-use crate::{common::error, graph};
-use prometheus_endpoint::Registry as PrometheusRegistry;
-
-use sp_blockchain::{HashAndNumber, TreeRoute};
+use std::{
+	collections::{HashMap, HashSet},
+	pin::Pin,
+	sync::Arc,
+	time::Instant,
+};
+use tokio::select;
 
 pub(crate) const LOG_TARGET: &str = "txpool";
-
-use crate::{PolledIterator, ReadyIteratorFor};
-
-/// A transaction pool for a full node.
-pub type FullPool<Block, Client> = BasicPool<FullChainApi<Client, Block>, Block>;
 
 /// Basic implementation of transaction pool that can be customized by providing PoolApi.
 pub struct BasicPool<PoolApi, Block>
@@ -412,7 +407,7 @@ where
 	}
 }
 
-impl<Block, Client> FullPool<Block, Client>
+impl<Block, Client> BasicPool<FullChainApi<Client, Block>, Block>
 where
 	Block: BlockT,
 	Client: sp_api::ProvideRuntimeApi<Block>

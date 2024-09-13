@@ -20,9 +20,9 @@
 
 use crate::{
 	common::api::FullChainApi,
-	fork_aware_txpool::FullPool as ForkAwareFullPool,
+	fork_aware_txpool::ForkAwareTxPool as ForkAwareFullPool,
 	graph::{base_pool::Transaction, ChainApi, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
-	single_state_txpool::FullPool as SingleStateFullPool,
+	single_state_txpool::BasicPool as SingleStateFullPool,
 	TransactionPoolWrapper, LOG_TARGET,
 };
 use prometheus_endpoint::Registry as PrometheusRegistry;

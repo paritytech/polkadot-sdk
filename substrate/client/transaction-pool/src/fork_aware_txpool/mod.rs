@@ -351,5 +351,4 @@ mod tx_mem_pool;
 mod view;
 mod view_store;
 
-pub(crate) use fork_aware_txpool::FullPool;
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
