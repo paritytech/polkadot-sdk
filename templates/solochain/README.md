@@ -23,12 +23,20 @@ packages required to compile this template. Check the
 the most common dependencies. Alternatively, you can use one of the [alternative
 installation](#alternatives-installations) options.
 
-### Build
-
-Use the following command to build the node without launching it:
+Fetch solochain template code:
 
 ```sh
-cargo build --package solochain-template-node --release
+git clone https://github.com/paritytech/polkadot-sdk-solochain-template.git solochain-template
+
+cd solochain-template
+```
+
+### Build
+
+🔨 Use the following command to build the node without launching it:
+
+```sh
+cargo build --release
 ```
 
 ### Embedded Docs

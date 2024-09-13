@@ -37,10 +37,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use bridge_runtime_common::extensions::{
-	check_obsolete_extension::{
-		CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
-	},
-	refund_relayer_extension::RefundableParachain,
+	CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::ParaId;
@@ -84,7 +81,6 @@ use xcm_runtime_apis::{
 };
 
 use bp_runtime::HeaderId;
-
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
@@ -144,9 +140,24 @@ pub type Migrations = (
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+	pallet_bridge_messages::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
+	>,
+	bridge_to_rococo_config::migration::StaticToDynamicLanes,
+	frame_support::migrations::RemoveStorage<
+		BridgeRococoMessagesPalletName,
+		OutboundLanesCongestedSignalsKey,
+		RocksDbWeight,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
+
+parameter_types! {
+	pub const BridgeRococoMessagesPalletName: &'static str = "BridgeRococoMessages";
+	pub const OutboundLanesCongestedSignalsKey: &'static str = "OutboundLanesCongestedSignals";
+}
 
 /// Migration to initialize storage versions for pallets added after genesis.
 ///
@@ -198,11 +209,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-westend"),
 	impl_name: create_runtime_str!("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_016_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The version information used to identify this runtime when compiled natively.
@@ -549,10 +560,8 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	// Parachains
 	CheckAndBoostBridgeParachainsTransactions<
 		Runtime,
-		RefundableParachain<
-			bridge_to_rococo_config::BridgeParachainRococoInstance,
-			bp_bridge_hub_rococo::BridgeHubRococo,
-		>,
+		bridge_to_rococo_config::BridgeParachainRococoInstance,
+		bp_bridge_hub_rococo::BridgeHubRococo,
 		bridge_to_rococo_config::PriorityBoostPerParachainHeader,
 		xcm_config::TreasuryAccount,
 	>,
@@ -1101,11 +1110,41 @@ impl_runtime_apis! {
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
+
+					let sibling_parachain_location = Location::new(1, [Parachain(5678)]);
+
+					// fund SA
+					use frame_support::traits::fungible::Mutate;
+					use xcm_executor::traits::ConvertLocation;
+					frame_support::assert_ok!(
+						Balances::mint_into(
+							&xcm_config::LocationToAccountId::convert_location(&sibling_parachain_location).expect("valid AccountId"),
+							bridge_to_rococo_config::BridgeDeposit::get()
+								.saturating_add(ExistentialDeposit::get())
+								.saturating_add(UNITS * 5)
+						)
+					);
+
+					// open bridge
+					let origin = RuntimeOrigin::from(pallet_xcm::Origin::Xcm(sibling_parachain_location.clone()));
+					XcmOverBridgeHubRococo::open_bridge(
+						origin.clone(),
+						alloc::boxed::Box::new(VersionedInteriorLocation::from([GlobalConsensus(NetworkId::Rococo), Parachain(8765)])),
+					).map_err(|e| {
+						log::error!(
+							"Failed to `XcmOverBridgeHubRococo::open_bridge`({:?}, {:?})`, error: {:?}",
+							origin,
+							[GlobalConsensus(NetworkId::Rococo), Parachain(8765)],
+							e
+						);
+						BenchmarkError::Stop("Bridge was not opened!")
+					})?;
+
 					Ok(
 						(
-							bridge_to_rococo_config::FromAssetHubWestendToAssetHubRococoRoute::get().location,
+							sibling_parachain_location,
 							NetworkId::Rococo,
-							[Parachain(bridge_to_rococo_config::AssetHubRococoParaId::get().into())].into()
+							[Parachain(8765)].into()
 						)
 					)
 				}
@@ -1154,16 +1193,18 @@ impl_runtime_apis! {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+					let universal_source = bridge_to_rococo_config::open_bridge_for_benchmarks(params.lane, 42);
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Westend), Parachain(42)].into()))
+					>(params, generate_xcm_builder_bridge_message_sample(universal_source))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId>,
 				) -> bridge_to_rococo_config::ToRococoBridgeHubMessagesDeliveryProof {
+					let _ = bridge_to_rococo_config::open_bridge_for_benchmarks(params.lane, 42);
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
@@ -1195,8 +1236,8 @@ impl_runtime_apis! {
 					parachain_head_size: u32,
 					proof_params: bp_runtime::UnverifiedStorageProofParams,
 				) -> (
-					pallet_bridge_parachains::RelayBlockNumber,
-					pallet_bridge_parachains::RelayBlockHash,
+					bp_parachains::RelayBlockNumber,
+					bp_parachains::RelayBlockHash,
 					bp_polkadot_core::parachains::ParaHeadsProof,
 					Vec<(bp_polkadot_core::parachains::ParaId, bp_polkadot_core::parachains::ParaHash)>,
 				) {
@@ -1281,40 +1322,40 @@ mod tests {
 		use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 
 		sp_io::TestExternalities::default().execute_with(|| {
-			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
-			let payload: SignedExtra = (
-				frame_system::CheckNonZeroSender::new(),
-				frame_system::CheckSpecVersion::new(),
-				frame_system::CheckTxVersion::new(),
-				frame_system::CheckGenesis::new(),
-				frame_system::CheckEra::from(Era::Immortal),
-				frame_system::CheckNonce::from(10),
-				frame_system::CheckWeight::new(),
-				pallet_transaction_payment::ChargeTransactionPayment::from(10),
-				BridgeRejectObsoleteHeadersAndMessages,
-				(
-					bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
-				),
-				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
-				frame_metadata_hash_extension::CheckMetadataHash::new(false),
-			);
+            frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
+            let payload: SignedExtra = (
+                frame_system::CheckNonZeroSender::new(),
+                frame_system::CheckSpecVersion::new(),
+                frame_system::CheckTxVersion::new(),
+                frame_system::CheckGenesis::new(),
+                frame_system::CheckEra::from(Era::Immortal),
+                frame_system::CheckNonce::from(10),
+                frame_system::CheckWeight::new(),
+                pallet_transaction_payment::ChargeTransactionPayment::from(10),
+                BridgeRejectObsoleteHeadersAndMessages,
+                (
+                    bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
+                ),
+                cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+                frame_metadata_hash_extension::CheckMetadataHash::new(false),
+            );
 
-			{
-				let bh_indirect_payload = bp_bridge_hub_westend::SignedExtension::from_params(
-					VERSION.spec_version,
-					VERSION.transaction_version,
-					bp_runtime::TransactionEra::Immortal,
-					System::block_hash(BlockNumber::zero()),
-					10,
-					10,
-					(((), ()), ((), ())),
-				);
-				assert_eq!(payload.encode().split_last().unwrap().1, bh_indirect_payload.encode());
-				assert_eq!(
-					payload.additional_signed().unwrap().encode().split_last().unwrap().1,
-					bh_indirect_payload.additional_signed().unwrap().encode()
-				)
-			}
-		});
+            {
+                let bh_indirect_payload = bp_bridge_hub_westend::SignedExtension::from_params(
+                    VERSION.spec_version,
+                    VERSION.transaction_version,
+                    bp_runtime::TransactionEra::Immortal,
+                    System::block_hash(BlockNumber::zero()),
+                    10,
+                    10,
+                    (((), ()), ((), ())),
+                );
+                assert_eq!(payload.encode().split_last().unwrap().1, bh_indirect_payload.encode());
+                assert_eq!(
+                    payload.additional_signed().unwrap().encode().split_last().unwrap().1,
+                    bh_indirect_payload.additional_signed().unwrap().encode()
+                )
+            }
+        });
 	}
 }
