@@ -42,7 +42,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
