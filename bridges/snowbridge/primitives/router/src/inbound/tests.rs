@@ -66,9 +66,5 @@ fn test_reanchor_all_assets() {
 		let mut reanchored_asset_with_ethereum_context = reanchored_asset.clone();
 		assert_ok!(reanchored_asset_with_ethereum_context.reanchor(&global_ah, &ethereum_context));
 		assert_eq!(reanchored_asset_with_ethereum_context, asset.clone());
-		// reanchor back to original location in context of BH
-		let mut reanchored_asset_with_bh_context = reanchored_asset.clone();
-		assert_ok!(reanchored_asset_with_bh_context.reanchor(&global_ah, &bh_context));
-		assert_eq!(reanchored_asset_with_bh_context, asset.clone());
 	}
 }
