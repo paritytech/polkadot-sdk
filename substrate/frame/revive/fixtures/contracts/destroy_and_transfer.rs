@@ -42,7 +42,7 @@ pub extern "C" fn deploy() {
 		&input,
 		Some(&mut address),
 		None,
-		&salt,
+		Some(&salt),
 	)
 	.unwrap();
 
