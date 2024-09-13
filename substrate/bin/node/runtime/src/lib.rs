@@ -1399,6 +1399,7 @@ impl pallet_contracts::Config for Runtime {
 }
 
 impl pallet_revive::Config for Runtime {
+	type ChainId = ConstU32<42>;
 	type Time = Timestamp;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
