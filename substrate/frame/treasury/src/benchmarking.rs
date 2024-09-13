@@ -26,7 +26,7 @@ use frame_benchmarking::{
 	v2::*,
 };
 use frame_support::{
-	ensure,
+	assert_err, assert_ok, ensure,
 	traits::{
 		tokens::{ConversionFromAssetBalance, PaymentStatus},
 		EnsureOrigin, OnInitialize,
@@ -102,33 +102,6 @@ fn create_spend_arguments<T: Config<I>, I: 'static>(
 	let beneficiary = T::BenchmarkHelper::create_beneficiary([seed.try_into().unwrap(); 32]);
 	let beneficiary_lookup = T::BeneficiaryLookup::unlookup(beneficiary.clone());
 	(asset_kind, 100u32.into(), beneficiary, beneficiary_lookup)
-}
-
-// Use this `spend` insertion to bypass the `SpendOrigin` check. This is helpful
-// for benchmarking `payout`, `check_status`, and `void_spend`, which require
-// a spend in storage even if `SpendOrigin` cannot provide a successful origin.
-fn force_add_spend<T: Config<I>, I: 'static>(
-	asset_kind: Box<T::AssetKind>,
-	amount: AssetBalanceOf<T, I>,
-	beneficiary: Box<BeneficiaryLookupOf<T, I>>,
-) -> Result<(), &'static str> {
-	let valid_from = frame_system::Pallet::<T>::block_number();
-	let expire_at = valid_from.saturating_add(T::PayoutPeriod::get());
-	let beneficiary = T::BeneficiaryLookup::lookup(*beneficiary)?;
-	let index = SpendCount::<T, I>::get();
-	Spends::<T, I>::insert(
-		index,
-		SpendStatus {
-			asset_kind: *asset_kind.clone(),
-			amount,
-			beneficiary: beneficiary.clone(),
-			valid_from,
-			expire_at,
-			status: PaymentState::Pending,
-		},
-	);
-	SpendCount::<T, I>::put(index + 1);
-	Ok(())
 }
 
 #[instance_benchmarks]
@@ -282,26 +255,47 @@ mod benchmarks {
 		let (asset_kind, amount, beneficiary, beneficiary_lookup) =
 			create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
-		force_add_spend::<T, _>(
-			Box::new(asset_kind.clone()),
-			amount,
-			Box::new(beneficiary_lookup),
-		)?;
+
+		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
+			Treasury::<T, _>::spend(
+				origin,
+				Box::new(asset_kind.clone()),
+				amount,
+				Box::new(beneficiary_lookup),
+				None,
+			)?;
+
+			true
+		} else {
+			false
+		};
+
 		T::Paymaster::ensure_successful(&beneficiary, asset_kind, amount);
 		let caller: T::AccountId = account("caller", 0, SEED);
 
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), 0u32);
+		#[block]
+		{
+			let res = Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into(), 0u32);
 
-		let id = match Spends::<T, I>::get(0).unwrap().status {
-			PaymentState::Attempted { id, .. } => {
-				assert_ne!(T::Paymaster::check_payment(id), PaymentStatus::Failure);
-				id
-			},
-			_ => panic!("No payout attempt made"),
-		};
-		assert_last_event::<T, I>(Event::Paid { index: 0, payment_id: id }.into());
-		assert!(Treasury::<T, _>::payout(RawOrigin::Signed(caller).into(), 0u32).is_err());
+			if spend_exists {
+				assert_ok!(res);
+			} else {
+				assert_err!(res, crate::Error::<T, _>::InvalidIndex);
+			}
+		}
+
+		if spend_exists {
+			let id = match Spends::<T, I>::get(0).unwrap().status {
+				PaymentState::Attempted { id, .. } => {
+					assert_ne!(T::Paymaster::check_payment(id), PaymentStatus::Failure);
+					id
+				},
+				_ => panic!("No payout attempt made"),
+			};
+			assert_last_event::<T, I>(Event::Paid { index: 0, payment_id: id }.into());
+			assert!(Treasury::<T, _>::payout(RawOrigin::Signed(caller).into(), 0u32).is_err());
+		}
+
 		Ok(())
 	}
 
@@ -309,28 +303,49 @@ mod benchmarks {
 	fn check_status() -> Result<(), BenchmarkError> {
 		let (asset_kind, amount, beneficiary, beneficiary_lookup) =
 			create_spend_arguments::<T, _>(SEED);
+
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
-		force_add_spend::<T, _>(
-			Box::new(asset_kind.clone()),
-			amount,
-			Box::new(beneficiary_lookup),
-		)?;
-		T::Paymaster::ensure_successful(&beneficiary, asset_kind, amount);
+		T::Paymaster::ensure_successful(&beneficiary, asset_kind.clone(), amount);
 		let caller: T::AccountId = account("caller", 0, SEED);
-		Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into(), 0u32)?;
-		match Spends::<T, I>::get(0).unwrap().status {
-			PaymentState::Attempted { id, .. } => {
-				T::Paymaster::ensure_concluded(id);
-			},
-			_ => panic!("No payout attempt made"),
+
+		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
+			Treasury::<T, _>::spend(
+				origin,
+				Box::new(asset_kind),
+				amount,
+				Box::new(beneficiary_lookup),
+				None,
+			)?;
+
+			Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into(), 0u32)?;
+			match Spends::<T, I>::get(0).unwrap().status {
+				PaymentState::Attempted { id, .. } => {
+					T::Paymaster::ensure_concluded(id);
+				},
+				_ => panic!("No payout attempt made"),
+			};
+
+			true
+		} else {
+			false
 		};
 
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), 0u32);
+		#[block]
+		{
+			let res =
+				Treasury::<T, _>::check_status(RawOrigin::Signed(caller.clone()).into(), 0u32);
+
+			if spend_exists {
+				assert_ok!(res);
+			} else {
+				assert_err!(res, crate::Error::<T, _>::InvalidIndex);
+			}
+		}
 
 		if let Some(s) = Spends::<T, I>::get(0) {
 			assert!(!matches!(s.status, PaymentState::Attempted { .. }));
 		}
+
 		Ok(())
 	}
 
@@ -338,17 +353,34 @@ mod benchmarks {
 	fn void_spend() -> Result<(), BenchmarkError> {
 		let (asset_kind, amount, _, beneficiary_lookup) = create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
-		force_add_spend::<T, _>(
-			Box::new(asset_kind.clone()),
-			amount,
-			Box::new(beneficiary_lookup),
-		)?;
-		assert!(Spends::<T, I>::get(0).is_some());
+		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
+			Treasury::<T, _>::spend(
+				origin,
+				Box::new(asset_kind.clone()),
+				amount,
+				Box::new(beneficiary_lookup),
+				None,
+			)?;
+			assert!(Spends::<T, I>::get(0).is_some());
+
+			true
+		} else {
+			false
+		};
+
 		let origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
-		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, 0u32);
+		#[block]
+		{
+			let res = Treasury::<T, _>::void_spend(origin as T::RuntimeOrigin, 0u32);
+
+			if spend_exists {
+				assert_ok!(res);
+			} else {
+				assert_err!(res, crate::Error::<T, _>::InvalidIndex);
+			}
+		}
 
 		assert!(Spends::<T, I>::get(0).is_none());
 		Ok(())
@@ -359,4 +391,15 @@ mod benchmarks {
 		crate::tests::ExtBuilder::default().build(),
 		crate::tests::Test
 	);
+
+	mod no_spend_origin_tests {
+		use super::*;
+
+		impl_benchmark_test_suite!(
+			Treasury,
+			crate::tests::ExtBuilder::default().spend_origin_succesful_origin_err().build(),
+			crate::tests::Test,
+			benchmarks_path = benchmarking
+		);
+	}
 }
