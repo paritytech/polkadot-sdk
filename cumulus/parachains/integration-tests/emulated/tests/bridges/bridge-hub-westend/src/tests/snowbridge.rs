@@ -218,7 +218,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			)),
 			fun: Fungible(TOKEN_AMOUNT),
 		}];
-		let multi_assets = VersionedAssets::V4(Assets::from(assets));
+		let versioned_assets = VersionedAssets::V4(Assets::from(assets));
 
 		let destination = VersionedLocation::V4(Location::new(
 			2,
@@ -239,7 +239,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
 			Box::new(destination),
 			Box::new(beneficiary),
-			Box::new(multi_assets),
+			Box::new(versioned_assets),
 			0,
 			Unlimited,
 		)
@@ -337,7 +337,7 @@ fn transfer_relay_token() {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 		let assets = vec![Asset { id: AssetId(Location::parent()), fun: Fungible(TOKEN_AMOUNT) }];
-		let multi_assets = VersionedAssets::V4(Assets::from(assets));
+		let versioned_assets = VersionedAssets::V4(Assets::from(assets));
 
 		let destination = VersionedLocation::V4(Location::new(
 			2,
@@ -353,7 +353,7 @@ fn transfer_relay_token() {
 			RuntimeOrigin::signed(AssetHubWestendSender::get()),
 			Box::new(destination),
 			Box::new(beneficiary),
-			Box::new(multi_assets),
+			Box::new(versioned_assets),
 			0,
 			Unlimited,
 		));
@@ -500,7 +500,7 @@ fn transfer_ah_token() {
 		// Send partial of the token, will fail if send all
 		let assets =
 			vec![Asset { id: AssetId(asset_id.clone()), fun: Fungible(TOKEN_AMOUNT / 10) }];
-		let multi_assets = VersionedAssets::V4(Assets::from(assets));
+		let versioned_assets = VersionedAssets::V4(Assets::from(assets));
 
 		let beneficiary = VersionedLocation::V4(Location::new(
 			0,
@@ -511,7 +511,7 @@ fn transfer_ah_token() {
 			RuntimeOrigin::signed(AssetHubWestendSender::get()),
 			Box::new(VersionedLocation::from(ethereum_destination)),
 			Box::new(beneficiary),
-			Box::new(multi_assets),
+			Box::new(versioned_assets),
 			0,
 			Unlimited,
 		));
