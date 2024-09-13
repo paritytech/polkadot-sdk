@@ -220,7 +220,7 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 
 #[benchmarks(
 	where
-		BalanceOf<T>: From<<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance> + Into<U256> + TryFrom<U256>,
+		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		T: Config + pallet_balances::Config,
 		MomentOf<T>: Into<U256>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
