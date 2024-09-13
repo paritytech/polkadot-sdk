@@ -6,7 +6,7 @@
 #
 # jobs:
 #   preflight:
-#     uses: ./.github/workflows/reusable-check-changed-files.yml
+#     uses: ./.github/workflows/reusable-preflight.yml
 #   some-job:
 #     needs: changes
 #     if: ${{ needs.preflight.outputs.changes_rust }}
@@ -19,28 +19,31 @@ on:
     # Map the workflow outputs to job outputs
     outputs:
       changes_rust:
-        value: ${{ jobs.changes.outputs.changes_rust }}
+        value: ${{ jobs.preflight.outputs.changes_rust }}
       changes_currentWorkflow:
-        value: ${{ jobs.changes.outputs.changes_currentWorkflow }}
+        value: ${{ jobs.preflight.outputs.changes_currentWorkflow }}
 
       IMAGE:
-        value: ${{ jobs.changes.outputs.IMAGE }}
+        value: ${{ jobs.preflight.outputs.IMAGE }}
         description: "CI image"
       RUNNER:
-        value: ${{ jobs.changes.outputs.RUNNER }}
+        value: ${{ jobs.preflight.outputs.RUNNER }}
         description: |
           Runner name.
           By default we use spot machines that can be terminated at any time.
           Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      OLDLINUXRUNNER:
+        value: ${{ jobs.preflight.outputs.OLDLINUXRUNNER }}
+
       SOURCE_REF_NAME:
-        value: ${{ jobs.changes.outputs.SOURCE_REF_NAME }}
+        value: ${{ jobs.preflight.outputs.SOURCE_REF_NAME }}
         description: "Name of the current branch for `push` or source branch for `pull_request`"
       COMMIT_SHA:
-        value: ${{ jobs.changes.outputs.COMMIT_SHA }}
+        value: ${{ jobs.preflight.outputs.COMMIT_SHA }}
         description: "Sha of the current commit for `push` or head of the source branch for `pull_request`"
 
 jobs:
-  changes:
+  preflight:
     runs-on: ubuntu-latest
     outputs:
       changes_rust: ${{ steps.set_changes.outputs.rust_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
@@ -48,6 +51,7 @@ jobs:
 
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
       RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
+      OLDLINUXRUNNER: ${{ steps.set_runner.outputs.OLDLINUXRUNNER }}
 
       SOURCE_REF_NAME: ${{ steps.set_vars.outputs.SOURCE_REF_NAME }}
       COMMIT_SHA: ${{ steps.set_vars.outputs.COMMIT_SHA }}
@@ -100,8 +104,10 @@ jobs:
           # Run merge queues on persistent runners
           if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
             echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
+            echo "OLDLINUXRUNNER=oldlinux-persistent" >> $GITHUB_OUTPUT
           else
             echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+            echo "OLDLINUXRUNNER=oldlinux" >> $GITHUB_OUTPUT
           fi
 
       #
