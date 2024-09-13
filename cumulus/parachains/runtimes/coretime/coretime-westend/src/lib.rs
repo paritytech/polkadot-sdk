@@ -120,7 +120,7 @@ pub type Migrations = (
 	pallet_broker::migration::MigrateV0ToV1<Runtime>,
 	pallet_broker::migration::MigrateV1ToV2<Runtime>,
 	pallet_broker::migration::MigrateV2ToV3<Runtime>,
-	pallet_broker::migration::MigrateV3ToV4<Runtime, BrokerMigrationV4BlockTranslation>,
+	pallet_broker::migration::MigrateV3ToV4<Runtime, BrokerMigrationV4BlockConversion>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -446,10 +446,10 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
-pub struct BrokerMigrationV4BlockTranslation;
+pub struct BrokerMigrationV4BlockConversion;
 
-impl pallet_broker::migration::v4::BlockToRelayHeightTranslation<Runtime>
-	for BrokerMigrationV4BlockTranslation
+impl pallet_broker::migration::v4::BlockToRelayHeightConversion<Runtime>
+	for BrokerMigrationV4BlockConversion
 {
 	fn convert_block_number_to_relay_height(input_block_number: u32) -> u32 {
 		let relay_height = pallet_broker::Pallet::<Runtime>::relay_height();

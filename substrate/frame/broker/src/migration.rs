@@ -229,15 +229,15 @@ mod v3 {
 pub mod v4 {
 	use super::*;
 
-	pub trait BlockToRelayHeightTranslation<T: Config> {
+	pub trait BlockToRelayHeightConversion<T: Config> {
 		fn convert_block_number_to_relay_height(
 			block_number: frame_system::pallet_prelude::BlockNumberFor<T>,
 		) -> RelayBlockNumberOf<T>;
 	}
 
-	pub struct MigrateToV4Impl<T, BlockTranslation>(PhantomData<T>, PhantomData<BlockTranslation>);
-	impl<T: Config, BlockTranslation: BlockToRelayHeightTranslation<T>> UncheckedOnRuntimeUpgrade
-		for MigrateToV4Impl<T, BlockTranslation>
+	pub struct MigrateToV4Impl<T, BlockConversion>(PhantomData<T>, PhantomData<BlockConversion>);
+	impl<T: Config, BlockConversion: BlockToRelayHeightConversion<T>> UncheckedOnRuntimeUpgrade
+		for MigrateToV4Impl<T, BlockConversion>
 	{
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
@@ -270,11 +270,11 @@ pub mod v4 {
 				log::info!(target: LOG_TARGET, "migrating Configuration record");
 
 				let updated_interlude_length: RelayBlockNumberOf<T> =
-					BlockTranslation::convert_block_number_to_relay_height(
+					BlockConversion::convert_block_number_to_relay_height(
 						config_record.interlude_length,
 					);
 				let updated_leadin_length: RelayBlockNumberOf<T> =
-					BlockTranslation::convert_block_number_to_relay_height(
+					BlockConversion::convert_block_number_to_relay_height(
 						config_record.leadin_length,
 					);
 
@@ -296,9 +296,9 @@ pub mod v4 {
 				log::info!(target: LOG_TARGET, "migrating SaleInfo record");
 
 				let updated_sale_start: RelayBlockNumberOf<T> =
-					BlockTranslation::convert_block_number_to_relay_height(sale_info.sale_start);
+					BlockConversion::convert_block_number_to_relay_height(sale_info.sale_start);
 				let updated_leadin_length: RelayBlockNumberOf<T> =
-					BlockTranslation::convert_block_number_to_relay_height(sale_info.leadin_length);
+					BlockConversion::convert_block_number_to_relay_height(sale_info.leadin_length);
 
 				let updated_sale_info = SaleInfoRecord {
 					sale_start: updated_sale_start,
@@ -399,10 +399,10 @@ pub type MigrateV2ToV3<T> = frame_support::migrations::VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-pub type MigrateV3ToV4<T, BlockTranslation> = frame_support::migrations::VersionedMigration<
+pub type MigrateV3ToV4<T, BlockConversion> = frame_support::migrations::VersionedMigration<
 	3,
 	4,
-	v4::MigrateToV4Impl<T, BlockTranslation>,
+	v4::MigrateToV4Impl<T, BlockConversion>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
