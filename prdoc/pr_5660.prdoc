@@ -22,3 +22,9 @@ doc:
 crates:
   - name: staging-xcm-executor
     bump: patch
+  - name: staging-xcm-builder
+    bump: patch
+  - name: pallet-xcm
+    bump: patch
+  - name: xcm-simulator-example
+    bump: patch
