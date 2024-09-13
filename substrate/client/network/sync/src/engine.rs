@@ -1196,7 +1196,6 @@ where
 			Ok(Err(e)) => {
 				debug!(target: LOG_TARGET, "Request to peer {peer_id:?} failed: {e:?}.");
 
-				// Using Our custom type Network(OutboundFailure)
 				match e {
 					RequestFailure::Network(OutboundFailure::Timeout) => {
 						self.network_service.report_peer(peer_id, rep::TIMEOUT);

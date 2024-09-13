@@ -19,17 +19,16 @@ use crate::{
 	ErasureTask, PostRecoveryCheck, LOG_TARGET,
 };
 
-use futures::{channel::oneshot, SinkExt};
 use polkadot_node_network_protocol::request_response::{
 	self as req_res, outgoing::RequestError, OutgoingRequest, Recipient, Requests,
 };
 use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, overseer, RecoveryError};
 use polkadot_primitives::ValidatorIndex;
+use sc_network::{IfDisconnected, OutboundFailure, RequestFailure};
+
+use futures::{channel::oneshot, SinkExt};
 use rand::seq::SliceRandom;
-use sc_network::{
-	request_responses::OutboundFailure, IfDisconnected, RequestFailure,
-};
 
 /// Parameters specific to the `FetchFull` strategy.
 pub struct FetchFullParams {
@@ -154,9 +153,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 						RequestError::InvalidResponse(_) =>
 							common_params.metrics.on_full_request_invalid(),
 						RequestError::NetworkError(req_failure) => {
-							if let RequestFailure::Network(OutboundFailure::Timeout) =
-								req_failure
-							{
+							if let RequestFailure::Network(OutboundFailure::Timeout) = req_failure {
 								common_params.metrics.on_full_request_timeout();
 							} else {
 								common_params.metrics.on_full_request_error();

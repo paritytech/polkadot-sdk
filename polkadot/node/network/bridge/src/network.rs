@@ -23,11 +23,10 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 
 use codec::Encode;
-use sc_network::request_responses::OutboundFailure;
 
 use sc_network::{
 	config::parse_addr, multiaddr::Multiaddr, service::traits::NetworkService, types::ProtocolName,
-	IfDisconnected, MessageSink, ReputationChange, RequestFailure,
+	IfDisconnected, MessageSink, OutboundFailure, ReputationChange, RequestFailure,
 };
 
 use polkadot_node_network_protocol::{

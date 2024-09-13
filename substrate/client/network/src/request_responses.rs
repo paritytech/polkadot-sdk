@@ -65,11 +65,10 @@ use std::{
 	fmt::{Display,Formatter},
 };
 
-pub use libp2p::request_response::{Config, InboundFailure, RequestId};
+pub use libp2p::request_response::{Config, RequestId};
 
 /// Adding a custom OutboundFailure, not depending on libp2p
 #[derive(Debug, thiserror::Error)]
-#[allow(missing_docs)]
 pub enum OutboundFailure {
 	/// The request could not be sent because a dialing attempt failed.
 	DialFailure,
@@ -94,24 +93,7 @@ impl Display for OutboundFailure{
 
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
-pub enum CustomMessage {
-	Request { request_id: InboundRequestId, request: Vec<u8>, channel: ResponseChannel<Vec<u8>> },
-	Response { request_id: OutboundRequestId, response: Vec<u8> },
-}
-
-impl Display for CustomMessage {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		match self {
-			CustomMessage::Request {request_id,request,channel} => write!(f, "MessageRequest({:?}, {:?}, {:?})",request_id,request,channel),
-			CustomMessage::Response {request_id,response} => write!(f, "MessageResponse({:?}, {:?})",request_id, response),
-		}
-	}
-}
-
-/// Adding a custom InboundFailure, not depending on libp2p
-#[derive(Debug, thiserror::Error)]
-#[allow(missing_docs)]
-pub enum CustomInboundFailure {
+pub enum  InboundFailure {
 	/// The inbound request timed out, either while reading the incoming request or before a
 	/// response is sent
 	Timeout,
@@ -123,34 +105,14 @@ pub enum CustomInboundFailure {
 	ResponseOmission,
 }
 
-impl Display for CustomInboundFailure{
+impl Display for  InboundFailure{
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result{
 		match self {
-			CustomInboundFailure::Timeout => write!(f, "Timeout"),
-			CustomInboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
-			CustomInboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
-			CustomInboundFailure::ResponseOmission => write!(f, "ResponseOmission"),
+			 InboundFailure::Timeout => write!(f, "Timeout"),
+			 InboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
+			 InboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
+			 InboundFailure::ResponseOmission => write!(f, "ResponseOmission"),
 		}
-	}
-}
-
-/// In preparation for a OutboundFailure Event
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct OutboundRequestId(u64);
-
-impl fmt::Display for OutboundRequestId {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
-/// In preparation for a OutboundFailure Event
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct InboundRequestId(u64);
-
-impl fmt::Display for InboundRequestId {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", self.0)
 	}
 }
 
@@ -336,44 +298,7 @@ pub enum Event {
 		/// Reputation changes.
 		changes: Vec<ReputationChange>,
 	},
-	/// An incoming message (request or response).
-	Message {
-		/// The peer who sent the message.
-		peer: PeerId,
-		/// The incoming message.
-		message: CustomMessage,
-	},
-
-	/// An outbound request failed.
-	OutboundFailure {
-		/// The peer to whom the request was sent.
-		peer: PeerId,
-		/// The (local) ID of the failed request.
-		request_id: OutboundRequestId,
-		/// The error that occurred.
-		error: OutboundFailure,
-	},
-
-	/// An inbound request failed.
-	CustomInboundFailure {
-		/// The peer from whom the request was received.
-		peer: PeerId,
-		/// The ID of the failed inbound request.
-		request_id: InboundRequestId,
-		/// The error that occurred.
-		error: CustomInboundFailure,
-	},
-
-	/// A response to an inbound request has been sent.
-	///
-	/// When this event is received, the response has been flushed on
-	/// the underlying transport connection.
-	CustomResponseSent {
-		/// The peer to whom the response was sent.
-		peer: PeerId,
-		/// The ID of the inbound request whose response was sent.
-		request_id: InboundRequestId,
-	},
+	
 }
 
 /// Combination of a protocol name and a request id.
@@ -938,8 +863,6 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									// Try using the fallback request if the protocol was not
 									// supported.
 									if let request_response::OutboundFailure::UnsupportedProtocols = error {
-										let error_bis_out =
-											OutboundFailure::UnsupportedProtocols;
 										if let Some((fallback_request, fallback_protocol)) =
 											fallback_request
 										{
@@ -984,12 +907,11 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									continue
 								},
 							};
-							let error_bis_out = OutboundFailure::Timeout;
 							let out = Event::RequestFinished {
 								peer,
 								protocol: protocol.clone(),
 								duration: started.elapsed(),
-								result: Err(RequestFailure::Network(error_bis_out)),
+								result: Err(RequestFailure::Network(OutboundFailure::Timeout)),
 							};
 
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
@@ -998,14 +920,13 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						// An inbound request failed, either while reading the request or due to
 						// failing to send a response.
 						request_response::Event::InboundFailure { request_id, peer, .. } => {
-							let error_bis_in = CustomInboundFailure::Timeout;
 							self.pending_responses_arrival_time
 								.remove(&(protocol.clone(), request_id).into());
 							self.send_feedback.remove(&(protocol.clone(), request_id).into());
 							let out = Event::InboundRequest {
 								peer,
 								protocol: protocol.clone(),
-								result: Err(ResponseFailure::Network(error_bis_in)),
+								result: Err(ResponseFailure::Network(InboundFailure::Timeout)),
 							};
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
 						},
@@ -1079,7 +1000,7 @@ pub enum RegisterError {
 pub enum ResponseFailure {
 	/// Problem on the network.
 	#[error("Problem on the network: {0}")]
-	Network(CustomInboundFailure),
+	Network( InboundFailure),
 }
 
 /// Implements the libp2p [`Codec`] trait. Defines how streams of bytes are turned

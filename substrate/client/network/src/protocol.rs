@@ -182,7 +182,7 @@ impl<B: BlockT> Protocol<B> {
 /// Outcome of an incoming custom message.
 #[derive(Debug)]
 #[must_use]
-pub enum CustomMessageOutcome {
+pub enum MessageOutcome {
 	/// Notification protocols have been opened with a remote.
 	NotificationStreamOpened {
 		remote: PeerId,
@@ -226,7 +226,7 @@ pub enum CustomMessageOutcome {
 
 impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 	type ConnectionHandler = <Notifications as NetworkBehaviour>::ConnectionHandler;
-	type ToSwarm = CustomMessageOutcome;
+	type ToSwarm = MessageOutcome;
 
 	fn handle_established_inbound_connection(
 		&mut self,
@@ -329,7 +329,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 					None
 				} else {
 					match self.role_available(&peer_id, &received_handshake) {
-						true => Some(CustomMessageOutcome::NotificationStreamOpened {
+						true => Some(MessageOutcome::NotificationStreamOpened {
 							remote: peer_id,
 							set_id,
 							direction,
@@ -351,7 +351,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 					None
 				} else {
 					(!self.bad_handshake_streams.contains(&peer_id)).then_some(
-						CustomMessageOutcome::NotificationStreamReplaced {
+						MessageOutcome::NotificationStreamReplaced {
 							remote: peer_id,
 							set_id,
 							notifications_sink,
@@ -364,7 +364,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 					None
 				} else {
 					(!self.bad_handshake_streams.remove(&peer_id)).then_some(
-						CustomMessageOutcome::NotificationStreamClosed { remote: peer_id, set_id },
+						MessageOutcome::NotificationStreamClosed { remote: peer_id, set_id },
 					)
 				}
 			},
@@ -376,7 +376,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 					None
 				} else {
 					(!self.bad_handshake_streams.contains(&peer_id)).then_some(
-						CustomMessageOutcome::NotificationsReceived {
+						MessageOutcome::NotificationsReceived {
 							remote: peer_id,
 							set_id,
 							notification: message.freeze().into(),

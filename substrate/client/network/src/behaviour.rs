@@ -21,11 +21,11 @@ use crate::{
 	event::DhtEvent,
 	peer_info,
 	peer_store::PeerStoreProvider,
-	protocol::{CustomMessageOutcome, NotificationsSink, Protocol},
+	protocol::{MessageOutcome, NotificationsSink, Protocol},
 	protocol_controller::SetId,
 	request_responses::{
-		self, CustomInboundFailure, CustomMessage, OutboundFailure, IfDisconnected,
-		InboundRequestId, OutboundRequestId, ProtocolConfig, RequestFailure,
+		self, OutboundFailure, IfDisconnected,
+		ProtocolConfig, RequestFailure,
 	},
 	service::traits::Direction,
 	types::ProtocolName,
@@ -104,44 +104,6 @@ pub enum BehaviourOut {
 
 	/// A request protocol handler issued reputation changes for the given peer.
 	ReputationChanges { peer: PeerId, changes: Vec<ReputationChange> },
-
-	/// An incoming message (request or response).
-	Message {
-		/// The peer who sent the message.
-		peer: PeerId,
-		/// The incoming message.
-		message: CustomMessage,
-	},
-
-	/// An outbound request failed.
-	OutboundFailure {
-		/// The peer to whom the request was sent.
-		peer: PeerId,
-		/// The (local) ID of the failed request.
-		request_id: OutboundRequestId,
-		/// The error that occurred.
-		error: OutboundFailure,
-	},
-	/// An inbound request failed.
-	CustomInboundFailure {
-		/// The peer from whom the request was received.
-		peer: PeerId,
-		/// The ID of the failed inbound request.
-		request_id: InboundRequestId,
-		/// The error that occurred.
-		error: CustomInboundFailure,
-	},
-
-	/// A response to an inbound request has been sent.
-	///
-	/// When this event is received, the response has been flushed on
-	/// the underlying transport connection.
-	CustomResponseSent {
-		/// The peer to whom the response was sent.
-		peer: PeerId,
-		/// The ID of the inbound request whose response was sent.
-		request_id: InboundRequestId,
-	},
 
 	/// Opened a substream with the given node with the given notifications protocol.
 	///
@@ -357,10 +319,10 @@ impl<B: BlockT> Behaviour<B> {
 	}
 }
 
-impl From<CustomMessageOutcome> for BehaviourOut {
-	fn from(event: CustomMessageOutcome) -> Self {
+impl From<MessageOutcome> for BehaviourOut {
+	fn from(event: MessageOutcome) -> Self {
 		match event {
-			CustomMessageOutcome::NotificationStreamOpened {
+			MessageOutcome::NotificationStreamOpened {
 				remote,
 				set_id,
 				direction,
@@ -375,14 +337,14 @@ impl From<CustomMessageOutcome> for BehaviourOut {
 				received_handshake,
 				notifications_sink,
 			},
-			CustomMessageOutcome::NotificationStreamReplaced {
+			MessageOutcome::NotificationStreamReplaced {
 				remote,
 				set_id,
 				notifications_sink,
 			} => BehaviourOut::NotificationStreamReplaced { remote, set_id, notifications_sink },
-			CustomMessageOutcome::NotificationStreamClosed { remote, set_id } =>
+			MessageOutcome::NotificationStreamClosed { remote, set_id } =>
 				BehaviourOut::NotificationStreamClosed { remote, set_id },
-			CustomMessageOutcome::NotificationsReceived { remote, set_id, notification } =>
+			MessageOutcome::NotificationsReceived { remote, set_id, notification } =>
 				BehaviourOut::NotificationsReceived { remote, set_id, notification },
 		}
 	}
@@ -397,14 +359,6 @@ impl From<request_responses::Event> for BehaviourOut {
 				BehaviourOut::RequestFinished { peer, protocol, duration, result },
 			request_responses::Event::ReputationChanges { peer, changes } =>
 				BehaviourOut::ReputationChanges { peer, changes },
-			request_responses::Event::Message { peer, message } =>
-				BehaviourOut::Message { peer, message },
-			request_responses::Event::OutboundFailure { peer, request_id, error } =>
-				BehaviourOut::OutboundFailure { peer, request_id, error },
-			request_responses::Event::CustomInboundFailure { peer, request_id, error } =>
-				BehaviourOut::CustomInboundFailure { peer, request_id, error },
-			request_responses::Event::CustomResponseSent { peer, request_id } =>
-				BehaviourOut::CustomResponseSent { peer, request_id },
 		}
 	}
 }

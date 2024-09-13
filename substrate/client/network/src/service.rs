@@ -89,9 +89,9 @@ use sc_network_common::{
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 
-pub use behaviour::{InboundFailure, ResponseFailure};
+pub use behaviour:: ResponseFailure;
 // Import our custom type
-use crate::request_responses::{CustomInboundFailure, OutboundFailure};
+use crate::request_responses::{ InboundFailure, OutboundFailure};
 pub use libp2p::identity::{DecodingError, Keypair, PublicKey};
 pub use metrics::NotificationMetrics;
 pub use protocol::NotificationsSink;
@@ -1517,10 +1517,10 @@ where
 						},
 						Err(err) => {
 							let reason = match err {
-								ResponseFailure::Network(CustomInboundFailure::Timeout) =>
+								ResponseFailure::Network( InboundFailure::Timeout) =>
 									Some("timeout"),
 								ResponseFailure::Network(
-									CustomInboundFailure::UnsupportedProtocols,
+									 InboundFailure::UnsupportedProtocols,
 								) =>
 								// `UnsupportedProtocols` is reported for every single
 								// inbound request whenever a request with an unsupported
@@ -1528,10 +1528,10 @@ where
 								// avoid confusions.
 									None,
 								ResponseFailure::Network(
-									CustomInboundFailure::ResponseOmission,
+									 InboundFailure::ResponseOmission,
 								) => Some("busy-omitted"),
 								ResponseFailure::Network(
-									CustomInboundFailure::ConnectionClosed,
+									 InboundFailure::ConnectionClosed,
 								) => Some("connection-closed"),
 							};
 
@@ -1565,7 +1565,6 @@ where
 								RequestFailure::UnknownProtocol => "unknown-protocol",
 								RequestFailure::Refused => "refused",
 								RequestFailure::Obsolete => "obsolete",
-
 								RequestFailure::Network(OutboundFailure::DialFailure) =>
 									"dial-failure",
 								RequestFailure::Network(OutboundFailure::Timeout) =>
@@ -1700,26 +1699,6 @@ where
 				self.event_streams.send(Event::Dht(event));
 			},
 			SwarmEvent::Behaviour(BehaviourOut::None) => {
-				// Ignored event from lower layers.
-			},
-			SwarmEvent::Behaviour(BehaviourOut::Message { peer, message }) => {
-				// Ignored event from lower layers.
-			},
-			SwarmEvent::Behaviour(BehaviourOut::OutboundFailure {
-				peer,
-				request_id,
-				error,
-			}) => {
-				// Ignored event from lower layers.
-			},
-			SwarmEvent::Behaviour(BehaviourOut::CustomInboundFailure {
-				peer,
-				request_id,
-				error,
-			}) => {
-				// Ignored event from lower layers.
-			},
-			SwarmEvent::Behaviour(BehaviourOut::CustomResponseSent { peer, request_id }) => {
 				// Ignored event from lower layers.
 			},
 			SwarmEvent::ConnectionEstablished {

@@ -43,10 +43,7 @@ use polkadot_node_subsystem::{
 	overseer, RecoveryError,
 };
 use polkadot_primitives::{AuthorityDiscoveryId, BlakeTwo256, ChunkIndex, HashT, ValidatorIndex};
-use sc_network::{
-	request_responses::OutboundFailure, IfDisconnected, ProtocolName,
-	RequestFailure,
-};
+use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
 	time::Duration,
