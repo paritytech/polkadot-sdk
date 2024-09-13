@@ -33,7 +33,7 @@ use polkadot_primitives::{
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
-use sp_api::{ApiExt, ProvideRuntimeApi, RuntimeApiInfo};
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
