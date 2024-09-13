@@ -89,7 +89,7 @@ jobs:
         working-directory: /artifacts/${{ matrix.binaries }}
         run: |
           which pgpkms
-          python3 -m pgpkms sign --inputs ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
+          python3 -m pgpkms sign --input ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
           ls -la
 
       # - name: Build deb package
