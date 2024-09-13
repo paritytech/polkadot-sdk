@@ -474,7 +474,7 @@ impl Stream for Discovery {
 			match delay.poll_unpin(cx) {
 				Poll::Ready(()) => {
 					let num_peers = this.num_connected_peers();
-					if num_peers < this.discovery_only_if_under_num &&
+					if num_peers < 3 * this.discovery_only_if_under_num &&
 						this.find_node_queries.len() < MAX_INFLIGHT_FIND_NODE_QUERIES
 					{
 						let peer = PeerId::random();
