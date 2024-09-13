@@ -1028,13 +1028,13 @@ pub mod pallet {
 					Self::do_elect_paged(Zero::zero());
 
 					// last page, reset elect status and update era.
-					crate::log!(info, "elect(): finished fetching all paged solutions");
+					crate::log!(info, "elect(): finished fetching all paged solutions.");
 					CurrentEra::<T>::set(Some(planning_era));
 					ElectingStartedAt::<T>::kill();
 				} else {
 					crate::log!(
 						info,
-						"elect(): progressing with calling elect, remaining pages {:?}",
+						"elect(): progressing with calling elect, remaining pages {:?}.",
 						remaining_pages
 					);
 
@@ -1050,12 +1050,18 @@ pub mod pallet {
 						"elect(): next election in {:?} pages, start fetching solution pages.",
 						pages,
 					);
-					ElectingStartedAt::<T>::set(Some((
-						now,
-						CurrentEra::<T>::get().unwrap_or_default().saturating_add(1),
-					)));
 
 					Self::do_elect_paged(pages.saturated_into::<PageIndex>().saturating_sub(1));
+
+					// set `ElectingStartedAt` only in multi-paged election.
+					if pages > One::one() {
+						ElectingStartedAt::<T>::set(Some((
+							now,
+							CurrentEra::<T>::get().unwrap_or_default().saturating_add(1),
+						)));
+					} else {
+					    crate::log!(info, "elect(): finished fetching the single paged solution.");
+                    }
 				}
 			};
 			// return the weight of the on_finalize.

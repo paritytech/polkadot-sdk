@@ -148,7 +148,6 @@ pub(crate) mod pallet {
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::submit_page_unsigned { page, partial_score, .. } = call {
-				sublog!(info, "unsigned", "validate_unsigned OK");
 
 				ValidTransaction::with_tag_prefix("ElectionOffchainWorker")
 					// priority increases propotional to the `solution.minimal_stake`.
@@ -202,6 +201,8 @@ pub(crate) mod pallet {
 			let error_message = "Invalid unsigned submission must produce invalid block and \
 				 deprive validator from their authoring reward.";
 
+			sublog!(info, "unsigned", "submitting page {:?} with partial score {:?}", page, partial_score);
+
 			// Check if score is an improvement, the current phase, page index and other paged
 			// solution metadata checks.
 			Self::pre_dispatch_checks(page, &claimed_full_score).expect(error_message);
@@ -221,6 +222,9 @@ pub(crate) mod pallet {
 					claimed_full_score,
 				)
 				.expect(error_message);
+				sublog!(info, "unsigned", "validate_unsigned last page verify OK");
+			} else {
+				sublog!(info, "unsigned", "submit_page_unsigned: page {:?} subimitted", page);
 			}
 
 			Self::deposit_event(Event::UnsignedSolutionSubmitted {
@@ -298,8 +302,8 @@ impl<T: Config> Pallet<T> {
 		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
 			(Phase::Unsigned(_), Some(page)) => {
 				let (full_score, partial_score, partial_solution) =
-					//OffchainWorkerMiner::<T>::fetch_or_mine(page).map_err(|err| {
-					OffchainWorkerMiner::<T>::mine(page).map_err(|err| {
+					OffchainWorkerMiner::<T>::fetch_or_mine(page).map_err(|err| {
+					//OffchainWorkerMiner::<T>::mine(page).map_err(|err| {
 						sublog!(error, "unsigned", "OCW mine error: {:?}", err);
 						err
 				})?;

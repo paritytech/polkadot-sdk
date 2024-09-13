@@ -137,11 +137,19 @@ fn testnet_genesis(
 	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
-	let validators = 1_500;
-	let nominators = 30_000;
-	let edges = 16;
+	let validators = 4_000;
+	let nominators = 50_000;
+	let edges = 24;
+	let validators_count = 1_000;
+	let max_validators_count = 4_000;
 
-	let staking_gen = staking_genesis::generate(validators, nominators, edges, validators);
+	let staking_gen = staking_genesis::generate(
+		validators,
+		nominators,
+		edges,
+		validators_count,
+		max_validators_count,
+	);
 
 	endowed_accounts.append(
 		&mut staking_gen
@@ -195,6 +203,7 @@ mod staking_genesis {
 		nominators: u32,
 		edges: usize,
 		validator_count: u32,
+		max_validator_count: u32,
 	) -> staking_runtime::StakingConfig {
 		let mut targets = vec![];
 		let mut stakers = vec![];
@@ -217,7 +226,12 @@ mod staking_genesis {
 			stakers.push((stash.clone(), stash, stake, StakerStatus::Nominator(nominations)));
 		}
 
-		staking_runtime::StakingConfig { stakers, validator_count, ..Default::default() }
+		staking_runtime::StakingConfig {
+			stakers,
+			validator_count,
+			max_validator_count: Some(max_validator_count),
+			..Default::default()
+		}
 	}
 }
 

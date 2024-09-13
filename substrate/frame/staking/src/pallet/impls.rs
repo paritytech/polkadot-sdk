@@ -734,6 +734,8 @@ impl<T: Config> Pallet<T> {
 				// TODO: be resilient here, not all pages need to be submitted successfuly for an
 				// election to be OK, provided that the election score is good enough.
 				Self::deposit_event(Event::StakingElectionFailed);
+				// TODO: remove for testing only
+				panic!("election failed");
 				return
 			},
 		};
@@ -783,7 +785,7 @@ impl<T: Config> Pallet<T> {
 		if planned_era > 0 {
 			log!(
 				info,
-				"new validator set of size {:?} has been processed for era {:?}",
+				"updated validator set (current size {:?}) for era {:?}",
 				elected_stashes.len(),
 				planned_era,
 			);

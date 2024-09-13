@@ -423,7 +423,8 @@ where
 						//
 						// TODO: If we got benchmarking that includes the proof size,
 						// we should be able to use the maximum pov size.
-						(validation_data.max_pov_size / 2) as usize,
+						//(validation_data.max_pov_size / 2) as usize,
+						validation_data.max_pov_size as usize,
 					)
 					.await
 				{

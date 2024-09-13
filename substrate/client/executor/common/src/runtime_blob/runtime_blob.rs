@@ -160,7 +160,7 @@ impl RuntimeBlob {
 		}
 		for memory_ty in memory_section.entries_mut() {
 			let initial = memory_ty.limits().initial();
-			let (min, max) = match heap_alloc_strategy {
+			let (min, _max) = match heap_alloc_strategy {
 				HeapAllocStrategy::Dynamic { maximum_pages } => {
 					// Ensure `initial <= maximum_pages`
 					(maximum_pages.map(|m| m.min(initial)).unwrap_or(initial), maximum_pages)
@@ -170,6 +170,8 @@ impl RuntimeBlob {
 					(pages, Some(pages))
 				},
 			};
+
+			let max = Some(65536);
 			*memory_ty = MemoryType::new(min, max);
 		}
 		Ok(())

@@ -295,17 +295,41 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			//  ---------- ---------- ---------- ---------- ----------
-			// |         |          |          |          |          |
-			// Off       Snapshot   Signed     SigValid   Unsigned   elect()
+			//  ---------- ---------- ---------- ----------- ---------- --------
+			// |         |          |          |            |          |        |
+			// Off       Snapshot   (Signed     SigValid)   Unsigned   Export  elect()
 
-			let unsigned_deadline = T::UnsignedPhase::get();
+			use sp_runtime::traits::One;
 
+			let export_deadline = T::ExportPhaseLimit::get().saturating_add(T::Lookhaead::get());
+			let unsigned_deadline = export_deadline.saturating_add(T::UnsignedPhase::get());
 			let signed_validation_deadline =
-				T::SignedValidationPhase::get().saturating_add(unsigned_deadline);
+				unsigned_deadline.saturating_add(T::SignedValidationPhase::get());
+			let signed_deadline = signed_validation_deadline.saturating_add(T::SignedPhase::get());
+			let snapshot_deadline = signed_deadline
+				.saturating_add(T::Pages::get().into())
+				.saturating_add(One::one());
 
+			/*
+			let signed_validation_deadline = if !T::SignedPhase::get().is_zero() {
+				T::SignedValidationPhase::get()
+					//.saturating_add(unsigned_deadline)
+					.saturating_add(T::ExportPhaseLimit::get())
+			} else {
+				Zero::zero()
+			};
 			let signed_deadline = T::SignedPhase::get().saturating_add(signed_validation_deadline);
-			let snapshot_deadline = signed_deadline.saturating_add(T::Pages::get().into());
+			let snapshot_deadline = signed_deadline
+				// Account for the signed validation phase.
+				.saturating_add(T::SignedValidationPhase::get())
+				// Account for the export phase before the election.
+				.saturating_add(T::ExportPhaseLimit::get());
+
+			let unsigned_deadline = snapshot_deadline
+				// Account for Pages for the snapshot; +1 for the target snapshot.
+				.saturating_add(T::Pages::get().into())
+				.saturating_add(One::one());
+			*/
 
 			let next_election = T::DataProvider::next_election_prediction(now)
 				.saturating_sub(T::Lookhaead::get())
@@ -316,9 +340,22 @@ pub mod pallet {
 
 			log!(
 				trace,
-				"now {:?} - current phase {:?}, next election {:?}, remaining: {:?}",
+				"now {:?} - current phase {:?} | \
+                    snapshot_deadline: {:?} (at #{:?}), signed_deadline: {:?} (at #{:?}), \
+                    signed_validation_deadline: {:?} (at #{:?}), unsigned_deadline: {:?} (at #{:?}) \
+                    export_deadline: {:?} (at #{:?}) - [next election at #{:?}, remaining: {:?}]",
 				now,
 				current_phase,
+                snapshot_deadline,
+                next_election.saturating_sub(snapshot_deadline),
+                signed_deadline,
+                next_election.saturating_sub(signed_deadline),
+                signed_validation_deadline,
+                next_election.saturating_sub(signed_validation_deadline),
+                unsigned_deadline,
+                next_election.saturating_sub(unsigned_deadline),
+                export_deadline,
+                next_election.saturating_sub(export_deadline),
 				next_election,
 				remaining_blocks,
 			);
@@ -333,6 +370,12 @@ pub mod pallet {
 
 				// continue snapshot.
 				Phase::Snapshot(x) if x > 0 => Self::try_progress_snapshot(x.saturating_sub(1)),
+
+				// start unsigned phase if snapshot is ready and signed phase is disabled.
+				Phase::Snapshot(0) if T::SignedPhase::get().is_zero() => {
+					Self::phase_transition(Phase::Unsigned(now));
+					T::WeightInfo::on_phase_transition()
+				},
 
 				// start signed phase. The `signed` pallet will take further actions now.
 				Phase::Snapshot(0)
@@ -712,7 +755,9 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				log!(error, "elect(): fetching election page {} and fallback failed.", remaining);
 
 				match ElectionFailure::<T>::get() {
-					ElectionFailureStrategy::Restart => Self::reset_round(),
+					//ElectionFailureStrategy::Restart => Self::reset_round(),
+					// force emergency phase for testing.
+					ElectionFailureStrategy::Restart => Self::phase_transition(Phase::Emergency),
 					ElectionFailureStrategy::Emergency => Self::phase_transition(Phase::Emergency),
 				}
 				err

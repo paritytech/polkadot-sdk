@@ -655,7 +655,6 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 	/// Fetches from the local storage or mines a new solution.
 	///
 	/// Calculates and returns the partial score of paged solution of the given `page` index.
-	#[allow(dead_code)]
 	pub fn fetch_or_mine(
 		page: PageIndex,
 	) -> Result<(ElectionScore, ElectionScore, SolutionOf<T>), OffchainMinerError> {
