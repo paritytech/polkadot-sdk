@@ -165,7 +165,8 @@ mod v3 {
 
 	#[storage_alias]
 	pub type Configuration<T: Config> = StorageValue<Pallet<T>, ConfigRecordOf<T>, OptionQuery>;
-	pub type ConfigRecordOf<T> = ConfigRecord<frame_system::pallet_prelude::BlockNumberFor<T>, RelayBlockNumberOf<T>>;
+	pub type ConfigRecordOf<T> =
+		ConfigRecord<frame_system::pallet_prelude::BlockNumberFor<T>, RelayBlockNumberOf<T>>;
 
 	// types added here for v4 migration
 	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -229,9 +230,11 @@ mod v3 {
 pub mod v4 {
 	use super::*;
 
+	type BlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
+
 	pub trait BlockToRelayHeightConversion<T: Config> {
 		fn convert_block_number_to_relay_height(
-			block_number: frame_system::pallet_prelude::BlockNumberFor<T>,
+			block_number: BlockNumberFor<T>,
 		) -> RelayBlockNumberOf<T>;
 	}
 
@@ -330,7 +333,7 @@ pub mod v4 {
 
 			if let Some(config_record) = Configuration::<T>::get() {
 				ensure!(
-					verify_updated::<T>(
+					Self::verify_updated(
 						old_configuration_leadin_length,
 						config_record.leadin_length
 					),
@@ -338,19 +341,19 @@ pub mod v4 {
 				);
 
 				ensure!(
-					verify_updated::<T>(old_interlude_length, config_record.interlude_length),
+					Self::verify_updated(old_interlude_length, config_record.interlude_length),
 					"must migrate configuration interlude_length"
 				);
 			}
 
 			if let Some(sale_info) = SaleInfo::<T>::get() {
 				ensure!(
-					verify_updated::<T>(old_sale_start, sale_info.sale_start),
+					Self::verify_updated(old_sale_start, sale_info.sale_start),
 					"must migrate sale info sale_start"
 				);
 
 				ensure!(
-					verify_updated::<T>(old_sale_info_leadin_length, sale_info.leadin_length),
+					Self::verify_updated(old_sale_info_leadin_length, sale_info.leadin_length),
 					"must migrate sale info leadin_length"
 				);
 			}
@@ -359,18 +362,13 @@ pub mod v4 {
 		}
 	}
 
-	#[cfg(feature = "try-runtime")]
-	fn verify_updated<T>(old_value: BlockNumberFor<T>, new_value: RelayBlockNumberOf<T>) -> bool
-	where
-		T: Config,
-		RelayBlockNumberOf<T>: TryFrom<BlockNumberFor<T>>,
+	impl<T: Config, BlockConversion: BlockToRelayHeightConversion<T>>
+		MigrateToV4Impl<T, BlockConversion>
 	{
-		let val: RelayBlockNumberOf<T> = match TryFrom::try_from(old_value) {
-			Ok(val) => val,
-			Err(_) => u32::MAX.into(),
-		};
-
-		val == new_value
+		#[cfg(feature = "try-runtime")]
+		fn verify_updated(old_value: BlockNumberFor<T>, new_value: RelayBlockNumberOf<T>) -> bool {
+			BlockConversion::convert_block_number_to_relay_height(old_value) == new_value
+		}
 	}
 }
 
