@@ -613,6 +613,26 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_balance_of() {
+		let len = <sp_core::U256 as MaxEncodedLen>::max_encoded_len();
+		let account = account::<T::AccountId>("target", 0, 0);
+		let address = T::AddressMapper::to_address(&account);
+		let balance = Pallet::<T>::min_balance() * 2u32.into();
+		T::Currency::set_balance(&account, balance);
+
+		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_balance_of(memory.as_mut_slice(), len as u32, 0);
+		}
+
+		assert_ok!(result);
+		assert_eq!(U256::from_little_endian(&memory[..len]), runtime.ext().balance_of(&address));
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_value_transferred() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
