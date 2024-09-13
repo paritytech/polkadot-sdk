@@ -139,7 +139,7 @@ pub struct TrackInfo<Balance, Moment> {
 /// Information on the voting tracks.
 pub trait TracksInfo<Balance, Moment> {
 	/// The identifier for a track.
-	type Id: Copy + Parameter + Ord + PartialOrd + Send + Sync + 'static + MaxEncodedLen;
+	type Id: Copy + Parameter + Ord + PartialOrd + Send + Sync + 'static + MaxEncodedLen + Default;
 
 	/// The origin type from which a track is implied.
 	type RuntimeOrigin;
@@ -258,7 +258,8 @@ impl<
 		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
-	> ReferendumInfo<TrackId, RuntimeOrigin, Moment, Call, Balance, Tally, AccountId, ScheduleAddress>
+	>
+	ReferendumInfo<TrackId, RuntimeOrigin, Moment, Call, Balance, Tally, AccountId, ScheduleAddress>
 {
 	/// Take the Decision Deposit from `self`, if there is one. Returns an `Err` if `self` is not
 	/// in a valid state for the Decision Deposit to be refunded.

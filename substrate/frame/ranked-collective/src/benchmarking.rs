@@ -126,7 +126,7 @@ benchmarks_instance_pallet! {
 	}
 
 	vote {
-		let class = T::Polls::classes().into_iter().next().ok_or(BenchmarkError::Skip)?;
+		let class = T::Polls::classes().into_iter().next().unwrap_or_else(|| Default::default());
 		let rank = T::MinRankOfClass::convert(class.clone());
 
 		let caller = make_member::<T, I>(rank);
