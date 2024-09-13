@@ -69,6 +69,7 @@ pub trait WeightInfo {
 	fn seal_address() -> Weight;
 	fn seal_gas_left() -> Weight;
 	fn seal_balance() -> Weight;
+	fn seal_balance_of() -> Weight;
 	fn seal_value_transferred() -> Weight;
 	fn seal_minimum_balance() -> Weight;
 	fn seal_block_number() -> Weight;
@@ -408,6 +409,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 4_361_000 picoseconds.
 		Weight::from_parts(4_577_000, 0)
+	}
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	fn seal_balance_of() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `52`
+		//  Estimated: `3517`
+		// Minimum execution time: 3_751_000 picoseconds.
+		Weight::from_parts(3_874_000, 3517)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	fn seal_value_transferred() -> Weight {
 		// Proof Size summary in bytes:
@@ -1222,6 +1233,16 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 4_361_000 picoseconds.
 		Weight::from_parts(4_577_000, 0)
+	}
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	fn seal_balance_of() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `52`
+		//  Estimated: `3517`
+		// Minimum execution time: 3_751_000 picoseconds.
+		Weight::from_parts(3_874_000, 3517)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	fn seal_value_transferred() -> Weight {
 		// Proof Size summary in bytes:
