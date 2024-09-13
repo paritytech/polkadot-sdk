@@ -285,6 +285,7 @@ pub(crate) const SLASHING_DISABLING_FACTOR: usize = 3;
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;

@@ -148,6 +148,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;

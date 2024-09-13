@@ -226,6 +226,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type SessionInterface = Self;

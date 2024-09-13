@@ -730,6 +730,7 @@ parameter_types! {
 }
 
 impl pallet_staking::Config for Runtime {
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;

@@ -29,8 +29,8 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Mutate as FunMutate,
 		},
-		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get, OnUnbalanced,
-		UnixTime,
+		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		InspectLockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -92,6 +92,14 @@ pub mod pallet {
 
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
+		/// The old trait for staking balance. Deprecated and only used for migrating old ledgers.
+		#[pallet::no_default]
+		type OldCurrency: InspectLockableCurrency<
+			Self::AccountId,
+			Moment = BlockNumberFor<Self>,
+			Balance = Self::CurrencyBalance,
+		>;
+
 		/// The staking balance.
 		#[pallet::no_default]
 		type Currency: FunHoldMutate<
