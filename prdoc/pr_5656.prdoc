@@ -8,3 +8,7 @@ doc:
     description: |
       Changing `sale_start`, `interlude_length` and `leading_length` in `pallet_broker` to use relay chain block numbers instead of parachain block numbers.
       Relay chain block numbers are almost deterministic and more future proof.
+
+crates:
+  - name: pallet-broker
+    bump: major
