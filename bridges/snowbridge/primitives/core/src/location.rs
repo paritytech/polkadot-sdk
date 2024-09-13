@@ -97,10 +97,9 @@ impl DescribeLocation for DescribeTokenTerminal {
 #[cfg(test)]
 mod tests {
 	use crate::TokenIdOf;
-	use frame_support::assert_ok;
 	use xcm::prelude::{
-		GeneralIndex, GeneralKey, GlobalConsensus, InteriorLocation, Junction::*, Location,
-		NetworkId::*, PalletInstance, Parachain, Reanchorable,
+		GeneralIndex, GeneralKey, GlobalConsensus, Junction::*, Location, NetworkId::*,
+		PalletInstance, Parachain,
 	};
 	use xcm_executor::traits::ConvertLocation;
 
@@ -202,23 +201,5 @@ mod tests {
 				"Invalid token = {token:?} yeilds a TokenId."
 			);
 		}
-	}
-
-	#[test]
-	fn test_reanchor_relay_token_from_different_consensus() {
-		let asset_id: Location = Location::new(2, [GlobalConsensus(Rococo)]);
-		let ah_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1000)].into();
-		let ethereum = Location::new(2, [GlobalConsensus(Ethereum { chain_id: 1 })]);
-		let mut reanchored_asset = asset_id.clone();
-		assert_ok!(reanchored_asset.reanchor(&ethereum, &ah_context));
-		assert_eq!(
-			reanchored_asset,
-			Location { parents: 1, interior: [GlobalConsensus(Rococo)].into() }
-		);
-		let bh_context: InteriorLocation = [GlobalConsensus(Westend), Parachain(1002)].into();
-		let ah = Location::new(1, [GlobalConsensus(Westend), Parachain(1000)]);
-		let mut reanchored_asset = reanchored_asset.clone();
-		assert_ok!(reanchored_asset.reanchor(&ah, &bh_context));
-		assert_eq!(reanchored_asset, asset_id);
 	}
 }

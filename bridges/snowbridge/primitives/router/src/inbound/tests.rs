@@ -45,7 +45,6 @@ fn test_reanchor_all_assets() {
 	let ethereum = Location::new(2, ethereum_context.clone());
 	let ah_context: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1000)].into();
 	let global_ah = Location::new(1, ah_context.clone());
-	let bh_context: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1002)].into();
 	let assets = vec![
 		// DOT
 		Location::new(1, []),
