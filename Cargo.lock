@@ -11471,6 +11471,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "frame-system",
+ "log",
  "parity-wasm",
  "polkavm-linker 0.10.0",
  "sp-core",
@@ -19587,6 +19588,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
