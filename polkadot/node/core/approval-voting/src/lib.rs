@@ -2548,12 +2548,7 @@ fn schedule_wakeup_action(
 				last_assignment_tick.map(|l| l + APPROVAL_DELAY).filter(|t| t > &tick_now),
 				next_no_show,
 			)
-			.map(|tick| Action::ScheduleWakeup {
-				block_hash,
-				block_number,
-				candidate_hash,
-				tick,
-			})
+			.map(|tick| Action::ScheduleWakeup { block_hash, block_number, candidate_hash, tick })
 		},
 		RequiredTranches::Pending { considered, next_no_show, clock_drift, .. } => {
 			// select the minimum of `next_no_show`, or the tick of the next non-empty tranche

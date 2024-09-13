@@ -846,8 +846,7 @@ where
 		}
 
 		if !self.default_peers_set_no_slot_connected_peers.remove(&peer_id) &&
-			info.inbound &&
-			info.info.roles.is_full()
+			info.inbound && info.info.roles.is_full()
 		{
 			match self.num_in_peers.checked_sub(1) {
 				Some(value) => {

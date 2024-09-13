@@ -1714,7 +1714,6 @@ impl<Block: BlockT> Backend<Block> {
 							unreachable!("Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406")
 						},
 					}
-
 				} else if operation.create_gap &&
 					number > best_num + One::one() &&
 					self.blockchain.header(parent_hash)?.is_none()

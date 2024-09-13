@@ -197,8 +197,7 @@ impl<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues> TryDecodeEntireS
 		QueryKind,
 		OnEmpty,
 		MaxValues,
-	>
-where
+	> where
 	Prefix: CountedStorageMapInstance,
 	Hasher: StorageHasher,
 	Key: FullCodec,

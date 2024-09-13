@@ -504,12 +504,11 @@ pub fn message_dispatch_routing_works<
 
 		// 2. this message is sent from other global consensus with destination of this Runtime
 		//    sibling parachain (HRMP)
-		let bridging_message =
-			test_data::simulate_message_exporter_on_bridged_chain::<
-				BridgedNetwork,
-				NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
-				AlwaysLatest,
-			>((RuntimeNetwork::get(), [Parachain(sibling_parachain_id)].into()));
+		let bridging_message = test_data::simulate_message_exporter_on_bridged_chain::<
+			BridgedNetwork,
+			NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
+			AlwaysLatest,
+		>((RuntimeNetwork::get(), [Parachain(sibling_parachain_id)].into()));
 
 		// 2.1. WITHOUT opened hrmp channel -> RoutingError
 		let result =

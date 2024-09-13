@@ -400,7 +400,6 @@ impl CallDef {
 					}
 
 					for (feeless_arg, arg) in feeless_check.inputs.iter().skip(1).zip(args.iter()) {
-
 						let feeless_arg_type =
 							if let syn::Pat::Type(syn::PatType { ty, .. }) = feeless_arg.clone() {
 								if let syn::Type::Reference(pat) = *ty {
