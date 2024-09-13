@@ -363,8 +363,8 @@ fn transfer_relay_token() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Transfer { amount, ..})
-					if *amount == TOKEN_AMOUNT,
+				RuntimeEvent::Balances(pallet_balances::Event::Transfer { amount, to, ..})
+					if *amount == TOKEN_AMOUNT && *to == ethereum_sovereign.clone(),
 			)),
 			"native token reserved to Ethereum sovereign account."
 		);
