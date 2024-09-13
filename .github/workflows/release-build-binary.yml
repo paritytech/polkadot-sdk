@@ -78,12 +78,12 @@ jobs:
 
       - name: Build binary
         run: |
-          ARTIFACTS=/artifacts/${{ matrix.binaries }}
-          echo "Artifacts will be copied into $ARTIFACTS"
-          mkdir -p "$ARTIFACTS"
-          cd $ARTIFACTS
-          echo "Test" >> ${{ matrix.binaries }}.txt
-          # ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.binary }}
+          # ARTIFACTS=/artifacts/${{ matrix.binaries }}
+          # echo "Artifacts will be copied into $ARTIFACTS"
+          # mkdir -p "$ARTIFACTS"
+          # cd $ARTIFACTS
+          # echo "Test" >> ${{ matrix.binaries }}.txt
+          ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.binary }}
 
       - name: Sign artifacts
         working-directory: /artifacts/${{ matrix.binaries }}
