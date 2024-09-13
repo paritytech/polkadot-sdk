@@ -92,6 +92,12 @@ jobs:
           python3 -m pgpkms sign --input ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
           ls -la
 
+      - name: Upload ${{ matrix.binaries }} artifacts
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: ${{  matrix.binaries }}
+          path: /artifacts/${{ matrix.binaries }}
+
       # - name: Build deb package
       # - name: Upload artifacts to github
       # - name: Upload artifacts to s3
