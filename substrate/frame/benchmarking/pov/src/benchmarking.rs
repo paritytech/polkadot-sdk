@@ -26,6 +26,7 @@ use frame_support::traits::UnfilteredDispatchable;
 use frame_system::{Pallet as System, RawOrigin};
 use sp_runtime::traits::Hash;
 
+#[cfg(feature = "std")]
 frame_support::parameter_types! {
 	pub static StorageRootHash: Option<alloc::vec::Vec<u8>> = None;
 }
@@ -400,6 +401,7 @@ mod benchmarks {
 	fn storage_root_is_the_same_every_time(i: Linear<0, 10>) {
 		let root = sp_io::storage::root(sp_runtime::StateVersion::V1);
 
+		#[cfg(feature = "std")]
 		match (i, StorageRootHash::get()) {
 			(0, Some(_)) => panic!("StorageRootHash should be None initially"),
 			(0, None) => StorageRootHash::set(Some(root)),
