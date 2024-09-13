@@ -47,9 +47,7 @@ use std::{sync::Arc, time::Duration};
 use super::CollatorMessage;
 use crate::{
 	collator::{self as collator_util},
-	collators::{
-		check_validation_code_or_log, cores_scheduled_for_para, cores_scheduled_for_para_legacy,
-	},
+	collators::{check_validation_code_or_log, cores_scheduled_for_para},
 	LOG_TARGET,
 };
 
@@ -288,7 +286,7 @@ where
 					target: LOG_TARGET,
 					core_index_in_scheduled,
 					core_len = scheduled_cores.len(),
-					"Para is scheduled, but not enough cores available."
+					"Para is not scheduled on enough cores"
 				);
 				continue;
 			};
@@ -490,38 +488,13 @@ where
 		relay_parent: RelayHash,
 		maybe_claim_queue_offset: Option<u8>,
 	) -> Result<RelayChainData, ()> {
-		let runtime_api_version = self.relay_client.version(relay_parent).await.map_err(|e| {
-			tracing::error!(
-				target: LOG_TARGET,
-				error = ?e,
-				"Failed to fetch relay chain runtime version.",
-			)
-		})?;
-		let parachain_host_runtime_api_version =
-			runtime_api_version
-				.api_version(
-					&<dyn polkadot_primitives::runtime_api::ParachainHost<
-						polkadot_primitives::Block,
-					>>::ID,
-				)
-				.unwrap_or_default();
-
-		// If the relay chain runtime does not support the new claim queue runtime API, fallback to
-		// the using availability cores. In this case the claim queue offset will not be used.
-		let supports_claim_queue = parachain_host_runtime_api_version >=
-			polkadot_node_subsystem::messages::RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT;
-
-		let scheduled_cores = if supports_claim_queue {
-			cores_scheduled_for_para(
-				relay_parent,
-				self.para_id,
-				&self.relay_client,
-				maybe_claim_queue_offset.unwrap_or(DEFAULT_CLAIM_QUEUE_OFFSET),
-			)
-			.await
-		} else {
-			cores_scheduled_for_para_legacy(relay_parent, self.para_id, &self.relay_client).await
-		};
+		let scheduled_cores = cores_scheduled_for_para(
+			relay_parent,
+			self.para_id,
+			&self.relay_client,
+			maybe_claim_queue_offset.unwrap_or(DEFAULT_CLAIM_QUEUE_OFFSET),
+		)
+		.await;
 
 		let Ok(Some(relay_parent_header)) =
 			self.relay_client.header(BlockId::Hash(relay_parent)).await

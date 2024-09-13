@@ -28,7 +28,7 @@ use cumulus_client_consensus_common::{
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT};
 use cumulus_relay_chain_interface::RelayChainInterface;
-use polkadot_node_subsystem_util::vstaging::ClaimQueueSnapshot;
+use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	AsyncBackingParams, CoreIndex, CoreState, Hash as RelayHash, Id as ParaId,
 	OccupiedCoreAssumption, ValidationCodeHash,
@@ -125,54 +125,6 @@ async fn async_backing_params(
 			None
 		},
 	}
-}
-
-// Return all the cores assigned to the para at the provided relay parent, using the legacy method,
-// availability-cores. Using the claim queue is the preferred alternative.
-async fn cores_scheduled_for_para_legacy(
-	relay_parent: RelayHash,
-	para_id: ParaId,
-	relay_client: &impl RelayChainInterface,
-) -> Vec<CoreIndex> {
-	// Get `AvailabilityCores` from runtime
-	let cores = match relay_client.availability_cores(relay_parent).await {
-		Ok(cores) => cores,
-		Err(error) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?error,
-				?relay_parent,
-				"Failed to query availability cores runtime API",
-			);
-			return Vec::new()
-		},
-	};
-
-	let max_candidate_depth = async_backing_params(relay_parent, relay_client)
-		.await
-		.map(|c| c.max_candidate_depth)
-		.unwrap_or(0);
-
-	cores
-		.iter()
-		.enumerate()
-		.filter_map(|(index, core)| {
-			let core_para_id = match core {
-				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
-				CoreState::Occupied(occupied_core) if max_candidate_depth > 0 => occupied_core
-					.next_up_on_available
-					.as_ref()
-					.map(|scheduled_core| scheduled_core.para_id),
-				CoreState::Free | CoreState::Occupied(_) => None,
-			};
-
-			if core_para_id == Some(para_id) {
-				Some(CoreIndex(index as u32))
-			} else {
-				None
-			}
-		})
-		.collect()
 }
 
 // Return all the cores assigned to the para at the provided relay parent, using the claim queue
