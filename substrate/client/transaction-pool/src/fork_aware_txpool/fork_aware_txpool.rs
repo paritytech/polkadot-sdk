@@ -77,7 +77,7 @@ struct ReadyPoll<T, Block>
 where
 	Block: BlockT,
 {
-	pollers: HashMap<<Block as BlockT>::Hash, Vec<oneshot::Sender<T>>>,
+	pollers: HashMap<Block::Hash, Vec<oneshot::Sender<T>>>,
 }
 
 impl<T, Block> ReadyPoll<T, Block>
@@ -101,7 +101,7 @@ where
 	/// each oneshot channel.
 	///
 	/// `ready_iterator` is a closure that generates the result data to be sent to the pollers.
-	fn trigger(&mut self, at: <Block as BlockT>::Hash, ready_iterator: impl Fn() -> T) {
+	fn trigger(&mut self, at: Block::Hash, ready_iterator: impl Fn() -> T) {
 		log::trace!(target: LOG_TARGET, "fatp::trigger {at:?} pending keys: {:?}", self.pollers.keys());
 		let Some(pollers) = self.pollers.remove(&at) else { return };
 		pollers.into_iter().for_each(|p| {
@@ -123,7 +123,6 @@ pub struct ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
-	<Block as BlockT>::Hash: Unpin,
 {
 	/// The reference to the `ChainApi` provided by client/backend.
 	api: Arc<ChainApi>,
@@ -186,7 +185,7 @@ where
 		let dropped_monitor_task = Self::dropped_monitor_task(dropped_stream, mempool.clone());
 
 		let combined_tasks = async move {
-			tokio::select! {
+			futures::select! {
 				_ = import_notification_sink_task => {},
 				_ = dropped_monitor_task => {}
 			}
@@ -266,7 +265,7 @@ where
 		let dropped_monitor_task = Self::dropped_monitor_task(dropped_stream, mempool.clone());
 
 		let combined_tasks = async move {
-			tokio::select! {
+			futures::select! {
 				_ = revalidation_task => {},
 				_ = import_notification_sink_task => {},
 				_ = dropped_monitor_task => {}
@@ -407,16 +406,7 @@ where
 				}
 
 				let before_count = tmp_view.pool.validated_pool().status().ready;
-				let in_pool_tags = tmp_view.pool.validated_pool().extrinsics_tags(&all_extrinsics);
-
-				let mut tags = Vec::new();
-				for i in in_pool_tags {
-					match i {
-						// reuse the tags for extrinsics that were found in the pool
-						Some(t) => tags.extend(t),
-						None => {},
-					}
-				}
+				let tags = tmp_view.pool.validated_pool().extrinsics_tags(&all_extrinsics).into_iter().flatten().collect::<Vec<_>>();
 				let _ = tmp_view.pool.validated_pool().prune_tags(tags);
 
 				let after_count = tmp_view.pool.validated_pool().status().ready;
@@ -516,7 +506,7 @@ fn reduce_multiview_result<H, E>(input: &mut HashMap<H, Vec<Result<H, E>>>) -> V
 		return Default::default();
 	};
 	let length = first.len();
-	assert!(values.all(|x| length == x.len()));
+	debug_assert!(values.all(|x| length == x.len()));
 
 	let mut output = Vec::with_capacity(length);
 	for _ in 0..length {
@@ -571,7 +561,7 @@ where
 		let to_be_submitted = mempool_result
 			.iter()
 			.zip(xts)
-			.filter_map(|(result, xt)| result.as_ref().ok().map(|_| xt))
+			.filter_map(|(result, xt)| result.is_ok().then(|| xt))
 			.collect::<Vec<_>>();
 
 		self.metrics
@@ -653,10 +643,7 @@ where
 		if !hashes.is_empty() {
 			log::debug!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
 			log_xt_trace!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
-			let _ = hashes
-				.len()
-				.try_into()
-				.map(|v| self.metrics.report(|metrics| metrics.removed_invalid_txs.inc_by(v)));
+			self.metrics.report(|metrics| metrics.removed_invalid_txs.inc_by(hashes.len() as _));
 		}
 		Default::default()
 	}
