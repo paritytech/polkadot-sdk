@@ -33,6 +33,7 @@ mod paid_remote_relay_relay;
 mod remote_para_para;
 mod remote_para_para_via_relay;
 mod remote_relay_relay;
+mod universal_exports;
 
 parameter_types! {
 	pub Local: NetworkId = ByGenesis([0; 32]);

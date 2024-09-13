@@ -14,17 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use super::*;
-use ::test_helpers::{dummy_hash, make_valid_candidate_descriptor};
 use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
+use polkadot_node_primitives::{BlockData, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::AllMessages;
-use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
-use polkadot_primitives::{HeadData, Id as ParaId, UpwardMessage};
-use sp_core::testing::TaskExecutor;
+use polkadot_overseer::ActivatedLeaf;
+use polkadot_primitives::{
+	CoreIndex, GroupIndex, HeadData, Id as ParaId, SessionInfo, UpwardMessage, ValidatorId,
+};
+use polkadot_primitives_test_helpers::{
+	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
+};
+use sp_core::{sr25519::Public, testing::TaskExecutor};
 use sp_keyring::Sr25519Keyring;
+use sp_keystore::{testing::MemoryKeystore, Keystore};
 
 #[test]
 fn correctly_checks_included_assumption() {
@@ -47,8 +55,10 @@ fn correctly_checks_included_assumption() {
 	);
 
 	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) =
-		test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
+	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
+		AllMessages,
+		_,
+	>(pool.clone());
 
 	let (check_fut, check_result) = check_assumption_validation_data(
 		ctx.sender(),
@@ -119,8 +129,10 @@ fn correctly_checks_timed_out_assumption() {
 	);
 
 	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) =
-		test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
+	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
+		AllMessages,
+		_,
+	>(pool.clone());
 
 	let (check_fut, check_result) = check_assumption_validation_data(
 		ctx.sender(),
@@ -189,8 +201,10 @@ fn check_is_bad_request_if_no_validation_data() {
 	);
 
 	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) =
-		test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
+	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
+		AllMessages,
+		_,
+	>(pool.clone());
 
 	let (check_fut, check_result) = check_assumption_validation_data(
 		ctx.sender(),
@@ -243,8 +257,10 @@ fn check_is_bad_request_if_no_validation_code() {
 	);
 
 	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) =
-		test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
+	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
+		AllMessages,
+		_,
+	>(pool.clone());
 
 	let (check_fut, check_result) = check_assumption_validation_data(
 		ctx.sender(),
@@ -309,8 +325,10 @@ fn check_does_not_match() {
 	);
 
 	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) =
-		test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
+	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
+		AllMessages,
+		_,
+	>(pool.clone());
 
 	let (check_fut, check_result) = check_assumption_validation_data(
 		ctx.sender(),
@@ -367,7 +385,9 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_encoded_params: Vec<u8>,
+		_pvd: Arc<PersistedValidationData>,
+		_pov: Arc<PoV>,
+		_prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
 		// test.
@@ -378,6 +398,10 @@ impl ValidationBackend for MockValidateCandidateBackend {
 	}
 
 	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<(), PrepareError> {
+		unreachable!()
+	}
+
+	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		unreachable!()
 	}
 }
@@ -849,7 +873,10 @@ fn candidate_validation_code_mismatch_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let pool = TaskExecutor::new();
-	let (_ctx, _ctx_handle) = test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
+	let (_ctx, _ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
+		AllMessages,
+		_,
+	>(pool.clone());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
@@ -924,109 +951,6 @@ fn compressed_code_works() {
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));
 }
 
-#[test]
-fn code_decompression_failure_is_error() {
-	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
-	let pov = PoV { block_data: BlockData(vec![1; 32]) };
-	let head_data = HeadData(vec![1, 1, 1]);
-
-	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT + 1];
-	let validation_code =
-		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT + 1)
-			.map(ValidationCode)
-			.unwrap();
-
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		validation_code.hash(),
-		head_data.hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	);
-
-	let validation_result = WasmValidationResult {
-		head_data,
-		new_validation_code: None,
-		upward_messages: Default::default(),
-		horizontal_messages: Default::default(),
-		processed_downward_messages: 0,
-		hrmp_watermark: 0,
-	};
-
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
-
-	let pool = TaskExecutor::new();
-	let (_ctx, _ctx_handle) = test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
-
-	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
-		validation_data,
-		validation_code,
-		candidate_receipt,
-		Arc::new(pov),
-		ExecutorParams::default(),
-		PvfExecKind::Backing,
-		&Default::default(),
-	));
-
-	assert_matches!(v, Err(_));
-}
-
-#[test]
-fn pov_decompression_failure_is_invalid() {
-	let validation_data =
-		PersistedValidationData { max_pov_size: POV_BOMB_LIMIT as u32, ..Default::default() };
-	let head_data = HeadData(vec![1, 1, 1]);
-
-	let raw_block_data = vec![2u8; POV_BOMB_LIMIT + 1];
-	let pov = sp_maybe_compressed_blob::compress(&raw_block_data, POV_BOMB_LIMIT + 1)
-		.map(|raw| PoV { block_data: BlockData(raw) })
-		.unwrap();
-
-	let validation_code = ValidationCode(vec![2; 16]);
-
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		validation_code.hash(),
-		head_data.hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	);
-
-	let validation_result = WasmValidationResult {
-		head_data,
-		new_validation_code: None,
-		upward_messages: Default::default(),
-		horizontal_messages: Default::default(),
-		processed_downward_messages: 0,
-		hrmp_watermark: 0,
-	};
-
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
-
-	let pool = TaskExecutor::new();
-	let (_ctx, _ctx_handle) = test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
-
-	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
-		validation_data,
-		validation_code,
-		candidate_receipt,
-		Arc::new(pov),
-		ExecutorParams::default(),
-		PvfExecKind::Backing,
-		&Default::default(),
-	));
-
-	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure)));
-}
-
 struct MockPreCheckBackend {
 	result: Result<(), PrepareError>,
 }
@@ -1043,13 +967,19 @@ impl ValidationBackend for MockPreCheckBackend {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_encoded_params: Vec<u8>,
+		_pvd: Arc<PersistedValidationData>,
+		_pov: Arc<PoV>,
+		_prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
 
 	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<(), PrepareError> {
 		self.result.clone()
+	}
+
+	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+		unreachable!()
 	}
 }
 
@@ -1060,8 +990,10 @@ fn precheck_works() {
 	let validation_code_hash = validation_code.hash();
 
 	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) =
-		test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
+	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
+		AllMessages,
+		_,
+	>(pool.clone());
 
 	let (check_fut, check_result) = precheck_pvf(
 		ctx.sender(),
@@ -1111,68 +1043,6 @@ fn precheck_works() {
 }
 
 #[test]
-fn precheck_invalid_pvf_blob_compression() {
-	let relay_parent = [3; 32].into();
-
-	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT + 1];
-	let validation_code =
-		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT + 1)
-			.map(ValidationCode)
-			.unwrap();
-	let validation_code_hash = validation_code.hash();
-
-	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) =
-		test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
-
-	let (check_fut, check_result) = precheck_pvf(
-		ctx.sender(),
-		MockPreCheckBackend::with_hardcoded_result(Ok(())),
-		relay_parent,
-		validation_code_hash,
-	)
-	.remote_handle();
-
-	let test_fut = async move {
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				rp,
-				RuntimeApiRequest::ValidationCodeByHash(
-					vch,
-					tx
-				),
-			)) => {
-				assert_eq!(vch, validation_code_hash);
-				assert_eq!(rp, relay_parent);
-
-				let _ = tx.send(Ok(Some(validation_code.clone())));
-			}
-		);
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(_, tx))
-			) => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
-		assert_matches!(check_result.await, PreCheckOutcome::Invalid);
-	};
-
-	let test_fut = future::join(test_fut, check_fut);
-	executor::block_on(test_fut);
-}
-
-#[test]
 fn precheck_properly_classifies_outcomes() {
 	let inner = |prepare_result, precheck_outcome| {
 		let relay_parent = [3; 32].into();
@@ -1181,7 +1051,9 @@ fn precheck_properly_classifies_outcomes() {
 
 		let pool = TaskExecutor::new();
 		let (mut ctx, mut ctx_handle) =
-			test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
+			polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(
+				pool.clone(),
+			);
 
 		let (check_fut, check_result) = precheck_pvf(
 			ctx.sender(),
@@ -1236,4 +1108,630 @@ fn precheck_properly_classifies_outcomes() {
 
 	inner(Err(PrepareError::TimedOut), PreCheckOutcome::Failed);
 	inner(Err(PrepareError::IoErr("fizz".to_owned())), PreCheckOutcome::Failed);
+}
+
+#[derive(Default, Clone)]
+struct MockHeadsUp {
+	heads_up_call_count: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl ValidationBackend for MockHeadsUp {
+	async fn validate_candidate(
+		&mut self,
+		_pvf: PvfPrepData,
+		_timeout: Duration,
+		_pvd: Arc<PersistedValidationData>,
+		_pov: Arc<PoV>,
+		_prepare_priority: polkadot_node_core_pvf::Priority,
+	) -> Result<WasmValidationResult, ValidationError> {
+		unreachable!()
+	}
+
+	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<(), PrepareError> {
+		unreachable!()
+	}
+
+	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+		let _ = self.heads_up_call_count.fetch_add(1, Ordering::SeqCst);
+		Ok(())
+	}
+}
+
+fn alice_keystore() -> KeystorePtr {
+	let keystore: KeystorePtr = Arc::new(MemoryKeystore::new());
+	let _ = Keystore::sr25519_generate_new(
+		&*keystore,
+		ValidatorId::ID,
+		Some(&Sr25519Keyring::Alice.to_seed()),
+	)
+	.unwrap();
+	let _ = Keystore::sr25519_generate_new(
+		&*keystore,
+		AuthorityDiscoveryId::ID,
+		Some(&Sr25519Keyring::Alice.to_seed()),
+	)
+	.unwrap();
+
+	keystore
+}
+
+fn dummy_active_leaves_update(hash: Hash) -> ActiveLeavesUpdate {
+	ActiveLeavesUpdate {
+		activated: Some(ActivatedLeaf {
+			hash,
+			number: 10,
+			unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(hash),
+			span: Arc::new(overseer::jaeger::Span::Disabled),
+		}),
+		..Default::default()
+	}
+}
+
+fn dummy_candidate_backed(
+	relay_parent: Hash,
+	validation_code_hash: ValidationCodeHash,
+) -> CandidateEvent {
+	let zeros = dummy_hash();
+	let descriptor = CandidateDescriptor {
+		para_id: ParaId::from(0_u32),
+		relay_parent,
+		collator: dummy_collator(),
+		persisted_validation_data_hash: zeros,
+		pov_hash: zeros,
+		erasure_root: zeros,
+		signature: dummy_collator_signature(),
+		para_head: zeros,
+		validation_code_hash,
+	};
+
+	CandidateEvent::CandidateBacked(
+		CandidateReceipt { descriptor, commitments_hash: zeros },
+		HeadData(Vec::new()),
+		CoreIndex(0),
+		GroupIndex(0),
+	)
+}
+
+fn dummy_session_info(keys: Vec<Public>) -> SessionInfo {
+	SessionInfo {
+		validators: keys.iter().cloned().map(Into::into).collect(),
+		discovery_keys: keys.iter().cloned().map(Into::into).collect(),
+		assignment_keys: vec![],
+		validator_groups: Default::default(),
+		n_cores: 4u32,
+		zeroth_delay_tranche_width: 0u32,
+		relay_vrf_modulo_samples: 0u32,
+		n_delay_tranches: 2u32,
+		no_show_slots: 0u32,
+		needed_approvals: 1u32,
+		active_validator_indices: vec![],
+		dispute_period: 6,
+		random_seed: [0u8; 32],
+	}
+}
+
+#[test]
+fn maybe_prepare_validation_golden_path() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState::default();
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Alice.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
+				let _ = tx.send(Ok(vec![dummy_candidate_backed(activated_hash, dummy_hash().into())]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, dummy_hash().into());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
+	assert!(state.session_index.is_some());
+	assert!(state.is_next_session_authority);
+}
+
+#[test]
+fn maybe_prepare_validation_checkes_authority_once_per_session() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState {
+		session_index: Some(1),
+		is_next_session_authority: false,
+		..Default::default()
+	};
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
+	assert!(state.session_index.is_some());
+	assert!(!state.is_next_session_authority);
+}
+
+#[test]
+fn maybe_prepare_validation_resets_state_on_a_new_session() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState {
+		session_index: Some(1),
+		is_next_session_authority: true,
+		already_prepared_code_hashes: HashSet::from_iter(vec![ValidationCode(vec![0; 16]).hash()]),
+		..Default::default()
+	};
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(2));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Bob.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 2);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
+	assert_eq!(state.session_index.unwrap(), 2);
+	assert!(!state.is_next_session_authority);
+	assert!(state.already_prepared_code_hashes.is_empty());
+}
+
+#[test]
+fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_and_not_a_validator() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState { session_index: Some(1), ..Default::default() };
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
+	assert!(state.session_index.is_some());
+	assert!(!state.is_next_session_authority);
+}
+
+#[test]
+fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_validator() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState {
+		session_index: Some(1),
+		is_next_session_authority: true,
+		..Default::default()
+	};
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
+				let _ = tx.send(Ok(vec![dummy_candidate_backed(activated_hash, dummy_hash().into())]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, dummy_hash().into());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
+	assert!(state.session_index.is_some());
+	assert!(state.is_next_session_authority);
+}
+
+#[test]
+fn maybe_prepare_validation_does_not_prepare_pvfs_if_not_a_validator_in_the_next_session() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState::default();
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Bob.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
+	assert!(state.session_index.is_some());
+	assert!(!state.is_next_session_authority);
+}
+
+#[test]
+fn maybe_prepare_validation_does_not_prepare_pvfs_if_a_validator_in_the_current_session() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState::default();
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Alice.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Alice.public()]))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
+	assert!(state.session_index.is_some());
+	assert!(!state.is_next_session_authority);
+}
+
+#[test]
+fn maybe_prepare_validation_prepares_a_limited_number_of_pvfs() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState { per_block_limit: 2, ..Default::default() };
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Alice.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
+				let candidates = vec![
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![0; 16]).hash()),
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![1; 16]).hash()),
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![2; 16]).hash()),
+				];
+				let _ = tx.send(Ok(candidates));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, ValidationCode(vec![0; 16]).hash());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, ValidationCode(vec![1; 16]).hash());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
+	assert!(state.session_index.is_some());
+	assert!(state.is_next_session_authority);
+	assert_eq!(state.already_prepared_code_hashes.len(), 2);
+}
+
+#[test]
+fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState {
+		session_index: Some(1),
+		is_next_session_authority: true,
+		per_block_limit: 2,
+		already_prepared_code_hashes: HashSet::from_iter(vec![
+			ValidationCode(vec![0; 16]).hash(),
+			ValidationCode(vec![1; 16]).hash(),
+		]),
+	};
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
+				let candidates = vec![
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![0; 16]).hash()),
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![1; 16]).hash()),
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![2; 16]).hash()),
+				];
+				let _ = tx.send(Ok(candidates));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, ValidationCode(vec![2; 16]).hash());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
+	assert!(state.session_index.is_some());
+	assert!(state.is_next_session_authority);
+	assert_eq!(state.already_prepared_code_hashes.len(), 3);
 }

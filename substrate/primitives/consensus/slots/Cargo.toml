@@ -1,11 +1,11 @@
 [package]
 name = "sp-consensus-slots"
-version = "0.10.0-dev"
+version = "0.32.0"
 authors.workspace = true
 description = "Primitives for slots-based consensus"
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 
@@ -16,11 +16,10 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0", default-features = false, features = ["alloc", "derive"], optional = true }
-sp-std = { path = "../../std", default-features = false }
-sp-timestamp = { path = "../../timestamp", default-features = false }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { features = ["alloc", "derive"], optional = true, workspace = true }
+sp-timestamp = { workspace = true }
 
 [features]
 default = ["std"]
@@ -28,7 +27,6 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"serde/std",
-	"sp-std/std",
 	"sp-timestamp/std",
 ]
 

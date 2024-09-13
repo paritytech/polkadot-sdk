@@ -28,7 +28,7 @@ use mock::{
 fn test_setup_works() {
 	// Environment setup, logger storage, and sudo `key` retrieval should work as expected.
 	new_test_ext(1).execute_with(|| {
-		assert_eq!(Sudo::key(), Some(1u64));
+		assert_eq!(Key::<Test>::get(), Some(1u64));
 		assert!(Logger::i32_log().is_empty());
 		assert!(Logger::account_log().is_empty());
 	});
@@ -135,7 +135,7 @@ fn set_key_basics() {
 	new_test_ext(1).execute_with(|| {
 		// A root `key` can change the root `key`
 		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
-		assert_eq!(Sudo::key(), Some(2u64));
+		assert_eq!(Key::<Test>::get(), Some(2u64));
 	});
 
 	new_test_ext(1).execute_with(|| {
@@ -161,7 +161,7 @@ fn set_key_emits_events_correctly() {
 fn remove_key_works() {
 	new_test_ext(1).execute_with(|| {
 		assert_ok!(Sudo::remove_key(RuntimeOrigin::signed(1)));
-		assert!(Sudo::key().is_none());
+		assert!(Key::<Test>::get().is_none());
 		System::assert_has_event(TestEvent::Sudo(Event::KeyRemoved {}));
 
 		assert_noop!(Sudo::remove_key(RuntimeOrigin::signed(1)), Error::<Test>::RequireSudo);
@@ -173,11 +173,11 @@ fn remove_key_works() {
 fn using_root_origin_works() {
 	new_test_ext(1).execute_with(|| {
 		assert_ok!(Sudo::remove_key(RuntimeOrigin::root()));
-		assert!(Sudo::key().is_none());
+		assert!(Key::<Test>::get().is_none());
 		System::assert_has_event(TestEvent::Sudo(Event::KeyRemoved {}));
 
 		assert_ok!(Sudo::set_key(RuntimeOrigin::root(), 1));
-		assert_eq!(Some(1), Sudo::key());
+		assert_eq!(Some(1), Key::<Test>::get());
 	});
 }
 

@@ -29,11 +29,11 @@ use crate::{
 	traits::{Get, GetDefault, StorageInfo, StorageInfoTrait, StorageInstance},
 	Never,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen, Ref};
 use sp_io::MultiRemovalResults;
 use sp_metadata_ir::StorageEntryMetadataIR;
 use sp_runtime::traits::Saturating;
-use sp_std::prelude::*;
 
 /// A wrapper around a [`StorageMap`] and a [`StorageValue`] (with the value being `u32`) to keep
 /// track of how many items are in a map, without needing to iterate all the values.
@@ -310,7 +310,7 @@ where
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	pub fn decode_len<KeyArg: EncodeLike<Key>>(key: KeyArg) -> Option<usize>
 	where
@@ -508,9 +508,14 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn build_metadata(docs: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>) {
-		<Self as MapWrapper>::Map::build_metadata(docs, entries);
+	fn build_metadata(
+		deprecation_status: sp_metadata_ir::DeprecationStatusIR,
+		docs: Vec<&'static str>,
+		entries: &mut Vec<StorageEntryMetadataIR>,
+	) {
+		<Self as MapWrapper>::Map::build_metadata(deprecation_status.clone(), docs, entries);
 		CounterFor::<Prefix>::build_metadata(
+			deprecation_status,
 			if cfg!(feature = "no-metadata-docs") {
 				vec![]
 			} else {
@@ -775,13 +780,13 @@ mod test {
 			assert_eq!(A::try_get(1), Err(()));
 			assert_eq!(A::count(), 3);
 
-			// Take exsisting.
+			// Take existing.
 			assert_eq!(A::take(4), 10);
 
 			assert_eq!(A::try_get(4), Err(()));
 			assert_eq!(A::count(), 2);
 
-			// Take non-exsisting.
+			// Take non-existing.
 			assert_eq!(A::take(4), ADefault::get());
 
 			assert_eq!(A::try_get(4), Err(()));
@@ -1022,13 +1027,13 @@ mod test {
 			assert_eq!(B::try_get(1), Err(()));
 			assert_eq!(B::count(), 3);
 
-			// Take exsisting.
+			// Take existing.
 			assert_eq!(B::take(4), Some(10));
 
 			assert_eq!(B::try_get(4), Err(()));
 			assert_eq!(B::count(), 2);
 
-			// Take non-exsisting.
+			// Take non-existing.
 			assert_eq!(B::take(4), None);
 
 			assert_eq!(B::try_get(4), Err(()));
@@ -1193,7 +1198,7 @@ mod test {
 	fn test_metadata() {
 		type A = CountedStorageMap<Prefix, Twox64Concat, u16, u32, ValueQuery, ADefault>;
 		let mut entries = vec![];
-		A::build_metadata(vec![], &mut entries);
+		A::build_metadata(sp_metadata_ir::DeprecationStatusIR::NotDeprecated, vec![], &mut entries);
 		assert_eq!(
 			entries,
 			vec![
@@ -1207,6 +1212,7 @@ mod test {
 					},
 					default: 97u32.encode(),
 					docs: vec![],
+					deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 				},
 				StorageEntryMetadataIR {
 					name: "counter_for_foo",
@@ -1218,6 +1224,7 @@ mod test {
 					} else {
 						vec!["Counter for the related counted storage map"]
 					},
+					deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 				},
 			]
 		);

@@ -11,30 +11,35 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
-assert_matches = "1.5.0"
+codec = { workspace = true }
+assert_matches = { workspace = true }
 
 # Substrate
-sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
-frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
-pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
-pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
-pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
-pallet-treasury = { path = "../../../../../../../substrate/frame/treasury", default-features = false }
-pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
+sp-runtime = { workspace = true }
+sp-keyring = { workspace = true }
+sp-core = { workspace = true }
+frame-metadata-hash-extension = { workspace = true, default-features = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-asset-conversion = { workspace = true }
+pallet-treasury = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-asset-tx-payment = { workspace = true }
 
 # Polkadot
-polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common" }
-xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
-pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
-westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
+polkadot-runtime-common = { workspace = true, default-features = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+pallet-xcm = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 
 # Cumulus
-parachains-common = { path = "../../../../../../parachains/common" }
-asset-hub-westend-runtime = { path = "../../../../../runtimes/assets/asset-hub-westend" }
-asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
-cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../../pallets/xcmp-queue" }
-cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../../pallets/parachain-system" }
-emulated-integration-tests-common = { path = "../../../common", default-features = false }
-westend-system-emulated-network = { path = "../../../networks/westend-system" }
+parachains-common = { workspace = true, default-features = true }
+asset-test-utils = { workspace = true, default-features = true }
+cumulus-pallet-xcmp-queue = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+emulated-integration-tests-common = { workspace = true }
+westend-system-emulated-network = { workspace = true }

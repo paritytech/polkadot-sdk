@@ -1,7 +1,7 @@
 # this image is built on top of existing Zombienet image
 ARG ZOMBIENET_IMAGE
 # this image uses substrate-relay image built elsewhere
-ARG SUBSTRATE_RELAY_IMAGE=docker.io/paritytech/substrate-relay:v2023-11-07-rococo-westend-initial-relayer
+ARG SUBSTRATE_RELAY_IMAGE=docker.io/paritytech/substrate-relay:v1.6.8
 
 # metadata
 ARG VCS_REF
@@ -22,7 +22,7 @@ LABEL io.parity.image.authors="devops-team@parity.io" \
 	io.parity.image.source="https://github.com/paritytech/polkadot-sdk/blob/${VCS_REF}/docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile" \
 	io.parity.image.revision="${VCS_REF}" \
 	io.parity.image.created="${BUILD_DATE}" \
-	io.parity.image.documentation="https://github.com/paritytech/polkadot-sdk/bridges/zombienet"
+	io.parity.image.documentation="https://github.com/paritytech/polkadot-sdk/bridges/testing"
 
 # show backtraces
 ENV RUST_BACKTRACE 1
@@ -45,7 +45,7 @@ RUN	mkdir -p /home/nonroot/bridges-polkadot-sdk
 COPY ./artifacts/bridges-polkadot-sdk /home/nonroot/bridges-polkadot-sdk
 # also prepare `generate_hex_encoded_call` for running
 RUN set -eux; \
-	cd /home/nonroot/bridges-polkadot-sdk/cumulus/scripts/generate_hex_encoded_call; \
+	cd /home/nonroot/bridges-polkadot-sdk/bridges/testing/framework/utils/generate_hex_encoded_call; \
 	npm install
 
 # check if executable works in this container
@@ -56,5 +56,3 @@ RUN /usr/local/bin/substrate-relay --version
 
 # https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:{PORT}#/explorer
 EXPOSE 9942 9910 8943 9945 9010 8945
-
-ENTRYPOINT ["/bin/bash", "-c", "/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh"]

@@ -18,7 +18,7 @@
 //!
 //! A parachain needs to build PoVs that are send to the relay chain to progress. These PoVs are
 //! erasure encoded and one piece of it is stored by each relay chain validator. As the relay chain
-//! decides on which PoV per parachain to include and thus, to progess the parachain it can happen
+//! decides on which PoV per parachain to include and thus, to progress the parachain it can happen
 //! that the block corresponding to this PoV isn't propagated in the parachain network. This can
 //! have several reasons, either a malicious collator that managed to include its own PoV and
 //! doesn't want to share it with the rest of the network or maybe a collator went down before it
@@ -48,11 +48,12 @@
 
 use sc_client_api::{BlockBackend, BlockchainEvents, UsageProvider};
 use sc_consensus::import_queue::{ImportQueueService, IncomingBlock};
+use sp_api::RuntimeApiInfo;
 use sp_consensus::{BlockOrigin, BlockStatus, SyncOracle};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
-use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
+use polkadot_node_subsystem::messages::{AvailabilityRecoveryMessage, RuntimeApiRequest};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
 	CandidateReceipt, CommittedCandidateReceipt, Id as ParaId, SessionIndex,
@@ -74,6 +75,9 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
+
+#[cfg(test)]
+mod tests;
 
 mod active_candidate_recovery;
 use active_candidate_recovery::ActiveCandidateRecovery;
@@ -338,8 +342,8 @@ where
 		let mut blocks_to_delete = vec![hash];
 
 		while let Some(delete) = blocks_to_delete.pop() {
-			if let Some(childs) = self.waiting_for_parent.remove(&delete) {
-				blocks_to_delete.extend(childs.iter().map(BlockT::hash));
+			if let Some(children) = self.waiting_for_parent.remove(&delete) {
+				blocks_to_delete.extend(children.iter().map(BlockT::hash));
 			}
 		}
 		self.clear_waiting_recovery(&hash);
@@ -448,7 +452,7 @@ where
 
 	/// Import the given `block`.
 	///
-	/// This will also recursivley drain `waiting_for_parent` and import them as well.
+	/// This will also recursively drain `waiting_for_parent` and import them as well.
 	fn import_block(&mut self, block: Block) {
 		let mut blocks = VecDeque::new();
 
@@ -495,7 +499,7 @@ where
 					tracing::debug!(
 						target: LOG_TARGET,
 						block_hash = ?hash,
-						"Cound not recover. Block was never announced as candidate"
+						"Could not recover. Block was never announced as candidate"
 					);
 					return
 				},
@@ -544,7 +548,7 @@ where
 		)
 		.await
 		{
-			Ok(pending_candidate_stream) => pending_candidate_stream.fuse(),
+			Ok(pending_candidates_stream) => pending_candidates_stream.fuse(),
 			Err(err) => {
 				tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve pending candidate stream.");
 				return
@@ -554,9 +558,11 @@ where
 		futures::pin_mut!(pending_candidates);
 		loop {
 			select! {
-				pending_candidate = pending_candidates.next() => {
-					if let Some((receipt, session_index)) = pending_candidate {
-						self.handle_pending_candidate(receipt, session_index);
+				next_pending_candidates = pending_candidates.next() => {
+					if let Some((candidates, session_index)) = next_pending_candidates {
+						for candidate in candidates {
+							self.handle_pending_candidate(candidate, session_index);
+						}
 					} else {
 						tracing::debug!(target: LOG_TARGET, "Pending candidates stream ended");
 						return;
@@ -615,7 +621,7 @@ async fn pending_candidates(
 	relay_chain_client: impl RelayChainInterface + Clone,
 	para_id: ParaId,
 	sync_service: Arc<dyn SyncOracle + Sync + Send>,
-) -> RelayChainResult<impl Stream<Item = (CommittedCandidateReceipt, SessionIndex)>> {
+) -> RelayChainResult<impl Stream<Item = (Vec<CommittedCandidateReceipt>, SessionIndex)>> {
 	let import_notification_stream = relay_chain_client.import_notification_stream().await?;
 
 	let filtered_stream = import_notification_stream.filter_map(move |n| {
@@ -632,16 +638,54 @@ async fn pending_candidates(
 				return None
 			}
 
-			let pending_availability_result = client_for_closure
-				.candidate_pending_availability(hash, para_id)
+			let runtime_api_version = client_for_closure
+				.version(hash)
 				.await
 				.map_err(|e| {
 					tracing::error!(
 						target: LOG_TARGET,
 						error = ?e,
-						"Failed to fetch pending candidates.",
+						"Failed to fetch relay chain runtime version.",
 					)
-				});
+				})
+				.ok()?;
+			let parachain_host_runtime_api_version = runtime_api_version
+				.api_version(
+					&<dyn polkadot_primitives::runtime_api::ParachainHost<
+						polkadot_primitives::Block,
+					>>::ID,
+				)
+				.unwrap_or_default();
+
+			// If the relay chain runtime does not support the new runtime API, fallback to the
+			// deprecated one.
+			let pending_availability_result = if parachain_host_runtime_api_version <
+				RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+			{
+				#[allow(deprecated)]
+				client_for_closure
+					.candidate_pending_availability(hash, para_id)
+					.await
+					.map_err(|e| {
+						tracing::error!(
+							target: LOG_TARGET,
+							error = ?e,
+							"Failed to fetch pending candidates.",
+						)
+					})
+					.map(|candidate| candidate.into_iter().collect::<Vec<_>>())
+			} else {
+				client_for_closure.candidates_pending_availability(hash, para_id).await.map_err(
+					|e| {
+						tracing::error!(
+							target: LOG_TARGET,
+							error = ?e,
+							"Failed to fetch pending candidates.",
+						)
+					},
+				)
+			};
+
 			let session_index_result =
 				client_for_closure.session_index_for_child(hash).await.map_err(|e| {
 					tracing::error!(
@@ -651,8 +695,8 @@ async fn pending_candidates(
 					)
 				});
 
-			if let Ok(Some(candidate)) = pending_availability_result {
-				session_index_result.map(|session_index| (candidate, session_index)).ok()
+			if let Ok(candidates) = pending_availability_result {
+				session_index_result.map(|session_index| (candidates, session_index)).ok()
 			} else {
 				None
 			}

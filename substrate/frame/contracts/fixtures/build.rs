@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Compile contracts to wasm and RISC-V binaries.
+//! Compile contracts to wasm.
 use anyhow::{bail, Context, Result};
 use parity_wasm::elements::{deserialize_file, serialize_to_file, Internal};
 use std::{
@@ -89,12 +89,6 @@ impl Entry {
 	fn out_wasm_filename(&self) -> String {
 		format!("{}.wasm", self.name())
 	}
-
-	/// Return the name of the RISC-V polkavm file.
-	#[cfg(feature = "riscv")]
-	fn out_riscv_filename(&self) -> String {
-		format!("{}.polkavm", self.name())
-	}
 }
 
 /// Collect all contract entries from the given source directory.
@@ -121,9 +115,11 @@ fn collect_entries(contracts_dir: &Path, out_dir: &Path) -> Vec<Entry> {
 /// Create a `Cargo.toml` to compile the given contract entries.
 fn create_cargo_toml<'a>(
 	fixtures_dir: &Path,
+	root_cargo_toml: &Path,
 	entries: impl Iterator<Item = &'a Entry>,
 	output_dir: &Path,
 ) -> Result<()> {
+	let root_toml: toml::Value = toml::from_str(&fs::read_to_string(root_cargo_toml)?)?;
 	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/Cargo.toml"))?;
 	let mut set_dep = |name, path| -> Result<()> {
 		cargo_toml["dependencies"][name]["path"] = toml::Value::String(
@@ -133,6 +129,8 @@ fn create_cargo_toml<'a>(
 	};
 	set_dep("uapi", "../uapi")?;
 	set_dep("common", "./contracts/common")?;
+	cargo_toml["dependencies"]["polkavm-derive"]["version"] =
+		root_toml["workspace"]["dependencies"]["polkavm-derive"].clone();
 
 	cargo_toml["bin"] = toml::Value::Array(
 		entries
@@ -159,7 +157,7 @@ fn invoke_cargo_fmt<'a>(
 ) -> Result<()> {
 	// If rustfmt is not installed, skip the check.
 	if !Command::new("rustup")
-		.args(["nightly-2023-11-01", "run", "rustfmt", "--version"])
+		.args(["nightly-2024-04-10", "run", "rustfmt", "--version"])
 		.output()
 		.map_or(false, |o| o.status.success())
 	{
@@ -167,7 +165,7 @@ fn invoke_cargo_fmt<'a>(
 	}
 
 	let fmt_res = Command::new("rustup")
-		.args(["nightly-2023-11-01", "run", "rustfmt", "--check", "--config-path"])
+		.args(["nightly-2024-04-10", "run", "rustfmt", "--check", "--config-path"])
 		.arg(config_path)
 		.args(files)
 		.output()
@@ -182,7 +180,7 @@ fn invoke_cargo_fmt<'a>(
 	eprintln!("{}\n{}", stdout, stderr);
 	eprintln!(
 		"Fixtures files are not formatted.\n
-		Please run `rustup nightly-2023-11-01 run rustfmt --config-path {} {}/*.rs`",
+		Please run `rustup nightly-2024-04-10 run rustfmt --config-path {} {}/*.rs`",
 		config_path.display(),
 		contract_dir.display()
 	);
@@ -232,53 +230,6 @@ fn post_process_wasm(input_path: &Path, output_path: &Path) -> Result<()> {
 	serialize_to_file(output_path, module).map_err(Into::into)
 }
 
-/// Build contracts for RISC-V.
-#[cfg(feature = "riscv")]
-fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
-	let encoded_rustflags = [
-		"-Crelocation-model=pie",
-		"-Clink-arg=--emit-relocs",
-		"-Clink-arg=--export-dynamic-symbol=__polkavm_symbol_export_hack__*",
-	]
-	.join("\x1f");
-
-	let build_res = Command::new(env::var("CARGO")?)
-		.current_dir(current_dir)
-		.env_clear()
-		.env("PATH", env::var("PATH").unwrap_or_default())
-		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-		.env("RUSTUP_TOOLCHAIN", "rve-nightly")
-		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
-		.args(["build", "--release", "--target=riscv32ema-unknown-none-elf"])
-		.output()
-		.expect("failed to execute process");
-
-	if build_res.status.success() {
-		return Ok(())
-	}
-
-	let stderr = String::from_utf8_lossy(&build_res.stderr);
-
-	if stderr.contains("'rve-nightly' is not installed") {
-		eprintln!("RISC-V toolchain is not installed.\nDownload and install toolchain from https://github.com/paritytech/rustc-rv32e-toolchain.");
-		eprintln!("{}", stderr);
-	} else {
-		eprintln!("{}", stderr);
-	}
-
-	bail!("Failed to build contracts");
-}
-/// Post-process the compiled wasm contracts.
-#[cfg(feature = "riscv")]
-fn post_process_riscv(input_path: &Path, output_path: &Path) -> Result<()> {
-	let mut config = polkavm_linker::Config::default();
-	config.set_strip(true);
-	let orig = fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
-	let linked = polkavm_linker::program_from_elf(config, orig.as_ref())
-		.map_err(|err| anyhow::format_err!("Failed to link polkavm program: {}", err))?;
-	fs::write(output_path, linked.as_bytes()).map_err(Into::into)
-}
-
 /// Write the compiled contracts to the given output directory.
 fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result<()> {
 	for entry in entries {
@@ -286,12 +237,6 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 		post_process_wasm(
 			&build_dir.join("target/wasm32-unknown-unknown/release").join(&wasm_output),
 			&out_dir.join(&wasm_output),
-		)?;
-
-		#[cfg(feature = "riscv")]
-		post_process_riscv(
-			&build_dir.join("target/riscv32ema-unknown-none-elf/release").join(entry.name()),
-			&out_dir.join(entry.out_riscv_filename()),
 		)?;
 
 		entry.update_cache(out_dir)?;
@@ -309,7 +254,7 @@ fn find_workspace_root(current_dir: &Path) -> Option<PathBuf> {
 			let cargo_toml_contents =
 				std::fs::read_to_string(current_dir.join("Cargo.toml")).ok()?;
 			if cargo_toml_contents.contains("[workspace]") {
-				return Some(current_dir)
+				return Some(current_dir);
 			}
 		}
 
@@ -324,6 +269,7 @@ fn main() -> Result<()> {
 	let contracts_dir = fixtures_dir.join("contracts");
 	let out_dir: PathBuf = env::var("OUT_DIR")?.into();
 	let workspace_root = find_workspace_root(&fixtures_dir).expect("workspace root exists; qed");
+	let root_cargo_toml = workspace_root.join("Cargo.toml");
 
 	let entries = collect_entries(&contracts_dir, &out_dir);
 	if entries.is_empty() {
@@ -333,7 +279,7 @@ fn main() -> Result<()> {
 	let tmp_dir = tempfile::tempdir()?;
 	let tmp_dir_path = tmp_dir.path();
 
-	create_cargo_toml(&fixtures_dir, entries.iter(), tmp_dir.path())?;
+	create_cargo_toml(&fixtures_dir, &root_cargo_toml, entries.iter(), tmp_dir.path())?;
 	invoke_cargo_fmt(
 		&workspace_root.join(".rustfmt.toml"),
 		entries.iter().map(|entry| &entry.path as _),
@@ -341,9 +287,6 @@ fn main() -> Result<()> {
 	)?;
 
 	invoke_wasm_build(tmp_dir_path)?;
-
-	#[cfg(feature = "riscv")]
-	invoke_riscv_build(tmp_dir_path)?;
 
 	write_output(tmp_dir_path, &out_dir, entries)?;
 	Ok(())

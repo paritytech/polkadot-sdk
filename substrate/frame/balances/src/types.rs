@@ -78,15 +78,6 @@ pub struct ReserveData<ReserveIdentifier, Balance> {
 	pub amount: Balance,
 }
 
-/// An identifier and balance.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub struct IdAmount<Id, Balance> {
-	/// An identifier for this item.
-	pub id: Id,
-	/// Some amount for this item.
-	pub amount: Balance,
-}
-
 /// All balance information for an account.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AccountData<Balance> {
@@ -111,7 +102,7 @@ pub struct AccountData<Balance> {
 const IS_NEW_LOGIC: u128 = 0x80000000_00000000_00000000_00000000u128;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub struct ExtraFlags(u128);
+pub struct ExtraFlags(pub(crate) u128);
 impl Default for ExtraFlags {
 	fn default() -> Self {
 		Self(IS_NEW_LOGIC)
@@ -151,4 +142,13 @@ impl<T: Config<I>, I: 'static> Drop for DustCleaner<T, I> {
 			T::DustRemoval::on_unbalanced(dust);
 		}
 	}
+}
+
+/// Whether something should be interpreted as an increase or a decrease.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub enum AdjustmentDirection {
+	/// Increase the amount.
+	Increase,
+	/// Decrease the amount.
+	Decrease,
 }

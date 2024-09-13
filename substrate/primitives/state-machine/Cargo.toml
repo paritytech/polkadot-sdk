@@ -1,11 +1,11 @@
 [package]
 name = "sp-state-machine"
-version = "0.28.0"
+version = "0.35.0"
 authors.workspace = true
 description = "Substrate State Machine"
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 documentation = "https://docs.rs/sp-state-machine"
 readme = "README.md"
@@ -17,30 +17,32 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-hash-db = { version = "0.16.0", default-features = false }
-log = { version = "0.4.17", default-features = false }
-parking_lot = { version = "0.12.1", optional = true }
-rand = { version = "0.8.5", optional = true }
-smallvec = "1.11.0"
-thiserror = { version = "1.0.48", optional = true }
-tracing = { version = "0.1.29", optional = true }
-sp-core = { path = "../core", default-features = false }
-sp-externalities = { path = "../externalities", default-features = false }
-sp-panic-handler = { path = "../panic-handler", optional = true }
-sp-std = { path = "../std", default-features = false }
-sp-trie = { path = "../trie", default-features = false }
-trie-db = { version = "0.28.0", default-features = false }
+codec = { workspace = true }
+hash-db = { workspace = true }
+log = { workspace = true }
+parking_lot = { optional = true, workspace = true, default-features = true }
+rand = { optional = true, workspace = true, default-features = true }
+smallvec = { workspace = true, default-features = true }
+thiserror = { optional = true, workspace = true }
+tracing = { optional = true, workspace = true, default-features = true }
+sp-core = { workspace = true }
+sp-externalities = { workspace = true }
+sp-panic-handler = { optional = true, workspace = true, default-features = true }
+sp-trie = { workspace = true }
+trie-db = { workspace = true }
+arbitrary = { features = ["derive"], optional = true, workspace = true }
 
 [dev-dependencies]
-array-bytes = "6.1"
-pretty_assertions = "1.2.1"
-rand = "0.8.5"
-sp-runtime = { path = "../runtime" }
-assert_matches = "1.5"
+array-bytes = { workspace = true, default-features = true }
+pretty_assertions = { workspace = true }
+rand = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+assert_matches = { workspace = true }
+arbitrary = { features = ["derive"], workspace = true }
 
 [features]
 default = ["std"]
+fuzzing = ["arbitrary"]
 std = [
 	"codec/std",
 	"hash-db/std",
@@ -51,7 +53,6 @@ std = [
 	"sp-externalities/std",
 	"sp-panic-handler",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-trie/std",
 	"thiserror",
 	"tracing",

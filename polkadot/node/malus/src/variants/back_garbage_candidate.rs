@@ -19,16 +19,14 @@
 //! candidates.
 
 use polkadot_cli::{
-	prepared_overseer_builder,
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, HeaderBackend, Overseer,
-		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle, ParachainHost,
-		ProvideRuntimeApi,
+		AuxStore, Error, ExtendedOverseerGenArgs, Overseer, OverseerConnector, OverseerGen,
+		OverseerGenArgs, OverseerHandle,
 	},
-	Cli,
+	validator_overseer_builder, Cli,
 };
 use polkadot_node_subsystem::SpawnGlue;
-use polkadot_node_subsystem_types::DefaultSubsystemClient;
+use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 use sp_core::traits::SpawnNamed;
 
 use crate::{
@@ -63,13 +61,10 @@ impl OverseerGen for BackGarbageCandidates {
 		&self,
 		connector: OverseerConnector,
 		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
-	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
-		Error,
-	>
+		ext_args: Option<ExtendedOverseerGenArgs>,
+	) -> Result<(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
-		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		let spawner = args.spawner.clone();
@@ -80,11 +75,14 @@ impl OverseerGen for BackGarbageCandidates {
 			SpawnGlue(spawner),
 		);
 
-		prepared_overseer_builder(args)?
-			.replace_candidate_validation(move |cv_subsystem| {
-				InterceptedSubsystem::new(cv_subsystem, validation_filter)
-			})
-			.build_with_connector(connector)
-			.map_err(|e| e.into())
+		validator_overseer_builder(
+			args,
+			ext_args.expect("Extended arguments required to build validator overseer are provided"),
+		)?
+		.replace_candidate_validation(move |cv_subsystem| {
+			InterceptedSubsystem::new(cv_subsystem, validation_filter)
+		})
+		.build_with_connector(connector)
+		.map_err(|e| e.into())
 	}
 }

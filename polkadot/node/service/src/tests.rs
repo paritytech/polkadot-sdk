@@ -19,7 +19,6 @@ use super::{relay_chain_selection::*, *};
 use futures::channel::oneshot::Receiver;
 use polkadot_node_primitives::approval::v2::VrfSignature;
 use polkadot_node_subsystem::messages::{AllMessages, BlockDescription};
-use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_test_client::Sr25519Keyring;
 use sp_consensus_babe::{
@@ -46,7 +45,8 @@ use polkadot_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_node_subsystem_test_helpers::TestSubsystemSender;
 use polkadot_overseer::{SubsystemContext, SubsystemSender};
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
 
 #[async_trait::async_trait]
 impl OverseerHandleT for TestSubsystemSender {
@@ -70,13 +70,11 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	case_vars: CaseVars,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter_level(log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let pool = TaskExecutor::new();
-	let (mut context, virtual_overseer) = test_helpers::make_subsystem_context(pool);
+	let (mut context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
 
 	let (finality_target_tx, finality_target_rx) = oneshot::channel::<Option<Hash>>();
 

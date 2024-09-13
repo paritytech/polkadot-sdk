@@ -17,13 +17,16 @@
 
 #![deny(missing_docs)]
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::fmt::Debug;
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
-use sp_std::vec::Vec;
+
+use crate::Timeslice;
 
 /// Index of a Polkadot Core.
 pub type CoreIndex = u16;
@@ -51,7 +54,7 @@ pub enum CoreAssignment {
 pub type RCBlockNumberOf<T> = <RCBlockNumberProviderOf<T> as BlockNumberProvider>::BlockNumber;
 
 /// Relay chain block number provider of `T` that implements [`CoretimeInterface`].
-pub type RCBlockNumberProviderOf<T> = <T as CoretimeInterface>::RealyChainBlockNumberProvider;
+pub type RCBlockNumberProviderOf<T> = <T as CoretimeInterface>::RelayChainBlockNumberProvider;
 
 /// Type able to accept Coretime scheduling instructions and provide certain usage information.
 /// Generally implemented by the Relay-chain or some means of communicating with it.
@@ -62,10 +65,10 @@ pub trait CoretimeInterface {
 	type AccountId: Parameter;
 
 	/// A (Relay-chain-side) balance.
-	type Balance: AtLeast32BitUnsigned;
+	type Balance: AtLeast32BitUnsigned + Encode + Decode + MaxEncodedLen + TypeInfo + Debug;
 
 	/// A provider for the relay chain block number.
-	type RealyChainBlockNumberProvider: BlockNumberProvider;
+	type RelayChainBlockNumberProvider: BlockNumberProvider;
 
 	/// Requests the Relay-chain to alter the number of schedulable cores to `count`. Under normal
 	/// operation, the Relay-chain SHOULD send a `notify_core_count(count)` message back.
@@ -107,28 +110,16 @@ pub trait CoretimeInterface {
 		end_hint: Option<RCBlockNumberOf<Self>>,
 	);
 
-	/// Provide the amount of revenue accumulated from Instantaneous Coretime Sales from Relay-chain
-	/// block number `last_until` to `until`, not including `until` itself. `last_until` is defined
-	/// as being the `until` argument of the last `notify_revenue` message sent, or zero for the
-	/// first call. If `revenue` is `None`, this indicates that the information is no longer
-	/// available.
-	///
-	/// This explicitly disregards the possibility of multiple parachains requesting and being
-	/// notified of revenue information. The Relay-chain must be configured to ensure that only a
-	/// single revenue information destination exists.
-	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)>;
-
-	/// Ensure that revenue information is updated to the provided value.
-	///
-	/// This is only used for benchmarking.
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance);
+	/// A hook supposed to be called right after a new timeslice has begun. Likely to be used for
+	/// batching different matters happened during the timeslice that may benifit from batched
+	/// processing.
+	fn on_new_timeslice(_timeslice: Timeslice) {}
 }
 
 impl CoretimeInterface for () {
 	type AccountId = ();
 	type Balance = u64;
-	type RealyChainBlockNumberProvider = ();
+	type RelayChainBlockNumberProvider = ();
 
 	fn request_core_count(_count: CoreIndex) {}
 	fn request_revenue_info_at(_when: RCBlockNumberOf<Self>) {}
@@ -140,9 +131,4 @@ impl CoretimeInterface for () {
 		_end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
 	}
-	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
-		None
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(_when: RCBlockNumberOf<Self>, _revenue: Self::Balance) {}
 }

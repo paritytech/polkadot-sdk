@@ -67,11 +67,12 @@ pub use self::{
 	validator::{DiscardAll, MessageIntent, ValidationResult, Validator, ValidatorContext},
 };
 
-use libp2p::{multiaddr, PeerId};
-use sc_network::{
-	types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
-};
+use sc_network::{types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkPeers};
 use sc_network_sync::SyncEventStream;
+use sc_network_types::{
+	multiaddr::{Multiaddr, Protocol},
+	PeerId,
+};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::iter;
 
@@ -80,10 +81,9 @@ mod state_machine;
 mod validator;
 
 /// Abstraction over a network.
-pub trait Network<B: BlockT>: NetworkPeers + NetworkEventStream + NetworkNotification {
+pub trait Network<B: BlockT>: NetworkPeers + NetworkEventStream {
 	fn add_set_reserved(&self, who: PeerId, protocol: ProtocolName) {
-		let addr =
-			iter::once(multiaddr::Protocol::P2p(who.into())).collect::<multiaddr::Multiaddr>();
+		let addr = Multiaddr::empty().with(Protocol::P2p(*who.as_ref()));
 		let result = self.add_peers_to_reserved_set(protocol, iter::once(addr).collect());
 		if let Err(err) = result {
 			log::error!(target: "gossip", "add_set_reserved failed: {}", err);
@@ -97,7 +97,7 @@ pub trait Network<B: BlockT>: NetworkPeers + NetworkEventStream + NetworkNotific
 	}
 }
 
-impl<T, B: BlockT> Network<B> for T where T: NetworkPeers + NetworkEventStream + NetworkNotification {}
+impl<T, B: BlockT> Network<B> for T where T: NetworkPeers + NetworkEventStream {}
 
 /// Abstraction over the syncing subsystem.
 pub trait Syncing<B: BlockT>: SyncEventStream + NetworkBlock<B::Hash, NumberFor<B>> {}

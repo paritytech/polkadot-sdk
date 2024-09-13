@@ -15,8 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, Pallet};
+use crate::{Config, Key};
 use codec::{Decode, Encode};
+use core::{fmt, marker::PhantomData};
 use frame_support::{dispatch::DispatchInfo, ensure};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -26,7 +27,6 @@ use sp_runtime::{
 		UnknownTransaction, ValidTransaction,
 	},
 };
-use sp_std::{fmt, marker::PhantomData};
 
 /// Ensure that signed transactions are only valid if they are signed by sudo account.
 ///
@@ -86,7 +86,7 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
-		let sudo_key: T::AccountId = <Pallet<T>>::key().ok_or(UnknownTransaction::CannotLookup)?;
+		let sudo_key: T::AccountId = Key::<T>::get().ok_or(UnknownTransaction::CannotLookup)?;
 		ensure!(*who == sudo_key, InvalidTransaction::BadSigner);
 
 		Ok(ValidTransaction {

@@ -38,6 +38,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
@@ -50,7 +53,6 @@ use sp_runtime::{
 	traits::{IsMember, Member, SaturatedConversion, Saturating, Zero},
 	RuntimeAppPublic,
 };
-use sp_std::prelude::*;
 
 pub mod migrations;
 mod mock;
@@ -66,10 +68,7 @@ const LOG_TARGET: &str = "runtime::aura";
 ///
 /// This was the default behavior of the Aura pallet and may be used for
 /// backwards compatibility.
-///
-/// Note that this type is likely not useful without the `experimental`
-/// feature.
-pub struct MinimumPeriodTimesTwo<T>(sp_std::marker::PhantomData<T>);
+pub struct MinimumPeriodTimesTwo<T>(core::marker::PhantomData<T>);
 
 impl<T: pallet_timestamp::Config> Get<T::Moment> for MinimumPeriodTimesTwo<T> {
 	fn get() -> T::Moment {
@@ -117,15 +116,12 @@ pub mod pallet {
 		/// The effective value of this type should not change while the chain is running.
 		///
 		/// For backwards compatibility either use [`MinimumPeriodTimesTwo`] or a const.
-		///
-		/// This associated type is only present when compiled with the `experimental`
-		/// feature.
-		#[cfg(feature = "experimental")]
+		#[pallet::constant]
 		type SlotDuration: Get<<Self as pallet_timestamp::Config>::Moment>;
 	}
 
 	#[pallet::pallet]
-	pub struct Pallet<T>(sp_std::marker::PhantomData<T>);
+	pub struct Pallet<T>(core::marker::PhantomData<T>);
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -168,16 +164,14 @@ pub mod pallet {
 
 	/// The current authority set.
 	#[pallet::storage]
-	#[pallet::getter(fn authorities)]
-	pub(super) type Authorities<T: Config> =
+	pub type Authorities<T: Config> =
 		StorageValue<_, BoundedVec<T::AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	/// The current slot of this block.
 	///
 	/// This will be set in `on_initialize`.
 	#[pallet::storage]
-	#[pallet::getter(fn current_slot)]
-	pub(super) type CurrentSlot<T: Config> = StorageValue<_, Slot, ValueQuery>;
+	pub type CurrentSlot<T: Config> = StorageValue<_, Slot, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -250,17 +244,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Determine the Aura slot-duration based on the Timestamp module configuration.
 	pub fn slot_duration() -> T::Moment {
-		#[cfg(feature = "experimental")]
-		{
-			T::SlotDuration::get()
-		}
-
-		#[cfg(not(feature = "experimental"))]
-		{
-			// we double the minimum block-period so each author can always propose within
-			// the majority of its slot.
-			<T as pallet_timestamp::Config>::MinimumPeriod::get().saturating_mul(2u32.into())
-		}
+		T::SlotDuration::get()
 	}
 
 	/// Ensure the correctness of the state of this pallet.
@@ -335,7 +319,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		// instant changes
 		if changed {
 			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
-			let last_authorities = Self::authorities();
+			let last_authorities = Authorities::<T>::get();
 			if last_authorities != next_authorities {
 				if next_authorities.len() as u32 > T::MaxAuthorities::get() {
 					log::warn!(
@@ -380,7 +364,7 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 /// We can not implement `FindAuthor` twice, because the compiler does not know if
 /// `u32 == T::AuthorityId` and thus, prevents us to implement the trait twice.
 #[doc(hidden)]
-pub struct FindAccountFromAuthorIndex<T, Inner>(sp_std::marker::PhantomData<(T, Inner)>);
+pub struct FindAccountFromAuthorIndex<T, Inner>(core::marker::PhantomData<(T, Inner)>);
 
 impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::AuthorityId>
 	for FindAccountFromAuthorIndex<T, Inner>
@@ -391,7 +375,7 @@ impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::AuthorityId>
 	{
 		let i = Inner::find_author(digests)?;
 
-		let validators = <Pallet<T>>::authorities();
+		let validators = Authorities::<T>::get();
 		validators.get(i as usize).cloned()
 	}
 }
@@ -401,7 +385,7 @@ pub type AuraAuthorId<T> = FindAccountFromAuthorIndex<T, Pallet<T>>;
 
 impl<T: Config> IsMember<T::AuthorityId> for Pallet<T> {
 	fn is_member(authority_id: &T::AuthorityId) -> bool {
-		Self::authorities().iter().any(|id| id == authority_id)
+		Authorities::<T>::get().iter().any(|id| id == authority_id)
 	}
 }
 

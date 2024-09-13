@@ -1,0 +1,9 @@
+title: "Introduce `Balances::force_adjust_total_issuance`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduce a root extrinsic to forcefully adjust the Total Issuance. Should only be used to fix historic errors.
+
+crates:
+  - name: "pallet-balances"

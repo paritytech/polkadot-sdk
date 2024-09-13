@@ -257,6 +257,9 @@ pub mod weights;
 
 pub mod migrations;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use frame_support::{
 	impl_ensure_origin_with_arg_ignoring_arg,
 	pallet_prelude::*,
@@ -282,7 +285,6 @@ use sp_runtime::{
 	ArithmeticError::Overflow,
 	Percent, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 pub use weights::WeightInfo;
 
@@ -1362,7 +1364,7 @@ pub mod pallet {
 }
 
 /// Simple ensure origin struct to filter for the founder account.
-pub struct EnsureFounder<T>(sp_std::marker::PhantomData<T>);
+pub struct EnsureFounder<T>(core::marker::PhantomData<T>);
 impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureFounder<T> {
 	type Success = T::AccountId;
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
@@ -1509,7 +1511,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// the Founder.
 		if MemberCount::<T, I>::get() > 2 {
 			let defender = next_defender
-				.or_else(|| Self::pick_defendent(rng))
+				.or_else(|| Self::pick_defendant(rng))
 				.expect("exited if members empty; qed");
 			let skeptic =
 				Self::pick_member_except(rng, &defender).expect("exited if members empty; qed");
@@ -1871,7 +1873,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// If only the Founder and Head members exist (or the state is inconsistent), then `None`
 	/// may be returned.
-	fn pick_defendent(rng: &mut impl RngCore) -> Option<T::AccountId> {
+	fn pick_defendant(rng: &mut impl RngCore) -> Option<T::AccountId> {
 		let member_count = MemberCount::<T, I>::get();
 		if member_count <= 2 {
 			return None
@@ -1976,7 +1978,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Transfer some `amount` from the main account into the payouts account and reduce the Pot
 	/// by this amount.
 	fn reserve_payout(amount: BalanceOf<T, I>) {
-		// Tramsfer payout from the Pot into the payouts account.
+		// Transfer payout from the Pot into the payouts account.
 		Pot::<T, I>::mutate(|pot| pot.saturating_reduce(amount));
 
 		// this should never fail since we ensure we can afford the payouts in a previous
@@ -1988,7 +1990,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Transfer some `amount` from the main account into the payouts account and increase the Pot
 	/// by this amount.
 	fn unreserve_payout(amount: BalanceOf<T, I>) {
-		// Tramsfer payout from the Pot into the payouts account.
+		// Transfer payout from the Pot into the payouts account.
 		Pot::<T, I>::mutate(|pot| pot.saturating_accrue(amount));
 
 		// this should never fail since we ensure we can afford the payouts in a previous

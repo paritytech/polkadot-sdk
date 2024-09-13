@@ -129,7 +129,7 @@ fn backed_candidate_leads_to_advertisement() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Send enough statements to make candidate backable, make sure announcements are sent.
@@ -224,7 +224,7 @@ fn backed_candidate_leads_to_advertisement() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		overseer
@@ -384,7 +384,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into() => { }
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		overseer
@@ -437,6 +437,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 			validator_count,
 			group_size,
 			&peers_to_connect,
+			false,
 		)
 		.await;
 		let [_, _, peer_c, peer_d, _] = peers[..] else { panic!() };
@@ -514,7 +515,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
 			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive Backed message.
@@ -545,7 +546,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive a manifest about the same candidate from peer D.
@@ -608,6 +609,7 @@ fn receive_ack_for_unconfirmed_candidate() {
 				validator_count,
 				group_size,
 				&peers_to_connect,
+				false,
 			)
 			.await;
 		let [_, _, peer_c, _] = peers[..] else { panic!() };
@@ -676,6 +678,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 			validator_count,
 			group_size,
 			&peers_to_connect,
+			true,
 		)
 		.await;
 		let [peer_a, peer_b, peer_c, peer_d] = peers[..] else { panic!() };
@@ -717,7 +720,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive an unexpected acknowledgement from peer D.
@@ -782,7 +785,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive an unexpected acknowledgement from peer D.
@@ -837,6 +840,7 @@ fn received_acknowledgements_for_externally_confirmed() {
 			validator_count,
 			group_size,
 			&peers_to_connect,
+			false,
 		)
 		.await;
 		let [peer_a, _, peer_c, peer_d, _] = peers[..] else { panic!() };
@@ -914,7 +918,7 @@ fn received_acknowledgements_for_externally_confirmed() {
 			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
 			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		let ack = BackedCandidateAcknowledgement {
@@ -1097,7 +1101,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into()
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive advertisement from peer D (after confirmation but before backing).
@@ -1268,9 +1272,12 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			receipt: Arc::new(candidate.clone()),
 			persisted_validation_data: pvd.clone(),
 		};
-		let membership = vec![(relay_parent, vec![0])];
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![(hypothetical, membership)])
-			.await;
+		let membership = vec![relay_parent];
+		answer_expected_hypothetical_membership_request(
+			&mut overseer,
+			vec![(hypothetical, membership)],
+		)
+		.await;
 
 		// Statements are sent to the Backing subsystem.
 		{
@@ -1334,7 +1341,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive a manifest about the same candidate from peer D. Contains different statements.
@@ -1503,7 +1510,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Send enough statements to make candidate backable, make sure announcements are sent.
@@ -1570,7 +1577,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			})
 			.await;
 
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		// Relay parent enters view of peer C.
 		{
@@ -1717,7 +1724,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Send enough statements to make candidate backable, make sure announcements are sent.
@@ -1812,7 +1819,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Peer leaves view.
@@ -1825,9 +1832,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 	});
 }
 
-// Grid statements imported to backing once candidate enters hypothetical frontier.
-#[test]
-fn grid_statements_imported_to_backing() {
+fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 	let validator_count = 6;
 	let group_size = 3;
 	let config = TestConfig {
@@ -1847,9 +1852,12 @@ fn grid_statements_imported_to_backing() {
 		let local_group_index = local_validator.group_index.unwrap();
 
 		let other_group = next_group_index(local_group_index, validator_count, group_size);
-		let other_para = ParaId::from(other_group.0);
 
-		let test_leaf = state.make_dummy_leaf(relay_parent);
+		// Other para is same para for elastic scaling test (groups_for_first_para > 1)
+		let other_para = ParaId::from((groups_for_first_para == 1) as u32);
+
+		let test_leaf =
+			state.make_dummy_leaf_with_multiple_cores_per_para(relay_parent, groups_for_first_para);
 
 		let (candidate, pvd) = make_candidate(
 			relay_parent,
@@ -1977,9 +1985,12 @@ fn grid_statements_imported_to_backing() {
 			receipt: Arc::new(candidate.clone()),
 			persisted_validation_data: pvd.clone(),
 		};
-		let membership = vec![(relay_parent, vec![0])];
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![(hypothetical, membership)])
-			.await;
+		let membership = vec![relay_parent];
+		answer_expected_hypothetical_membership_request(
+			&mut overseer,
+			vec![(hypothetical, membership)],
+		)
+		.await;
 
 		// Receive messages from Backing subsystem.
 		{
@@ -2013,6 +2024,18 @@ fn grid_statements_imported_to_backing() {
 
 		overseer
 	});
+}
+// Grid statements imported to backing once candidate enters hypothetical frontier.
+#[test]
+fn grid_statements_imported_to_backing() {
+	inner_grid_statements_imported_to_backing(1);
+}
+
+// Grid statements imported to backing once candidate enters hypothetical frontier.
+// All statements are for candidates of the same parachain but from different backing groups.
+#[test]
+fn elastic_scaling_grid_statements_imported_to_backing() {
+	inner_grid_statements_imported_to_backing(2);
 }
 
 #[test]
@@ -2599,7 +2622,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into()
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive conflicting advertisement from peer C after confirmation.
@@ -2746,7 +2769,7 @@ fn inactive_local_participates_in_grid() {
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
 				if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
 		);
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		overseer
 	});

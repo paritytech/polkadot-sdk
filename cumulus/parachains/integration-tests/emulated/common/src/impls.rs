@@ -17,7 +17,8 @@ pub use codec::{Decode, Encode};
 pub use paste;
 
 pub use crate::{
-	xcm_helpers::xcm_transact_unpaid_execution, PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD,
+	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
+	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD,
 };
 
 // Substrate
@@ -30,7 +31,6 @@ pub use frame_support::{
 pub use pallet_assets;
 pub use pallet_message_queue;
 pub use pallet_xcm;
-use sp_core::Get;
 
 // Polkadot
 pub use polkadot_runtime_parachains::{
@@ -38,9 +38,9 @@ pub use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
-	prelude::{Location, OriginKind, Outcome, VersionedXcm, XcmVersion},
-	v3,
-	v4::Error as XcmError,
+	prelude::{
+		Asset, InteriorLocation, Location, OriginKind, Outcome, VersionedXcm, XcmError, XcmVersion,
+	},
 	DoubleEncoded,
 };
 
@@ -53,7 +53,7 @@ pub use cumulus_primitives_core::{
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm_emulator::{
-	assert_expected_events, bx, helpers::weight_within_threshold, BridgeMessage,
+	assert_expected_events, bx, helpers::weight_within_threshold, BridgeLaneId, BridgeMessage,
 	BridgeMessageDispatchError, BridgeMessageHandler, Chain, Network, Parachain, RelayChain,
 	TestExt,
 };
@@ -63,60 +63,60 @@ use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 	LaneId, MessageKey, OutboundLaneData,
 };
-use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
-use pallet_bridge_messages::{Config, OutboundLanes, Pallet};
+pub use bp_xcm_bridge_hub::XcmBridgeHubCall;
+use pallet_bridge_messages::{Config as BridgeMessagesConfig, OutboundLanes, Pallet};
 pub use pallet_bridge_messages::{
 	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,
 	Instance3 as BridgeMessagesInstance3,
 };
+use pallet_xcm_bridge_hub::XcmBlobMessageDispatchResult;
 
 pub struct BridgeHubMessageHandler<S, SI, T, TI> {
 	_marker: std::marker::PhantomData<(S, SI, T, TI)>,
 }
 
 struct LaneIdWrapper(LaneId);
-
-impl From<LaneIdWrapper> for u32 {
-	fn from(lane_id: LaneIdWrapper) -> u32 {
-		u32::from_be_bytes(lane_id.0 .0)
+impl From<LaneIdWrapper> for BridgeLaneId {
+	fn from(lane_id: LaneIdWrapper) -> BridgeLaneId {
+		lane_id.0.encode()
 	}
 }
-
-impl From<u32> for LaneIdWrapper {
-	fn from(id: u32) -> LaneIdWrapper {
-		LaneIdWrapper(LaneId(id.to_be_bytes()))
+impl From<BridgeLaneId> for LaneIdWrapper {
+	fn from(id: BridgeLaneId) -> LaneIdWrapper {
+		LaneIdWrapper(LaneId::decode(&mut &id[..]).expect("decodable"))
 	}
 }
 
 impl<S, SI, T, TI> BridgeMessageHandler for BridgeHubMessageHandler<S, SI, T, TI>
 where
-	S: Config<SI>,
+	S: BridgeMessagesConfig<SI>,
 	SI: 'static,
-	T: Config<TI>,
+	T: BridgeMessagesConfig<TI>,
 	TI: 'static,
-	<T as Config<TI>>::InboundPayload: From<Vec<u8>>,
-	<T as Config<TI>>::MessageDispatch:
+	<T as BridgeMessagesConfig<TI>>::InboundPayload: From<Vec<u8>>,
+	<T as BridgeMessagesConfig<TI>>::MessageDispatch:
 		MessageDispatch<DispatchLevelResult = XcmBlobMessageDispatchResult>,
 {
 	fn get_source_outbound_messages() -> Vec<BridgeMessage> {
 		// get the source active outbound lanes
-		let active_lanes = S::ActiveOutboundLanes::get();
+		let active_outbound_lanes = OutboundLanes::<S, SI>::iter_keys();
 
 		let mut messages: Vec<BridgeMessage> = Default::default();
 
 		// collect messages from `OutboundMessages` for each active outbound lane in the source
-		for lane in active_lanes {
-			let latest_generated_nonce = OutboundLanes::<S, SI>::get(lane).latest_generated_nonce;
-			let latest_received_nonce = OutboundLanes::<S, SI>::get(lane).latest_received_nonce;
+		for lane in active_outbound_lanes {
+			let latest_generated_nonce =
+				OutboundLanes::<S, SI>::get(lane).unwrap().latest_generated_nonce;
+			let latest_received_nonce =
+				OutboundLanes::<S, SI>::get(lane).unwrap().latest_received_nonce;
 
 			(latest_received_nonce + 1..=latest_generated_nonce).for_each(|nonce| {
-				let encoded_payload: Vec<u8> = Pallet::<S, SI>::outbound_message_data(*lane, nonce)
+				let encoded_payload: Vec<u8> = Pallet::<S, SI>::outbound_message_data(lane, nonce)
 					.expect("Bridge message does not exist")
 					.into();
 				let payload = Vec::<u8>::decode(&mut &encoded_payload[..])
-					.expect("Decodign XCM message failed");
-				let id: u32 = LaneIdWrapper(*lane).into();
-				let message = BridgeMessage { id, nonce, payload };
+					.expect("Decoding XCM message failed");
+				let message = BridgeMessage { lane_id: LaneIdWrapper(lane).into(), nonce, payload };
 
 				messages.push(message);
 			});
@@ -127,10 +127,10 @@ where
 	fn dispatch_target_inbound_message(
 		message: BridgeMessage,
 	) -> Result<(), BridgeMessageDispatchError> {
-		type TargetMessageDispatch<T, I> = <T as Config<I>>::MessageDispatch;
-		type InboundPayload<T, I> = <T as Config<I>>::InboundPayload;
+		type TargetMessageDispatch<T, I> = <T as BridgeMessagesConfig<I>>::MessageDispatch;
+		type InboundPayload<T, I> = <T as BridgeMessagesConfig<I>>::InboundPayload;
 
-		let lane_id = LaneIdWrapper::from(message.id).0;
+		let lane_id = LaneIdWrapper::from(message.lane_id).0;
 		let nonce = message.nonce;
 		let payload = Ok(From::from(message.payload));
 
@@ -153,15 +153,16 @@ where
 		result
 	}
 
-	fn notify_source_message_delivery(lane_id: u32) {
-		let data = OutboundLanes::<S, SI>::get(LaneIdWrapper::from(lane_id).0);
+	fn notify_source_message_delivery(lane_id: BridgeLaneId) {
+		let lane_id = LaneIdWrapper::from(lane_id).0;
+		let data = OutboundLanes::<S, SI>::get(lane_id).unwrap();
 		let new_data = OutboundLaneData {
 			oldest_unpruned_nonce: data.oldest_unpruned_nonce + 1,
 			latest_received_nonce: data.latest_received_nonce + 1,
 			..data
 		};
 
-		OutboundLanes::<S, SI>::insert(LaneIdWrapper::from(lane_id).0, new_data);
+		OutboundLanes::<S, SI>::insert(lane_id, new_data);
 	}
 }
 
@@ -265,7 +266,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							// XCM is succesfully received and proccessed
+							// XCM is successfully received and processed
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed {
 								origin: $crate::impls::AggregateMessageOrigin::Ump($crate::impls::UmpQueueId::Para(id)),
 								weight_used,
@@ -343,7 +344,7 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 							<Self as Chain>::Runtime,
 						>::contains_key(&channel_id);
 
-						// Check the HRMP channel has been successfully registrered
+						// Check the HRMP channel has been successfully registered
 						assert!(hrmp_channel_exist)
 					});
 				}
@@ -592,7 +593,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 }
 
 #[macro_export]
-macro_rules! impl_assets_helpers_for_parachain {
+macro_rules! impl_assets_helpers_for_system_parachain {
 	( $chain:ident, $relay_chain:ident ) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
@@ -628,38 +629,6 @@ macro_rules! impl_assets_helpers_for_parachain {
 				) -> $crate::impls::VersionedXcm<()> {
 					let call = Self::force_create_asset_call(asset_id, owner, is_sufficient, min_balance);
 					$crate::impls::xcm_transact_unpaid_execution(call, origin_kind)
-				}
-
-				/// Mint assets making use of the assets pallet
-				pub fn mint_asset(
-					signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
-					id: u32,
-					beneficiary: $crate::impls::AccountId,
-					amount_to_mint: u128,
-				) {
-					<Self as $crate::impls::TestExt>::execute_with(|| {
-						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::Assets::mint(
-							signed_origin,
-							id.clone().into(),
-							beneficiary.clone().into(),
-							amount_to_mint
-						));
-
-						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
-
-						$crate::impls::assert_expected_events!(
-							Self,
-							vec![
-								RuntimeEvent::<N>::Assets(
-									$crate::impls::pallet_assets::Event::Issued { asset_id, owner, amount }
-								) => {
-									asset_id: *asset_id == id,
-									owner: *owner == beneficiary.clone().into(),
-									amount: *amount == amount_to_mint,
-								},
-							]
-						);
-					});
 				}
 
 				/// Force create and mint assets making use of the assets pallet
@@ -727,13 +696,115 @@ macro_rules! impl_assets_helpers_for_parachain {
 }
 
 #[macro_export]
+macro_rules! impl_assets_helpers_for_parachain {
+	($chain:ident) => {
+		$crate::impls::paste::paste! {
+			impl<N: $crate::impls::Network> $chain<N> {
+				/// Create assets using sudo `Assets::force_create()`
+				pub fn force_create_asset(
+					id: u32,
+					owner: $crate::impls::AccountId,
+					is_sufficient: bool,
+					min_balance: u128,
+					prefund_accounts: Vec<($crate::impls::AccountId, u128)>,
+				) {
+					use $crate::impls::Inspect;
+					let sudo_origin = <$chain<N> as $crate::impls::Chain>::RuntimeOrigin::root();
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(
+							<Self as [<$chain ParaPallet>]>::Assets::force_create(
+								sudo_origin,
+								id.clone().into(),
+								owner.clone().into(),
+								is_sufficient,
+								min_balance,
+							)
+						);
+						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(id.clone()));
+						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
+						$crate::impls::assert_expected_events!(
+							Self,
+							vec![
+								RuntimeEvent::<N>::Assets(
+									$crate::impls::pallet_assets::Event::ForceCreated {
+										asset_id,
+										..
+									}
+								) => { asset_id: *asset_id == id, },
+							]
+						);
+					});
+					for (beneficiary, amount) in prefund_accounts.into_iter() {
+						let signed_origin =
+							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
+						Self::mint_asset(signed_origin, id.clone(), beneficiary, amount);
+					}
+				}
+
+				/// Mint assets making use of the assets pallet
+				pub fn mint_asset(
+					signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
+					id: u32,
+					beneficiary: $crate::impls::AccountId,
+					amount_to_mint: u128,
+				) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::Assets::mint(
+							signed_origin,
+							id.clone().into(),
+							beneficiary.clone().into(),
+							amount_to_mint
+						));
+
+						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
+
+						$crate::impls::assert_expected_events!(
+							Self,
+							vec![
+								RuntimeEvent::<N>::Assets(
+									$crate::impls::pallet_assets::Event::Issued { asset_id, owner, amount }
+								) => {
+									asset_id: *asset_id == id,
+									owner: *owner == beneficiary.clone().into(),
+									amount: *amount == amount_to_mint,
+								},
+							]
+						);
+					});
+				}
+
+				/// Returns the encoded call for `create` from the assets pallet
+				pub fn create_asset_call(
+					asset_id: u32,
+					min_balance: $crate::impls::Balance,
+					admin: $crate::impls::AccountId,
+				) -> $crate::impls::DoubleEncoded<()> {
+					use $crate::impls::{Chain, Encode};
+
+					<Self as Chain>::RuntimeCall::Assets($crate::impls::pallet_assets::Call::<
+						<Self as Chain>::Runtime,
+						$crate::impls::pallet_assets::Instance1,
+					>::create {
+						id: asset_id.into(),
+						min_balance,
+						admin: admin.into(),
+					})
+					.encode()
+					.into()
+				}
+			}
+		}
+	};
+}
+
+#[macro_export]
 macro_rules! impl_foreign_assets_helpers_for_parachain {
-	( $chain:ident, $relay_chain:ident ) => {
+	($chain:ident, $asset_id_type:ty) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
 				/// Create foreign assets using sudo `ForeignAssets::force_create()`
 				pub fn force_create_foreign_asset(
-					id: $crate::impls::v3::Location,
+					id: $asset_id_type,
 					owner: $crate::impls::AccountId,
 					is_sufficient: bool,
 					min_balance: u128,
@@ -775,7 +846,7 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 				/// Mint assets making use of the ForeignAssets pallet-assets instance
 				pub fn mint_foreign_asset(
 					signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
-					id: $crate::impls::v3::Location,
+					id: $asset_id_type,
 					beneficiary: $crate::impls::AccountId,
 					amount_to_mint: u128,
 				) {
@@ -802,6 +873,26 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 							]
 						);
 					});
+				}
+
+				/// Returns the encoded call for `create` from the foreign assets pallet
+				pub fn create_foreign_asset_call(
+					asset_id: $asset_id_type,
+					min_balance: $crate::impls::Balance,
+					admin: $crate::impls::AccountId,
+				) -> $crate::impls::DoubleEncoded<()> {
+					use $crate::impls::{Chain, Encode};
+
+					<Self as Chain>::RuntimeCall::ForeignAssets($crate::impls::pallet_assets::Call::<
+						<Self as Chain>::Runtime,
+						$crate::impls::pallet_assets::Instance2,
+					>::create {
+						id: asset_id.into(),
+						min_balance,
+						admin: admin.into(),
+					})
+					.encode()
+					.into()
 				}
 			}
 		}
@@ -831,6 +922,52 @@ macro_rules! impl_xcm_helpers_for_parachain {
 							<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
 							version,
 						));
+					});
+				}
+			}
+		}
+	}
+}
+
+#[macro_export]
+macro_rules! impl_bridge_helpers_for_chain {
+	( $chain:ident, $pallet:ident, $pallet_xcm:ident, $runtime_call_wrapper:path ) => {
+		$crate::impls::paste::paste! {
+			impl<N: $crate::impls::Network> $chain<N> {
+				/// Open bridge with `dest`.
+				pub fn open_bridge(
+					bridge_location: $crate::impls::Location,
+					bridge_destination_universal_location: $crate::impls::InteriorLocation,
+					maybe_paid: Option<($crate::impls::Asset, $crate::impls::AccountId)>
+				) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						use $crate::impls::{bx, Chain};
+						use $crate::impls::XcmBridgeHubCall;
+						use $crate::impls::Encode;
+
+						// important to use `root` and `OriginKind::Xcm`
+						let root_origin = <Self as Chain>::RuntimeOrigin::root();
+
+						// construct call
+						let call: $crate::impls::DoubleEncoded<()> = $runtime_call_wrapper(XcmBridgeHubCall::open_bridge {
+							bridge_destination_universal_location: bx!(
+								bridge_destination_universal_location.clone().into()
+							)
+						}).encode().into();
+
+						let xcm = if let Some((fee_asset, beneficiary)) = maybe_paid {
+							$crate::impls::xcm_transact_paid_execution(call, $crate::impls::OriginKind::Xcm, fee_asset, beneficiary)
+						} else {
+							$crate::impls::xcm_transact_unpaid_execution(call, $crate::impls::OriginKind::Xcm)
+						};
+
+						// Send XCM `Transact` with `open_bridge` call
+						$crate::impls::assert_ok!(<Self as [<$chain $pallet>]>::$pallet_xcm::send(
+							root_origin,
+							bx!(bridge_location.into()),
+							bx!(xcm),
+						));
+						Self::assert_xcm_pallet_sent();
 					});
 				}
 			}

@@ -16,30 +16,47 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{configuration, initializer, shared};
-use primitives::{
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	ValidatorIndex,
+use crate::{configuration, inclusion, initializer, scheduler};
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec::Vec,
 };
-use sp_std::prelude::Vec;
+use polkadot_primitives::{
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, Id as ParaId,
+};
+use sp_runtime::traits::One;
 
-/// Implementation for `DisabledValidators`
-// CAVEAT: this should only be called on the node side
-// as it might produce incorrect results on session boundaries
-pub fn disabled_validators<T>() -> Vec<ValidatorIndex>
-where
-	T: shared::Config,
-{
-	<shared::Pallet<T>>::disabled_validators()
+/// Returns the claimqueue from the scheduler
+pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+	let now = <frame_system::Pallet<T>>::block_number() + One::one();
+
+	// This is needed so that the claim queue always has the right size (equal to
+	// scheduling_lookahead). Otherwise, if a candidate is backed in the same block where the
+	// previous candidate is included, the claim queue will have already pop()-ed the next item
+	// from the queue and the length would be `scheduling_lookahead - 1`.
+	<scheduler::Pallet<T>>::free_cores_and_fill_claim_queue(Vec::new(), now);
+	let config = configuration::ActiveConfig::<T>::get();
+	// Extra sanity, config should already never be smaller than 1:
+	let n_lookahead = config.scheduler_params.lookahead.max(1);
+
+	scheduler::ClaimQueue::<T>::get()
+		.into_iter()
+		.map(|(core_index, entries)| {
+			// on cores timing out internal claim queue size may be temporarily longer than it
+			// should be as the timed out assignment might got pushed back to an already full claim
+			// queue:
+			(
+				core_index,
+				entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
+			)
+		})
+		.collect()
 }
 
-/// Returns the current state of the node features.
-pub fn node_features<T: initializer::Config>() -> NodeFeatures {
-	<configuration::Pallet<T>>::config().node_features
-}
-
-/// Approval voting subsystem configuration parameteres
-pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
-	let config = <configuration::Pallet<T>>::config();
-	config.approval_voting_params
+/// Returns all the candidates that are pending availability for a given `ParaId`.
+/// Deprecates `candidate_pending_availability` in favor of supporting elastic scaling.
+pub fn candidates_pending_availability<T: initializer::Config>(
+	para_id: ParaId,
+) -> Vec<CommittedCandidateReceipt<T::Hash>> {
+	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
 }

@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Improve log output for block imports
+
+doc:
+  - audience: Node Operator
+    description: |
+      Nodes now print the parent hash on import notification log messages. In addition, the emoji
+      of the log message indicates whether the block was imported as best block or not. "🏆" is used for
+      best blocks, "🆕" for other imported blocks.
+
+crates: [ ]

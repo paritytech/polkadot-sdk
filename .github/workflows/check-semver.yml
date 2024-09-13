@@ -1,0 +1,100 @@
+name: Check semver
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: check-semver-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TOOLCHAIN: nightly-2024-06-01
+
+jobs:
+  check-semver:
+    runs-on: ubuntu-latest
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+    steps:
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+        with:
+          fetch-depth: 2
+
+      - name: extra git setup
+        run: |
+          git config --global --add safe.directory '*'
+
+          git branch old HEAD^1
+
+      - name: Comment If Backport
+        if: ${{ startsWith(github.event.pull_request.base.ref, 'stable') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          echo "This is a backport into stable."
+
+          wget -q https://github.com/cli/cli/releases/download/v2.51.0/gh_2.51.0_linux_amd64.tar.gz -O gh.tar.gz && \
+          tar -xzf gh.tar.gz && mv gh_2.51.0_linux_amd64/bin/gh /usr/local/bin/gh && rm gh.tar.gz
+          chmod +x /usr/local/bin/gh
+
+            cat > msg.txt <<EOF
+            This pull request is amending an existing release. Please proceed with extreme caution,
+            as to not impact downstream teams that rely on the stability of it. Some things to consider:
+            - Backports are only for 'patch' or 'minor' changes. No 'major' or other breaking change.
+            - Should be a legit *fix* for some  bug, not adding tons of new features.
+            - Must either be already audited or not need an audit.
+
+            <details><summary><i>Emergency Bypass</i></summary>
+            <p>
+
+            If you really need to bypass this check: add <code>validate: false</code> to each crate
+            in the Prdoc where a breaking change is introduced. This will release a new major
+            version of that crate and all its reverse dependencies and basically break the release.
+
+            </p>
+            </details> 
+          EOF
+          gh issue comment $PR --edit-last -F msg.txt || gh issue comment $PR -F msg.txt
+
+          echo "PRDOC_EXTRA_ARGS=--max-bump minor" >> $GITHUB_ENV
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
+        with:
+          cache-on-failure: true
+
+      - name: Rust compilation prerequisites
+        run: |
+          rustup default $TOOLCHAIN
+          rustup component add rust-src --toolchain $TOOLCHAIN
+
+      - name: install parity-publish
+        # Set the target dir to cache the build.
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.8.0 --locked -q
+
+      - name: check semver
+        run: |
+          export CARGO_TARGET_DIR=target
+          export RUSTFLAGS='-A warnings -A missing_docs'
+          export SKIP_WASM_BUILD=1
+
+          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc $PRDOC_EXTRA_ARGS -v --toolchain $TOOLCHAIN; then
+
+            cat <<EOF
+          👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
+
+          Please check the output above and see the following links for more help:
+          - https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#record-semver-changes
+          - https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver
+
+          Otherwise feel free to ask in the Merge Request or in Matrix chat.
+          EOF
+
+            exit 1
+          fi
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}

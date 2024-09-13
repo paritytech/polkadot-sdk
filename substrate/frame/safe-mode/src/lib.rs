@@ -19,10 +19,6 @@
 //!
 //! Trigger for stopping all extrinsics outside of a specific whitelist.
 //!
-//! ## WARNING
-//!
-//! NOT YET AUDITED. DO NOT USE IN PRODUCTION.
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -96,7 +92,6 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use sp_arithmetic::traits::Zero;
 use sp_runtime::traits::Saturating;
-use sp_std::{convert::TryInto, prelude::*};
 
 pub use pallet::*;
 pub use weights::*;

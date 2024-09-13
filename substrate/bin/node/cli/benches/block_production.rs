@@ -16,10 +16,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use polkadot_sdk::*;
+
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 
 use kitchensink_runtime::{constants::currency::*, BalancesCall};
 use node_cli::service::{create_extrinsic, FullClient};
+use polkadot_sdk::sc_service::config::{ExecutorConfiguration, RpcConfiguration};
 use sc_block_builder::{BlockBuilderBuilder, BuiltBlock};
 use sc_consensus::{
 	block_import::{BlockImportParams, ForkChoiceStrategy},
@@ -28,7 +31,7 @@ use sc_consensus::{
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, NetworkConfiguration, OffchainWorkerConfig,
-		PruningMode, WasmExecutionMethod, WasmtimeInstantiationStrategy,
+		PruningMode, RpcBatchRequestConfig, WasmExecutionMethod, WasmtimeInstantiationStrategy,
 	},
 	BasePath, Configuration, Role,
 };
@@ -71,39 +74,49 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
-		wasm_method: WasmExecutionMethod::Compiled {
-			instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
+		executor: ExecutorConfiguration {
+			wasm_method: WasmExecutionMethod::Compiled {
+				instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
+			},
+			..ExecutorConfiguration::default()
 		},
-		rpc_addr: None,
-		rpc_max_connections: Default::default(),
-		rpc_cors: None,
-		rpc_methods: Default::default(),
-		rpc_max_request_size: Default::default(),
-		rpc_max_response_size: Default::default(),
-		rpc_id_provider: Default::default(),
-		rpc_max_subs_per_conn: Default::default(),
-		rpc_port: 9944,
-		rpc_message_buffer_capacity: Default::default(),
+		rpc: RpcConfiguration {
+			addr: None,
+			max_connections: Default::default(),
+			cors: None,
+			methods: Default::default(),
+			max_request_size: Default::default(),
+			max_response_size: Default::default(),
+			id_provider: Default::default(),
+			max_subs_per_conn: Default::default(),
+			port: 9944,
+			message_buffer_capacity: Default::default(),
+			batch_config: RpcBatchRequestConfig::Unlimited,
+			rate_limit: None,
+			rate_limit_whitelisted_ips: Default::default(),
+			rate_limit_trust_proxy_headers: Default::default(),
+		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
-		default_heap_pages: None,
 		offchain_worker: OffchainWorkerConfig { enabled: true, indexing_enabled: false },
 		force_authoring: false,
 		disable_grandpa: false,
 		dev_key_seed: Some(Sr25519Keyring::Alice.to_seed()),
 		tracing_targets: None,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: 8,
-		runtime_cache_size: 2,
 		announce_block: true,
 		data_path: base_path.path().into(),
 		base_path,
-		informant_output_format: Default::default(),
 		wasm_runtime_overrides: None,
 	};
 
-	node_cli::service::new_full_base(config, None, false, |_, _| ())
-		.expect("creating a full node doesn't fail")
+	node_cli::service::new_full_base::<sc_network::NetworkWorker<_, _>>(
+		config,
+		None,
+		false,
+		|_, _| (),
+	)
+	.expect("creating a full node doesn't fail")
 }
 
 fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
@@ -114,7 +127,7 @@ fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
 	.into()
 }
 
-fn import_block(mut client: &FullClient, built: BuiltBlock<node_primitives::Block>) {
+fn import_block(client: &FullClient, built: BuiltBlock<node_primitives::Block>) {
 	let mut params = BlockImportParams::new(BlockOrigin::File, built.block.header);
 	params.state_action =
 		StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(built.storage_changes));
@@ -143,7 +156,7 @@ fn prepare_benchmark(client: &FullClient) -> (usize, Vec<OpaqueExtrinsic>) {
 	let src = Sr25519Keyring::Alice.pair();
 	let dst: MultiAddress<AccountId32, u32> = Sr25519Keyring::Bob.to_account_id().into();
 
-	// Add as many tranfer extrinsics as possible into a single block.
+	// Add as many transfer extrinsics as possible into a single block.
 	for nonce in 0.. {
 		let extrinsic: OpaqueExtrinsic = create_extrinsic(
 			client,
@@ -177,7 +190,7 @@ fn block_production(c: &mut Criterion) {
 	let node = new_node(tokio_handle.clone());
 	let client = &*node.client;
 
-	// Buliding the very first block is around ~30x slower than any subsequent one,
+	// Building the very first block is around ~30x slower than any subsequent one,
 	// so let's make sure it's built and imported before we benchmark anything.
 	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(client.chain_info().best_hash)

@@ -21,7 +21,7 @@
 pub fn pack_ptr_and_len(ptr: u32, len: u32) -> u64 {
 	// The static assertions from above are changed into a runtime check.
 	#[cfg(all(not(feature = "std"), feature = "disable_target_static_assertions"))]
-	assert_eq!(4, sp_std::mem::size_of::<usize>());
+	assert_eq!(4, core::mem::size_of::<usize>());
 
 	(u64::from(len) << 32) | u64::from(ptr)
 }
@@ -34,7 +34,7 @@ pub fn pack_ptr_and_len(ptr: u32, len: u32) -> u64 {
 pub fn unpack_ptr_and_len(val: u64) -> (u32, u32) {
 	// The static assertions from above are changed into a runtime check.
 	#[cfg(all(not(feature = "std"), feature = "disable_target_static_assertions"))]
-	assert_eq!(4, sp_std::mem::size_of::<usize>());
+	assert_eq!(4, core::mem::size_of::<usize>());
 
 	let ptr = (val & (!0u32 as u64)) as u32;
 	let len = (val >> 32) as u32;

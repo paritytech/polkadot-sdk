@@ -29,9 +29,8 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSigned, EnsureSignedBy};
 use pallet_balances::{BalanceLock, Error as BalancesError};
-use sp_core::H256;
 use sp_runtime::{
-	traits::{BadOrigin, BlakeTwo256, Hash, IdentityLookup},
+	traits::{BadOrigin, BlakeTwo256, Hash},
 	BuildStorage, Perbill,
 };
 mod cancellation;
@@ -63,7 +62,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-// Test that a fitlered call can be dispatched.
+// Test that a filtered call can be dispatched.
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -78,31 +77,11 @@ parameter_types! {
 		);
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
-	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
@@ -129,21 +108,9 @@ impl pallet_scheduler::Config for Test {
 	type Preimages = ();
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type MaxLocks = ConstU32<10>;
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 parameter_types! {
 	pub static PreimageByteDeposit: u64 = 0;
@@ -216,9 +183,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 #[test]
 fn params_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Democracy::referendum_count(), 0);
+		assert_eq!(ReferendumCount::<Test>::get(), 0);
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 210);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 210);
 	});
 }
 

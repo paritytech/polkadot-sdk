@@ -1,0 +1,33 @@
+title: Transactional processing for XCM
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Transactional processing was introduced for certain XCM instructions. They are:
+      - WithdrawAsset
+      - ReserveAssetDeposited
+      - TransferAsset
+      - TransferReserveAsset
+      - ReceiveTeleportedAsset
+      - DepositAsset
+      - DepositReserveAsset
+      - InitiateReserveWithdraw
+      - InitiateTeleport
+      - BuyExecution
+      - ClaimAsset
+      - ExportMessage
+      - LockAsset
+      - UnlockAsset
+      - RequestUnlock
+      Developers must specify a `TransactionalProcessor` when configuring their XCM executor.
+      FRAME-based runtimes would simply need to configure it with `FrameTransactionalProcessor` to
+      enable transactional processing. To disable transactional processing of XCMs, `()` may also be
+      specified as the type for `TransactionalProcessor`.
+      For runtimes that are not FRAME-based but would like to still harness transactional processing
+      of XCMs, a type implementing the `ProcessTransaction` trait must be specified as the type for
+      `TransactionalProcessor`. This trait is for the purpose of connecting the chain's runtime
+      transactional processor with the XCM executor -- any implementation of `ProcessTransaction` is
+      possible to be assigned as the `TransactionalProcessor` for the XCM executor.
+
+crates:
+  - name: staging-xcm-executor

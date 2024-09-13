@@ -19,18 +19,19 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::fmt::Display;
+extern crate alloc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_debug_derive::RuntimeDebug;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use ref_cast::RefCast;
-use sp_std::{
+use core::{
+	fmt::Display,
 	ops::{Deref, DerefMut},
-	vec::Vec,
 };
+use ref_cast::RefCast;
 
 /// Storage key.
 #[derive(PartialEq, Eq, RuntimeDebug)]
@@ -49,9 +50,7 @@ impl AsRef<[u8]> for StorageKey {
 }
 
 /// Storage key with read/write tracking information.
-#[derive(
-	PartialEq, Eq, Ord, PartialOrd, sp_std::hash::Hash, RuntimeDebug, Clone, Encode, Decode,
-)]
+#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, RuntimeDebug, Clone, Encode, Decode)]
 pub struct TrackedStorageKey {
 	pub key: Vec<u8>,
 	pub reads: u32,
@@ -294,7 +293,7 @@ impl ChildInfo {
 		}
 	}
 
-	/// Return a the full location in the direct parent of
+	/// Return the full location in the direct parent of
 	/// this trie.
 	pub fn prefixed_storage_key(&self) -> PrefixedStorageKey {
 		match self {
@@ -303,7 +302,7 @@ impl ChildInfo {
 		}
 	}
 
-	/// Returns a the full location in the direct parent of
+	/// Returns the full location in the direct parent of
 	/// this trie.
 	pub fn into_prefixed_storage_key(self) -> PrefixedStorageKey {
 		match self {
@@ -441,10 +440,11 @@ impl From<StateVersion> for u8 {
 
 impl TryFrom<u8> for StateVersion {
 	type Error = ();
-	fn try_from(val: u8) -> sp_std::result::Result<StateVersion, ()> {
+	fn try_from(val: u8) -> core::result::Result<StateVersion, ()> {
 		match val {
 			0 => Ok(StateVersion::V0),
 			1 => Ok(StateVersion::V1),
+			2 => Ok(StateVersion::V1),
 			_ => Err(()),
 		}
 	}
@@ -453,7 +453,7 @@ impl TryFrom<u8> for StateVersion {
 impl StateVersion {
 	/// If defined, values in state of size bigger or equal
 	/// to this threshold will use a separate trie node.
-	/// Otherwhise, value will be inlined in branch or leaf
+	/// Otherwise, value will be inlined in branch or leaf
 	/// node.
 	pub fn state_value_threshold(&self) -> Option<u32> {
 		match self {

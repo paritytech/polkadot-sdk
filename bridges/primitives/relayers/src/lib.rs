@@ -19,7 +19,11 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use registration::{Registration, StakeAndSlash};
+pub use extension::{
+	BatchCallUnpacker, ExtensionCallData, ExtensionCallInfo, ExtensionConfig,
+	RuntimeWithUtilityPallet,
+};
+pub use registration::{ExplicitOrAccountParams, Registration, StakeAndSlash};
 
 use bp_messages::LaneId;
 use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
@@ -32,6 +36,7 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
 
+mod extension;
 mod registration;
 
 /// The owner of the sovereign account that should pay the rewards.
@@ -57,9 +62,12 @@ pub enum RewardsAccountOwner {
 /// parameters to identify the account that pays a reward to the relayer.
 #[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct RewardsAccountParams {
-	lane_id: LaneId,
-	bridged_chain_id: ChainId,
+	// **IMPORTANT NOTE**: the order of fields here matters - we are using
+	// `into_account_truncating` and lane id is already `32` byte, so if other fields are encoded
+	// after it, they're simply dropped. So lane id shall be the last field.
 	owner: RewardsAccountOwner,
+	bridged_chain_id: ChainId,
+	lane_id: LaneId,
 }
 
 impl RewardsAccountParams {
@@ -140,8 +148,8 @@ pub struct RelayerRewardsKeyProvider<AccountId, Reward>(PhantomData<(AccountId, 
 
 impl<AccountId, Reward> StorageDoubleMapKeyProvider for RelayerRewardsKeyProvider<AccountId, Reward>
 where
-	AccountId: Codec + EncodeLike,
-	Reward: Codec + EncodeLike,
+	AccountId: 'static + Codec + EncodeLike + Send + Sync,
+	Reward: 'static + Codec + EncodeLike + Send + Sync,
 {
 	const MAP_NAME: &'static str = "RelayerRewards";
 
@@ -162,21 +170,21 @@ mod tests {
 	fn different_lanes_are_using_different_accounts() {
 		assert_eq!(
 			PayRewardFromAccount::<(), H256>::rewards_account(RewardsAccountParams::new(
-				LaneId([0, 0, 0, 0]),
+				LaneId::new(1, 2),
 				*b"test",
 				RewardsAccountOwner::ThisChain
 			)),
-			hex_literal::hex!("62726170000000007465737400726577617264732d6163636f756e7400000000")
+			hex_literal::hex!("627261700074657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc")
 				.into(),
 		);
 
 		assert_eq!(
 			PayRewardFromAccount::<(), H256>::rewards_account(RewardsAccountParams::new(
-				LaneId([0, 0, 0, 1]),
+				LaneId::new(1, 3),
 				*b"test",
 				RewardsAccountOwner::ThisChain
 			)),
-			hex_literal::hex!("62726170000000017465737400726577617264732d6163636f756e7400000000")
+			hex_literal::hex!("627261700074657374a43e8951aa302c133beb5f85821a21645f07b487270ef3")
 				.into(),
 		);
 	}
@@ -185,21 +193,21 @@ mod tests {
 	fn different_directions_are_using_different_accounts() {
 		assert_eq!(
 			PayRewardFromAccount::<(), H256>::rewards_account(RewardsAccountParams::new(
-				LaneId([0, 0, 0, 0]),
+				LaneId::new(1, 2),
 				*b"test",
 				RewardsAccountOwner::ThisChain
 			)),
-			hex_literal::hex!("62726170000000007465737400726577617264732d6163636f756e7400000000")
+			hex_literal::hex!("627261700074657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc")
 				.into(),
 		);
 
 		assert_eq!(
 			PayRewardFromAccount::<(), H256>::rewards_account(RewardsAccountParams::new(
-				LaneId([0, 0, 0, 0]),
+				LaneId::new(1, 2),
 				*b"test",
 				RewardsAccountOwner::BridgedChain
 			)),
-			hex_literal::hex!("62726170000000007465737401726577617264732d6163636f756e7400000000")
+			hex_literal::hex!("627261700174657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc")
 				.into(),
 		);
 	}

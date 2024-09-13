@@ -17,8 +17,12 @@
 
 use super::*;
 use crate::{self as pools};
-use frame_support::{assert_ok, derive_impl, parameter_types, traits::fungible::Mutate, PalletId};
-use frame_system::RawOrigin;
+use frame_support::{
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
+	traits::{fungible::Mutate, VariantCountOf},
+	PalletId,
+};
+use frame_system::{EnsureSignedBy, RawOrigin};
 use sp_runtime::{BuildStorage, FixedU128};
 use sp_staking::{OnStakingUpdate, Stake};
 
@@ -33,12 +37,12 @@ pub type Currency = <T as Config>::Currency;
 
 // Ext builder creates a pool with id 1.
 pub fn default_bonded_account() -> AccountId {
-	Pools::create_bonded_account(1)
+	Pools::generate_bonded_account(1)
 }
 
 // Ext builder creates a pool with id 1.
 pub fn default_reward_account() -> AccountId {
-	Pools::create_reward_account(1)
+	Pools::generate_reward_account(1)
 }
 
 parameter_types! {
@@ -68,7 +72,7 @@ impl StakingMock {
 	/// Does not modify any [`SubPools`] of the pool as [`Default::default`] is passed for
 	/// `slashed_unlocking`.
 	pub fn slash_by(pool_id: PoolId, amount: Balance) {
-		let acc = Pools::create_bonded_account(pool_id);
+		let acc = Pools::generate_bonded_account(pool_id);
 		let bonded = BondedBalanceMap::get();
 		let pre_total = bonded.get(&acc).unwrap();
 		Self::set_bonded_balance(acc, pre_total - amount);
@@ -108,6 +112,10 @@ impl sp_staking::StakingInterface for StakingMock {
 			.ok_or(DispatchError::Other("NotStash"))
 	}
 
+	fn is_virtual_staker(_who: &Self::AccountId) -> bool {
+		false
+	}
+
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
 		let mut x = BondedBalanceMap::get();
 		x.get_mut(who).map(|v| *v += extra);
@@ -128,19 +136,37 @@ impl sp_staking::StakingInterface for StakingMock {
 		Ok(())
 	}
 
+	fn set_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
+		unimplemented!("method currently not used in testing")
+	}
+
 	fn chill(_: &Self::AccountId) -> sp_runtime::DispatchResult {
 		Ok(())
 	}
 
 	fn withdraw_unbonded(who: Self::AccountId, _: u32) -> Result<bool, DispatchError> {
 		let mut unbonding_map = UnbondingBalanceMap::get();
+
+		// closure to calculate the current unlocking funds across all eras/accounts.
+		let unlocking = |pair: &Vec<(EraIndex, Balance)>| -> Balance {
+			pair.iter()
+				.try_fold(Zero::zero(), |acc: Balance, (_at, amount)| acc.checked_add(*amount))
+				.unwrap()
+		};
+
 		let staker_map = unbonding_map.get_mut(&who).ok_or("Nothing to unbond")?;
+		let unlocking_before = unlocking(&staker_map);
 
 		let current_era = Self::current_era();
+
 		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
 
+		// if there was a withdrawal, notify the pallet.
+		Pools::on_withdraw(&who, unlocking_before.saturating_sub(unlocking(&staker_map)));
+
 		UnbondingBalanceMap::set(&unbonding_map);
-		Ok(UnbondingBalanceMap::get().is_empty() && BondedBalanceMap::get().is_empty())
+		Ok(UnbondingBalanceMap::get().get(&who).unwrap().is_empty() &&
+			BondedBalanceMap::get().get(&who).unwrap().is_zero())
 	}
 
 	fn bond(stash: &Self::AccountId, value: Self::Balance, _: &Self::AccountId) -> DispatchResult {
@@ -207,54 +233,33 @@ impl sp_staking::StakingInterface for StakingMock {
 	fn max_exposure_page_size() -> sp_staking::Page {
 		unimplemented!("method currently not used in testing")
 	}
+
+	fn slash_reward_fraction() -> Perbill {
+		unimplemented!("method currently not used in testing")
+	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SS58Prefix = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = sp_core::H256;
-	type Hashing = sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type DbWeight = ();
-	type BlockLength = ();
-	type BlockWeights = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
 	pub static ExistentialDeposit: Balance = 5;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = frame_support::traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 pub struct BalanceToU256;
@@ -277,6 +282,11 @@ parameter_types! {
 	pub static CheckLevel: u8 = 255;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 }
+
+ord_parameter_types! {
+	pub const Admin: u128 = 42;
+}
+
 impl pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -285,12 +295,13 @@ impl pools::Config for Runtime {
 	type RewardCounter = RewardCounter;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = StakingMock;
+	type StakeAdapter = adapter::TransferStake<Self, StakingMock>;
 	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = MaxMetadataLen;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
+	type AdminOrigin = EnsureSignedBy<Admin, AccountId>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

@@ -1,0 +1,41 @@
+[package]
+name = "collectives-westend-integration-tests"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Collectives Westend runtime integration tests with xcm-emulator"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { workspace = true }
+assert_matches = { workspace = true }
+
+# Substrate
+sp-runtime = { workspace = true }
+frame-support = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-asset-rate = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-treasury = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-utility = { workspace = true }
+pallet-whitelist = { workspace = true }
+
+# Polkadot
+polkadot-runtime-common = { workspace = true, default-features = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+pallet-xcm = { workspace = true }
+westend-runtime-constants = { workspace = true, default-features = true }
+
+# Cumulus
+parachains-common = { workspace = true, default-features = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }
+cumulus-pallet-xcmp-queue = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+emulated-integration-tests-common = { workspace = true }
+westend-system-emulated-network = { workspace = true }

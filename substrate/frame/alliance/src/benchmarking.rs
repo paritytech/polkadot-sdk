@@ -19,15 +19,10 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use core::{cmp, mem::size_of};
 use sp_runtime::traits::{Bounded, Hash, StaticLookup};
-use sp_std::{
-	cmp,
-	convert::{TryFrom, TryInto},
-	mem::size_of,
-	prelude::*,
-};
 
-use frame_benchmarking::{account, impl_benchmark_test_suite, v2::*, BenchmarkError};
+use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin as SystemOrigin};
 
@@ -506,8 +501,8 @@ mod benchmarks {
 		assert_last_event::<T, I>(
 			Event::MembersInitialized { fellows: fellows.clone(), allies: allies.clone() }.into(),
 		);
-		assert_eq!(Alliance::<T, I>::members(MemberRole::Fellow), fellows);
-		assert_eq!(Alliance::<T, I>::members(MemberRole::Ally), allies);
+		assert_eq!(Members::<T, I>::get(MemberRole::Fellow), fellows);
+		assert_eq!(Members::<T, I>::get(MemberRole::Ally), allies);
 		Ok(())
 	}
 
@@ -564,7 +559,7 @@ mod benchmarks {
 		{
 			call.dispatch_bypass_filter(origin)?;
 		}
-		assert_eq!(Alliance::<T, I>::rule(), Some(rule.clone()));
+		assert_eq!(Rule::<T, I>::get(), Some(rule.clone()));
 		assert_last_event::<T, I>(Event::NewRuleSet { rule }.into());
 		Ok(())
 	}
@@ -584,7 +579,7 @@ mod benchmarks {
 			call.dispatch_bypass_filter(origin)?;
 		}
 
-		assert!(Alliance::<T, I>::announcements().contains(&announcement));
+		assert!(Announcements::<T, I>::get().contains(&announcement));
 		assert_last_event::<T, I>(Event::Announced { announcement }.into());
 		Ok(())
 	}
@@ -607,7 +602,7 @@ mod benchmarks {
 			call.dispatch_bypass_filter(origin)?;
 		}
 
-		assert!(!Alliance::<T, I>::announcements().contains(&announcement));
+		assert!(!Announcements::<T, I>::get().contains(&announcement));
 		assert_last_event::<T, I>(Event::AnnouncementRemoved { announcement }.into());
 		Ok(())
 	}

@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet_contracts] stabilize `call_v2`, `instantiate_v2`, `lock_dependency` and `unlock_dependency`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      These APIs are currently unstable and are being stabilized in this PR.
+      Note: `add_delegate_dependency` and `remove_delegate_dependency` have been renamed to `lock_dependency` and `unlock_dependency` respectively.
+
+crates:
+  - name: pallet-contracts-uapi
+  - name: pallet-contracts

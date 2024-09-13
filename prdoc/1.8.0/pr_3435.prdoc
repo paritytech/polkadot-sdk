@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix BEEFY-related gossip messages error logs
+
+doc:
+  - audience: Node Operator
+    description: |
+      Added logic to pump the gossip engine while waiting for other things
+      to make sure gossiped messages get consumed (practically discarded
+      until worker is fully initialized).
+      This fixes an issue where node operators saw error logs, and fixes
+      potential RAM bloat when BEEFY initialization takes a long time
+      (i.e. during clean sync).
+crates:
+  - name: sc-consensus-beefy

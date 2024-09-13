@@ -192,7 +192,7 @@ where
 		import_block.insert_intermediate(INTERMEDIATE_KEY, intermediate);
 
 		let header = import_block.post_header();
-		let mut block_import = self.block_import.lock();
+		let block_import = self.block_import.lock();
 
 		match block_import.import_block(import_block).await {
 			Ok(res) => {

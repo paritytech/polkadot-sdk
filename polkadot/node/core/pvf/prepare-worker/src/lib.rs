@@ -26,7 +26,6 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
-use libc;
 use nix::{
 	errno::Errno,
 	sys::{
@@ -39,8 +38,9 @@ use polkadot_node_core_pvf_common::{
 	executor_interface::{prepare, prevalidate},
 	worker::{pipe2_cloexec, PipeFd, WorkerInfo},
 };
+use polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareWorkerResult},
 	executor_interface::create_runtime_from_artifact_bytes,
@@ -48,7 +48,8 @@ use polkadot_node_core_pvf_common::{
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker::{
-		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
+		cpu_time_monitor_loop, get_total_cpu_usage, recv_child_response, run_worker, send_result,
+		stringify_errno, stringify_panic_payload,
 		thread::{self, spawn_worker_thread, WaitOutcome},
 		WorkerKind,
 	},
@@ -105,6 +106,12 @@ impl AsRef<[u8]> for CompiledArtifact {
 	}
 }
 
+#[derive(Encode, Decode)]
+pub struct PrepareOutcome {
+	pub compiled_artifact: CompiledArtifact,
+	pub observed_wasm_code_len: u32,
+}
+
 /// Get a worker request.
 fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 	let pvf = framed_recv_blocking(stream)?;
@@ -115,11 +122,6 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 		)
 	})?;
 	Ok(pvf)
-}
-
-/// Send a worker response.
-fn send_response(stream: &mut UnixStream, result: PrepareWorkerResult) -> io::Result<()> {
-	framed_send_blocking(stream, &result.encode())
 }
 
 fn start_memory_tracking(fd: RawFd, limit: Option<isize>) {
@@ -178,8 +180,6 @@ fn end_memory_tracking() -> isize {
 ///
 /// - `worker_version`: see above
 ///
-/// - `security_status`: contains the detected status of security features.
-///
 /// # Flow
 ///
 /// This runs the following in a loop:
@@ -233,8 +233,9 @@ pub fn worker_entrypoint(
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
 					Err(errno) => {
-						let result = Err(error_from_errno("getrusage before", errno));
-						send_response(&mut stream, result)?;
+						let result: PrepareWorkerResult =
+							Err(error_from_errno("getrusage before", errno));
+						send_result(&mut stream, result, worker_info)?;
 						continue
 					},
 				};
@@ -294,20 +295,29 @@ pub fn worker_entrypoint(
 					"worker: sending result to host: {:?}",
 					result
 				);
-				send_response(&mut stream, result)?;
+				send_result(&mut stream, result, worker_info)?;
 			}
 		},
 	);
 }
 
-fn prepare_artifact(pvf: PvfPrepData) -> Result<CompiledArtifact, PrepareError> {
-	let blob = match prevalidate(&pvf.code()) {
+fn prepare_artifact(pvf: PvfPrepData) -> Result<PrepareOutcome, PrepareError> {
+	let maybe_compressed_code = pvf.maybe_compressed_code();
+	let raw_validation_code =
+		sp_maybe_compressed_blob::decompress(&maybe_compressed_code, VALIDATION_CODE_BOMB_LIMIT)
+			.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))?;
+	let observed_wasm_code_len = raw_validation_code.len() as u32;
+
+	let blob = match prevalidate(&raw_validation_code) {
 		Err(err) => return Err(PrepareError::Prevalidation(format!("{:?}", err))),
 		Ok(b) => b,
 	};
 
 	match prepare(blob, &pvf.executor_params()) {
-		Ok(compiled_artifact) => Ok(CompiledArtifact::new(compiled_artifact)),
+		Ok(compiled_artifact) => Ok(PrepareOutcome {
+			compiled_artifact: CompiledArtifact::new(compiled_artifact),
+			observed_wasm_code_len,
+		}),
 		Err(err) => Err(PrepareError::Preparation(format!("{:?}", err))),
 	}
 }
@@ -328,6 +338,7 @@ fn runtime_construction_check(
 struct JobResponse {
 	artifact: CompiledArtifact,
 	memory_stats: MemoryStats,
+	observed_wasm_code_len: u32,
 }
 
 #[cfg(target_os = "linux")]
@@ -506,11 +517,11 @@ fn handle_child_process(
 		"prepare worker",
 		move || {
 			#[allow(unused_mut)]
-			let mut result = prepare_artifact(pvf);
+			let mut result = prepare_artifact(pvf).map(|o| (o,));
 
 			// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
 			#[cfg(target_os = "linux")]
-			let mut result = result.map(|artifact| (artifact, get_max_rss_thread()));
+			let mut result = result.map(|outcome| (outcome.0, get_max_rss_thread()));
 
 			// If we are pre-checking, check for runtime construction errors.
 			//
@@ -519,7 +530,10 @@ fn handle_child_process(
 			// anyway.
 			if let PrepareJobKind::Prechecking = prepare_job_kind {
 				result = result.and_then(|output| {
-					runtime_construction_check(output.0.as_ref(), &executor_params)?;
+					runtime_construction_check(
+						output.0.compiled_artifact.as_ref(),
+						&executor_params,
+					)?;
 					Ok(output)
 				});
 			}
@@ -559,9 +573,9 @@ fn handle_child_process(
 				Ok(ok) => {
 					cfg_if::cfg_if! {
 						if #[cfg(target_os = "linux")] {
-							let (artifact, max_rss) = ok;
+							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len }, max_rss) = ok;
 						} else {
-							let artifact = ok;
+							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len },) = ok;
 						}
 					}
 
@@ -580,7 +594,11 @@ fn handle_child_process(
 						peak_tracked_alloc: if peak_alloc > 0 { peak_alloc as u64 } else { 0u64 },
 					};
 
-					Ok(JobResponse { artifact, memory_stats })
+					Ok(JobResponse {
+						artifact: compiled_artifact,
+						observed_wasm_code_len,
+						memory_stats,
+					})
 				},
 			}
 		},
@@ -666,12 +684,12 @@ fn handle_parent_process(
 	match status {
 		Ok(WaitStatus::Exited(_pid, exit_status)) => {
 			let mut reader = io::BufReader::new(received_data.as_slice());
-			let result = recv_child_response(&mut reader)
+			let result = recv_child_response(&mut reader, "prepare")
 				.map_err(|err| PrepareError::JobError(err.to_string()))?;
 
 			match result {
 				Err(err) => Err(err),
-				Ok(JobResponse { artifact, memory_stats }) => {
+				Ok(JobResponse { artifact, memory_stats, observed_wasm_code_len }) => {
 					// The exit status should have been zero if no error occurred.
 					if exit_status != 0 {
 						return Err(PrepareError::JobError(format!(
@@ -702,7 +720,11 @@ fn handle_parent_process(
 					let checksum = blake3::hash(&artifact.as_ref()).to_hex().to_string();
 					Ok(PrepareWorkerSuccess {
 						checksum,
-						stats: PrepareStats { memory_stats, cpu_time_elapsed: cpu_tv },
+						stats: PrepareStats {
+							memory_stats,
+							cpu_time_elapsed: cpu_tv,
+							observed_wasm_code_len,
+						},
 					})
 				},
 			}
@@ -726,35 +748,6 @@ fn handle_parent_process(
 	}
 }
 
-/// Calculate the total CPU time from the given `usage` structure, returned from
-/// [`nix::sys::resource::getrusage`], and calculates the total CPU time spent, including both user
-/// and system time.
-///
-/// # Arguments
-///
-/// - `rusage`: Contains resource usage information.
-///
-/// # Returns
-///
-/// Returns a `Duration` representing the total CPU time.
-fn get_total_cpu_usage(rusage: Usage) -> Duration {
-	let micros = (((rusage.user_time().tv_sec() + rusage.system_time().tv_sec()) * 1_000_000) +
-		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) as i64) as u64;
-
-	return Duration::from_micros(micros)
-}
-
-/// Get a job response.
-fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<JobResult> {
-	let response_bytes = framed_recv_blocking(received_data)?;
-	JobResult::decode(&mut response_bytes.as_slice()).map_err(|e| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			format!("prepare pvf recv_child_response: decode error: {:?}", e),
-		)
-	})
-}
-
 /// Write a job response to the pipe and exit process after.
 ///
 /// # Arguments
@@ -774,7 +767,7 @@ fn send_child_response(pipe_write: &mut PipeFd, response: JobResult) -> ! {
 }
 
 fn error_from_errno(context: &'static str, errno: Errno) -> PrepareError {
-	PrepareError::Kernel(format!("{}: {}: {}", context, errno, io::Error::last_os_error()))
+	PrepareError::Kernel(stringify_errno(context, errno))
 }
 
 type JobResult = Result<JobResponse, PrepareError>;

@@ -14,7 +14,7 @@
 //! documentation up-to-date, as the overhead is reduced by making sure everything is in one
 //! repository, and everything being in `.rs` files.
 //!
-//! > This is not say that a more visually appealing version of this crate (for example as an
+//! > This is not to say that a more visually appealing version of this crate (for example as an
 //! > `md-book`) cannot exist, but it would be outside the scope of this crate.
 //!
 //! Moreover, we acknowledge that a major pain point has been not only outdated *concepts*, but also
@@ -101,7 +101,7 @@
 //! * Before even getting started, what is with all of this `<T: Config>`? We link to
 //! [`crate::reference_docs::trait_based_programming`].
 //! * First, the name. Why is this called `pallet::call`? This goes back to `enum Call`, which is
-//! explained in [`crate::reference_docs::frame_composite_enums`]. Build on top of this!
+//! explained in [`crate::reference_docs::frame_runtime_types`]. Build on top of this!
 //! * Then, what is `origin`? Just an account id? [`crate::reference_docs::frame_origin`].
 //! * Then, what is `DispatchResult`? Why is this called *dispatch*? Probably something that can be
 //! explained in the documentation of [`frame::prelude::DispatchResult`].
@@ -138,7 +138,9 @@
 //! injected, run:
 //!
 //! ```sh
-//! SKIP_WASM_BUILD=1 RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs --no-deps --open
+//! SKIP_WASM_BUILD=1 \
+//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/assets/header.html --extend-css $(pwd)/docs/sdk/assets/theme.css --default-theme=ayu" \
+//! cargo doc -p polkadot-sdk-docs --no-deps --open
 //! ```
 //!
 //! If even faster build time for docs is needed, you can temporarily remove most of the

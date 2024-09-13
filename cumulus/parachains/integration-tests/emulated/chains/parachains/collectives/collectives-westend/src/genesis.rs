@@ -23,7 +23,7 @@ use emulated_integration_tests_common::{
 use parachains_common::Balance;
 
 pub const PARA_ID: u32 = 1001;
-pub const ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
 
 pub fn genesis() -> Storage {
 	let genesis_config = collectives_westend_runtime::RuntimeGenesisConfig {
@@ -51,6 +51,7 @@ pub fn genesis() -> Storage {
 					)
 				})
 				.collect(),
+			..Default::default()
 		},
 		polkadot_xcm: collectives_westend_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),

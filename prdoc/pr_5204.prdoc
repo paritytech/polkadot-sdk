@@ -1,0 +1,13 @@
+title: "Pallet assets: fix doc: start_destroy never required asset to be frozen"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      In pallet assets calling `start_destroy` doesn't require the asset to be frozen. Doc is fixed.
+
+
+crates:
+  - name: pallet-assets
+    bump: patch
+  - name: frame-support
+    bump: patch

@@ -15,8 +15,9 @@
 //! ```json
 //! {
 //!   // Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
-//!   // Analyzer and cargo on the command line at the same time.
-//!   "rust-analyzer.rust.analyzerTargetDir": "target/vscode-rust-analyzer",
+//!   // Analyzer and cargo on the command line at the same time,
+//!   // at the expense of duplicating build artifacts.
+//!   "rust-analyzer.cargo.targetDir": "target/vscode-rust-analyzer",
 //!   // Improve stability
 //!   "rust-analyzer.server.extraEnv": {
 //!     "CHALK_OVERFLOW_DEPTH": "100000000",
@@ -38,7 +39,7 @@
 //!   // Use nightly formatting.
 //!   // See the polkadot-sdk CI job that checks formatting for the current version used in
 //!   // polkadot-sdk.
-//!   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2023-11-01"],
+//!   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2024-04-10"],
 //! }
 //! ```
 //!
@@ -79,7 +80,7 @@
 //!     # Use nightly formatting.
 //!     # See the polkadot-sdk CI job that checks formatting for the current version used in
 //!     # polkadot-sdk.
-//!     extraArgs = { "+nightly-2023-11-01" },
+//!     extraArgs = { "+nightly-2024-04-10" },
 //!   },
 //! },
 //! ```
@@ -111,3 +112,74 @@
 //! If you have a powerful remote server available, you may consider using
 //! [cargo-remote](https://github.com/sgeisler/cargo-remote) to execute cargo commands on it,
 //! freeing up local resources for other tasks like `rust-analyzer`.
+//!
+//! When using `cargo-remote`, you can configure your editor to perform the the typical
+//! "check-on-save" remotely as well. The configuration for VSCode is as follows:
+//!
+//! ```json
+//! {
+//! 	"rust-analyzer.cargo.buildScripts.overrideCommand": [
+//! 		"cargo",
+//! 		"remote",
+//! 		"--build-env",
+//! 		"SKIP_WASM_BUILD=1",
+//! 		"--",
+//! 		"check",
+//! 		"--message-format=json",
+//! 		"--all-targets",
+//! 		"--all-features",
+//! 		"--target-dir=target/rust-analyzer"
+//! 	],
+//! 	"rust-analyzer.check.overrideCommand": [
+//! 		"cargo",
+//! 		"remote",
+//! 		"--build-env",
+//! 		"SKIP_WASM_BUILD=1",
+//! 		"--",
+//! 		"check",
+//! 		"--workspace",
+//! 		"--message-format=json",
+//! 		"--all-targets",
+//! 		"--all-features",
+//! 		"--target-dir=target/rust-analyzer"
+//! 	],
+//! }
+//! ```
+//!
+//! and the same in Lua for `neovim/nvim-lspconfig`:
+//!
+//! ```lua
+//! ["rust-analyzer"] = {
+//!   cargo = {
+//!     buildScripts = {
+//!       overrideCommand = {
+//!         "cargo",
+//!         "remote",
+//!         "--build-env",
+//!         "SKIP_WASM_BUILD=1",
+//!         "--",
+//!         "check",
+//!         "--message-format=json",
+//!         "--all-targets",
+//!         "--all-features",
+//!         "--target-dir=target/rust-analyzer"
+//!       },
+//!     },
+//!     check = {
+//!       overrideCommand = {
+//!         "cargo",
+//!         "remote",
+//!         "--build-env",
+//!         "SKIP_WASM_BUILD=1",
+//!         "--",
+//!         "check",
+//!         "--workspace",
+//!         "--message-format=json",
+//!         "--all-targets",
+//!         "--all-features",
+//!         "--target-dir=target/rust-analyzer"
+//!       },
+//!     },
+//!   },
+//! },
+//! ```

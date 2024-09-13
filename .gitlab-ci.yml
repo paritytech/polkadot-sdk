@@ -21,7 +21,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  CI_IMAGE: !reference [ .ci-unified, variables, CI_IMAGE ]
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
@@ -39,7 +39,7 @@ default:
       - runner_system_failure
       - unknown_failure
       - api_failure
-  cache: {}
+  cache: { }
   interruptible: true
 
 .collect-artifacts:
@@ -68,8 +68,8 @@ default:
 
 .common-before-script:
   before_script:
-    - !reference [.job-switcher, before_script]
-    - !reference [.pipeline-stopper-vars, script]
+    - !reference [ .job-switcher, before_script ]
+    - !reference [ .pipeline-stopper-vars, script ]
 
 .job-switcher:
   before_script:
@@ -78,8 +78,8 @@ default:
 .kubernetes-env:
   image: "${CI_IMAGE}"
   before_script:
-    - !reference [.common-before-script, before_script]
-    - !reference [.prepare-env, before_script]
+    - !reference [ .common-before-script, before_script ]
+    - !reference [ .prepare-env, before_script ]
   tags:
     - kubernetes-parity-build
 
@@ -107,36 +107,39 @@ default:
 .docker-env:
   image: "${CI_IMAGE}"
   variables:
-    FL_FORKLIFT_VERSION: !reference [.forklift, variables, FL_FORKLIFT_VERSION]
+    FL_FORKLIFT_VERSION: !reference [ .forklift, variables, FL_FORKLIFT_VERSION ]
   before_script:
-    - !reference [.common-before-script, before_script]
-    - !reference [.prepare-env, before_script]
-    - !reference [.rust-info-script, script]
-    - !reference [.forklift-cache, before_script]
+    - !reference [ .common-before-script, before_script ]
+    - !reference [ .prepare-env, before_script ]
+    - !reference [ .rust-info-script, script ]
+    - !reference [ .forklift-cache, before_script ]
   tags:
     - linux-docker
 
 #
 .forklift-cache:
   before_script:
-    - 'curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"'
-    - chmod +x forklift
-    - mkdir .forklift
-    - cp $FL_FORKLIFT_CONFIG .forklift/config.toml
-    - export FORKLIFT_PACKAGE_SUFFIX=${CI_JOB_NAME/ [0-9 \/]*}
-    - shopt -s expand_aliases
-    - export PATH=$PATH:$(pwd)
-    - |
+    - mkdir ~/.forklift
+    - cp .forklift/config-gitlab.toml ~/.forklift/config.toml
+    - cat .forklift/config-gitlab.toml > .forklift/config.toml
+    - >
       if [ "$FORKLIFT_BYPASS" != "true" ]; then
-      echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"
-      alias cargo="forklift cargo"
+        echo "FORKLIFT_BYPASS not set"; 
+        if command -v forklift >/dev/null 2>&1; then
+          echo "forklift already exists"; 
+          forklift version
+        else
+          echo "forklift does not exist, downloading";
+          curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"; 
+          chmod +x forklift;
+          export PATH=$PATH:$(pwd);
+          echo ${FL_FORKLIFT_VERSION};
+        fi
+        echo "Creating alias cargo='forklift cargo'"; 
+        shopt -s expand_aliases;
+        alias cargo="forklift cargo";
       fi
-    - ls -al
-    - rm -f forklift.sock
-    - forklift clean
     #
-    - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
-    - echo "FORKLIFT_PACKAGE_SUFFIX $FORKLIFT_PACKAGE_SUFFIX"
 
 .common-refs:
   rules:
@@ -151,6 +154,13 @@ default:
   rules:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
+
+.publish-gh-pages-refs:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_REF_NAME == "master"
+    - if: $CI_COMMIT_REF_NAME == "master"
 
 # handle the specific case where benches could store incorrect bench data because of the downstream staging runs
 # exclude cargo-check-benches from such runs
@@ -258,82 +268,6 @@ remove-cancel-pipeline-message:
     PR_NUM: "${CI_COMMIT_REF_NAME}"
   trigger:
     project: "parity/infrastructure/ci_cd/pipeline-stopper"
-# need to copy jobs this way because otherwise gitlab will wait
-# for all 3 jobs to finish instead of cancelling if one fails
-cancel-pipeline-test-linux-stable1:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable 1/3"
-
-cancel-pipeline-test-linux-stable2:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable 2/3"
-
-cancel-pipeline-test-linux-stable3:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable 3/3"
-
-cancel-pipeline-cargo-check-benches1:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-benches 1/2"
-
-cancel-pipeline-cargo-check-benches2:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-benches 2/2"
-
-cancel-pipeline-test-linux-stable-int:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-linux-stable-int
-
-cancel-pipeline-cargo-check-each-crate-1:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 1/6"
-
-cancel-pipeline-cargo-check-each-crate-2:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 2/6"
-
-cancel-pipeline-cargo-check-each-crate-3:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 3/6"
-
-cancel-pipeline-cargo-check-each-crate-4:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 4/6"
-
-cancel-pipeline-cargo-check-each-crate-5:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 5/6"
-
-cancel-pipeline-cargo-check-each-crate-6:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 6/6"
-
-cancel-pipeline-cargo-check-each-crate-macos:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: cargo-check-each-crate-macos
-
-cancel-pipeline-check-tracing:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-tracing
-
-cancel-pipeline-cargo-clippy:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: cargo-clippy
 
 cancel-pipeline-build-linux-stable:
   extends: .cancel-pipeline-template
@@ -350,42 +284,12 @@ cancel-pipeline-build-linux-substrate:
   needs:
     - job: build-linux-substrate
 
-cancel-pipeline-test-node-metrics:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-node-metrics
-
-cancel-pipeline-test-frame-ui:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-frame-ui
-
-cancel-pipeline-quick-benchmarks:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: quick-benchmarks
-
-cancel-pipeline-check-try-runtime:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-try-runtime
-
-cancel-pipeline-test-frame-examples-compile-to-wasm:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-frame-examples-compile-to-wasm
-
 cancel-pipeline-build-short-benchmark:
   extends: .cancel-pipeline-template
   needs:
     - job: build-short-benchmark
 
-cancel-pipeline-check-runtime-migration-rococo:
+cancel-pipeline-cargo-check-each-crate-macos:
   extends: .cancel-pipeline-template
   needs:
-    - job: check-runtime-migration-rococo
-
-cancel-pipeline-check-runtime-migration-westend:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-runtime-migration-westend
+    - job: cargo-check-each-crate-macos

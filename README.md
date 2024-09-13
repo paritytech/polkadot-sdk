@@ -1,60 +1,87 @@
-> NOTE: We have recently made significant changes to our repository structure. In order to streamline our development
-process and foster better contributions, we have merged three separate repositories Cumulus, Substrate and Polkadot into
-this repository. Read more about the changes [
-here](https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f).
+
+<div align="center">
+
+![SDK Logo](./docs/images/Polkadot_Logo_Horizontal_Pink_White.png#gh-dark-mode-only)
+![SDK Logo](./docs/images/Polkadot_Logo_Horizontal_Pink_Black.png#gh-light-mode-only)
 
 # Polkadot SDK
 
-![](https://cms.polkadot.network/content/images/2021/06/1-xPcVR_fkITd0ssKBvJ3GMw.png)
+![GitHub stars](https://img.shields.io/github/stars/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub
+forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
-[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)
+<!-- markdownlint-disable-next-line MD013 -->
+[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
 
-The Polkadot SDK repository provides all the resources needed to start building on the Polkadot network, a multi-chain
-blockchain platform that enables different blockchains to interoperate and share information in a secure and scalable
-way. The Polkadot SDK comprises three main pieces of software:
+> The Polkadot SDK repository provides all the components needed to start building on the
+> [Polkadot](https://polkadot.network) network, a multi-chain blockchain platform that enables
+> different blockchains to interoperate and share information in a secure and scalable way.
 
-## [Polkadot](./polkadot/)
-[![PolkadotForum](https://img.shields.io/badge/Polkadot_Forum-e6007a?logo=polkadot)](https://forum.polkadot.network/)
-[![Polkadot-license](https://img.shields.io/badge/License-GPL3-blue)](./polkadot/LICENSE)
+</div>
 
-Implementation of a node for the https://polkadot.network in Rust, using the Substrate framework. This directory
-currently contains runtimes for the Polkadot, Kusama, Westend, and Rococo networks. In the future, these will be
-relocated to the [`runtimes`](https://github.com/polkadot-fellows/runtimes/) repository.
+## ⚡ Quickstart
+If you want to get an example node running quickly you can execute the following getting started script:
+```
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
+```
 
-## [Substrate](./substrate/)
- [![SubstrateRustDocs](https://img.shields.io/badge/Rust_Docs-Substrate-24CC85?logo=rust)](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/substrate/index.html)
- [![Substrate-license](https://img.shields.io/badge/License-GPL3%2FApache2.0-blue)](./substrate/README.md#LICENSE)
+## 📚 Documentation
 
-Substrate is the primary blockchain SDK used by developers to create the parachains that make up the Polkadot network.
-Additionally, it allows for the development of self-sovereign blockchains that operate completely independently of
-Polkadot.
+* [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html)
+  * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
+	to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
+  * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html),
+	namely how to build your first FRAME pallet.
+  * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
+    for starting a new project.
+* Other Resources:
+  * [Polkadot Wiki -> Build](https://wiki.polkadot.network/docs/build-guide)
 
-## [Cumulus](./cumulus/)
-[![CumulusRustDocs](https://img.shields.io/badge/Rust_Docs-Cumulus-222222?logo=rust)](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html)
-[![Cumulus-license](https://img.shields.io/badge/License-GPL3-blue)](./cumulus/LICENSE)
+## 🚀 Releases
 
-Cumulus is a set of tools for writing Substrate-based Polkadot parachains.
+<!-- markdownlint-disable-next-line MD013 -->
+![Current Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-latest.svg)&nbsp;&nbsp;![Next Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-next.svg)
 
-## Upstream Dependencies
+The Polkadot-SDK is released every three months as a `stableYYMMDD` release. They are supported for
+one year with patches. See the next upcoming versions in the [Release
+Registry](https://github.com/paritytech/release-registry/).
 
-Below are the primary upstream dependencies utilized in this project:
+You can use [`psvm`](https://github.com/paritytech/psvm) to update all dependencies to a specific
+version without needing to manually select the correct version for each crate.
 
-- [`parity-scale-codec`](https://crates.io/crates/parity-scale-codec)
-- [`parity-db`](https://crates.io/crates/parity-db)
-- [`parity-common`](https://github.com/paritytech/parity-common)
-- [`trie`](https://github.com/paritytech/trie)
+## 🛠️ Tooling
 
-## Security
+[Polkadot SDK Version Manager](https://github.com/paritytech/psvm):
+A simple tool to manage and update the Polkadot SDK dependencies in any Cargo.toml file.
+It will automatically update the Polkadot SDK dependencies to their correct crates.io version.
 
-The security policy and procedures can be found in [docs/contributor/SECURITY.md](./docs/contributor/SECURITY.md).
+## 🔐 Security
 
-## Contributing & Code of Conduct
+The security policy and procedures can be found in
+[docs/contributor/SECURITY.md](./docs/contributor/SECURITY.md).
 
-Ensure you follow our [contribution guidelines](./docs/contributor/CONTRIBUTING.md). In every interaction and
-contribution, this project adheres to the [Contributor Covenant Code of Conduct](./docs/contributor/CODE_OF_CONDUCT.md).
+## 🤍 Contributing & Code of Conduct
 
-## Additional Resources
+Ensure you follow our [contribution guidelines](./docs/contributor/CONTRIBUTING.md). In every
+interaction and contribution, this project adheres to the [Contributor Covenant Code of
+Conduct](./docs/contributor/CODE_OF_CONDUCT.md).
 
-- For monitoring upcoming changes and current proposals related to the technical implementation of the Polkadot network,
-  visit the [`Requests for Comment (RFC)`](https://github.com/polkadot-fellows/RFCs) repository. While it's maintained
-  by the Polkadot Fellowship, the RFC process welcomes contributions from everyone.
+### 👾 Ready to Contribute?
+
+Take a look at the issues labeled with [`mentor`](https://github.com/paritytech/polkadot-sdk/labels/C1-mentor)
+(or alternatively [this](https://mentor.tasty.limo/) page, created by one of the maintainers) label to get started!
+We always recognize valuable contributions by proposing an on-chain tip to the Polkadot network as a token of our
+appreciation.
+
+## Polkadot Fellowship
+
+Development in this repo usually goes hand in hand with the `fellowship` organization. In short,
+this repository provides all the SDK pieces needed to build both Polkadot and its parachains. But,
+the actual Polkadot runtime lives in the `fellowship/runtimes` repository. Read more about the
+fellowship, this separation, the RFC process
+[here](https://polkadot-fellows.github.io/dashboard/).
+
+## History
+
+This repository is the amalgamation of 3 separate repositories that used to make up Polkadot SDK,
+namely Substrate, Polkadot and Cumulus. Read more about the merge and its history
+[here](https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f).

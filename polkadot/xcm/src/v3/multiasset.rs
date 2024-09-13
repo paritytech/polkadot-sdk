@@ -42,18 +42,26 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
-use core::{
-	cmp::Ordering,
-	convert::{TryFrom, TryInto},
-};
-use parity_scale_codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
 )]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum AssetInstance {
@@ -264,8 +272,19 @@ impl TryFrom<AssetInstance> for u128 {
 
 /// Classification of whether an asset is fungible or not, along with a mandatory amount or
 /// instance.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Fungibility {
@@ -283,7 +302,7 @@ enum UncheckedFungibility {
 }
 
 impl Decode for Fungibility {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		match UncheckedFungibility::decode(input)? {
 			UncheckedFungibility::Fungible(a) if a != 0 => Ok(Self::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) => Ok(Self::NonFungible(i)),
@@ -345,9 +364,20 @@ impl TryFrom<NewFungibility> for Fungibility {
 
 /// Classification of whether an asset is fungible or not.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
 )]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum WildFungibility {
@@ -381,9 +411,20 @@ impl TryFrom<NewWildFungibility> for WildFungibility {
 
 /// Classification of an asset being concrete or abstract.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
 )]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum AssetId {
@@ -465,8 +506,18 @@ impl AssetId {
 }
 
 /// Either an amount of a single fungible asset, or a single well-identified non-fungible asset.
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct MultiAsset {
@@ -567,12 +618,23 @@ impl TryFrom<NewMultiAsset> for MultiAsset {
 /// A `Vec` of `MultiAsset`s.
 ///
 /// There are a number of invariants which the construction and mutation functions must ensure are
-/// maintained:
+/// maintained in order to maintain polynomial time complexity during iteration:
 /// - It may contain no items of duplicate asset class;
 /// - All items must be ordered;
 /// - The number of items should grow no larger than `MAX_ITEMS_IN_MULTIASSETS`.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, TypeInfo, Default)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	TypeInfo,
+	Default,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct MultiAssets(Vec<MultiAsset>);
@@ -760,7 +822,9 @@ impl MultiAssets {
 
 	/// Prepend a `MultiLocation` to any concrete asset items, giving it a new root location.
 	pub fn prepend_with(&mut self, prefix: &MultiLocation) -> Result<(), ()> {
-		self.0.iter_mut().try_for_each(|i| i.prepend_with(prefix))
+		self.0.iter_mut().try_for_each(|i| i.prepend_with(prefix))?;
+		self.0.sort();
+		Ok(())
 	}
 
 	/// Mutate the location of the asset identifier if concrete, giving it the same location
@@ -784,8 +848,20 @@ impl MultiAssets {
 }
 
 /// A wildcard representing a set of assets.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum WildMultiAsset {
@@ -912,8 +988,20 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildMultiAsset
 }
 
 /// `MultiAsset` collection, defined either by a number of `MultiAssets` or a single wildcard.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum MultiAssetFilter {
@@ -1124,8 +1212,73 @@ mod tests {
 			vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
 		assert_eq!(assets.clone(), vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into());
 
+		// decoding respects limits and sorting
+		assert!(assets
+			.using_encoded(|mut enc| MultiAssets::decode(&mut enc).map(|_| ()))
+			.is_ok());
+
 		assert!(assets.reanchor(&dest, reanchor_context).is_ok());
-		assert_eq!(assets, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored].into());
+		assert_eq!(assets.0, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored]);
+
+		// decoding respects limits and sorting
+		assert!(assets
+			.using_encoded(|mut enc| MultiAssets::decode(&mut enc).map(|_| ()))
+			.is_ok());
+	}
+
+	#[test]
+	fn prepend_preserves_sorting() {
+		use super::*;
+		use alloc::vec;
+
+		let prefix = MultiLocation::new(0, X1(Parachain(1000)));
+
+		let asset_1: MultiAsset =
+			(MultiLocation::new(0, X2(PalletInstance(50), GeneralIndex(1))), 10).into();
+		let mut asset_1_prepended = asset_1.clone();
+		assert!(asset_1_prepended.prepend_with(&prefix).is_ok());
+		// changes interior X2->X3
+		assert_eq!(
+			asset_1_prepended,
+			(MultiLocation::new(0, X3(Parachain(1000), PalletInstance(50), GeneralIndex(1))), 10)
+				.into()
+		);
+
+		let asset_2: MultiAsset =
+			(MultiLocation::new(1, X2(PalletInstance(50), GeneralIndex(1))), 10).into();
+		let mut asset_2_prepended = asset_2.clone();
+		assert!(asset_2_prepended.prepend_with(&prefix).is_ok());
+		// changes parent
+		assert_eq!(
+			asset_2_prepended,
+			(MultiLocation::new(0, X2(PalletInstance(50), GeneralIndex(1))), 10).into()
+		);
+
+		let asset_3: MultiAsset =
+			(MultiLocation::new(2, X2(PalletInstance(50), GeneralIndex(1))), 10).into();
+		let mut asset_3_prepended = asset_3.clone();
+		assert!(asset_3_prepended.prepend_with(&prefix).is_ok());
+		// changes parent
+		assert_eq!(
+			asset_3_prepended,
+			(MultiLocation::new(1, X2(PalletInstance(50), GeneralIndex(1))), 10).into()
+		);
+
+		// `From` impl does sorting.
+		let mut assets: MultiAssets = vec![asset_1, asset_2, asset_3].into();
+		// decoding respects limits and sorting
+		assert!(assets
+			.using_encoded(|mut enc| MultiAssets::decode(&mut enc).map(|_| ()))
+			.is_ok());
+
+		// let's do `prepend_with`
+		assert!(assets.prepend_with(&prefix).is_ok());
+		assert_eq!(assets.0, vec![asset_2_prepended, asset_1_prepended, asset_3_prepended]);
+
+		// decoding respects limits and sorting
+		assert!(assets
+			.using_encoded(|mut enc| MultiAssets::decode(&mut enc).map(|_| ()))
+			.is_ok());
 	}
 
 	#[test]

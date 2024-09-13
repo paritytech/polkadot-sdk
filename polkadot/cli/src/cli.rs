@@ -50,11 +50,6 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
-	/// Try-runtime has migrated to a standalone CLI
-	/// (<https://github.com/paritytech/try-runtime-cli>). The subcommand exists as a stub and
-	/// deprecation notice. It will be removed entirely some time after Janurary 2024.
-	TryRuntime,
-
 	/// Key management CLI utilities
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
@@ -122,7 +117,7 @@ pub struct RunCmd {
 
 	/// Overseer message capacity override.
 	///
-	/// **Dangerous!** Do not touch unless explicitly adviced to.
+	/// **Dangerous!** Do not touch unless explicitly advised to.
 	#[arg(long)]
 	pub overseer_channel_capacity_override: Option<usize>,
 
@@ -136,6 +131,23 @@ pub struct RunCmd {
 	#[arg(long, value_name = "PATH")]
 	pub workers_path: Option<PathBuf>,
 
+	/// Override the maximum number of pvf execute workers.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long)]
+	pub execute_workers_max_num: Option<usize>,
+	/// Override the maximum number of pvf workers that can be spawned in the pvf prepare
+	/// pool for tasks with the priority below critical.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+
+	#[arg(long)]
+	pub prepare_workers_soft_max_num: Option<usize>,
+	/// Override the absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long)]
+	pub prepare_workers_hard_max_num: Option<usize>,
 	/// TESTING ONLY: disable the version check between nodes and workers.
 	#[arg(long, hide = true)]
 	pub disable_worker_version_check: bool,

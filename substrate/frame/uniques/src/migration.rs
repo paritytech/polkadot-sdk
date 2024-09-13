@@ -17,16 +17,16 @@
 
 //! Various pieces of common functionality.
 use super::*;
-use frame_support::traits::{Get, OnRuntimeUpgrade};
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
+use frame_support::traits::{Get, UncheckedOnRuntimeUpgrade};
 
 mod v1 {
 	use super::*;
 
 	/// Actual implementation of the storage migration.
-	pub struct MigrateToV1Impl<T, I>(PhantomData<(T, I)>);
+	pub struct UncheckedMigrateToV1Impl<T, I>(PhantomData<(T, I)>);
 
-	impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateToV1Impl<T, I> {
+	impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1Impl<T, I> {
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let mut count = 0;
 			for (collection, detail) in Collection::<T, I>::iter() {
@@ -49,7 +49,7 @@ mod v1 {
 pub type MigrateV0ToV1<T, I> = frame_support::migrations::VersionedMigration<
 	0,
 	1,
-	v1::MigrateToV1Impl<T, I>,
+	v1::UncheckedMigrateToV1Impl<T, I>,
 	Pallet<T, I>,
 	<T as frame_system::Config>::DbWeight,
 >;

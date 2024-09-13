@@ -14,15 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::GenericChainSpec;
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as PeopleBalance;
+use polkadot_parachain_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::ChainSpec;
 use std::str::FromStr;
 
 /// Collects all supported People configurations.
 #[derive(Debug, PartialEq)]
 pub enum PeopleRuntimeType {
+	Kusama,
+	KusamaLocal,
+	Polkadot,
+	PolkadotLocal,
 	Rococo,
 	RococoLocal,
 	RococoDevelopment,
@@ -36,6 +40,10 @@ impl FromStr for PeopleRuntimeType {
 
 	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		match value {
+			kusama::PEOPLE_KUSAMA => Ok(PeopleRuntimeType::Kusama),
+			kusama::PEOPLE_KUSAMA_LOCAL => Ok(PeopleRuntimeType::KusamaLocal),
+			polkadot::PEOPLE_POLKADOT => Ok(PeopleRuntimeType::Polkadot),
+			polkadot::PEOPLE_POLKADOT_LOCAL => Ok(PeopleRuntimeType::PolkadotLocal),
 			rococo::PEOPLE_ROCOCO => Ok(PeopleRuntimeType::Rococo),
 			rococo::PEOPLE_ROCOCO_LOCAL => Ok(PeopleRuntimeType::RococoLocal),
 			rococo::PEOPLE_ROCOCO_DEVELOPMENT => Ok(PeopleRuntimeType::RococoDevelopment),
@@ -52,6 +60,12 @@ impl PeopleRuntimeType {
 
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
+			PeopleRuntimeType::Kusama => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/people-kusama.json")[..],
+			)?)),
+			PeopleRuntimeType::Polkadot => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/people-polkadot.json")[..],
+			)?)),
 			PeopleRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-rococo.json")[..],
 			)?)),
@@ -82,6 +96,10 @@ impl PeopleRuntimeType {
 				"westend-development",
 				ParaId::new(1004),
 			))),
+			other => Err(std::format!(
+				"No default config present for {:?}, you should provide a chain-spec as json file!",
+				other
+			)),
 		}
 	}
 }
@@ -103,17 +121,17 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 pub mod rococo {
 	use super::{ParaId, PeopleBalance};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
-		SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
 	};
-	use parachains_common::{rococo::currency::EXISTENTIAL_DEPOSIT, AccountId, AuraId};
+	use parachains_common::{AccountId, AuraId};
+	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const PEOPLE_ROCOCO: &str = "people-rococo";
 	pub(crate) const PEOPLE_ROCOCO_LOCAL: &str = "people-rococo-local";
-	pub(crate) const PEOPLE_ROCOCO_DEVELOPMENT: &str = "people-rococo-development";
-	const PEOPLE_ROCOCO_ED: PeopleBalance = EXISTENTIAL_DEPOSIT;
+	pub(crate) const PEOPLE_ROCOCO_DEVELOPMENT: &str = "people-rococo-dev";
+	const PEOPLE_ROCOCO_ED: PeopleBalance = people_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
 		id: &str,
@@ -213,17 +231,17 @@ pub mod rococo {
 pub mod westend {
 	use super::{ParaId, PeopleBalance};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
-		SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
 	};
-	use parachains_common::{westend::currency::EXISTENTIAL_DEPOSIT, AccountId, AuraId};
+	use parachains_common::{AccountId, AuraId};
+	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const PEOPLE_WESTEND: &str = "people-westend";
 	pub(crate) const PEOPLE_WESTEND_LOCAL: &str = "people-westend-local";
-	pub(crate) const PEOPLE_WESTEND_DEVELOPMENT: &str = "people-westend-development";
-	const PEOPLE_WESTEND_ED: PeopleBalance = EXISTENTIAL_DEPOSIT;
+	pub(crate) const PEOPLE_WESTEND_DEVELOPMENT: &str = "people-westend-dev";
+	const PEOPLE_WESTEND_ED: PeopleBalance = people_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
 		id: &str,
@@ -317,4 +335,14 @@ pub mod westend {
 			}
 		})
 	}
+}
+
+pub mod kusama {
+	pub(crate) const PEOPLE_KUSAMA: &str = "people-kusama";
+	pub(crate) const PEOPLE_KUSAMA_LOCAL: &str = "people-kusama-local";
+}
+
+pub mod polkadot {
+	pub(crate) const PEOPLE_POLKADOT: &str = "people-polkadot";
+	pub(crate) const PEOPLE_POLKADOT_LOCAL: &str = "people-polkadot-local";
 }

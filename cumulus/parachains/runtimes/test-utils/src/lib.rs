@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use codec::{Decode, DecodeLimit};
 use cumulus_primitives_core::{
@@ -22,7 +22,7 @@ use cumulus_primitives_core::{
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
-	dispatch::{DispatchResult, RawOrigin},
+	dispatch::{DispatchResult, GetDispatchInfo, RawOrigin},
 	inherent::{InherentData, ProvideInherent},
 	pallet_prelude::Get,
 	traits::{OnFinalize, OnInitialize, OriginTrait, UnfilteredDispatchable},
@@ -33,8 +33,8 @@ use polkadot_parachain_primitives::primitives::{
 	HeadData, HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat,
 };
 use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};
-use sp_core::Encode;
-use sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem};
+use sp_core::{Encode, U256};
+use sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem, SaturatedConversion};
 use xcm::{
 	latest::{Asset, Location, XcmContext, XcmHash},
 	prelude::*,
@@ -129,6 +129,7 @@ pub trait BasicParachainRuntime:
 	+ parachain_info::Config
 	+ pallet_collator_selection::Config
 	+ cumulus_pallet_parachain_system::Config
+	+ pallet_timestamp::Config
 {
 }
 
@@ -140,7 +141,8 @@ where
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_parachain_system::Config,
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf<T>: From<AccountIdOf<T>>,
 {
 }
@@ -240,7 +242,7 @@ impl<Runtime: BasicParachainRuntime> ExtBuilder<Runtime> {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_session::GenesisConfig::<Runtime> { keys: self.keys }
+		pallet_session::GenesisConfig::<Runtime> { keys: self.keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 
@@ -259,8 +261,10 @@ pub struct RuntimeHelper<Runtime, AllPalletsWithoutSystem>(
 );
 /// Utility function that advances the chain to the desired block number.
 /// If an author is provided, that author information is injected to all the blocks in the meantime.
-impl<Runtime: frame_system::Config, AllPalletsWithoutSystem>
-	RuntimeHelper<Runtime, AllPalletsWithoutSystem>
+impl<
+		Runtime: frame_system::Config + cumulus_pallet_parachain_system::Config + pallet_timestamp::Config,
+		AllPalletsWithoutSystem,
+	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 where
 	AccountIdOf<Runtime>:
 		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
@@ -296,8 +300,71 @@ where
 		last_header.expect("run_to_block empty block range")
 	}
 
+	pub fn run_to_block_with_finalize(n: u32) -> HeaderFor<Runtime> {
+		let mut last_header = None;
+		loop {
+			let block_number = frame_system::Pallet::<Runtime>::block_number();
+			if block_number >= n.into() {
+				break
+			}
+			// Set the new block number and author
+			let header = frame_system::Pallet::<Runtime>::finalize();
+
+			let pre_digest = Digest {
+				logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, block_number.encode())],
+			};
+			frame_system::Pallet::<Runtime>::reset_events();
+
+			let next_block_number = block_number + 1u32.into();
+			frame_system::Pallet::<Runtime>::initialize(
+				&next_block_number,
+				&header.hash(),
+				&pre_digest,
+			);
+			AllPalletsWithoutSystem::on_initialize(next_block_number);
+
+			let parent_head = HeadData(header.encode());
+			let sproof_builder = RelayStateSproofBuilder {
+				para_id: <Runtime>::SelfParaId::get(),
+				included_para_head: parent_head.clone().into(),
+				..Default::default()
+			};
+
+			let (relay_parent_storage_root, relay_chain_state) =
+				sproof_builder.into_state_root_and_proof();
+			let inherent_data = ParachainInherentData {
+				validation_data: PersistedValidationData {
+					parent_head,
+					relay_parent_number: (block_number.saturated_into::<u32>() * 2 + 1).into(),
+					relay_parent_storage_root,
+					max_pov_size: 100_000_000,
+				},
+				relay_chain_state,
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+			};
+
+			let _ = cumulus_pallet_parachain_system::Pallet::<Runtime>::set_validation_data(
+				Runtime::RuntimeOrigin::none(),
+				inherent_data,
+			);
+			let _ = pallet_timestamp::Pallet::<Runtime>::set(
+				Runtime::RuntimeOrigin::none(),
+				300_u32.into(),
+			);
+			AllPalletsWithoutSystem::on_finalize(next_block_number);
+			let header = frame_system::Pallet::<Runtime>::finalize();
+			last_header = Some(header);
+		}
+		last_header.expect("run_to_block empty block range")
+	}
+
 	pub fn root_origin() -> <Runtime as frame_system::Config>::RuntimeOrigin {
 		<Runtime as frame_system::Config>::RuntimeOrigin::root()
+	}
+
+	pub fn block_number() -> U256 {
+		frame_system::Pallet::<Runtime>::block_number().into()
 	}
 
 	pub fn origin_of(
@@ -358,12 +425,13 @@ impl<
 		}
 
 		// do teleport
-		<pallet_xcm::Pallet<Runtime>>::teleport_assets(
+		<pallet_xcm::Pallet<Runtime>>::limited_teleport_assets(
 			origin,
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new((AssetId(asset), amount).into()),
 			0,
+			Unlimited,
 		)
 	}
 }
@@ -382,6 +450,7 @@ impl<
 				require_weight_at_most,
 				call: call.into(),
 			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 
 		// execute xcm as parent origin
@@ -391,6 +460,38 @@ impl<
 			xcm,
 			&mut hash,
 			Self::xcm_max_weight(XcmReceivedFrom::Parent),
+			Weight::zero(),
+		)
+	}
+
+	pub fn execute_as_origin_xcm<Call: GetDispatchInfo + Encode>(
+		call: Call,
+		origin: Location,
+		buy_execution_fee: Asset,
+	) -> Outcome {
+		// prepare `Transact` xcm
+		let xcm = Xcm(vec![
+			WithdrawAsset(buy_execution_fee.clone().into()),
+			BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				require_weight_at_most: call.get_dispatch_info().weight,
+				call: call.encode().into(),
+			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
+		]);
+
+		// execute xcm as parent origin
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
+			origin.clone(),
+			xcm,
+			&mut hash,
+			Self::xcm_max_weight(if origin == Location::parent() {
+				XcmReceivedFrom::Parent
+			} else {
+				XcmReceivedFrom::Sibling
+			}),
 			Weight::zero(),
 		)
 	}

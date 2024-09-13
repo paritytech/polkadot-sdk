@@ -19,13 +19,14 @@
 #![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_primitives::{BlockNumber, Hash};
 use std::{collections::HashMap, fmt};
 
 #[doc(hidden)]
 pub use polkadot_node_jaeger as jaeger;
-pub use sc_network::{IfDisconnected, PeerId};
+pub use sc_network::IfDisconnected;
+pub use sc_network_types::PeerId;
 #[doc(hidden)]
 pub use std::sync::Arc;
 
@@ -461,7 +462,7 @@ impl_versioned_try_from!(
 
 /// v1 notification protocol types.
 pub mod v1 {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, CompactStatement, Hash,
@@ -610,7 +611,7 @@ pub mod v1 {
 	///
 	/// The payload is the local peer id of the node, which serves to prove that it
 	/// controls the collator key it is declaring an intention to collate under.
-	pub fn declare_signature_payload(peer_id: &sc_network::PeerId) -> Vec<u8> {
+	pub fn declare_signature_payload(peer_id: &sc_network_types::PeerId) -> Vec<u8> {
 		let mut payload = peer_id.to_bytes();
 		payload.extend_from_slice(b"COLL");
 		payload
@@ -620,7 +621,7 @@ pub mod v1 {
 /// v2 network protocol types.
 pub mod v2 {
 	use bitvec::{order::Lsb0, slice::BitSlice, vec::BitVec};
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, GroupIndex, Hash,
@@ -863,7 +864,7 @@ pub mod v2 {
 	///
 	/// The payload is the local peer id of the node, which serves to prove that it
 	/// controls the collator key it is declaring an intention to collate under.
-	pub fn declare_signature_payload(peer_id: &sc_network::PeerId) -> Vec<u8> {
+	pub fn declare_signature_payload(peer_id: &sc_network_types::PeerId) -> Vec<u8> {
 		let mut payload = peer_id.to_bytes();
 		payload.extend_from_slice(b"COLL");
 		payload
@@ -871,10 +872,10 @@ pub mod v2 {
 }
 
 /// v3 network protocol types.
-/// Purpose is for chaning ApprovalDistributionMessage to
+/// Purpose is for changing ApprovalDistributionMessage to
 /// include more than one assignment and approval in a message.
 pub mod v3 {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_node_primitives::approval::v2::{
 		CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2,
@@ -895,7 +896,10 @@ pub mod v3 {
 		/// candidate index.
 		///
 		/// Actually checking the assignment may yield a different result.
-		/// TODO: Look at getting rid of bitfield in the future.
+		///
+		/// TODO at next protocol upgrade opportunity:
+		/// - remove redundancy `candidate_index` vs `core_index`
+		/// - `<https://github.com/paritytech/polkadot-sdk/issues/675>`
 		#[codec(index = 0)]
 		Assignments(Vec<(IndirectAssignmentCertV2, CandidateBitfield)>),
 		/// Approvals for candidates in some recent, unfinalized block.

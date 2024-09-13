@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove redundent logging code
+
+doc:
+  - audience: Node Dev
+    description: |
+      Simplified logging code, now does slightly less work while logging.
+
+crates:
+- name: sc-tracing
+  bump: minor

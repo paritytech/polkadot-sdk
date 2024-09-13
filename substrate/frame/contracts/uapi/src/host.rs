@@ -17,9 +17,6 @@ use paste::paste;
 #[cfg(target_arch = "wasm32")]
 mod wasm32;
 
-#[cfg(target_arch = "riscv32")]
-mod riscv32;
-
 macro_rules! hash_fn {
 	( $name:ident, $bytes:literal ) => {
 		paste! {
@@ -66,8 +63,8 @@ fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
 /// Implements [`HostFn`] for each supported target architecture.
 pub enum HostFnImpl {}
 
-/// Defines all the host apis implemented by both wasm and RISC-V vms.
-pub trait HostFn {
+/// Defines all the host apis implemented by the wasm vm.
+pub trait HostFn: private::Sealed {
 	/// Returns the number of times specified contract exists on the call stack. Delegated calls are
 	/// not counted as separate calls.
 	///
@@ -93,7 +90,7 @@ pub trait HostFn {
 	/// - `output`: A reference to the output data buffer to write the address.
 	fn address(output: &mut &mut [u8]);
 
-	/// Adds a new delegate dependency to the contract.
+	/// Lock a new delegate dependency to the contract.
 	///
 	/// Traps if the maximum number of delegate_dependencies is reached or if
 	/// the delegate dependency already exists.
@@ -102,10 +99,7 @@ pub trait HostFn {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
-	fn add_delegate_dependency(code_hash: &[u8]);
+	fn lock_delegate_dependency(code_hash: &[u8]);
 
 	/// Stores the *free* balance of the current account into the supplied buffer.
 	///
@@ -142,6 +136,7 @@ pub trait HostFn {
 	///
 	/// Equivalent to the newer [`Self::call_v2`] version but works with
 	/// *ref_time* Weight only
+	#[deprecated(note = "Deprecated, use newer version instead")]
 	fn call_v1(
 		flags: CallFlags,
 		callee: &[u8],
@@ -178,14 +173,11 @@ pub trait HostFn {
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
 	fn call_v2(
 		flags: CallFlags,
 		callee: &[u8],
 		ref_time_limit: u64,
-		proof_time_limit: u64,
+		proof_size_limit: u64,
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
@@ -277,9 +269,6 @@ pub trait HostFn {
 	///
 	/// A return value of `true` indicates that this contract is being called by a root origin,
 	/// and `false` indicates that the caller is a signed origin.
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
 	fn caller_is_root() -> u32;
 
 	/// Clear the value at the given key in the contract storage.
@@ -299,6 +288,20 @@ pub trait HostFn {
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn clear_storage_v1(key: &[u8]) -> Option<u32>;
+
+	/// Clear the value at the given key in the contract transient storage.
+	///
+	/// # Parameters
+	///
+	/// - `key`: The storage key.
+	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
+	fn clear_transient_storage(key: &[u8]) -> Option<u32>;
 
 	/// Retrieve the code hash for a specified contract address.
 	///
@@ -331,6 +334,21 @@ pub trait HostFn {
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn contains_storage_v1(key: &[u8]) -> Option<u32>;
+
+	/// Checks whether there is a value stored under the given key in transient storage.
+	///
+	/// The key length must not exceed the maximum defined by the contracts module parameter.
+	///
+	/// # Parameters
+	/// - `key`: The storage key.
+	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
+	fn contains_transient_storage(key: &[u8]) -> Option<u32>;
 
 	/// Emit a custom debug message.
 	///
@@ -461,6 +479,22 @@ pub trait HostFn {
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn get_storage_v1(key: &[u8], output: &mut &mut [u8]) -> Result;
 
+	/// Retrieve the value under the given key from transient storage.
+	///
+	/// The key length must not exceed the maximum defined by the contracts module parameter.
+	///
+	/// # Parameters
+	/// - `key`: The storage key.
+	/// - `output`: A reference to the output data buffer to write the storage entry.
+	///
+	/// # Errors
+	///
+	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
+	fn get_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
+
 	hash_fn!(sha2_256, 32);
 	hash_fn!(keccak_256, 32);
 	hash_fn!(blake2_256, 32);
@@ -483,6 +517,7 @@ pub trait HostFn {
 	///
 	/// Equivalent to the newer [`Self::instantiate_v2`] version but works
 	/// with *ref_time* Weight only.
+	#[deprecated(note = "Deprecated, use newer version instead")]
 	fn instantiate_v1(
 		code_hash: &[u8],
 		gas: u64,
@@ -527,9 +562,6 @@ pub trait HostFn {
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
 	fn instantiate_v2(
 		code_hash: &[u8],
 		ref_time_limit: u64,
@@ -605,10 +637,7 @@ pub trait HostFn {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
-	fn remove_delegate_dependency(code_hash: &[u8]);
+	fn unlock_delegate_dependency(code_hash: &[u8]);
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
 	///
@@ -686,6 +715,24 @@ pub trait HostFn {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn set_storage_v2(key: &[u8], value: &[u8]) -> Option<u32>;
 
+	/// Set the value at the given key in the contract transient storage.
+	///
+	/// The key and value lengths must not exceed the maximums defined by the contracts module
+	/// parameters.
+	///
+	/// # Parameters
+	///
+	/// - `key`: The storage key.
+	/// - `encoded_value`: The storage value.
+	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
+	fn set_transient_storage(key: &[u8], value: &[u8]) -> Option<u32>;
+
 	/// Verify a sr25519 signature
 	///
 	/// # Parameters
@@ -708,6 +755,20 @@ pub trait HostFn {
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
+
+	/// Retrieve and remove the value under the given key from transient storage.
+	///
+	/// # Parameters
+	/// - `key`: The storage key.
+	/// - `output`: A reference to the output data buffer to write the storage entry.
+	///
+	/// # Errors
+	///
+	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
+	fn take_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Transfer some amount of funds into the specified account.
 	///
@@ -795,7 +856,7 @@ pub trait HostFn {
 	#[deprecated(
 		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
 	)]
-	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result;
+	fn xcm_execute(msg: &[u8]) -> Result;
 
 	/// Send an XCM program from the contract to the specified destination.
 	/// This is equivalent to dispatching `pallet_xcm::send` through `call_runtime`, except that
@@ -803,11 +864,10 @@ pub trait HostFn {
 	///
 	/// # Parameters
 	///
-	/// - `dest`: The XCM destination, should be decodable as [VersionedMultiLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedMultiLocation.html),
+	/// - `dest`: The XCM destination, should be decodable as [VersionedLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedLocation.html),
 	///   traps otherwise.
 	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
 	///   traps otherwise.
-	/// - `output`: A reference to the output data buffer to write the [XcmHash](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v3/type.XcmHash.html)
 	///
 	/// # Return
 	///
@@ -817,4 +877,9 @@ pub trait HostFn {
 		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
 	)]
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
+}
+
+mod private {
+	pub trait Sealed {}
+	impl Sealed for super::HostFnImpl {}
 }

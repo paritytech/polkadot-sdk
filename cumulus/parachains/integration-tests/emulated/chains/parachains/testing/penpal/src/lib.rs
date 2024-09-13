@@ -13,22 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub use penpal_runtime::{self, xcm_config::RelayNetworkId as PenpalRelayNetworkId};
+
 mod genesis;
-pub use genesis::{genesis, ED, PARA_ID_A, PARA_ID_B};
-pub use penpal_runtime::xcm_config::{
-	LocalTeleportableToAssetHub, LocalTeleportableToAssetHubV3, XcmConfig,
-};
+pub use genesis::{genesis, PenpalAssetOwner, PenpalSudoAccount, ED, PARA_ID_A, PARA_ID_B};
 
 // Substrate
 use frame_support::traits::OnInitialize;
+use sp_core::Encode;
 
 // Cumulus
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impl_assets_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
+	impl_assets_helpers_for_parachain, impl_foreign_assets_helpers_for_parachain,
+	impl_xcm_helpers_for_parachain,
+	impls::{NetworkId, Parachain},
+	xcm_emulator::decl_test_parachains,
 };
-use rococo_emulated_chain::Rococo;
-use westend_emulated_chain::Westend;
 
 // Penpal Parachain declaration
 decl_test_parachains! {
@@ -36,6 +37,10 @@ decl_test_parachains! {
 		genesis = genesis(PARA_ID_A),
 		on_init = {
 			penpal_runtime::AuraExt::on_initialize(1);
+			frame_support::assert_ok!(penpal_runtime::System::set_storage(
+				penpal_runtime::RuntimeOrigin::root(),
+				vec![(PenpalRelayNetworkId::key().to_vec(), NetworkId::Rococo.encode())],
+			));
 		},
 		runtime = penpal_runtime,
 		core = {
@@ -48,6 +53,7 @@ decl_test_parachains! {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
 			ForeignAssets: penpal_runtime::ForeignAssets,
+			AssetConversion: penpal_runtime::AssetConversion,
 			Balances: penpal_runtime::Balances,
 		}
 	},
@@ -55,6 +61,10 @@ decl_test_parachains! {
 		genesis = genesis(PARA_ID_B),
 		on_init = {
 			penpal_runtime::AuraExt::on_initialize(1);
+			frame_support::assert_ok!(penpal_runtime::System::set_storage(
+				penpal_runtime::RuntimeOrigin::root(),
+				vec![(PenpalRelayNetworkId::key().to_vec(), NetworkId::Westend.encode())],
+			));
 		},
 		runtime = penpal_runtime,
 		core = {
@@ -67,6 +77,7 @@ decl_test_parachains! {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
 			ForeignAssets: penpal_runtime::ForeignAssets,
+			AssetConversion: penpal_runtime::AssetConversion,
 			Balances: penpal_runtime::Balances,
 		}
 	},
@@ -75,7 +86,11 @@ decl_test_parachains! {
 // Penpal implementation
 impl_accounts_helpers_for_parachain!(PenpalA);
 impl_accounts_helpers_for_parachain!(PenpalB);
-impl_assets_helpers_for_parachain!(PenpalA, Rococo);
-impl_assets_helpers_for_parachain!(PenpalB, Westend);
 impl_assert_events_helpers_for_parachain!(PenpalA);
 impl_assert_events_helpers_for_parachain!(PenpalB);
+impl_assets_helpers_for_parachain!(PenpalA);
+impl_foreign_assets_helpers_for_parachain!(PenpalA, xcm::latest::Location);
+impl_assets_helpers_for_parachain!(PenpalB);
+impl_foreign_assets_helpers_for_parachain!(PenpalB, xcm::latest::Location);
+impl_xcm_helpers_for_parachain!(PenpalA);
+impl_xcm_helpers_for_parachain!(PenpalB);

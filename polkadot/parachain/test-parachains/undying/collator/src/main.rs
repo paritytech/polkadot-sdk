@@ -93,10 +93,13 @@ fn main() -> Result<()> {
 						workers_path: None,
 						workers_names: None,
 
-						overseer_gen: polkadot_service::RealOverseerGen,
+						overseer_gen: polkadot_service::CollatorOverseerGen,
 						overseer_message_channel_capacity_override: None,
 						malus_finality_delay: None,
 						hwbench: None,
+						execute_workers_max_num: None,
+						prepare_workers_hard_max_num: None,
+						prepare_workers_soft_max_num: None,
 					},
 				)
 				.map_err(|e| e.to_string())?;

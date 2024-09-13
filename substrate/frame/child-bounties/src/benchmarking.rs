@@ -21,6 +21,8 @@
 
 use super::*;
 
+use alloc::{vec, vec::Vec};
+
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 
@@ -109,7 +111,7 @@ fn activate_bounty<T: Config>(
 		child_bounty_setup.reason.clone(),
 	)?;
 
-	child_bounty_setup.bounty_id = Bounties::<T>::bounty_count() - 1;
+	child_bounty_setup.bounty_id = pallet_bounties::BountyCount::<T>::get() - 1;
 
 	let approve_origin =
 		T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;

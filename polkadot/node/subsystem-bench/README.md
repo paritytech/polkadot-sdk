@@ -1,6 +1,6 @@
 # Subsystem benchmark client
 
-Run parachain consensus stress and performance tests on your development machine.
+Run parachain consensus stress and performance tests on your development machine or in CI.
 
 ## Motivation
 
@@ -27,12 +27,13 @@ The output binary will be placed in `target/testnet/subsystem-bench`.
 ### Test metrics
 
 Subsystem, CPU usage and network metrics are exposed via a prometheus endpoint during the test execution.
-A small subset of these collected metrics are displayed in the CLI, but for an in depth analysys of the test results,
+A small subset of these collected metrics are displayed in the CLI, but for an in depth analysis of the test results,
 a local Grafana/Prometheus stack is needed.
 
 ### Run Prometheus, Pyroscope and Graphana in Docker
 
-If docker is not usable, then follow the next sections to manually install Prometheus, Pyroscope and Graphana on your machine.
+If docker is not usable, then follow the next sections to manually install Prometheus, Pyroscope and Graphana
+on your machine.
 
 ```bash
 cd polkadot/node/subsystem-bench/docker
@@ -44,7 +45,7 @@ docker compose up
 Please follow the [official installation guide](https://prometheus.io/docs/prometheus/latest/installation/) for your
 platform/OS.
 
-After succesfully installing and starting up Prometheus, we need to alter it's configuration such that it
+After successfully installing and starting up Prometheus, we need to alter it's configuration such that it
 will scrape the benchmark prometheus endpoint `127.0.0.1:9999`. Please check the prometheus official documentation
 regarding the location of `prometheus.yml`. On MacOS for example the full path `/opt/homebrew/etc/prometheus.yml`
 
@@ -95,68 +96,33 @@ If you are running the servers in Docker, use the following URLs:
 Follow [this guide](https://grafana.com/docs/grafana/latest/dashboards/manage-dashboards/#export-and-import-dashboards)
 to import the dashboards from the repository `grafana` folder.
 
-## How to run a test
-
-To run a test, you need to first choose a test objective. Currently, we support the following:
-
-```
-target/testnet/subsystem-bench --help
-The almighty Subsystem Benchmark Tool™️
-
-Usage: subsystem-bench [OPTIONS] <COMMAND>
-
-Commands:
-  data-availability-read  Benchmark availability recovery strategies
-
-```
-
-Note: `test-sequence` is a special test objective that wraps up an arbitrary number of test objectives. It is tipically
-used to run a suite of tests defined in a `yaml` file like in this [example](examples/availability_read.yaml).
-
 ### Standard test options
 
 ```
-Options:
-    --network <NETWORK>                              The type of network to be emulated [default: ideal] [possible
-                                                     values: ideal, healthy, degraded]
-    --n-cores <N_CORES>                              Number of cores to fetch availability for [default: 100]
-    --n-validators <N_VALIDATORS>                    Number of validators to fetch chunks from [default: 500]
-    --min-pov-size <MIN_POV_SIZE>                    The minimum pov size in KiB [default: 5120]
-    --max-pov-size <MAX_POV_SIZE>                    The maximum pov size bytes [default: 5120]
--n, --num-blocks <NUM_BLOCKS>                        The number of blocks the test is going to run [default: 1]
--p, --peer-bandwidth <PEER_BANDWIDTH>                The bandwidth of simulated remote peers in KiB
--b, --bandwidth <BANDWIDTH>                          The bandwidth of our simulated node in KiB
-    --peer-error <PEER_ERROR>                        Simulated conection error ratio [0-100]
-    --peer-min-latency <PEER_MIN_LATENCY>            Minimum remote peer latency in milliseconds [0-5000]
-    --peer-max-latency <PEER_MAX_LATENCY>            Maximum remote peer latency in milliseconds [0-5000]
-    --profile                                        Enable CPU Profiling with Pyroscope
-    --pyroscope-url <PYROSCOPE_URL>                  Pyroscope Server URL [default: http://localhost:4040]
-    --pyroscope-sample-rate <PYROSCOPE_SAMPLE_RATE>  Pyroscope Sample Rate [default: 113]
-    --cache-misses                                   Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind
-                                                     must be in the PATH
--h, --help                                           Print help
-```
+$ subsystem-bench --help
+Usage: subsystem-bench [OPTIONS] <PATH>
 
-These apply to all test objectives, except `test-sequence` which relies on the values being specified in a file.
-
-### Test objectives
-
-Each test objective can have it's specific configuration options, in contrast with the standard test options.
-
-For `data-availability-read` the recovery strategy to be used is configurable.
-
-```
-target/testnet/subsystem-bench data-availability-read --help
-Benchmark availability recovery strategies
-
-Usage: subsystem-bench data-availability-read [OPTIONS]
+Arguments:
+  <PATH>  Path to the test sequence configuration file
 
 Options:
-  -f, --fetch-from-backers  Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU
-                            as we don't need to re-construct from chunks. Tipically this is only faster if nodes
-                            have enough bandwidth
-  -h, --help                Print help
+      --profile                                        Enable CPU Profiling with Pyroscope
+      --pyroscope-url <PYROSCOPE_URL>                  Pyroscope Server URL [default: http://localhost:4040]
+      --pyroscope-sample-rate <PYROSCOPE_SAMPLE_RATE>  Pyroscope Sample Rate [default: 113]
+      --cache-misses                                   Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
+  -h, --help                                           Print help
 ```
+
+## How to run a test
+
+To run a test, you need to use a path to a test objective:
+
+```
+target/testnet/subsystem-bench polkadot/node/subsystem-bench/examples/availability_read.yaml
+```
+
+Note: test objectives may be wrapped up into a test sequence.
+It is typically used to run a suite of tests like in this [example](examples/availability_read.yaml).
 
 ### Understanding the test configuration
 
@@ -171,42 +137,71 @@ usage:
 
 From the perspective of the subsystem under test, this means that it will receive an `ActiveLeavesUpdate` signal
 followed by an arbitrary amount of messages. This process repeats itself for `num_blocks`. The messages are generally
-test payloads pre-generated before the test run, or constructed on pre-genereated payloads. For example the
+test payloads pre-generated before the test run, or constructed on pre-generated payloads. For example the
 `AvailabilityRecoveryMessage::RecoverAvailableData` message includes a `CandidateReceipt` which is generated before
 the test is started.
 
 ### Example run
 
-Let's run an availabilty read test which will recover availability for 10 cores with max PoV size on a 500
+Let's run an availability read test which will recover availability for 200 cores with max PoV size on a 1000
 node validator network.
 
-```
- target/testnet/subsystem-bench --n-cores 10 data-availability-read
-[2023-11-28T09:01:59Z INFO  subsystem_bench::core::display] n_validators = 500, n_cores = 10, pov_size = 5120 - 5120,
-                                                            error = 0, latency = None
-[2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Generating template candidate index=0 pov_size=5242880
-[2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Created test environment.
-[2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Pre-generating 10 candidates.
-[2023-11-28T09:02:01Z INFO  subsystem-bench::core] Initializing network emulation for 500 peers.
-[2023-11-28T09:02:01Z INFO  substrate_prometheus_endpoint] 〽️ Prometheus exporter started at 127.0.0.1:9999
-[2023-11-28T09:02:01Z INFO  subsystem-bench::availability] Current block 1/1
-[2023-11-28T09:02:01Z INFO  subsystem_bench::availability] 10 recoveries pending
-[2023-11-28T09:02:04Z INFO  subsystem_bench::availability] Block time 3231ms
-[2023-11-28T09:02:04Z INFO  subsystem-bench::availability] Sleeping till end of block (2768ms)
-[2023-11-28T09:02:07Z INFO  subsystem_bench::availability] All blocks processed in 6001ms
-[2023-11-28T09:02:07Z INFO  subsystem_bench::availability] Throughput: 51200 KiB/block
-[2023-11-28T09:02:07Z INFO  subsystem_bench::availability] Block time: 6001 ms
-[2023-11-28T09:02:07Z INFO  subsystem_bench::availability]
+<!-- markdownlint-disable line-length -->
 
-    Total received from network: 66 MiB
-    Total sent to network: 58 KiB
-    Total subsystem CPU usage 4.16s
-    CPU usage per block 4.16s
-    Total test environment CPU usage 0.00s
-    CPU usage per block 0.00s
+```
+target/testnet/subsystem-bench polkadot/node/subsystem-bench/examples/availability_write.yaml
+[2024-02-19T14:10:32.981Z INFO  subsystem_bench] Sequence contains 1 step(s)
+[2024-02-19T14:10:32.981Z INFO  subsystem-bench::cli] Step 1/1
+[2024-02-19T14:10:32.981Z INFO  subsystem-bench::cli] [objective = DataAvailabilityWrite] n_validators = 1000, n_cores = 200, pov_size = 5120 - 5120, connectivity = 75, latency = Some(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 })
+[2024-02-19T14:10:32.982Z INFO  subsystem-bench::availability] Generating template candidate index=0 pov_size=5242880
+[2024-02-19T14:10:33.106Z INFO  subsystem-bench::availability] Created test environment.
+[2024-02-19T14:10:33.106Z INFO  subsystem-bench::availability] Pre-generating 600 candidates.
+[2024-02-19T14:10:34.096Z INFO  subsystem-bench::network] Initializing emulation for a 1000 peer network.
+[2024-02-19T14:10:34.096Z INFO  subsystem-bench::network] connectivity 75%, latency Some(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 })
+[2024-02-19T14:10:34.098Z INFO  subsystem-bench::network] Network created, connected validator count 749
+[2024-02-19T14:10:34.099Z INFO  subsystem-bench::availability] Seeding availability store with candidates ...
+[2024-02-19T14:10:34.100Z INFO  substrate_prometheus_endpoint] 〽️ Prometheus exporter started at 127.0.0.1:9999
+[2024-02-19T14:10:34.387Z INFO  subsystem-bench::availability] Done
+[2024-02-19T14:10:34.387Z INFO  subsystem-bench::availability] Current block #1
+[2024-02-19T14:10:34.389Z INFO  subsystem-bench::availability] Waiting for all emulated peers to receive their chunk from us ...
+[2024-02-19T14:10:34.625Z INFO  subsystem-bench::availability] All chunks received in 237ms
+[2024-02-19T14:10:34.626Z INFO  polkadot_subsystem_bench::availability] Waiting for 749 bitfields to be received and processed
+[2024-02-19T14:10:35.710Z INFO  subsystem-bench::availability] All bitfields processed
+[2024-02-19T14:10:35.710Z INFO  subsystem-bench::availability] All work for block completed in 1322ms
+[2024-02-19T14:10:35.710Z INFO  subsystem-bench::availability] Current block #2
+[2024-02-19T14:10:35.712Z INFO  subsystem-bench::availability] Waiting for all emulated peers to receive their chunk from us ...
+[2024-02-19T14:10:35.947Z INFO  subsystem-bench::availability] All chunks received in 236ms
+[2024-02-19T14:10:35.947Z INFO  polkadot_subsystem_bench::availability] Waiting for 749 bitfields to be received and processed
+[2024-02-19T14:10:37.038Z INFO  subsystem-bench::availability] All bitfields processed
+[2024-02-19T14:10:37.038Z INFO  subsystem-bench::availability] All work for block completed in 1328ms
+[2024-02-19T14:10:37.039Z INFO  subsystem-bench::availability] Current block #3
+[2024-02-19T14:10:37.040Z INFO  subsystem-bench::availability] Waiting for all emulated peers to receive their chunk from us ...
+[2024-02-19T14:10:37.276Z INFO  subsystem-bench::availability] All chunks received in 237ms
+[2024-02-19T14:10:37.276Z INFO  polkadot_subsystem_bench::availability] Waiting for 749 bitfields to be received and processed
+[2024-02-19T14:10:38.362Z INFO  subsystem-bench::availability] All bitfields processed
+[2024-02-19T14:10:38.362Z INFO  subsystem-bench::availability] All work for block completed in 1323ms
+[2024-02-19T14:10:38.362Z INFO  subsystem-bench::availability] All blocks processed in 3974ms
+[2024-02-19T14:10:38.362Z INFO  subsystem-bench::availability] Avg block time: 1324 ms
+[2024-02-19T14:10:38.362Z INFO  parachain::availability-store] received `Conclude` signal, exiting
+[2024-02-19T14:10:38.362Z INFO  parachain::bitfield-distribution] Conclude
+[2024-02-19T14:10:38.362Z INFO  subsystem-bench::network] Downlink channel closed, network interface task exiting
+
+polkadot/node/subsystem-bench/examples/availability_write.yaml #1 DataAvailabilityWrite
+
+Network usage, KiB                     total   per block
+Received from peers                12922.000    4307.333
+Sent to peers                      47705.000   15901.667
+
+CPU usage, seconds                     total   per block
+availability-distribution              0.045       0.015
+bitfield-distribution                  0.104       0.035
+availability-store                     0.304       0.101
+Test environment                       3.213       1.071
 ```
 
-`Block time` in the context of `data-availability-read` has a different meaning. It measures the amount of time it
+<!-- markdownlint-enable line-length -->
+
+`Block time` in the current context has a different meaning. It measures the amount of time it
 took the subsystem to finish processing all of the messages sent in the context of the current test block.
 
 ### Test logs
@@ -216,7 +211,7 @@ You can select log target, subtarget and verbosity just like with Polkadot node 
 
 ### View test metrics
 
-Assuming the Grafana/Prometheus stack installation steps completed succesfully, you should be able to
+Assuming the Grafana/Prometheus stack installation steps completed successfully, you should be able to
 view the test progress in real time by accessing [this link](http://localhost:3000/goto/SM5B8pNSR?orgId=1).
 
 Now run
@@ -235,8 +230,9 @@ Since the execution will be very slow, it's recommended not to run it together w
 benchmark results into account. A report is saved in a file `cachegrind_report.txt`.
 
 Example run results:
+
 ```
-$ target/testnet/subsystem-bench --n-cores 10 --cache-misses data-availability-read
+$ target/testnet/subsystem-bench --cache-misses cache-misses-data-availability-read.yaml
 $ cat cachegrind_report.txt
 I refs:        64,622,081,485
 I1  misses:         3,018,168
@@ -264,6 +260,41 @@ This file is best interpreted with `cg_annotate --auto=yes cachegrind.out.<pid>`
 
 For finer profiling of cache misses, better use `perf` on a bare-metal machine.
 
+### Profile memory usage using jemalloc
+
+Bellow you can find instructions how to setup and run profiling with jemalloc, this is complementary
+with using other memory profiling tools like: <https://github.com/koute/bytehound?tab=readme-ov-file#basic-usage>.
+
+#### Prerequisites
+
+Install tooling with:
+
+```
+sudo apt install libjemalloc-dev graphviz
+```
+
+#### Generate memory usage snapshots
+
+Memory usage can be profiled by running any subsystem benchmark with `--features memprofile`, e.g:
+
+```
+RUSTFLAGS=-g cargo run -p polkadot-subsystem-bench --release --features memprofile -- polkadot/node/subsystem-bench/examples/approvals_throughput.yaml
+```
+
+#### Interpret the results
+
+After the benchmark ran the memory usage snapshots can be found in `/tmp/subsystem-bench*`, to extract the information
+from a snapshot you can use `jeprof` like this:
+
+```
+jeprof --text PATH_TO_EXECUTABLE_WITH_DEBUG_SYMBOLS /tmp/subsystem-bench.1222895.199.i199.heap > statistics.txt
+```
+
+Useful links:
+
+- Tutorial: <https://www.magiroux.com/rust-jemalloc-profiling/>
+- Jemalloc configuration options: <https://jemalloc.net/jemalloc.3.html>
+
 ## Create new test objectives
 
 This tool is intended to make it easy to write new test objectives that focus individual subsystems,
@@ -277,7 +308,7 @@ happy and negative scenarios (low bandwidth, network errors and low connectivity
 
 To faster write a new test objective you need to use some higher level wrappers and logic: `TestEnvironment`,
 `TestConfiguration`, `TestAuthorities`, `NetworkEmulator`. To create the `TestEnvironment` you will
-need to also build an `Overseer`, but that should be easy using the mockups for subsystems in`core::mock`.
+need to also build an `Overseer`, but that should be easy using the mockups for subsystems in `mock`.
 
 ### Mocking
 

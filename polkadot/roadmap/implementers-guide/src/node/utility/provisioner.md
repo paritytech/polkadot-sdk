@@ -1,5 +1,9 @@
 # Provisioner
 
+> NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699
+
 Relay chain block authorship authority is governed by BABE and is beyond the scope of the Overseer and the rest of the
 subsystems. That said, ultimately the block author needs to select a set of backable parachain candidates and other
 consensus data, and assemble a block from them. This subsystem is responsible for providing the necessary data to all
@@ -187,16 +191,16 @@ this process is a vector of `CandidateHash`s, sorted in order of their core inde
 
 #### Required Path
 
-Required path is a parameter for `ProspectiveParachainsMessage::GetBackableCandidate`, which the provisioner sends in
+Required path is a parameter for `ProspectiveParachainsMessage::GetBackableCandidates`, which the provisioner sends in
 candidate selection.
 
-An empty required path indicates that the requested candidate should be a direct child of the most recently included
+An empty required path indicates that the requested candidate chain should start with the most recently included
 parablock for the given `para_id` as of the given relay parent.
 
 In contrast, a required path with one or more entries prompts [prospective
 parachains](../backing/prospective-parachains.md) to step forward through its fragment tree for the given `para_id` and
-relay parent until the desired parablock is reached. We then select a direct child of that parablock to pass to the
-provisioner.
+relay parent until the desired parablock is reached. We then select the chain starting with the direct child of that
+parablock to pass to the provisioner.
 
 The parablocks making up a required path do not need to have been previously seen as included in relay chain blocks.
 Thus the ability to provision backable candidates based on a required path effectively decouples backing from inclusion.

@@ -70,6 +70,8 @@
 // Make doc tests happy
 extern crate self as sp_api;
 
+extern crate alloc;
+
 /// Private exports used by the macros.
 ///
 /// This is seen as internal API and can change at any point.
@@ -90,7 +92,9 @@ pub mod __private {
 	pub use std_imports::*;
 
 	pub use crate::*;
+	pub use alloc::vec;
 	pub use codec::{self, Decode, DecodeLimit, Encode};
+	pub use core::{mem, slice};
 	pub use scale_info;
 	pub use sp_core::offchain;
 	#[cfg(not(feature = "std"))]
@@ -101,10 +105,12 @@ pub mod __private {
 		generic::BlockId,
 		traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, NumberFor},
 		transaction_validity::TransactionValidity,
-		RuntimeString, TransactionOutcome,
+		ExtrinsicInclusionMode, RuntimeString, TransactionOutcome,
 	};
-	pub use sp_std::{mem, slice, vec};
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+
+	#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
+	pub use sp_runtime_interface::polkavm::{polkavm_abi, polkavm_export};
 }
 
 #[cfg(feature = "std")]
@@ -112,11 +118,11 @@ pub use sp_core::traits::CallContext;
 use sp_core::OpaqueMetadata;
 #[cfg(feature = "std")]
 use sp_externalities::{Extension, Extensions};
-use sp_runtime::traits::Block as BlockT;
 #[cfg(feature = "std")]
 use sp_runtime::traits::HashingFor;
 #[cfg(feature = "std")]
 pub use sp_runtime::TransactionOutcome;
+use sp_runtime::{traits::Block as BlockT, ExtrinsicInclusionMode};
 #[cfg(feature = "std")]
 pub use sp_state_machine::StorageProof;
 #[cfg(feature = "std")]
@@ -252,6 +258,11 @@ pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
 /// ```
 /// Note that the latest version (4 in our example above) always contains all methods from all
 /// the versions before.
+///
+/// ## Note on deprecation.
+///
+/// - Usage of `deprecated` attribute will propagate deprecation information to the metadata.
+/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 pub use sp_api_proc_macro::decl_runtime_apis;
 
 /// Tags given trait implementations as runtime apis.
@@ -277,7 +288,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// ```rust
 /// use sp_version::create_runtime_str;
 /// #
-/// # use sp_runtime::traits::Block as BlockT;
+/// # use sp_runtime::{ExtrinsicInclusionMode, traits::Block as BlockT};
 /// # use sp_test_primitives::Block;
 /// #
 /// # /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro
@@ -304,7 +315,9 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// #           unimplemented!()
 /// #       }
 /// #       fn execute_block(_block: Block) {}
-/// #       fn initialize_block(_header: &<Block as BlockT>::Header) {}
+/// #       fn initialize_block(_header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
+/// #           unimplemented!()
+/// #       }
 /// #   }
 ///
 ///     impl self::Balance<Block> for Runtime {
@@ -333,7 +346,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 ///     // Here we are exposing the runtime api versions.
 ///     apis: RUNTIME_API_VERSIONS,
 ///     transaction_version: 1,
-///     state_version: 1,
+///     system_version: 1,
 /// };
 ///
 /// # fn main() {}
@@ -527,6 +540,7 @@ pub trait ConstructRuntimeApi<Block: BlockT, C: CallApiAt<Block>> {
 	fn construct_runtime_api(call: &C) -> ApiRef<Self::RuntimeApi>;
 }
 
+#[docify::export]
 /// Init the [`RuntimeLogger`](sp_runtime::runtime_logger::RuntimeLogger).
 pub fn init_runtime_logger() {
 	#[cfg(not(feature = "disable-logging"))]
@@ -537,11 +551,12 @@ pub fn init_runtime_logger() {
 #[cfg(feature = "std")]
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
-	#[error("Failed to decode return value of {function}")]
+	#[error("Failed to decode return value of {function}: {error} raw data: {raw:?}")]
 	FailedToDecodeReturnValue {
 		function: &'static str,
 		#[source]
 		error: codec::Error,
+		raw: Vec<u8>,
 	},
 	#[error("Failed to convert return value from runtime to node of {function}")]
 	FailedToConvertReturnValue {
@@ -797,15 +812,18 @@ pub fn deserialize_runtime_api_info(bytes: [u8; RUNTIME_API_INFO_SIZE]) -> ([u8;
 decl_runtime_apis! {
 	/// The `Core` runtime api that every Substrate runtime needs to implement.
 	#[core_trait]
-	#[api_version(4)]
+	#[api_version(5)]
 	pub trait Core {
 		/// Returns the version of the runtime.
 		fn version() -> RuntimeVersion;
 		/// Execute the given block.
 		fn execute_block(block: Block);
 		/// Initialize a block with the given header.
+		#[changed_in(5)]
 		#[renamed("initialise_block", 2)]
 		fn initialize_block(header: &<Block as BlockT>::Header);
+		/// Initialize a block with the given header and return the runtime executive mode.
+		fn initialize_block(header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode;
 	}
 
 	/// The `Metadata` api trait that returns metadata for the runtime.
@@ -823,9 +841,10 @@ decl_runtime_apis! {
 		/// Returns the supported metadata versions.
 		///
 		/// This can be used to call `metadata_at_version`.
-		fn metadata_versions() -> sp_std::vec::Vec<u32>;
+		fn metadata_versions() -> alloc::vec::Vec<u32>;
 	}
 }
 
 sp_core::generate_feature_enabled_macro!(std_enabled, feature = "std", $);
 sp_core::generate_feature_enabled_macro!(std_disabled, not(feature = "std"), $);
+sp_core::generate_feature_enabled_macro!(frame_metadata_enabled, feature = "frame-metadata", $);

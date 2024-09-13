@@ -18,8 +18,8 @@
 //! Overlayed changes for offchain indexing.
 
 use super::changeset::OverlayedMap;
+use alloc::vec::Vec;
 use sp_core::offchain::OffchainOverlayedChange;
-use sp_std::prelude::Vec;
 
 /// In-memory storage for offchain workers recoding changes for the actual offchain storage
 /// implementation.
@@ -42,25 +42,27 @@ impl OffchainOverlayedChanges {
 	}
 
 	/// Iterate over all key value pairs by reference.
-	pub fn iter(&self) -> impl Iterator<Item = OffchainOverlayedChangesItem> {
+	pub fn iter(&mut self) -> impl Iterator<Item = OffchainOverlayedChangesItem> {
 		self.0.changes().map(|kv| (kv.0, kv.1.value_ref()))
 	}
 
 	/// Drain all elements of changeset.
 	pub fn drain(&mut self) -> impl Iterator<Item = OffchainOverlayedChangesItemOwned> {
-		sp_std::mem::take(self).into_iter()
+		core::mem::take(self).into_iter()
 	}
 
 	/// Remove a key and its associated value from the offchain database.
 	pub fn remove(&mut self, prefix: &[u8], key: &[u8]) {
-		let _ = self
-			.0
-			.set((prefix.to_vec(), key.to_vec()), OffchainOverlayedChange::Remove, None);
+		let _ = self.0.set_offchain(
+			(prefix.to_vec(), key.to_vec()),
+			OffchainOverlayedChange::Remove,
+			None,
+		);
 	}
 
 	/// Set the value associated with a key under a prefix to the value provided.
 	pub fn set(&mut self, prefix: &[u8], key: &[u8], value: &[u8]) {
-		let _ = self.0.set(
+		let _ = self.0.set_offchain(
 			(prefix.to_vec(), key.to_vec()),
 			OffchainOverlayedChange::SetValue(value.to_vec()),
 			None,
@@ -68,7 +70,7 @@ impl OffchainOverlayedChanges {
 	}
 
 	/// Obtain a associated value to the given key in storage with prefix.
-	pub fn get(&self, prefix: &[u8], key: &[u8]) -> Option<OffchainOverlayedChange> {
+	pub fn get(&mut self, prefix: &[u8], key: &[u8]) -> Option<OffchainOverlayedChange> {
 		let key = (prefix.to_vec(), key.to_vec());
 		self.0.get(&key).map(|entry| entry.value_ref()).cloned()
 	}

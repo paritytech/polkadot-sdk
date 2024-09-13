@@ -341,6 +341,8 @@ impl DisputeCoordinatorSubsystem {
 				runtime_info,
 				highest_session,
 				leaf_hash,
+				// on startup we don't have any off-chain disabled state
+				std::iter::empty(),
 			)
 			.await
 			{
@@ -370,10 +372,9 @@ impl DisputeCoordinatorSubsystem {
 					},
 				};
 			let vote_state = CandidateVoteState::new(votes, &env, now);
-			let onchain_disabled = env.disabled_indices();
-			let potential_spam = is_potential_spam(&scraper, &vote_state, candidate_hash, |v| {
-				onchain_disabled.contains(v)
-			});
+			let is_disabled = |v: &ValidatorIndex| env.disabled_indices().contains(v);
+			let potential_spam =
+				is_potential_spam(&scraper, &vote_state, candidate_hash, is_disabled);
 			let is_included =
 				scraper.is_candidate_included(&vote_state.votes().candidate_receipt.hash());
 
@@ -461,7 +462,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<Activa
 	}
 }
 
-/// Check wheter a dispute for the given candidate could be spam.
+/// Check whether a dispute for the given candidate could be spam.
 ///
 /// That is the candidate could be made up.
 pub fn is_potential_spam(
@@ -476,6 +477,18 @@ pub fn is_potential_spam(
 	let is_confirmed = vote_state.is_confirmed();
 	let all_invalid_votes_disabled = vote_state.invalid_votes_all_disabled(is_disabled);
 	let ignore_disabled = !is_confirmed && all_invalid_votes_disabled;
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?candidate_hash,
+		?is_disputed,
+		?is_included,
+		?is_backed,
+		?is_confirmed,
+		?all_invalid_votes_disabled,
+		?ignore_disabled,
+		"Checking for potential spam"
+	);
 
 	(is_disputed && !is_included && !is_backed && !is_confirmed) || ignore_disabled
 }

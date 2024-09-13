@@ -18,10 +18,10 @@ mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
 use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
+use alloc::vec::Vec;
 use frame_support::weights::Weight;
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
-use sp_std::prelude::*;
 use xcm::{latest::prelude::*, DoubleEncoded};
 
 trait WeighAssets {
@@ -196,7 +196,7 @@ impl<Call> XcmWeightInfo<Call> for CoretimeRococoXcmWeight<Call> {
 		XcmGeneric::<Runtime>::clear_transact_status()
 	}
 	fn universal_origin(_: &Junction) -> Weight {
-		XcmGeneric::<Runtime>::universal_origin()
+		Weight::MAX
 	}
 	fn export_message(_: &NetworkId, _: &Junctions, _: &Xcm<()>) -> Weight {
 		Weight::MAX

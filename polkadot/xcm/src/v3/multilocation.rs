@@ -20,11 +20,8 @@ use super::{Junction, Junctions};
 use crate::{
 	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation, VersionedLocation,
 };
-use core::{
-	convert::{TryFrom, TryInto},
-	result,
-};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
+use core::result;
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
@@ -205,7 +202,7 @@ impl MultiLocation {
 	}
 
 	/// Consumes `self` and returns a `MultiLocation` suffixed with `new`, or an `Err` with
-	/// theoriginal value of `self` in case of overflow.
+	/// the original value of `self` in case of overflow.
 	pub fn pushed_with_interior(
 		self,
 		new: impl Into<Junction>,
@@ -534,7 +531,7 @@ xcm_procedural::impl_conversion_functions_for_multilocation_v3!();
 #[cfg(test)]
 mod tests {
 	use crate::v3::prelude::*;
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	#[test]
 	fn conversion_works() {
@@ -766,7 +763,6 @@ mod tests {
 	#[test]
 	fn conversion_from_other_types_works() {
 		use crate::v2;
-		use core::convert::TryInto;
 
 		fn takes_multilocation<Arg: Into<MultiLocation>>(_arg: Arg) {}
 

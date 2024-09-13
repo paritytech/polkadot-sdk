@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::traits::Block;
-use sp_std::prelude::*;
 
 /// Id of different payloads in the [`crate::Commitment`] data.
 pub type BeefyPayloadId = [u8; 2];
@@ -43,7 +43,7 @@ pub mod known_payloads {
 pub struct Payload(Vec<(BeefyPayloadId, Vec<u8>)>);
 
 impl Payload {
-	/// Construct a new payload given an initial vallue
+	/// Construct a new payload given an initial value
 	pub fn from_single_entry(id: BeefyPayloadId, value: Vec<u8>) -> Self {
 		Self(vec![(id, value)])
 	}
@@ -58,7 +58,7 @@ impl Payload {
 
 	/// Returns a decoded payload value under given `id`.
 	///
-	/// In case the value is not there or it cannot be decoded does not match `None` is returned.
+	/// In case the value is not there, or it cannot be decoded `None` is returned.
 	pub fn get_decoded<T: Decode>(&self, id: &BeefyPayloadId) -> Option<T> {
 		self.get_raw(id).and_then(|raw| T::decode(&mut &raw[..]).ok())
 	}

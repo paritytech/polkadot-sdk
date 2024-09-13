@@ -16,7 +16,7 @@
 
 //! Version 4 of the Cross-Consensus Message format data structures.
 
-pub use super::v2::GetWeight;
+pub use super::v3::GetWeight;
 use super::v3::{
 	Instruction as OldInstruction, PalletInfo as OldPalletInfo,
 	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
@@ -24,13 +24,12 @@ use super::v3::{
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
-use core::{
-	convert::{TryFrom, TryInto},
-	fmt::Debug,
-	result,
+use codec::{
+	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
+	MaxEncodedLen,
 };
+use core::{fmt::Debug, result};
 use derivative::Derivative;
-use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 mod asset;
@@ -59,7 +58,7 @@ pub const VERSION: super::Version = 4;
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Derivative, Default, Encode, Decode, TypeInfo)]
+#[derive(Derivative, Default, Encode, TypeInfo)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
@@ -67,6 +66,26 @@ pub type QueryId = u64;
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
 pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
+
+environmental::environmental!(instructions_count: u8);
+
+impl<Call> Decode for Xcm<Call> {
+	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
+		instructions_count::using_once(&mut 0, || {
+			let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
+			instructions_count::with(|count| {
+				*count = count.saturating_add(number_of_instructions as u8);
+				if *count > MAX_INSTRUCTIONS_TO_DECODE {
+					return Err(CodecError::from("Max instructions exceeded"))
+				}
+				Ok(())
+			})
+			.expect("Called in `using` context and thus can not return `None`; qed")?;
+			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
+			Ok(Self(decoded_instructions))
+		})
+	}
+}
 
 impl<Call> Xcm<Call> {
 	/// Create an empty instance.
@@ -212,15 +231,15 @@ parameter_types! {
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct PalletInfo {
 	#[codec(compact)]
-	index: u32,
-	name: BoundedVec<u8, MaxPalletNameLen>,
-	module_name: BoundedVec<u8, MaxPalletNameLen>,
+	pub index: u32,
+	pub name: BoundedVec<u8, MaxPalletNameLen>,
+	pub module_name: BoundedVec<u8, MaxPalletNameLen>,
 	#[codec(compact)]
-	major: u32,
+	pub major: u32,
 	#[codec(compact)]
-	minor: u32,
+	pub minor: u32,
 	#[codec(compact)]
-	patch: u32,
+	pub patch: u32,
 }
 
 impl TryInto<OldPalletInfo> for PalletInfo {
@@ -1453,5 +1472,34 @@ mod tests {
 		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
 		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
 		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn decoding_respects_limit() {
+		let max_xcm = Xcm::<()>(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize]);
+		let encoded = max_xcm.encode();
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_ok());
+
+		let big_xcm = Xcm::<()>(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize + 1]);
+		let encoded = big_xcm.encode();
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
+
+		let nested_xcm = Xcm::<()>(vec![
+			DepositReserveAsset {
+				assets: All.into(),
+				dest: Here.into(),
+				xcm: max_xcm,
+			};
+			(MAX_INSTRUCTIONS_TO_DECODE / 2) as usize
+		]);
+		let encoded = nested_xcm.encode();
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
+
+		let even_more_nested_xcm = Xcm::<()>(vec![SetAppendix(nested_xcm); 64]);
+		let encoded = even_more_nested_xcm.encode();
+		assert_eq!(encoded.len(), 342530);
+		// This should not decode since the limit is 100
+		assert_eq!(MAX_INSTRUCTIONS_TO_DECODE, 100, "precondition");
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
 	}
 }

@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed, GenericChainSpec};
+use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as BridgeHubBalance;
+use polkadot_parachain_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::ChainSpec;
 use sp_core::sr25519;
 use std::str::FromStr;
@@ -25,7 +26,10 @@ use std::str::FromStr;
 #[derive(Debug, PartialEq)]
 pub enum BridgeHubRuntimeType {
 	Kusama,
+	KusamaLocal,
+
 	Polkadot,
+	PolkadotLocal,
 
 	Rococo,
 	RococoLocal,
@@ -44,7 +48,9 @@ impl FromStr for BridgeHubRuntimeType {
 	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		match value {
 			polkadot::BRIDGE_HUB_POLKADOT => Ok(BridgeHubRuntimeType::Polkadot),
+			polkadot::BRIDGE_HUB_POLKADOT_LOCAL => Ok(BridgeHubRuntimeType::PolkadotLocal),
 			kusama::BRIDGE_HUB_KUSAMA => Ok(BridgeHubRuntimeType::Kusama),
+			kusama::BRIDGE_HUB_KUSAMA_LOCAL => Ok(BridgeHubRuntimeType::KusamaLocal),
 			westend::BRIDGE_HUB_WESTEND => Ok(BridgeHubRuntimeType::Westend),
 			westend::BRIDGE_HUB_WESTEND_LOCAL => Ok(BridgeHubRuntimeType::WestendLocal),
 			westend::BRIDGE_HUB_WESTEND_DEVELOPMENT => Ok(BridgeHubRuntimeType::WestendDevelopment),
@@ -103,6 +109,7 @@ impl BridgeHubRuntimeType {
 				Some("Bob".to_string()),
 				|_| (),
 			))),
+			other => Err(std::format!("No default config present for {:?}", other)),
 		}
 	}
 }
@@ -123,8 +130,9 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 /// Sub-module for Rococo setup
 pub mod rococo {
 	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	use crate::chain_spec::{Extensions, GenericChainSpec, SAFE_XCM_VERSION};
+	use crate::chain_spec::SAFE_XCM_VERSION;
 	use parachains_common::{AccountId, AuraId};
+	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 
 	use super::BridgeHubBalance;
@@ -133,7 +141,7 @@ pub mod rococo {
 	pub(crate) const BRIDGE_HUB_ROCOCO_LOCAL: &str = "bridge-hub-rococo-local";
 	pub(crate) const BRIDGE_HUB_ROCOCO_DEVELOPMENT: &str = "bridge-hub-rococo-dev";
 	const BRIDGE_HUB_ROCOCO_ED: BridgeHubBalance =
-		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
+		bridge_hub_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config<ModifyProperties: Fn(&mut sc_chain_spec::Properties)>(
 		id: &str,
@@ -242,13 +250,15 @@ pub mod rococo {
 /// Sub-module for Kusama setup
 pub mod kusama {
 	pub(crate) const BRIDGE_HUB_KUSAMA: &str = "bridge-hub-kusama";
+	pub(crate) const BRIDGE_HUB_KUSAMA_LOCAL: &str = "bridge-hub-kusama-local";
 }
 
 /// Sub-module for Westend setup.
 pub mod westend {
 	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
-	use crate::chain_spec::{Extensions, GenericChainSpec, SAFE_XCM_VERSION};
+	use crate::chain_spec::SAFE_XCM_VERSION;
 	use parachains_common::{AccountId, AuraId};
+	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 
 	use super::BridgeHubBalance;
@@ -257,7 +267,7 @@ pub mod westend {
 	pub(crate) const BRIDGE_HUB_WESTEND_LOCAL: &str = "bridge-hub-westend-local";
 	pub(crate) const BRIDGE_HUB_WESTEND_DEVELOPMENT: &str = "bridge-hub-westend-dev";
 	const BRIDGE_HUB_WESTEND_ED: BridgeHubBalance =
-		parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+		bridge_hub_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
 		id: &str,
@@ -350,6 +360,10 @@ pub mod westend {
 			},
 			"bridgeRococoMessages":  {
 				"owner": bridges_pallet_owner.clone(),
+			},
+			"ethereumSystem": {
+				"paraId": id,
+				"assetHubParaId": 1000
 			}
 		})
 	}
@@ -358,4 +372,5 @@ pub mod westend {
 /// Sub-module for Polkadot setup
 pub mod polkadot {
 	pub(crate) const BRIDGE_HUB_POLKADOT: &str = "bridge-hub-polkadot";
+	pub(crate) const BRIDGE_HUB_POLKADOT_LOCAL: &str = "bridge-hub-polkadot-local";
 }

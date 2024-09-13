@@ -19,7 +19,7 @@
 
 use frame_support::{
 	assert_ok, parameter_types, traits,
-	traits::{Hooks, UnfilteredDispatchable},
+	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
 	weights::constants,
 };
 use frame_system::EnsureRoot;
@@ -35,10 +35,9 @@ use sp_runtime::{
 	transaction_validity, BuildStorage, PerU16, Perbill, Percent,
 };
 use sp_staking::{
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, SessionIndex,
 };
-use sp_std::prelude::*;
 use std::collections::BTreeMap;
 
 use codec::Decode;
@@ -47,8 +46,8 @@ use frame_election_provider_support::{
 	SequentialPhragmen, Weight,
 };
 use pallet_election_provider_multi_phase::{
-	unsigned::MinerConfig, Call, ElectionCompute, GeometricDepositBase, QueuedSolution,
-	SolutionAccuracyOf,
+	unsigned::MinerConfig, Call, CurrentPhase, ElectionCompute, GeometricDepositBase,
+	QueuedSolution, SolutionAccuracyOf,
 };
 use pallet_staking::StakerStatus;
 use parking_lot::RwLock;
@@ -69,6 +68,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
+		Pools: pallet_nomination_pools,
 		Balances: pallet_balances,
 		BagsList: pallet_bags_list,
 		Session: pallet_session,
@@ -85,11 +85,10 @@ pub(crate) type VoterIndex = u16;
 pub(crate) type TargetIndex = u16;
 pub(crate) type Moment = u32;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type BlockHashCount = ConstU32<10>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -102,21 +101,14 @@ parameter_types! {
 		);
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type MaxHolds = ConstU32<1>;
-	type MaxFreezes = traits::ConstU32<1>;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type WeightInfo = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -167,7 +159,7 @@ parameter_types! {
 	pub static SignedPhase: BlockNumber = 10;
 	pub static UnsignedPhase: BlockNumber = 10;
 	// we expect a minimum of 3 blocks in signed phase and unsigned phases before trying
-	// enetering in emergency phase after the election failed.
+	// entering in emergency phase after the election failed.
 	pub static MinBlocksBeforeEmergency: BlockNumber = 3;
 	pub static MaxActiveValidators: u32 = 1000;
 	pub static OffchainRepeat: u32 = 5;
@@ -234,10 +226,8 @@ const THRESHOLDS: [VoteWeight; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_00
 parameter_types! {
 	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
 	pub const SessionsPerEra: sp_staking::SessionIndex = 2;
-	pub const BondingDuration: sp_staking::EraIndex = 28;
+	pub static BondingDuration: sp_staking::EraIndex = 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 7; // 1/4 the bonding duration.
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(40);
-	pub HistoryDepth: u32 = 84;
 }
 
 impl pallet_bags_list::Config for Runtime {
@@ -248,18 +238,56 @@ impl pallet_bags_list::Config for Runtime {
 	type Score = VoteWeight;
 }
 
+pub struct BalanceToU256;
+impl sp_runtime::traits::Convert<Balance, sp_core::U256> for BalanceToU256 {
+	fn convert(n: Balance) -> sp_core::U256 {
+		n.into()
+	}
+}
+
+pub struct U256ToBalance;
+impl sp_runtime::traits::Convert<sp_core::U256, Balance> for U256ToBalance {
+	fn convert(n: sp_core::U256) -> Balance {
+		n.try_into().unwrap()
+	}
+}
+
+parameter_types! {
+	pub const PoolsPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/nopls");
+	pub static MaxUnbonding: u32 = 8;
+}
+
+impl pallet_nomination_pools::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RewardCounter = sp_runtime::FixedU128;
+	type BalanceToU256 = BalanceToU256;
+	type U256ToBalance = U256ToBalance;
+	type StakeAdapter = pallet_nomination_pools::adapter::TransferStake<Self, Staking>;
+	type PostUnbondingPoolsWindow = ConstU32<2>;
+	type PalletId = PoolsPalletId;
+	type MaxMetadataLen = ConstU32<256>;
+	type MaxUnbonding = MaxUnbonding;
+	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+}
+
+parameter_types! {
+	pub static MaxUnlockingChunks: u32 = 32;
+}
+
 /// Upper limit on the number of NPOS nominations.
 const MAX_QUOTA_NOMINATIONS: u32 = 16;
+/// Disabling factor set explicitly to byzantine threshold
+pub(crate) const SLASHING_DISABLING_FACTOR: usize = 3;
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
-	type CurrencyToVote = ();
-	type RewardRemainder = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = (); // burn slashes
-	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
@@ -268,17 +296,15 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = ();
 	type NextNewSession = Session;
 	type MaxExposurePageSize = ConstU32<256>;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = BagsList;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type HistoryDepth = HistoryDepth;
-	type EventListeners = ();
+	type MaxUnlockingChunks = MaxUnlockingChunks;
+	type EventListeners = Pools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<SLASHING_DISABLING_FACTOR>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }
 
@@ -395,6 +421,14 @@ impl StakingExtBuilder {
 		self.validator_count = n;
 		self
 	}
+	pub fn max_unlocking(self, max: u32) -> Self {
+		<MaxUnlockingChunks>::set(max);
+		self
+	}
+	pub fn bonding_duration(self, eras: EraIndex) -> Self {
+		<BondingDuration>::set(eras);
+		self
+	}
 }
 
 pub struct EpmExtBuilder {}
@@ -414,6 +448,21 @@ impl EpmExtBuilder {
 	pub fn phases(self, signed: BlockNumber, unsigned: BlockNumber) -> Self {
 		<SignedPhase>::set(signed);
 		<UnsignedPhase>::set(unsigned);
+		self
+	}
+}
+
+pub struct PoolsExtBuilder {}
+
+impl Default for PoolsExtBuilder {
+	fn default() -> Self {
+		PoolsExtBuilder {}
+	}
+}
+
+impl PoolsExtBuilder {
+	pub fn max_unbonding(self, max: u32) -> Self {
+		<MaxUnbonding>::set(max);
 		self
 	}
 }
@@ -465,6 +514,7 @@ pub struct ExtBuilder {
 	staking_builder: StakingExtBuilder,
 	epm_builder: EpmExtBuilder,
 	balances_builder: BalancesExtBuilder,
+	pools_builder: PoolsExtBuilder,
 }
 
 impl Default for ExtBuilder {
@@ -473,6 +523,7 @@ impl Default for ExtBuilder {
 			staking_builder: StakingExtBuilder::default(),
 			epm_builder: EpmExtBuilder::default(),
 			balances_builder: BalancesExtBuilder::default(),
+			pools_builder: PoolsExtBuilder::default(),
 		}
 	}
 }
@@ -522,6 +573,7 @@ impl ExtBuilder {
 				.into_iter()
 				.map(|(id, ..)| (id, id, SessionKeys { other: (id as u64).into() }))
 				.collect(),
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
@@ -549,6 +601,11 @@ impl ExtBuilder {
 		self
 	}
 
+	pub fn pools(mut self, builder: PoolsExtBuilder) -> Self {
+		self.pools_builder = builder;
+		self
+	}
+
 	pub fn balances(mut self, builder: BalancesExtBuilder) -> Self {
 		self.balances_builder = builder;
 		self
@@ -568,20 +625,20 @@ impl ExtBuilder {
 
 		(ext, pool_state, offchain_state)
 	}
+}
 
-	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
-		let mut ext = self.build();
-		ext.execute_with(test);
+pub(crate) fn execute_with(mut ext: sp_io::TestExternalities, test: impl FnOnce() -> ()) {
+	ext.execute_with(test);
 
-		#[cfg(feature = "try-runtime")]
-		ext.execute_with(|| {
-			let bn = System::block_number();
+	#[cfg(feature = "try-runtime")]
+	ext.execute_with(|| {
+		let bn = System::block_number();
 
-			assert_ok!(<MultiPhase as Hooks<u64>>::try_state(bn));
-			assert_ok!(<Staking as Hooks<u64>>::try_state(bn));
-			assert_ok!(<Session as Hooks<u64>>::try_state(bn));
-		});
-	}
+		assert_ok!(<ElectionProviderMultiPhase as Hooks<BlockNumber>>::try_state(bn));
+		assert_ok!(<Staking as Hooks<BlockNumber>>::try_state(bn));
+		assert_ok!(<Pools as Hooks<BlockNumber>>::try_state(bn));
+		assert_ok!(<Session as Hooks<BlockNumber>>::try_state(bn));
+	});
 }
 
 // Progress to given block, triggering session and era changes as we progress and ensuring that
@@ -592,11 +649,11 @@ pub fn roll_to(n: BlockNumber, delay_solution: bool) {
 		Session::on_initialize(b);
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 
-		// TODO(gpestana): implement a realistic OCW worker insted of simulating it
+		// TODO(gpestana): implement a realistic OCW worker instead of simulating it
 		// https://github.com/paritytech/substrate/issues/13589
 		// if there's no solution queued and the solution should not be delayed, try mining and
 		// queue a solution.
-		if ElectionProviderMultiPhase::current_phase().is_signed() && !delay_solution {
+		if CurrentPhase::<Runtime>::get().is_signed() && !delay_solution {
 			let _ = try_queue_solution(ElectionCompute::Signed).map_err(|e| {
 				log!(info, "failed to mine/queue solution: {:?}", e);
 			});
@@ -607,6 +664,7 @@ pub fn roll_to(n: BlockNumber, delay_solution: bool) {
 		if b != n {
 			Staking::on_finalize(System::block_number());
 		}
+		Pools::on_initialize(b);
 
 		log_current_time();
 	}
@@ -749,7 +807,7 @@ pub(crate) fn current_era() -> EraIndex {
 // Fast forward until EPM signed phase.
 pub fn roll_to_epm_signed() {
 	while !matches!(
-		ElectionProviderMultiPhase::current_phase(),
+		CurrentPhase::<Runtime>::get(),
 		pallet_election_provider_multi_phase::Phase::Signed
 	) {
 		roll_to(System::block_number() + 1, false);
@@ -759,7 +817,7 @@ pub fn roll_to_epm_signed() {
 // Fast forward until EPM unsigned phase.
 pub fn roll_to_epm_unsigned() {
 	while !matches!(
-		ElectionProviderMultiPhase::current_phase(),
+		CurrentPhase::<Runtime>::get(),
 		pallet_election_provider_multi_phase::Phase::Unsigned(_)
 	) {
 		roll_to(System::block_number() + 1, false);
@@ -769,7 +827,7 @@ pub fn roll_to_epm_unsigned() {
 // Fast forward until EPM off.
 pub fn roll_to_epm_off() {
 	while !matches!(
-		ElectionProviderMultiPhase::current_phase(),
+		CurrentPhase::<Runtime>::get(),
 		pallet_election_provider_multi_phase::Phase::Off
 	) {
 		roll_to(System::block_number() + 1, false);
@@ -800,7 +858,6 @@ pub(crate) fn on_offence_now(
 		offenders,
 		slash_fraction,
 		Staking::eras_start_session_index(now).unwrap(),
-		DisableStrategy::WhenSlashed,
 	);
 }
 
@@ -815,19 +872,16 @@ pub(crate) fn add_slash(who: &AccountId) {
 	);
 }
 
-// Slashes enough validators to cross the `Staking::OffendingValidatorsThreshold`.
-pub(crate) fn slash_through_offending_threshold() {
-	let validators = Session::validators();
-	let mut remaining_slashes =
-		<Runtime as pallet_staking::Config>::OffendingValidatorsThreshold::get() *
-			validators.len() as u32;
+// Slashes 1/2 of the active set. Returns the `AccountId`s of the slashed validators.
+pub(crate) fn slash_half_the_active_set() -> Vec<AccountId> {
+	let mut slashed = Session::validators();
+	slashed.truncate(slashed.len() / 2);
 
-	for v in validators.into_iter() {
-		if remaining_slashes != 0 {
-			add_slash(&v);
-			remaining_slashes -= 1;
-		}
+	for v in slashed.iter() {
+		add_slash(v);
 	}
+
+	slashed
 }
 
 // Slashes a percentage of the active nominators that haven't been slashed yet, with
@@ -859,6 +913,11 @@ pub(crate) fn set_minimum_election_score(
 	)
 	.map(|_| ())
 	.map_err(|_| ())
+}
+
+pub(crate) fn locked_amount_for(account_id: AccountId) -> Balance {
+	let lock = pallet_balances::Locks::<Runtime>::get(account_id);
+	lock[0].amount
 }
 
 pub(crate) fn staking_events() -> Vec<pallet_staking::Event<Runtime>> {

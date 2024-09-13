@@ -20,23 +20,25 @@ pub mod xcm_helpers;
 pub use xcm_emulator;
 
 // Substrate
-use grandpa::AuthorityId as GrandpaId;
+use frame_support::parameter_types;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::{sr25519, storage::Storage, Pair, Public};
 use sp_runtime::{
-	traits::{IdentifyAccount, Verify},
+	traits::{AccountIdConversion, IdentifyAccount, Verify},
 	BuildStorage, MultiSignature,
 };
 
 // Polakdot
 use parachains_common::BlockNumber;
+use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
 
 // Cumulus
-use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId};
+use parachains_common::{AccountId, AuraId};
 use polkadot_primitives::{AssignmentId, ValidatorId};
-use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
 
 pub const XCM_V2: u32 = 2;
 pub const XCM_V3: u32 = 3;
@@ -48,6 +50,37 @@ pub const PROOF_SIZE_THRESHOLD: u64 = 33;
 pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 type AccountPublic = <MultiSignature as Verify>::Signer;
+
+// (trust-backed) Asset registered on AH and reserve-transferred between Parachain and AH
+pub const RESERVABLE_ASSET_ID: u32 = 1;
+// ForeignAsset registered on AH and teleported between Penpal and AH
+pub const TELEPORTABLE_ASSET_ID: u32 = 2;
+
+// USDT registered on AH as (trust-backed) Asset and reserve-transferred between Parachain and AH
+pub const USDT_ID: u32 = 1984;
+
+pub const PENPAL_ID: u32 = 2000;
+pub const PENPAL_B_ID: u32 = 2001;
+pub const ASSETS_PALLET_ID: u8 = 50;
+
+parameter_types! {
+	pub PenpalTeleportableAssetLocation: xcm::v4::Location
+		= xcm::v4::Location::new(1, [
+				xcm::v4::Junction::Parachain(PENPAL_ID),
+				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+			]
+		);
+	pub PenpalSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_ID).into_account_truncating();
+	pub PenpalBTeleportableAssetLocation: xcm::v4::Location
+		= xcm::v4::Location::new(1, [
+				xcm::v4::Junction::Parachain(PENPAL_B_ID),
+				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+			]
+		);
+	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
+}
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -100,7 +133,7 @@ pub mod accounts {
 	pub const CHARLIE: &str = "Charlie";
 	pub const DAVE: &str = "Dave";
 	pub const EVE: &str = "Eve";
-	pub const FERDIE: &str = "Ferdei";
+	pub const FERDIE: &str = "Ferdie";
 	pub const ALICE_STASH: &str = "Alice//stash";
 	pub const BOB_STASH: &str = "Bob//stash";
 	pub const CHARLIE_STASH: &str = "Charlie//stash";
@@ -108,6 +141,7 @@ pub mod accounts {
 	pub const EVE_STASH: &str = "Eve//stash";
 	pub const FERDIE_STASH: &str = "Ferdie//stash";
 	pub const FERDIE_BEEFY: &str = "Ferdie//stash";
+	pub const DUMMY_EMPTY: &str = "JohnDoe";
 
 	pub fn init_balances() -> Vec<AccountId> {
 		vec![
@@ -129,19 +163,6 @@ pub mod accounts {
 
 pub mod collators {
 	use super::*;
-
-	pub fn invulnerables_asset_hub_polkadot() -> Vec<(AccountId, AssetHubPolkadotAuraId)> {
-		vec![
-			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_from_seed::<AssetHubPolkadotAuraId>("Alice"),
-			),
-			(
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_from_seed::<AssetHubPolkadotAuraId>("Bob"),
-			),
-		]
-	}
 
 	pub fn invulnerables() -> Vec<(AccountId, AuraId)> {
 		vec![
@@ -165,7 +186,18 @@ pub mod validators {
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
+		BeefyId,
 	)> {
-		vec![get_authority_keys_from_seed_no_beefy("Alice")]
+		let seed = "Alice";
+		vec![(
+			get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+			get_account_id_from_seed::<sr25519::Public>(seed),
+			get_from_seed::<BabeId>(seed),
+			get_from_seed::<GrandpaId>(seed),
+			get_from_seed::<ValidatorId>(seed),
+			get_from_seed::<AssignmentId>(seed),
+			get_from_seed::<AuthorityDiscoveryId>(seed),
+			get_from_seed::<BeefyId>(seed),
+		)]
 	}
 }

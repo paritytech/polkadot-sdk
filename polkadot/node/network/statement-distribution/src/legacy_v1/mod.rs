@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use codec::Encode;
 use net_protocol::{filter_by_peer_version, peer_set::ProtocolVersion};
-use parity_scale_codec::Encode;
 
 use polkadot_node_network_protocol::{
 	self as net_protocol,
@@ -1892,7 +1892,9 @@ pub(crate) async fn handle_network_update<Context, R>(
 				?authority_ids,
 				"Updated `AuthorityDiscoveryId`s"
 			);
-
+			topology_storage
+				.get_current_topology_mut()
+				.update_authority_ids(peer, &authority_ids);
 			// Remove the authority IDs which were previously mapped to the peer
 			// but aren't part of the new set.
 			authorities.retain(|a, p| p != &peer || authority_ids.contains(a));

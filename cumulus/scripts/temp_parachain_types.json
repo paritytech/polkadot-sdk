@@ -54,7 +54,7 @@
     "validity_votes": "Vec<ValidityAttestation>",
     "validator_indices": "BitVec"
   },
-  "CandidatePendingAvailablility": {
+  "CandidatePendingAvailability": {
     "core": "u32",
     "descriptor": "CandidateDescriptor",
     "availability_votes": "BitVec",

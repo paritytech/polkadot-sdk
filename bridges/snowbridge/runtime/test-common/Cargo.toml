@@ -1,0 +1,94 @@
+[package]
+name = "snowbridge-runtime-test-common"
+description = "Snowbridge Runtime Tests"
+version = "0.2.0"
+authors = ["Snowfork <contact@snowfork.com>"]
+edition.workspace = true
+license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+
+# Substrate
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-session = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-utility = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-runtime = { workspace = true }
+
+# Polkadot
+pallet-xcm = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+
+# Cumulus
+cumulus-pallet-parachain-system = { workspace = true }
+pallet-collator-selection = { workspace = true }
+parachain-info = { workspace = true }
+parachains-runtimes-test-utils = { workspace = true }
+
+# Ethereum Bridge (Snowbridge)
+snowbridge-core = { workspace = true }
+snowbridge-pallet-ethereum-client = { workspace = true }
+snowbridge-pallet-ethereum-client-fixtures = { workspace = true }
+snowbridge-pallet-outbound-queue = { workspace = true }
+snowbridge-pallet-system = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-pallet-parachain-system/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"pallet-collator-selection/std",
+	"pallet-message-queue/std",
+	"pallet-session/std",
+	"pallet-timestamp/std",
+	"pallet-utility/std",
+	"pallet-xcm/std",
+	"parachain-info/std",
+	"parachains-runtimes-test-utils/std",
+	"snowbridge-core/std",
+	"snowbridge-pallet-ethereum-client-fixtures/std",
+	"snowbridge-pallet-ethereum-client/std",
+	"snowbridge-pallet-outbound-queue/std",
+	"snowbridge-pallet-system/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-keyring/std",
+	"sp-runtime/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client-fixtures/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
+	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]
+fast-runtime = []

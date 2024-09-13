@@ -1,0 +1,105 @@
+name: Release - Branch off stable branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      stable_version:
+        description: New stable version in the format stableYYMM
+        required: true
+        type: string
+
+      node_version:
+        description: Version of the polkadot node in the format vX.XX.X (e.g. 1.15.0)
+        required: true
+
+jobs:
+  # TODO: Activate this job when the pipeline is moved to the fork in the `paritytech-release` org
+  # check-workflow-can-run:
+  #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
+
+
+  prepare-tooling:
+    runs-on: ubuntu-latest
+    outputs:
+      node_version: ${{ steps.validate_inputs.outputs.node_version }}
+      stable_version: ${{ steps.validate_inputs.outputs.stable_version }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+
+      - name: Validate inputs
+        id: validate_inputs
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          node_version=$(filter_version_from_input "${{ inputs.node_version }}")
+          echo "node_version=${node_version}" >> $GITHUB_OUTPUT
+
+          stable_version=$(validate_stable_tag ${{ inputs.stable_version }})
+          echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
+
+  create-stable-branch:
+    # needs: [check-workflow-can-run, prepare-tooling]
+    needs: [prepare-tooling]
+    # if: needs. check-workflow-can-run.outputs.checks_passed == 'true'
+    runs-on: ubuntu-latest
+
+    env:
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      STABLE_BRANCH_NAME: ${{ needs.prepare-tooling.outputs.stable_version }}
+
+    steps:
+      - name: Install pgpkkms
+        run: |
+          # Install pgpkms that is used to sign commits
+          pip install git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69
+
+      - name: Checkout sources
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+        with:
+          ref: master
+
+      - name: Import gpg keys
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          import_gpg_keys
+
+
+      - name: Config git
+        run: |
+          git config --global commit.gpgsign true
+          git config --global gpg.program /home/runner/.local/bin/pgpkms-git
+          git config --global user.name "ParityReleases"
+          git config --global user.email "release-team@parity.io"
+          git config --global user.signingKey "90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
+
+      - name: Create stable branch
+        run: |
+          git checkout -b "$STABLE_BRANCH_NAME"
+          git show-ref "$STABLE_BRANCH_NAME"
+
+      - name: Bump versions, reorder prdocs and push stable branch
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          NODE_VERSION="${{ needs.prepare-tooling.outputs.node_version }}"
+          set_version "\(NODE_VERSION[^=]*= \)\".*\"" $NODE_VERSION "polkadot/node/primitives/src/lib.rs"
+          commit_with_message "Bump node version to $NODE_VERSION in polkadot-cli"
+
+          SPEC_VERSION=$(get_spec_version $NODE_VERSION)
+          runtimes_list=$(get_filtered_runtimes_list)
+          set_spec_versions $SPEC_VERSION "${runtimes_list[@]}"
+
+          # TODO: clarify what to do with the polkadot-parachain binary
+          # Set new version for polkadot-parachain binary to match the polkadot node binary
+          # set_polkadot_parachain_binary_version $NODE_VERSION "cumulus/polkadot-parachain/Cargo.toml"
+
+          reorder_prdocs $NODE_VERSION
+
+          git push origin "$STABLE_BRANCH_NAME"

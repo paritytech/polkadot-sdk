@@ -16,9 +16,11 @@
 
 //! Traits and utilities to help with origin mutation and bridging.
 
+use crate::InspectMessageQueues;
+use alloc::{vec, vec::Vec};
+use codec::{Decode, Encode};
+use core::{convert::TryInto, marker::PhantomData};
 use frame_support::{ensure, traits::Get};
-use parity_scale_codec::{Decode, Encode};
-use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{validate_export, ExportXcm};
 use SendError::*;
@@ -148,7 +150,7 @@ impl NetworkExportTableItem {
 /// An adapter for the implementation of `ExporterFor`, which attempts to find the
 /// `(bridge_location, payment)` for the requested `network` and `remote_location` in the provided
 /// `T` table containing various exporters.
-pub struct NetworkExportTable<T>(sp_std::marker::PhantomData<T>);
+pub struct NetworkExportTable<T>(core::marker::PhantomData<T>);
 impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> {
 	fn exporter_for(
 		network: &NetworkId,
@@ -187,7 +189,7 @@ pub fn forward_id_for(original_id: &XcmHash) -> XcmHash {
 /// end with the `SetTopic` instruction.
 ///
 /// In the case that the message ends with a `SetTopic(T)` (as should be the case if the top-level
-/// router is `EnsureUniqueTopic`), then the forwarding message (i.e. the one carrying the
+/// router is `WithUniqueTopic`), then the forwarding message (i.e. the one carrying the
 /// export instruction *to* the bridge in local consensus) will also end with a `SetTopic` whose
 /// inner is `forward_id_for(T)`. If this is not the case then the onward message will not be given
 /// the `SetTopic` afterword.
@@ -254,7 +256,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 /// end with the `SetTopic` instruction.
 ///
 /// In the case that the message ends with a `SetTopic(T)` (as should be the case if the top-level
-/// router is `EnsureUniqueTopic`), then the forwarding message (i.e. the one carrying the
+/// router is `WithUniqueTopic`), then the forwarding message (i.e. the one carrying the
 /// export instruction *to* the bridge in local consensus) will also end with a `SetTopic` whose
 /// inner is `forward_id_for(T)`. If this is not the case then the onward message will not be given
 /// the `SetTopic` afterword.
@@ -305,8 +307,14 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 			vec![
 				WithdrawAsset(fees.clone().into()),
 				BuyExecution { fees, weight_limit: Unlimited },
+				// `SetAppendix` ensures that `fees` are not trapped in any case, for example, when
+				// `ExportXcm::validate` encounters an error during the processing of
+				// `ExportMessage`.
+				SetAppendix(Xcm(vec![DepositAsset {
+					assets: AllCounted(1).into(),
+					beneficiary: local_from_bridge,
+				}])),
 				export_instruction,
-				DepositAsset { assets: All.into(), beneficiary: local_from_bridge },
 			]
 		} else {
 			vec![export_instruction]
@@ -326,6 +334,18 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 
 	fn deliver(ticket: Router::Ticket) -> Result<XcmHash, SendError> {
 		Router::deliver(ticket)
+	}
+}
+
+impl<Bridges, Router: InspectMessageQueues, UniversalLocation> InspectMessageQueues
+	for SovereignPaidRemoteExporter<Bridges, Router, UniversalLocation>
+{
+	fn clear_messages() {
+		Router::clear_messages()
+	}
+
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		Router::get_messages()
 	}
 }
 
@@ -634,7 +654,7 @@ mod tests {
 
 			pub PaymentForNetworkAAndParachain2000: Asset = (Location::parent(), 150).into();
 
-			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+			pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> = alloc::vec![
 				// NetworkA allows `Parachain(1000)` as remote location WITHOUT payment.
 				NetworkExportTableItem::new(
 					NetworkA::get(),

@@ -22,6 +22,7 @@
 use super::*;
 use crate::Pallet as CoreFellowship;
 
+use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_arithmetic::traits::Bounded;
@@ -54,11 +55,12 @@ mod benchmarks {
 	}
 
 	fn set_benchmark_params<T: Config<I>, I: 'static>() -> Result<(), BenchmarkError> {
+		let max_rank = T::MaxRank::get().try_into().unwrap();
 		let params = ParamsType {
-			active_salary: [100u32.into(); 9],
-			passive_salary: [10u32.into(); 9],
-			demotion_period: [100u32.into(); 9],
-			min_promotion_period: [100u32.into(); 9],
+			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			offboard_timeout: 1u32.into(),
 		};
 
@@ -68,11 +70,12 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_params() -> Result<(), BenchmarkError> {
+		let max_rank = T::MaxRank::get().try_into().unwrap();
 		let params = ParamsType {
-			active_salary: [100u32.into(); 9],
-			passive_salary: [10u32.into(); 9],
-			demotion_period: [100u32.into(); 9],
-			min_promotion_period: [100u32.into(); 9],
+			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			offboard_timeout: 1u32.into(),
 		};
 
@@ -80,6 +83,45 @@ mod benchmarks {
 		_(RawOrigin::Root, Box::new(params.clone()));
 
 		assert_eq!(Params::<T, I>::get(), params);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_partial_params() -> Result<(), BenchmarkError> {
+		let max_rank = T::MaxRank::get().try_into().unwrap();
+
+		// Set up the initial default state for the Params storage
+		let params = ParamsType {
+			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			offboard_timeout: 1u32.into(),
+		};
+		CoreFellowship::<T, I>::set_params(RawOrigin::Root.into(), Box::new(params))?;
+
+		let default_params = Params::<T, I>::get();
+		let expected_params = ParamsType {
+			active_salary: default_params.active_salary,
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: default_params.demotion_period,
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			offboard_timeout: 1u32.into(),
+		};
+
+		let params_payload = ParamsType {
+			active_salary: BoundedVec::try_from(vec![None; max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![Some(10u32.into()); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![None; max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![Some(100u32.into()); max_rank])
+				.unwrap(),
+			offboard_timeout: None,
+		};
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, Box::new(params_payload.clone()));
+
+		assert_eq!(Params::<T, I>::get(), expected_params);
 		Ok(())
 	}
 
@@ -149,13 +191,38 @@ mod benchmarks {
 
 	#[benchmark]
 	fn promote() -> Result<(), BenchmarkError> {
+		// Ensure that the `min_promotion_period` wont get in our way.
+		let mut params = Params::<T, I>::get();
+		let max_rank = T::MaxRank::get().try_into().unwrap();
+		params.min_promotion_period = BoundedVec::try_from(vec![Zero::zero(); max_rank]).unwrap();
+		Params::<T, I>::put(&params);
+
 		let member = make_member::<T, I>(1)?;
+
+		// Set it to the max value to ensure that any possible auto-demotion period has passed.
+		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, member.clone(), 2u8.into());
 
 		assert_eq!(T::Members::rank_of(&member), Some(2));
+		assert!(!MemberEvidence::<T, I>::contains_key(&member));
+		Ok(())
+	}
+
+	/// Benchmark the `promote_fast` extrinsic to promote someone up to `r`.
+	#[benchmark]
+	fn promote_fast(r: Linear<1, { T::MaxRank::get() as u32 }>) -> Result<(), BenchmarkError> {
+		let r = r.try_into().expect("r is too large");
+		let member = make_member::<T, I>(0)?;
+
+		ensure_evidence::<T, I>(&member)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, member.clone(), r);
+
+		assert_eq!(T::Members::rank_of(&member), Some(r));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
@@ -227,7 +294,7 @@ mod benchmarks {
 
 	impl_benchmark_test_suite! {
 		CoreFellowship,
-		crate::tests::new_test_ext(),
-		crate::tests::Test,
+		crate::tests::unit::new_test_ext(),
+		crate::tests::unit::Test,
 	}
 }

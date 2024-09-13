@@ -1,0 +1,31 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: XCM builder pattern automatically converts instruction parameters.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Small quality of life improvement.
+      Previously, an XCM could be built like this:
+      ```rust
+      let xcm = Xcm::builder()
+          .withdraw_asset((Parent, 100u128).into())
+          .buy_execution((Parent, 1u128).into())
+          .deposit_asset(All.into(), AccountId32 { id: [0u8; 32], network: None }.into())
+          .build();
+      ```
+      Now, it can be built like this:
+      ```rust
+      let xcm = Xcm::builder()
+          .withdraw_asset((Parent, 100u128))
+          .buy_execution((Parent, 1u128))
+          .deposit_asset(All, [0u8; 32])
+          .build();
+      ```
+
+crates:
+- name: "xcm-procedural"
+  bump: minor
+- name: "staging-xcm"
+  bump: minor

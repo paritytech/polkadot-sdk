@@ -87,22 +87,38 @@ pub mod keyword {
 }
 
 pub struct CompositeDef {
-	/// The index of the CompositeDef item in the pallet module.
-	pub index: usize,
 	/// The composite keyword used (contains span).
 	pub composite_keyword: keyword::CompositeKeyword,
+	/// Name of the associated type.
+	pub ident: syn::Ident,
+	/// Type parameters and where clause attached to a declaration of the pallet::composite_enum.
+	pub generics: syn::Generics,
 	/// The span of the pallet::composite_enum attribute.
 	pub attr_span: proc_macro2::Span,
+	/// Variant count of the pallet::composite_enum.
+	pub variant_count: u32,
 }
 
 impl CompositeDef {
 	pub fn try_from(
 		attr_span: proc_macro2::Span,
-		index: usize,
 		scrate: &syn::Path,
 		item: &mut syn::Item,
 	) -> syn::Result<Self> {
 		let item = if let syn::Item::Enum(item) = item {
+			// check variants: composite enums support only field-less enum variants. This is
+			// because fields can introduce too many possibilities, making it challenging to compute
+			// a fixed variant count.
+			for variant in &item.variants {
+				match variant.fields {
+					syn::Fields::Named(_) | syn::Fields::Unnamed(_) =>
+						return Err(syn::Error::new(
+							variant.ident.span(),
+							"The composite enum does not support variants with fields!",
+						)),
+					syn::Fields::Unit => (),
+				}
+			}
 			item
 		} else {
 			return Err(syn::Error::new(
@@ -152,7 +168,7 @@ impl CompositeDef {
 				#[doc(hidden)]
 				#[codec(skip)]
 				__Ignore(
-					#scrate::__private::sp_std::marker::PhantomData<I>,
+					::core::marker::PhantomData<I>,
 				)
 			});
 		}
@@ -160,6 +176,12 @@ impl CompositeDef {
 		let composite_keyword =
 			syn::parse2::<keyword::CompositeKeyword>(item.ident.to_token_stream())?;
 
-		Ok(CompositeDef { index, composite_keyword, attr_span })
+		Ok(CompositeDef {
+			composite_keyword,
+			attr_span,
+			generics: item.generics.clone(),
+			variant_count: item.variants.len() as u32,
+			ident: item.ident.clone(),
+		})
 	}
 }

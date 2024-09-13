@@ -18,7 +18,7 @@
 use crate::{
 	pallet::{
 		expand::warnings::{weight_constant_warning, weight_witness_warning},
-		parse::call::{CallVariantDef, CallWeightDef},
+		parse::{call::CallWeightDef, helper::CallReturnType},
 		Def,
 	},
 	COUNTER,
@@ -112,22 +112,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 	debug_assert_eq!(fn_weight.len(), methods.len());
 
-	let map_fn_docs = if !def.dev_mode {
-		// Emit the [`Pallet::method`] documentation only for non-dev modes.
-		|method: &CallVariantDef| {
-			let reference = format!("See [`Pallet::{}`].", method.name);
-			quote!(#reference)
-		}
-	} else {
-		// For the dev-mode do not provide a documenation link as it will break the
-		// `cargo doc` if the pallet is private inside a test.
-		|method: &CallVariantDef| {
-			let reference = format!("See `Pallet::{}`.", method.name);
-			quote!(#reference)
-		}
-	};
-
-	let fn_doc = methods.iter().map(map_fn_docs).collect::<Vec<_>>();
+	let fn_doc = methods.iter().map(|method| &method.docs).collect::<Vec<_>>();
 
 	let args_name = methods
 		.iter()
@@ -212,18 +197,36 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
 
 	// Wrap all calls inside of storage layers
-	if let Some(syn::Item::Impl(item_impl)) = def
-		.call
-		.as_ref()
-		.map(|c| &mut def.item.content.as_mut().expect("Checked by def parser").1[c.index])
-	{
-		item_impl.items.iter_mut().for_each(|i| {
-			if let syn::ImplItem::Fn(method) = i {
+	if let Some(call) = def.call.as_ref() {
+		let item_impl =
+			&mut def.item.content.as_mut().expect("Checked by def parser").1[call.index];
+		let syn::Item::Impl(item_impl) = item_impl else {
+			unreachable!("Checked by def parser");
+		};
+
+		item_impl.items.iter_mut().enumerate().for_each(|(i, item)| {
+			if let syn::ImplItem::Fn(method) = item {
+				let return_type =
+					&call.methods.get(i).expect("def should be consistent with item").return_type;
+
+				let (ok_type, err_type) = match return_type {
+					CallReturnType::DispatchResult => (
+						quote::quote!(()),
+						quote::quote!(#frame_support::pallet_prelude::DispatchError),
+					),
+					CallReturnType::DispatchResultWithPostInfo => (
+						quote::quote!(#frame_support::dispatch::PostDispatchInfo),
+						quote::quote!(#frame_support::dispatch::DispatchErrorWithPostInfo),
+					),
+				};
+
 				let block = &method.block;
 				method.block = syn::parse_quote! {{
 					// We execute all dispatchable in a new storage layer, allowing them
 					// to return an error at any point, and undoing any storage changes.
-					#frame_support::storage::with_storage_layer(|| #block)
+					#frame_support::storage::with_storage_layer::<#ok_type, #err_type, _>(
+						|| #block
+					)
 				}};
 			}
 		});
@@ -260,7 +263,17 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		});
 
+	let deprecation = match crate::deprecation::get_deprecation_enum(
+		&quote::quote! {#frame_support},
+		def.call.as_ref().map(|call| call.attrs.as_ref()).unwrap_or(&[]),
+		methods.iter().map(|item| (item.call_index as u8, item.attrs.as_ref())),
+	) {
+		Ok(deprecation) => deprecation,
+		Err(e) => return e.into_compile_error(),
+	};
+
 	quote::quote_spanned!(span =>
+		#[doc(hidden)]
 		mod warnings {
 			#(
 				#call_index_warnings
@@ -270,6 +283,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			)*
 		}
 
+		#[allow(unused_imports)]
 		#[doc(hidden)]
 		pub mod __substrate_call_check {
 			#[macro_export]
@@ -302,12 +316,12 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#[doc(hidden)]
 			#[codec(skip)]
 			__Ignore(
-				#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen,)>,
+				::core::marker::PhantomData<(#type_use_gen,)>,
 				#frame_support::Never,
 			),
 			#(
 				#cfg_attrs
-				#[doc = #fn_doc]
+				#( #[doc = #fn_doc] )*
 				#[codec(index = #call_index)]
 				#fn_name {
 					#(
@@ -455,9 +469,13 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 
 		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #where_clause {
+			#[allow(dead_code)]
 			#[doc(hidden)]
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
-				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
+				#frame_support::__private::metadata_ir::PalletCallMetadataIR  {
+					ty: #frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>(),
+					deprecation_info: #deprecation,
+				}
 			}
 		}
 	)

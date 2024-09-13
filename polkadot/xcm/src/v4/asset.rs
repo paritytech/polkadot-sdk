@@ -33,18 +33,27 @@ use crate::v3::{
 	WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
 };
 use alloc::{vec, vec::Vec};
-use core::{
-	cmp::Ordering,
-	convert::{TryFrom, TryInto},
-};
-use parity_scale_codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use bounded_collections::{BoundedVec, ConstU32};
+use codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
 )]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum AssetInstance {
 	/// Undefined - used if the non-fungible asset class has only one instance.
 	Undefined,
@@ -237,8 +246,19 @@ impl TryFrom<AssetInstance> for u128 {
 
 /// Classification of whether an asset is fungible or not, along with a mandatory amount or
 /// instance.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub enum Fungibility {
 	/// A fungible asset; we record a number of units, as a `u128` in the inner item.
 	Fungible(#[codec(compact)] u128),
@@ -254,7 +274,7 @@ enum UncheckedFungibility {
 }
 
 impl Decode for Fungibility {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		match UncheckedFungibility::decode(input)? {
 			UncheckedFungibility::Fungible(a) if a != 0 => Ok(Self::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) => Ok(Self::NonFungible(i)),
@@ -305,9 +325,20 @@ impl TryFrom<OldFungibility> for Fungibility {
 
 /// Classification of whether an asset is fungible or not.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
 )]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum WildFungibility {
 	/// The asset is fungible.
 	Fungible,
@@ -327,8 +358,20 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 }
 
 /// Location to identify an asset.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub struct AssetId(pub Location);
 
 impl<T: Into<Location>> From<T> for AssetId {
@@ -387,8 +430,18 @@ impl Reanchorable for AssetId {
 }
 
 /// Either an amount of a single fungible asset, or a single well-identified non-fungible asset.
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub struct Asset {
 	/// The overall asset identity (aka *class*, in the case of a non-fungible).
 	pub id: AssetId,
@@ -480,8 +533,19 @@ impl TryFrom<OldAsset> for Asset {
 /// - It may contain no items of duplicate asset class;
 /// - All items must be ordered;
 /// - The number of items should grow no larger than `MAX_ITEMS_IN_ASSETS`.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, TypeInfo, Default)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	TypeInfo,
+	Default,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub struct Assets(Vec<Asset>);
 
 /// Maximum number of items we expect in a single `Assets` value. Note this is not (yet)
@@ -495,8 +559,10 @@ impl MaxEncodedLen for Assets {
 }
 
 impl Decode for Assets {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
-		Self::from_sorted_and_deduplicated(Vec::<Asset>::decode(input)?)
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let bounded_instructions =
+			BoundedVec::<Asset, ConstU32<{ MAX_ITEMS_IN_ASSETS as u32 }>>::decode(input)?;
+		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
 			.map_err(|()| "Out of order".into())
 	}
 }
@@ -654,7 +720,9 @@ impl Assets {
 
 	/// Prepend a `Location` to any concrete asset items, giving it a new root location.
 	pub fn prepend_with(&mut self, prefix: &Location) -> Result<(), ()> {
-		self.0.iter_mut().try_for_each(|i| i.prepend_with(prefix))
+		self.0.iter_mut().try_for_each(|i| i.prepend_with(prefix))?;
+		self.0.sort();
+		Ok(())
 	}
 
 	/// Return a reference to an item at a specific index or `None` if it doesn't exist.
@@ -681,8 +749,20 @@ impl Reanchorable for Assets {
 }
 
 /// A wildcard representing a set of assets.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub enum WildAsset {
 	/// All assets in Holding.
 	All,
@@ -779,8 +859,20 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildAsset {
 }
 
 /// `Asset` collection, defined either by a number of `Assets` or a single wildcard.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub enum AssetFilter {
 	/// Specify the filter as being everything contained by the given `Assets` inner.
 	Definite(Assets),
@@ -911,5 +1003,118 @@ mod tests {
 		let mixed_bad = vec![(Here, *b"bad!").into(), (Here, 10).into()];
 		let r = Assets::from_sorted_and_deduplicated(mixed_bad);
 		assert!(r.is_err());
+	}
+
+	#[test]
+	fn reanchor_preserves_sorting() {
+		use super::*;
+		use alloc::vec;
+
+		let reanchor_context: Junctions = Parachain(2000).into();
+		let dest = Location::new(1, []);
+
+		let asset_1: Asset = (Location::new(0, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_1_reanchored = asset_1.clone();
+		assert!(asset_1_reanchored.reanchor(&dest, &reanchor_context).is_ok());
+		assert_eq!(
+			asset_1_reanchored,
+			(Location::new(0, [Parachain(2000), PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		let asset_2: Asset = (Location::new(1, []), 10).into();
+		let mut asset_2_reanchored = asset_2.clone();
+		assert!(asset_2_reanchored.reanchor(&dest, &reanchor_context).is_ok());
+		assert_eq!(asset_2_reanchored, (Location::new(0, []), 10).into());
+
+		let asset_3: Asset = (Location::new(1, [Parachain(1000)]), 10).into();
+		let mut asset_3_reanchored = asset_3.clone();
+		assert!(asset_3_reanchored.reanchor(&dest, &reanchor_context).is_ok());
+		assert_eq!(asset_3_reanchored, (Location::new(0, [Parachain(1000)]), 10).into());
+
+		let mut assets: Assets = vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
+		assert_eq!(assets.clone(), vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into());
+
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
+
+		assert!(assets.reanchor(&dest, &reanchor_context).is_ok());
+		assert_eq!(assets.0, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored]);
+
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
+	}
+
+	#[test]
+	fn prepend_preserves_sorting() {
+		use super::*;
+		use alloc::vec;
+
+		let prefix = Location::new(0, [Parachain(1000)]);
+
+		let asset_1: Asset = (Location::new(0, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_1_prepended = asset_1.clone();
+		assert!(asset_1_prepended.prepend_with(&prefix).is_ok());
+		// changes interior X2->X3
+		assert_eq!(
+			asset_1_prepended,
+			(Location::new(0, [Parachain(1000), PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		let asset_2: Asset = (Location::new(1, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_2_prepended = asset_2.clone();
+		assert!(asset_2_prepended.prepend_with(&prefix).is_ok());
+		// changes parent
+		assert_eq!(
+			asset_2_prepended,
+			(Location::new(0, [PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		let asset_3: Asset = (Location::new(2, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_3_prepended = asset_3.clone();
+		assert!(asset_3_prepended.prepend_with(&prefix).is_ok());
+		// changes parent
+		assert_eq!(
+			asset_3_prepended,
+			(Location::new(1, [PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		// `From` impl does sorting.
+		let mut assets: Assets = vec![asset_1, asset_2, asset_3].into();
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
+
+		// let's do `prepend_with`
+		assert!(assets.prepend_with(&prefix).is_ok());
+		assert_eq!(assets.0, vec![asset_2_prepended, asset_1_prepended, asset_3_prepended]);
+
+		// decoding respects limits and sorting
+		assert!(assets.using_encoded(|mut enc| Assets::decode(&mut enc).map(|_| ())).is_ok());
+	}
+
+	#[test]
+	fn decoding_respects_limit() {
+		use super::*;
+
+		// Having lots of one asset will work since they are deduplicated
+		let lots_of_one_asset: Assets =
+			vec![(GeneralIndex(1), 1u128).into(); MAX_ITEMS_IN_ASSETS + 1].into();
+		let encoded = lots_of_one_asset.encode();
+		assert!(Assets::decode(&mut &encoded[..]).is_ok());
+
+		// Fewer assets than the limit works
+		let mut few_assets: Assets = Vec::new().into();
+		for i in 0..MAX_ITEMS_IN_ASSETS {
+			few_assets.push((GeneralIndex(i as u128), 1u128).into());
+		}
+		let encoded = few_assets.encode();
+		assert!(Assets::decode(&mut &encoded[..]).is_ok());
+
+		// Having lots of different assets will not work
+		let mut too_many_different_assets: Assets = Vec::new().into();
+		for i in 0..MAX_ITEMS_IN_ASSETS + 1 {
+			too_many_different_assets.push((GeneralIndex(i as u128), 1u128).into());
+		}
+		let encoded = too_many_different_assets.encode();
+		assert!(Assets::decode(&mut &encoded[..]).is_err());
 	}
 }

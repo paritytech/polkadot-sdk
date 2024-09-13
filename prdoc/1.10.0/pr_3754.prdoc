@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Migrates Westend to Runtime V2
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR migrates Westend from `construct_runtime` to Runtime V2 
+      as introduced in https://github.com/paritytech/polkadot-sdk/pull/1378
+
+crates:
+  - name: westend-runtime

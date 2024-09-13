@@ -1,11 +1,11 @@
 [package]
 name = "sp-consensus-pow"
-version = "0.10.0-dev"
+version = "0.32.0"
 authors.workspace = true
 description = "Primitives for Aura consensus"
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 
@@ -16,11 +16,10 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-sp-api = { path = "../../api", default-features = false }
-sp-core = { path = "../../core", default-features = false }
-sp-runtime = { path = "../../runtime", default-features = false }
-sp-std = { path = "../../std", default-features = false }
+codec = { features = ["derive"], workspace = true }
+sp-api = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
@@ -29,5 +28,4 @@ std = [
 	"sp-api/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]

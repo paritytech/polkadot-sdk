@@ -1,0 +1,10 @@
+title: Adds benchmarking and try-runtime support in `polkadot-sdk-frame` crate
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds benchmarking and try-runtime support in `polkadot-sdk-frame` crate 
+
+crates:
+  - name: polkadot-sdk-frame
+    bump: minor

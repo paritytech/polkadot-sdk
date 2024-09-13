@@ -23,15 +23,15 @@ pub mod relay_chain;
 mod tests;
 
 use crate::primitives::{AccountId, UNITS};
+pub use pallet_contracts::test_utils::{ALICE, BOB};
 use sp_runtime::BuildStorage;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;
-use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
+pub use xcm_simulator::TestExt;
+use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
 // Accounts
 pub const ADMIN: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([0u8; 32]);
-pub const ALICE: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([1u8; 32]);
-pub const BOB: sp_runtime::AccountId32 = sp_runtime::AccountId32::new([2u8; 32]);
 
 // Balances
 pub const INITIAL_BALANCE: u128 = 1_000_000_000 * UNITS;
@@ -112,6 +112,7 @@ pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 			(0u128, ALICE, INITIAL_BALANCE),
 			(0u128, relay_sovereign_account_id(), INITIAL_BALANCE),
 		],
+		next_asset_id: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

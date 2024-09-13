@@ -15,11 +15,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, Error, Input};
+use core::cmp;
 use scale_info::TypeInfo;
-use sp_std::{cmp, prelude::*};
+use sp_application_crypto::RuntimeAppPublic;
+use sp_runtime::traits::Hash;
 
-use crate::{Payload, ValidatorSetId};
+use crate::{BeefyAuthorityId, Payload, ValidatorSet, ValidatorSetId};
+
+/// A commitment signature, accompanied by the id of the validator that it belongs to.
+#[derive(Debug)]
+pub struct KnownSignature<TAuthorityId, TSignature> {
+	/// The signing validator.
+	pub validator_id: TAuthorityId,
+	/// The signature.
+	pub signature: TSignature,
+}
+
+impl<TAuthorityId: Clone, TSignature: Clone> KnownSignature<&TAuthorityId, &TSignature> {
+	/// Creates a `KnownSignature<TAuthorityId, TSignature>` from an
+	/// `KnownSignature<&TAuthorityId, &TSignature>`.
+	pub fn to_owned(&self) -> KnownSignature<TAuthorityId, TSignature> {
+		KnownSignature {
+			validator_id: self.validator_id.clone(),
+			signature: self.signature.clone(),
+		}
+	}
+}
 
 /// A commitment signed by GRANDPA validators as part of BEEFY protocol.
 ///
@@ -97,10 +120,63 @@ pub struct SignedCommitment<TBlockNumber, TSignature> {
 	pub signatures: Vec<Option<TSignature>>,
 }
 
+impl<TBlockNumber: core::fmt::Debug, TSignature> core::fmt::Display
+	for SignedCommitment<TBlockNumber, TSignature>
+{
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		let signatures_count = self.signatures.iter().filter(|s| s.is_some()).count();
+		write!(
+			f,
+			"SignedCommitment(commitment: {:?}, signatures_count: {})",
+			self.commitment, signatures_count
+		)
+	}
+}
+
 impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 	/// Return the number of collected signatures.
-	pub fn no_of_signatures(&self) -> usize {
+	pub fn signature_count(&self) -> usize {
 		self.signatures.iter().filter(|x| x.is_some()).count()
+	}
+
+	/// Verify all the commitment signatures against the validator set that was active
+	/// at the block where the commitment was generated.
+	///
+	/// Returns the valid validator-signature pairs if the commitment can be verified.
+	pub fn verify_signatures<'a, TAuthorityId, MsgHash>(
+		&'a self,
+		target_number: TBlockNumber,
+		validator_set: &'a ValidatorSet<TAuthorityId>,
+	) -> Result<Vec<KnownSignature<&'a TAuthorityId, &'a TSignature>>, u32>
+	where
+		TBlockNumber: Clone + Encode + PartialEq,
+		TAuthorityId: RuntimeAppPublic<Signature = TSignature> + BeefyAuthorityId<MsgHash>,
+		MsgHash: Hash,
+	{
+		if self.signatures.len() != validator_set.len() ||
+			self.commitment.validator_set_id != validator_set.id() ||
+			self.commitment.block_number != target_number
+		{
+			return Err(0)
+		}
+
+		// Arrangement of signatures in the commitment should be in the same order
+		// as validators for that set.
+		let encoded_commitment = self.commitment.encode();
+		let signatories: Vec<_> = validator_set
+			.validators()
+			.into_iter()
+			.zip(self.signatures.iter())
+			.filter_map(|(id, maybe_signature)| {
+				let signature = maybe_signature.as_ref()?;
+				match BeefyAuthorityId::verify(id, signature, &encoded_commitment) {
+					true => Some(KnownSignature { validator_id: id, signature }),
+					false => None,
+				}
+			})
+			.collect();
+
+		Ok(signatories)
 	}
 }
 
@@ -239,6 +315,14 @@ pub enum VersionedFinalityProof<N, S> {
 	#[codec(index = 1)]
 	/// Current active version
 	V1(SignedCommitment<N, S>),
+}
+
+impl<N: core::fmt::Debug, S> core::fmt::Display for VersionedFinalityProof<N, S> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self {
+			VersionedFinalityProof::V1(sc) => write!(f, "VersionedFinalityProof::V1({})", sc),
+		}
+	}
 }
 
 impl<N, S> From<SignedCommitment<N, S>> for VersionedFinalityProof<N, S> {
@@ -398,7 +482,7 @@ mod tests {
 		assert_eq!(
 			encoded,
 			array_bytes::hex2bytes_unchecked(
-				"046d68343048656c6c6f20576f726c642105000000000000000000000000000000000000000000000004300400000008558455ad81279df0795cc985580e4fb75d72d948d1107b2ac80a09abed4da8480c746cc321f2319a5e99a830e314d10dd3cd68ce3dc0c33c86e99bcb7816f9ba01667603fc041cf9d7147d22bf54b15e5778893d6986b71a929747befd3b4d233fbe668bc480e8865116b94db46ca25a01e03c71955f2582604e415da68f2c3c406b9d5f4ad416230ec5453f05ac16a50d8d0923dfb0413cc956ae3fa6334465bd1f2cacec8e9cd606438390fe2a29dc052d6e1f8105c337a86cdd9aaacdc496577f3db8c55ef9e6fd48f2c5c05a2274707491635d8ba3df64f324575b7b2a34487bca2324b6a0046395a71681be3d0c2a00df61d3b2be0963eb6caa243cc505d327aec73e1bb7ffe9a14b1354b0c406792ac6d6f47c06987c15dec9993f43eefa001d866fe0850d986702c414840f0d9ec0fdc04832ef91ae37c8d49e2f573ca50cb37f152801d489a19395cb04e5fc8f2ab6954b58a3bcc40ef9b6409d2ff7ef07"
+				"046d68343048656c6c6f20576f726c642105000000000000000000000000000000000000000000000004300400000008558455ad81279df0795cc985580e4fb75d72d948d1107b2ac80a09abed4da8480c746cc321f2319a5e99a830e314d10dd3cd68ce3dc0c33c86e99bcb7816f9ba0182022df4689ef25499205f7154a1a62eb2d6d5c4a3657efed321e2c277998130d1b01a264c928afb79534cb0fa9dcf79f67ed4e6bf2de576bb936146f2fa60fa56b8651677cc764ea4fe317c62294c2a0c5966e439653eed0572fded5e2461c888518e0769718dcce9f3ff612fb89d262d6e1f8105c337a86cdd9aaacdc496577f3db8c55ef9e6fd48f2c5c05a2274707491635d8ba3df64f324575b7b2a34487bca2324b6a0046395a71681be3d0c2a00a90973bea76fac3a4e2d76a25ec3926d6a5a20aacee15ec0756cd268088ed5612b67b4a49349cee70bc1185078d17c7f7df9d944e8be30022d9680d0437c4ba4600d74050692e8ee9b96e37df2a39d1cb4b4af4b6a058342dd9e8c7481a3a0b8975ad8614c953e950253aa327698d842"
 			)
 		);
 	}
@@ -417,13 +501,13 @@ mod tests {
 			commitment,
 			signatures: vec![None, None, Some(sigs.0), Some(sigs.1)],
 		};
-		assert_eq!(signed.no_of_signatures(), 2);
+		assert_eq!(signed.signature_count(), 2);
 
 		// when
 		signed.signatures[2] = None;
 
 		// then
-		assert_eq!(signed.no_of_signatures(), 1);
+		assert_eq!(signed.signature_count(), 1);
 	}
 
 	#[test]

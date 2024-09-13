@@ -15,12 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::xcm_config;
+use alloc::{boxed::Box, vec};
+use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
-use parity_scale_codec::{Decode, Encode};
-use primitives::Balance;
-use runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
-use sp_std::{marker::PhantomData, prelude::*};
+use polkadot_primitives::Balance;
+use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
 use westend_runtime_constants::currency::*;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
@@ -89,7 +90,7 @@ where
 	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult {
 		use crate::{
 			impls::IdentityMigratorCalls::PokeDeposit,
-			weights::runtime_common_identity_migrator::WeightInfo as MigratorWeights,
+			weights::polkadot_runtime_common_identity_migrator::WeightInfo as MigratorWeights,
 		};
 
 		let total_to_send = Self::calculate_remote_deposit(fields, subs);

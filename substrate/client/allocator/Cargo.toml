@@ -1,10 +1,10 @@
 [package]
 name = "sc-allocator"
-version = "4.1.0-dev"
+version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Collection of allocator implementations."
 documentation = "https://docs.rs/sc-allocator"
@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-log = "0.4.17"
-thiserror = "1.0.48"
-sp-core = { path = "../../primitives/core" }
-sp-wasm-interface = { path = "../../primitives/wasm-interface" }
+log = { workspace = true, default-features = true }
+thiserror = { workspace = true }
+sp-core = { workspace = true, default-features = true }
+sp-wasm-interface = { workspace = true, default-features = true }

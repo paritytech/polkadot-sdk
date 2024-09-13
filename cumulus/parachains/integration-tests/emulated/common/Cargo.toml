@@ -1,6 +1,6 @@
 [package]
 name = "emulated-integration-tests-common"
-version = "1.0.0"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -10,36 +10,39 @@ description = "Common resources for integration testing with xcm-emulator"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
-paste = "1.0.14"
+codec = { workspace = true }
+paste = { workspace = true, default-features = true }
 
 # Substrate
-grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa" }
-sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery" }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime" }
-frame-support = { path = "../../../../../substrate/frame/support" }
-sp-core = { path = "../../../../../substrate/primitives/core" }
-sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe" }
-pallet-assets = { path = "../../../../../substrate/frame/assets" }
-pallet-balances = { path = "../../../../../substrate/frame/balances" }
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue" }
+sp-consensus-beefy = { workspace = true, default-features = true }
+sc-consensus-grandpa = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+frame-support = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+pallet-assets = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-message-queue = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-service = { path = "../../../../../polkadot/node/service", default-features = false, features = ["full-node"] }
-polkadot-primitives = { path = "../../../../../polkadot/primitives" }
-polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm" }
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm" }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+xcm = { workspace = true, default-features = true }
+pallet-xcm = { workspace = true, default-features = true }
 
 # Cumulus
-parachains-common = { path = "../../../common" }
-cumulus-primitives-core = { path = "../../../../primitives/core" }
-xcm-emulator = { path = "../../../../xcm/xcm-emulator" }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue" }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
-asset-test-utils = { path = "../../../runtimes/assets/test-utils" }
+parachains-common = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
+xcm-emulator = { workspace = true, default-features = true }
+cumulus-pallet-xcmp-queue = { workspace = true, default-features = true }
+cumulus-pallet-parachain-system = { workspace = true, default-features = true }
+asset-test-utils = { workspace = true, default-features = true }
 
 # Bridges
-bp-messages = { path = "../../../../../bridges/primitives/messages" }
-pallet-bridge-messages = { path = "../../../../../bridges/modules/messages" }
-bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
+bp-messages = { workspace = true, default-features = true }
+bp-xcm-bridge-hub = { workspace = true, default-features = true }
+pallet-bridge-messages = { workspace = true, default-features = true }
+pallet-xcm-bridge-hub = { workspace = true, default-features = true }
+bridge-runtime-common = { workspace = true, default-features = true }

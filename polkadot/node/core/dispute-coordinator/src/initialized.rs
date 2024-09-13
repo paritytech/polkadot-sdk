@@ -17,7 +17,7 @@
 //! Dispute coordinator subsystem in initialized state (after first active leaf is received).
 
 use std::{
-	collections::{BTreeMap, HashSet, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	sync::Arc,
 };
 
@@ -99,7 +99,7 @@ pub(crate) struct Initialized {
 	/// This is the highest `SessionIndex` seen via `ActiveLeavesUpdate`. It doesn't matter if it
 	/// was cached successfully or not. It is used to detect ancient disputes.
 	highest_session_seen: SessionIndex,
-	/// Will be set to `true` if an error occured during the last caching attempt
+	/// Will be set to `true` if an error occurred during the last caching attempt
 	gaps_in_cache: bool,
 	spam_slots: SpamSlots,
 	participation: Participation,
@@ -970,6 +970,7 @@ impl Initialized {
 			&mut self.runtime_info,
 			session,
 			relay_parent,
+			self.offchain_disabled_validators.iter(session),
 		)
 		.await
 		{
@@ -1099,36 +1100,14 @@ impl Initialized {
 
 		let new_state = import_result.new_state();
 
-		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
-		// combine on-chain with off-chain disabled validators
-		// process disabled validators in the following order:
-		// - on-chain disabled validators
-		// - prioritized order of off-chain disabled validators
-		// deduplicate the list and take at most `byzantine_threshold` validators
-		let disabled_validators = {
-			let mut d: HashSet<ValidatorIndex> = HashSet::new();
-			for v in env
-				.disabled_indices()
-				.iter()
-				.cloned()
-				.chain(self.offchain_disabled_validators.iter(session))
-			{
-				if d.len() == byzantine_threshold {
-					break
-				}
-				d.insert(v);
-			}
-			d
-		};
-
 		let is_included = self.scraper.is_candidate_included(&candidate_hash);
 		let is_backed = self.scraper.is_candidate_backed(&candidate_hash);
 		let own_vote_missing = new_state.own_vote_missing();
 		let is_disputed = new_state.is_disputed();
 		let is_confirmed = new_state.is_confirmed();
-		let potential_spam = is_potential_spam(&self.scraper, &new_state, &candidate_hash, |v| {
-			disabled_validators.contains(v)
-		});
+		let is_disabled = |v: &ValidatorIndex| env.disabled_indices().contains(v);
+		let potential_spam =
+			is_potential_spam(&self.scraper, &new_state, &candidate_hash, is_disabled);
 		let allow_participation = !potential_spam;
 
 		gum::trace!(
@@ -1139,7 +1118,7 @@ impl Initialized {
 			?candidate_hash,
 			confirmed = ?new_state.is_confirmed(),
 			has_invalid_voters = ?!import_result.new_invalid_voters().is_empty(),
-			n_disabled_validators = ?disabled_validators.len(),
+			n_disabled_validators = ?env.disabled_indices().len(),
 			"Is spam?"
 		);
 
@@ -1372,6 +1351,12 @@ impl Initialized {
 				}
 			}
 			for validator_index in new_state.votes().invalid.keys() {
+				gum::debug!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?validator_index,
+					"Disabled offchain for voting invalid against a valid candidate",
+				);
 				self.offchain_disabled_validators
 					.insert_against_valid(session, *validator_index);
 			}
@@ -1396,6 +1381,13 @@ impl Initialized {
 			}
 			for (validator_index, (kind, _sig)) in new_state.votes().valid.raw() {
 				let is_backer = kind.is_backing();
+				gum::debug!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?validator_index,
+					?is_backer,
+					"Disabled offchain for voting valid for an invalid candidate",
+				);
 				self.offchain_disabled_validators.insert_for_invalid(
 					session,
 					*validator_index,
@@ -1439,6 +1431,7 @@ impl Initialized {
 			&mut self.runtime_info,
 			session,
 			candidate_receipt.descriptor.relay_parent,
+			self.offchain_disabled_validators.iter(session),
 		)
 		.await
 		{

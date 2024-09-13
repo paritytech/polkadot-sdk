@@ -14,6 +14,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(useless_deprecated, deprecated, clippy::deprecated_semver)]
+
+use std::collections::BTreeMap;
 
 use frame_support::{
 	assert_ok, derive_impl,
@@ -28,6 +31,7 @@ use frame_support::{
 		UnfilteredDispatchable,
 	},
 	weights::{RuntimeDbWeight, Weight},
+	OrdNoBound, PartialOrdNoBound,
 };
 use scale_info::{meta_type, TypeInfo};
 use sp_io::{
@@ -113,8 +117,8 @@ impl SomeAssociation2 for u64 {
 #[frame_support::pallet]
 /// Pallet documentation
 // Comments should not be included in the pallet documentation
-#[pallet_doc("../../README.md")]
-#[doc = include_str!("../../README.md")]
+#[pallet_doc("../example-pallet-doc.md")]
+#[doc = include_str!("../example-readme.md")]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
@@ -208,9 +212,10 @@ pub mod pallet {
 	where
 		T::AccountId: From<SomeType1> + From<SomeType3> + SomeAssociation1,
 	{
-		/// Doc comment put in metadata
+		/// call foo doc comment put in metadata
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
+		#[deprecated = "test"]
 		pub fn foo(
 			origin: OriginFor<T>,
 			#[pallet::compact] foo: u32,
@@ -224,7 +229,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Doc comment put in metadata
+		/// call foo_storage_layer doc comment put in metadata
 		#[pallet::call_index(1)]
 		#[pallet::weight({1})]
 		pub fn foo_storage_layer(
@@ -269,8 +274,9 @@ pub mod pallet {
 	#[pallet::error]
 	#[derive(PartialEq, Eq)]
 	pub enum Error<T> {
-		/// doc comment put into metadata
+		/// error doc comment put in metadata
 		InsufficientProposersBalance,
+		#[deprecated = "test"]
 		NonExistentStorageValue,
 		Code(u8),
 		#[codec(skip)]
@@ -282,13 +288,13 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(fn deposit_event)]
+	#[deprecated = "test"]
 	pub enum Event<T: Config>
 	where
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
 	{
-		/// doc comment put in metadata
+		/// event doc comment put in metadata
 		Proposed(<T as frame_system::Config>::AccountId),
-		/// doc
 		Spending(BalanceOf<T>),
 		Something(u32),
 		SomethingElse(<T::AccountId as SomeAssociation1>::_1),
@@ -446,7 +452,7 @@ pub mod pallet {
 		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType4>,
 	{
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: core::marker::PhantomData<T>,
 		_myfield: u32,
 	}
 
@@ -467,6 +473,8 @@ pub mod pallet {
 		RuntimeDebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
+		PartialOrdNoBound,
+		OrdNoBound,
 		Encode,
 		Decode,
 		TypeInfo,
@@ -484,7 +492,7 @@ pub mod pallet {
 			let _ = T::AccountId::from(SomeType1); // Test for where clause
 			let _ = T::AccountId::from(SomeType5); // Test for where clause
 			if matches!(call, Call::foo_storage_layer { .. }) {
-				return Ok(ValidTransaction::default())
+				return Ok(ValidTransaction::default());
 			}
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		}
@@ -551,6 +559,7 @@ pub mod pallet {
 // Test that a pallet with non generic event and generic genesis_config is correctly handled
 // and that a pallet with the attribute without_storage_info is correctly handled.
 #[frame_support::pallet]
+#[deprecated = "test"]
 pub mod pallet2 {
 	use super::{SomeAssociation1, SomeType1, UpdateStorageVersion};
 	use frame_support::pallet_prelude::*;
@@ -587,7 +596,7 @@ pub mod pallet2 {
 			Self::deposit_event(Event::Something(31));
 
 			if UpdateStorageVersion::get() {
-				Self::current_storage_version().put::<Self>();
+				Self::in_code_storage_version().put::<Self>();
 			}
 
 			Weight::zero()
@@ -691,7 +700,7 @@ frame_support::parameter_types!(
 	pub const MyGetParam3: u32 = 12;
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -703,7 +712,6 @@ impl frame_system::Config for Runtime {
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU32<250>;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -747,8 +755,7 @@ pub type UncheckedExtrinsic =
 	sp_runtime::testing::TestXt<RuntimeCall, frame_system::CheckNonZeroSender<Runtime>>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
+	pub struct Runtime {
 		// Exclude part `Storage` in order not to check its metadata in tests.
 		System: frame_system exclude_parts { Pallet, Storage },
 		Example: pallet,
@@ -766,6 +773,14 @@ frame_support::construct_runtime!(
 fn _ensure_call_is_correctly_excluded_and_included(call: RuntimeCall) {
 	match call {
 		RuntimeCall::System(_) | RuntimeCall::Example(_) | RuntimeCall::Example4(_) => (),
+	}
+}
+
+fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
+	if cfg!(feature = "no-metadata-docs") {
+		vec![]
+	} else {
+		doc
 	}
 }
 
@@ -1307,7 +1322,7 @@ fn pallet_on_genesis() {
 		assert_eq!(pallet::Pallet::<Runtime>::on_chain_storage_version(), StorageVersion::new(0));
 		pallet::Pallet::<Runtime>::on_genesis();
 		assert_eq!(
-			pallet::Pallet::<Runtime>::current_storage_version(),
+			pallet::Pallet::<Runtime>::in_code_storage_version(),
 			pallet::Pallet::<Runtime>::on_chain_storage_version(),
 		);
 	})
@@ -1360,20 +1375,49 @@ fn migrate_from_pallet_version_to_storage_version() {
 }
 
 #[test]
+fn pallet_item_docs_in_metadata() {
+	// call
+	let call_variants = match meta_type::<pallet::Call<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(call_variants[0].docs, maybe_docs(vec!["call foo doc comment put in metadata"]));
+	assert_eq!(
+		call_variants[1].docs,
+		maybe_docs(vec!["call foo_storage_layer doc comment put in metadata"])
+	);
+	assert!(call_variants[2].docs.is_empty());
+
+	// event
+	let event_variants = match meta_type::<pallet::Event<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(event_variants[0].docs, maybe_docs(vec!["event doc comment put in metadata"]));
+	assert!(event_variants[1].docs.is_empty());
+
+	// error
+	let error_variants = match meta_type::<pallet::Error<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(error_variants[0].docs, maybe_docs(vec!["error doc comment put in metadata"]));
+	assert!(error_variants[1].docs.is_empty());
+
+	// storage is already covered in the main `fn metadata` test.
+}
+
+#[test]
 fn metadata() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
 
-	fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
-		if cfg!(feature = "no-metadata-docs") {
-			vec![]
-		} else {
-			doc
-		}
-	}
-
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected_pallet_doc = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected_pallet_doc = vec![" Pallet documentation", readme, pallet_doc];
 
 	let pallets = vec![
 		PalletMetadata {
@@ -1875,8 +1919,9 @@ fn metadata_ir_pallet_runtime_docs() {
 		.find(|pallet| pallet.name == "Example")
 		.expect("Pallet should be present");
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected = vec![" Pallet documentation", readme, pallet_doc];
 	assert_eq!(pallet.docs, expected);
 }
 
@@ -1905,8 +1950,9 @@ fn extrinsic_metadata_ir_types() {
 #[test]
 fn test_pallet_runtime_docs() {
 	let docs = crate::pallet::Pallet::<Runtime>::pallet_documentation_metadata();
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected = vec![" Pallet documentation", readme, pallet_doc];
 	assert_eq!(docs, expected);
 }
 
@@ -2254,10 +2300,10 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 		AllPalletsWithSystem,
 	>;
 
-	// Simple example of a pallet with current version 10 being added to the runtime for the first
+	// Simple example of a pallet with in-code version 10 being added to the runtime for the first
 	// time.
 	TestExternalities::default().execute_with(|| {
-		let current_version = Example::current_storage_version();
+		let in_code_version = Example::in_code_storage_version();
 
 		// Check the pallet has no storage items set.
 		let pallet_hashed_prefix = twox_128(Example::name().as_bytes());
@@ -2268,14 +2314,14 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 		// version.
 		Executive::execute_on_runtime_upgrade();
 
-		// Check that the storage version was initialized to the current version
+		// Check that the storage version was initialized to the in-code version
 		let on_chain_version_after = StorageVersion::get::<Example>();
-		assert_eq!(on_chain_version_after, current_version);
+		assert_eq!(on_chain_version_after, in_code_version);
 	});
 
-	// Pallet with no current storage version should have the on-chain version initialized to 0.
+	// Pallet with no in-code storage version should have the on-chain version initialized to 0.
 	TestExternalities::default().execute_with(|| {
-		// Example4 current_storage_version is NoStorageVersionSet.
+		// Example4 in_code_storage_version is NoStorageVersionSet.
 
 		// Check the pallet has no storage items set.
 		let pallet_hashed_prefix = twox_128(Example4::name().as_bytes());
@@ -2305,7 +2351,7 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 
 	impl OnRuntimeUpgrade for CustomUpgrade {
 		fn on_runtime_upgrade() -> Weight {
-			Example2::current_storage_version().put::<Example2>();
+			Example2::in_code_storage_version().put::<Example2>();
 
 			Default::default()
 		}
@@ -2348,14 +2394,14 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 	>;
 
 	TestExternalities::default().execute_with(|| {
-		// Set the on-chain version to one less than the current version for `Example`, simulating a
+		// Set the on-chain version to one less than the in-code version for `Example`, simulating a
 		// forgotten migration
 		StorageVersion::new(9).put::<Example2>();
 
 		// The version isn't changed, we should detect it.
 		assert!(
 			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err() ==
-				"On chain and current storage version do not match. Missing runtime upgrade?"
+				"On chain and in-code storage version do not match. Missing runtime upgrade?"
 					.into()
 		);
 	});
@@ -2437,5 +2483,58 @@ fn test_error_feature_parsing() {
 		#[cfg(feature = "frame-feature-testing")]
 		pallet::Error::FeatureTest => (),
 		pallet::Error::__Ignore(_, _) => (),
+	}
+}
+
+#[test]
+fn pallet_metadata() {
+	use sp_metadata_ir::{DeprecationInfoIR, DeprecationStatusIR};
+	let pallets = Runtime::metadata_ir().pallets;
+	let example = pallets[0].clone();
+	let example2 = pallets[1].clone();
+	{
+		// Example2 pallet is deprecated
+		assert_eq!(
+			&DeprecationStatusIR::Deprecated { note: "test", since: None },
+			&example2.deprecation_info
+		)
+	}
+	{
+		// Example pallet calls is fully and partially deprecated
+		let meta = &example.calls.unwrap();
+		assert_eq!(
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
+				codec::Compact(0),
+				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			)])),
+			meta.deprecation_info
+		)
+	}
+	{
+		// Example pallet errors are partially and fully deprecated
+		let meta = &example.error.unwrap();
+		assert_eq!(
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
+				codec::Compact(2),
+				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			)])),
+			meta.deprecation_info
+		)
+	}
+	{
+		// Example pallet events are partially and fully deprecated
+		let meta = example.event.unwrap();
+		assert_eq!(
+			DeprecationInfoIR::ItemDeprecated(DeprecationStatusIR::Deprecated {
+				note: "test",
+				since: None
+			}),
+			meta.deprecation_info
+		);
+	}
+	{
+		// Example2 pallet events are not deprecated
+		let meta = example2.event.unwrap();
+		assert_eq!(DeprecationInfoIR::NotDeprecated, meta.deprecation_info);
 	}
 }

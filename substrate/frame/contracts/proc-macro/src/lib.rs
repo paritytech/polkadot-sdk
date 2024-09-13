@@ -20,23 +20,13 @@
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
 //! boilerplate of defining external environment for a wasm module.
 
-#![no_std]
-
-extern crate alloc;
-
-use alloc::{
-	collections::BTreeMap,
-	format,
-	string::{String, ToString},
-	vec::Vec,
-};
 use core::cmp::Reverse;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{
 	parse_macro_input, punctuated::Punctuated, spanned::Spanned, token::Comma, Data, DeriveInput,
-	FnArg, Ident,
+	Fields, FnArg, Ident,
 };
 
 /// This derives `Debug` for a struct where each field must be of some numeric type.
@@ -44,17 +34,6 @@ use syn::{
 /// it is readable by humans.
 #[proc_macro_derive(WeightDebug)]
 pub fn derive_weight_debug(input: TokenStream) -> TokenStream {
-	derive_debug(input, format_weight)
-}
-
-/// This is basically identical to the std libs Debug derive but without adding any
-/// bounds to existing generics.
-#[proc_macro_derive(ScheduleDebug)]
-pub fn derive_schedule_debug(input: TokenStream) -> TokenStream {
-	derive_debug(input, format_default)
-}
-
-fn derive_debug(input: TokenStream, fmt: impl Fn(&Ident) -> TokenStream2) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -68,45 +47,15 @@ fn derive_debug(input: TokenStream, fmt: impl Fn(&Ident) -> TokenStream2) -> Tok
 		.into()
 	};
 
-	#[cfg(feature = "full")]
-	let fields = iterate_fields(data, fmt);
-
-	#[cfg(not(feature = "full"))]
-	let fields = {
-		drop(fmt);
-		let _ = data;
-		TokenStream2::new()
-	};
-
-	let tokens = quote! {
-		impl #impl_generics core::fmt::Debug for #name #ty_generics #where_clause {
-			fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-				use ::sp_runtime::{FixedPointNumber, FixedU128 as Fixed};
-				let mut formatter = formatter.debug_struct(stringify!(#name));
-				#fields
-				formatter.finish()
-			}
-		}
-	};
-
-	tokens.into()
-}
-
-/// This is only used then the `full` feature is activated.
-#[cfg(feature = "full")]
-fn iterate_fields(data: &syn::DataStruct, fmt: impl Fn(&Ident) -> TokenStream2) -> TokenStream2 {
-	use syn::Fields;
-
-	match &data.fields {
+	let fields = match &data.fields {
 		Fields::Named(fields) => {
 			let recurse = fields.named.iter().filter_map(|f| {
 				let name = f.ident.as_ref()?;
 				if name.to_string().starts_with('_') {
 					return None
 				}
-				let value = fmt(name);
 				let ret = quote_spanned! { f.span() =>
-					formatter.field(stringify!(#name), #value);
+					formatter.field(stringify!(#name), &HumanWeight(self.#name));
 				};
 				Some(ret)
 			});
@@ -119,39 +68,53 @@ fn iterate_fields(data: &syn::DataStruct, fmt: impl Fn(&Ident) -> TokenStream2) 
 			compile_error!("Unnamed fields are not supported")
 		},
 		Fields::Unit => quote!(),
-	}
-}
+	};
 
-fn format_weight(field: &Ident) -> TokenStream2 {
-	quote_spanned! { field.span() =>
-		&if self.#field.ref_time() > 1_000_000_000 {
-			format!(
-				"{:.1?} ms, {} bytes",
-				Fixed::saturating_from_rational(self.#field.ref_time(), 1_000_000_000).to_float(),
-				self.#field.proof_size()
-			)
-		} else if self.#field.ref_time() > 1_000_000 {
-			format!(
-				"{:.1?} µs, {} bytes",
-				Fixed::saturating_from_rational(self.#field.ref_time(), 1_000_000).to_float(),
-				self.#field.proof_size()
-			)
-		} else if self.#field.ref_time() > 1_000 {
-			format!(
-				"{:.1?} ns, {} bytes",
-				Fixed::saturating_from_rational(self.#field.ref_time(), 1_000).to_float(),
-				self.#field.proof_size()
-			)
-		} else {
-			format!("{} ps, {} bytes", self.#field.ref_time(), self.#field.proof_size())
+	let tokens = quote! {
+		impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
+			fn fmt(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> core::fmt::Result {
+				use ::sp_runtime::{FixedPointNumber, FixedU128 as Fixed};
+				use ::core::{fmt, write};
+
+				struct HumanWeight(Weight);
+
+				impl fmt::Debug for HumanWeight {
+					fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+						if self.0.ref_time() > 1_000_000_000 {
+							write!(
+								formatter,
+								"{} ms, {} bytes",
+								Fixed::saturating_from_rational(self.0.ref_time(), 1_000_000_000).into_inner() / Fixed::accuracy(),
+								self.0.proof_size()
+							)
+						} else if self.0.ref_time() > 1_000_000 {
+							write!(
+								formatter,
+								"{} µs, {} bytes",
+								Fixed::saturating_from_rational(self.0.ref_time(), 1_000_000).into_inner() / Fixed::accuracy(),
+								self.0.proof_size()
+							)
+						} else if self.0.ref_time() > 1_000 {
+							write!(
+								formatter,
+								"{} ns, {} bytes",
+								Fixed::saturating_from_rational(self.0.ref_time(), 1_000).into_inner() / Fixed::accuracy(),
+								self.0.proof_size()
+							)
+						} else {
+							write!(formatter, "{} ps, {} bytes", self.0.ref_time(), self.0.proof_size())
+						}
+					}
+				}
+
+				let mut formatter = formatter.debug_struct(stringify!(#name));
+				#fields
+				formatter.finish()
+			}
 		}
-	}
-}
+	};
 
-fn format_default(field: &Ident) -> TokenStream2 {
-	quote_spanned! { field.span() =>
-		&self.#field
-	}
+	tokens.into()
 }
 
 /// Parsed environment definition.
@@ -169,6 +132,7 @@ struct HostFn {
 	alias_to: Option<String>,
 	/// Formulating the predicate inverted makes the expression using it simpler.
 	not_deprecated: bool,
+	cfg: Option<syn::Attribute>,
 }
 
 enum HostFnReturn {
@@ -186,7 +150,7 @@ impl HostFnReturn {
 			Self::U64 => quote! { ::core::primitive::u64 },
 		};
 		quote! {
-			::core::result::Result<#ok, ::wasmi::core::Trap>
+			::core::result::Result<#ok, ::wasmi::Error>
 		}
 	}
 }
@@ -200,13 +164,13 @@ impl ToTokens for HostFn {
 impl HostFn {
 	pub fn try_from(mut item: syn::ItemFn) -> syn::Result<Self> {
 		let err = |span, msg| {
-			let msg = format!("Invalid host function definition. {}", msg);
+			let msg = format!("Invalid host function definition.\n{}", msg);
 			syn::Error::new(span, msg)
 		};
 
 		// process attributes
 		let msg =
-			"only #[version(<u8>)], #[unstable], #[prefixed_alias] and #[deprecated] attributes are allowed.";
+			"Only #[version(<u8>)], #[unstable], #[prefixed_alias], #[cfg], #[mutating] and #[deprecated] attributes are allowed.";
 		let span = item.span();
 		let mut attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident("doc"));
@@ -214,6 +178,8 @@ impl HostFn {
 		let mut is_stable = true;
 		let mut alias_to = None;
 		let mut not_deprecated = true;
+		let mut mutating = false;
+		let mut cfg = None;
 		while let Some(attr) = attrs.pop() {
 			let ident = attr.path().get_ident().ok_or(err(span, msg))?.to_string();
 			match ident.as_str() {
@@ -243,9 +209,31 @@ impl HostFn {
 					}
 					not_deprecated = false;
 				},
-				_ => return Err(err(span, msg)),
+				"mutating" => {
+					if mutating {
+						return Err(err(span, "#[mutating] can only be specified once"))
+					}
+					mutating = true;
+				},
+				"cfg" => {
+					if cfg.is_some() {
+						return Err(err(span, "#[cfg] can only be specified once"))
+					}
+					cfg = Some(attr);
+				},
+				id => return Err(err(span, &format!("Unsupported attribute \"{id}\". {msg}"))),
 			}
 		}
+
+		if mutating {
+			let stmt = syn::parse_quote! {
+				if ctx.ext().is_read_only() {
+					return Err(Error::<E::T>::StateChangeDenied.into());
+				}
+			};
+			item.block.stmts.insert(0, stmt);
+		}
+
 		let name = item.sig.ident.to_string();
 
 		if !(is_stable || not_deprecated) {
@@ -348,6 +336,7 @@ impl HostFn {
 							is_stable,
 							alias_to,
 							not_deprecated,
+							cfg,
 						})
 					},
 					_ => Err(err(span, &msg)),
@@ -480,7 +469,7 @@ fn expand_func_doc(func: &HostFn) -> TokenStream2 {
 fn expand_docs(def: &EnvDef) -> TokenStream2 {
 	// Create the `Current` trait with only the newest versions
 	// we sort so that only the newest versions make it into `docs`
-	let mut current_docs = BTreeMap::new();
+	let mut current_docs = std::collections::HashMap::new();
 	let mut funcs: Vec<_> = def.host_funcs.iter().filter(|f| f.alias_to.is_none()).collect();
 	funcs.sort_unstable_by_key(|func| Reverse(func.version));
 	for func in funcs {
@@ -493,7 +482,7 @@ fn expand_docs(def: &EnvDef) -> TokenStream2 {
 
 	// Create the `legacy` module with all functions
 	// Maps from version to list of functions that have this version
-	let mut legacy_doc = BTreeMap::<u8, Vec<TokenStream2>>::new();
+	let mut legacy_doc = std::collections::BTreeMap::<u8, Vec<TokenStream2>>::new();
 	for func in def.host_funcs.iter() {
 		legacy_doc.entry(func.version).or_default().push(expand_func_doc(&func));
 	}
@@ -534,9 +523,14 @@ fn expand_docs(def: &EnvDef) -> TokenStream2 {
 fn expand_env(def: &EnvDef, docs: bool) -> TokenStream2 {
 	let impls = expand_impls(def);
 	let docs = docs.then_some(expand_docs(def)).unwrap_or(TokenStream2::new());
+	let stable_api_count = def.host_funcs.iter().filter(|f| f.is_stable).count();
 
 	quote! {
 		pub struct Env;
+
+		#[cfg(test)]
+		pub const STABLE_API_COUNT: usize = #stable_api_count;
+
 		#impls
 		/// Documentation of the API (host functions) available to contracts.
 		///
@@ -560,8 +554,9 @@ fn expand_env(def: &EnvDef, docs: bool) -> TokenStream2 {
 ///   - real implementation, to register it in the contract execution environment;
 ///   - dummy implementation, to be used as mocks for contract validation step.
 fn expand_impls(def: &EnvDef) -> TokenStream2 {
-	let impls = expand_functions(def, true, quote! { crate::wasm::Runtime<E> });
-	let dummy_impls = expand_functions(def, false, quote! { () });
+	let impls = expand_functions(def, ExpandMode::Impl);
+	let dummy_impls = expand_functions(def, ExpandMode::MockImpl);
+	let bench_impls = expand_functions(def, ExpandMode::BenchImpl);
 
 	quote! {
 		impl<'a, E: Ext> crate::wasm::Environment<crate::wasm::runtime::Runtime<'a, E>> for Env
@@ -575,6 +570,14 @@ fn expand_impls(def: &EnvDef) -> TokenStream2 {
 				#impls
 				Ok(())
 			}
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		pub struct BenchEnv<E>(::core::marker::PhantomData<E>);
+
+		#[cfg(feature = "runtime-benchmarks")]
+		impl<E: Ext> BenchEnv<E> {
+			#bench_impls
 		}
 
 		impl crate::wasm::Environment<()> for Env
@@ -592,18 +595,38 @@ fn expand_impls(def: &EnvDef) -> TokenStream2 {
 	}
 }
 
-fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2) -> TokenStream2 {
+enum ExpandMode {
+	Impl,
+	BenchImpl,
+	MockImpl,
+}
+
+impl ExpandMode {
+	fn expand_blocks(&self) -> bool {
+		match *self {
+			ExpandMode::Impl | ExpandMode::BenchImpl => true,
+			ExpandMode::MockImpl => false,
+		}
+	}
+
+	fn host_state(&self) -> TokenStream2 {
+		match *self {
+			ExpandMode::Impl | ExpandMode::BenchImpl => quote! { crate::wasm::runtime::Runtime<E> },
+			ExpandMode::MockImpl => quote! { () },
+		}
+	}
+}
+
+fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 	let impls = def.host_funcs.iter().map(|f| {
 		// skip the context and memory argument
 		let params = f.item.sig.inputs.iter().skip(2);
-
-		let (module, name, body, wasm_output, output) = (
-			f.module(),
-			&f.name,
-			&f.item.block,
-			f.returns.to_wasm_sig(),
-			&f.item.sig.output
-		);
+		let module = f.module();
+		let cfg = &f.cfg;
+		let name = &f.name;
+		let body = &f.item.block;
+		let wasm_output = f.returns.to_wasm_sig();
+		let output = &f.item.sig.output;
 		let is_stable = f.is_stable;
 		let not_deprecated = f.not_deprecated;
 
@@ -626,7 +649,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 			quote! {
 				let result = #body;
 				if ::log::log_enabled!(target: "runtime::contracts::strace", ::log::Level::Trace) {
-						use sp_std::fmt::Write;
+						use core::fmt::Write;
 						let mut w = sp_std::Writer::default();
 						let _ = core::write!(&mut w, #trace_fmt_str, #( #trace_fmt_args, )* result);
 						let msg = core::str::from_utf8(&w.inner()).unwrap_or_default();
@@ -640,27 +663,38 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 		// - We replace any code by unreachable!
 		// - Allow unused variables as the code that uses is not expanded
 		// - We don't need to map the error as we simply panic if they code would ever be executed
-		let inner = if expand_blocks {
-			quote! { || #output {
-				let (memory, ctx) = __caller__
-					.data()
-					.memory()
-					.expect("Memory must be set when setting up host data; qed")
-					.data_and_store_mut(&mut __caller__);
-				#wrapped_body_with_trace
-			} }
-		} else {
-			quote! { || -> #wasm_output {
-				// This is part of the implementation for `Environment<()>` which is not
-				// meant to be actually executed. It is only for validation which will
-				// never call host functions.
-				::core::unreachable!()
-			} }
+		let expand_blocks = expand_mode.expand_blocks();
+		let inner = match expand_mode {
+			ExpandMode::Impl => {
+				quote! { || #output {
+					let (memory, ctx) = __caller__
+						.data()
+						.memory()
+						.expect("Memory must be set when setting up host data; qed")
+						.data_and_store_mut(&mut __caller__);
+					#wrapped_body_with_trace
+				} }
+			},
+			ExpandMode::BenchImpl => {
+				let body = &body.stmts;
+				quote!{
+					#(#body)*
+				}
+			},
+			ExpandMode::MockImpl => {
+				quote! { || -> #wasm_output {
+					// This is part of the implementation for `Environment<()>` which is not
+					// meant to be actually executed. It is only for validation which will
+					// never call host functions.
+					::core::unreachable!()
+				} }
+			},
 		};
+
 		let into_host = if expand_blocks {
 			quote! {
 				|reason| {
-					::wasmi::core::Trap::from(reason)
+					::wasmi::Error::host(reason)
 				}
 			}
 		} else {
@@ -675,65 +709,92 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 		};
 		let sync_gas_before = if expand_blocks {
 			quote! {
-				// Gas left in the gas meter right before switching to engine execution.
-				let __gas_before__ = {
-					let engine_consumed_total =
-						__caller__.fuel_consumed().expect("Fuel metering is enabled; qed");
-					let gas_meter = __caller__.data_mut().ext().gas_meter_mut();
-					gas_meter
-						.charge_fuel(engine_consumed_total)
+				// Write gas from wasmi into pallet-contracts before entering the host function.
+				let __gas_left_before__ = {
+					let fuel =
+						__caller__.get_fuel().expect("Fuel metering is enabled; qed");
+					__caller__
+						.data_mut()
+						.ext()
+						.gas_meter_mut()
+						.sync_from_executor(fuel)
 						.map_err(TrapReason::from)
 						.map_err(#into_host)?
-						.ref_time()
 				};
+
+				// Charge gas for host function execution.
+				__caller__.data_mut().charge_gas(crate::wasm::RuntimeCosts::HostFn)
+						.map_err(TrapReason::from)
+						.map_err(#into_host)?;
 			}
 		} else {
 			quote! { }
 		};
-		// Gas left in the gas meter right after returning from engine execution.
+		// Write gas from pallet-contracts into wasmi after leaving the host function.
 		let sync_gas_after = if expand_blocks {
 			quote! {
-				let mut gas_after = __caller__.data_mut().ext().gas_meter().gas_left().ref_time();
-				let mut host_consumed = __gas_before__.saturating_sub(gas_after);
-				// Possible undercharge of at max 1 fuel here, if host consumed less than `instruction_weights.base`
-				// Not a problem though, as soon as host accounts its spent gas properly.
-				let fuel_consumed = host_consumed
-					.checked_div(__caller__.data_mut().ext().schedule().instruction_weights.base as u64)
-					.ok_or(Error::<E::T>::InvalidSchedule)
-					.map_err(TrapReason::from)
-					.map_err(#into_host)?;
+				let fuel = __caller__
+					.data_mut()
+					.ext()
+					.gas_meter_mut()
+					.sync_to_executor(__gas_left_before__)
+					.map_err(|err| {
+						let err = TrapReason::from(err);
+						wasmi::Error::host(err)
+					})?;
 				 __caller__
-					 .consume_fuel(fuel_consumed)
-					 .map_err(|_| TrapReason::from(Error::<E::T>::OutOfGas))
-					 .map_err(#into_host)?;
+					 .set_fuel(fuel.into())
+					 .expect("Fuel metering is enabled; qed");
 			}
 		} else {
 			quote! { }
 		};
 
-		quote! {
-			// We need to allow all interfaces when runtime benchmarks are performed because
-			// we generate the weights even when those interfaces are not enabled. This
-			// is necessary as the decision whether we allow unstable or deprecated functions
-			// is a decision made at runtime. Generation of the weights happens statically.
-			if ::core::cfg!(feature = "runtime-benchmarks") ||
-				((#is_stable || __allow_unstable__) && (#not_deprecated || __allow_deprecated__))
-			{
-				#allow_unused
-				linker.define(#module, #name, ::wasmi::Func::wrap(&mut*store, |mut __caller__: ::wasmi::Caller<#host_state>, #( #params, )*| -> #wasm_output {
- 					#sync_gas_before
-					let mut func = #inner;
-					let result = func().map_err(#into_host).map(::core::convert::Into::into);
-					#sync_gas_after
-					result
-				}))?;
-			}
+		match expand_mode {
+			ExpandMode::BenchImpl => {
+				let name = Ident::new(&format!("{module}_{name}"), Span::call_site());
+				quote! {
+					pub fn #name(ctx: &mut crate::wasm::Runtime<E>, memory: &mut [u8], #(#params),*) #output {
+						#inner
+					}
+				}
+			},
+			_ => {
+				let host_state = expand_mode.host_state();
+				quote! {
+					// We need to allow all interfaces when runtime benchmarks are performed because
+					// we generate the weights even when those interfaces are not enabled. This
+					// is necessary as the decision whether we allow unstable or deprecated functions
+					// is a decision made at runtime. Generation of the weights happens statically.
+					#cfg
+					if ::core::cfg!(feature = "runtime-benchmarks") ||
+						((#is_stable || __allow_unstable__) && (#not_deprecated || __allow_deprecated__))
+					{
+						#allow_unused
+						linker.define(#module, #name, ::wasmi::Func::wrap(&mut*store, |mut __caller__: ::wasmi::Caller<#host_state>, #( #params, )*| -> #wasm_output {
+							#sync_gas_before
+							let mut func = #inner;
+							let result = func().map_err(#into_host).map(::core::convert::Into::into);
+							#sync_gas_after
+							result
+						}))?;
+					}
+				}
+			},
 		}
 	});
-	quote! {
-		let __allow_unstable__ = matches!(allow_unstable, AllowUnstableInterface::Yes);
-		let __allow_deprecated__ = matches!(allow_deprecated, AllowDeprecatedInterface::Yes);
-		#( #impls )*
+
+	match expand_mode {
+		ExpandMode::BenchImpl => {
+			quote! {
+			 #( #impls )*
+			}
+		},
+		_ => quote! {
+			let __allow_unstable__ = matches!(allow_unstable, AllowUnstableInterface::Yes);
+			let __allow_deprecated__ = matches!(allow_deprecated, AllowDeprecatedInterface::Yes);
+			#( #impls )*
+		},
 	}
 }
 

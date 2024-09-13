@@ -17,11 +17,15 @@
 
 //! # Balances Pallet
 //!
-//! The Balances pallet provides functionality for handling accounts and balances.
+//! The Balances pallet provides functionality for handling accounts and balances for a single
+//! token.
 //!
-//! - [`Config`]
-//! - [`Call`]
-//! - [`Pallet`]
+//! It makes heavy use of concepts such as Holds and Freezes from the
+//! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
+//! as a prerequisite to understanding this pallet.
+//!
+//! Also see the [`frame_tokens`] reference docs for higher level information regarding the
+//! place of this palet in FRAME.
 //!
 //! ## Overview
 //!
@@ -38,42 +42,30 @@
 //!
 //! ### Terminology
 //!
-//! - **Existential Deposit:** The minimum balance required to create or keep an account open. This
-//!   prevents "dust accounts" from filling storage. When the free plus the reserved balance (i.e.
-//!   the total balance) fall below this, then the account is said to be dead; and it loses its
-//!   functionality as well as any prior history and all information on it is removed from the
-//!   chain's state. No account should ever have a total balance that is strictly between 0 and the
-//!   existential deposit (exclusive). If this ever happens, it indicates either a bug in this
-//!   pallet or an erroneous raw mutation of storage.
-//!
-//! - **Total Issuance:** The total number of units in existence in a system.
-//!
 //! - **Reaping an account:** The act of removing an account by resetting its nonce. Happens after
-//!   its total balance has become zero (or, strictly speaking, less than the Existential Deposit).
-//!
-//! - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only
-//!   balance that matters for most operations.
-//!
-//! - **Reserved Balance:** Reserved balance still belongs to the account holder, but is suspended.
-//!   Reserved balance can still be slashed, but only after all the free balance has been slashed.
-//!
-//! - **Imbalance:** A condition when some funds were credited or debited without equal and opposite
-//!   accounting (i.e. a difference between total issuance and account balances). Functions that
-//! result in an imbalance will return an object of the `Imbalance` trait that can be managed within
-//! your runtime logic. (If an imbalance is simply dropped, it should automatically maintain any
-//! book-keeping such as total issuance.)
-//!
-//! - **Lock:** A freeze on a specified amount of an account's free balance until a specified block
-//!   number. Multiple locks always operate over the same funds, so they "overlay" rather than
-//! "stack".
+//!   its total balance has become less than the Existential Deposit.
 //!
 //! ### Implementations
 //!
-//! The Balances pallet provides implementations for the following traits. If these traits provide
-//! the functionality that you need, then you can avoid coupling with the Balances pallet.
+//! The Balances pallet provides implementations for the following [`fungible`] traits. If these
+//! traits provide the functionality that you need, then you should avoid tight coupling with the
+//! Balances pallet.
 //!
-//! - [`Currency`]: Functions for dealing with a
-//! fungible assets system.
+//! - [`fungible::Inspect`]
+//! - [`fungible::Mutate`]
+//! - [`fungible::Unbalanced`]
+//! - [`fungible::Balanced`]
+//! - [`fungible::BalancedHold`]
+//! - [`fungible::InspectHold`]
+//! - [`fungible::MutateHold`]
+//! - [`fungible::InspectFreeze`]
+//! - [`fungible::MutateFreeze`]
+//! - [`fungible::Imbalance`]
+//!
+//! It also implements the following [`Currency`] related traits, however they are deprecated and
+//! will eventually be removed.
+//!
+//! - [`Currency`]: Functions for dealing with a fungible assets system.
 //! - [`ReservableCurrency`]
 //! - [`NamedReservableCurrency`](frame_support::traits::NamedReservableCurrency):
 //! Functions for dealing with assets that can be reserved from an account.
@@ -82,14 +74,6 @@
 //! - [`Imbalance`](frame_support::traits::Imbalance): Functions for handling
 //! imbalances between total issuance in the system and account balances. Must be used when a
 //! function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).
-//!
-//! ## Interface
-//!
-//! ### Dispatchable Functions
-//!
-//! - `transfer_allow_death` - Transfer some liquid free balance to another account.
-//! - `force_set_balance` - Set the balances of a given account. The origin of this call must be
-//!   root.
 //!
 //! ## Usage
 //!
@@ -151,8 +135,11 @@
 //! * Total issued balanced of all accounts should be less than `Config::Balance::max_value()`.
 //! * Existential Deposit is set to a value greater than zero.
 //!
-//! Note, you may find the Balances pallet still functions with an ED of zero in some circumstances,
-//! however this is not a configuration which is generally supported, nor will it be.
+//! Note, you may find the Balances pallet still functions with an ED of zero when the
+//! `insecure_zero_ed` cargo feature is enabled. However this is not a configuration which is
+//! generally supported, nor will it be.
+//!
+//! [`frame_tokens`]: ../polkadot_sdk_docs/reference_docs/frame_tokens/index.html
 
 #![cfg_attr(not(feature = "std"), no_std)]
 mod benchmarking;
@@ -163,7 +150,11 @@ mod tests;
 mod types;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Codec, MaxEncodedLen};
+use core::{cmp, fmt::Debug, mem, result};
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
@@ -171,6 +162,7 @@ use frame_support::{
 		tokens::{
 			fungible, BalanceStatus as Status, DepositConsequence,
 			Fortitude::{self, Force, Polite},
+			IdAmount,
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
@@ -183,14 +175,13 @@ pub use impl_currency::{NegativeImbalance, PositiveImbalance};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
-		Saturating, StaticLookup, Zero,
+		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
+		StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
-use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
 pub use types::{
-	AccountData, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons, ReserveData,
+	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
 pub use weights::WeightInfo;
 
@@ -205,7 +196,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{fungible::Credit, tokens::Precision, VariantCount},
+		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -218,7 +209,7 @@ pub mod pallet {
 
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -234,14 +225,13 @@ pub mod pallet {
 			type ExistentialDeposit = ConstU64<1>;
 
 			type ReserveIdentifier = ();
-			type FreezeIdentifier = ();
+			type FreezeIdentifier = Self::RuntimeFreezeReason;
 
 			type DustRemoval = ();
 
 			type MaxLocks = ConstU32<100>;
 			type MaxReserves = ConstU32<100>;
-			type MaxFreezes = ConstU32<100>;
-			type MaxHolds = ConstU32<100>;
+			type MaxFreezes = VariantCountOf<Self::RuntimeFreezeReason>;
 
 			type WeightInfo = ();
 		}
@@ -308,23 +298,23 @@ pub mod pallet {
 
 		/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.
+		///
+		/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 		#[pallet::constant]
 		type MaxLocks: Get<u32>;
 
 		/// The maximum number of named reserves that can exist on an account.
+		///
+		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		#[pallet::constant]
 		type MaxReserves: Get<u32>;
-
-		/// The maximum number of holds that can exist on an account at any time.
-		#[pallet::constant]
-		type MaxHolds: Get<u32>;
 
 		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
 	}
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: frame_support::traits::StorageVersion =
 		frame_support::traits::StorageVersion::new(1);
 
@@ -384,6 +374,8 @@ pub mod pallet {
 		Frozen { who: T::AccountId, amount: T::Balance },
 		/// Some balance was thawed.
 		Thawed { who: T::AccountId, amount: T::Balance },
+		/// The `TotalIssuance` was forcefully changed.
+		TotalIssuanceForced { old: T::Balance, new: T::Balance },
 	}
 
 	#[pallet::error]
@@ -404,21 +396,23 @@ pub mod pallet {
 		DeadAccount,
 		/// Number of named reserves exceed `MaxReserves`.
 		TooManyReserves,
-		/// Number of holds exceed `MaxHolds`.
+		/// Number of holds exceed `VariantCountOf<T::RuntimeHoldReason>`.
 		TooManyHolds,
 		/// Number of freezes exceed `MaxFreezes`.
 		TooManyFreezes,
+		/// The issuance cannot be modified since it is already deactivated.
+		IssuanceDeactivated,
+		/// The delta cannot be zero.
+		DeltaZero,
 	}
 
 	/// The total units issued in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn total_issuance)]
 	#[pallet::whitelist_storage]
 	pub type TotalIssuance<T: Config<I>, I: 'static = ()> = StorageValue<_, T::Balance, ValueQuery>;
 
 	/// The total units of outstanding deactivated balance in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn inactive_issuance)]
 	#[pallet::whitelist_storage]
 	pub type InactiveIssuance<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::Balance, ValueQuery>;
@@ -453,8 +447,9 @@ pub mod pallet {
 
 	/// Any liquidity locks on some account balances.
 	/// NOTE: Should only be accessed when setting, changing and freeing a lock.
+	///
+	/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
-	#[pallet::getter(fn locks)]
 	pub type Locks<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -464,8 +459,9 @@ pub mod pallet {
 	>;
 
 	/// Named reserves on some account balances.
+	///
+	/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
-	#[pallet::getter(fn reserves)]
 	pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -480,7 +476,10 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		BoundedVec<IdAmount<T::RuntimeHoldReason, T::Balance>, T::MaxHolds>,
+		BoundedVec<
+			IdAmount<T::RuntimeHoldReason, T::Balance>,
+			VariantCountOf<T::RuntimeHoldReason>,
+		>,
 		ValueQuery,
 	>;
 
@@ -525,7 +524,7 @@ pub mod pallet {
 				.iter()
 				.map(|(x, _)| x)
 				.cloned()
-				.collect::<sp_std::collections::btree_set::BTreeSet<_>>();
+				.collect::<alloc::collections::btree_set::BTreeSet<_>>();
 
 			assert!(
 				endowed_accounts.len() == self.balances.len(),
@@ -542,18 +541,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		#[cfg(not(feature = "insecure_zero_ed"))]
 		fn integrity_test() {
+			#[cfg(not(feature = "insecure_zero_ed"))]
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
-			);
-
-			assert!(
-				T::MaxHolds::get() >= <T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT,
-				"MaxHolds should be greater than or equal to the number of hold reasons: {} < {}",
-				T::MaxHolds::get(),
-				<T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT
 			);
 
 			assert!(
@@ -561,6 +553,29 @@ pub mod pallet {
 				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
 				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
 			);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Holds::<T, I>::iter_keys().try_for_each(|k| {
+				if Holds::<T, I>::decode_len(k).unwrap_or(0) >
+					T::RuntimeHoldReason::VARIANT_COUNT as usize
+				{
+					Err("Found `Hold` with too many elements")
+				} else {
+					Ok(())
+				}
+			})?;
+
+			Freezes::<T, I>::iter_keys().try_for_each(|k| {
+				if Freezes::<T, I>::decode_len(k).unwrap_or(0) > T::MaxFreezes::get() as usize {
+					Err("Found `Freeze` with too many elements")
+				} else {
+					Ok(())
+				}
+			})?;
+
+			Ok(())
 		}
 	}
 
@@ -679,7 +694,7 @@ pub mod pallet {
 		///
 		/// This will waive the transaction fee if at least all but 10% of the accounts needed to
 		/// be upgraded. (We let some not have to be upgraded just in order to allow for the
-		/// possibililty of churn).
+		/// possibility of churn).
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::upgrade_accounts(who.len() as u32))]
 		pub fn upgrade_accounts(
@@ -743,9 +758,88 @@ pub mod pallet {
 			Self::deposit_event(Event::BalanceSet { who, free: new_free });
 			Ok(())
 		}
+
+		/// Adjust the total issuance in a saturating way.
+		///
+		/// Can only be called by root and always needs a positive `delta`.
+		///
+		/// # Example
+		#[doc = docify::embed!("./src/tests/dispatchable_tests.rs", force_adjust_total_issuance_example)]
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::force_adjust_total_issuance())]
+		pub fn force_adjust_total_issuance(
+			origin: OriginFor<T>,
+			direction: AdjustmentDirection,
+			#[pallet::compact] delta: T::Balance,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			ensure!(delta > Zero::zero(), Error::<T, I>::DeltaZero);
+
+			let old = TotalIssuance::<T, I>::get();
+			let new = match direction {
+				AdjustmentDirection::Increase => old.saturating_add(delta),
+				AdjustmentDirection::Decrease => old.saturating_sub(delta),
+			};
+
+			ensure!(InactiveIssuance::<T, I>::get() <= new, Error::<T, I>::IssuanceDeactivated);
+			TotalIssuance::<T, I>::set(new);
+
+			Self::deposit_event(Event::<T, I>::TotalIssuanceForced { old, new });
+
+			Ok(())
+		}
+
+		/// Burn the specified liquid free balance from the origin account.
+		///
+		/// If the origin's account ends up below the existential deposit as a result
+		/// of the burn and `keep_alive` is false, the account will be reaped.
+		///
+		/// Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
+		/// this `burn` operation will reduce total issuance by the amount _burned_.
+		#[pallet::call_index(10)]
+		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
+		pub fn burn(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: T::Balance,
+			keep_alive: bool,
+		) -> DispatchResult {
+			let source = ensure_signed(origin)?;
+			let preservation = if keep_alive { Preserve } else { Expendable };
+			<Self as fungible::Mutate<_>>::burn_from(
+				&source,
+				value,
+				preservation,
+				Precision::Exact,
+				Polite,
+			)?;
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Public function to get the total issuance.
+		pub fn total_issuance() -> T::Balance {
+			TotalIssuance::<T, I>::get()
+		}
+
+		/// Public function to get the inactive issuance.
+		pub fn inactive_issuance() -> T::Balance {
+			InactiveIssuance::<T, I>::get()
+		}
+
+		/// Public function to access the Locks storage.
+		pub fn locks(who: &T::AccountId) -> WeakBoundedVec<BalanceLock<T::Balance>, T::MaxLocks> {
+			Locks::<T, I>::get(who)
+		}
+
+		/// Public function to access the reserves storage.
+		pub fn reserves(
+			who: &T::AccountId,
+		) -> BoundedVec<ReserveData<T::ReserveIdentifier, T::Balance>, T::MaxReserves> {
+			Reserves::<T, I>::get(who)
+		}
+
 		fn ed() -> T::Balance {
 			T::ExistentialDeposit::get()
 		}
@@ -783,13 +877,13 @@ pub mod pallet {
 		}
 
 		/// Get the free balance of an account.
-		pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn free_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			Self::account(who.borrow()).free
 		}
 
 		/// Get the balance of an account that can be used for transfers, reservations, or any other
 		/// non-locking, non-transaction-fee activity. Will be at most `free_balance`.
-		pub fn usable_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn usable_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Expendable, Polite)
 		}
 
@@ -797,14 +891,12 @@ pub mod pallet {
 		/// or any other kind of fees, though). Will be at most `free_balance`.
 		///
 		/// This requires that the account stays alive.
-		pub fn usable_balance_for_fees(
-			who: impl sp_std::borrow::Borrow<T::AccountId>,
-		) -> T::Balance {
+		pub fn usable_balance_for_fees(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Protect, Polite)
 		}
 
 		/// Get the reserved balance of an account.
-		pub fn reserved_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn reserved_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			Self::account(who.borrow()).reserved
 		}
 
@@ -876,14 +968,14 @@ pub mod pallet {
 			Self::try_mutate_account(who, |a, _| -> Result<R, DispatchError> { Ok(f(a)) })
 		}
 
-		/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disnabled.
+		/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disabled.
 		/// Returns `false` otherwise.
 		#[cfg(not(feature = "insecure_zero_ed"))]
 		fn have_providers_or_no_zero_ed(_: &T::AccountId) -> bool {
 			true
 		}
 
-		/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disnabled.
+		/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disabled.
 		/// Returns `false` otherwise.
 		#[cfg(feature = "insecure_zero_ed")]
 		fn have_providers_or_no_zero_ed(who: &T::AccountId) -> bool {
@@ -928,6 +1020,13 @@ pub mod pallet {
 					frame_system::Pallet::<T>::dec_consumers(who);
 				}
 				if !did_consume && does_consume {
+					frame_system::Pallet::<T>::inc_consumers(who)?;
+				}
+				if does_consume && frame_system::Pallet::<T>::consumers(who) == 0 {
+					// NOTE: This is a failsafe and should not happen for normal accounts. A normal
+					// account should have gotten a consumer ref in `!did_consume && does_consume`
+					// at some point.
+					log::error!(target: LOG_TARGET, "Defensively bumping a consumer ref.");
 					frame_system::Pallet::<T>::inc_consumers(who)?;
 				}
 				if did_provide && !does_provide {
