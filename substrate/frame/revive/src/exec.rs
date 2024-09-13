@@ -37,7 +37,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::{Fortitude, Preservation},
-		Contains, IsType, OriginTrait, Time,
+		Contains, OriginTrait, Time,
 	},
 	weights::Weight,
 	Blake2_128Concat, BoundedVec, StorageHasher,
@@ -694,7 +694,6 @@ impl<T: Config> CachedContract<T> {
 impl<'a, T, E> Stack<'a, T, E>
 where
 	T: Config,
-	T::Hash: IsType<H256>,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	E: Executable<T>,
@@ -1261,7 +1260,6 @@ where
 impl<'a, T, E> Ext for Stack<'a, T, E>
 where
 	T: Config,
-	T::Hash: IsType<H256>,
 	E: Executable<T>,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,

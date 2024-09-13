@@ -26,8 +26,7 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::benchmarking;
-use frame_support::traits::IsType;
-use sp_core::{H256, U256};
+use sp_core::U256;
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
@@ -48,7 +47,6 @@ impl<T> Default for CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	T::Hash: IsType<H256>,
 	MomentOf<T>: Into<U256>,
 {
 	fn default() -> Self {
@@ -59,7 +57,6 @@ where
 impl<T> CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
-	T::Hash: IsType<H256>,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 {

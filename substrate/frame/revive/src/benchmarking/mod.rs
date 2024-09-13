@@ -70,7 +70,6 @@ where
 	T: Config + pallet_balances::Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
-	T::Hash: IsType<H256>,
 {
 	/// Returns the address of the contract.
 	fn address(&self) -> H160 {
@@ -224,7 +223,6 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 		T: Config + pallet_balances::Config,
 		MomentOf<T>: Into<U256>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
-		T::Hash: IsType<H256>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
 )]
 mod benchmarks {
