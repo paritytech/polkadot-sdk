@@ -24,6 +24,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
 
@@ -40,6 +41,7 @@ use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_genesis_builder::PresetId;
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Saturating, Verify},
@@ -61,8 +63,7 @@ use frame_support::{
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
-		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
-		TransformOrigin,
+		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -127,7 +128,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The version information used to identify this runtime when compiled natively.
@@ -915,29 +916,18 @@ impl pallet_nfts::Config for Runtime {
 /// consensus with dynamic fees and back-pressure.
 pub type ToWestendXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance3;
 impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo<Runtime>;
 
 	type UniversalLocation = xcm_config::UniversalLocation;
+	type SiblingBridgeHubLocation = xcm_config::bridging::SiblingBridgeHub;
 	type BridgedNetworkId = xcm_config::bridging::to_westend::WestendNetwork;
 	type Bridges = xcm_config::bridging::NetworkExportTable;
 	type DestinationVersion = PolkadotXcm;
 
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BridgeHubOrigin = EitherOfDiverse<
-		// for running benchmarks
-		EnsureRoot<AccountId>,
-		// for running tests with `--feature runtime-benchmarks`
-		EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>,
-	>;
-
 	type ToBridgeHubSender = XcmpQueue;
-	type WithBridgeHubChannel =
-		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<
-			xcm_config::bridging::SiblingBridgeHubParaId,
-			Runtime,
-		>;
+	type LocalXcmChannelManager =
+		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
@@ -1769,12 +1759,12 @@ impl_runtime_apis! {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+		fn get_preset(id: &Option<PresetId>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
 		}
 
-		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+		fn preset_names() -> Vec<PresetId> {
+			genesis_config_presets::preset_names()
 		}
 	}
 }
