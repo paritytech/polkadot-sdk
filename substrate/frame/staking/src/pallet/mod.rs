@@ -742,13 +742,11 @@ pub mod pallet {
 
 	/// The minimum unbonding time for an active stake.
 	#[pallet::storage]
-	pub(crate) type UnbondPeriodLowerBound<T: Config> =
-		StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub(crate) type UnbondPeriodLowerBound<T: Config> = StorageValue<_, EraIndex, ValueQuery>;
 
 	/// The maximum possible unbonding time for an active stake.
 	#[pallet::storage]
-	pub(crate) type UnbondPeriodUpperBound<T: Config> =
-		StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub(crate) type UnbondPeriodUpperBound<T: Config> = StorageValue<_, EraIndex, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -766,8 +764,8 @@ pub mod pallet {
 		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
 		pub min_slashable_share: Perbill,
-		pub unbond_period_lower_bound: BlockNumberFor<T>,
-		pub unbond_period_upper_bound: BlockNumberFor<T>,
+		pub unbond_period_lower_bound: EraIndex,
+		pub unbond_period_upper_bound: EraIndex,
 	}
 
 	#[pallet::genesis_build]

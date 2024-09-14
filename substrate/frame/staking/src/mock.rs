@@ -328,8 +328,8 @@ pub struct ExtBuilder {
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
 	min_slashable_share: Perbill,
-	unbond_period_upper_bound: BlockNumber,
-	unbond_period_lower_bound: BlockNumber,
+	unbond_period_upper_bound: EraIndex,
+	unbond_period_lower_bound: EraIndex,
 }
 
 impl Default for ExtBuilder {
@@ -348,8 +348,8 @@ impl Default for ExtBuilder {
 			stakes: Default::default(),
 			stakers: Default::default(),
 			min_slashable_share: Perbill::from_percent(50),
-			unbond_period_lower_bound: 28800,
-			unbond_period_upper_bound: 403200,
+			unbond_period_lower_bound: 2,
+			unbond_period_upper_bound: 28,
 		}
 	}
 }
