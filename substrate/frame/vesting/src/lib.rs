@@ -548,6 +548,8 @@ impl<T: Config> Pallet<T> {
 		T::Currency::transfer(source, target, schedule.locked(), ExistenceRequirement::AllowDeath)?;
 
 		// We can't let this fail because the currency transfer has already happened.
+		// Must be successful as it has been checked before.
+		// Better to return error on failure anyway.
 		Self::add_vesting_schedule(
 			target,
 			schedule.locked(),
