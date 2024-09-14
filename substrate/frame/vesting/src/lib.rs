@@ -555,7 +555,7 @@ impl<T: Config> Pallet<T> {
 			schedule.locked(),
 			schedule.per_block(),
 			schedule.starting_block(),
-		)?;
+		);
 		debug_assert!(res.is_ok(), "Failed to add a schedule when we had to succeed.");
 
 		Ok(())
