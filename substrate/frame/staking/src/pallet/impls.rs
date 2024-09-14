@@ -1163,11 +1163,6 @@ impl<T: Config> Pallet<T> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
 
-	/// Whether `who` is a virtual staker whose funds are managed by another pallet.
-	pub(crate) fn is_virtual_staker(who: &T::AccountId) -> bool {
-		VirtualStakers::<T>::contains_key(who)
-	}
-
 	/// Unbonds a controller.
 	pub(crate) fn do_unbond(
 		controller: T::AccountId,
