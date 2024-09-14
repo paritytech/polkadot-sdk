@@ -735,6 +735,21 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+	/// The share of stake backing the lowest 1/3 of validators that is slashable at any point in
+	/// time. It offers a trade-off between security and unbonding time.
+	#[pallet::storage]
+	pub(crate) type MinSlashableShare<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
+	/// The minimum unbonding time for an active stake.
+	#[pallet::storage]
+	pub(crate) type UnbondPeriodLowerBound<T: Config> =
+		StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+
+	/// The maximum possible unbonding time for an active stake.
+	#[pallet::storage]
+	pub(crate) type UnbondPeriodUpperBound<T: Config> =
+		StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -750,6 +765,9 @@ pub mod pallet {
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
+		pub min_slashable_share: Perbill,
+		pub unbond_period_lower_bound: BlockNumberFor<T>,
+		pub unbond_period_upper_bound: BlockNumberFor<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -769,6 +787,9 @@ pub mod pallet {
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
 			}
+			MinSlashableShare::<T>::put(self.min_slashable_share);
+			UnbondPeriodUpperBound::<T>::put(self.unbond_period_lower_bound);
+			UnbondPeriodLowerBound::<T>::put(self.unbond_period_upper_bound);
 
 			for &(ref stash, _, balance, ref status) in &self.stakers {
 				crate::log!(
