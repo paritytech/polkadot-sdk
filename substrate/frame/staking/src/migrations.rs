@@ -60,6 +60,42 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+pub mod v16 {
+	use super::*;
+
+	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
+		fn on_runtime_upgrade() -> Weight {
+			// Set the min slashable share to 50%.
+			MinSlashableShare::<T>::set(Perbill::from_percent(50));
+
+			// Set the unbonding period lower bound to 2 eras.
+			UnbondPeriodLowerBound::<T>::set(2u32.into());
+
+			// Set the unbonding period upper bound to 28 eras.
+			UnbondPeriodUpperBound::<T>::set(28u32.into());
+
+			log!(info, "v16 applied successfully.");
+			T::DbWeight::get().reads_writes(0, 3)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// TODO: implement.
+			Ok(())
+		}
+	}
+
+	/// v16: Adds newly added unbond parameters for flexible unbonding queue.
+	pub type MigrateV15ToV16<T> = frame_support::migrations::VersionedMigration<
+		15,
+		16,
+		VersionUncheckedMigrateV15ToV16<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
 /// Migrating `OffendingValidators` from `Vec<(u32, bool)>` to `Vec<u32>`
 pub mod v15 {
 	use super::*;
