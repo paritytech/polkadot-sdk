@@ -274,15 +274,16 @@ benchmarks! {
 
 		let stash = scenario.origin_stash1.clone();
 		let controller = scenario.origin_controller1.clone();
+		let amount = origin_weight - scenario.dest_weight;
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_bonded: BalanceOf<T> = ledger.active;
 
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), original_bonded)
+	}: _(RawOrigin::Signed(controller.clone()), amount)
 	verify {
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
-		assert!(new_bonded == Zero::zero());
+		assert!(original_bonded > new_bonded);
 	}
 
 	// Withdraw only updates the ledger
