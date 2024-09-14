@@ -550,12 +550,13 @@ impl<T: Config> Pallet<T> {
 		// We can't let this fail because the currency transfer has already happened.
 		// Must be successful as it has been checked before.
 		// Better to return error on failure anyway.
-		Self::add_vesting_schedule(
+		let res = Self::add_vesting_schedule(
 			target,
 			schedule.locked(),
 			schedule.per_block(),
 			schedule.starting_block(),
 		)?;
+		debug_assert!(res.is_ok(), "Failed to add a schedule when we had to succeed.");
 
 		Ok(())
 	}
