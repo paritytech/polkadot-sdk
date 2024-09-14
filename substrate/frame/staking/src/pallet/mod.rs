@@ -1095,19 +1095,18 @@ pub mod pallet {
 
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
+			let mut total_weight = T::WeightInfo::unbond();
+
 			if value >= ledger.total {
 				Self::chill_stash(&ledger.stash);
+				total_weight = total_weight.saturating_add(T::WeightInfo::chill());
 			}
 
-			let maybe_withdraw_weight = Self::do_unbond(controller, value)?;
+			if let Some(withdraw_weight) = Self::do_unbond(controller, value)? {
+				total_weight = total_weight.saturating_add(withdraw_weight);
+			}
 
-			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
-				Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
-			} else {
-				Some(T::WeightInfo::unbond())
-			};
-
-			Ok(actual_weight.into())
+			Ok(Some(total_weight).into())
 		}
 
 		/// Remove any unlocked chunks from the `unlocking` queue from our management.
