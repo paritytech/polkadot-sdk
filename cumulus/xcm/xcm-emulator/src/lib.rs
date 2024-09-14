@@ -17,12 +17,16 @@
 extern crate alloc;
 
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-pub use lazy_static::lazy_static;
 pub use log;
 pub use paste;
 pub use std::{
-	any::type_name, collections::HashMap, error::Error, fmt, marker::PhantomData, ops::Deref,
-	sync::Mutex,
+	any::type_name,
+	collections::HashMap,
+	error::Error,
+	fmt,
+	marker::PhantomData,
+	ops::Deref,
+	sync::{LazyLock, Mutex},
 };
 
 // Substrate
@@ -442,10 +446,8 @@ macro_rules! __impl_test_ext_for_relay_chain {
 				= $crate::RefCell::new($crate::TestExternalities::new($genesis));
 		}
 
-		$crate::lazy_static! {
-			pub static ref $global_ext: $crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>
-				= $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new()));
-		}
+		pub static $global_ext: $crate::LazyLock<$crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>>
+			= $crate::LazyLock::new(|| $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new())));
 
 		impl<$network: $crate::Network> $crate::TestExt for $name<$network> {
 			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
@@ -477,10 +479,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 					v.take()
 				});
 
-				// Get TestExternality from lazy_static
+				// Get TestExternality from LazyLock
 				let global_ext_guard = $global_ext.lock().unwrap();
 
-				// Replace TestExternality in lazy_static by TestExternality from thread_local
+				// Replace TestExternality in LazyLock by TestExternality from thread_local
 				global_ext_guard.deref().borrow_mut().insert(id.to_string(), local_ext);
 			}
 
@@ -489,10 +491,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 
 				let mut global_ext_unlocked = false;
 
-				// Keep the mutex unlocked until TesExternality from lazy_static
+				// Keep the mutex unlocked until TesExternality from LazyLock
 				// has been updated
 				while !global_ext_unlocked {
-					// Get TesExternality from lazy_static
+					// Get TesExternality from LazyLock
 					let global_ext_result = $global_ext.try_lock();
 
 					if let Ok(global_ext_guard) = global_ext_result {
@@ -505,10 +507,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 					}
 				}
 
-				// Now that we know that lazy_static TestExt has been updated, we lock its mutex
+				// Now that we know that TestExt has been updated, we lock its mutex
 				let mut global_ext_guard = $global_ext.lock().unwrap();
 
-				// and set TesExternality from lazy_static into TesExternality for local_thread
+				// and set TesExternality from LazyLock into TesExternality for local_thread
 				let global_ext = global_ext_guard.deref();
 
 				$local_ext.with(|v| {
@@ -740,10 +742,8 @@ macro_rules! __impl_test_ext_for_parachain {
 				= $crate::RefCell::new($crate::TestExternalities::new($genesis));
 		}
 
-		$crate::lazy_static! {
-			pub static ref $global_ext: $crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>
-				= $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new()));
-		}
+		pub static $global_ext: $crate::LazyLock<$crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>>
+			= $crate::LazyLock::new(|| $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new())));
 
 		impl<$network: $crate::Network> $crate::TestExt for $name<$network> {
 			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
@@ -773,10 +773,10 @@ macro_rules! __impl_test_ext_for_parachain {
 					v.take()
 				});
 
-				// Get TestExternality from lazy_static
+				// Get TestExternality from LazyLock
 				let global_ext_guard = $global_ext.lock().unwrap();
 
-				// Replace TestExternality in lazy_static by TestExternality from thread_local
+				// Replace TestExternality in LazyLock by TestExternality from thread_local
 				global_ext_guard.deref().borrow_mut().insert(id.to_string(), local_ext);
 			}
 
@@ -785,10 +785,10 @@ macro_rules! __impl_test_ext_for_parachain {
 
 				let mut global_ext_unlocked = false;
 
-				// Keep the mutex unlocked until TesExternality from lazy_static
+				// Keep the mutex unlocked until TesExternality from LazyLock
 				// has been updated
 				while !global_ext_unlocked {
-					// Get TesExternality from lazy_static
+					// Get TesExternality from LazyLock
 					let global_ext_result = $global_ext.try_lock();
 
 					if let Ok(global_ext_guard) = global_ext_result {
@@ -801,10 +801,10 @@ macro_rules! __impl_test_ext_for_parachain {
 					}
 				}
 
-				// Now that we know that lazy_static TestExt has been updated, we lock its mutex
+				// Now that we know that TestExt has been updated, we lock its mutex
 				let mut global_ext_guard = $global_ext.lock().unwrap();
 
-				// and set TesExternality from lazy_static into TesExternality for local_thread
+				// and set TesExternality from LazyLock into TesExternality for local_thread
 				let global_ext = global_ext_guard.deref();
 
 				$local_ext.with(|v| {

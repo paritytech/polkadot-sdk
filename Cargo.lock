@@ -4122,7 +4122,6 @@ dependencies = [
  "futures",
  "hex-literal",
  "impl-trait-for-tuples",
- "lazy_static",
  "log",
  "pallet-message-queue",
  "parity-scale-codec",
@@ -13754,7 +13753,6 @@ dependencies = [
 name = "polkadot-node-jaeger"
 version = "7.0.0"
 dependencies = [
- "lazy_static",
  "log",
  "mick-jaeger",
  "parity-scale-codec",
@@ -24251,7 +24249,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
- "lazy_static",
  "log",
  "pallet-balances",
  "pallet-message-queue",
