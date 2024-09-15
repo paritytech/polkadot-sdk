@@ -25,7 +25,7 @@ use frame_support::traits::{
 	},
 	tokens::Precision,
 };
-use sp_runtime::{traits::Zero, DispatchResult};
+use sp_runtime::{traits::Zero, DispatchResult, Saturating};
 
 use crate::{
 	BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf, SessionInterface,
@@ -50,14 +50,21 @@ pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 ///
 /// This includes balance free to stake along with any balance that is already staked.
 pub fn stakeable_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
-	T::Currency::balance(who) + T::Currency::balance_on_hold(&HoldReason::Staking.into(), who)
+	free_to_stake::<T>(who).saturating_add(staked::<T>(who))
 }
 
 /// Balance of `who` that is currently at stake.
 ///
-/// The staked amount is locked and cannot be transferred out of `who`s account.
+/// The staked amount is on hold and cannot be transferred out of `who`s account.
 pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::balance_on_hold(&HoldReason::Staking.into(), who)
+}
+
+/// Balance of who that can be staked additionally.
+///
+/// Does not include the current stake.
+pub fn free_to_stake<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
+	T::Currency::balance(who)
 }
 
 /// Set balance that can be staked for `who`.

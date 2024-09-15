@@ -36,8 +36,7 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
 	traits::{
-		Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion, Saturating,
-		StaticLookup, Zero,
+		Bounded, CheckedAdd, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchResult, Perbill, Percent,
 };
@@ -164,11 +163,7 @@ impl<T: Config> Pallet<T> {
 			additional
 		} else {
 			// additional amount or actual balance of stash whichever is lower.
-			additional.min(
-				asset::stakeable_balance::<T>(stash)
-					.checked_sub(&ledger.total)
-					.ok_or(ArithmeticError::Overflow)?,
-			)
+			additional.min(asset::free_to_stake::<T>(stash))
 		};
 
 		ledger.total = ledger.total.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
