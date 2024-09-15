@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, OnUnbalanced,
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockIdentifier, OnUnbalanced,
 		OneSessionHandler,
 	},
 	weights::constants::RocksDbWeight,
@@ -928,4 +928,15 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(asset::stakeable_balance::<Test>(who), Balances::reserved_balance(who))
+}
+
+pub(crate) fn migrate_to_old_currency(who: &AccountId) {
+	use frame_support::traits::LockableCurrency;
+	let staked = asset::staked::<Test>(who);
+
+	// apply locks.
+	Balances::set_lock(STAKING_ID, who, staked, frame_support::traits::WithdrawReasons::all());
+
+	// remove holds.
+	asset::kill_stake::<Test>(who).expect("remove hold failed");
 }

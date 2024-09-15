@@ -26,8 +26,9 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
+	hypothetically,
 	pallet_prelude::*,
-	traits::{Currency, Get, ReservableCurrency},
+	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
 };
 
 use mock::*;
@@ -8345,5 +8346,87 @@ mod byzantine_threshold_disabling_strategy {
 
 			assert_eq!(disable_offender, Some(OFFENDER_VALIDATOR_IDX));
 		});
+	}
+}
+
+mod hold_migration {
+	use super::*;
+	use sp_staking::{Stake, StakingInterface};
+
+	#[test]
+	fn ledger_update_creates_hold() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// GIVEN alice who is a nominator with old currency
+			let alice = 300;
+			bond_nominator(alice, 1000, vec![11]);
+			assert_eq!(asset::staked::<Test>(&alice), 1000);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+			// migrate alice currency to legacy locks
+			migrate_to_old_currency(&alice);
+			// no more holds
+			assert_eq!(asset::staked::<Test>(&alice), 0);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 1000);
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: 1000, active: 1000 })
+			);
+
+			// any ledger mutation should create a hold
+			hypothetically!({
+				// give some extra balance to alice.
+				let _ = asset::mint_existing::<Test>(&alice, 100);
+
+				// WHEN new fund is bonded to ledger.
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(alice), 100));
+
+				// THEN new hold is created
+				assert_eq!(asset::staked::<Test>(&alice), 1000 + 100);
+				assert_eq!(
+					<Staking as StakingInterface>::stake(&alice),
+					Ok(Stake { total: 1100, active: 1100 })
+				);
+
+				// old locked balance is untouched
+				assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 1000);
+			});
+
+			hypothetically!({
+				// WHEN new fund is unbonded from ledger.
+				assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
+
+				// THEN hold is updated.
+				assert_eq!(asset::staked::<Test>(&alice), 1000);
+				assert_eq!(
+					<Staking as StakingInterface>::stake(&alice),
+					Ok(Stake { total: 1000, active: 900 })
+				);
+
+				// old locked balance is untouched
+				assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 1000);
+			});
+
+			// WHEN alice currency is migrated.
+			assert_ok!(Staking::migrate_currency(&alice));
+
+			// THEN hold is updated.
+			assert_eq!(asset::staked::<Test>(&alice), 1000);
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: 1000, active: 1000 })
+			);
+
+			// locked balance is removed
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+		});
+	}
+
+	#[test]
+	fn migrate_removes_old_lock() {}
+	#[test]
+	fn cannot_hold_all_stake() {}
+
+	#[test]
+	fn hold_includes_ed() {
+		// edge case bond extra with all free does not work
 	}
 }

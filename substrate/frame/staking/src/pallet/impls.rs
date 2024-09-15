@@ -54,6 +54,7 @@ use crate::{
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -1162,14 +1163,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn migrate_currency(stash: &T::AccountId) -> DispatchResult {
-		use frame_support::traits::{InspectLockableCurrency, LockIdentifier, LockableCurrency};
+		use frame_support::traits::{InspectLockableCurrency, LockableCurrency};
 
 		// we can't do anything for virtual stakers since their funds are not managed/held by
 		// this pallet.
 		ensure!(!Self::is_virtual_staker(stash), Error::<T>::VirtualStakerNotAllowed);
 		let ledger = Self::ledger(Stash(stash.clone()))?;
-		const LOCK_ID: LockIdentifier = *b"staking ";
-		let locked: BalanceOf<T> = T::OldCurrency::balance_locked(LOCK_ID, stash).into();
+		let locked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
 		ensure!(!locked.is_zero(), Error::<T>::AlreadyMigrated);
 		ensure!(ledger.total == locked, Error::<T>::BadState);
 
@@ -1196,11 +1196,12 @@ impl<T: Config> Pallet<T> {
 			force_withdraw
 		};
 
-		// We used to have an extra consumer before. Get rid of it.
+		// remove lock
+		T::OldCurrency::remove_lock(STAKING_ID, &stash);
+		// Get rid of the extra consumer we used to have with OldCurrency.
 		frame_system::Pallet::<T>::dec_consumers(&stash);
 
 		Self::deposit_event(Event::<T>::CurrencyMigrated { stash: stash.clone(), force_withdraw });
-
 		Ok(())
 	}
 }

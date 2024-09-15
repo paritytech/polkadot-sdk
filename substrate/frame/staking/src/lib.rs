@@ -313,7 +313,7 @@ use frame_support::{
 	defensive, defensive_assert,
 	traits::{
 		tokens::fungible::{Credit, Debt},
-		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get,
+		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -335,6 +335,7 @@ pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
+pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking";
 
 // syntactic sugar for logging.
