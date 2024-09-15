@@ -1176,7 +1176,6 @@ impl<T: Config> Pallet<T> {
 			// if we are here, it means we cannot hold all funds. We will do a force withdraw from
 			// ledger which will mean the stake of the user will abruptly reduce.
 			let force_withdraw = locked.saturating_sub(max_hold);
-			log::info!(target: "remote_test", "force_withdraw from stash: {:?}, value {:?}, active {:?}", stash, force_withdraw, ledger.active);
 
 			// we ignore if active is 0. It implies the locked amount is not actively staked. The
 			// account can still get away from potential slash but we can't do much better here.

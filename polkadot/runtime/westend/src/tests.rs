@@ -276,13 +276,21 @@ mod remote_tests {
 
 			let mut success = 0;
 			let mut err = 0;
+			let mut force_withdraw_acc = 0;
 			// iterate over all pools
-			pallet_staking::Ledger::<Runtime>::iter_values().for_each(|ledger| {
+			pallet_staking::Ledger::<Runtime>::iter().for_each(|(ctrl, ledger)| {
 				match pallet_staking::Pallet::<Runtime>::migrate_currency(
 					RuntimeOrigin::signed(alice.clone()).into(),
-					&ledger.stash,
+					ledger.stash.clone(),
 				) {
 					Ok(_) => {
+						let updated_ledger =
+							pallet_staking::Ledger::<Runtime>::get(&ctrl).expect("ledger exists");
+						let force_withdraw = ledger.total - updated_ledger.total;
+						if force_withdraw > 0 {
+							force_withdraw_acc += force_withdraw;
+							log::info!(target: "remote_test", "Force withdraw from stash {:?}: value {:?}", ledger.stash, force_withdraw);
+						}
 						success += 1;
 					},
 					Err(e) => {
@@ -294,9 +302,10 @@ mod remote_tests {
 
 			log::info!(
 				target: "remote_test",
-				"Migration stats: success: {}, err: {}",
+				"Migration stats: success: {}, err: {}, total force withdrawn stake: {}",
 				success,
 				err,
+				force_withdraw_acc
 			);
 		});
 	}
