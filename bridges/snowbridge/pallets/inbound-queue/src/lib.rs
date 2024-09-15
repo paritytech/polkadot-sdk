@@ -48,12 +48,11 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
-use sp_core::{H160, H256};
+use sp_core::H160;
 use sp_runtime::traits::Zero;
 use sp_std::vec;
 use xcm::prelude::{
-	send_xcm, Instruction::SetTopic, Junction::*, Location, SendError as XcmpSendError, SendXcm,
-	Xcm, XcmContext, XcmHash,
+	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
 };
 use xcm_executor::traits::TransactAsset;
 
@@ -62,9 +61,8 @@ use snowbridge_core::{
 	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters,
 	StaticLookup,
 };
-use snowbridge_router_primitives::{
-	inbound,
-	inbound::{ConvertMessage, ConvertMessageError},
+use snowbridge_router_primitives::inbound::{
+	ConvertMessage, ConvertMessageError, VersionedMessage,
 };
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
@@ -86,6 +84,7 @@ pub mod pallet {
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_core::H256;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -276,12 +275,12 @@ pub mod pallet {
 				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
 			}
 
+			// Decode payload into `VersionedMessage`
+			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
+				.map_err(|_| Error::<T>::InvalidPayload)?;
+
 			// Decode message into XCM
-			let (xcm, fee) =
-				match inbound::VersionedMessage::decode_all(&mut envelope.payload.as_ref()) {
-					Ok(message) => Self::do_convert(envelope.message_id, message)?,
-					Err(_) => return Err(Error::<T>::InvalidPayload.into()),
-				};
+			let (xcm, fee) = Self::do_convert(envelope.message_id, message.clone())?;
 
 			log::info!(
 				target: LOG_TARGET,
@@ -323,12 +322,10 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn do_convert(
 			message_id: H256,
-			message: inbound::VersionedMessage,
+			message: VersionedMessage,
 		) -> Result<(Xcm<()>, BalanceOf<T>), Error<T>> {
-			let (mut xcm, fee) =
-				T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?;
-			// Append the message id as an XCM topic
-			xcm.inner_mut().extend(vec![SetTopic(message_id.into())]);
+			let (xcm, fee) = T::MessageConverter::convert(message_id, message)
+				.map_err(|e| Error::<T>::ConvertMessage(e))?;
 			Ok((xcm, fee))
 		}
 

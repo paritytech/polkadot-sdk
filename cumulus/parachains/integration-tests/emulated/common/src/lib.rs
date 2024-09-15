@@ -60,6 +60,7 @@ pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 pub const USDT_ID: u32 = 1984;
 
 pub const PENPAL_ID: u32 = 2000;
+pub const PENPAL_B_ID: u32 = 2001;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 parameter_types! {
@@ -71,6 +72,14 @@ parameter_types! {
 			]
 		);
 	pub PenpalSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_ID).into_account_truncating();
+	pub PenpalBTeleportableAssetLocation: xcm::v4::Location
+		= xcm::v4::Location::new(1, [
+				xcm::v4::Junction::Parachain(PENPAL_B_ID),
+				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+			]
+		);
+	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
 }
 
 /// Helper function to generate a crypto pair from seed

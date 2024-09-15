@@ -3300,7 +3300,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "coretime-rococo-runtime",
  "cumulus-primitives-core",
@@ -3313,14 +3313,17 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-integration-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-balances",
+ "pallet-broker",
  "pallet-identity",
  "pallet-message-queue",
  "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
  "sp-runtime",
@@ -3358,6 +3361,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-message-queue",
  "pallet-multisig",
+ "pallet-proxy",
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
@@ -3396,7 +3400,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "coretime-westend-runtime",
  "cumulus-primitives-core",
@@ -3409,14 +3413,17 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-integration-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-balances",
+ "pallet-broker",
  "pallet-identity",
  "pallet-message-queue",
  "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
@@ -3454,6 +3461,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-message-queue",
  "pallet-multisig",
+ "pallet-proxy",
  "pallet-session",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -11466,6 +11474,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "frame-system",
+ "log",
  "parity-wasm",
  "polkavm-linker 0.10.0",
  "sp-core",
@@ -12686,6 +12695,7 @@ dependencies = [
  "pallet-identity",
  "pallet-message-queue",
  "pallet-multisig",
+ "pallet-proxy",
  "pallet-session",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -12785,6 +12795,7 @@ dependencies = [
  "pallet-identity",
  "pallet-message-queue",
  "pallet-multisig",
+ "pallet-proxy",
  "pallet-session",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -19580,6 +19591,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
