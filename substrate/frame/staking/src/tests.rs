@@ -8494,7 +8494,10 @@ mod hold_migration {
 			// ensure events are emitted.
 			assert_eq!(
 				staking_events_since_last_call(),
-				vec![Event::CurrencyMigrated { stash: alice, force_withdraw: expected_force_withdraw }]
+				vec![Event::CurrencyMigrated {
+					stash: alice,
+					force_withdraw: expected_force_withdraw
+				}]
 			);
 		});
 	}
