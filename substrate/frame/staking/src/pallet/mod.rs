@@ -2182,10 +2182,17 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(30)]
+		// FIXME(ank4n): Bench
 		#[pallet::weight(Weight::zero())]
-		pub fn migrate_currency(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
+		pub fn migrate_currency(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
-			Self::do_migrate_currency(&stash)
+			Self::do_migrate_currency(&stash)?;
+
+			// Refund the transaction fee.
+			Ok(Pays::No.into())
 		}
 	}
 }

@@ -80,7 +80,8 @@ pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>)
 		let _ = T::Currency::set_balance(who, Zero::zero());
 	}
 
-	assert_eq!(total_balance::<T>(who), value);
+	// ensure new stakeable balance same as desired `value`.
+	assert_eq!(stakeable_balance::<T>(who), value);
 }
 
 /// Update `amount` at stake for `who`.

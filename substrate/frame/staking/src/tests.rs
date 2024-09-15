@@ -26,7 +26,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
-	hypothetically,
+	hypothetically, hypothetically_ok,
 	pallet_prelude::*,
 	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
 };
@@ -1937,6 +1937,42 @@ fn reap_stash_works() {
 			assert!(!<Payee<Test>>::contains_key(&11));
 			// lock is removed.
 			assert_eq!(asset::staked::<Test>(&11), 0);
+		});
+}
+
+#[test]
+fn reap_stash_fails_if_extra_consumer() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.balance_factor(10)
+		.build_and_execute(|| {
+			// given
+			assert_eq!(asset::staked::<Test>(&11), 10 * 1000);
+			assert_eq!(Staking::bonded(&11), Some(11));
+
+			// When ledger goes below ED
+			let mut ledger = Staking::ledger(11.into()).unwrap();
+			ledger.slash(ledger.total, 10, 1);
+			assert_ok!(ledger.update());
+			// make stake balance as zero.
+			asset::set_stakeable_balance::<Test>(&11, 0);
+			assert_eq!(asset::staked::<Test>(&11), 0);
+
+			// reap stash would work without the extra consumer.
+			hypothetically_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+
+			// mock stash has an extra consumer from another pallet in the runtime.
+			System::inc_consumers(&11).expect("stash has a provider so this should not fail");
+
+			// This would prevent the pallet to decrement provider from reaping the stash.
+			assert_noop!(
+				Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+				DispatchError::ConsumerRemaining
+			);
+
+			// Once the extra consumer is removed, the pallet can reap the stash.
+			System::dec_consumers(&11);
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
 		});
 }
 

@@ -251,7 +251,7 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
 	/// storage items and updates the stash staking lock.
-	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
+	pub(crate) fn kill(stash: &T::AccountId) -> DispatchResult {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
@@ -262,7 +262,7 @@ impl<T: Config> StakingLedger<T> {
 			// kill virtual staker if it exists.
 			if <VirtualStakers<T>>::take(&ledger.stash).is_none() {
 				// if not virtual staker, clear locks.
-				asset::kill_stake::<T>(&ledger.stash).map_err(|_| Error::<T>::CannotReapStash)?;
+				asset::kill_stake::<T>(&ledger.stash)?;
 			}
 
 			Ok(())
@@ -270,6 +270,7 @@ impl<T: Config> StakingLedger<T> {
 	}
 }
 
+use sp_runtime::DispatchResult;
 #[cfg(test)]
 use {
 	crate::UnlockChunk,
