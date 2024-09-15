@@ -4254,4 +4254,42 @@ mod run_tests {
 			assert_eq!(usable_balance, value);
 		});
 	}
+
+	#[test]
+	fn static_data_limit_is_enforced() {
+		let (oom_rw_trailing, _) = compile_module("oom_rw_trailing").unwrap();
+		let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
+		let (oom_ro, _) = compile_module("oom_ro").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_rw_trailing,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::StaticDataTooLarge
+			);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_rw_included,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BlobTooLarge
+			);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_ro,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::StaticDataTooLarge
+			);
+		});
+	}
 }
