@@ -8455,15 +8455,47 @@ mod hold_migration {
 	}
 	#[test]
 	fn cannot_hold_all_stake() {
+		// When there is not enough funds to hold all stake, part of the stake if force withdrawn.
+		// At end of the migration, the stake and hold should be same.
 		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
-			// check force withdraw
-		});
-	}
+			// GIVEN alice who is a nominator with old currency.
+			let alice = 300;
+			let stake = 1000;
+			bond_nominator(alice, stake, vec![11]);
+			migrate_to_old_currency(&alice);
+			assert_eq!(asset::staked::<Test>(&alice), 0);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), stake);
+			// ledger has 1000 staked.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: stake, active: stake })
+			);
 
-	#[test]
-	fn hold_includes_ed() {
-		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
-			// edge case bond extra with all free does not work
+			// She has extra reserved amount which would prevent us from holding all stake.
+			let expected_force_withdraw = 200;
+			assert_ok!(Balances::reserve(&alice, expected_force_withdraw));
+
+			// clear events
+			System::reset_events();
+
+			// WHEN alice currency is migrated.
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+
+			// THEN
+			let expected_hold = stake - expected_force_withdraw;
+			// ensure no lock
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+			// ensure stake and hold are same.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: expected_hold, active: expected_hold })
+			);
+			assert_eq!(asset::staked::<Test>(&alice), expected_hold);
+			// ensure events are emitted.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::CurrencyMigrated { stash: alice, force_withdraw: expected_force_withdraw }]
+			);
 		});
 	}
 }
