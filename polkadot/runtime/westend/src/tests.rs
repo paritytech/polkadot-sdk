@@ -278,7 +278,10 @@ mod remote_tests {
 			let mut err = 0;
 			// iterate over all pools
 			pallet_staking::Ledger::<Runtime>::iter_values().for_each(|ledger| {
-				match pallet_staking::Pallet::<Runtime>::migrate_currency(&ledger.stash) {
+				match pallet_staking::Pallet::<Runtime>::migrate_currency(
+					RuntimeOrigin::signed(alice.clone()).into(),
+					&ledger.stash,
+				) {
 					Ok(_) => {
 						success += 1;
 					},

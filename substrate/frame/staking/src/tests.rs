@@ -8406,7 +8406,7 @@ mod hold_migration {
 			});
 
 			// WHEN alice currency is migrated.
-			assert_ok!(Staking::migrate_currency(&alice));
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
 
 			// THEN hold is updated.
 			assert_eq!(asset::staked::<Test>(&alice), 1000);
@@ -8421,12 +8421,49 @@ mod hold_migration {
 	}
 
 	#[test]
-	fn migrate_removes_old_lock() {}
+	fn migrate_removes_old_lock() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// GIVEN alice who is a nominator with old currency
+			let alice = 300;
+			bond_nominator(alice, 1000, vec![11]);
+			migrate_to_old_currency(&alice);
+			assert_eq!(asset::staked::<Test>(&alice), 0);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 1000);
+			let pre_migrate_consumer = System::consumers(&alice);
+			System::reset_events();
+
+			// WHEN alice currency is migrated.
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+
+			// THEN
+			// ensure consumer count stays same.
+			assert_eq!(System::consumers(&alice), pre_migrate_consumer);
+			// ensure no lock
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+			// ensure stake and hold are same.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: 1000, active: 1000 })
+			);
+			assert_eq!(asset::staked::<Test>(&alice), 1000);
+			// ensure events are emitted.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::CurrencyMigrated { stash: alice, force_withdraw: 0 }]
+			);
+		});
+	}
 	#[test]
-	fn cannot_hold_all_stake() {}
+	fn cannot_hold_all_stake() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// check force withdraw
+		});
+	}
 
 	#[test]
 	fn hold_includes_ed() {
-		// edge case bond extra with all free does not work
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// edge case bond extra with all free does not work
+		});
 	}
 }

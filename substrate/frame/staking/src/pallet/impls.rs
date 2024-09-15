@@ -62,7 +62,6 @@ use super::pallet::*;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
-use frame_support::traits::LockIdentifier;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
@@ -1162,7 +1161,7 @@ impl<T: Config> Pallet<T> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
 
-	pub fn migrate_currency(stash: &T::AccountId) -> DispatchResult {
+	pub(super) fn do_migrate_currency(stash: &T::AccountId) -> DispatchResult {
 		use frame_support::traits::{InspectLockableCurrency, LockableCurrency};
 
 		// we can't do anything for virtual stakers since their funds are not managed/held by
@@ -1198,6 +1197,7 @@ impl<T: Config> Pallet<T> {
 
 		// remove lock
 		T::OldCurrency::remove_lock(STAKING_ID, &stash);
+
 		// Get rid of the extra consumer we used to have with OldCurrency.
 		frame_system::Pallet::<T>::dec_consumers(&stash);
 

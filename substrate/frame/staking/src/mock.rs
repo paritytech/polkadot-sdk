@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockIdentifier, OnUnbalanced,
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, OnUnbalanced,
 		OneSessionHandler,
 	},
 	weights::constants::RocksDbWeight,
@@ -934,9 +934,11 @@ pub(crate) fn migrate_to_old_currency(who: &AccountId) {
 	use frame_support::traits::LockableCurrency;
 	let staked = asset::staked::<Test>(who);
 
-	// apply locks.
+	// apply locks (this also adds a consumer).
 	Balances::set_lock(STAKING_ID, who, staked, frame_support::traits::WithdrawReasons::all());
-
 	// remove holds.
 	asset::kill_stake::<Test>(who).expect("remove hold failed");
+
+	// replicate old behaviour of explicitly increment consumer.
+	System::inc_consumers(who).expect("increment consumer failed");
 }

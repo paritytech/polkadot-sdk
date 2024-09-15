@@ -2180,6 +2180,13 @@ pub mod pallet {
 			);
 			Ok(())
 		}
+
+		#[pallet::call_index(30)]
+		#[pallet::weight(Weight::zero())]
+		pub fn migrate_currency(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+			Self::do_migrate_currency(&stash)
+		}
 	}
 }
 
