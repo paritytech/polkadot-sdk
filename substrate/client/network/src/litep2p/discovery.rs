@@ -507,19 +507,26 @@ impl Stream for Discovery {
 			return Poll::Ready(Some(event))
 		}
 
+		// Mandatory kad random queries issued periodically.
 		if let Some(mut delay) = this.next_mandatory_kad_query.take() {
 			match delay.poll_unpin(cx) {
 				Poll::Ready(()) => {
 					if this.find_node_queries.len() < MAX_INFLIGHT_FIND_NODE_QUERIES {
 						let peer = PeerId::random();
-						log::debug!(target: LOG_TARGET, "start next mandatory kademlia query for {peer:?} {num_peers}/2x{} connected peers", this.discovery_only_if_under_num,);
+						log::debug!(target: LOG_TARGET, "start next mandatory kademlia query for {peer:?}");
 
 						if let Ok(query_id) = this.kademlia_handle.try_find_node(peer) {
+							this.find_node_queries.insert(query_id, std::time::Instant::now());
+
 							this.next_mandatory_kad_query =
 								Some(Delay::new(MANDATORY_QUERY_INTERVAL));
 
 							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+						} else {
+							log::error!(target: LOG_TARGET, "Kademlia mandatory query cannot be started: handler channel is full");
 						}
+					} else {
+						log::debug!(target: LOG_TARGET, "discovery is paused: too many in-flight queries");
 					}
 				},
 				Poll::Pending => {
@@ -528,6 +535,8 @@ impl Stream for Discovery {
 			}
 		}
 
+		// Exponential timer that checks more frequently if the node is under a number
+		// of healthy connected peers reported by the sync protocol.
 		if let Some(mut delay) = this.next_kad_query.take() {
 			match delay.poll_unpin(cx) {
 				Poll::Ready(()) => {
@@ -549,6 +558,8 @@ impl Stream for Discovery {
 								Some(Delay::new(this.duration_to_next_find_query));
 
 							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+						} else {
+							log::error!(target: LOG_TARGET, "Kademlia mandatory query cannot be started: handler channel is full");
 						}
 					} else {
 						log::debug!(
