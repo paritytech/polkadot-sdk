@@ -48,7 +48,9 @@ pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BlockNumberProvider, Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
+	traits::{
+		BlockNumberProvider, Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero,
+	},
 	DispatchError, DispatchResult, RuntimeDebug,
 };
 pub use weights::WeightInfo;
