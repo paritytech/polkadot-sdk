@@ -937,8 +937,7 @@ impl PalletCmd {
 		if let Some(output_path) = &self.output {
 			if !output_path.is_dir() && output_path.file_name().is_none() {
 				return Err(format!(
-					"Output path is neither a directory nor a file: {:?}",
-					output_path
+					"Output path is neither a directory nor a file: {output_path:?}"
 				)
 				.into())
 			}
