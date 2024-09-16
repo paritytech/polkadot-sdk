@@ -120,9 +120,9 @@ pub type Migrations = (
 	pallet_broker::migration::MigrateV0ToV1<Runtime>,
 	pallet_broker::migration::MigrateV1ToV2<Runtime>,
 	pallet_broker::migration::MigrateV2ToV3<Runtime>,
-	pallet_broker::migration::MigrateV3ToV4<Runtime, BrokerMigrationV4BlockConversion>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	pallet_broker::migration::MigrateV3ToV4<Runtime, BrokerMigrationV4BlockConversion>,
 );
 
 /// Executive: handles dispatch to the various modules.
