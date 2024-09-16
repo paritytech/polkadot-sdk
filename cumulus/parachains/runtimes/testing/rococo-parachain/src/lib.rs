@@ -595,6 +595,7 @@ impl pallet_assets::Config for Runtime {
 	type CallbackHandle = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
+	type DepositDestinationOnRevocation = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -675,8 +676,11 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	RemoveCollectiveFlip,
+	Migrations,
 >;
+
+/// Migrations to apply on runtime upgrade.
+pub type Migrations = (RemoveCollectiveFlip, pallet_assets::migration::v2::MigrateV1ToV2<Runtime>);
 
 pub struct RemoveCollectiveFlip;
 impl frame_support::traits::OnRuntimeUpgrade for RemoveCollectiveFlip {

@@ -84,6 +84,7 @@ pub trait WeightInfo {
 	fn refund_other() -> Weight;
 	fn block() -> Weight;
 	fn transfer_all() -> Weight;
+	fn revoke_all_privileges() -> Weight;
 }
 
 /// Weights for `pallet_assets` using the Substrate node and recommended hardware.
@@ -541,6 +542,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Metadata` (r:1 w:1)
+	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
+	fn revoke_all_privileges() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `351`
+		//  Estimated: `3675`
+		// Minimum execution time: 43_242_000 picoseconds.
+		Weight::from_parts(45_982_000, 3675)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -996,5 +1011,19 @@ impl WeightInfo for () {
 		Weight::from_parts(47_385_000, 3593)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Metadata` (r:1 w:1)
+	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
+	fn revoke_all_privileges() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `351`
+		//  Estimated: `3675`
+		// Minimum execution time: 43_242_000 picoseconds.
+		Weight::from_parts(45_982_000, 3675)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }

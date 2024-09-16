@@ -148,6 +148,8 @@ pub type UncheckedExtrinsic =
 pub type Migrations = (
 	pallet_balances::migration::MigrateToTrackInactive<Runtime, xcm_config::CheckingAccount>,
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, pallet_assets::Instance1>,
+	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, pallet_assets::Instance2>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -470,6 +472,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type CallbackHandle = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
+	type DepositDestinationOnRevocation = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -505,6 +508,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type CallbackHandle = ();
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
+	type DepositDestinationOnRevocation = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
 }
@@ -542,6 +546,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type CallbackHandle = ();
+	type DepositDestinationOnRevocation = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

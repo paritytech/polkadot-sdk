@@ -46,18 +46,26 @@ pub(super) enum AssetStatus {
 	/// The asset is currently being destroyed, and all actions are no longer permitted on the
 	/// asset. Once set to `Destroying`, the asset can never transition back to a `Live` state.
 	Destroying,
+	/// The asset is active and able to be used, but Owner, Issuer, Admin and Freezer privileges
+	/// are revoked.
+	LiveAndNoPrivileges,
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AssetDetails<Balance, AccountId, DepositBalance> {
-	/// Can change `owner`, `issuer`, `freezer` and `admin` accounts.
-	pub(super) owner: AccountId,
+	/// Can change and revoke `owner`, `issuer`, `freezer` and `admin` accounts.
+	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege
+	/// and should not be holding any deposit.
+	owner: AccountId,
 	/// Can mint tokens.
-	pub(super) issuer: AccountId,
+	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
+	issuer: AccountId,
 	/// Can thaw tokens, force transfers and burn tokens from any account.
-	pub(super) admin: AccountId,
+	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
+	admin: AccountId,
 	/// Can freeze tokens.
-	pub(super) freezer: AccountId,
+	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
+	freezer: AccountId,
 	/// The total supply across all accounts.
 	pub(super) supply: Balance,
 	/// The balance deposited for this asset. This pays for the data stored here.
@@ -75,6 +83,135 @@ pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 	pub(super) approvals: u32,
 	/// The status of the asset
 	pub(super) status: AssetStatus,
+}
+
+/// Error that can occur when setting the owner, issuer, admin or freezer of an asset.
+pub enum SetTeamError {
+	/// The asset has no privileges, so team cannot be set.
+	AssetStatusLiveAndNoPrivileges,
+}
+
+impl<Balance, AccountId: Clone, DepositBalance> AssetDetails<Balance, AccountId, DepositBalance> {
+	/// Create a new asset details.
+	pub(super) fn new(
+		owner: AccountId,
+		issuer: AccountId,
+		admin: AccountId,
+		freezer: AccountId,
+		supply: Balance,
+		deposit: DepositBalance,
+		min_balance: Balance,
+		is_sufficient: bool,
+		accounts: u32,
+		sufficients: u32,
+		approvals: u32,
+		status: AssetStatus,
+	) -> Self {
+		Self {
+			owner,
+			issuer,
+			admin,
+			freezer,
+			supply,
+			deposit,
+			min_balance,
+			is_sufficient,
+			accounts,
+			sufficients,
+			approvals,
+			status,
+		}
+	}
+
+	/// If asset status is `LiveAndNoPrivileges` return `None` otherwise return the owner.
+	pub(super) fn owner(&self) -> Option<&AccountId> {
+		match self.status {
+			AssetStatus::LiveAndNoPrivileges => None,
+			_ => Some(&self.owner),
+		}
+	}
+
+	/// If asset status is `LiveAndNoPrivileges` return `None` otherwise return the admin.
+	pub(super) fn admin(&self) -> Option<&AccountId> {
+		match self.status {
+			AssetStatus::LiveAndNoPrivileges => None,
+			_ => Some(&self.admin),
+		}
+	}
+
+	/// If asset status is `LiveAndNoPrivileges` return `None` otherwise return the issuer.
+	pub(super) fn issuer(&self) -> Option<&AccountId> {
+		match self.status {
+			AssetStatus::LiveAndNoPrivileges => None,
+			_ => Some(&self.issuer),
+		}
+	}
+
+	/// If asset status is `LiveAndNoPrivileges` return `None` otherwise return the freezer.
+	pub(super) fn freezer(&self) -> Option<&AccountId> {
+		match self.status {
+			AssetStatus::LiveAndNoPrivileges => None,
+			_ => Some(&self.freezer),
+		}
+	}
+
+	/// Set the owner of the asset, fails if asset status is `LiveAndNoPrivileges`.
+	pub(super) fn try_set_owner(&mut self, owner: &AccountId) -> Result<(), SetTeamError> {
+		if self.status == AssetStatus::LiveAndNoPrivileges {
+			Err(SetTeamError::AssetStatusLiveAndNoPrivileges)
+		} else {
+			self.owner = owner.clone();
+			Ok(())
+		}
+	}
+
+	/// Set the team of the asset, fails if asset status is `LiveAndNoPrivileges`.
+	pub(super) fn try_set_team(
+		&mut self,
+		owner: &AccountId,
+		issuer: &AccountId,
+		admin: &AccountId,
+		freezer: &AccountId,
+	) -> Result<(), SetTeamError> {
+		if self.status == AssetStatus::LiveAndNoPrivileges {
+			Err(SetTeamError::AssetStatusLiveAndNoPrivileges)
+		} else {
+			self.owner = owner.clone();
+			self.issuer = issuer.clone();
+			self.admin = admin.clone();
+			self.freezer = freezer.clone();
+			Ok(())
+		}
+	}
+
+	/// Set the team or the historical team of the asset, new team may not have privileges, never
+	/// fails.
+	pub(super) fn set_team_or_historical_team(
+		&mut self,
+		owner: &AccountId,
+		issuer: &AccountId,
+		admin: &AccountId,
+		freezer: &AccountId,
+	) {
+		self.owner = owner.clone();
+		self.issuer = issuer.clone();
+		self.admin = admin.clone();
+		self.freezer = freezer.clone();
+	}
+
+	/// Is the asset live or live with no privileges.
+	pub(super) fn is_live(&self) -> bool {
+		match self.status {
+			AssetStatus::Live | AssetStatus::LiveAndNoPrivileges => true,
+			AssetStatus::Frozen | AssetStatus::Destroying => false,
+		}
+	}
+
+	/// Get team, regardless of privileges.
+	#[cfg(test)]
+	pub fn testing_team_or_historical_team(&self) -> (AccountId, AccountId, AccountId, AccountId) {
+		(self.owner.clone(), self.issuer.clone(), self.admin.clone(), self.freezer.clone())
+	}
 }
 
 /// Data concerning an approval.

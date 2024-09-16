@@ -45,8 +45,8 @@ use frame_support::{
 	traits::{
 		fungible, fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
-		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, InstanceFilter,
-		TransformOrigin,
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, DefensiveResult,
+		Imbalance, InstanceFilter, OnUnbalanced, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -91,16 +91,20 @@ use assets_common::{
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::{
-	latest::prelude::AssetId,
+	latest::prelude::{
+		Asset, AssetId, Assets as XcmAssets, BurnAsset, Fungible, Here, Instruction, Location,
+		Reanchorable, ReceiveTeleportedAsset, WeightLimit, Xcm, XcmContext, XcmError,
+	},
 	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 };
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	InteriorLocation, Junction, Junction::*, NetworkId, NonFungible, Parent, ParentThen, Response,
+	XCM_VERSION,
 };
 
+use xcm_executor::traits::TransactAsset;
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -242,6 +246,50 @@ parameter_types! {
 
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
+type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
+
+fn try_burn_at_relay(value: Balance) -> Result<(), XcmError> {
+	let asset = Asset { id: AssetId(Location::parent()), fun: Fungible(value) };
+	let dest = Location::parent();
+	let parent_assets = Into::<XcmAssets>::into(asset.clone())
+		.reanchored(&dest, &Here.into())
+		.defensive_map_err(|_| XcmError::ReanchorFailed)?;
+
+	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
+
+	AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
+
+	PolkadotXcm::send_xcm(
+		Here,
+		Location::parent(),
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			ReceiveTeleportedAsset(parent_assets.clone()),
+			BurnAsset(parent_assets),
+		]),
+	)?;
+
+	AssetTransactor::check_out(&dest, &asset, &dummy_xcm_context);
+
+	Ok(())
+}
+
+// Burn negative imbalance at the relay chain.
+pub struct BurnAtRelay;
+
+impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for BurnAtRelay {
+	fn on_nonzero_unbalanced(amount: pallet_balances::NegativeImbalance<Runtime>) {
+		let amount = amount.peek();
+		if let Err(e) = try_burn_at_relay(amount) {
+			log::error!(target: "runtime::assets", "failed to burn balance at relay: amount: \
+				{amount}: {e:?}");
+		}
+	}
+}
+
 // Called "Trust Backed" assets because these are generally registered by some account, and users of
 // the asset assume it has some claimed backing. The pallet is called `Assets` in
 // `construct_runtime` to avoid breaking changes on storage reads.
@@ -266,6 +314,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type CallbackHandle = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = ConstU32<1000>;
+	type DepositDestinationOnRevocation = BurnAtRelay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -308,6 +357,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
 	type CallbackHandle = ();
+	type DepositDestinationOnRevocation = BurnAtRelay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -433,6 +483,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type CallbackHandle = ();
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
+	type DepositDestinationOnRevocation = BurnAtRelay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
 }
@@ -1021,6 +1072,10 @@ pub type Migrations = (
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+	// unreleased
+	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, TrustBackedAssetsInstance>,
+	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, PoolAssetsInstance>,
+	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, ForeignAssetsInstance>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );

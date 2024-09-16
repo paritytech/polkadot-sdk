@@ -564,5 +564,24 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
 	}
 
+	revoke_all_privileges {
+		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		let name = vec![0u8; T::StringLimit::get() as usize];
+		let symbol = vec![0u8; T::StringLimit::get() as usize];
+
+		// We set some metadata so that it goes to `DepositDestinationOnRevocation`
+		Assets::<T, I>::set_metadata(
+			SystemOrigin::Signed(caller.clone()).into(),
+			asset_id.clone(),
+			name.clone(),
+			symbol.clone(),
+			12
+		)?;
+	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone())
+	verify {
+		assert_eq!(Asset::<T, I>::get(asset_id.into()).unwrap().status, AssetStatus::LiveAndNoPrivileges);
+	}
+
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)
 }

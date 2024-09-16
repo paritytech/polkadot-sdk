@@ -1,0 +1,83 @@
+title: "pallet assets: Add the new status `LiveAndNoPrivilege` and new call to revoke privileges"
+topic: pallet assets
+
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The new status "live and no privileges" (`LiveAndNoPrivileges`) is created. Under this
+      status, owner, issuer, admin and freezer has no privileges and metadata are frozen.
+      The new call `revoke_all_privileges` is created. This call allows `ForceOrigin` or the
+      `Owner` to revoke all the privileges on the asset. This operation is irrevesible for the
+      `Owner`, `ForceOrigin` can always reverse by using `force_asset_status`.
+
+      Storage is backward compatible so the migration consists of updating storage version
+      from V1 to V2.
+
+      `Config` trait has a new associated type `DepositDestinationOnRevocation`.
+      This type is used for the destination of the deposit when privileges are revoked.
+      Set it to `()` to burn them.
+
+  - audience: Runtime User
+    description: |
+      The new status "live and no privileges" (`LiveAndNoPrivileges`) is created. Under this
+      status, owner, issuer, admin and freezer has no privileges and metadata are frozen.
+      The new call `revoke_all_privileges` is created. This call allows `ForceOrigin` or the
+      `Owner` to revoke all the privileges on the asset. This operation is irrevesible for the
+      `Owner`, `ForceOrigin` can always reverse by using `force_asset_status`.
+
+crates:
+  - name: pallet-assets
+    bump: major
+  - name: staging-xcm-builder
+    bump: none
+  - name: pallet-xcm
+    bump: none
+  - name: pallet-asset-conversion
+    bump: none
+  - name: pallet-asset-tx-payment
+    bump: none
+  - name: rococo-parachain-runtime
+    bump: major
+    note: |
+      In `Assets`, assets status can now be "live and no privileges", and there is a new call
+      `revoke_all_privileges`.
+      There is also a minor migration for assets.
+  - name: pallet-asset-conversion-tx-payment
+    bump: none
+  - name: pallet-assets-freezer
+    bump: none
+  - name: pallet-contracts-mock-network
+    bump: none
+  - name: pallet-nft-fractionalization
+    bump: none
+  - name: asset-hub-rococo-runtime
+    bump: major
+    note: |
+      In `TrustBackedAssets`, `PoolAssets` and `ForeignAssets`, assets status can now be
+      "live and no privileges", and there is a new call `revoke_all_privileges`.
+      There is also some minor migration for assets.
+  - name: asset-hub-westend-runtime
+    bump: major
+    note: |
+      In `TrustBackedAssets`, `PoolAssets` and `ForeignAssets`, assets status can now be
+      "live and no privileges", and there is a new call `revoke_all_privileges`.
+      There is also a minor migration for assets.
+  - name: penpal-runtime
+    bump: major
+    note: |
+      In `ForeignAssets` and `Assets`, assets status can now be "live and no privileges", and there
+      is a new call `revoke_all_privileges`.
+      There is also some minor migration for assets.
+  - name: pallet-revive-mock-network
+    bump: major
+  - name: frame-support
+    bump: minor
+    note: |
+      The trait `ResetTeam` meaning has been precised: even if the asset has no privileges,
+      the new team will have the privileges.
+
+migrations:
+  runtime:
+    - reference: "pallet-assets: storage version 2"
+      description: "V2: update is backward compatible with V1, so only storage version 2 needs to be stored"

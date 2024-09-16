@@ -1702,6 +1702,7 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type CallbackHandle = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type RemoveItemsLimit = ConstU32<1000>;
+	type DepositDestinationOnRevocation = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -1729,6 +1730,7 @@ impl pallet_assets::Config<Instance2> for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type RemoveItemsLimit = ConstU32<1000>;
 	type CallbackHandle = ();
+	type DepositDestinationOnRevocation = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

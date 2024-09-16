@@ -67,24 +67,26 @@ pub mod v1 {
 		pub is_frozen: bool,
 	}
 
-	impl<Balance, AccountId, DepositBalance> OldAssetDetails<Balance, AccountId, DepositBalance> {
+	impl<Balance, AccountId: Clone, DepositBalance>
+		OldAssetDetails<Balance, AccountId, DepositBalance>
+	{
 		fn migrate_to_v1(self) -> AssetDetails<Balance, AccountId, DepositBalance> {
 			let status = if self.is_frozen { AssetStatus::Frozen } else { AssetStatus::Live };
 
-			AssetDetails {
-				owner: self.owner,
-				issuer: self.issuer,
-				admin: self.admin,
-				freezer: self.freezer,
-				supply: self.supply,
-				deposit: self.deposit,
-				min_balance: self.min_balance,
-				is_sufficient: self.is_sufficient,
-				accounts: self.accounts,
-				sufficients: self.sufficients,
-				approvals: self.approvals,
+			AssetDetails::new(
+				self.owner,
+				self.issuer,
+				self.admin,
+				self.freezer,
+				self.supply,
+				self.deposit,
+				self.min_balance,
+				self.is_sufficient,
+				self.accounts,
+				self.sufficients,
+				self.approvals,
 				status,
-			}
+			)
 		}
 	}
 
@@ -156,6 +158,55 @@ pub mod v1 {
 				);
 				Ok(())
 			})?;
+			Ok(())
+		}
+	}
+}
+
+pub mod v2 {
+	use frame_support::{
+		migrations::VersionedMigration, traits::UncheckedOnRuntimeUpgrade, weights::Weight,
+	};
+
+	use super::*;
+
+	/// Run migration from v1 to v2: basically writes version 2 into storage.
+	pub type MigrateV1ToV2<T, I = ()> = VersionedMigration<
+		1u16,
+		2u16,
+		UncheckedMigrationV1toV2<T, I>,
+		crate::Pallet<T, I>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
+	/// Inner implementation of the migration without version check.
+	///
+	/// Warning: This doesn't write the version 2 into storage. Use `MigrateV1ToV2` for that.
+	pub struct UncheckedMigrationV1toV2<T, I = ()>(core::marker::PhantomData<(T, I)>);
+
+	impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrationV1toV2<T, I> {
+		fn on_runtime_upgrade() -> Weight {
+			Weight::zero()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(alloc::vec![])
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			use frame_support::traits::GetStorageVersion;
+
+			let in_code_version = Pallet::<T, I>::in_code_storage_version();
+			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+
+			frame_support::ensure!(on_chain_version >= 2, "must_upgrade");
+			ensure!(
+				in_code_version == on_chain_version,
+				"after migration, the in_code_version and on_chain_version should be the same"
+			);
+
 			Ok(())
 		}
 	}
