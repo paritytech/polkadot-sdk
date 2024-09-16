@@ -952,8 +952,7 @@ impl PalletCmd {
 		if let Some(handlebars_template_file) = &self.template {
 			if !handlebars_template_file.is_file() {
 				return Err(format!(
-					"Handlebars template file could not be found: {:?}",
-					&handlebars_template_file
+					"Handlebars template file could not be found: {handlebars_template_file:?}"
 				)
 				.into())
 			};
