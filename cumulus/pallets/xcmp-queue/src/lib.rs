@@ -1008,6 +1008,11 @@ impl<T: Config> SendXcm for Pallet<T> {
 }
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn clear_messages() {
+		// Best effort.
+		let _ = OutboundXcmpMessages::<T>::clear(u32::MAX, None);
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		use xcm::prelude::*;
 
