@@ -140,8 +140,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type VoteLockingPeriod: Get<BlockNumberFor<Self>>;
 
-		/// Hooks are actions that are executed on certain events.
-		/// Events: on_vote, on_remove_vote, on_remove_unsuccessful_vote
+		/// Hooks are called when a new vote is registered or an existing vote is removed.
 		type VotingHooks: VotingHooks<Self::AccountId, PollIndexOf<Self, I>, BalanceOf<Self, I>>;
 	}
 
