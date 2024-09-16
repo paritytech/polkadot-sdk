@@ -475,6 +475,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						if let Some(approve) = v.1.as_standard() {
 							tally.reduce(approve, *delegations);
 						}
+						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: v.1 });
 						T::VotingHooks::on_remove_vote(who, poll_index, Some(true));
 						Ok(())
 					},
