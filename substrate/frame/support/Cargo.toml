@@ -99,8 +99,8 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-timestamp/std",
-	"sp-trie/std",
 	"sp-tracing/std",
+	"sp-trie/std",
 	"sp-weights/std",
 ]
 runtime-benchmarks = [

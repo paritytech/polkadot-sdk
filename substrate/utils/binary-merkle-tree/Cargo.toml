@@ -12,7 +12,7 @@ homepage.workspace = true
 workspace = true
 
 [dependencies]
-codec = { workspace = true, features = [ "derive" ] }
+codec = { workspace = true, features = ["derive"] }
 array-bytes = { optional = true, workspace = true, default-features = true }
 log = { optional = true, workspace = true }
 hash-db = { workspace = true }
@@ -27,9 +27,9 @@ sp-runtime = { workspace = true, default-features = true }
 debug = ["array-bytes", "log"]
 default = ["debug", "std"]
 std = [
+	"codec/std",
 	"hash-db/std",
 	"log/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"codec/std"
 ]
