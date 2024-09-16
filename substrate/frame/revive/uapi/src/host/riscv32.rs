@@ -198,7 +198,7 @@ impl HostFn for HostFnImpl {
 		input: &[u8],
 		mut address: Option<&mut [u8; 20]>,
 		mut output: Option<&mut &mut [u8]>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 	) -> Result {
 		let address = match address {
 			Some(ref mut data) => data.as_mut_ptr(),
@@ -206,6 +206,7 @@ impl HostFn for HostFnImpl {
 		};
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
+		let salt_ptr = ptr_or_sentinel(&salt);
 		#[repr(packed)]
 		#[allow(dead_code)]
 		struct Args {
@@ -232,7 +233,7 @@ impl HostFn for HostFnImpl {
 			address,
 			output: output_ptr,
 			output_len: &mut output_len as *mut _,
-			salt: salt.as_ptr(),
+			salt: salt_ptr,
 		};
 
 		let ret_code = { unsafe { sys::instantiate(&args as *const Args as *const _) } };
