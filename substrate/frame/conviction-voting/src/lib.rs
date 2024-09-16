@@ -437,6 +437,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(who, &class, vote.balance());
+				Self::deposit_event(Event::Voted { who: who.clone(), vote });
 
 				// Call on_vote hook
 				T::VotingHooks::on_vote(who, poll_index, vote)?;
