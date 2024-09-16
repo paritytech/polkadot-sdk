@@ -504,7 +504,7 @@ where
 /// out:
 /// [ Ok(xth0), Ok(xth1), Err ]
 /// ```
-fn reduce_multiview_result<H, E>(input: &mut HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
+fn reduce_multiview_result<H, E>(mut input: HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
 	let mut values = input.values();
 	let Some(first) = values.next() else {
 		return Default::default();
@@ -572,8 +572,8 @@ where
 			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
 
 		async move {
-			let mut results_map = view_store.submit_at(source, to_be_submitted.into_iter()).await;
-			let mut submission_result = reduce_multiview_result(&mut results_map).into_iter();
+			let results_map = view_store.submit_at(source, to_be_submitted.into_iter()).await;
+			let mut submission_result = reduce_multiview_result(results_map).into_iter();
 
 			//todo [#5494]:
 			//ImmediatelyDropped errors from view submission shall be ignored. If transaction got into the mempool,
@@ -1381,7 +1381,7 @@ mod reduce_multiview_result_tests {
 	fn empty() {
 		sp_tracing::try_init_simple();
 		let mut input = HashMap::default();
-		let r = reduce_multiview_result::<H256, Error>(&mut input);
+		let r = reduce_multiview_result::<H256, Error>(input);
 		assert!(r.is_empty());
 	}
 
@@ -1418,7 +1418,7 @@ mod reduce_multiview_result_tests {
 			),
 		];
 		let mut input = HashMap::from_iter(v.clone());
-		let r = reduce_multiview_result(&mut input);
+		let r = reduce_multiview_result(input);
 
 		//order in HashMap is random, the result shall be one of:
 		assert!(r == v[0].1 || r == v[1].1 || r == v[2].1);
@@ -1434,7 +1434,7 @@ mod reduce_multiview_result_tests {
 			(H256::repeat_byte(0x14), vec![Err(Error::Custom(23))]),
 		];
 		let mut input = HashMap::from_iter(v);
-		let _ = reduce_multiview_result(&mut input);
+		let _ = reduce_multiview_result(input);
 	}
 
 	#[test]
@@ -1452,7 +1452,7 @@ mod reduce_multiview_result_tests {
 			),
 		];
 		let mut input = HashMap::from_iter(v);
-		let r = reduce_multiview_result(&mut input);
+		let r = reduce_multiview_result(input);
 
 		assert_eq!(r, vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))]);
 	}
@@ -1465,7 +1465,7 @@ mod reduce_multiview_result_tests {
 			vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))],
 		)];
 		let mut input = HashMap::from_iter(v);
-		let r = reduce_multiview_result(&mut input);
+		let r = reduce_multiview_result(input);
 
 		assert_eq!(r, vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))]);
 	}
@@ -1503,7 +1503,7 @@ mod reduce_multiview_result_tests {
 			),
 		];
 		let mut input = HashMap::from_iter(v);
-		let r = reduce_multiview_result(&mut input);
+		let r = reduce_multiview_result(input);
 
 		assert_eq!(
 			r,
