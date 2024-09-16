@@ -100,7 +100,7 @@ pub mod code {
 	const BYTE_PER_INSTRUCTION: u32 = 20;
 
 	/// The code is stored multiple times as part of the compiled program.
-	const CODE_OVERHEAD_MULTIPLIER: u32 = 5;
+	const EXTRA_OVERHEAD_PER_CODE_BYTE: u32 = 4;
 
 	/// Make sure that the various program parts are within the defined limits.
 	pub fn enforce<T: Config>(blob: &[u8]) -> DispatchResult {
@@ -126,16 +126,14 @@ pub mod code {
 		// plus the RO data in memory (which is always equal or bigger than the RO payload),
 		// plus RW data in memory, plus stack size in memory.
 		// plus the overhead of instructions in memory which is derived from the code
-		// itself and the number of instruction
-		// we substract one from the overhead multiplier to not count the the code double
-		// as its already part of the blob.
+		// size itself and the number of instruction
 		let memory_size = blob.len() as u64 + round_page(program.ro_data_size()) as u64 -
 			program.ro_data().len() as u64 +
 			round_page(program.rw_data_size()) as u64 -
 			program.rw_data().len() as u64 +
 			round_page(program.stack_size()) as u64 +
 			num_instructions as u64 * BYTE_PER_INSTRUCTION as u64 +
-			program.code().len() as u64 * (CODE_OVERHEAD_MULTIPLIER - 1) as u64;
+			program.code().len() as u64 * EXTRA_OVERHEAD_PER_CODE_BYTE as u64;
 
 		ensure!(memory_size <= STATIC_MEMORY_BYTES as u64, <Error<T>>::StaticMemoryTooLarge);
 
