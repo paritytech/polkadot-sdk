@@ -77,21 +77,21 @@ jobs:
 
       - name: Build binary
         run: |
-          ARTIFACTS=/artifacts/${{ matrix.binaries }}
-          echo "Artifacts will be copied into $ARTIFACTS"
-          mkdir -p "$ARTIFACTS"
-          cd $ARTIFACTS
-          echo "Test" >> ${{ matrix.binaries }}.txt
-          sha256sum "${{ matrix.binaries }}".txt | tee "${{ matrix.binaries }}.sha256"
+          # ARTIFACTS=/artifacts/${{ matrix.binaries }}
+          # echo "Artifacts will be copied into $ARTIFACTS"
+          # mkdir -p "$ARTIFACTS"
+          # cd $ARTIFACTS
+          # echo "Test" >> ${{ matrix.binaries }}.txt
+          # sha256sum "${{ matrix.binaries }}".txt | tee "${{ matrix.binaries }}.sha256"
 
-          # ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.binary }}
+          ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.binary }}
 
       - name: Sign artifacts
         working-directory: /artifacts/${{ matrix.binaries }}
         run: |
-          # python3 -m pgpkms sign --input ${{ matrix.binaries }} -o ${{ matrix.binaries }}.asc
+          python3 -m pgpkms sign --input ${{ matrix.binaries }} -o ${{ matrix.binaries }}.asc
 
-          python3 -m pgpkms sign --input ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
+          # python3 -m pgpkms sign --input ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
           ls -la
 
       - name: Check sha256 ${{ matrix.binaries }}
@@ -101,7 +101,6 @@ jobs:
           .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
           echo "Checking binary  ${{ matrix.binaries }}"
-          # check_sha256  ${{ matrix.binaries }} && echo "OK" || echo "ERR"
           check_sha256  ${{ matrix.binaries }} && echo "OK" || echo "ERR"
 
       # - name: Check GPG ${{ matrix.binaries }}
@@ -155,21 +154,21 @@ jobs:
 
     - name: Build polkadot-parachain binary
       run: |
-        ARTIFACTS=/artifacts/polkadot-parachain
-        echo "Artifacts will be copied into $ARTIFACTS"
-        mkdir -p "$ARTIFACTS"
-        cd $ARTIFACTS
-        echo "Test" >> polkadot-parachain.txt
-        sha256sum "polkadot-parachain".txt | tee "polkadot-parachain.sha256"
+        # ARTIFACTS=/artifacts/polkadot-parachain
+        # echo "Artifacts will be copied into $ARTIFACTS"
+        # mkdir -p "$ARTIFACTS"
+        # cd $ARTIFACTS
+        # echo "Test" >> polkadot-parachain.txt
+        # sha256sum "polkadot-parachain".txt | tee "polkadot-parachain.sha256"
 
-        # ./.github/scripts/release/build-linux-release.sh polkadot-parachain ${{ inputs.binary }}
+        ./.github/scripts/release/build-linux-release.sh polkadot-parachain ${{ inputs.binary }}
 
     - name: Sign artifacts
       working-directory: /artifacts/polkadot-parachain
       run: |
-        # python3 -m pgpkms sign --input polkadot-parachain -o polkadot-parachain.asc
+        python3 -m pgpkms sign --input polkadot-parachain -o polkadot-parachain.asc
 
-        python3 -m pgpkms sign --input polkadot-parachain.txt -o polkadot-parachain.asc
+        # python3 -m pgpkms sign --input polkadot-parachain.txt -o polkadot-parachain.asc
         ls -la
 
     - name: Check sha256 polkadot-parachain
@@ -179,7 +178,6 @@ jobs:
         . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
         echo "Checking binary  $polkadot-parachain"
-        # check_sha256  polkadot-parachain && echo "OK" || echo "ERR"
         check_sha256  polkadot-parachain && echo "OK" || echo "ERR"
 
     # - name: Check GPG ${{ matrix.binaries }}
