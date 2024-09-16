@@ -81,6 +81,7 @@ use frame_support::{
 use frame_system::{offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::SaturatedConversion;
+use sp_std::vec::Vec;
 
 // public re-exports.
 pub use pallet::{
@@ -148,7 +149,6 @@ pub(crate) mod pallet {
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::submit_page_unsigned { page, partial_score, .. } = call {
-
 				ValidTransaction::with_tag_prefix("ElectionOffchainWorker")
 					// priority increases propotional to the `solution.minimal_stake`.
 					.priority(
@@ -201,7 +201,13 @@ pub(crate) mod pallet {
 			let error_message = "Invalid unsigned submission must produce invalid block and \
 				 deprive validator from their authoring reward.";
 
-			sublog!(info, "unsigned", "submitting page {:?} with partial score {:?}", page, partial_score);
+			sublog!(
+				info,
+				"unsigned",
+				"submitting page {:?} with partial score {:?}",
+				page,
+				partial_score
+			);
 
 			// Check if score is an improvement, the current phase, page index and other paged
 			// solution metadata checks.
@@ -224,7 +230,7 @@ pub(crate) mod pallet {
 				.expect(error_message);
 				sublog!(info, "unsigned", "validate_unsigned last page verify OK");
 			} else {
-				sublog!(info, "unsigned", "submit_page_unsigned: page {:?} subimitted", page);
+				sublog!(info, "unsigned", "submit_page_unsigned: page {:?} submitted", page);
 			}
 
 			Self::deposit_event(Event::UnsignedSolutionSubmitted {
@@ -238,6 +244,14 @@ pub(crate) mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			if crate::Pallet::<T>::current_phase() == Phase::Off {
+				T::DbWeight::get().reads_writes(1, 1)
+			} else {
+				Default::default()
+			}
+		}
+
 		/// The off-chain worker implementation
 		///
 		/// The off-chain worker for this pallet will run IFF:
@@ -256,6 +270,7 @@ pub(crate) mod pallet {
 			if crate::Pallet::<T>::current_phase().is_unsigned() {
 				match lock.try_lock() {
 					Ok(_guard) => {
+						sublog!(info, "unsigned", "obtained offchain lock at {:?}", now);
 						let _ = Self::do_sync_offchain_worker(now).map_err(|e| {
 							sublog!(debug, "unsigned", "offchain worker error.");
 							e
@@ -303,10 +318,9 @@ impl<T: Config> Pallet<T> {
 			(Phase::Unsigned(_), Some(page)) => {
 				let (full_score, partial_score, partial_solution) =
 					OffchainWorkerMiner::<T>::fetch_or_mine(page).map_err(|err| {
-					//OffchainWorkerMiner::<T>::mine(page).map_err(|err| {
 						sublog!(error, "unsigned", "OCW mine error: {:?}", err);
 						err
-				})?;
+					})?;
 
 				// submit page only if full score improves the current queued score.
 				if <T::Verifier as Verifier>::ensure_score_improves(full_score) {

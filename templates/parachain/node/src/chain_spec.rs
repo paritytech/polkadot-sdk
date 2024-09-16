@@ -140,7 +140,8 @@ fn testnet_genesis(
 	let validators = 4_000;
 	let nominators = 50_000;
 	let edges = 24;
-	let validators_count = 1_000;
+	//let validators_count = 1_000;
+	let validators_count = 4_000;
 	let max_validators_count = 4_000;
 
 	let staking_gen = staking_genesis::generate(

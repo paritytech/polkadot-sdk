@@ -262,7 +262,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 
 parameter_types! {
 	// pub const Period: u32 = 6 * HOURS;
-	pub const Period: u32 = 12 * MINUTES;
+	//pub const Period: u32 = 12 * MINUTES;
 	pub const Offset: u32 = 0;
 }
 
@@ -436,6 +436,7 @@ parameter_types! {
 	// A1.
 	// at voter snapshot creation:
 	// ⚠️  ⚠️   PoV STORAGE PROOF OVER LIMIT (15473.44921875kb > 5120.0kb, ie. 302% overflow)
+	pub const Period: u32 = 3 * MINUTES;
 	pub Pages: PageIndex = 1;
 	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
 	pub MaxBackersPerWinner: u32 = 5_000;
@@ -447,6 +448,8 @@ parameter_types! {
 	// B1.
 	// at voter snapshot creation:
 	// ⚠️  ⚠️   PoV STORAGE PROOF OVER LIMIT (9165.3466796875kb > 5120.0kb, ie. 179% overflow)
+	pub const Period: u32 = 3 * MINUTES;
+	pub UnsignedPhase: u32 = 5;
 	pub Pages: PageIndex = 1;
 	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
 	pub MaxBackersPerWinner: u32 = 5_000;
@@ -457,6 +460,8 @@ parameter_types! {
 	/*
 	// C1.
 	// OK E2E
+	pub const Period: u32 = 3 * MINUTES;
+	pub UnsignedPhase: u32 = 5;
 	pub Pages: PageIndex = 1;
 	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
 	pub MaxBackersPerWinner: u32 = 5_000;
@@ -467,6 +472,8 @@ parameter_types! {
 	/*
 	// D1.
 	// OK E2E
+	pub const Period: u32 = 3 * MINUTES;
+	pub UnsignedPhase: u32 = 5;
 	pub Pages: PageIndex = 1;
 	pub MaxWinnersPerPage: u32 = 30_000;
 	pub MaxBackersPerWinner: u32 = 30_000;
@@ -474,16 +481,42 @@ parameter_types! {
 	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
 	*/
 
-	// A2.
+
+	/*
+	// A2. OK E2E
+	pub const Period: u32 = 12 * MINUTES;
+	pub UnsignedPhase: u32 = 60;
 	pub Pages: PageIndex = 20;
 	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
-	pub MaxBackersPerWinner: u32 = 5_000;
+	pub MaxBackersPerWinner: u32 = 30_000;
+	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
+	*/
+
+	/*
+	// B2. OK E2E
+	pub const Period: u32 = 8 * MINUTES;
+	pub UnsignedPhase: u32 = 30;
+	pub Pages: PageIndex = 10;
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
+	pub MaxBackersPerWinner: u32 = 30_000;
+	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
+	*/
+
+	// A3. OK
+	// let validators_count = 4_000; in chainspec
+	pub const Period: u32 = 20 * MINUTES;
+	pub UnsignedPhase: u32 = 80;
+	pub Pages: PageIndex = 20;
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
+	pub MaxBackersPerWinner: u32 = 30_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
 	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
 
 	// phase boundaries.
 	pub SignedPhase: u32 = 0; // (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
-	pub UnsignedPhase: u32 = 40; // (5 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
+	//pub UnsignedPhase: u32 = 60; // (5 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
 	pub SignedValidationPhase: BlockNumber = 0; // Pages::get() * SignedMaxSubmissions::get();
 	pub Lookhaead: BlockNumber = 5;
 	pub ExportPhaseLimit: BlockNumber = Pages::get().into();

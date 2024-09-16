@@ -744,13 +744,22 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		sublog!(
 			debug,
 			"unsigned::ocw-miner",
-			"miner submitting a solution as an unsigned transaction"
+			"miner submitting a solution as an unsigned transaction, page: {:?}",
+			page,
 		);
 
 		let call = Call::submit_page_unsigned { page, solution, partial_score, claimed_full_score };
 		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
 			call.into(),
 		)
+		.map(|_| {
+			sublog!(
+				debug,
+				"unsigned::ocw-miner",
+				"miner submitted a solution as an unsigned transaction, page {:?}",
+				page
+			);
+		})
 		.map_err(|_| OffchainMinerError::PoolSubmissionFailed)
 	}
 }

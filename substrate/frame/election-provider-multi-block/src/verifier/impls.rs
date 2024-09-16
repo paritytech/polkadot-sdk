@@ -22,8 +22,11 @@ use frame_support::{
 	pallet_prelude::Weight,
 	traits::{Defensive, TryCollect},
 };
-use sp_runtime::{traits::Zero, Perbill};
-use sp_std::collections::btree_map::BTreeMap;
+use sp_runtime::{
+	traits::{BlockNumber, One, Zero},
+	Perbill, Saturating,
+};
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 use super::*;
 use pallet::*;
@@ -176,7 +179,10 @@ pub(crate) mod pallet {
 				QueuedSolutionBackings::<T>::insert(page, backings);
 
 				// update the last stored page.
-				LastStoredPage::<T>::set(Some(page));
+				RemainingUnsignedPages::<T>::mutate(|remaining| {
+					remaining.retain(|p| *p != page);
+					sublog!(debug, "verifier", "updated remaining pages, current: {:?}", remaining);
+				});
 
 				// store the new page into the invalid variant storage type.
 				match Self::invalid() {
@@ -287,17 +293,17 @@ pub(crate) mod pallet {
 	#[pallet::storage]
 	pub(crate) type VerificationStatus<T: Config> = StorageValue<_, Status, ValueQuery>;
 
-	// TODO: this may be a hack.
+	// For unsigned page solutions only.
 	#[pallet::storage]
-	pub(crate) type LastStoredPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
+	pub(crate) type RemainingUnsignedPages<T: Config> = StorageValue<_, Vec<PageIndex>, ValueQuery>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			Self::do_on_initialize()
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			Self::do_on_initialize(n)
 		}
 
 		fn integrity_test() {
@@ -339,19 +345,14 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 	}
 
 	fn next_missing_solution_page() -> Option<PageIndex> {
-		if let Some(last_stored) = LastStoredPage::<T>::get() {
-			// if last page stored is 0, all pages have been processed. Return None in that
-			// case.
-			last_stored.checked_sub(1)
-		} else {
-			// no page stored yet, start from msp.
-			Some(crate::Pallet::<T>::msp())
-		}
+		let next_missing = RemainingUnsignedPages::<T>::get().last().copied();
+		sublog!(debug, "verifier", "next missing page: {:?}", next_missing);
+
+		next_missing
 	}
 
 	fn kill() {
 		QueuedSolution::<T>::kill();
-		LastStoredPage::<T>::set(None);
 		<VerificationStatus<T>>::put(Status::Nothing);
 	}
 
@@ -453,9 +454,26 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 }
 
 impl<T: impls::pallet::Config> Pallet<T> {
-	fn do_on_initialize() -> Weight {
+	fn do_on_initialize(_now: crate::BlockNumberFor<T>) -> Weight {
 		let max_backers_winner = T::MaxBackersPerWinner::get();
 		let max_winners_page = T::MaxWinnersPerPage::get();
+
+		match crate::Pallet::<T>::current_phase() {
+			// reset remaining unsigned pages after snapshot is created.
+			crate::Phase::Snapshot(page) if page == crate::Pallet::<T>::lsp() => {
+				RemainingUnsignedPages::<T>::put(
+					(crate::Pallet::<T>::lsp()..crate::Pallet::<T>::msp() + 1).collect::<Vec<_>>(),
+				);
+
+				sublog!(
+					debug,
+					"verifier",
+					"reset remaining unsgined pages to {:?}",
+					RemainingUnsignedPages::<T>::get()
+				);
+			},
+			_ => (),
+		}
 
 		if let Status::Ongoing(current_page) = <VerificationStatus<T>>::get() {
 			let maybe_page_solution =
