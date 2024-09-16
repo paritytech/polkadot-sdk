@@ -22,14 +22,11 @@ use crate::{
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	wasm::{ApiVersion, PreparedCall, Runtime},
-	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, TypeInfo, WasmBlob, Weight,
+	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, WasmBlob, Weight,
 };
 use alloc::{vec, vec::Vec};
-use codec::{Encode, HasCompact};
-use core::fmt::Debug;
 use frame_benchmarking::benchmarking;
-use frame_support::traits::IsType;
-use sp_core::{H256, U256};
+use sp_core::U256;
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
@@ -49,9 +46,7 @@ pub struct CallSetup<T: Config> {
 impl<T> Default for CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
-	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	T::Hash: IsType<H256>,
 	MomentOf<T>: Into<U256>,
 {
 	fn default() -> Self {
@@ -62,8 +57,6 @@ where
 impl<T> CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
-	T::Hash: IsType<H256>,
-	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 {
