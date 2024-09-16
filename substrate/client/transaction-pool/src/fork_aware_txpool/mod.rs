@@ -45,7 +45,7 @@
 //!
 //!
 //! #### The life cycle of the [`View`].
-//! Views are created when the new [`ChainEvent`] are notified to the pool. The view that is
+//! Views are created when the new [`ChainEvent`] is notified to the pool. The view that is
 //! [closest][find_best_view] to the newly notified block is chosen to clone from. Once built and
 //! updated the newly created view is placed in [`active_views`]. Detailed description of view
 //! creation is described in [the material to follow](#handling-the-new-best-block). When the view
@@ -89,7 +89,7 @@
 //!   section](#networking)),
 //! - [dropped notification][`create_dropped_by_limits_stream`].
 //!
-//! These streams needs to be merged into a single stream exposed by transaction pool (or used
+//! These streams need to be merged into a single stream exposed by transaction pool (or used
 //! internally). Those aggregators are often referred as multi-view listeners and they implement
 //! stream-specific or event-specific logic.
 //!
@@ -233,7 +233,7 @@
 //! exclusively, ensuring maintain performance without overlapping with revalidation.
 //!
 //! The view revalidation process is [triggered][`start_background_revalidation`] at the very end of
-//! the [maintain][`maintain`] process, and [stopped][`finish_background_revalidations`] and the
+//! the [maintain][`maintain`] process, and [stopped][`finish_background_revalidations`] at the
 //! very beginning of the next maintenance execution (upon the next [`ChainEvent`] reception). The
 //! results from the revalidation are immediately applied once the revalidation is
 //! [terminated][crate::fork_aware_txpool::view::View::finish_revalidation].
@@ -247,10 +247,10 @@
 //! Transactions within *mempool* are constantly revalidated in the background. The
 //! [revalidation][`mp::revalidate`] is performed in [batches][`batch_size`], and transactions that
 //! were validated as latest, are revalidated first in the next iteration. The revalidation is
-//! trigger on every finalized block. If a transaction is found to be invalid, the [`Invalid`] event
+//! triggered on every finalized block. If a transaction is found to be invalid, the [`Invalid`] event
 //! is sent and transaction is removed from the *mempool*.
 //!
-//! NOTE: There is one exception: it transaction is referenced by any view as ready, then it is
+//! NOTE: There is one exception: if transaction is referenced by any view as ready, then it is
 //! removed from the *mempool*, but not removed from the view. The [`Invalid`] event is not sent.
 //! This case is not likely to happen, however it may need some extra attention.
 //!
@@ -270,7 +270,7 @@
 //! ## Pool limits
 //! Every [`View`] has the [limits][`Options`] for the number or size of transactions it can hold.
 //! Obviously the number of transactions in every view is not distributed equally, so some views
-//! maybe fully filled while other not.
+//! might be fully filled while others not.
 //!
 //! On the other hand the size of internal *mempool* shall also be capped, but transactions that are
 //! still referenced by views should not be removed.
