@@ -36,6 +36,8 @@ pub enum GenesisBuilder {
 	SpecRuntime,
 	/// Use the spec file to build the genesis state. This fails when there is no spec.
 	SpecGenesis,
+	/// Same as `SpecGenesis` - only here for backwards compatibility.
+	Spec,
 }
 
 /// A runtime blob that was either fetched from genesis storage or loaded from a file.

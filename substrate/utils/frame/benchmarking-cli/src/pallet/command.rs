@@ -570,9 +570,9 @@ impl PalletCmd {
 		Ok(match (self.genesis_builder, self.runtime.as_ref()) {
 			(Some(GenesisBuilder::None), Some(_)) => return Err("Cannot use `--genesis-builder=none` with `--runtime` since the runtime would be ignored.".into()),
 			(Some(GenesisBuilder::None), None) => Storage::default(),
-			(Some(GenesisBuilder::SpecGenesis), Some(_)) =>
+			(Some(GenesisBuilder::SpecGenesis | GenesisBuilder::Spec), Some(_)) =>
 					return Err("Cannot use `--genesis-builder=spec-genesis` with `--runtime` since the runtime would be ignored.".into()),
-			(Some(GenesisBuilder::SpecGenesis), None) | (None, None) => {
+			(Some(GenesisBuilder::SpecGenesis | GenesisBuilder::Spec), None) | (None, None) => {
 				log::warn!("{WARN_SPEC_GENESIS_CTOR}");
 				let Some(chain_spec) = chain_spec else {
 					return Err("No chain spec specified to generate the genesis state".into());
