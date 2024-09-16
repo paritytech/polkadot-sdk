@@ -257,7 +257,7 @@ where
 			hash,
 			TxInMemPool::new_watched(source, xt.clone()),
 		)
-		.map(|_| ())
+		.map(drop)
 	}
 
 	/// Removes transactions from the memory pool which are specified by the given list of hashes
@@ -301,7 +301,8 @@ where
 
 	/// Removes a watched transaction from the memory pool based on a given raw extrinsic.
 	pub(super) fn remove_watched(&self, xt: &RawExtrinsicFor<ChainApi>) {
-		self.transactions.write().retain(|_, t| *t.tx != *xt);
+		let hash = self.api.hash_and_length(&xt).0;
+		let _ = self.transactions.write().remove(&hash);
 	}
 
 	/// Revalidates a batch of transactions against the provided finalized block.
