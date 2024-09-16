@@ -946,7 +946,7 @@ impl PalletCmd {
 
 		if let Some(header_file) = &self.header {
 			if !header_file.is_file() {
-				return Err(format!("Header file could not be found: {:?}", &header_file).into())
+				return Err(format!("Header file could not be found: {header_file:?}").into())
 			};
 		}
 
