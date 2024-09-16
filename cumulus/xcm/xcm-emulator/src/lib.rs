@@ -16,8 +16,8 @@
 
 extern crate alloc;
 
-pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 pub use array_bytes;
+pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 pub use lazy_static::lazy_static;
 pub use log;
 pub use paste;
