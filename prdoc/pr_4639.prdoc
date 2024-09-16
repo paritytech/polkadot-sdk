@@ -16,14 +16,13 @@ crates:
     bump: major
   - name: sc-consensus-manual-seal
     bump: patch
-  - name: sc-mixnet
-    bump: patch
   - name: sc-network-transactions
     bump: none
   - name: sc-rpc
-    bump: minor
-    validate: false
+    bump: patch
   - name: sc-rpc-spec-v2
+    bump: patch
+  - name: sc-offchain
     bump: patch
   - name: sc-service
     bump: patch
@@ -35,8 +34,7 @@ crates:
     bump: major
     validate: false
   - name: sp-runtime
-    bump: minor
-    validate: false
+    bump: patch
   - name: substrate-test-runtime-transaction-pool
     bump: minor
   - name: staging-node-cli
@@ -48,8 +46,7 @@ crates:
   - name: substrate-prometheus-endpoint
     bump: patch
   - name: substrate-frame-rpc-system
-    bump: minor
-    validate: false
+    bump: patch
   - name: minimal-template-node
     bump: minor
   - name: parachain-template-node
@@ -58,9 +55,6 @@ crates:
     bump: minor
   - name: polkadot-service
     bump: patch
-  - name: polkadot-rpc
-    bump: minor
-    validate: false
   - name: cumulus-client-service
     bump: patch
   - name: cumulus-test-service
