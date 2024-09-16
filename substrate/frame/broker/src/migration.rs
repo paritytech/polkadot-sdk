@@ -233,7 +233,13 @@ pub mod v4 {
 	type BlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
 
 	pub trait BlockToRelayHeightConversion<T: Config> {
+		/// Converts absolute value of parachain block number to relay chain block number
 		fn convert_block_number_to_relay_height(
+			block_number: BlockNumberFor<T>,
+		) -> RelayBlockNumberOf<T>;
+
+		/// Converts parachain block length into equivalent relay chain block length
+		fn convert_block_length_to_relay_length(
 			block_number: BlockNumberFor<T>,
 		) -> RelayBlockNumberOf<T>;
 	}
@@ -251,7 +257,11 @@ pub mod v4 {
 					((0 as u32).into(), (0 as u32).into())
 				};
 
-			log::info!(target: LOG_TARGET, "Configuration Pre-Migration: Interlude Length {:?} Leading Length {:?} ", interlude_length, configuration_leadin_length);
+			let updated_interlude_length: RelayBlockNumberOf<T> =
+				BlockConversion::convert_block_length_to_relay_length(interlude_length);
+			let updated_leadin_length: RelayBlockNumberOf<T> =
+				BlockConversion::convert_block_length_to_relay_length(configuration_leadin_length);
+			log::info!(target: LOG_TARGET, "Configuration Pre-Migration: Interlude Length {:?}->{:?} Leadin Length {:?}->{:?}", interlude_length, updated_interlude_length, configuration_leadin_length, updated_leadin_length);
 
 			let (sale_start, sale_info_leadin_length) =
 				if let Some(sale_info_record) = v3::SaleInfo::<T>::get() {
@@ -260,7 +270,11 @@ pub mod v4 {
 					((0 as u32).into(), (0 as u32).into())
 				};
 
-			log::info!(target: LOG_TARGET, "SaleInfo Pre-Migration: Sale Start {:?} Interlude Length {:?}  ", sale_start, sale_info_leadin_length);
+			let updated_sale_start: RelayBlockNumberOf<T> =
+				BlockConversion::convert_block_number_to_relay_height(sale_start);
+			let updated_sale_info_leadin_length: RelayBlockNumberOf<T> =
+				BlockConversion::convert_block_length_to_relay_length(sale_info_leadin_length);
+			log::info!(target: LOG_TARGET, "SaleInfo Pre-Migration: Sale Start {:?}->{:?} Interlude Length {:?}->{:?}", sale_start, updated_sale_start, sale_info_leadin_length, updated_sale_info_leadin_length);
 
 			Ok((interlude_length, configuration_leadin_length, sale_start, sale_info_leadin_length)
 				.encode())
@@ -273,11 +287,11 @@ pub mod v4 {
 				log::info!(target: LOG_TARGET, "migrating Configuration record");
 
 				let updated_interlude_length: RelayBlockNumberOf<T> =
-					BlockConversion::convert_block_number_to_relay_height(
+					BlockConversion::convert_block_length_to_relay_length(
 						config_record.interlude_length,
 					);
 				let updated_leadin_length: RelayBlockNumberOf<T> =
-					BlockConversion::convert_block_number_to_relay_height(
+					BlockConversion::convert_block_length_to_relay_length(
 						config_record.leadin_length,
 					);
 
@@ -301,7 +315,7 @@ pub mod v4 {
 				let updated_sale_start: RelayBlockNumberOf<T> =
 					BlockConversion::convert_block_number_to_relay_height(sale_info.sale_start);
 				let updated_leadin_length: RelayBlockNumberOf<T> =
-					BlockConversion::convert_block_number_to_relay_height(sale_info.leadin_length);
+					BlockConversion::convert_block_length_to_relay_length(sale_info.leadin_length);
 
 				let updated_sale_info = SaleInfoRecord {
 					sale_start: updated_sale_start,
@@ -333,7 +347,7 @@ pub mod v4 {
 
 			if let Some(config_record) = Configuration::<T>::get() {
 				ensure!(
-					Self::verify_updated(
+					Self::verify_updated_block_length(
 						old_configuration_leadin_length,
 						config_record.leadin_length
 					),
@@ -341,19 +355,25 @@ pub mod v4 {
 				);
 
 				ensure!(
-					Self::verify_updated(old_interlude_length, config_record.interlude_length),
+					Self::verify_updated_block_length(
+						old_interlude_length,
+						config_record.interlude_length
+					),
 					"must migrate configuration interlude_length"
 				);
 			}
 
 			if let Some(sale_info) = SaleInfo::<T>::get() {
 				ensure!(
-					Self::verify_updated(old_sale_start, sale_info.sale_start),
+					Self::verify_updated_block_time(old_sale_start, sale_info.sale_start),
 					"must migrate sale info sale_start"
 				);
 
 				ensure!(
-					Self::verify_updated(old_sale_info_leadin_length, sale_info.leadin_length),
+					Self::verify_updated_block_length(
+						old_sale_info_leadin_length,
+						sale_info.leadin_length
+					),
 					"must migrate sale info leadin_length"
 				);
 			}
@@ -362,12 +382,22 @@ pub mod v4 {
 		}
 	}
 
+	#[cfg(feature = "try-runtime")]
 	impl<T: Config, BlockConversion: BlockToRelayHeightConversion<T>>
 		MigrateToV4Impl<T, BlockConversion>
 	{
-		#[cfg(feature = "try-runtime")]
-		fn verify_updated(old_value: BlockNumberFor<T>, new_value: RelayBlockNumberOf<T>) -> bool {
+		fn verify_updated_block_time(
+			old_value: BlockNumberFor<T>,
+			new_value: RelayBlockNumberOf<T>,
+		) -> bool {
 			BlockConversion::convert_block_number_to_relay_height(old_value) == new_value
+		}
+
+		fn verify_updated_block_length(
+			old_value: BlockNumberFor<T>,
+			new_value: RelayBlockNumberOf<T>,
+		) -> bool {
+			BlockConversion::convert_block_length_to_relay_length(old_value) == new_value
 		}
 	}
 }

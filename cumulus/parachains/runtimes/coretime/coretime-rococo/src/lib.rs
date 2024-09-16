@@ -598,6 +598,10 @@ impl pallet_broker::migration::v4::BlockToRelayHeightConversion<Runtime>
 		let offset = relay_height - parachain_block_number * 2;
 		offset + input_block_number * 2
 	}
+
+	fn convert_block_length_to_relay_length(input_block_length: u32) -> u32 {
+		input_block_length * 2
+	}
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
