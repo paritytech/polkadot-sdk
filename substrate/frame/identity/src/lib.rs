@@ -52,7 +52,8 @@
 //! accounts. There are mappings in both directions, "account -> username" and "username ->
 //! account".
 //!
-//! To grant a username, a username authority can either:
+//! Usernames are granted by authorities and grouped by suffix, with each suffix being administered
+//! by one authority. To grant a username, a username authority can either:
 //! - be given an allocation by governance of a specific amount of usernames to issue for free,
 //!   without any deposit associated with storage costs;
 //! - put up a deposit for each username it issues (usually a subsidized, reduced deposit, relative
@@ -1056,8 +1057,9 @@ pub mod pallet {
 
 		/// Add an `AccountId` with permission to grant usernames with a given `suffix` appended.
 		///
-		/// The authority can grant up to `allocation` usernames. To top up their allocation, they
-		/// should just issue (or request via governance) a new `add_username_authority` call.
+		/// The authority can grant up to `allocation` usernames. To top up the allocation or
+		/// change the account used to grant usernames, this call can be used with the updated
+		/// parameters to overwrite the existing configuration.
 		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::add_username_authority())]
 		pub fn add_username_authority(
@@ -1072,8 +1074,7 @@ pub mod pallet {
 			// `BoundedVec`.
 			Self::validate_suffix(&suffix)?;
 			let suffix = Suffix::<T>::try_from(suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
-			// The authority may already exist, but we don't need to check. They might be changing
-			// their suffix or adding allocation, so we just want to overwrite whatever was there.
+			// The call is `UsernameAuthorityOrigin` guarded, overwrite the old entry if it exists.
 			AuthorityOf::<T>::insert(
 				&suffix,
 				AuthorityProperties::<T::AccountId> { account_id: authority.clone(), allocation },
@@ -1102,7 +1103,11 @@ pub mod pallet {
 
 		/// Set the username for `who`. Must be called by a username authority.
 		///
-		/// The authority must have an `allocation`. Users can either pre-sign their usernames or
+		/// If `use_allocation` is set, the authority must have a username allocation available to
+		/// spend. Otherwise, the authority will need to put up a deposit for registering the
+		/// username.
+		///
+		/// Users can either pre-sign their usernames or
 		/// accept them later.
 		///
 		/// Usernames must:
