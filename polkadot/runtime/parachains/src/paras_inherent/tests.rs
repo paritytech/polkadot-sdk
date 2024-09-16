@@ -228,10 +228,13 @@ mod enter {
 	}
 
 	#[rstest]
-	#[case((true, false))]
-	#[case((true, true))]
-	#[case((false, true))]
-	fn include_backed_candidates_elastic_scaling(#[case] v2_descriptor: bool, injected_core: bool) {
+	#[case(true, false)]
+	#[case(true, true)]
+	#[case(false, true)]
+	fn include_backed_candidates_elastic_scaling(
+		#[case] v2_descriptor: bool,
+		#[case] injected_core: bool,
+	) {
 		// ParaId 0 has one pending candidate on core 0.
 		// ParaId 1 has one pending candidate on core 1.
 		// ParaId 2 has three pending candidates on cores 2, 3 and 4.
@@ -1657,6 +1660,74 @@ mod enter {
 				Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
 
 			assert_eq!(filtered_para_inherend_data.backed_candidates.len(), 0);
+
+			let dispatch_error = Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				unfiltered_para_inherent_data,
+			)
+			.unwrap_err()
+			.error;
+
+			// We expect `enter` to fail because the inherent data contains backed candidates with
+			// v2 descriptors.
+			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
+		});
+	}
+
+	#[test]
+	fn too_many_ump_signals() {
+		let config = default_config();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+		new_test_ext(config).execute_with(|| {
+			// Set the elastic scaling MVP feature.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let unavailable_cores = vec![];
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 5,
+				code_upgrade: None,
+				fill_claimqueue: true,
+				elastic_paras: [(2, 8)].into_iter().collect(),
+				unavailable_cores: unavailable_cores.clone(),
+				v2_descriptor: true,
+				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
+					if candidate.descriptor.para_id() == 2.into() {
+						// Add an extra message so `verify_backed_candidates` fails.
+						candidate.commitments.upward_messages.force_push(
+							UMPSignal::SelectCore(CoreSelector(123 as u8), ClaimQueueOffset(2))
+								.encode(),
+						);
+					}
+					candidate
+				}),
+			});
+
+			let unfiltered_para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (5 validators per core, 10 backed candidates)
+			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 50);
+			// * 10 v2 candidate descriptors.
+			assert_eq!(unfiltered_para_inherent_data.backed_candidates.len(), 10);
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &unfiltered_para_inherent_data)
+				.unwrap();
 
 			let dispatch_error = Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
