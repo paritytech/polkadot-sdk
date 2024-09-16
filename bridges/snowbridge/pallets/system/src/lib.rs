@@ -35,8 +35,14 @@
 //!
 //! Typically, Polkadot governance will use the `force_transfer_native_from_agent` and
 //! `force_update_channel` and extrinsics to manage agents and channels for system parachains.
+//!
+//! ## Polkadot-native tokens on Ethereum
+//!
+//! Tokens deposited on AssetHub pallet can be bridged to Ethereum as wrapped ERC20 tokens. As a
+//! prerequisite, the token should be registered first.
+//!
+//! * [`Call::register_token`]: Register a token location as a wrapped ERC20 contract on Ethereum.
 #![cfg_attr(not(feature = "std"), no_std)]
-
 #[cfg(test)]
 mod mock;
 
@@ -63,13 +69,16 @@ use frame_system::pallet_prelude::*;
 use snowbridge_core::{
 	meth,
 	outbound::{Command, Initializer, Message, OperatingMode, SendError, SendMessage},
-	sibling_sovereign_account, AgentId, Channel, ChannelId, ParaId,
-	PricingParameters as PricingParametersRecord, PRIMARY_GOVERNANCE_CHANNEL,
+	sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
+	PricingParameters as PricingParametersRecord, TokenId, TokenIdOf, PRIMARY_GOVERNANCE_CHANNEL,
 	SECONDARY_GOVERNANCE_CHANNEL,
 };
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{traits::BadOrigin, DispatchError, SaturatedConversion};
+use sp_runtime::{
+	traits::{BadOrigin, MaybeEquivalence},
+	DispatchError, SaturatedConversion,
+};
 use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -99,7 +108,7 @@ where
 }
 
 /// Hash the location to produce an agent id
-fn agent_id_of<T: Config>(location: &Location) -> Result<H256, DispatchError> {
+pub fn agent_id_of<T: Config>(location: &Location) -> Result<H256, DispatchError> {
 	T::AgentIdOf::convert_location(location).ok_or(Error::<T>::LocationConversionFailed.into())
 }
 
@@ -127,6 +136,7 @@ where
 
 #[frame_support::pallet]
 pub mod pallet {
+	use frame_support::dispatch::PostDispatchInfo;
 	use snowbridge_core::StaticLookup;
 	use sp_core::U256;
 
@@ -163,6 +173,12 @@ pub mod pallet {
 		type InboundDeliveryCost: Get<BalanceOf<Self>>;
 
 		type WeightInfo: WeightInfo;
+
+		/// This chain's Universal Location.
+		type UniversalLocation: Get<InteriorLocation>;
+
+		// The bridges configured Ethereum location
+		type EthereumLocation: Get<Location>;
 
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
@@ -211,6 +227,13 @@ pub mod pallet {
 		PricingParametersChanged {
 			params: PricingParametersOf<T>,
 		},
+		/// Register Polkadot-native token as a wrapped ERC20 token on Ethereum
+		RegisterToken {
+			/// Location of Polkadot-native token
+			location: VersionedLocation,
+			/// ID of Polkadot-native token on Ethereum
+			foreign_token_id: H256,
+		},
 	}
 
 	#[pallet::error]
@@ -242,6 +265,16 @@ pub mod pallet {
 	#[pallet::getter(fn parameters)]
 	pub type PricingParameters<T: Config> =
 		StorageValue<_, PricingParametersOf<T>, ValueQuery, T::DefaultPricingParameters>;
+
+	/// Lookup table for foreign token ID to native location relative to ethereum
+	#[pallet::storage]
+	pub type ForeignToNativeId<T: Config> =
+		StorageMap<_, Blake2_128Concat, TokenId, xcm::v4::Location, OptionQuery>;
+
+	/// Lookup table for native location relative to ethereum to foreign token ID
+	#[pallet::storage]
+	pub type NativeToForeignId<T: Config> =
+		StorageMap<_, Blake2_128Concat, xcm::v4::Location, TokenId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -574,6 +607,34 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
+		/// Privileged. Can only be called by root.
+		///
+		/// Fee required: No
+		///
+		/// - `origin`: Must be root
+		/// - `location`: Location of the asset (relative to this chain)
+		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::register_token())]
+		pub fn register_token(
+			origin: OriginFor<T>,
+			location: Box<VersionedLocation>,
+			metadata: AssetMetadata,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+
+			let location: Location =
+				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
+
+			Self::do_register_token(&location, metadata, PaysFee::<T>::No)?;
+
+			Ok(PostDispatchInfo {
+				actual_weight: Some(T::WeightInfo::register_token()),
+				pays_fee: Pays::No,
+			})
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -663,6 +724,42 @@ pub mod pallet {
 			let secondary_exists = Channels::<T>::contains_key(SECONDARY_GOVERNANCE_CHANNEL);
 			primary_exists && secondary_exists
 		}
+
+		pub(crate) fn do_register_token(
+			location: &Location,
+			metadata: AssetMetadata,
+			pays_fee: PaysFee<T>,
+		) -> Result<(), DispatchError> {
+			let ethereum_location = T::EthereumLocation::get();
+			// reanchor to Ethereum context
+			let location = location
+				.clone()
+				.reanchored(&ethereum_location, &T::UniversalLocation::get())
+				.map_err(|_| Error::<T>::LocationConversionFailed)?;
+
+			let token_id = TokenIdOf::convert_location(&location)
+				.ok_or(Error::<T>::LocationConversionFailed)?;
+
+			if !ForeignToNativeId::<T>::contains_key(token_id) {
+				NativeToForeignId::<T>::insert(location.clone(), token_id);
+				ForeignToNativeId::<T>::insert(token_id, location.clone());
+			}
+
+			let command = Command::RegisterForeignToken {
+				token_id,
+				name: metadata.name.into_inner(),
+				symbol: metadata.symbol.into_inner(),
+				decimals: metadata.decimals,
+			};
+			Self::send(SECONDARY_GOVERNANCE_CHANNEL, command, pays_fee)?;
+
+			Self::deposit_event(Event::<T>::RegisterToken {
+				location: location.clone().into(),
+				foreign_token_id: token_id,
+			});
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> StaticLookup for Pallet<T> {
@@ -682,6 +779,15 @@ pub mod pallet {
 	impl<T: Config> Get<PricingParametersOf<T>> for Pallet<T> {
 		fn get() -> PricingParametersOf<T> {
 			PricingParameters::<T>::get()
+		}
+	}
+
+	impl<T: Config> MaybeEquivalence<TokenId, Location> for Pallet<T> {
+		fn convert(foreign_id: &TokenId) -> Option<Location> {
+			ForeignToNativeId::<T>::get(foreign_id)
+		}
+		fn convert_back(location: &Location) -> Option<TokenId> {
+			NativeToForeignId::<T>::get(location)
 		}
 	}
 }
