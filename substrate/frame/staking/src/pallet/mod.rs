@@ -25,8 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, EnsureOrigin, EstimateNextNewSession, Get, InspectLockableCurrency,
-		LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
+		Currency, Defensive, EnsureOrigin, EstimateNextNewSession, Get,
+		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -40,6 +40,7 @@ use sp_runtime::{
 use sp_staking::{
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
+	StakingInterface,
 };
 
 mod impls;
