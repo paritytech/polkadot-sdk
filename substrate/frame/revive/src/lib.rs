@@ -524,7 +524,7 @@ pub mod pallet {
 		/// The code blob supplied is larger than [`limits::code::BLOB_BYTES`].
 		BlobTooLarge,
 		/// The static memory consumption of the blob will be larger than
-		/// [`limits::STATIC_MEMORY_BYTES`].
+		/// [`limits::code::STATIC_MEMORY_BYTES`].
 		StaticMemoryTooLarge,
 		/// The contract has reached its maximum number of delegate dependencies.
 		MaxDelegateDependenciesReached,
