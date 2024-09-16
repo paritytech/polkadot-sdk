@@ -58,7 +58,7 @@ use frame_support::traits::{
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
-	traits::{IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
+	traits::{BlockNumberProvider, IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
 	RuntimeDebug,
 };
 
@@ -242,6 +242,9 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
 	/// Details of a collection.
@@ -857,7 +860,7 @@ pub mod pallet {
 				item_config,
 				|collection_details, collection_config| {
 					let mint_settings = collection_config.mint_settings;
-					let now = frame_system::Pallet::<T>::block_number();
+					let now = T::BlockNumberProvider::current_block_number();
 
 					if let Some(start_block) = mint_settings.start_block {
 						ensure!(start_block <= now, Error::<T, I>::MintNotStarted);
@@ -1029,7 +1032,7 @@ pub mod pallet {
 					let deadline =
 						details.approvals.get(&origin).ok_or(Error::<T, I>::NoPermission)?;
 					if let Some(d) = deadline {
-						let block_number = frame_system::Pallet::<T>::block_number();
+						let block_number = T::BlockNumberProvider::current_block_number();
 						ensure!(block_number <= *d, Error::<T, I>::ApprovalExpired);
 					}
 				}

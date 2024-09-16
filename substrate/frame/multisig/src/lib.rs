@@ -66,7 +66,7 @@ use frame_system::{self as system, pallet_prelude::BlockNumberFor, RawOrigin};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{Dispatchable, TrailingZeroInput, Zero},
+	traits::{BlockNumberProvider, Dispatchable, TrailingZeroInput, Zero},
 	DispatchError, RuntimeDebug,
 };
 pub use weights::WeightInfo;
@@ -168,6 +168,9 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
 	/// The in-code storage version.
@@ -641,7 +644,7 @@ impl<T: Config> Pallet<T> {
 	/// The current `Timepoint`.
 	pub fn timepoint() -> Timepoint<BlockNumberFor<T>> {
 		Timepoint {
-			height: <system::Pallet<T>>::block_number(),
+			height: T::BlockNumberProvider::current_block_number(),
 			index: <system::Pallet<T>>::extrinsic_index().unwrap_or_default(),
 		}
 	}

@@ -48,7 +48,7 @@ pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
+	traits::{BlockNumberProvider, Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
 	DispatchError, DispatchResult, RuntimeDebug,
 };
 pub use weights::WeightInfo;
@@ -176,6 +176,9 @@ pub mod pallet {
 		/// into a pre-existing storage value.
 		#[pallet::constant]
 		type AnnouncementDepositFactor: Get<BalanceOf<Self>>;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
 	#[pallet::call]
@@ -392,7 +395,7 @@ pub mod pallet {
 			let announcement = Announcement {
 				real: real.clone(),
 				call_hash,
-				height: system::Pallet::<T>::block_number(),
+				height: T::BlockNumberProvider::current_block_number(),
 			};
 
 			Announcements::<T>::try_mutate(&who, |(ref mut pending, ref mut deposit)| {
@@ -503,7 +506,7 @@ pub mod pallet {
 			let def = Self::find_proxy(&real, &delegate, force_proxy_type)?;
 
 			let call_hash = T::CallHasher::hash_of(&call);
-			let now = system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			Self::edit_announcements(&delegate, |ann| {
 				ann.real != real ||
 					ann.call_hash != call_hash ||
@@ -639,7 +642,7 @@ impl<T: Config> Pallet<T> {
 	) -> T::AccountId {
 		let (height, ext_index) = maybe_when.unwrap_or_else(|| {
 			(
-				system::Pallet::<T>::block_number(),
+				T::BlockNumberProvider::current_block_number(),
 				system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
 			)
 		});

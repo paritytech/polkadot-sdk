@@ -127,6 +127,7 @@ impl Config for Test {
 	type MaxPending = ConstU32<2>;
 	type AnnouncementDepositBase = ConstU64<1>;
 	type AnnouncementDepositFactor = ConstU64<1>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 use super::{Call as ProxyCall, Event as ProxyEvent};

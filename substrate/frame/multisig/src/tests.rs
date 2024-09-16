@@ -71,6 +71,7 @@ impl Config for Test {
 	type DepositFactor = ConstU64<1>;
 	type MaxSignatories = ConstU32<3>;
 	type WeightInfo = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 use pallet_balances::Call as BalancesCall;

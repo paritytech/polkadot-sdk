@@ -145,6 +145,7 @@ impl Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 // Build genesis storage according to the mock runtime.
