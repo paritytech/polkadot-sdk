@@ -239,7 +239,6 @@ where
 		pool_api: Arc<ChainApi>,
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
-		_best_block_number: NumberFor<Block>,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 	) -> Self {
@@ -1361,7 +1360,6 @@ where
 			pool_api,
 			prometheus,
 			spawner,
-			client.usage_info().chain.best_number,
 			client.usage_info().chain.best_hash,
 			client.usage_info().chain.finalized_hash,
 		);

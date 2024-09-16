@@ -238,6 +238,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		}
 	}
 
+	/// Clears buffer keeping recently pruned transaction.
 	pub fn clear_recently_pruned(&mut self) {
 		self.recently_pruned = Default::default();
 		self.recently_pruned_index = 0;
