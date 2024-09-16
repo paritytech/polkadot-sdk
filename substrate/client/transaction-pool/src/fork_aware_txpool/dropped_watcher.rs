@@ -31,7 +31,7 @@ use sc_transaction_pool_api::TransactionStatus;
 use sc_utils::mpsc;
 use sp_runtime::traits::Block as BlockT;
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	fmt::{self, Debug, Formatter},
 	pin::Pin,
 };
@@ -131,12 +131,16 @@ where
 				self.transaction_states.entry(tx_hash).or_default().insert(block_hash);
 			},
 			TransactionStatus::Dropped | TransactionStatus::Usurped(_) => {
-				let current_views = HashSet::<BlockHash<C>>::from_iter(
-					self.stream_map.get_ref().keys().map(Clone::clone),
-				);
-				if let Some(views_keeping_tx_valid) = self.transaction_states.get_mut(&tx_hash) {
-					views_keeping_tx_valid.remove(&block_hash);
-					if views_keeping_tx_valid.is_disjoint(&current_views) {
+				if let Entry::Occupied(mut views_keeping_tx_valid) =
+					self.transaction_states.entry(tx_hash)
+				{
+					views_keeping_tx_valid.get_mut().remove(&block_hash);
+					if views_keeping_tx_valid.get().is_empty() ||
+						views_keeping_tx_valid
+							.get()
+							.iter()
+							.all(|h| !self.stream_map.get_ref().contains_key(h))
+					{
 						debug!("[{:?}] dropped_watcher: removing tx", tx_hash);
 						return Some(tx_hash)
 					}
@@ -175,8 +179,7 @@ where
 
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
-				tokio::select! {
-					biased;
+				futures::select_biased! {
 					cmd = ctx.command_receiver.next() => {
 						match cmd? {
 							Command::AddView(key,stream) => {
@@ -347,5 +350,31 @@ mod dropped_watcher_tests {
 		watcher.add_view(block_hash1, view_stream1);
 		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
 		assert_eq!(handle.await.unwrap(), vec![tx_hash]);
+	}
+
+	#[tokio::test]
+	async fn test05() {
+		sp_tracing::try_init_simple();
+		let (watcher, mut output_stream) = MultiViewDroppedWatcher::new();
+
+		let block_hash0 = H256::repeat_byte(0x01);
+		let block_hash1 = H256::repeat_byte(0x02);
+		let tx_hash = H256::repeat_byte(0x0b);
+
+		let view_stream0 = futures::stream::iter(vec![
+			(tx_hash, TransactionStatus::Future),
+			(tx_hash, TransactionStatus::InBlock((block_hash1, 0))),
+		])
+		.chain(pending())
+		.boxed();
+		let view_stream1 = futures::stream::iter(vec![
+			(tx_hash, TransactionStatus::Ready),
+			(tx_hash, TransactionStatus::Dropped),
+		])
+		.boxed();
+
+		watcher.add_view(block_hash0, view_stream0);
+		watcher.add_view(block_hash1, view_stream1);
+		assert!(output_stream.next().now_or_never().is_none());
 	}
 }
