@@ -87,8 +87,7 @@ where
 }
 
 /// Params required to start the manual sealing authorship task.
-pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CS, CIDP, P>
-{
+pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CS, CIDP, P> {
 	/// Block import instance.
 	pub block_import: BI,
 
