@@ -1818,7 +1818,6 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 			Some(candidate_a1.hash()),
 		)
 		.await;
-		//
 
 		// advertise another collation for `para_id_a`. This one should be fetched last.
 		assert_advertise_collation(
