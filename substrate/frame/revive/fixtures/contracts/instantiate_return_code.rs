@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -36,12 +36,12 @@ pub extern "C" fn call() {
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, /* How much proof_size weight to devote for the execution. 0 =
 		       * all. */
-		None,                     // No deposit limit.
-		&10_000u64.to_le_bytes(), // Value to transfer.
+		None,                   // No deposit limit.
+		&u256_bytes(10_000u64), // Value to transfer.
 		input,
 		None,
 		None,
-		&[0u8; 32], // Salt.
+		Some(&[0u8; 32]), // Salt.
 	) {
 		Ok(_) => 0u32,
 		Err(code) => code as u32,

@@ -51,19 +51,6 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn on_process_deletion_queue_batch() -> Weight;
 	fn on_initialize_per_trie_key(k: u32, ) -> Weight;
-	fn v9_migration_step(c: u32, ) -> Weight;
-	fn v10_migration_step() -> Weight;
-	fn v11_migration_step(k: u32, ) -> Weight;
-	fn v12_migration_step(c: u32, ) -> Weight;
-	fn v13_migration_step() -> Weight;
-	fn v14_migration_step() -> Weight;
-	fn v15_migration_step() -> Weight;
-	fn v16_migration_step() -> Weight;
-	fn migration_noop() -> Weight;
-	fn migrate() -> Weight;
-	fn on_runtime_upgrade_noop() -> Weight;
-	fn on_runtime_upgrade_in_progress() -> Weight;
-	fn on_runtime_upgrade() -> Weight;
 	fn call_with_code_per_byte(c: u32, ) -> Weight;
 	fn instantiate_with_code(c: u32, i: u32) -> Weight;
 	fn instantiate(i: u32) -> Weight;
@@ -82,6 +69,7 @@ pub trait WeightInfo {
 	fn seal_address() -> Weight;
 	fn seal_gas_left() -> Weight;
 	fn seal_balance() -> Weight;
+	fn seal_balance_of() -> Weight;
 	fn seal_value_transferred() -> Weight;
 	fn seal_minimum_balance() -> Weight;
 	fn seal_block_number() -> Weight;
@@ -161,182 +149,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(k.into()))
-	}
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553022fca90611ba8b7942f8bdb3b97f6580` (r:2 w:1)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553022fca90611ba8b7942f8bdb3b97f6580` (r:2 w:1)
-	/// The range of component `c` is `[0, 125952]`.
-	fn v9_migration_step(c: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `211 + c * (1 ±0)`
-		//  Estimated: `6149 + c * (1 ±0)`
-		// Minimum execution time: 7_783_000 picoseconds.
-		Weight::from_parts(4_462_075, 6149)
-			// Standard Error: 5
-			.saturating_add(Weight::from_parts(1_634, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(c.into()))
-	}
-	/// Storage: `Contracts::ContractInfoOf` (r:2 w:1)
-	/// Proof: `Contracts::ContractInfoOf` (`max_values`: None, `max_size`: Some(1795), added: 4270, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:0)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	fn v10_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `510`
-		//  Estimated: `6450`
-		// Minimum execution time: 15_971_000 picoseconds.
-		Weight::from_parts(16_730_000, 6450)
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Contracts::DeletionQueue` (r:1 w:1025)
-	/// Proof: `Contracts::DeletionQueue` (`max_values`: None, `max_size`: Some(142), added: 2617, mode: `Measured`)
-	/// Storage: `Contracts::DeletionQueueCounter` (r:0 w:1)
-	/// Proof: `Contracts::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
-	/// The range of component `k` is `[0, 1024]`.
-	fn v11_migration_step(k: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `171 + k * (1 ±0)`
-		//  Estimated: `3635 + k * (1 ±0)`
-		// Minimum execution time: 3_149_000 picoseconds.
-		Weight::from_parts(3_264_000, 3635)
-			// Standard Error: 559
-			.saturating_add(Weight::from_parts(1_111_209, 0).saturating_mul(k.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(k.into()))
-	}
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553053f13fd319a03c211337c76e0fe776df` (r:2 w:0)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553053f13fd319a03c211337c76e0fe776df` (r:2 w:0)
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553022fca90611ba8b7942f8bdb3b97f6580` (r:1 w:1)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553022fca90611ba8b7942f8bdb3b97f6580` (r:1 w:1)
-	/// Storage: `System::Account` (r:1 w:0)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// Storage: `Contracts::CodeInfoOf` (r:0 w:1)
-	/// Proof: `Contracts::CodeInfoOf` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `Measured`)
-	/// The range of component `c` is `[0, 125952]`.
-	fn v12_migration_step(c: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `325 + c * (1 ±0)`
-		//  Estimated: `6263 + c * (1 ±0)`
-		// Minimum execution time: 15_072_000 picoseconds.
-		Weight::from_parts(15_721_891, 6263)
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(428, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(c.into()))
-	}
-	/// Storage: `Contracts::ContractInfoOf` (r:2 w:1)
-	/// Proof: `Contracts::ContractInfoOf` (`max_values`: None, `max_size`: Some(1795), added: 4270, mode: `Measured`)
-	fn v13_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `440`
-		//  Estimated: `6380`
-		// Minimum execution time: 12_047_000 picoseconds.
-		Weight::from_parts(12_500_000, 6380)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Contracts::CodeInfoOf` (r:2 w:0)
-	/// Proof: `Contracts::CodeInfoOf` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// Storage: `Balances::Holds` (r:1 w:0)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
-	fn v14_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `352`
-		//  Estimated: `6292`
-		// Minimum execution time: 47_488_000 picoseconds.
-		Weight::from_parts(48_482_000, 6292)
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Contracts::ContractInfoOf` (r:2 w:1)
-	/// Proof: `Contracts::ContractInfoOf` (`max_values`: None, `max_size`: Some(1795), added: 4270, mode: `Measured`)
-	/// Storage: `System::Account` (r:2 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	fn v15_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `594`
-		//  Estimated: `6534`
-		// Minimum execution time: 52_801_000 picoseconds.
-		Weight::from_parts(54_230_000, 6534)
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
-	/// Storage: `Contracts::ContractInfoOf` (r:2 w:1)
-	/// Proof: `Contracts::ContractInfoOf` (`max_values`: None, `max_size`: Some(1795), added: 4270, mode: `Measured`)
-	fn v16_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `409`
-		//  Estimated: `6349`
-		// Minimum execution time: 11_618_000 picoseconds.
-		Weight::from_parts(12_068_000, 6349)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Contracts::MigrationInProgress` (r:1 w:1)
-	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
-	fn migration_noop() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `142`
-		//  Estimated: `1627`
-		// Minimum execution time: 2_131_000 picoseconds.
-		Weight::from_parts(2_255_000, 1627)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Contracts::MigrationInProgress` (r:1 w:1)
-	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:1)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:1)
-	fn migrate() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `166`
-		//  Estimated: `3631`
-		// Minimum execution time: 10_773_000 picoseconds.
-		Weight::from_parts(11_118_000, 3631)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	fn on_runtime_upgrade_noop() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `142`
-		//  Estimated: `3607`
-		// Minimum execution time: 4_371_000 picoseconds.
-		Weight::from_parts(4_624_000, 3607)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-	}
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	/// Storage: `Contracts::MigrationInProgress` (r:1 w:0)
-	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
-	fn on_runtime_upgrade_in_progress() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `167`
-		//  Estimated: `3632`
-		// Minimum execution time: 5_612_000 picoseconds.
-		Weight::from_parts(5_838_000, 3632)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-	}
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	/// Storage: `Contracts::MigrationInProgress` (r:1 w:1)
-	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
-	fn on_runtime_upgrade() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `142`
-		//  Estimated: `3607`
-		// Minimum execution time: 5_487_000 picoseconds.
-		Weight::from_parts(5_693_000, 3607)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Contracts::MigrationInProgress` (r:1 w:0)
 	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
@@ -597,6 +409,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 4_361_000 picoseconds.
 		Weight::from_parts(4_577_000, 0)
+	}
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	fn seal_balance_of() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `52`
+		//  Estimated: `3517`
+		// Minimum execution time: 3_751_000 picoseconds.
+		Weight::from_parts(3_874_000, 3517)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	fn seal_value_transferred() -> Weight {
 		// Proof Size summary in bytes:
@@ -1152,182 +974,6 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(k.into()))
 	}
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553022fca90611ba8b7942f8bdb3b97f6580` (r:2 w:1)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553022fca90611ba8b7942f8bdb3b97f6580` (r:2 w:1)
-	/// The range of component `c` is `[0, 125952]`.
-	fn v9_migration_step(c: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `211 + c * (1 ±0)`
-		//  Estimated: `6149 + c * (1 ±0)`
-		// Minimum execution time: 7_783_000 picoseconds.
-		Weight::from_parts(4_462_075, 6149)
-			// Standard Error: 5
-			.saturating_add(Weight::from_parts(1_634, 0).saturating_mul(c.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(c.into()))
-	}
-	/// Storage: `Contracts::ContractInfoOf` (r:2 w:1)
-	/// Proof: `Contracts::ContractInfoOf` (`max_values`: None, `max_size`: Some(1795), added: 4270, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:0)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	fn v10_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `510`
-		//  Estimated: `6450`
-		// Minimum execution time: 15_971_000 picoseconds.
-		Weight::from_parts(16_730_000, 6450)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Contracts::DeletionQueue` (r:1 w:1025)
-	/// Proof: `Contracts::DeletionQueue` (`max_values`: None, `max_size`: Some(142), added: 2617, mode: `Measured`)
-	/// Storage: `Contracts::DeletionQueueCounter` (r:0 w:1)
-	/// Proof: `Contracts::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
-	/// The range of component `k` is `[0, 1024]`.
-	fn v11_migration_step(k: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `171 + k * (1 ±0)`
-		//  Estimated: `3635 + k * (1 ±0)`
-		// Minimum execution time: 3_149_000 picoseconds.
-		Weight::from_parts(3_264_000, 3635)
-			// Standard Error: 559
-			.saturating_add(Weight::from_parts(1_111_209, 0).saturating_mul(k.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(k.into()))
-	}
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553053f13fd319a03c211337c76e0fe776df` (r:2 w:0)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553053f13fd319a03c211337c76e0fe776df` (r:2 w:0)
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553022fca90611ba8b7942f8bdb3b97f6580` (r:1 w:1)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc553022fca90611ba8b7942f8bdb3b97f6580` (r:1 w:1)
-	/// Storage: `System::Account` (r:1 w:0)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// Storage: `Contracts::CodeInfoOf` (r:0 w:1)
-	/// Proof: `Contracts::CodeInfoOf` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `Measured`)
-	/// The range of component `c` is `[0, 125952]`.
-	fn v12_migration_step(c: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `325 + c * (1 ±0)`
-		//  Estimated: `6263 + c * (1 ±0)`
-		// Minimum execution time: 15_072_000 picoseconds.
-		Weight::from_parts(15_721_891, 6263)
-			// Standard Error: 2
-			.saturating_add(Weight::from_parts(428, 0).saturating_mul(c.into()))
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-			.saturating_add(Weight::from_parts(0, 1).saturating_mul(c.into()))
-	}
-	/// Storage: `Contracts::ContractInfoOf` (r:2 w:1)
-	/// Proof: `Contracts::ContractInfoOf` (`max_values`: None, `max_size`: Some(1795), added: 4270, mode: `Measured`)
-	fn v13_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `440`
-		//  Estimated: `6380`
-		// Minimum execution time: 12_047_000 picoseconds.
-		Weight::from_parts(12_500_000, 6380)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Contracts::CodeInfoOf` (r:2 w:0)
-	/// Proof: `Contracts::CodeInfoOf` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// Storage: `Balances::Holds` (r:1 w:0)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
-	fn v14_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `352`
-		//  Estimated: `6292`
-		// Minimum execution time: 47_488_000 picoseconds.
-		Weight::from_parts(48_482_000, 6292)
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Contracts::ContractInfoOf` (r:2 w:1)
-	/// Proof: `Contracts::ContractInfoOf` (`max_values`: None, `max_size`: Some(1795), added: 4270, mode: `Measured`)
-	/// Storage: `System::Account` (r:2 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	fn v15_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `594`
-		//  Estimated: `6534`
-		// Minimum execution time: 52_801_000 picoseconds.
-		Weight::from_parts(54_230_000, 6534)
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-	}
-	/// Storage: `Contracts::ContractInfoOf` (r:2 w:1)
-	/// Proof: `Contracts::ContractInfoOf` (`max_values`: None, `max_size`: Some(1795), added: 4270, mode: `Measured`)
-	fn v16_migration_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `409`
-		//  Estimated: `6349`
-		// Minimum execution time: 11_618_000 picoseconds.
-		Weight::from_parts(12_068_000, 6349)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Contracts::MigrationInProgress` (r:1 w:1)
-	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
-	fn migration_noop() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `142`
-		//  Estimated: `1627`
-		// Minimum execution time: 2_131_000 picoseconds.
-		Weight::from_parts(2_255_000, 1627)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Contracts::MigrationInProgress` (r:1 w:1)
-	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:1)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:1)
-	fn migrate() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `166`
-		//  Estimated: `3631`
-		// Minimum execution time: 10_773_000 picoseconds.
-		Weight::from_parts(11_118_000, 3631)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-	}
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	fn on_runtime_upgrade_noop() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `142`
-		//  Estimated: `3607`
-		// Minimum execution time: 4_371_000 picoseconds.
-		Weight::from_parts(4_624_000, 3607)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-	}
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	/// Storage: `Contracts::MigrationInProgress` (r:1 w:0)
-	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
-	fn on_runtime_upgrade_in_progress() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `167`
-		//  Estimated: `3632`
-		// Minimum execution time: 5_612_000 picoseconds.
-		Weight::from_parts(5_838_000, 3632)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-	}
-	/// Storage: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x4342193e496fab7ec59d615ed0dc55304e7b9012096b41c4eb3aaf947f6ea429` (r:1 w:0)
-	/// Storage: `Contracts::MigrationInProgress` (r:1 w:1)
-	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
-	fn on_runtime_upgrade() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `142`
-		//  Estimated: `3607`
-		// Minimum execution time: 5_487_000 picoseconds.
-		Weight::from_parts(5_693_000, 3607)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
 	/// Storage: `Contracts::MigrationInProgress` (r:1 w:0)
 	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
 	/// Storage: `Contracts::ContractInfoOf` (r:1 w:1)
@@ -1587,6 +1233,16 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 4_361_000 picoseconds.
 		Weight::from_parts(4_577_000, 0)
+	}
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	fn seal_balance_of() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `52`
+		//  Estimated: `3517`
+		// Minimum execution time: 3_751_000 picoseconds.
+		Weight::from_parts(3_874_000, 3517)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	fn seal_value_transferred() -> Weight {
 		// Proof Size summary in bytes:

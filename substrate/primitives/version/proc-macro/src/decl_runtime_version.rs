@@ -17,6 +17,7 @@
 
 use codec::Encode;
 use proc_macro2::{Span, TokenStream};
+use proc_macro_warning::Warning;
 use quote::quote;
 use syn::{
 	parse::{Error, Result},
@@ -37,13 +38,19 @@ pub fn decl_runtime_version_impl(input: proc_macro::TokenStream) -> proc_macro::
 }
 
 fn decl_runtime_version_impl_inner(item: ItemConst) -> Result<TokenStream> {
-	let runtime_version = ParseRuntimeVersion::parse_expr(&item.expr)?.build(item.expr.span())?;
+	let (parsed_runtime_version, warnings) = ParseRuntimeVersion::parse_expr(&item.expr)?;
+	let runtime_version = parsed_runtime_version.build(item.expr.span())?;
 	let link_section =
 		generate_emit_link_section_decl(&runtime_version.encode(), "runtime_version");
 
 	Ok(quote! {
 		#item
 		#link_section
+		const _:() = {
+			#(
+				#warnings
+			)*
+		};
 	})
 }
 
@@ -63,7 +70,7 @@ struct RuntimeVersion {
 	impl_version: u32,
 	apis: u8,
 	transaction_version: u32,
-	state_version: u8,
+	system_version: u8,
 }
 
 #[derive(Default, Debug)]
@@ -74,11 +81,11 @@ struct ParseRuntimeVersion {
 	spec_version: Option<u32>,
 	impl_version: Option<u32>,
 	transaction_version: Option<u32>,
-	state_version: Option<u8>,
+	system_version: Option<u8>,
 }
 
 impl ParseRuntimeVersion {
-	fn parse_expr(init_expr: &Expr) -> Result<ParseRuntimeVersion> {
+	fn parse_expr(init_expr: &Expr) -> Result<(ParseRuntimeVersion, Vec<Warning>)> {
 		let init_expr = match init_expr {
 			Expr::Struct(ref e) => e,
 			_ =>
@@ -86,13 +93,14 @@ impl ParseRuntimeVersion {
 		};
 
 		let mut parsed = ParseRuntimeVersion::default();
+		let mut warnings = vec![];
 		for field_value in init_expr.fields.iter() {
-			parsed.parse_field_value(field_value)?;
+			warnings.append(&mut parsed.parse_field_value(field_value)?)
 		}
-		Ok(parsed)
+		Ok((parsed, warnings))
 	}
 
-	fn parse_field_value(&mut self, field_value: &FieldValue) -> Result<()> {
+	fn parse_field_value(&mut self, field_value: &FieldValue) -> Result<Vec<Warning>> {
 		let field_name = match field_value.member {
 			syn::Member::Named(ref ident) => ident,
 			syn::Member::Unnamed(_) =>
@@ -112,6 +120,7 @@ impl ParseRuntimeVersion {
 			}
 		}
 
+		let mut warnings = vec![];
 		if field_name == "spec_name" {
 			parse_once(&mut self.spec_name, field_value, Self::parse_str_literal)?;
 		} else if field_name == "impl_name" {
@@ -125,7 +134,16 @@ impl ParseRuntimeVersion {
 		} else if field_name == "transaction_version" {
 			parse_once(&mut self.transaction_version, field_value, Self::parse_num_literal)?;
 		} else if field_name == "state_version" {
-			parse_once(&mut self.state_version, field_value, Self::parse_num_literal_u8)?;
+			let warning = Warning::new_deprecated("RuntimeVersion")
+				.old("state_version")
+				.new("system_version)")
+				.help_link("https://github.com/paritytech/polkadot-sdk/pull/4257")
+				.span(field_name.span())
+				.build_or_panic();
+			warnings.push(warning);
+			parse_once(&mut self.system_version, field_value, Self::parse_num_literal_u8)?;
+		} else if field_name == "system_version" {
+			parse_once(&mut self.system_version, field_value, Self::parse_num_literal_u8)?;
 		} else if field_name == "apis" {
 			// Intentionally ignored
 			//
@@ -136,7 +154,7 @@ impl ParseRuntimeVersion {
 			return Err(Error::new(field_name.span(), "unknown field"))
 		}
 
-		Ok(())
+		Ok(warnings)
 	}
 
 	fn parse_num_literal(expr: &Expr) -> Result<u32> {
@@ -198,7 +216,7 @@ impl ParseRuntimeVersion {
 			spec_version,
 			impl_version,
 			transaction_version,
-			state_version,
+			system_version,
 		} = self;
 
 		Ok(RuntimeVersion {
@@ -208,7 +226,7 @@ impl ParseRuntimeVersion {
 			spec_version: required!(spec_version),
 			impl_version: required!(impl_version),
 			transaction_version: required!(transaction_version),
-			state_version: required!(state_version),
+			system_version: required!(system_version),
 			apis: 0,
 		})
 	}
@@ -240,7 +258,7 @@ mod tests {
 			impl_version: 1,
 			apis: 0,
 			transaction_version: 2,
-			state_version: 1,
+			system_version: 1,
 		}
 		.encode();
 
@@ -255,7 +273,7 @@ mod tests {
 				impl_version: 1,
 				apis: Cow::Owned(vec![]),
 				transaction_version: 2,
-				state_version: 1,
+				system_version: 1,
 			},
 		);
 	}
