@@ -20,9 +20,6 @@ codec = { features = [
 	"max-encoded-len",
 ], optional = true, workspace = true }
 
-[target.'cfg(target_arch = "riscv32")'.dependencies]
-polkavm-derive = { workspace = true }
-
 [package.metadata.docs.rs]
 default-target = ["wasm32-unknown-unknown"]
 
