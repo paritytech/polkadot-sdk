@@ -72,7 +72,7 @@ where
 	/// Extrinsic actual body.
 	tx: ExtrinsicFor<ChainApi>,
 	/// Transaction source.
-	pub(crate) source: TransactionSource,
+	source: TransactionSource,
 	/// When the transaction was revalidated, used to periodically revalidate the mem pool buffer.
 	validated_at: AtomicU64,
 }
@@ -104,6 +104,11 @@ where
 	/// Operation is cheap, as the body is `Arc`.
 	pub(crate) fn tx(&self) -> ExtrinsicFor<ChainApi> {
 		self.tx.clone()
+	}
+
+	/// Returns the source of the transaction.
+	pub(crate) fn source(&self) -> TransactionSource {
+		self.source
 	}
 }
 

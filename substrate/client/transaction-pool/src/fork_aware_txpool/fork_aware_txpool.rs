@@ -964,7 +964,7 @@ where
 			xts.into_iter()
 				.filter(|(hash, _)| !view.pool.validated_pool().pool.read().is_imported(hash))
 				.filter(|(hash, _)| !included_xts.contains(&hash))
-				.map(|(_, tx)| (tx.source, tx.tx()))
+				.map(|(_, tx)| (tx.source(), tx.tx()))
 				.for_each(|(source, tx)| buckets.entry(source).or_default().push(tx));
 
 			for (source, xts) in buckets {
@@ -994,7 +994,7 @@ where
 						Ok(view.create_watcher(tx_hash))
 					} else {
 						submitted_count.fetch_add(1, Ordering::Relaxed);
-						view.submit_and_watch(tx.source, tx.tx()).await
+						view.submit_and_watch(tx.source(), tx.tx()).await
 					};
 					let result = result.map_or_else(
 						|error| {
