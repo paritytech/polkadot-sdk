@@ -1923,3 +1923,161 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		virtual_overseer
 	});
 }
+
+#[test]
+fn collation_fetching_considers_advertisements_from_the_whole_view() {
+	let test_state = TestState::with_shared_core();
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+		let collator_a = PeerId::random();
+		let para_id_a = test_state.chain_ids[0];
+
+		let pair_b = CollatorPair::generate().0;
+		let collator_b = PeerId::random();
+		let para_id_b = test_state.chain_ids[1];
+
+		let relay_parent_2 = Hash::from_low_u64_be(128);
+
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(relay_parent_2, 2)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			collator_a,
+			pair_a.clone(),
+			para_id_a,
+			CollationVersion::V2,
+		)
+		.await;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			collator_b,
+			pair_b.clone(),
+			para_id_b,
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Two advertisements for `para_id_a` at `relay_parent_2`
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			para_id_a,
+			relay_parent_2,
+			collator_a,
+			HeadData(vec![0 as u8]),
+		)
+		.await;
+
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			para_id_a,
+			relay_parent_2,
+			collator_a,
+			HeadData(vec![1 as u8]),
+		)
+		.await;
+
+		// parent hashes are hardcoded in `get_parent_hash` (called from `update_view`) to be
+		// `current hash + 1` so we need to craft them carefully (decrement by 2) in order to make
+		// them fall in the same view.
+		let relay_parent_4 = Hash::from_low_u64_be(126);
+
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(relay_parent_4, 4)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
+
+		// One advertisement for `para_id_b` at `relay_parent_4`
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			para_id_b,
+			relay_parent_4,
+			collator_b,
+			HeadData(vec![3 as u8]),
+		)
+		.await;
+
+		// At this point the claim queue is satisfied and any advertisement at `relay_parent_4`
+		// must be ignored
+
+		// Advertisement for `para_id_a` at `relay_parent_4` which must be ignored
+		let (candidate_a, _) = create_dummy_candidate_and_commitments(
+			para_id_a,
+			HeadData(vec![5 as u8]),
+			relay_parent_4,
+		);
+		let parent_head_data_a = HeadData(vec![5 as u8]);
+
+		advertise_collation(
+			&mut virtual_overseer,
+			collator_a,
+			relay_parent_4,
+			Some((candidate_a.hash(), parent_head_data_a.hash())),
+		)
+		.await;
+
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		// Advertisement for `para_id_b` at `relay_parent_4` which must be ignored
+		let (candidate_b, _) = create_dummy_candidate_and_commitments(
+			para_id_b,
+			HeadData(vec![6 as u8]),
+			relay_parent_4,
+		);
+		let parent_head_data_b = HeadData(vec![6 as u8]);
+
+		advertise_collation(
+			&mut virtual_overseer,
+			collator_b,
+			relay_parent_4,
+			Some((candidate_b.hash(), parent_head_data_b.hash())),
+		)
+		.await;
+
+		// `CanSecond` shouldn't be sent as the advertisement should be ignored
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		// At `relay_parent_6` the advertisement for `para_id_b` falls out of the view so a new one
+		// can be accepted
+		let relay_parent_6 = Hash::from_low_u64_be(124);
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(relay_parent_6, 6)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
+
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			para_id_a,
+			relay_parent_6,
+			collator_a,
+			HeadData(vec![3 as u8]),
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
