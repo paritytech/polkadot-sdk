@@ -168,12 +168,16 @@ where
 pub type TransactionPoolImpl<Block, Client> = TransactionPoolWrapper<Block, Client>;
 
 /// Builder allowing to create specific instance of transaction pool.
-pub struct Builder<Block, Client> {
+pub struct Builder<'a, Block, Client> {
 	options: TransactionPoolOptions,
+	is_validator: IsValidator,
+	prometheus: Option<&'a PrometheusRegistry>,
+	client: Arc<Client>,
+	spawner: Box<dyn SpawnEssentialNamed>,
 	_phantom: PhantomData<(Client, Block)>,
 }
 
-impl<Client, Block> Builder<Block, Client>
+impl<'a, Client, Block> Builder<'a, Block, Client>
 where
 	Block: BlockT,
 	Client: sp_api::ProvideRuntimeApi<Block>
@@ -190,8 +194,19 @@ where
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 {
 	/// Creates new instance of `Builder`
-	pub fn new() -> Builder<Block, Client> {
-		Builder { options: Default::default(), _phantom: Default::default() }
+	pub fn new(
+		spawner: impl SpawnEssentialNamed + 'static,
+		client: Arc<Client>,
+		is_validator: IsValidator,
+	) -> Builder<'a, Block, Client> {
+		Builder {
+			options: Default::default(),
+			_phantom: Default::default(),
+			spawner: Box::new(spawner),
+			client,
+			is_validator,
+			prometheus: None,
+		}
 	}
 
 	/// Sets the options used for creating a transaction pool instance.
@@ -200,29 +215,29 @@ where
 		self
 	}
 
+	/// Sets the prometheus endpoint used in a transaction pool instance.
+	pub fn with_prometheus(mut self, prometheus: Option<&'a PrometheusRegistry>) -> Self {
+		self.prometheus = prometheus;
+		self
+	}
+
 	/// Creates an instance of transaction pool.
-	pub fn build(
-		self,
-		is_validator: IsValidator,
-		prometheus: Option<&PrometheusRegistry>,
-		spawner: impl SpawnEssentialNamed,
-		client: Arc<Client>,
-	) -> TransactionPoolImpl<Block, Client> {
+	pub fn build(self) -> TransactionPoolImpl<Block, Client> {
 		log::info!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
 		TransactionPoolWrapper::<Block, Client>(match self.options.txpool_type {
 			TransactionPoolType::SingleState => Box::new(SingleStateFullPool::new_full(
 				self.options.options,
-				is_validator,
-				prometheus,
-				spawner,
-				client,
+				self.is_validator,
+				self.prometheus,
+				self.spawner,
+				self.client,
 			)),
 			TransactionPoolType::ForkAware => Box::new(ForkAwareFullPool::new_full(
 				self.options.options,
-				is_validator,
-				prometheus,
-				spawner,
-				client,
+				self.is_validator,
+				self.prometheus,
+				self.spawner,
+				self.client,
 			)),
 		})
 	}

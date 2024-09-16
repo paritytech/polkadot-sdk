@@ -513,14 +513,14 @@ where
 	ChainSelection: 'static + SelectChain<Block>,
 {
 	let transaction_pool = Arc::from(
-		sc_transaction_pool::Builder::new()
-			.with_options(config.transaction_pool.clone())
-			.build(
-				config.role.is_authority().into(),
-				config.prometheus_registry(),
-				task_manager.spawn_essential_handle(),
-				client.clone(),
-			),
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
 	);
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
