@@ -504,7 +504,7 @@ where
 /// out:
 /// [ Ok(xth0), Ok(xth1), Err ]
 /// ```
-fn reduce_multiview_result<H, E>(mut input: HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
+fn reduce_multiview_result<H, E>(input: HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
 	let mut values = input.values();
 	let Some(first) = values.next() else {
 		return Default::default();
@@ -512,21 +512,17 @@ fn reduce_multiview_result<H, E>(mut input: HashMap<H, Vec<Result<H, E>>>) -> Ve
 	let length = first.len();
 	debug_assert!(values.all(|x| length == x.len()));
 
-	let mut output = Vec::with_capacity(length);
-	for _ in 0..length {
-		let ith_results = input
-			.values_mut()
-			.map(|values_for_view| values_for_view.pop().expect(""))
-			.reduce(|mut r, v| {
-				if r.is_err() && v.is_ok() {
-					r = v;
+	input
+		.into_values()
+		.reduce(|mut agg_results, results| {
+			agg_results.iter_mut().zip(results.into_iter()).for_each(|(agg_r, r)| {
+				if agg_r.is_err() {
+					*agg_r = r;
 				}
-				r
 			});
-
-		output.push(ith_results.expect("views contain at least one entry. qed."));
-	}
-	output.into_iter().rev().collect()
+			agg_results
+		})
+		.unwrap_or_default()
 }
 
 impl<ChainApi, Block> TransactionPool for ForkAwareTxPool<ChainApi, Block>
