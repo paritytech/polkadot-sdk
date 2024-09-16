@@ -17,7 +17,7 @@
 extern crate alloc;
 
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-pub use hex;
+pub use array_bytes;
 pub use lazy_static::lazy_static;
 pub use log;
 pub use paste;
@@ -831,7 +831,7 @@ macro_rules! __impl_test_ext_for_parachain {
 
 				// Execute
 				let r = $local_ext.with(|v| {
-					$crate::log::trace!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
+					$crate::log::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
 					v.borrow_mut().execute_with(execute)
 				});
 
@@ -1032,7 +1032,7 @@ macro_rules! decl_test_networks {
 										);
 									});
 									let messages = msgs.clone().iter().map(|(block, message)| {
-										(*block, format!("0x{}", $crate::hex::encode(message)))
+										(*block, $crate::array_bytes::bytes2hex("0x", message))
 									}).collect::<Vec<_>>();
 									$crate::log::info!(target: concat!("xcm::dmp::", stringify!($name)) , "Downward messages processed by para_id {:?}: {:?}", &to_para_id, messages);
 									$crate::DMP_DONE.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().push_back((to_para_id, block, msg)));
@@ -1058,7 +1058,7 @@ macro_rules! decl_test_networks {
 									let _ =  <$parachain<Self> as Parachain>::MessageProcessor::service_queues($crate::Weight::MAX);
 								});
 								let messages = messages.clone().iter().map(|(para_id, relay_block_number, message)| {
-									(*para_id, *relay_block_number, format!("0x{}", $crate::hex::encode(message)))
+									(*para_id, *relay_block_number, $crate::array_bytes::bytes2hex("0x", message))
 								}).collect::<Vec<_>>();
 								$crate::log::info!(target: concat!("xcm::hrmp::", stringify!($name)), "Horizontal messages processed by para_id {:?}: {:?}", &to_para_id, &messages);
 							}
@@ -1079,7 +1079,7 @@ macro_rules! decl_test_networks {
 								&mut msg.using_encoded($crate::blake2_256),
 							);
 						});
-						let message = format!("0x{}", $crate::hex::encode(msg.clone()));
+						let message = $crate::array_bytes::bytes2hex("0x", msg.clone());
 						$crate::log::info!(target: concat!("xcm::ump::", stringify!($name)) , "Upward message processed from para_id {:?}: {:?}", &from_para_id, &message);
 					}
 				}

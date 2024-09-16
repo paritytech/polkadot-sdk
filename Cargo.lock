@@ -24243,6 +24243,7 @@ dependencies = [
 name = "xcm-emulator"
 version = "0.5.0"
 dependencies = [
+ "array-bytes",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -24250,7 +24251,6 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "frame-support",
  "frame-system",
- "hex",
  "impl-trait-for-tuples",
  "lazy_static",
  "log",
