@@ -362,7 +362,7 @@ pub mod v2 {
 		// Migrate one entry from `IdentityOf` to `UsernameOf`, if it has a username associated with
 		// it. Remove the entry if there was no real identity associated with the account.
 		pub(crate) fn identity_step(maybe_last_key: Option<HashedKey>) -> StepResultOf<T> {
-			if let Some(last_key) =
+			if let Some(mut last_key) =
 				IdentityOf::<T>::translate_next::<
 					(
 						Registration<
@@ -383,7 +383,11 @@ pub mod v2 {
 						None
 					}
 				}) {
-				MigrationState::Identity(last_key.try_into().unwrap())
+				last_key.truncate(HashedKey::bound());
+				MigrationState::Identity(
+					HashedKey::try_from(last_key)
+						.expect("truncated to bound so the conversion must succeed; qed"),
+				)
 			} else {
 				MigrationState::FinishedIdentities
 			}
@@ -391,14 +395,18 @@ pub mod v2 {
 
 		// Migrate one entry from `PendingUsernames` to contain the new `Provider` field.
 		pub(crate) fn pending_username_step(maybe_last_key: Option<HashedKey>) -> StepResultOf<T> {
-			if let Some(last_key) =
+			if let Some(mut last_key) =
 				PendingUsernames::<T>::translate_next::<(T::AccountId, BlockNumberFor<T>), _>(
 					maybe_last_key.map(|b| b.to_vec()),
 					|_, (owner_account, since)| {
 						Some((owner_account, since, Provider::new_with_allocation()))
 					},
 				) {
-				MigrationState::PendingUsername(last_key.try_into().unwrap())
+				last_key.truncate(HashedKey::bound());
+				MigrationState::PendingUsername(
+					HashedKey::try_from(last_key)
+						.expect("truncated to bound so the conversion must succeed; qed"),
+				)
 			} else {
 				MigrationState::FinishedPendingUsernames
 			}
