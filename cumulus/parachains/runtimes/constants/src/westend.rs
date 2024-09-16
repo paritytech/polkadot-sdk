@@ -171,7 +171,7 @@ pub mod time {
 
 pub mod snowbridge {
 	use frame_support::parameter_types;
-	use xcm::opaque::lts::NetworkId;
+	use xcm::prelude::{Location, NetworkId};
 
 	/// The pallet index of the Ethereum inbound queue pallet in the bridge hub runtime.
 	pub const INBOUND_QUEUE_PALLET_INDEX: u8 = 80;
@@ -182,6 +182,7 @@ pub mod snowbridge {
 		/// <https://chainlist.org/chain/11155111>
 		/// <https://ethereum.org/en/developers/docs/apis/json-rpc/#net_version>
 		pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
+		pub EthereumLocation: Location = Location::new(2, EthereumNetwork::get());
 	}
 }
 
