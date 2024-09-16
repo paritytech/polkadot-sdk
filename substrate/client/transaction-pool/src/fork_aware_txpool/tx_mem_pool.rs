@@ -308,7 +308,7 @@ where
 	///
 	/// Returns a vector of invalid transaction hashes.
 	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
-		log::trace!(target: LOG_TARGET, "mempool::revalidate at:{:?} {}", finalized_block, line!());
+		log::trace!(target: LOG_TARGET, "mempool::revalidate at:{finalized_block:?}");
 		let start = Instant::now();
 
 		let (count, input) = {
