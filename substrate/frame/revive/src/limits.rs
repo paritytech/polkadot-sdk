@@ -74,26 +74,36 @@ pub const PAGE_SIZE: u32 = 4 * 1024;
 /// will not be affected by those limits.
 pub mod code {
 	use super::PAGE_SIZE;
-	use crate::{Config, Error};
+	use crate::{Config, Error, LOG_TARGET};
 	use frame_support::ensure;
 	use sp_runtime::DispatchResult;
 
 	/// The maximum length of a code blob in bytes.
-	pub const BLOB_BYTES: u32 = CODE_BYTES + STATIC_DATA_BYTES;
-
-	/// Maximum size of the code section in bytes.
-	pub const CODE_BYTES: u32 = 50 * 1024;
-
-	/// Maximum size of the other sections combined in bytes.
 	///
-	/// We limit data seperately from code because after compilation
-	/// code consumes more memory per source byte than data. This allows
-	/// us to allow larger programs as long as they don't contain too much
-	/// code.
-	pub const STATIC_DATA_BYTES: u32 = 100 * 1024;
+	/// This mostly exist to prevent parsing too big blobs and to
+	/// have a maximum encoded length. The actual memory calculation
+	/// is purely based off [`STATIC_MEMORY_BYTES`].
+	pub const BLOB_BYTES: u32 = 256 * 1024;
+
+	/// Maximum size the program is allowed to take in memory.
+	///
+	/// This includes data and code. Increasing this limit will allow
+	/// for more code or more data. However, since code will decompress
+	/// into a bigger representation on compilation it will only increase
+	/// the allowed code size by [`BYTE_PER_INSTRUCTION`].
+	pub const STATIC_MEMORY_BYTES: u32 = 1024 * 1024;
+
+	/// How much memory each instruction will take in-memory after compilation.
+	///
+	/// This is `size_of<usize>() + 16`. But we don't use `usize` here so it isn't
+	/// different on the native runtime (used for testing).
+	const BYTE_PER_INSTRUCTION: u32 = 20;
+
+	/// The code is stored multiple times as part of the compiled program.
+	const CODE_OVERHEAD_MULTIPLIER: u32 = 5;
 
 	/// Make sure that the various program parts are within the defined limits.
-	pub fn enforce<T: Config>(program: &polkavm::ProgramParts) -> DispatchResult {
+	pub fn enforce<T: Config>(blob: &[u8]) -> DispatchResult {
 		fn round_page(n: u32) -> u32 {
 			debug_assert!(
 				PAGE_SIZE != 0 && (PAGE_SIZE & (PAGE_SIZE - 1)) == 0,
@@ -102,19 +112,32 @@ pub mod code {
 			(n + PAGE_SIZE - 1) & !(PAGE_SIZE - 1)
 		}
 
-		ensure!(program.code_and_jump_table.len() as u32 <= CODE_BYTES, <Error<T>>::CodeTooLarge);
+		let program = polkavm::ProgramBlob::parse(blob.into()).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to parse polkavm blob: {err:?}");
+			Error::<T>::CodeRejected
+		})?;
 
-		let data_size = round_page(program.ro_data_size)
-			.saturating_add(round_page(program.rw_data_size))
-			.saturating_add(round_page(program.stack_size))
-			.saturating_add(program.import_offsets.len() as u32)
-			.saturating_add(program.import_symbols.len() as u32)
-			.saturating_add(program.exports.len() as u32)
-			.saturating_add(program.debug_strings.len() as u32)
-			.saturating_add(program.debug_line_program_ranges.len() as u32)
-			.saturating_add(program.debug_line_programs.len() as u32);
+		// this is O(n) but it allows us to be more precise
+		let num_instructions = program.instructions().count();
 
-		ensure!(data_size <= STATIC_DATA_BYTES, <Error<T>>::StaticDataTooLarge);
+		// The memory consumptions is the byte size of the whole blob,
+		// minus the RO data payload in the blob,
+		// minus the RW data payload in the blob,
+		// plus the RO data in memory (which is always equal or bigger than the RO payload),
+		// plus RW data in memory, plus stack size in memory.
+		// plus the overhead of instructions in memory which is derived from the code
+		// itself and the number of instruction
+		// we substract one from the overhead multiplier to not count the the code double
+		// as its already part of the blob.
+		let memory_size = blob.len() as u64 + round_page(program.ro_data_size()) as u64 -
+			program.ro_data().len() as u64 +
+			round_page(program.rw_data_size()) as u64 -
+			program.rw_data().len() as u64 +
+			round_page(program.stack_size()) as u64 +
+			num_instructions as u64 * BYTE_PER_INSTRUCTION as u64 +
+			program.code().len() as u64 * (CODE_OVERHEAD_MULTIPLIER - 1) as u64;
+
+		ensure!(memory_size <= STATIC_MEMORY_BYTES as u64, <Error<T>>::StaticMemoryTooLarge);
 
 		Ok(())
 	}

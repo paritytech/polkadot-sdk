@@ -4270,7 +4270,7 @@ mod run_tests {
 					oom_rw_trailing,
 					deposit_limit::<Test>(),
 				),
-				<Error<Test>>::StaticDataTooLarge
+				<Error<Test>>::StaticMemoryTooLarge
 			);
 
 			assert_err!(
@@ -4288,7 +4288,7 @@ mod run_tests {
 					oom_ro,
 					deposit_limit::<Test>(),
 				),
-				<Error<Test>>::StaticDataTooLarge
+				<Error<Test>>::BlobTooLarge
 			);
 		});
 	}

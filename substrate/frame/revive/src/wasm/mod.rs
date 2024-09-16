@@ -133,11 +133,7 @@ where
 		// We do size checks when new code is deployed. This allows us to increase
 		// the limits later without affecting already deployed code.
 		let code: CodeVec = code.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
-		let parts = polkavm::ProgramParts::from_bytes(code.as_slice().into()).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to parse polkavm blob: {err:?}");
-			Error::<T>::CodeRejected
-		})?;
-		limits::code::enforce::<T>(&parts)?;
+		limits::code::enforce::<T>(code.as_slice())?;
 
 		let code_len = code.len() as u32;
 		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);

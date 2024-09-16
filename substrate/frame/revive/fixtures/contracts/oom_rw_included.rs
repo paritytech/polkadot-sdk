@@ -26,7 +26,7 @@ extern crate common;
 
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
-static mut BUFFER: [u8; 200 * 1024] = [42; 200 * 1024];
+static mut BUFFER: [u8; 513 * 1024] = [42; 513 * 1024];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

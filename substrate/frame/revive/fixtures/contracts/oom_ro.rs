@@ -17,8 +17,7 @@
 
 //! This creates a large ro section. Even though it is zero
 //! initialized we expect them to be included into the blob.
-//! However, we chose the buffer small enough to pass the blob
-//! size check. It should fail when checking the section size.
+//! This means it will fail at the blob size check.
 
 #![no_std]
 #![no_main]
@@ -27,7 +26,7 @@ extern crate common;
 
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
-static BUFFER: [u8; 101 * 1024] = [0; 101 * 1024];
+static BUFFER: [u8; 1025 * 1024] = [0; 1025 * 1024];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

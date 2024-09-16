@@ -284,7 +284,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
 		c: Linear<0, { limits::code::BLOB_BYTES }>,
-		i: Linear<0, { limits::code::STATIC_DATA_BYTES }>,
+		i: Linear<0, { limits::code::BLOB_BYTES }>,
 	) {
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
@@ -316,9 +316,7 @@ mod benchmarks {
 	// `i`: Size of the input in bytes.
 	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn instantiate(
-		i: Linear<0, { limits::code::STATIC_DATA_BYTES }>,
-	) -> Result<(), BenchmarkError> {
+	fn instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -697,7 +695,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_input(n: Linear<0, { limits::code::STATIC_DATA_BYTES - 4 }>) {
+	fn seal_input(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; n as usize]);
@@ -712,7 +710,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_return(n: Linear<0, { limits::code::STATIC_DATA_BYTES - 4 }>) {
+	fn seal_return(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
 		build_runtime!(runtime, memory: [n.to_le_bytes(), vec![42u8; n as usize], ]);
 
 		let result;
@@ -802,7 +800,7 @@ mod benchmarks {
 	// buffer size, whichever is less.
 	#[benchmark]
 	fn seal_debug_message(
-		i: Linear<0, { (limits::code::STATIC_DATA_BYTES).min(limits::DEBUG_BUFFER_BYTES) }>,
+		i: Linear<0, { (limits::code::BLOB_BYTES).min(limits::DEBUG_BUFFER_BYTES) }>,
 	) {
 		let mut setup = CallSetup::<T>::default();
 		setup.enable_debug_message();
@@ -1396,7 +1394,7 @@ mod benchmarks {
 	// t: with or without some value to transfer
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(t: Linear<0, 1>, i: Linear<0, { limits::code::STATIC_DATA_BYTES }>) {
+	fn seal_call(t: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let Contract { account_id: callee, .. } =
 			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 		let callee_bytes = callee.encode();
@@ -1471,9 +1469,7 @@ mod benchmarks {
 	// t: value to transfer
 	// i: size of input in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_instantiate(
-		i: Linear<0, { limits::code::STATIC_DATA_BYTES }>,
-	) -> Result<(), BenchmarkError> {
+	fn seal_instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
 		let code = WasmModule::dummy();
 		let hash = Contract::<T>::with_index(1, WasmModule::dummy(), vec![])?.info()?.code_hash;
 		let hash_bytes = hash.encode();
@@ -1539,7 +1535,7 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_sha2_256(n: Linear<0, { limits::code::STATIC_DATA_BYTES }>) {
+	fn seal_hash_sha2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
 
 		let result;
@@ -1553,7 +1549,7 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_keccak_256(n: Linear<0, { limits::code::STATIC_DATA_BYTES }>) {
+	fn seal_hash_keccak_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
 
 		let result;
@@ -1567,7 +1563,7 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_256(n: Linear<0, { limits::code::STATIC_DATA_BYTES }>) {
+	fn seal_hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
 
 		let result;
@@ -1581,7 +1577,7 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_128(n: Linear<0, { limits::code::STATIC_DATA_BYTES }>) {
+	fn seal_hash_blake2_128(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		build_runtime!(runtime, memory: [[0u8; 16], vec![0u8; n as usize], ]);
 
 		let result;

@@ -523,10 +523,9 @@ pub mod pallet {
 		CodeRejected,
 		/// The code blob supplied is larger than [`limits::code::BLOB_BYTES`].
 		BlobTooLarge,
-		/// The code contained in the code blob is larger than [`limits::code::CODE_BYTES`].
-		CodeTooLarge,
-		/// The memory declared in the code blob is larger than [`limits::STATIC_DATA_BYTES`].
-		StaticDataTooLarge,
+		/// The static memory consumption of the blob will be larger than
+		/// [`limits::STATIC_MEMORY_BYTES`].
+		StaticMemoryTooLarge,
 		/// The contract has reached its maximum number of delegate dependencies.
 		MaxDelegateDependenciesReached,
 		/// The dependency was not found in the contract's delegate dependencies.
@@ -598,7 +597,7 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
-			use limits::code::{CODE_BYTES, STATIC_DATA_BYTES};
+			use limits::code::STATIC_MEMORY_BYTES;
 
 			// The memory available in the block building runtime
 			let max_runtime_mem: u32 = T::RuntimeMemory::get();
@@ -611,50 +610,36 @@ pub mod pallet {
 				.checked_mul(2)
 				.expect("MaxTransientStorageSize is too large");
 
-			// Check that given configured `CODE_BYTES`, runtime heap memory limit can't be broken.
+			// Check that the configured `STATIC_MEMORY_BYTES` fits into runtime memory.
 			//
-			// In worst case, the decoded PolkaVM code would be `x24` times larger than the
-			// encoded one. This is because it because instructions are encoded as variable length
-			// to save space but have to rewritten for fast execution. This gives us a
-			// `CODE_BYTES*24` safety margin.
-			//
-			// The pallet drops the code as soon as we feed it into PolkaVM.
+			// `STATIC_MEMORY_BYTES` is the amount of memory that a contract can consume
+			// in memory and is enforced at upload time.
 			//
 			// The inefficiencies of the freeing-bump allocator
 			// being used in the client for the runtime memory allocations, could lead to possible
-			// memory allocations for contract code grow up to `x4` times in some extreme cases,
-			// which gives us total multiplier of `24*4` for `CODE_BYTES`.
+			// memory allocations grow up to `x4` times in some extreme cases.
 			//
-			// That being said, for every contract executed in runtime, at least `CODE_BYTES*24*4`
-			// memory should be available. Not that we also need to account for statically declared
-			// data inside the blob which includes the size of the stack. Dynamic allocations are
-			// metered at runtime as soon as they become available.
+			// Dynamic allocations are metered at runtime as soon as they become available and are
+			// not part of this calculation.
 			//
 			// The pallet holds transient storage with a size up to `max_transient_storage_size`.
 			//
 			// Finally, we allow 50% of the runtime memory to be utilized by the contracts call
 			// stack, keeping the rest for other facilities, such as PoV, etc.
-			//
-			// This gives us the following formula:
-			//
-			// `(CODE_BYTES * 24 * 4 + STATIC_DATA_BYTES) * max_call_depth +
-			// max_transient_storage_size < max_runtime_mem/2`
-			//
-			// Hence the upper limit for the `CODE_BYTES` can be defined as follows:
-			let code_len_limit = max_runtime_mem
+			let static_memory_limit = max_runtime_mem
 				.saturating_div(2)
 				.saturating_sub(max_transient_storage_size)
 				.saturating_div(max_call_depth)
-				.saturating_sub(STATIC_DATA_BYTES)
-				.saturating_div(24 * 4);
+				.saturating_sub(STATIC_MEMORY_BYTES)
+				.saturating_div(4);
 
 			assert!(
-				CODE_BYTES < code_len_limit,
-				"Given `CallStack` height {:?}, `CODE_BYTES` should be set less than {:?} \
+				STATIC_MEMORY_BYTES < static_memory_limit,
+				"Given `CallStack` height {:?}, `STATIC_MEMORY_LIMIT` should be set less than {:?} \
 				 (current value is {:?}), to avoid possible runtime oom issues.",
 				max_call_depth,
-				code_len_limit,
-				CODE_BYTES,
+				static_memory_limit,
+				STATIC_MEMORY_BYTES,
 			);
 
 			// Validators are configured to be able to use more memory than block builders. This is
