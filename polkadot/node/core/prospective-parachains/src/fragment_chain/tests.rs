@@ -18,7 +18,8 @@ use super::*;
 use assert_matches::assert_matches;
 use polkadot_node_subsystem_util::inclusion_emulator::InboundHrmpLimitations;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments,vstaging::MutateDescriptorV2, vstaging::CandidateDescriptorV2 as CandidateDescriptor, HeadData, Id as ParaId,
+	vstaging::MutateDescriptorV2, BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData,
+	Id as ParaId,
 };
 use polkadot_primitives_test_helpers as test_helpers;
 use rand::{seq::SliceRandom, thread_rng};

@@ -327,6 +327,15 @@ impl<H: Copy> From<super::v8::CandidateReceipt<H>> for CandidateReceiptV2<H> {
 	}
 }
 
+impl<H: Copy> From<super::v8::CommittedCandidateReceipt<H>> for CommittedCandidateReceiptV2<H> {
+	fn from(value: super::v8::CommittedCandidateReceipt<H>) -> Self {
+		CommittedCandidateReceiptV2 {
+			descriptor: value.descriptor.into(),
+			commitments: value.commitments,
+		}
+	}
+}
+
 impl<H: Clone> CommittedCandidateReceiptV2<H> {
 	/// Transforms this into a plain `CandidateReceipt`.
 	pub fn to_plain(&self) -> CandidateReceiptV2<H> {

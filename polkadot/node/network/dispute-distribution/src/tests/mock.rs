@@ -34,10 +34,10 @@ use sp_keystore::{Keystore, KeystorePtr};
 
 use polkadot_node_primitives::{DisputeMessage, SignedDisputeStatement};
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, Hash, SessionIndex, SessionInfo,
-	ValidatorId, ValidatorIndex,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, AuthorityDiscoveryId, CandidateHash, Hash,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
-use polkadot_primitives_test_helpers::dummy_candidate_descriptor;
+use polkadot_primitives_test_helpers::dummy_candidate_descriptor_v2;
 
 use crate::LOG_TARGET;
 
@@ -121,7 +121,7 @@ pub static ref MOCK_NEXT_SESSION_INFO: SessionInfo =
 
 pub fn make_candidate_receipt(relay_parent: Hash) -> CandidateReceipt {
 	CandidateReceipt {
-		descriptor: dummy_candidate_descriptor(relay_parent),
+		descriptor: dummy_candidate_descriptor_v2(relay_parent),
 		commitments_hash: Hash::random(),
 	}
 }

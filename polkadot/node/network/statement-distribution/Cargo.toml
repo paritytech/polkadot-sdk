@@ -40,6 +40,7 @@ sp-tracing = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }
 polkadot-subsystem-bench = { workspace = true }

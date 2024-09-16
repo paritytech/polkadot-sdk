@@ -30,13 +30,12 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::{subsystem_test_harness, TestSubsystemContextHandle};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	vstaging::async_backing::CandidatePendingAvailability, vstaging::async_backing::BackingState,
+	vstaging::async_backing::{BackingState, CandidatePendingAvailability},
 	AsyncBackingParams, BlockNumber, CollatorPair, HeadData, PersistedValidationData,
 	ScheduledCore, ValidationCode,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_descriptor, dummy_candidate_descriptor_v2, dummy_hash, dummy_head_data,
-	dummy_validator, make_candidate,
+	dummy_candidate_descriptor_v2, dummy_hash, dummy_head_data, dummy_validator, make_candidate,
 };
 use rstest::rstest;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
@@ -491,7 +490,7 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 		erasure_root: dummy_hash(), // this isn't something we're checking right now
 		para_head: test_collation().head_data.hash(),
 		validation_code_hash: expect_validation_code_hash,
-	}.into();
+	};
 
 	assert_eq!(to_collator_protocol.len(), 1);
 	match AllMessages::from(to_collator_protocol.pop().unwrap()) {
@@ -505,7 +504,7 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 			// descriptor has a valid signature, then just copy in the generated signature
 			// and check the rest of the fields for equality.
 			assert!(CollatorPair::verify(
-				&descriptor.signature,
+				&descriptor.signature().unwrap(),
 				&collator_signature_payload(
 					&descriptor.relay_parent(),
 					&descriptor.para_id(),
@@ -518,9 +517,9 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 			));
 			let expect_descriptor = {
 				let mut expect_descriptor = expect_descriptor;
-				expect_descriptor.signature = descriptor.signature.clone().unwrap();
+				expect_descriptor.signature = descriptor.signature().clone().unwrap();
 				expect_descriptor.erasure_root = descriptor.erasure_root();
-				expect_descriptor
+				expect_descriptor.into()
 			};
 			assert_eq!(descriptor, expect_descriptor);
 		},
@@ -659,7 +658,7 @@ fn fallback_when_no_validation_code_hash_api(#[case] runtime_version: u32) {
 			..
 		}) => {
 			let CandidateReceipt { descriptor, .. } = candidate_receipt;
-			assert_eq!(expect_validation_code_hash, descriptor.validation_code_hash);
+			assert_eq!(expect_validation_code_hash, descriptor.validation_code_hash());
 		},
 		_ => panic!("received wrong message type"),
 	}
@@ -1252,9 +1251,9 @@ mod helpers {
 					..
 				}) => {
 					assert_eq!(parent_head_data_hash, parent_head.hash());
-					assert_eq!(candidate_receipt.descriptor().persisted_validation_data_hash, pvd.hash());
-					assert_eq!(candidate_receipt.descriptor().para_head, dummy_head_data().hash());
-					assert_eq!(candidate_receipt.descriptor().validation_code_hash, validation_code_hash);
+					assert_eq!(candidate_receipt.descriptor().persisted_validation_data_hash(), pvd.hash());
+					assert_eq!(candidate_receipt.descriptor().para_head(), dummy_head_data().hash());
+					assert_eq!(candidate_receipt.descriptor().validation_code_hash(), validation_code_hash);
 				}
 			);
 		}

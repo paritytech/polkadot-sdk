@@ -25,7 +25,8 @@ use polkadot_node_subsystem::messages::AllMessages;
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
-	CoreIndex, GroupIndex, HeadData, Id as ParaId, SessionInfo, UpwardMessage, ValidatorId,
+	vstaging::CandidateDescriptorV2, CandidateDescriptor, CoreIndex, GroupIndex, HeadData,
+	Id as ParaId, SessionInfo, UpwardMessage, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
@@ -532,7 +533,7 @@ fn perform_basic_checks_on_valid_candidate(
 	validation_code: &ValidationCode,
 	validation_data: &PersistedValidationData,
 	head_data_hash: Hash,
-) -> CandidateDescriptor {
+) -> CandidateDescriptorV2 {
 	let descriptor = make_valid_candidate_descriptor(
 		ParaId::from(1_u32),
 		dummy_hash(),
@@ -824,7 +825,8 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 			head_data.hash(),
 			dummy_hash(),
 			Sr25519Keyring::Alice,
-		),
+		)
+		.into(),
 		commitments_hash: Hash::zero(),
 	}
 	.into();
@@ -1196,7 +1198,8 @@ fn dummy_candidate_backed(
 		signature: dummy_collator_signature(),
 		para_head: zeros,
 		validation_code_hash,
-	};
+	}
+	.into();
 
 	CandidateEvent::CandidateBacked(
 		CandidateReceipt { descriptor, commitments_hash: zeros },

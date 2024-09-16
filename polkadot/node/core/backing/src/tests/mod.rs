@@ -29,11 +29,12 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	node_features, CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData,
-	PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	node_features, vstaging::MutateDescriptorV2, CandidateDescriptor, GroupRotationInfo, HeadData,
+	PersistedValidationData, PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature, dummy_committed_candidate_receipt, dummy_committed_candidate_receipt_v2, dummy_hash, validator_pubkeys
+	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
+	dummy_committed_candidate_receipt_v2, dummy_hash, validator_pubkeys,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use rstest::rstest;
@@ -650,7 +651,7 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 				},
 			) if validation_data == pvd_ab &&
 				validation_code == validation_code_ab &&
-				*pov == pov_ab && &candidate_receipt.descriptor == candidate_a.descriptor &&
+				*pov == pov_ab && candidate_receipt.descriptor == candidate_a.descriptor &&
 				exec_kind == PvfExecKind::Backing &&
 				candidate_receipt.commitments_hash == candidate_a_commitments_hash =>
 			{
@@ -1286,7 +1287,7 @@ fn backing_works_while_validation_ongoing() {
 				},
 			) if validation_data == pvd_abc &&
 				validation_code == validation_code_abc &&
-				*pov == pov_abc && &candidate_receipt.descriptor == candidate_a.descriptor &&
+				*pov == pov_abc && candidate_receipt.descriptor == candidate_a.descriptor &&
 				exec_kind == PvfExecKind::Backing &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
@@ -1453,7 +1454,7 @@ fn backing_misbehavior_works() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate_a.descriptor &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate_a.descriptor &&
 				exec_kind == PvfExecKind::Backing &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
@@ -1620,7 +1621,7 @@ fn backing_dont_second_invalid() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_block_a && &candidate_receipt.descriptor == candidate_a.descriptor &&
+				*pov == pov_block_a && candidate_receipt.descriptor == candidate_a.descriptor &&
 				exec_kind == PvfExecKind::Backing &&
 				candidate_a.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
@@ -1660,7 +1661,7 @@ fn backing_dont_second_invalid() {
 				},
 			) if validation_data == pvd_b &&
 				validation_code == validation_code_b &&
-				*pov == pov_block_b && &candidate_receipt.descriptor == candidate_b.descriptor &&
+				*pov == pov_block_b && candidate_receipt.descriptor == candidate_b.descriptor &&
 				exec_kind == PvfExecKind::Backing &&
 				candidate_b.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
@@ -1787,7 +1788,7 @@ fn backing_second_after_first_fails_works() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
 				exec_kind == PvfExecKind::Backing &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
@@ -1931,7 +1932,7 @@ fn backing_works_after_failed_validation() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
 				exec_kind == PvfExecKind::Backing &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{

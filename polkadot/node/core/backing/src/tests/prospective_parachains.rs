@@ -1637,7 +1637,7 @@ fn occupied_core_assignment() {
 			time_out_at: 200_u32,
 			next_up_on_time_out: None,
 			availability: Default::default(),
-			candidate_descriptor,
+			candidate_descriptor: candidate_descriptor.into(),
 			candidate_hash: Default::default(),
 		});
 
