@@ -83,6 +83,23 @@ build-malus:
     - echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
     - cp -r ./docker/* ./artifacts
 
+build-templates-node:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  script:
+    - time cargo build --locked --package parachain-template-node --release
+    - time cargo build --locked --package minimal-template-node --release
+    - time cargo build --locked --package solochain-template-node --release
+    # pack artifacts
+    - mkdir -p ./artifacts
+    - mv ./target/release/parachain-template-node ./artifacts/.
+    - mv ./target/release/minimal-template-node ./artifacts/.
+    - mv ./target/release/solochain-template-node ./artifacts/.
+
 build-rustdoc:
   stage: build
   extends:
