@@ -77,6 +77,9 @@ thread_local! {
 	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
 	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub static TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
 }
 
 /// paid balance for a given account and asset ids
@@ -131,6 +134,7 @@ parameter_types! {
 	pub TreasuryAccount: u128 = Treasury::account_id();
 	pub const SpendPayoutPeriod: u64 = 5;
 }
+
 pub struct TestSpendOrigin;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 	type Success = u64;
@@ -147,7 +151,11 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		Ok(RuntimeOrigin::root())
+		if TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow()) {
+			Err(())
+		} else {
+			Ok(frame_system::RawOrigin::Root.into())
+		}
 	}
 }
 
@@ -187,11 +195,20 @@ pub struct ExtBuilder {}
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
+		#[cfg(feature = "runtime-benchmarks")]
+		TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow_mut() = false);
+
 		Self {}
 	}
 }
 
 impl ExtBuilder {
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn spend_origin_succesful_origin_err(self) -> Self {
+		TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow_mut() = true);
+		self
+	}
+
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Test> {
@@ -219,7 +236,7 @@ fn get_payment_id(i: SpendIndex) -> Option<u64> {
 fn genesis_config_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(Treasury::proposal_count(), 0);
+		assert_eq!(ProposalCount::<Test>::get(), 0);
 	});
 }
 
@@ -437,9 +454,9 @@ fn remove_already_removed_approval_fails() {
 
 		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
 
-		assert_eq!(Treasury::approvals(), vec![0]);
+		assert_eq!(Approvals::<Test>::get(), vec![0]);
 		assert_ok!(Treasury::remove_approval(RuntimeOrigin::root(), 0));
-		assert_eq!(Treasury::approvals(), vec![]);
+		assert_eq!(Approvals::<Test>::get(), vec![]);
 
 		assert_noop!(
 			Treasury::remove_approval(RuntimeOrigin::root(), 0),

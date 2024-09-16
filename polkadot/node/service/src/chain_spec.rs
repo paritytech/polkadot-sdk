@@ -25,7 +25,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 
 #[cfg(feature = "westend-native")]
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 #[cfg(feature = "rococo-native")]
 use rococo_runtime as rococo;
 use sc_chain_spec::ChainSpecExtension;

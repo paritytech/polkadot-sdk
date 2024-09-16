@@ -4,7 +4,8 @@ use snowbridge_core::{
 	outbound::{Fee, SendError, SendMessageFeeProvider},
 	AgentIdOf,
 };
-use xcm::v3::prelude::SendError as XcmSendError;
+use sp_std::default::Default;
+use xcm::prelude::SendError as XcmSendError;
 
 use super::*;
 
@@ -57,6 +58,16 @@ impl SendMessageFeeProvider for MockErrOutboundQueue {
 	}
 }
 
+pub struct MockTokenIdConvert;
+impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
+	fn convert(_id: &TokenId) -> Option<Location> {
+		Some(Location::new(1, [GlobalConsensus(Westend)]))
+	}
+	fn convert_back(_loc: &Location) -> Option<TokenId> {
+		None
+	}
+}
+
 #[test]
 fn exporter_validate_with_unknown_network_yields_not_applicable() {
 	let network = Ethereum { chain_id: 1337 };
@@ -65,14 +76,14 @@ fn exporter_validate_with_unknown_network_yields_not_applicable() {
 	let mut destination: Option<InteriorLocation> = None;
 	let mut message: Option<Xcm<()>> = None;
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
@@ -84,14 +95,14 @@ fn exporter_validate_with_invalid_destination_yields_missing_argument() {
 	let mut destination: Option<InteriorLocation> = None;
 	let mut message: Option<Xcm<()>> = None;
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
 
@@ -106,14 +117,14 @@ fn exporter_validate_with_x8_destination_yields_not_applicable() {
 	);
 	let mut message: Option<Xcm<()>> = None;
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
@@ -125,14 +136,14 @@ fn exporter_validate_without_universal_source_yields_missing_argument() {
 	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
 
@@ -144,14 +155,14 @@ fn exporter_validate_without_global_universal_location_yields_unroutable() {
 	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::Unroutable));
 }
 
@@ -163,14 +174,14 @@ fn exporter_validate_without_global_bridge_location_yields_not_applicable() {
 	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
@@ -183,14 +194,14 @@ fn exporter_validate_with_remote_universal_source_yields_not_applicable() {
 	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
@@ -202,14 +213,14 @@ fn exporter_validate_without_para_id_in_source_yields_missing_argument() {
 	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
 
@@ -222,14 +233,14 @@ fn exporter_validate_complex_para_id_in_source_yields_missing_argument() {
 	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
 
@@ -242,14 +253,14 @@ fn exporter_validate_without_xcm_message_yields_missing_argument() {
 	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
 
@@ -289,14 +300,14 @@ fn exporter_validate_with_max_target_fee_yields_unroutable() {
 		.into(),
 	);
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 	assert_eq!(result, Err(XcmSendError::Unroutable));
 }
@@ -316,14 +327,14 @@ fn exporter_validate_with_unparsable_xcm_yields_unroutable() {
 	let mut message: Option<Xcm<()>> =
 		Some(vec![WithdrawAsset(fees), BuyExecution { fees: fee, weight_limit: Unlimited }].into());
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 	assert_eq!(result, Err(XcmSendError::Unroutable));
 }
@@ -362,14 +373,14 @@ fn exporter_validate_xcm_success_case_1() {
 		.into(),
 	);
 
-	let result = EthereumBlobExporter::<
-		UniversalLocation,
-		BridgedNetwork,
-		MockOkOutboundQueue,
-		AgentIdOf,
-	>::validate(
-		network, channel, &mut universal_source, &mut destination, &mut message
-	);
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 	assert!(result.is_ok());
 }
@@ -381,6 +392,7 @@ fn exporter_deliver_with_submit_failure_yields_unroutable() {
 		BridgedNetwork,
 		MockErrOutboundQueue,
 		AgentIdOf,
+		MockTokenIdConvert,
 	>::deliver((hex!("deadbeef").to_vec(), XcmHash::default()));
 	assert_eq!(result, Err(XcmSendError::Transport("other transport error")))
 }
@@ -410,11 +422,15 @@ fn xcm_converter_convert_success() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
-	let expected_payload = AgentExecuteCommand::TransferToken {
-		token: token_address.into(),
-		recipient: beneficiary_address.into(),
-		amount: 1000,
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+	let expected_payload = Command::AgentExecute {
+		agent_id: Default::default(),
+		command: AgentExecuteCommand::TransferToken {
+			token: token_address.into(),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -443,11 +459,15 @@ fn xcm_converter_convert_without_buy_execution_yields_success() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
-	let expected_payload = AgentExecuteCommand::TransferToken {
-		token: token_address.into(),
-		recipient: beneficiary_address.into(),
-		amount: 1000,
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+	let expected_payload = Command::AgentExecute {
+		agent_id: Default::default(),
+		command: AgentExecuteCommand::TransferToken {
+			token: token_address.into(),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -478,11 +498,15 @@ fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
-	let expected_payload = AgentExecuteCommand::TransferToken {
-		token: token_address.into(),
-		recipient: beneficiary_address.into(),
-		amount: 1000,
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+	let expected_payload = Command::AgentExecute {
+		agent_id: Default::default(),
+		command: AgentExecuteCommand::TransferToken {
+			token: token_address.into(),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -513,11 +537,15 @@ fn xcm_converter_convert_with_fees_less_than_reserve_yields_success() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
-	let expected_payload = AgentExecuteCommand::TransferToken {
-		token: token_address.into(),
-		recipient: beneficiary_address.into(),
-		amount: 1000,
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+	let expected_payload = Command::AgentExecute {
+		agent_id: Default::default(),
+		command: AgentExecuteCommand::TransferToken {
+			token: token_address.into(),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -547,7 +575,8 @@ fn xcm_converter_convert_without_set_topic_yields_set_topic_expected() {
 		ClearTopic,
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::SetTopicExpected));
 }
@@ -564,7 +593,8 @@ fn xcm_converter_convert_with_partial_message_yields_unexpected_end_of_xcm() {
 	.into();
 	let message: Xcm<()> = vec![WithdrawAsset(assets)].into();
 
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::UnexpectedEndOfXcm));
 }
@@ -595,7 +625,8 @@ fn xcm_converter_with_different_fee_asset_fails() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::InvalidFeeAsset));
 }
@@ -625,7 +656,8 @@ fn xcm_converter_with_fees_greater_than_reserve_fails() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::InvalidFeeAsset));
 }
@@ -636,7 +668,8 @@ fn xcm_converter_convert_with_empty_xcm_yields_unexpected_end_of_xcm() {
 
 	let message: Xcm<()> = vec![].into();
 
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::UnexpectedEndOfXcm));
@@ -668,7 +701,8 @@ fn xcm_converter_convert_with_extra_instructions_yields_end_of_xcm_message_expec
 		ClearError,
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::EndOfXcmMessageExpected));
@@ -698,10 +732,11 @@ fn xcm_converter_convert_without_withdraw_asset_yields_withdraw_expected() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
-	assert_eq!(result.err(), Some(XcmConverterError::WithdrawAssetExpected));
+	assert_eq!(result.err(), Some(XcmConverterError::UnexpectedInstruction));
 }
 
 #[test]
@@ -723,7 +758,8 @@ fn xcm_converter_convert_without_withdraw_asset_yields_deposit_expected() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::DepositAssetExpected));
@@ -756,7 +792,8 @@ fn xcm_converter_convert_without_assets_yields_no_reserve_assets() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::NoReserveAssets));
@@ -794,7 +831,8 @@ fn xcm_converter_convert_with_two_assets_yields_too_many_assets() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::TooManyAssets));
@@ -825,7 +863,8 @@ fn xcm_converter_convert_without_consuming_filter_yields_filter_does_not_consume
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::FilterDoesNotConsumeAllAssets));
@@ -856,7 +895,8 @@ fn xcm_converter_convert_with_zero_amount_asset_yields_zero_asset_transfer() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::ZeroAssetTransfer));
@@ -886,7 +926,8 @@ fn xcm_converter_convert_non_ethereum_asset_yields_asset_resolution_failed() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::AssetResolutionFailed));
@@ -919,7 +960,8 @@ fn xcm_converter_convert_non_ethereum_chain_asset_yields_asset_resolution_failed
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::AssetResolutionFailed));
@@ -952,7 +994,8 @@ fn xcm_converter_convert_non_ethereum_chain_yields_asset_resolution_failed() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::AssetResolutionFailed));
@@ -989,7 +1032,8 @@ fn xcm_converter_convert_with_non_ethereum_beneficiary_yields_beneficiary_resolu
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::BeneficiaryResolutionFailed));
@@ -1025,7 +1069,8 @@ fn xcm_converter_convert_with_non_ethereum_chain_beneficiary_yields_beneficiary_
 		SetTopic([0; 32]),
 	]
 	.into();
-	let mut converter = XcmConverter::new(&message, &network);
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::BeneficiaryResolutionFailed));
@@ -1055,4 +1100,66 @@ fn test_describe_here() {
 		agent_id,
 		hex!("03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314").into()
 	)
+}
+
+#[test]
+fn xcm_converter_transfer_native_token_success() {
+	let network = BridgedNetwork::get();
+
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let amount = 1000000;
+	let asset_location = Location::new(1, [GlobalConsensus(Westend)]);
+	let token_id = TokenIdOf::convert_location(&asset_location).unwrap();
+
+	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
+	let filter: AssetFilter = assets.clone().into();
+
+	let message: Xcm<()> = vec![
+		ReserveAssetDeposited(assets.clone()),
+		ClearOrigin,
+		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+	let expected_payload =
+		Command::MintForeignToken { recipient: beneficiary_address.into(), amount, token_id };
+	let result = converter.convert();
+	assert_eq!(result, Ok((expected_payload, [0; 32])));
+}
+
+#[test]
+fn xcm_converter_transfer_native_token_with_invalid_location_will_fail() {
+	let network = BridgedNetwork::get();
+
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let amount = 1000000;
+	// Invalid asset location from a different consensus
+	let asset_location = Location { parents: 2, interior: [GlobalConsensus(Rococo)].into() };
+
+	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
+	let filter: AssetFilter = assets.clone().into();
+
+	let message: Xcm<()> = vec![
+		ReserveAssetDeposited(assets.clone()),
+		ClearOrigin,
+		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+	let result = converter.convert();
+	assert_eq!(result.err(), Some(XcmConverterError::InvalidAsset));
 }
