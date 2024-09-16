@@ -223,7 +223,7 @@ jobs:
 
       - name: Upload ${{ matrix.binaries }} artifacts to s3
         run: |
-          . ./.github/scripts/release/lib.sh
+          . ./.github/scripts/release/release_lib.sh
           upload_s3_release ${{ matrix.binaries }} ${{ inputs.release_tag }}
 
 # - name: Upload artifacts to github release
