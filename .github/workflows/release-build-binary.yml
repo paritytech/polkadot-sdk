@@ -96,6 +96,7 @@ jobs:
 
       - name: Check sha256 ${{ matrix.binaries }}
         working-directory: /artifacts/${{ matrix.binaries }}
+        shell: bash
         run: |
           .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
@@ -105,6 +106,7 @@ jobs:
 
       # - name: Check GPG ${{ matrix.binaries }}
       #   working-directory: /artifacts/${{ matrix.binaries }}
+      #   shell: bash
       #   run: |
       #     . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
@@ -112,6 +114,7 @@ jobs:
 
       # - name: Build polkadot deb package
       #   if: ${{ matrix.binaries == 'polkadot' }}
+      #   shell: bash
       #   run: |
       #     . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ matrix.binaries }}
 
@@ -171,6 +174,7 @@ jobs:
 
     - name: Check sha256 polkadot-parachain
       working-directory: /artifacts/polkadot-parachain
+      shell: bash
       run: |
         . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
@@ -179,7 +183,8 @@ jobs:
         check_sha256  polkadot-parachain && echo "OK" || echo "ERR"
 
     # - name: Check GPG ${{ matrix.binaries }}
-    #   working-directory: /artifacts/${{ matrix.binaries }}
+    #   working-directory: /artifacts/${{ matrix.binaries }}#
+    #   shell: bash
     #   run: |
     #     . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
