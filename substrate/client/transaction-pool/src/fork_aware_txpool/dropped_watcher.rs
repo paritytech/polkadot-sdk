@@ -367,13 +367,15 @@ mod dropped_watcher_tests {
 		])
 		.chain(pending())
 		.boxed();
+		watcher.add_view(block_hash0, view_stream0);
+		assert!(output_stream.next().now_or_never().is_none());
+
 		let view_stream1 = futures::stream::iter(vec![
 			(tx_hash, TransactionStatus::Ready),
 			(tx_hash, TransactionStatus::Dropped),
 		])
 		.boxed();
 
-		watcher.add_view(block_hash0, view_stream0);
 		watcher.add_view(block_hash1, view_stream1);
 		assert!(output_stream.next().now_or_never().is_none());
 	}
