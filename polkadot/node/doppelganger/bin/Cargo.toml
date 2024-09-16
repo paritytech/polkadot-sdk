@@ -1,0 +1,30 @@
+[package]
+name = "polkadot-doppelganger-node"
+description = "Doppelganger node for local testnets."
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+readme = "README.md"
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "doppelganger"
+path = "src/doppelganger.rs"
+
+[dependencies]
+polkadot-cli = { features = ["doppelganger", "rococo-native", "westend-native"], workspace = true, default-features = true }
+log = { workspace = true, default-features = true }
+color-eyre = { workspace = true }
+clap = { features = ["derive"], workspace = true }
+
+
+[features]
+default = []
+fast-runtime = ["polkadot-cli/fast-runtime"]
+
+[build-dependencies]
+substrate-build-script-utils = { workspace = true, default-features = true }

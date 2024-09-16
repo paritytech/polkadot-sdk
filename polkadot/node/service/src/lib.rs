@@ -128,6 +128,9 @@ pub type FullClient = sc_service::TFullClient<
 	WasmExecutor<(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions)>,
 >;
 
+#[cfg(feature = "doppelganger")]
+use polkadot_doppelganger_consensus::DoppelGangerBlockImport;
+
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
@@ -554,6 +557,9 @@ where
 	let (import_queue, babe_worker_handle) =
 		sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
 			link: babe_link.clone(),
+			#[cfg(feature = "doppelganger")]
+			block_import: DoppelGangerBlockImport::new(block_import.clone()),
+			#[cfg(not(feature = "doppelganger"))]
 			block_import: block_import.clone(),
 			justification_import: Some(Box::new(justification_import)),
 			client: client.clone(),

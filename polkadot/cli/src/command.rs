@@ -182,6 +182,12 @@ pub fn run_node(
 	run_node_inner(run, overseer_gen, malus_finality_delay, |_logger_builder, _config| {})
 }
 
+/// Launch DoppelGanger node
+#[cfg(feature = "doppelganger")]
+pub fn run_doppelganger(run: Cli) -> Result<()> {
+	run_node_inner(run, polkadot_service::ValidatorOverseerGen, None, |_logger_builder, _config| {})
+}
+
 fn run_node_inner<F>(
 	cli: Cli,
 	overseer_gen: impl polkadot_service::OverseerGen,

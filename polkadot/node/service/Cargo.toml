@@ -108,6 +108,7 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-node-subsystem-types = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-doppelganger-consensus = { path = "../doppelganger/consensus", optional = true }
 
 # Polkadot Runtime Constants
 rococo-runtime-constants = { optional = true, workspace = true, default-features = true }
@@ -240,6 +241,8 @@ try-runtime = [
 fast-runtime = ["rococo-runtime?/fast-runtime", "westend-runtime?/fast-runtime"]
 
 malus = ["full-node"]
+doppelganger = ["dep:polkadot-doppelganger-consensus", "full-node"]
+
 runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",

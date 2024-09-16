@@ -13226,6 +13226,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-doppelganger-consensus"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "hex-literal",
+ "log",
+ "sc-consensus",
+ "sp-core",
+ "sp-runtime",
+ "sp-trie",
+]
+
+[[package]]
+name = "polkadot-doppelganger-node"
+version = "1.0.0"
+dependencies = [
+ "clap 4.5.11",
+ "color-eyre",
+ "log",
+ "polkadot-cli",
+ "substrate-build-script-utils",
+]
+
+[[package]]
 name = "polkadot-erasure-coding"
 version = "7.0.0"
 dependencies = [
@@ -14836,6 +14860,7 @@ dependencies = [
  "polkadot-collator-protocol",
  "polkadot-core-primitives",
  "polkadot-dispute-distribution",
+ "polkadot-doppelganger-consensus",
  "polkadot-gossip-support",
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",

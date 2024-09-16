@@ -79,6 +79,8 @@ westend-native = ["polkadot-service/westend-native"]
 rococo-native = ["polkadot-service/rococo-native"]
 
 malus = ["full-node", "polkadot-service/malus"]
+doppelganger = ["full-node", "polkadot-service/doppelganger"]
+
 runtime-metrics = [
 	"polkadot-node-metrics/runtime-metrics",
 	"polkadot-service/runtime-metrics",

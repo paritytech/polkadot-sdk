@@ -1,0 +1,13 @@
+[package]
+name = "polkadot-doppelganger-consensus"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sc-consensus = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
+hex-literal = { workspace = true, default-features = true }
+log = { workspace = true, default-features = true }
+async-trait = { workspace = true, default-features = true }
