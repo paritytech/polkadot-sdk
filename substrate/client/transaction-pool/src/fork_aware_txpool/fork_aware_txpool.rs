@@ -1065,9 +1065,9 @@ where
 		if self.view_store.is_empty() {
 			for result in results {
 				match result {
-					Err((Error::InvalidTransaction(_), tx_hash, tx)) => {
+					Err((Error::InvalidTransaction(_), tx_hash, _)) => {
 						self.view_store.listener.invalidate_transactions(vec![tx_hash]);
-						self.mempool.remove_watched(&tx);
+						self.mempool.remove_watched(tx_hash);
 					},
 					_ => {},
 				}

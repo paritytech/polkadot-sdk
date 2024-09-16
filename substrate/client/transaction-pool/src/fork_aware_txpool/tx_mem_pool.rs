@@ -29,7 +29,7 @@
 use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
 use crate::{
 	graph,
-	graph::{ExtrinsicFor, ExtrinsicHash, RawExtrinsicFor},
+	graph::{ExtrinsicFor, ExtrinsicHash},
 	log_xt_trace, LOG_TARGET,
 };
 use futures::FutureExt;
@@ -300,8 +300,7 @@ where
 	}
 
 	/// Removes a watched transaction from the memory pool based on a given raw extrinsic.
-	pub(super) fn remove_watched(&self, xt: &RawExtrinsicFor<ChainApi>) {
-		let hash = self.api.hash_and_length(&xt).0;
+	pub(super) fn remove_watched(&self, hash: ExtrinsicHash<ChainApi>) {
 		let _ = self.transactions.write().remove(&hash);
 	}
 
