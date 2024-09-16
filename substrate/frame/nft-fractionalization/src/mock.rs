@@ -115,6 +115,7 @@ impl pallet_nfts::Config for Test {
 	type OffchainSignature = Signature;
 	type OffchainPublic = AccountPublic;
 	type WeightInfo = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 	pallet_nfts::runtime_benchmarks_enabled! {
 		type Helper = ();
 	}
@@ -145,7 +146,6 @@ impl Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 // Build genesis storage according to the mock runtime.
