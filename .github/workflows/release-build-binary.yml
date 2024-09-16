@@ -97,7 +97,7 @@ jobs:
       - name: Check sha256 ${{ matrix.binaries }}
         working-directory: /artifacts/${{ matrix.binaries }}
         run: |
-          . ${{ github.workspace }}/.github/scripts/common/lib.sh
+          .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
           echo "Checking binary  ${{ matrix.binaries }}"
           # check_sha256  ${{ matrix.binaries }} && echo "OK" || echo "ERR"
@@ -106,14 +106,14 @@ jobs:
       # - name: Check GPG ${{ matrix.binaries }}
       #   working-directory: /artifacts/${{ matrix.binaries }}
       #   run: |
-      #     . ${{ github.workspace }}/.github/scripts/common/lib.sh
+      #     . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
       #     check_gpg  ${{ matrix.binaries }}
 
       # - name: Build polkadot deb package
       #   if: ${{ matrix.binaries == 'polkadot' }}
       #   run: |
-      #     . ${{ github.workspace }}/.github/scripts/release/build-deb.sh ${{ matrix.binaries }}
+      #     . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ matrix.binaries }}
 
 
       - name: Upload ${{ matrix.binaries }} artifacts
@@ -172,7 +172,7 @@ jobs:
     - name: Check sha256 polkadot-parachain
       working-directory: /artifacts/polkadot-parachain
       run: |
-        . ${{ github.workspace }}/.github/scripts/common/lib.sh
+        . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
         echo "Checking binary  $polkadot-parachain"
         # check_sha256  polkadot-parachain && echo "OK" || echo "ERR"
@@ -181,7 +181,7 @@ jobs:
     # - name: Check GPG ${{ matrix.binaries }}
     #   working-directory: /artifacts/${{ matrix.binaries }}
     #   run: |
-    #     . ${{ github.workspace }}/.github/scripts/common/lib.sh
+    #     . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
     #     check_gpg  ${{ matrix.binaries }}
 
@@ -192,7 +192,7 @@ jobs:
         path: /artifacts/polkadot-parachain
 
   upload-artifacts-to-s3:
-    needs: [build-polkadot-binary]
+    needs: [build-polkadot-binary, build-polkadot-parachain-binary]
     runs-on: ubuntu-latest
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
