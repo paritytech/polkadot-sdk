@@ -72,15 +72,4 @@ impl<T: frame_system::Config> cumulus_pallet_parachain_system::WeightInfo for We
 			.saturating_add(T::DbWeight::get().writes(4))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 	}
-	/// Storage: `ParachainSystem::ClaimQueueOffset` (r:0 w:1)
-	/// Proof: `ParachainSystem::ClaimQueueOffset` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	fn set_claim_queue_offset() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 2_430_000 picoseconds.
-		Weight::from_parts(2_613_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 }

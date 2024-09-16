@@ -26,7 +26,7 @@ use cumulus_client_consensus_common::{
 	self as consensus_common, load_abridged_host_configuration, ParentSearchParams,
 };
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT};
+use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT, ClaimQueueOffset};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
@@ -135,7 +135,7 @@ async fn cores_scheduled_for_para(
 	relay_parent: RelayHash,
 	para_id: ParaId,
 	relay_client: &impl RelayChainInterface,
-	claim_queue_offset: u8,
+	claim_queue_offset: ClaimQueueOffset,
 ) -> Vec<CoreIndex> {
 	// Get `ClaimQueue` from runtime
 	let claim_queue: ClaimQueueSnapshot = match relay_client.claim_queue(relay_parent).await {
@@ -152,7 +152,7 @@ async fn cores_scheduled_for_para(
 	};
 
 	claim_queue
-		.iter_claims_at_depth(claim_queue_offset as usize)
+		.iter_claims_at_depth(claim_queue_offset.0 as usize)
 		.filter_map(|(core_index, core_para_id)| (core_para_id == para_id).then_some(core_index))
 		.collect()
 }

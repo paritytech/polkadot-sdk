@@ -31,10 +31,14 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
-use core::cmp;
+use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
+	relay_chain::{
+		self,
+		vstaging::{ClaimQueueOffset, CoreSelector},
+	},
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
+	InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource, DEFAULT_CLAIM_QUEUE_OFFSET,
 };
@@ -51,8 +55,9 @@ use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
+use sp_core::U256;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockNumberProvider, Hash},
+	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
@@ -186,6 +191,25 @@ pub mod ump_constants {
 	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
+/// Trait for selecting the next core to build the candidate for.
+pub trait SelectCore {
+	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset);
+}
+
+/// The default core selection policy.
+pub struct DefaultCoreSelector<T>(PhantomData<T>);
+
+impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
+	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+
+		(
+			CoreSelector((core_selector.low_u32() & 255) as u8),
+			ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
+		)
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -246,6 +270,9 @@ pub mod pallet {
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
 		type ConsensusHook: ConsensusHook;
+
+		/// Select core.
+		type SelectCore: SelectCore;
 	}
 
 	#[pallet::hooks]
@@ -652,15 +679,6 @@ pub mod pallet {
 
 		// WARNING: call indices 2 and 3 were used in a former version of this pallet. Using them
 		// again will require to bump the transaction version of runtimes using this pallet.
-
-		/// Set the claim queue offset.
-		#[pallet::call_index(4)]
-		#[pallet::weight((T::WeightInfo::set_claim_queue_offset(), DispatchClass::Operational))]
-		pub fn set_claim_queue_offset(origin: OriginFor<T>, value: u8) -> DispatchResult {
-			ensure_root(origin)?;
-			ClaimQueueOffset::<T>::set(Some(value));
-			Ok(())
-		}
 	}
 
 	#[pallet::event]
@@ -875,12 +893,6 @@ pub mod pallet {
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
 	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
-
-	/// The claim queue offset.
-	/// This value is expected to be mostly a constant. It's used by collators to determine when to
-	/// build a collation.
-	#[pallet::storage]
-	pub type ClaimQueueOffset<T: Config> = StorageValue<_, u8>;
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
@@ -1387,9 +1399,9 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Returns the claim queue offset.
-	pub fn fetch_claim_queue_offset() -> u8 {
-		ClaimQueueOffset::<T>::get().unwrap_or(DEFAULT_CLAIM_QUEUE_OFFSET)
+	/// Returns the core selector.
+	pub fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+		T::SelectCore::select_core_for_child()
 	}
 
 	/// Set a custom head data that should be returned as result of `validate_block`.

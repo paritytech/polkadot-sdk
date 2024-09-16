@@ -61,12 +61,6 @@ mod benchmarks {
 		head
 	}
 
-	#[benchmark]
-	fn set_claim_queue_offset() {
-		#[extrinsic_call]
-		Pallet::<T>::set_claim_queue_offset(RawOrigin::Root, 2);
-	}
-
 	impl_benchmark_test_suite! {
 		Pallet,
 		crate::mock::new_test_ext(),

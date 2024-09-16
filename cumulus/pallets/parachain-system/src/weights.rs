@@ -55,7 +55,6 @@ use core::marker::PhantomData;
 /// Weight functions needed for cumulus_pallet_parachain_system.
 pub trait WeightInfo {
 	fn enqueue_inbound_downward_messages(n: u32, ) -> Weight;
-	fn set_claim_queue_offset() -> Weight;
 }
 
 /// Weights for cumulus_pallet_parachain_system using the Substrate node and recommended hardware.
@@ -85,9 +84,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
-	fn set_claim_queue_offset() -> Weight {
-		Weight::from_parts(1, 1)
-	}
 }
 
 // For backwards compatibility and tests
@@ -115,8 +111,5 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(25_300_108, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
-	}
-	fn set_claim_queue_offset() -> Weight {
-		Weight::from_parts(1, 1)
 	}
 }

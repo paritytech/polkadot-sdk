@@ -21,11 +21,12 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
-	FetchClaimQueueOffset, PersistedValidationData, DEFAULT_CLAIM_QUEUE_OFFSET,
+	GetCoreSelectorApi, PersistedValidationData, DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_primitives::{
+	vstaging::{ClaimQueueOffset, CoreSelector},
 	BlockId, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
 	OccupiedCoreAssumption,
 };
@@ -36,13 +37,13 @@ use sc_consensus::BlockImport;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
-use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
+use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use sp_timestamp::Timestamp;
-use std::{sync::Arc, time::Duration};
+use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
 use super::CollatorMessage;
 use crate::{
@@ -89,8 +90,6 @@ pub struct BuilderTaskParams<
 	pub authoring_duration: Duration,
 	/// Channel to send built blocks to the collation task.
 	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
-	/// Slot duration of the relay chain
-	pub relay_chain_slot_duration: Duration,
 	/// Drift every slot by this duration.
 	/// This is a time quantity that is subtracted from the actual timestamp when computing
 	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the
@@ -104,7 +103,6 @@ pub struct BuilderTaskParams<
 struct SlotInfo {
 	pub timestamp: Timestamp,
 	pub slot: Slot,
-	pub slot_duration: SlotDuration,
 }
 
 #[derive(Debug)]
@@ -155,11 +153,7 @@ where
 		let time_until_next_slot = time_until_next_slot(slot_duration.as_duration(), self.drift);
 		tokio::time::sleep(time_until_next_slot).await;
 		let timestamp = sp_timestamp::Timestamp::current();
-		Ok(SlotInfo {
-			slot: Slot::from_timestamp(timestamp, slot_duration),
-			timestamp,
-			slot_duration,
-		})
+		Ok(SlotInfo { slot: Slot::from_timestamp(timestamp, slot_duration), timestamp })
 	}
 }
 
@@ -179,7 +173,7 @@ where
 		+ Sync
 		+ 'static,
 	Client::Api:
-		AuraApi<Block, P::Public> + FetchClaimQueueOffset<Block> + AuraUnincludedSegmentApi<Block>,
+		AuraApi<Block, P::Public> + GetCoreSelectorApi<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -207,7 +201,6 @@ where
 			code_hash_provider,
 			authoring_duration,
 			para_backend,
-			relay_chain_slot_duration,
 			slot_drift,
 		} = params;
 
@@ -235,12 +228,6 @@ where
 				return;
 			};
 
-			let Some(expected_cores) =
-				expected_core_count(relay_chain_slot_duration, para_slot.slot_duration)
-			else {
-				return
-			};
-
 			let Ok(relay_parent) = relay_client.best_block_hash().await else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
 				continue
@@ -256,14 +243,25 @@ where
 			let parent_header = parent.header;
 			let parent_hash = parent.hash;
 
-			// Retrieve claim queue offset, if present.
-			let Ok(maybe_cq_offset) = fetch_claim_queue_offset(&*para_client, parent_hash).await
-			else {
+			// Retrieve the core selector.
+			let Ok(maybe_core_selector) = core_selector(&*para_client, parent_hash).await else {
 				continue
 			};
+			// If the runtime API does not support the core selector API, fallback to some default
+			// values.
+			let (core_selector, claim_queue_offset) = maybe_core_selector.unwrap_or((
+				CoreSelector(*para_slot.slot as u8),
+				ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
+			));
 
-			let Ok(RelayChainData { relay_parent_header, max_pov_size, scheduled_cores }) =
-				relay_chain_fetcher.get_relay_chain_data(relay_parent, maybe_cq_offset).await
+			let Ok(RelayChainData {
+				relay_parent_header,
+				max_pov_size,
+				scheduled_cores,
+				claimed_cores,
+			}) = relay_chain_fetcher
+				.get_mut_relay_chain_data(relay_parent, claim_queue_offset)
+				.await
 			else {
 				continue;
 			};
@@ -280,16 +278,25 @@ where
 				);
 			}
 
-			let core_index_in_scheduled: u64 = *para_slot.slot % expected_cores;
-			let Some(core_index) = scheduled_cores.get(core_index_in_scheduled as usize) else {
+			let core_selector = core_selector.0 as usize % scheduled_cores.len();
+			let Some(core_index) = scheduled_cores.get(core_selector) else {
 				tracing::debug!(
 					target: LOG_TARGET,
-					core_index_in_scheduled,
+					core_selector,
 					core_len = scheduled_cores.len(),
 					"Para is not scheduled on enough cores"
 				);
 				continue;
 			};
+
+			if !claimed_cores.insert(*core_index) {
+				tracing::debug!(
+					target: LOG_TARGET,
+					"Core {:?} was already claimed at this relay chain slot",
+					core_index
+				);
+				continue
+			}
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
@@ -336,7 +343,7 @@ where
 				parent_head: parent_header.encode().into(),
 				relay_parent_number: *relay_parent_header.number(),
 				relay_parent_storage_root: *relay_parent_header.state_root(),
-				max_pov_size,
+				max_pov_size: *max_pov_size,
 			};
 
 			let (parachain_inherent_data, other_inherent_data) = match collator
@@ -415,32 +422,17 @@ where
 	}
 }
 
-/// Calculate the expected core count based on the slot duration of the relay and parachain.
-///
-/// If `slot_duration` is smaller than `relay_chain_slot_duration` that means that we produce more
-/// than one parachain block per relay chain block. In order to get these backed, we need multiple
-/// cores. This method calculates how many cores we should expect to have scheduled under the
-/// assumption that we have a fixed number of cores assigned to our parachain.
-fn expected_core_count(
-	relay_chain_slot_duration: Duration,
-	slot_duration: SlotDuration,
-) -> Option<u64> {
-	let slot_duration_millis = slot_duration.as_millis();
-	u64::try_from(relay_chain_slot_duration.as_millis())
-		.map_err(|e| tracing::error!("Unable to calculate expected parachain core count: {e}"))
-		.map(|relay_slot_duration| (relay_slot_duration / slot_duration_millis).max(1))
-		.ok()
-}
-
 /// Contains relay chain data necessary for parachain block building.
 #[derive(Clone)]
 struct RelayChainData {
 	/// Current relay chain parent header.
 	pub relay_parent_header: RelayHeader,
-	/// The cores this para is scheduled on in the context of the relay parent.
+	/// The cores on which the para is scheduled at the configured claim queue offset.
 	pub scheduled_cores: Vec<CoreIndex>,
 	/// Maximum configured PoV size on the relay chain.
 	pub max_pov_size: u32,
+	/// The claimed cores at a relay parent.
+	pub claimed_cores: BTreeSet<CoreIndex>,
 }
 
 /// Simple helper to fetch relay chain data and cache it based on the current relay chain best block
@@ -462,22 +454,21 @@ where
 	/// Fetch required [`RelayChainData`] from the relay chain.
 	/// If this data has been fetched in the past for the incoming hash, it will reuse
 	/// cached data.
-	pub async fn get_relay_chain_data(
-		&mut self,
+	pub async fn get_mut_relay_chain_data<'a>(
+		&'a mut self,
 		relay_parent: RelayHash,
-		maybe_claim_queue_offset: Option<u8>,
-	) -> Result<RelayChainData, ()> {
+		claim_queue_offset: ClaimQueueOffset,
+	) -> Result<&'a mut RelayChainData, ()> {
 		match &self.last_data {
-			Some((last_seen_hash, data)) if *last_seen_hash == relay_parent => {
+			Some((last_seen_hash, _)) if *last_seen_hash == relay_parent => {
 				tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Using cached data for relay parent.");
-				Ok(data.clone())
+				Ok(&mut self.last_data.as_mut().expect("last_data is Some").1)
 			},
 			_ => {
 				tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Relay chain best block changed, fetching new data from relay chain.");
-				let data =
-					self.update_for_relay_parent(relay_parent, maybe_claim_queue_offset).await?;
-				self.last_data = Some((relay_parent, data.clone()));
-				Ok(data)
+				let data = self.update_for_relay_parent(relay_parent, claim_queue_offset).await?;
+				self.last_data = Some((relay_parent, data));
+				Ok(&mut self.last_data.as_mut().expect("last_data was just set above").1)
 			},
 		}
 	}
@@ -486,13 +477,13 @@ where
 	async fn update_for_relay_parent(
 		&self,
 		relay_parent: RelayHash,
-		maybe_claim_queue_offset: Option<u8>,
+		claim_queue_offset: ClaimQueueOffset,
 	) -> Result<RelayChainData, ()> {
 		let scheduled_cores = cores_scheduled_for_para(
 			relay_parent,
 			self.para_id,
 			&self.relay_client,
-			maybe_claim_queue_offset.unwrap_or(DEFAULT_CLAIM_QUEUE_OFFSET),
+			claim_queue_offset,
 		)
 		.await;
 
@@ -516,22 +507,27 @@ where
 			},
 		};
 
-		Ok(RelayChainData { relay_parent_header, scheduled_cores, max_pov_size })
+		Ok(RelayChainData {
+			relay_parent_header,
+			scheduled_cores,
+			max_pov_size,
+			claimed_cores: BTreeSet::new(),
+		})
 	}
 }
 
-async fn fetch_claim_queue_offset<Block: BlockT, Client>(
+async fn core_selector<Block: BlockT, Client>(
 	para_client: &Client,
 	block_hash: Block::Hash,
-) -> Result<Option<u8>, sp_api::ApiError>
+) -> Result<Option<(CoreSelector, ClaimQueueOffset)>, sp_api::ApiError>
 where
 	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	Client::Api: FetchClaimQueueOffset<Block>,
+	Client::Api: GetCoreSelectorApi<Block>,
 {
 	let runtime_api = para_client.runtime_api();
 
-	if runtime_api.has_api::<dyn FetchClaimQueueOffset<Block>>(block_hash)? {
-		Ok(Some(runtime_api.fetch_claim_queue_offset(block_hash)?))
+	if runtime_api.has_api::<dyn GetCoreSelectorApi<Block>>(block_hash)? {
+		Ok(Some(runtime_api.core_selector(block_hash)?))
 	} else {
 		Ok(None)
 	}

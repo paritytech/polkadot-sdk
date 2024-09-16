@@ -77,8 +77,4 @@ impl<T: frame_system::Config> cumulus_pallet_parachain_system::WeightInfo for We
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
-
-	fn set_claim_queue_offset() -> Weight {
-		Weight::from_parts(1, 1)
-	}
 }
