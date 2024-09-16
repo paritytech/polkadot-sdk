@@ -84,7 +84,7 @@ jobs:
           # echo "Test" >> ${{ matrix.binaries }}.txt
           # sha256sum "${{ matrix.binaries }}".txt | tee "${{ matrix.binaries }}.sha256"
 
-          ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.binary }}
+          ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} polkadot
 
       - name: Sign artifacts
         working-directory: /artifacts/${{ matrix.binaries }}
@@ -161,7 +161,7 @@ jobs:
         # echo "Test" >> polkadot-parachain.txt
         # sha256sum "polkadot-parachain".txt | tee "polkadot-parachain.sha256"
 
-        ./.github/scripts/release/build-linux-release.sh polkadot-parachain ${{ inputs.binary }}
+        ./.github/scripts/release/build-linux-release.sh polkadot-parachain polkadot-parachain-bin
 
     - name: Sign artifacts
       working-directory: /artifacts/polkadot-parachain
