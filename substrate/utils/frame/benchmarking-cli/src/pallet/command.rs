@@ -595,8 +595,6 @@ impl PalletCmd {
 			},
 			(Some(GenesisBuilder::Runtime), None) => return Err("Cannot use `--genesis-builder=runtime` without `--runtime`".into()),
 			(Some(GenesisBuilder::Runtime), Some(runtime)) | (None, Some(runtime)) => {
-				let runtime = std::path::absolute(runtime)
-					.map_err(|e| format!("Could not get absolute path for runtime file: {e}"))?;
 				log::info!("Loading WASM from {}", runtime.display());
 
 				let code = fs::read(&runtime).map_err(|e| {
