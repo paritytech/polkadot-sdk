@@ -43,7 +43,7 @@ pub trait Config: crate::Config {
 benchmarks! {
 	// Benchmark `claim_rewards` call.
 	claim_rewards {
-		let lane = LaneId([0, 0, 0, 0]);
+		let lane = LaneId::new(1, 2);
 		let account_params =
 			RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
 		let relayer: T::AccountId = whitelisted_caller();
@@ -102,7 +102,7 @@ benchmarks! {
 		crate::Pallet::<T>::register(RawOrigin::Signed(relayer.clone()).into(), valid_till).unwrap();
 
 		// create slash destination account
-		let lane = LaneId([0, 0, 0, 0]);
+		let lane = LaneId::new(1, 2);
 		let slash_destination = RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
 		T::prepare_rewards_account(slash_destination, Zero::zero());
 	}: {
@@ -116,7 +116,7 @@ benchmarks! {
 	// the weight of message delivery call if `RefundBridgedParachainMessages` signed extension
 	// is deployed at runtime level.
 	register_relayer_reward {
-		let lane = LaneId([0, 0, 0, 0]);
+		let lane = LaneId::new(1, 2);
 		let relayer: T::AccountId = whitelisted_caller();
 		let account_params =
 			RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
