@@ -33,7 +33,7 @@ use frame_metadata::v16::{
 	PalletAssociatedTypeMetadata, PalletCallMetadata, PalletConstantMetadata, PalletErrorMetadata,
 	PalletEventMetadata, PalletMetadata, PalletStorageMetadata, RuntimeApiMetadata,
 	RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata, RuntimeMetadataV16,
-	SignedExtensionMetadata, StorageEntryMetadata,
+	StorageEntryMetadata, TransactionExtensionMetadata,
 };
 
 impl From<MetadataIR> for RuntimeMetadataV16 {
@@ -41,7 +41,6 @@ impl From<MetadataIR> for RuntimeMetadataV16 {
 		RuntimeMetadataV16::new(
 			ir.pallets.into_iter().map(Into::into).collect(),
 			ir.extrinsic.into(),
-			ir.ty,
 			ir.apis.into_iter().map(Into::into).collect(),
 			ir.outer_enums.into(),
 			// Substrate does not collect yet the custom metadata fields.
@@ -155,9 +154,9 @@ impl From<PalletConstantMetadataIR> for PalletConstantMetadata {
 	}
 }
 
-impl From<SignedExtensionMetadataIR> for SignedExtensionMetadata {
+impl From<SignedExtensionMetadataIR> for TransactionExtensionMetadata {
 	fn from(ir: SignedExtensionMetadataIR) -> Self {
-		SignedExtensionMetadata {
+		TransactionExtensionMetadata {
 			identifier: ir.identifier,
 			ty: ir.ty,
 			additional_signed: ir.additional_signed,
@@ -168,12 +167,12 @@ impl From<SignedExtensionMetadataIR> for SignedExtensionMetadata {
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
 		ExtrinsicMetadata {
-			version: ir.version,
+			versions: alloc::vec![ir.version],
 			address_ty: ir.address_ty,
 			call_ty: ir.call_ty,
 			signature_ty: ir.signature_ty,
 			extra_ty: ir.extra_ty,
-			signed_extensions: ir.signed_extensions.into_iter().map(Into::into).collect(),
+			transaction_extensions: ir.signed_extensions.into_iter().map(Into::into).collect(),
 		}
 	}
 }
@@ -206,7 +205,7 @@ impl From<DeprecationInfoIR> for DeprecationInfo {
 			DeprecationInfoIR::ItemDeprecated(status) =>
 				DeprecationInfo::ItemDeprecated(status.into()),
 			DeprecationInfoIR::VariantsDeprecated(btree) => DeprecationInfo::VariantsDeprecated(
-				btree.into_iter().map(|(key, value)| (key, value.into())).collect(),
+				btree.into_iter().map(|(key, value)| (key.0, value.into())).collect(),
 			),
 		}
 	}
