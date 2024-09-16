@@ -595,12 +595,12 @@ impl pallet_broker::migration::v4::BlockToRelayHeightConversion<Runtime>
 	fn convert_block_number_to_relay_height(input_block_number: u32) -> u32 {
 		let relay_height = pallet_broker::Pallet::<Runtime>::relay_height();
 		let parachain_block_number = frame_system::Pallet::<Runtime>::block_number();
-		let offset = relay_height - parachain_block_number;
-		offset + input_block_number
+		let offset = relay_height - parachain_block_number * 2;
+		offset + input_block_number * 2
 	}
 
 	fn convert_block_length_to_relay_length(input_block_length: u32) -> u32 {
-		input_block_length
+		input_block_length * 2
 	}
 }
 
