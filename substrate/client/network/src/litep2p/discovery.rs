@@ -474,11 +474,11 @@ impl Stream for Discovery {
 			match delay.poll_unpin(cx) {
 				Poll::Ready(()) => {
 					let num_peers = this.num_connected_peers();
-					if num_peers < 3 * this.discovery_only_if_under_num &&
+					if num_peers < 2 * this.discovery_only_if_under_num &&
 						this.find_node_queries.len() < MAX_INFLIGHT_FIND_NODE_QUERIES
 					{
 						let peer = PeerId::random();
-						log::debug!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
+						log::debug!(target: LOG_TARGET, "start next kademlia query for {peer:?} {num_peers}/2x{} connected peers", this.discovery_only_if_under_num,);
 
 						if let Ok(query_id) = this.kademlia_handle.try_find_node(peer) {
 							this.find_node_queries.insert(query_id, std::time::Instant::now());
@@ -495,7 +495,7 @@ impl Stream for Discovery {
 					} else {
 						log::debug!(
 							target: LOG_TARGET,
-							"discovery is paused: {num_peers}/{} connected peers and in flight queries: {}/{MAX_INFLIGHT_FIND_NODE_QUERIES}",
+							"discovery is paused: {num_peers}/2x{} connected peers and in flight queries: {}/{MAX_INFLIGHT_FIND_NODE_QUERIES}",
 							this.discovery_only_if_under_num,
 							this.find_node_queries.len(),
 						);
