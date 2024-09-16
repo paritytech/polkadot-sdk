@@ -69,6 +69,12 @@ const KADEMLIA_QUERY_INTERVAL: Duration = Duration::from_secs(5);
 /// The time is reset to `KADEMLIA_QUERY_INTERVAL` after a failed query.
 const CONVERGENCE_QUERY_INTERVAL: Duration = Duration::from_secs(120);
 
+/// Ensure at least one discovery query is issued every 16 minutes.
+///
+/// This has a low impact on the networking backend, while keeping a healthy
+/// subset of the network discovered.
+const MANDATORY_QUERY_INTERVAL: Duration = Duration::from_secs(16 * 60);
+
 /// mDNS query interval.
 const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
 
@@ -215,6 +221,9 @@ pub struct Discovery {
 	/// Delay to next `FIND_NODE` query.
 	duration_to_next_find_query: Duration,
 
+	/// Delay to next mandatory `FIND_NODE` query.
+	next_mandatory_kad_query: Option<Delay>,
+
 	/// Number of connected peers as reported by the blocks announcement protocol.
 	num_connected_peers: Arc<AtomicUsize>,
 
@@ -299,6 +308,7 @@ impl Discovery {
 				find_node_queries: HashMap::new(),
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(1),
+				next_mandatory_kad_query: Some(Delay::new(MANDATORY_QUERY_INTERVAL)),
 				address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
 				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
@@ -495,6 +505,27 @@ impl Stream for Discovery {
 
 		if let Some(event) = this.pending_events.pop_front() {
 			return Poll::Ready(Some(event))
+		}
+
+		if let Some(mut delay) = this.next_mandatory_kad_query.take() {
+			match delay.poll_unpin(cx) {
+				Poll::Ready(()) => {
+					if this.find_node_queries.len() < MAX_INFLIGHT_FIND_NODE_QUERIES {
+						let peer = PeerId::random();
+						log::debug!(target: LOG_TARGET, "start next mandatory kademlia query for {peer:?} {num_peers}/2x{} connected peers", this.discovery_only_if_under_num,);
+
+						if let Ok(query_id) = this.kademlia_handle.try_find_node(peer) {
+							this.next_mandatory_kad_query =
+								Some(Delay::new(MANDATORY_QUERY_INTERVAL));
+
+							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+						}
+					}
+				},
+				Poll::Pending => {
+					this.next_mandatory_kad_query = Some(delay);
+				},
+			}
 		}
 
 		if let Some(mut delay) = this.next_kad_query.take() {
