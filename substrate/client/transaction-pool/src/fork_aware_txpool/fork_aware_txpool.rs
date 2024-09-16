@@ -1380,7 +1380,7 @@ mod reduce_multiview_result_tests {
 	#[test]
 	fn empty() {
 		sp_tracing::try_init_simple();
-		let mut input = HashMap::default();
+		let input = HashMap::default();
 		let r = reduce_multiview_result::<H256, Error>(input);
 		assert!(r.is_empty());
 	}
@@ -1417,7 +1417,7 @@ mod reduce_multiview_result_tests {
 				],
 			),
 		];
-		let mut input = HashMap::from_iter(v.clone());
+		let input = HashMap::from_iter(v.clone());
 		let r = reduce_multiview_result(input);
 
 		//order in HashMap is random, the result shall be one of:
@@ -1433,7 +1433,7 @@ mod reduce_multiview_result_tests {
 			(H256::repeat_byte(0x13), vec![Err(Error::Custom(12)), Err(Error::Custom(13))]),
 			(H256::repeat_byte(0x14), vec![Err(Error::Custom(23))]),
 		];
-		let mut input = HashMap::from_iter(v);
+		let input = HashMap::from_iter(v);
 		let _ = reduce_multiview_result(input);
 	}
 
@@ -1451,7 +1451,7 @@ mod reduce_multiview_result_tests {
 				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))],
 			),
 		];
-		let mut input = HashMap::from_iter(v);
+		let input = HashMap::from_iter(v);
 		let r = reduce_multiview_result(input);
 
 		assert_eq!(r, vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))]);
@@ -1464,7 +1464,7 @@ mod reduce_multiview_result_tests {
 			H256::repeat_byte(0x13),
 			vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))],
 		)];
-		let mut input = HashMap::from_iter(v);
+		let input = HashMap::from_iter(v);
 		let r = reduce_multiview_result(input);
 
 		assert_eq!(r, vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))]);
@@ -1502,7 +1502,7 @@ mod reduce_multiview_result_tests {
 				],
 			),
 		];
-		let mut input = HashMap::from_iter(v);
+		let input = HashMap::from_iter(v);
 		let r = reduce_multiview_result(input);
 
 		assert_eq!(
