@@ -130,7 +130,7 @@ impl BalanceOnHold<u32, u64, u64> for TestHolder {
 	}
 
 	fn contains_holds(asset: AssetId) -> bool {
-		!OnHold::get().iter().find(|((k, _), _)| &asset == k).is_none()
+		OnHold::get().iter().any(|((k, _), _)| &asset == k)
 	}
 }
 
@@ -174,7 +174,7 @@ impl FrozenBalance<u32, u64, u64> for TestFreezer {
 
 	/// Return a value that indicates if there are registered freezes for a given asset.
 	fn contains_freezes(asset: AssetId) -> bool {
-		!Frozen::get().iter().find(|((k, _), _)| &asset == k).is_none()
+		Frozen::get().iter().any(|((k, _), _)| &asset == k)
 	}
 }
 

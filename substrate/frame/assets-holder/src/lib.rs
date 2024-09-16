@@ -35,7 +35,7 @@
 //! This pallet provides the following functionality:
 //!
 //! - Pallet hooks allowing [`pallet-assets`] to know the balance on hold for an account on a given
-//!   asset (see [`pallet_assets::BalanceOnHold`](pallet_assets::BalanceOnHold)).
+//!   asset (see [`pallet_assets::BalanceOnHold`]).
 //! - An implementation of
 //!   [`fungibles::hold::Inspect`](frame_support::traits::fungibles::hold::Inspect),
 //!   [`fungibles::hold::Mutate`](frame_support::traits::fungibles::hold::Mutate) and
