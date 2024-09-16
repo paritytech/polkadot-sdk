@@ -1476,6 +1476,7 @@ dependencies = [
  "array-bytes",
  "hash-db",
  "log",
+ "parity-scale-codec",
  "sp-core",
  "sp-runtime",
  "sp-tracing 16.0.0",
@@ -6018,6 +6019,7 @@ dependencies = [
  "aquamarine",
  "array-bytes",
  "assert_matches",
+ "binary-merkle-tree",
  "bitflags 1.3.2",
  "docify",
  "environmental",
@@ -6051,6 +6053,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-timestamp",
  "sp-tracing 16.0.0",
+ "sp-trie",
  "sp-weights",
  "static_assertions",
  "tt-call",
@@ -19589,6 +19592,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
