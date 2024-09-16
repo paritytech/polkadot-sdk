@@ -929,16 +929,3 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(asset::stakeable_balance::<Test>(who), Balances::reserved_balance(who))
 }
-
-pub(crate) fn migrate_to_old_currency(who: &AccountId) {
-	use frame_support::traits::LockableCurrency;
-	let staked = asset::staked::<Test>(who);
-
-	// apply locks (this also adds a consumer).
-	Balances::set_lock(STAKING_ID, who, staked, frame_support::traits::WithdrawReasons::all());
-	// remove holds.
-	asset::kill_stake::<Test>(who).expect("remove hold failed");
-
-	// replicate old behaviour of explicitly increment consumer.
-	System::inc_consumers(who).expect("increment consumer failed");
-}

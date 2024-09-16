@@ -961,6 +961,18 @@ benchmarks! {
 		assert_eq!(Staking::<T>::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
 	}
 
+	migrate_currency {
+		let (stash, _ctrl) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+		let stake = asset::staked::<T>(&stash);
+		migrate_to_old_currency::<T>(stash.clone());
+		// no holds
+		assert!(asset::staked::<T>(&stash).is_zero());
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash.clone()), stash.clone())
+	verify {
+		assert_eq!(asset::staked::<T>(&stash), stake);
+	}
+
 	impl_benchmark_test_suite!(
 		Staking,
 		crate::mock::ExtBuilder::default().has_stakers(true),

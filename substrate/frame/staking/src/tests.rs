@@ -8398,7 +8398,7 @@ mod hold_migration {
 			assert_eq!(asset::staked::<Test>(&alice), 1000);
 			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
 			// migrate alice currency to legacy locks
-			migrate_to_old_currency(&alice);
+			testing_utils::migrate_to_old_currency::<Test>(alice);
 			// no more holds
 			assert_eq!(asset::staked::<Test>(&alice), 0);
 			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 1000);
@@ -8462,7 +8462,7 @@ mod hold_migration {
 			// GIVEN alice who is a nominator with old currency
 			let alice = 300;
 			bond_nominator(alice, 1000, vec![11]);
-			migrate_to_old_currency(&alice);
+			testing_utils::migrate_to_old_currency::<Test>(alice);
 			assert_eq!(asset::staked::<Test>(&alice), 0);
 			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 1000);
 			let pre_migrate_consumer = System::consumers(&alice);
@@ -8498,7 +8498,7 @@ mod hold_migration {
 			let alice = 300;
 			let stake = 1000;
 			bond_nominator(alice, stake, vec![11]);
-			migrate_to_old_currency(&alice);
+			testing_utils::migrate_to_old_currency::<Test>(alice);
 			assert_eq!(asset::staked::<Test>(&alice), 0);
 			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), stake);
 			// ledger has 1000 staked.
