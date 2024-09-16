@@ -21,40 +21,15 @@ futures-timer = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 serde_json = { workspace = true, default-features = true }
 
-sc-cli = { workspace = true, default-features = true }
-sc-executor = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
-sc-telemetry = { workspace = true, default-features = true }
-sc-transaction-pool = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
-sc-consensus = { workspace = true, default-features = true }
-sc-consensus-manual-seal = { workspace = true, default-features = true }
-sc-rpc-api = { workspace = true, default-features = true }
-sc-basic-authorship = { workspace = true, default-features = true }
-sc-offchain = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-
-sp-timestamp = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-block-builder = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-
-substrate-frame-rpc-system = { workspace = true, default-features = true }
-
-# Once the native runtime is gone, there should be little to no dependency on FRAME here, and
-# certainly no dependency on the runtime.
-frame = { features = [
-	"experimental",
-	"runtime",
-], workspace = true, default-features = true }
+polkadot-sdk = { workspace = true, features = ["experimental", "node"] }
 minimal-template-runtime = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils = { workspace = true, default-features = true }
+polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
 
 [features]
-default = []
+default = ["std"]
+std = [
+	"minimal-template-runtime/std",
+	"polkadot-sdk/std",
+]

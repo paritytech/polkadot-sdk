@@ -25,11 +25,11 @@ mod utils;
 mod tests;
 
 use crate::SubscriptionTaskExecutor;
-use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
+use jsonrpsee::{core::async_trait, Extensions, PendingSubscriptionSink};
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, ExecutorProvider, ProofProvider, StorageProvider,
 };
-use sc_rpc_api::DenyUnsafe;
+use sc_rpc_api::{check_if_safe, DenyUnsafe};
 use sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{
@@ -164,7 +164,6 @@ where
 pub fn new_full<BE, Block: BlockT, Client>(
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
-	deny_unsafe: DenyUnsafe,
 ) -> (State<Block, Client>, ChildState<Block, Client>)
 where
 	Block: BlockT + 'static,
@@ -187,14 +186,12 @@ where
 	let child_backend =
 		Box::new(self::state_full::FullState::new(client.clone(), executor.clone()));
 	let backend = Box::new(self::state_full::FullState::new(client, executor));
-	(State { backend, deny_unsafe }, ChildState { backend: child_backend })
+	(State { backend }, ChildState { backend: child_backend })
 }
 
 /// State API with subscriptions support.
 pub struct State<Block, Client> {
 	backend: Box<dyn StateBackend<Block, Client>>,
-	/// Whether to deny unsafe calls
-	deny_unsafe: DenyUnsafe,
 }
 
 #[async_trait]
@@ -222,10 +219,11 @@ where
 
 	fn storage_pairs(
 		&self,
+		ext: &Extensions,
 		key_prefix: StorageKey,
 		block: Option<Block::Hash>,
 	) -> Result<Vec<(StorageKey, StorageData)>, Error> {
-		self.deny_unsafe.check_if_safe()?;
+		check_if_safe(ext)?;
 		self.backend.storage_pairs(block, key_prefix).map_err(Into::into)
 	}
 
@@ -262,13 +260,15 @@ where
 
 	async fn storage_size(
 		&self,
+		ext: &Extensions,
 		key: StorageKey,
 		block: Option<Block::Hash>,
 	) -> Result<Option<u64>, Error> {
-		self.backend
-			.storage_size(block, key, self.deny_unsafe)
-			.await
-			.map_err(Into::into)
+		let deny_unsafe = ext
+			.get::<DenyUnsafe>()
+			.cloned()
+			.expect("DenyUnsafe extension is always set by the substrate rpc server; qed");
+		self.backend.storage_size(block, key, deny_unsafe).await.map_err(Into::into)
 	}
 
 	fn metadata(&self, block: Option<Block::Hash>) -> Result<Bytes, Error> {
@@ -281,11 +281,12 @@ where
 
 	fn query_storage(
 		&self,
+		ext: &Extensions,
 		keys: Vec<StorageKey>,
 		from: Block::Hash,
 		to: Option<Block::Hash>,
 	) -> Result<Vec<StorageChangeSet<Block::Hash>>, Error> {
-		self.deny_unsafe.check_if_safe()?;
+		check_if_safe(ext)?;
 		self.backend.query_storage(from, to, keys).map_err(Into::into)
 	}
 
@@ -312,12 +313,13 @@ where
 	/// Note: requires runtimes compiled with wasm tracing support, `--features with-tracing`.
 	fn trace_block(
 		&self,
+		ext: &Extensions,
 		block: Block::Hash,
 		targets: Option<String>,
 		storage_keys: Option<String>,
 		methods: Option<String>,
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error> {
-		self.deny_unsafe.check_if_safe()?;
+		check_if_safe(ext)?;
 		self.backend
 			.trace_block(block, targets, storage_keys, methods)
 			.map_err(Into::into)
@@ -327,8 +329,17 @@ where
 		self.backend.subscribe_runtime_version(pending)
 	}
 
-	fn subscribe_storage(&self, pending: PendingSubscriptionSink, keys: Option<Vec<StorageKey>>) {
-		self.backend.subscribe_storage(pending, keys, self.deny_unsafe)
+	fn subscribe_storage(
+		&self,
+		pending: PendingSubscriptionSink,
+		ext: &Extensions,
+		keys: Option<Vec<StorageKey>>,
+	) {
+		let deny_unsafe = ext
+			.get::<DenyUnsafe>()
+			.cloned()
+			.expect("DenyUnsafe extension is always set by the substrate rpc server; qed");
+		self.backend.subscribe_storage(pending, keys, deny_unsafe)
 	}
 }
 

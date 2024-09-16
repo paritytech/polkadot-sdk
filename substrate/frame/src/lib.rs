@@ -177,7 +177,14 @@ pub mod runtime {
 		pub use frame_executive::*;
 
 		/// Macro to amalgamate the runtime into `struct Runtime`.
+		///
+		/// Consider using the new version of this [`frame_construct_runtime`].
 		pub use frame_support::construct_runtime;
+
+		/// Macro to amalgamate the runtime into `struct Runtime`.
+		///
+		/// This is the newer version of [`construct_runtime`].
+		pub use frame_support::runtime as frame_construct_runtime;
 
 		/// Macro to easily derive the `Config` trait of various pallet for `Runtime`.
 		pub use frame_support::derive_impl;
@@ -186,11 +193,17 @@ pub mod runtime {
 		// TODO: using linking in the Get in the line above triggers an ICE :/
 		pub use frame_support::{ord_parameter_types, parameter_types};
 
+		/// For building genesis config.
+		pub use frame_support::genesis_builder_helper::{build_state, get_preset};
+
 		/// Const types that can easily be used in conjuncture with `Get`.
 		pub use frame_support::traits::{
 			ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16,
 			ConstU32, ConstU64, ConstU8,
 		};
+
+		/// Used for simple fee calculation.
+		pub use frame_support::weights::{self, FixedFee, NoFee};
 
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
@@ -201,11 +214,16 @@ pub mod runtime {
 		/// Types to define your runtime version.
 		pub use sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
 
+		#[cfg(feature = "std")]
+		pub use sp_version::NativeVersion;
+
 		/// Macro to implement runtime APIs.
 		pub use sp_api::impl_runtime_apis;
 
-		#[cfg(feature = "std")]
-		pub use sp_version::NativeVersion;
+		// Types often used in the runtime APIs.
+		pub use sp_core::OpaqueMetadata;
+		pub use sp_inherents::{CheckInherentsResult, InherentData};
+		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
 	/// Types and traits for runtimes that implement runtime APIs.
@@ -223,11 +241,6 @@ pub mod runtime {
 	// moved to file similarly.
 	#[allow(ambiguous_glob_reexports)]
 	pub mod apis {
-		// Types often used in the runtime APIs.
-		pub use sp_core::OpaqueMetadata;
-		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
-
 		pub use frame_system_rpc_runtime_api::*;
 		pub use sp_api::{self, *};
 		pub use sp_block_builder::*;

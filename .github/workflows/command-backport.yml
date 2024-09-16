@@ -1,0 +1,95 @@
+name: Backport into stable
+
+on:
+  # This trigger can be problematic, see: https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
+  # In our case it is fine since we only run it on merged Pull Requests and do not execute any of the repo code itself.
+  pull_request_target:
+    types: [ closed, labeled ]
+
+permissions:
+  contents: write # so it can comment
+  pull-requests: write # so it can create pull requests
+  issues: write
+
+jobs:
+  backport:
+    name: Backport pull request
+    runs-on: ubuntu-latest
+
+    # The 'github.event.pull_request.merged' ensures that it got into master:
+    if: >
+      ( !startsWith(github.event.pull_request.base.ref, 'stable') ) &&
+      (
+        github.event_name == 'pull_request_target' &&
+        github.event.pull_request.merged &&
+        github.event.pull_request.base.ref == 'master' &&
+        contains(github.event.pull_request.labels.*.name, 'A4-needs-backport')
+      )
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v2.1.0
+        with:
+          app_id: ${{ secrets.CMD_BOT_APP_ID }}
+          private_key: ${{ secrets.CMD_BOT_APP_KEY }}
+
+      - name: Create backport pull requests
+        uses: korthout/backport-action@v3
+        id: backport
+        with:
+          target_branches: stable2407 stable2409
+          merge_commits: skip
+          github_token: ${{ steps.generate_token.outputs.token }}
+          pull_description: |
+            Backport #${pull_number} into `${target_branch}` from ${pull_author}.
+
+            See the [documentation](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) on how to use this bot.
+
+            <!--
+              # To be used by other automation, do not modify:
+              original-pr-number: #${pull_number}
+            -->
+          pull_title: |
+            [${target_branch}] Backport #${pull_number}
+          experimental: >
+            {
+              "conflict_resolution": "draft_commit_conflicts"
+            }
+          copy_assignees: true
+
+      - name: Label Backports
+        if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
+            
+            for (const pullNumber of pullNumbers) {
+              await github.rest.issues.addLabels({
+                issue_number: parseInt(pullNumber),
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: ['A3-backport']
+              });
+              console.log(`Added A3-backport label to PR #${pullNumber}`);
+            }
+
+      - name: Request Review
+        if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
+            const reviewer = '${{ github.event.pull_request.user.login }}';
+            
+            for (const pullNumber of pullNumbers) {
+              await github.pulls.createReviewRequest({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: parseInt(pullNumber),
+                reviewers: [ reviewer ]
+              });
+              console.log(`Requested review from ${reviewer} for PR #${pullNumber}`);
+            }

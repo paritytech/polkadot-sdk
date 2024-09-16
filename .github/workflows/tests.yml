@@ -12,31 +12,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  changes:
-    permissions:
-      pull-requests: read
-    uses: ./.github/workflows/reusable-check-changed-files.yml
 
-  set-image:
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
 
+  # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
   quick-benchmarks:
-    needs: [ set-image, changes ]
-    if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
+    needs: [ preflight ]
+    # if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-C debug-assertions -D warnings"
       RUST_BACKTRACE: "full"
@@ -46,16 +33,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: time forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
+        run: forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
 
   # cf https://github.com/paritytech/polkadot-sdk/issues/1652
   test-syscalls:
-    needs: [ set-image, changes ]
-    if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
+    needs: [ preflight ]
+    # if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     continue-on-error: true # this rarely triggers in practice
     env:
       SKIP_WASM_BUILD: 1
@@ -63,28 +50,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
+        id: test
         run: |
           forklift cargo build --locked --profile production --target x86_64-unknown-linux-musl --bin polkadot-execute-worker --bin polkadot-prepare-worker
           cd polkadot/scripts/list-syscalls
           ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-execute-worker --only-used-syscalls | diff -u execute-worker-syscalls -
           ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
-    # todo:
-    # after_script:
-    # - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
-    #   printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
-    #   fi
+      - name: on_failure
+        if: failure() && steps.test.outcome == 'failure'
+        run: |
+          echo "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed." >> $GITHUB_STEP_SUMMARY
+
 
   cargo-check-all-benches:
-    needs: [ set-image, changes ]
-    if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
+    needs: [ preflight ]
+    # if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       SKIP_WASM_BUILD: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: time forklift cargo check --all --benches
+        run: forklift cargo check --all --benches
