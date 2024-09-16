@@ -138,19 +138,19 @@ impl<LaneId> ReceiveMessagesDeliveryProofInfo<LaneId> {
 /// Info about a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call
 /// which tries to update a single lane.
 #[derive(PartialEq, RuntimeDebug)]
-pub enum MessagesCallInfo<LaneId> {
+pub enum MessagesCallInfo<LaneId: Clone + Copy> {
 	/// Messages delivery call info.
 	ReceiveMessagesProof(ReceiveMessagesProofInfo<LaneId>),
 	/// Messages delivery confirmation call info.
 	ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo<LaneId>),
 }
 
-impl<LaneId> MessagesCallInfo<LaneId> {
+impl<LaneId: Clone + Copy> MessagesCallInfo<LaneId> {
 	/// Returns lane, used by the call.
-	pub fn lane_id(&self) -> &LaneId {
+	pub fn lane_id(&self) -> LaneId {
 		match *self {
-			Self::ReceiveMessagesProof(ref info) => &info.base.lane_id,
-			Self::ReceiveMessagesDeliveryProof(ref info) => &info.0.lane_id,
+			Self::ReceiveMessagesProof(ref info) => info.base.lane_id,
+			Self::ReceiveMessagesDeliveryProof(ref info) => info.0.lane_id,
 		}
 	}
 

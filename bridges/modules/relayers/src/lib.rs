@@ -51,12 +51,16 @@ pub const LOG_TARGET: &str = "runtime::bridge-relayers";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use bp_messages::LaneIdType;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	/// `RelayerRewardsKeyProvider` for given configuration.
-	type RelayerRewardsKeyProviderOf<T> =
-		RelayerRewardsKeyProvider<<T as frame_system::Config>::AccountId, <T as Config>::Reward>;
+	type RelayerRewardsKeyProviderOf<T> = RelayerRewardsKeyProvider<
+		<T as frame_system::Config>::AccountId,
+		<T as Config>::Reward,
+		<T as Config>::LaneId,
+	>;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -65,11 +69,17 @@ pub mod pallet {
 		/// Type of relayer reward.
 		type Reward: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
 		/// Pay rewards scheme.
-		type PaymentProcedure: PaymentProcedure<Self::AccountId, Self::Reward>;
+		type PaymentProcedure: PaymentProcedure<
+			Self::AccountId,
+			Self::Reward,
+			LaneId = Self::LaneId,
+		>;
 		/// Stake and slash scheme.
 		type StakeAndSlash: StakeAndSlash<Self::AccountId, BlockNumberFor<Self>, Self::Reward>;
 		/// Pallet call weights.
 		type WeightInfo: WeightInfoExt;
+		/// Lane identifier type.
+		type LaneId: LaneIdType + Send + Sync;
 	}
 
 	#[pallet::pallet]
@@ -82,7 +92,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_rewards())]
 		pub fn claim_rewards(
 			origin: OriginFor<T>,
-			rewards_account_params: RewardsAccountParams,
+			rewards_account_params: RewardsAccountParams<T::LaneId>,
 		) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 
@@ -243,7 +253,7 @@ pub mod pallet {
 		/// It may fail inside, but error is swallowed and we only log it.
 		pub fn slash_and_deregister(
 			relayer: &T::AccountId,
-			slash_destination: ExplicitOrAccountParams<T::AccountId>,
+			slash_destination: ExplicitOrAccountParams<T::AccountId, T::LaneId>,
 		) {
 			let registration = match RegisteredRelayers::<T>::take(relayer) {
 				Some(registration) => registration,
@@ -304,7 +314,7 @@ pub mod pallet {
 
 		/// Register reward for given relayer.
 		pub fn register_relayer_reward(
-			rewards_account_params: RewardsAccountParams,
+			rewards_account_params: RewardsAccountParams<T::LaneId>,
 			relayer: &T::AccountId,
 			reward: T::Reward,
 		) {
@@ -381,7 +391,7 @@ pub mod pallet {
 			/// Relayer account that can claim reward.
 			relayer: T::AccountId,
 			/// Relayer can claim reward from this account.
-			rewards_account_params: RewardsAccountParams,
+			rewards_account_params: RewardsAccountParams<T::LaneId>,
 			/// Reward amount.
 			reward: T::Reward,
 		},
@@ -390,7 +400,7 @@ pub mod pallet {
 			/// Relayer account that has been rewarded.
 			relayer: T::AccountId,
 			/// Relayer has received reward from this account.
-			rewards_account_params: RewardsAccountParams,
+			rewards_account_params: RewardsAccountParams<T::LaneId>,
 			/// Reward amount.
 			reward: T::Reward,
 		},
@@ -469,10 +479,10 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bp_messages::LaneIdType;
 	use mock::{RuntimeEvent as TestEvent, *};
 
 	use crate::Event::{RewardPaid, RewardRegistered};
-	use bp_messages::LaneId;
 	use bp_relayers::RewardsAccountOwner;
 	use frame_support::{
 		assert_noop, assert_ok,
@@ -596,16 +606,16 @@ mod tests {
 	fn pay_reward_from_account_actually_pays_reward() {
 		type Balances = pallet_balances::Pallet<TestRuntime>;
 		type PayLaneRewardFromAccount =
-			bp_relayers::PayRewardFromAccount<Balances, ThisChainAccountId>;
+			bp_relayers::PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType>;
 
 		run_test(|| {
 			let in_lane_0 = RewardsAccountParams::new(
-				LaneId::new(1, 2),
+				TestLaneIdType::new(1, 2),
 				*b"test",
 				RewardsAccountOwner::ThisChain,
 			);
 			let out_lane_1 = RewardsAccountParams::new(
-				LaneId::new(1, 3),
+				TestLaneIdType::new(1, 3),
 				*b"test",
 				RewardsAccountOwner::BridgedChain,
 			);

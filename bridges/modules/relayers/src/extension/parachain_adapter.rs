@@ -32,7 +32,7 @@ use pallet_bridge_grandpa::{
 	CallSubType as BridgeGrandpaCallSubtype, Config as BridgeGrandpaConfig,
 };
 use pallet_bridge_messages::{
-	CallSubType as BridgeMessagesCallSubType, Config as BridgeMessagesConfig,
+	CallSubType as BridgeMessagesCallSubType, Config as BridgeMessagesConfig, LaneIdOf,
 };
 use pallet_bridge_parachains::{
 	CallSubType as BridgeParachainsCallSubtype, Config as BridgeParachainsConfig,
@@ -92,14 +92,14 @@ where
 	type Runtime = R;
 	type BridgeMessagesPalletInstance = MI;
 	type PriorityBoostPerMessage = P;
-	type Reward = R::Reward;
 	type RemoteGrandpaChainBlockNumber =
 		pallet_bridge_grandpa::BridgedBlockNumber<R, R::BridgesGrandpaPalletInstance>;
+	type LaneId = LaneIdOf<R, MI>;
 
 	fn parse_and_check_for_obsolete_call(
 		call: &R::RuntimeCall,
 	) -> Result<
-		Option<ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber>>,
+		Option<ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber, Self::LaneId>>,
 		TransactionValidityError,
 	> {
 		let calls = BCU::unpack(call, 3);
@@ -139,7 +139,7 @@ where
 	}
 
 	fn check_call_result(
-		call_info: &ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber>,
+		call_info: &ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber, Self::LaneId>,
 		call_data: &mut ExtensionCallData,
 		relayer: &R::AccountId,
 	) -> bool {
@@ -155,7 +155,7 @@ where
 ///
 /// Only returns false when parachain state update call has failed.
 pub(crate) fn verify_submit_parachain_head_succeeded<C, PI>(
-	call_info: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>,
+	call_info: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber, C::LaneId>,
 	_call_data: &mut ExtensionCallData,
 	relayer: &<C::Runtime as SystemConfig>::AccountId,
 ) -> bool

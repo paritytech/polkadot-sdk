@@ -23,7 +23,7 @@ use bp_relayers::{ExtensionCallData, ExtensionCallInfo, ExtensionConfig};
 use bp_runtime::StaticStrProvider;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use pallet_bridge_messages::{
-	CallSubType as BridgeMessagesCallSubType, Config as BridgeMessagesConfig,
+	CallSubType as BridgeMessagesCallSubType, Config as BridgeMessagesConfig, LaneIdOf,
 };
 use sp_runtime::{
 	traits::{Dispatchable, Get},
@@ -64,13 +64,13 @@ where
 	type Runtime = R;
 	type BridgeMessagesPalletInstance = MI;
 	type PriorityBoostPerMessage = P;
-	type Reward = R::Reward;
 	type RemoteGrandpaChainBlockNumber = ();
+	type LaneId = LaneIdOf<R, MI>;
 
 	fn parse_and_check_for_obsolete_call(
 		call: &R::RuntimeCall,
 	) -> Result<
-		Option<ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber>>,
+		Option<ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber, Self::LaneId>>,
 		TransactionValidityError,
 	> {
 		let call = Self::check_obsolete_parsed_call(call)?;
@@ -85,7 +85,7 @@ where
 	}
 
 	fn check_call_result(
-		call_info: &ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber>,
+		call_info: &ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber, Self::LaneId>,
 		call_data: &mut ExtensionCallData,
 		relayer: &R::AccountId,
 	) -> bool {

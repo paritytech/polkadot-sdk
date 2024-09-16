@@ -123,7 +123,7 @@ pub mod pallet {
 		type OutboundPayload: Parameter + Size;
 		/// Payload type of inbound messages. This payload is dispatched on this chain.
 		type InboundPayload: Decode;
-		/// Type of a lane identifier.
+		/// Lane identifier type.
 		type LaneId: LaneIdType;
 
 		/// Handler for relayer payments that happen during message delivery transaction.
@@ -150,6 +150,8 @@ pub mod pallet {
 	pub type BridgedChainOf<T, I> = <T as Config<I>>::BridgedChain;
 	/// Shortcut to bridged header chain type for Config.
 	pub type BridgedHeaderChainOf<T, I> = <T as Config<I>>::BridgedHeaderChain;
+	/// Shortcut to lane identifier type for Config.
+	pub type LaneIdOf<T, I> = <T as Config<I>>::LaneId;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
