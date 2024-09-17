@@ -1282,10 +1282,12 @@ impl BenchmarkingConfig for TestBenchmarkingConfig {
 pub trait DisablingStrategy<T: Config> {
 	/// Make a disabling decision. Potentially returns 2 validators indices.
 	/// First index is to be disabled, second is to be re-enabled.
+	/// 
 	/// Options:
 	/// (None, None) no changes needed
 	/// (Some(x), None) just disable x
 	/// (Some(x), Some(y)) disable x instead of y
+	/// (None, Some(y)) unreachable
 	fn decision(
 		offender_stash: &T::AccountId,
 		offender_slash_severity: Perbill,
@@ -1294,6 +1296,9 @@ pub trait DisablingStrategy<T: Config> {
 	) -> DisablingDecision;
 }
 
+/// Helper struct representing a decision coming from a given [`DisablingStrategy`] implementing `decision`
+/// 
+/// Currently supports at most 1 disable + 1 re-enable per decision
 #[derive(Debug)]
 pub struct DisablingDecision {
 	pub disable: Option<u32>,
