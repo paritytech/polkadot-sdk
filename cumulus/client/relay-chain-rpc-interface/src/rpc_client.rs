@@ -53,7 +53,7 @@ use sp_version::RuntimeVersion;
 
 use crate::{
 	light_client_worker::{build_smoldot_client, LightClientRpcWorker},
-	metrics::BlockchainRpcMetrics,
+	metrics::RelaychainRpcMetrics,
 	reconnecting_ws_client::ReconnectingWebsocketWorker,
 };
 pub use url::Url;
@@ -127,7 +127,7 @@ pub async fn create_client_and_start_light_client_worker(
 pub struct RelayChainRpcClient {
 	/// Sender to send messages to the worker.
 	worker_channel: TokioSender<RpcDispatcherMessage>,
-	metrics: Option<BlockchainRpcMetrics>,
+	metrics: Option<RelaychainRpcMetrics>,
 }
 
 impl RelayChainRpcClient {
@@ -142,7 +142,7 @@ impl RelayChainRpcClient {
 		RelayChainRpcClient {
 			worker_channel,
 			metrics: prometheus_registry
-				.and_then(|inner| BlockchainRpcMetrics::register(inner).map_err(|err| {
+				.and_then(|inner| RelaychainRpcMetrics::register(inner).map_err(|err| {
 					tracing::warn!(target: LOG_TARGET, error = %err, "Unable to instantiate the RPC client metrics, continuing w/o metrics setup.");
 				}).ok()),
 		}

@@ -17,13 +17,13 @@
 use prometheus::{Error as PrometheusError, HistogramTimer, Registry};
 use prometheus_endpoint::{HistogramOpts, HistogramVec, Opts};
 
-// Gathers metrics about the blockchain RPC client.
+/// Gathers metrics about the blockchain RPC client.
 #[derive(Clone)]
-pub(crate) struct BlockchainRpcMetrics {
+pub(crate) struct RelaychainRpcMetrics {
 	rpc_request: HistogramVec,
 }
 
-impl BlockchainRpcMetrics {
+impl RelaychainRpcMetrics {
 	pub(crate) fn register(registry: &Registry) -> Result<Self, PrometheusError> {
 		Ok(Self {
 			rpc_request: prometheus_endpoint::register(
