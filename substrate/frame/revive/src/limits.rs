@@ -75,6 +75,7 @@ pub const PAGE_SIZE: u32 = 4 * 1024;
 pub mod code {
 	use super::PAGE_SIZE;
 	use crate::{CodeVec, Config, Error, LOG_TARGET};
+	use alloc::vec::Vec;
 	use frame_support::ensure;
 	use sp_runtime::DispatchError;
 
