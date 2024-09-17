@@ -1561,14 +1561,11 @@ where
 								RequestFailure::Obsolete => "obsolete",
 								RequestFailure::Network(OutboundFailure::DialFailure) =>
 									"dial-failure",
-								RequestFailure::Network(OutboundFailure::Timeout) =>
-									"timeout",
-								RequestFailure::Network(
-									OutboundFailure::ConnectionClosed,
-								) => "connection-closed",
-								RequestFailure::Network(
-									OutboundFailure::UnsupportedProtocols,
-								) => "unsupported",
+								RequestFailure::Network(OutboundFailure::Timeout) => "timeout",
+								RequestFailure::Network(OutboundFailure::ConnectionClosed) =>
+									"connection-closed",
+								RequestFailure::Network(OutboundFailure::UnsupportedProtocols) =>
+									"unsupported",
 							};
 
 							metrics
