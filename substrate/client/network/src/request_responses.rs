@@ -56,13 +56,14 @@ use libp2p::{
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
-	fmt, io, iter,
+	fmt,
+	fmt::{Display, Formatter},
+	io, iter,
 	ops::Deref,
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
 	time::{Duration, Instant},
-	fmt::{Display,Formatter},
 };
 
 pub use libp2p::request_response::{Config, RequestId};
@@ -80,8 +81,8 @@ pub enum OutboundFailure {
 	UnsupportedProtocols,
 }
 
-impl Display for OutboundFailure{
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result{
+impl Display for OutboundFailure {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			OutboundFailure::DialFailure => write!(f, "DialFailure"),
 			OutboundFailure::Timeout => write!(f, "Timeout"),
@@ -91,20 +92,22 @@ impl Display for OutboundFailure{
 	}
 }
 
-impl From<request_response::OutboundFailure> for OutboundFailure{
+impl From<request_response::OutboundFailure> for OutboundFailure {
 	fn from(out: request_response::OutboundFailure) -> Self {
-		match out{
+		match out {
 			request_response::OutboundFailure::DialFailure => OutboundFailure::DialFailure,
 			request_response::OutboundFailure::Timeout => OutboundFailure::Timeout,
-			request_response::OutboundFailure::ConnectionClosed => OutboundFailure::ConnectionClosed,
-			request_response::OutboundFailure::UnsupportedProtocols => OutboundFailure::UnsupportedProtocols,
+			request_response::OutboundFailure::ConnectionClosed =>
+				OutboundFailure::ConnectionClosed,
+			request_response::OutboundFailure::UnsupportedProtocols =>
+				OutboundFailure::UnsupportedProtocols,
 		}
 	}
 }
 
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
-pub enum  InboundFailure {
+pub enum InboundFailure {
 	/// The inbound request timed out, either while reading the incoming request or before a
 	/// response is sent
 	Timeout,
@@ -116,24 +119,25 @@ pub enum  InboundFailure {
 	ResponseOmission,
 }
 
-impl Display for  InboundFailure{
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result{
+impl Display for InboundFailure {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			 InboundFailure::Timeout => write!(f, "Timeout"),
-			 InboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
-			 InboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
-			 InboundFailure::ResponseOmission => write!(f, "ResponseOmission"),
+			InboundFailure::Timeout => write!(f, "Timeout"),
+			InboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
+			InboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
+			InboundFailure::ResponseOmission => write!(f, "ResponseOmission"),
 		}
 	}
 }
 
-impl From<request_response::InboundFailure> for InboundFailure{
+impl From<request_response::InboundFailure> for InboundFailure {
 	fn from(out: request_response::InboundFailure) -> Self {
-		match out{
+		match out {
 			request_response::InboundFailure::ResponseOmission => InboundFailure::ResponseOmission,
 			request_response::InboundFailure::Timeout => InboundFailure::Timeout,
 			request_response::InboundFailure::ConnectionClosed => InboundFailure::ConnectionClosed,
-			request_response::InboundFailure::UnsupportedProtocols => InboundFailure::UnsupportedProtocols,
+			request_response::InboundFailure::UnsupportedProtocols =>
+				InboundFailure::UnsupportedProtocols,
 		}
 	}
 }
@@ -756,9 +760,9 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						// Received a request from a remote.
 						request_response::Event::Message {
 							peer,
-							message: 
-								request_response::Message::Request { 
-									request_id, request, channel, .. 
+							message:
+								request_response::Message::Request {
+									request_id, request, channel, ..
 								},
 						} => {
 							self.pending_responses_arrival_time
@@ -883,7 +887,9 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								}) => {
 									// Try using the fallback request if the protocol was not
 									// supported.
-									if let request_response::OutboundFailure::UnsupportedProtocols = error {
+									if let request_response::OutboundFailure::UnsupportedProtocols =
+										error
+									{
 										if let Some((fallback_request, fallback_protocol)) =
 											fallback_request
 										{
