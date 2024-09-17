@@ -568,7 +568,7 @@ where
 			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
 
 		async move {
-			let results_map = view_store.submit_at(source, to_be_submitted.into_iter()).await;
+			let results_map = view_store.submit(source, to_be_submitted.into_iter()).await;
 			let mut submission_result = reduce_multiview_result(results_map).into_iter();
 
 			//todo [#5494]:

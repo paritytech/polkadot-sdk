@@ -86,7 +86,7 @@ where
 	}
 
 	/// Imports a bunch of unverified extrinsics to every active view.
-	pub(super) async fn submit_at(
+	pub(super) async fn submit(
 		&self,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>> + Clone,
