@@ -30,6 +30,7 @@ pub trait LaneIdType:
 	+ Codec
 	+ EncodeLike
 	+ Debug
+	+ Default
 	+ PartialEq
 	+ Eq
 	+ Ord
@@ -61,6 +62,18 @@ pub trait LaneIdType:
 	Deserialize,
 )]
 pub struct LegacyLaneId(pub [u8; 4]);
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl TryFrom<Vec<u8>> for LegacyLaneId {
+	type Error = ();
+
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		if value.len() == 4 {
+			return <[u8; 4]>::try_from(value).map(Self).map_err(|_| ());
+		}
+		Err(())
+	}
+}
 
 impl core::fmt::Debug for LegacyLaneId {
 	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -100,6 +113,7 @@ impl TypeId for LegacyLaneId {
 	Clone,
 	Copy,
 	Decode,
+	Default,
 	Encode,
 	Eq,
 	Ord,
@@ -118,6 +132,7 @@ impl HashedLaneId {
 	/// There's no `From<H256>` implementation for the `LaneId`, because using this conversion
 	/// in a wrong way (i.e. computing hash of endpoints manually) may lead to issues. So we
 	/// want the call to be explicit.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub const fn from_inner(inner: H256) -> Self {
 		Self(inner)
 	}
@@ -158,6 +173,18 @@ impl LaneIdType for HashedLaneId {
 			.using_encoded(blake2_256)
 			.into(),
 		)
+	}
+}
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl TryFrom<Vec<u8>> for HashedLaneId {
+	type Error = ();
+
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		if value.len() == 32 {
+			return <[u8; 32]>::try_from(value).map(|v| Self(H256::from(v))).map_err(|_| ());
+		}
+		Err(())
 	}
 }
 

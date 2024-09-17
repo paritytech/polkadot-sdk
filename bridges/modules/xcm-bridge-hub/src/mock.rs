@@ -49,6 +49,7 @@ use xcm_executor::XcmExecutor;
 pub type AccountId = AccountId32;
 pub type Balance = u64;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
+
 /// Lane identifier type used for tests.
 pub type TestLaneIdType = HashedLaneId;
 
@@ -94,7 +95,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 
 	type OutboundPayload = Vec<u8>;
 	type InboundPayload = Vec<u8>;
-	type LaneId = HashedLaneId;
+	type LaneId = TestLaneIdType;
 
 	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = ();
@@ -536,7 +537,7 @@ impl MessageDispatch for TestMessageDispatch {
 	type DispatchLevelResult = ();
 	type LaneId = TestLaneIdType;
 
-	fn is_active(lane: TestLaneIdType) -> bool {
+	fn is_active(lane: Self::LaneId) -> bool {
 		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
 			Some(false)
 	}

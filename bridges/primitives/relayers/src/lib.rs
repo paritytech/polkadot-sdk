@@ -163,7 +163,7 @@ impl<AccountId, Reward, LaneId> StorageDoubleMapKeyProvider
 where
 	AccountId: 'static + Codec + EncodeLike + Send + Sync,
 	Reward: 'static + Codec + EncodeLike + Send + Sync,
-	LaneId: 'static + Codec + EncodeLike + Send + Sync,
+	LaneId: Codec + EncodeLike + Send + Sync,
 {
 	const MAP_NAME: &'static str = "RelayerRewards";
 

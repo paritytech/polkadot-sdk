@@ -74,9 +74,9 @@ pub type BridgedChainHeader =
 pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
 /// Maximal extrinsic size at the `BridgedChain`.
 pub const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
+
 /// Lane identifier type used for tests.
 pub type TestLaneIdType = HashedLaneId;
-
 /// Lane that we're using in tests.
 pub fn test_lane_id() -> TestLaneIdType {
 	TestLaneIdType::new(1, 2)
@@ -288,11 +288,15 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
-	fn prepare_rewards_account(account_params: RewardsAccountParams, reward: ThisChainBalance) {
-		let rewards_account =
-			bp_relayers::PayRewardFromAccount::<Balances, ThisChainAccountId>::rewards_account(
-				account_params,
-			);
+	fn prepare_rewards_account(
+		account_params: RewardsAccountParams<Self::LaneId>,
+		reward: Self::Reward,
+	) {
+		let rewards_account = bp_relayers::PayRewardFromAccount::<
+			Balances,
+			ThisChainAccountId,
+			Self::LaneId,
+		>::rewards_account(account_params);
 		Self::deposit_account(rewards_account, reward);
 	}
 
@@ -349,7 +353,7 @@ impl MessageDispatch for DummyMessageDispatch {
 	type DispatchLevelResult = ();
 	type LaneId = TestLaneIdType;
 
-	fn is_active(lane: TestLaneIdType) -> bool {
+	fn is_active(lane: Self::LaneId) -> bool {
 		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
 			Some(false)
 	}

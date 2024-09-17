@@ -75,8 +75,6 @@ pub struct TestPayload {
 pub type TestMessageFee = u64;
 pub type TestRelayer = u64;
 pub type TestDispatchLevelResult = ();
-/// Lane identifier type used for tests.
-pub type TestLaneIdType = HashedLaneId;
 
 pub struct ThisChain;
 
@@ -261,6 +259,8 @@ pub const TEST_RELAYER_B: AccountId = 101;
 /// Account id of additional test relayer - C.
 pub const TEST_RELAYER_C: AccountId = 102;
 
+/// Lane identifier type used for tests.
+pub type TestLaneIdType = HashedLaneId;
 /// Lane that we're using in tests.
 pub fn test_lane_id() -> TestLaneIdType {
 	TestLaneIdType::new(1, 2)

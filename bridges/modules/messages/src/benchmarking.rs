@@ -26,7 +26,7 @@ use crate::{
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, DeliveredMessages,
-	InboundLaneData, LaneIdType, LaneState, MessageNonce, OutboundLaneData, UnrewardedRelayer,
+	InboundLaneData, LaneState, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 	UnrewardedRelayersState,
 };
 use bp_runtime::{AccountIdOf, HashOf, UnverifiedStorageProofParams};
@@ -75,7 +75,7 @@ pub struct MessageDeliveryProofParams<ThisChainAccountId, LaneId> {
 pub trait Config<I: 'static>: crate::Config<I> {
 	/// Lane id to use in benchmarks.
 	fn bench_lane_id() -> Self::LaneId {
-		Self::LaneId::new(1, 2)
+		Self::LaneId::default()
 	}
 
 	/// Return id of relayer account at the bridged chain.

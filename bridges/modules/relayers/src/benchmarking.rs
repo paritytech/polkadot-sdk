@@ -20,7 +20,6 @@
 
 use crate::*;
 
-use bp_messages::LaneId;
 use bp_relayers::RewardsAccountOwner;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
@@ -34,8 +33,15 @@ pub struct Pallet<T: Config>(crate::Pallet<T>);
 
 /// Trait that must be implemented by runtime.
 pub trait Config: crate::Config {
+	/// Lane id to use in benchmarks.
+	fn bench_lane_id() -> Self::LaneId {
+		Self::LaneId::default()
+	}
 	/// Prepare environment for paying given reward for serving given lane.
-	fn prepare_rewards_account(account_params: RewardsAccountParams, reward: Self::Reward);
+	fn prepare_rewards_account(
+		account_params: RewardsAccountParams<Self::LaneId>,
+		reward: Self::Reward,
+	);
 	/// Give enough balance to given account.
 	fn deposit_account(account: Self::AccountId, balance: Self::Reward);
 }
@@ -43,7 +49,7 @@ pub trait Config: crate::Config {
 benchmarks! {
 	// Benchmark `claim_rewards` call.
 	claim_rewards {
-		let lane = LaneId::new(1, 2);
+		let lane = T::bench_lane_id();
 		let account_params =
 			RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
 		let relayer: T::AccountId = whitelisted_caller();
@@ -102,7 +108,7 @@ benchmarks! {
 		crate::Pallet::<T>::register(RawOrigin::Signed(relayer.clone()).into(), valid_till).unwrap();
 
 		// create slash destination account
-		let lane = LaneId::new(1, 2);
+		let lane = T::bench_lane_id();
 		let slash_destination = RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
 		T::prepare_rewards_account(slash_destination, Zero::zero());
 	}: {
@@ -116,7 +122,7 @@ benchmarks! {
 	// the weight of message delivery call if `RefundBridgedParachainMessages` signed extension
 	// is deployed at runtime level.
 	register_relayer_reward {
-		let lane = LaneId::new(1, 2);
+		let lane = T::bench_lane_id();
 		let relayer: T::AccountId = whitelisted_caller();
 		let account_params =
 			RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
