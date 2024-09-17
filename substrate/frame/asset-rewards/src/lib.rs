@@ -295,7 +295,7 @@ pub mod pallet {
 		/// An account staked some tokens in a pool.
 		Staked {
 			/// The account that staked assets.
-			caller: T::AccountId,
+			staker: T::AccountId,
 			/// The pool.
 			pool_id: PoolId,
 			/// The staked asset amount.
@@ -303,8 +303,10 @@ pub mod pallet {
 		},
 		/// An account unstaked some tokens from a pool.
 		Unstaked {
-			/// The account that unstaked assets.
+			/// The account that signed transaction.
 			caller: T::AccountId,
+			/// The account that unstaked assets.
+			staker: T::AccountId,
 			/// The pool.
 			pool_id: PoolId,
 			/// The unstaked asset amount.
@@ -312,6 +314,8 @@ pub mod pallet {
 		},
 		/// An account harvested some rewards.
 		RewardsHarvested {
+			/// The account that signed transaction.
+			caller: T::AccountId,
 			/// The staker whos rewards were harvested.
 			staker: T::AccountId,
 			/// The pool.
@@ -491,18 +495,18 @@ pub mod pallet {
 		/// A freeze is placed on the staked tokens.
 		#[pallet::call_index(1)]
 		pub fn stake(origin: OriginFor<T>, pool_id: PoolId, amount: T::Balance) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			let staker = ensure_signed(origin)?;
 
 			// Always start by updating staker and pool rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let staker_info = PoolStakers::<T>::get(pool_id, &caller).unwrap_or_default();
+			let staker_info = PoolStakers::<T>::get(pool_id, &staker).unwrap_or_default();
 			let (mut pool_info, mut staker_info) =
 				Self::update_pool_and_staker_rewards(&pool_info, &staker_info)?;
 
 			T::AssetsFreezer::increase_frozen(
 				pool_info.staked_asset_id.clone(),
 				&FreezeReason::Staked.into(),
-				&caller,
+				&staker,
 				amount,
 			)?;
 
@@ -513,10 +517,10 @@ pub mod pallet {
 
 			// Update PoolStakers.
 			staker_info.amount.ensure_add_assign(amount)?;
-			PoolStakers::<T>::insert(pool_id, &caller, staker_info);
+			PoolStakers::<T>::insert(pool_id, &staker, staker_info);
 
 			// Emit event.
-			Self::deposit_event(Event::Staked { caller, pool_id, amount });
+			Self::deposit_event(Event::Staked { staker, pool_id, amount });
 
 			Ok(())
 		}
@@ -524,17 +528,28 @@ pub mod pallet {
 		/// Unstake tokens from a pool.
 		///
 		/// Removes the freeze on the staked tokens.
+		///
+		/// Parameters:
+		/// - origin: must be the `staker` if the pool is still active. Otherwise, any account.
+		/// - pool_id: the pool to unstake from.
+		/// - amount: the amount of tokens to unstake.
+		/// - staker: the account to unstake from. If `None`, the caller is used.
 		#[pallet::call_index(2)]
 		pub fn unstake(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
 			amount: T::Balance,
+			staker: Option<T::AccountId>,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
+			let staker = staker.unwrap_or(caller.clone());
 
 			// Always start by updating the pool rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let staker_info = PoolStakers::<T>::get(pool_id, &caller).unwrap_or_default();
+			let now = frame_system::Pallet::<T>::block_number();
+			ensure!(now > pool_info.expiry_block || caller == staker, BadOrigin);
+
+			let staker_info = PoolStakers::<T>::get(pool_id, &staker).unwrap_or_default();
 			let (mut pool_info, mut staker_info) =
 				Self::update_pool_and_staker_rewards(&pool_info, &staker_info)?;
 
@@ -545,7 +560,7 @@ pub mod pallet {
 			T::AssetsFreezer::decrease_frozen(
 				pool_info.staked_asset_id.clone(),
 				&FreezeReason::Staked.into(),
-				&caller,
+				&staker,
 				amount,
 			)?;
 
@@ -557,24 +572,37 @@ pub mod pallet {
 			staker_info.amount.ensure_sub_assign(amount)?;
 
 			if staker_info.amount.is_zero() && staker_info.rewards.is_zero() {
-				PoolStakers::<T>::remove(&pool_id, &caller);
+				PoolStakers::<T>::remove(&pool_id, &staker);
 			} else {
-				PoolStakers::<T>::insert(&pool_id, &caller, staker_info);
+				PoolStakers::<T>::insert(&pool_id, &staker, staker_info);
 			}
 
 			// Emit event.
-			Self::deposit_event(Event::Unstaked { caller, pool_id, amount });
+			Self::deposit_event(Event::Unstaked { caller, staker, pool_id, amount });
 
 			Ok(())
 		}
 
-		/// Harvest unclaimed pool rewards for the caller.
+		/// Harvest unclaimed pool rewards.
+		///
+		/// Parameters:
+		/// - origin: must be the `staker` if the pool is still active. Otherwise, any account.
+		/// - pool_id: the pool to harvest from.
+		/// - staker: the account for which to harvest rewards. If `None`, the caller is used.
 		#[pallet::call_index(3)]
-		pub fn harvest_rewards(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
-			let staker = ensure_signed(origin)?;
+		pub fn harvest_rewards(
+			origin: OriginFor<T>,
+			pool_id: PoolId,
+			staker: Option<T::AccountId>,
+		) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+			let staker = staker.unwrap_or(caller.clone());
 
 			// Always start by updating the pool and staker rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
+			let now = frame_system::Pallet::<T>::block_number();
+			ensure!(now > pool_info.expiry_block || caller == staker, BadOrigin);
+
 			let staker_info =
 				PoolStakers::<T>::get(pool_id, &staker).ok_or(Error::<T>::NonExistentStaker)?;
 			let (pool_info, mut staker_info) =
@@ -592,6 +620,7 @@ pub mod pallet {
 
 			// Emit event.
 			Self::deposit_event(Event::RewardsHarvested {
+				caller,
 				staker: staker.clone(),
 				pool_id,
 				amount: staker_info.rewards,

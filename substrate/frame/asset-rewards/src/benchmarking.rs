@@ -180,9 +180,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(staker.clone()), 0, min_balance);
 
-		assert_last_event::<T>(
-			Event::Staked { caller: staker, pool_id: 0, amount: min_balance }.into(),
-		);
+		assert_last_event::<T>(Event::Staked { staker, pool_id: 0, amount: min_balance }.into());
 
 		Ok(())
 	}
@@ -201,10 +199,11 @@ mod benchmarks {
 		));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(staker.clone()), 0, min_balance);
+		_(RawOrigin::Signed(staker.clone()), 0, min_balance, None);
 
 		assert_last_event::<T>(
-			Event::Unstaked { caller: staker, pool_id: 0, amount: min_balance }.into(),
+			Event::Unstaked { caller: staker.clone(), staker, pool_id: 0, amount: min_balance }
+				.into(),
 		);
 
 		Ok(())
@@ -228,10 +227,16 @@ mod benchmarks {
 		System::<T>::set_block_number(System::<T>::block_number() + BlockNumberFor::<T>::one());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(staker.clone()), 0);
+		_(RawOrigin::Signed(staker.clone()), 0, None);
 
 		assert_last_event::<T>(
-			Event::RewardsHarvested { staker, pool_id: 0, amount: min_reward_balance }.into(),
+			Event::RewardsHarvested {
+				caller: staker.clone(),
+				staker,
+				pool_id: 0,
+				amount: min_reward_balance,
+			}
+			.into(),
 		);
 
 		Ok(())

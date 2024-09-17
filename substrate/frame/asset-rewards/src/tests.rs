@@ -77,7 +77,7 @@ fn assert_hypothetically_earned(
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
 
 		// Harvest the rewards.
-		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker), pool_id));
+		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker), pool_id, None),);
 
 		// Sanity check: staker rewards are reset to 0 if some `amount` is still staked, otherwise
 		// the storage item removed.
@@ -420,7 +420,7 @@ mod stake {
 			// Event is emitted.
 			assert_eq!(
 				*events().last().unwrap(),
-				Event::<MockRuntime>::Staked { caller: user, amount: 1000, pool_id: 0 }
+				Event::<MockRuntime>::Staked { staker: user, amount: 1000, pool_id: 0 }
 			);
 
 			// Check that the pool's total tokens staked is updated
@@ -444,7 +444,7 @@ mod stake {
 			// Event is emitted.
 			assert_eq!(
 				*events().last().unwrap(),
-				Event::<MockRuntime>::Staked { caller: user, amount: 500, pool_id: 0 }
+				Event::<MockRuntime>::Staked { staker: user, amount: 500, pool_id: 0 }
 			);
 
 			// Check that the user's staked amount is updated
@@ -514,12 +514,17 @@ mod unstake {
 			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, 1000));
 
 			// User unstakes tokens
-			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 500));
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 500, None));
 
 			// Event is emitted.
 			assert_eq!(
 				*events().last().unwrap(),
-				Event::<MockRuntime>::Unstaked { caller: user, amount: 500, pool_id: 0 }
+				Event::<MockRuntime>::Unstaked {
+					caller: user,
+					staker: user,
+					amount: 500,
+					pool_id: 0
+				}
 			);
 
 			// Check that the user's staked amount is updated
@@ -529,13 +534,49 @@ mod unstake {
 			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 500);
 
 			// User unstakes remaining tokens
-			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 500));
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 500, None));
 
 			// Check that the storage items is removed since stake amount and rewards are zero.
 			assert!(PoolStakers::<MockRuntime>::get(pool_id, user).is_none());
 
 			// Check that the pool's total tokens staked is zero
 			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 0);
+		});
+	}
+
+	#[test]
+	fn unstake_for_other() {
+		new_test_ext().execute_with(|| {
+			let staker = 1;
+			let caller = 2;
+			let pool_id = 0;
+			let init_block = System::block_number();
+
+			create_default_pool();
+
+			// User stakes tokens
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+
+			// Fails to unstake for other since pool is still active
+			assert_noop!(
+				StakingRewards::unstake(RuntimeOrigin::signed(caller), pool_id, 500, Some(staker)),
+				BadOrigin,
+			);
+
+			System::set_block_number(init_block + DEFAULT_EXPIRE_AFTER + 1);
+
+			assert_ok!(StakingRewards::unstake(
+				RuntimeOrigin::signed(caller),
+				pool_id,
+				500,
+				Some(staker)
+			));
+
+			// Event is emitted.
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::Unstaked { caller, staker, amount: 500, pool_id: 0 }
+			);
 		});
 	}
 
@@ -547,7 +588,12 @@ mod unstake {
 
 			// User tries to unstake tokens from a non-existent pool
 			assert_err!(
-				StakingRewards::unstake(RuntimeOrigin::signed(user), non_existent_pool_id, 500),
+				StakingRewards::unstake(
+					RuntimeOrigin::signed(user),
+					non_existent_pool_id,
+					500,
+					None
+				),
 				Error::<MockRuntime>::NonExistentPool
 			);
 		});
@@ -565,7 +611,7 @@ mod unstake {
 
 			// User tries to unstake more tokens than they have staked
 			assert_err!(
-				StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 1500),
+				StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 1500, None),
 				Error::<MockRuntime>::NotEnoughTokens
 			);
 		});
@@ -591,7 +637,11 @@ mod harvest_rewards {
 			System::set_block_number(20);
 			let balance_before: <MockRuntime as Config>::Balance =
 				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
-			assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker), pool_id,));
+			assert_ok!(StakingRewards::harvest_rewards(
+				RuntimeOrigin::signed(staker),
+				pool_id,
+				None
+			));
 			let balance_after =
 				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
 
@@ -603,11 +653,59 @@ mod harvest_rewards {
 			assert_eq!(
 				*events().last().unwrap(),
 				Event::<MockRuntime>::RewardsHarvested {
+					caller: staker,
 					staker,
 					pool_id,
 					amount: 10 * Pools::<MockRuntime>::get(pool_id).unwrap().reward_rate_per_block
 				}
 			);
+		});
+	}
+
+	#[test]
+	fn harvest_for_other() {
+		new_test_ext().execute_with(|| {
+			let caller = 2;
+			let staker = 1;
+			let pool_id = 0;
+			let init_block = System::block_number();
+
+			create_default_pool();
+
+			// Stake
+			System::set_block_number(10);
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+
+			System::set_block_number(20);
+
+			// Fails to harvest for staker since pool is still active
+			assert_noop!(
+				StakingRewards::harvest_rewards(
+					RuntimeOrigin::signed(caller),
+					pool_id,
+					Some(staker)
+				),
+				BadOrigin
+			);
+
+			System::set_block_number(init_block + DEFAULT_EXPIRE_AFTER + 1);
+
+			// Harvest for staker
+			assert_ok!(StakingRewards::harvest_rewards(
+				RuntimeOrigin::signed(caller),
+				pool_id,
+				Some(staker),
+			));
+
+			assert!(matches!(
+				events().last().unwrap(),
+				Event::<MockRuntime>::RewardsHarvested {
+					caller,
+					staker,
+					pool_id,
+					..
+				} if caller == caller && staker == staker && pool_id == pool_id
+			));
 		});
 	}
 
@@ -618,7 +716,11 @@ mod harvest_rewards {
 
 			create_default_pool();
 			assert_err!(
-				StakingRewards::harvest_rewards(RuntimeOrigin::signed(non_existent_staker), 0,),
+				StakingRewards::harvest_rewards(
+					RuntimeOrigin::signed(non_existent_staker),
+					0,
+					None
+				),
 				Error::<MockRuntime>::NonExistentStaker
 			);
 		});
@@ -634,6 +736,7 @@ mod harvest_rewards {
 				StakingRewards::harvest_rewards(
 					RuntimeOrigin::signed(staker),
 					non_existent_pool_id,
+					None,
 				),
 				Error::<MockRuntime>::NonExistentPool
 			);
@@ -1147,7 +1250,7 @@ mod cleanup_pool {
 			);
 
 			// unstake partially
-			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker), pool_id, 50));
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker), pool_id, 50, None));
 
 			assert_noop!(
 				StakingRewards::cleanup_pool(RuntimeOrigin::signed(admin), pool_id),
@@ -1155,7 +1258,7 @@ mod cleanup_pool {
 			);
 
 			// unstake all
-			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker), pool_id, 50));
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker), pool_id, 50, None));
 
 			assert_ok!(StakingRewards::cleanup_pool(RuntimeOrigin::signed(admin), pool_id),);
 
@@ -1248,7 +1351,7 @@ fn integration() {
 
 		// Block 22: Staker 1 unstakes 100 tokens.
 		System::set_block_number(22);
-		assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker1), pool_id, 100));
+		assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker1), pool_id, 100, None));
 		// - Staker 1 has earned 1016 (350 + 66.66 * 10) tokens.
 		// - Staker 2 has earned 483 (150 + 33.33 * 10) tokens.
 		// - Staker 1 is earning 50 tokens per block.
@@ -1258,7 +1361,7 @@ fn integration() {
 
 		// Block 23: Staker 1 unstakes 100 tokens.
 		System::set_block_number(23);
-		assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker1), pool_id, 100));
+		assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker1), pool_id, 100, None));
 		// - Staker 1 has earned 1065 (1015 + 50) tokens.
 		// - Staker 2 has earned 533 (483 + 50) tokens.
 		// - Staker 1 is earning 0 tokens per block.
@@ -1315,7 +1418,7 @@ fn integration() {
 		// Get the pre-harvest balance.
 		let balance_before: <MockRuntime as Config>::Balance =
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker2);
-		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker2), pool_id));
+		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker2), pool_id, None));
 		let balance_after =
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker2);
 		assert_eq!(balance_after - balance_before, 1433u128);
@@ -1340,14 +1443,14 @@ fn integration() {
 					expiry_block: 25,
 					admin,
 				},
-				Event::Staked { caller: staker1, pool_id, amount: 100 },
-				Event::Staked { caller: staker2, pool_id, amount: 100 },
-				Event::Staked { caller: staker1, pool_id, amount: 100 },
-				Event::Unstaked { caller: staker1, pool_id, amount: 100 },
-				Event::Unstaked { caller: staker1, pool_id, amount: 100 },
+				Event::Staked { staker: staker1, pool_id, amount: 100 },
+				Event::Staked { staker: staker2, pool_id, amount: 100 },
+				Event::Staked { staker: staker1, pool_id, amount: 100 },
+				Event::Unstaked { caller: staker1, staker: staker1, pool_id, amount: 100 },
+				Event::Unstaked { caller: staker1, staker: staker1, pool_id, amount: 100 },
 				Event::PoolExpiryBlockModified { pool_id, new_expiry_block: 60 },
 				Event::PoolRewardRateModified { pool_id, new_reward_rate_per_block: 150 },
-				Event::RewardsHarvested { staker: staker2, pool_id, amount: 1433 }
+				Event::RewardsHarvested { caller: staker2, staker: staker2, pool_id, amount: 1433 }
 			]
 		);
 	});
