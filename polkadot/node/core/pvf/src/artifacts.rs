@@ -56,7 +56,7 @@
 
 use crate::{host::PrecheckResultSender, worker_interface::WORKER_DIR_PREFIX};
 use always_assert::always;
-use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
+use polkadot_node_core_pvf_common::{error::PrepareError, pvf::PvfPrepData};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsPrepHash;
 use std::{
@@ -144,9 +144,6 @@ pub enum ArtifactState {
 		last_time_needed: SystemTime,
 		/// Size in bytes
 		size: u64,
-		/// Stats produced by successful preparation.
-		#[allow(dead_code)]
-		prepare_stats: PrepareStats,
 	},
 	/// A task to prepare this artifact is scheduled.
 	Preparing {
@@ -270,15 +267,11 @@ impl Artifacts {
 		path: PathBuf,
 		last_time_needed: SystemTime,
 		size: u64,
-		prepare_stats: PrepareStats,
 	) {
 		// See the precondition.
 		always!(self
 			.inner
-			.insert(
-				artifact_id,
-				ArtifactState::Prepared { path, last_time_needed, size, prepare_stats }
-			)
+			.insert(artifact_id, ArtifactState::Prepared { path, last_time_needed, size })
 			.is_none());
 	}
 
@@ -385,21 +378,18 @@ mod tests {
 			path1.clone(),
 			mock_now - Duration::from_secs(5),
 			1024,
-			PrepareStats::default(),
 		);
 		artifacts.insert_prepared(
 			artifact_id2.clone(),
 			path2.clone(),
 			mock_now - Duration::from_secs(10),
 			1024,
-			PrepareStats::default(),
 		);
 		artifacts.insert_prepared(
 			artifact_id3.clone(),
 			path3.clone(),
 			mock_now - Duration::from_secs(15),
 			1024,
-			PrepareStats::default(),
 		);
 
 		let pruned = artifacts.prune(&cleanup_config);
@@ -433,21 +423,18 @@ mod tests {
 			path1.clone(),
 			mock_now - Duration::from_secs(5),
 			1024,
-			PrepareStats::default(),
 		);
 		artifacts.insert_prepared(
 			artifact_id2.clone(),
 			path2.clone(),
 			mock_now - Duration::from_secs(10),
 			1024,
-			PrepareStats::default(),
 		);
 		artifacts.insert_prepared(
 			artifact_id3.clone(),
 			path3.clone(),
 			mock_now - Duration::from_secs(15),
 			1024,
-			PrepareStats::default(),
 		);
 
 		let pruned = artifacts.prune(&cleanup_config);
