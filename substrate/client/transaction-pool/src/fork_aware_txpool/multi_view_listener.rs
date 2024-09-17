@@ -317,9 +317,8 @@ where
 				loop {
 					tokio::select! {
 					biased;
-					v =  futures::StreamExt::select_next_some(&mut ctx.status_stream_map) => {
+					(view_hash, status) =  futures::StreamExt::select_next_some(&mut ctx.status_stream_map) => {
 						log::trace!(target: LOG_TARGET, "[{:?}] select::map views:{:?}", ctx.tx_hash, ctx.status_stream_map.get_ref().keys().collect::<Vec<_>>());
-						let (view_hash, status) = v;
 
 						if ctx.handle(&status, view_hash) {
 							log::trace!(target: LOG_TARGET, "[{:?}] sending out: {status:?}", ctx.tx_hash);
