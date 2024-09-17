@@ -16,7 +16,7 @@ echo "Artifacts will be copied into $ARTIFACTS"
 mkdir -p "$ARTIFACTS"
 
 git log --pretty=oneline -n 1
-time cargo build --profile $PROFILE --locked --verbose --package $PACKAGE --bin $BIN
+time cargo build --profile $PROFILE --locked --verbose --bin $BIN --package $PACKAGE
 
 echo "Artifact target: $ARTIFACTS"
 

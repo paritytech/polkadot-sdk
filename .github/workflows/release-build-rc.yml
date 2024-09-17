@@ -6,7 +6,7 @@ on:
       binary:
         description: Binary to be build for the release
         required: true
-        default: polkadot
+        default: all
         type: choice
         options:
           - polkadot
@@ -50,7 +50,8 @@ jobs:
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
     with:
-      binaries: "[[polkadot, polkadot],[polkadot-prepare-worker, polkadot], [polkadot-execute-worker, polkadot]]"
+      binaries: "[polkadot, polkadot-prepare-worker, polkadot-execute-worker]"
+      package: polkadot
       release_tag: ${{ inputs.release_tag }}
     # runs-on: ubuntu-latest
     # # container:
@@ -134,7 +135,8 @@ jobs:
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
     with:
-      binaries: "[[polkadot-parachain, polkadot-parachain-bin]]"
+      binaries: "[polkadot-parachain]"
+      package: "polkadot-parachain-bin"
       release_tag: ${{ inputs.release_tag }}
   #   runs-on: ubuntu-latest
   #   container:

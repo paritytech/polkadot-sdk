@@ -26,6 +26,11 @@ on:
         default: polkadot
         type: string
 
+      package:
+        description: Package to be built, for now is either polkadot or polkadot-parachain-bin
+        required: true
+        type: string
+
       release_tag:
         description: Tag matching the actual release candidate with the format vX.XX.X-rcX or stableYYMM
         required: true
@@ -61,7 +66,7 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     strategy:
       matrix:
-        binaries: ${{ fromJson(inputs.binaries) }}
+        binaries: ${{ fromJSON(inputs.binaries) }}
 
     steps:
       - name: Install pgpkkms
@@ -85,52 +90,52 @@ jobs:
 
       - name: Build binary
         run: |
-          ARTIFACTS=/artifacts/${{ matrix.binaries[0] }}
+          ARTIFACTS=/artifacts/${{ matrix.binaries }}
           echo "Artifacts will be copied into $ARTIFACTS"
           mkdir -p "$ARTIFACTS"
           cd $ARTIFACTS
-          echo "Test" >> ${{ matrix.binaries[0] }}.txt
-          sha256sum "${{ matrix.binaries[0] }}".txt | tee "${{ matrix.binaries[0] }}.sha256"
+          echo "Test" >> ${{ matrix.binaries }}.txt
+          sha256sum "${{ matrix.binaries }}".txt | tee "${{ matrix.binaries }}.sha256"
 
-          # ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries[0] }} ${{ matrix.binaries[1] }}
+          # ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
 
       - name: Sign artifacts
-        working-directory: /artifacts/${{ matrix.binaries[0] }}
+        working-directory: /artifacts/${{ matrix.binaries }}
         run: |
-          # python3 -m pgpkms sign --input ${{matrix.binaries[0] }} -o ${{ matrix.binaries[0] }}.asc
+          # python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
 
-          python3 -m pgpkms sign --input ${{ matrix.binaries[0] }}.txt -o ${{ matrix.binaries[0] }}.asc
+          python3 -m pgpkms sign --input ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
           ls -la
 
-      - name: Check sha256 ${{ matrix.binaries[0] }}
-        working-directory: /artifacts/${{ matrix.binaries[0] }}
+      - name: Check sha256 ${{ matrix.binaries }}
+        working-directory: /artifacts/${{ matrix.binaries }}
         shell: bash
         run: |
           .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-          echo "Checking binary  ${{ matrix.binaries[0] }}"
-          check_sha256  ${{ matrix.binaries[0] }} && echo "OK" || echo "ERR"
+          echo "Checking binary  ${{ matrix.binaries }}"
+          check_sha256  ${{ matrix.binaries }} && echo "OK" || echo "ERR"
 
-      # - name: Check GPG ${{ matrix.binaries[0] }}
-      #   working-directory: /artifacts/${{ matrix.binaries[0] }}
+      # - name: Check GPG ${{ matrix.binaries }}
+      #   working-directory: /artifacts/${{ matrix.binaries }}
       #   shell: bash
       #   run: |
       #     . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-      #     check_gpg  ${{ matrix.binaries[0] }}
+      #     check_gpg  ${{ matrix.binaries }}
 
       # - name: Build polkadot deb package
-      #   if: ${{ matrix.binaries[0] == 'polkadot' }}
+      #   if: ${{ matrix.binaries == 'polkadot' }}
       #   shell: bash
       #   run: |
-      #     . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ matrix.binaries[0] }}
+      #     . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ matrix.binaries }}
 
 
-      - name: Upload ${{ matrix.binaries[0] }} artifacts
+      - name: Upload ${{ matrix.binaries }} artifacts
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
-          name: ${{ matrix.binaries[0] }}
-          path: /artifacts/${{ matrix.binaries[0] }}
+          name: ${{ matrix.binaries }}
+          path: /artifacts/${{ matrix.binaries }}
 
   upload-artifacts-to-s3:
     needs: [build-rc]
@@ -159,9 +164,9 @@ jobs:
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload ${{ matrix.binaries[0] }} artifacts to s3
+      - name: Upload ${{ matrix.binaries }} artifacts to s3
         run: |
           . ./.github/scripts/release/release_lib.sh
-          upload_s3_release ${{ matrix.binaries[0] }} ${{ inputs.release_tag }}
+          upload_s3_release ${{ matrix.binaries }} ${{ inputs.release_tag }}
 
 # - name: Upload artifacts to github release
