@@ -20,6 +20,14 @@ doc:
       be relevant when the network is under attack or there is a wide spread malfunction causing slashes. In that case
       lowest offenders might get eventually re-enabled (back to normal responsibilities and normal rewards).
 
+migrations:
+  db: []
+  runtime:
+    - reference: pallet-staking
+      description: |
+        Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, PerBill)>` where the PerBill represents the severity
+        of the offence in terms of the % slash.
+
 crates:
   - name: pallet-staking
     bump: minor
