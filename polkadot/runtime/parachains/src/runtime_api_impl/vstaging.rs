@@ -21,7 +21,9 @@ use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec::Vec,
 };
-use polkadot_primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
+use polkadot_primitives::{
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, Id as ParaId,
+};
 
 /// Returns the claimqueue from the scheduler
 pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {

@@ -17,11 +17,11 @@
 use super::*;
 use crate::{inclusion, ParaId};
 use alloc::collections::btree_map::BTreeMap;
-use core::cmp::min;
+use core::cmp::{max, min};
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 
-use polkadot_primitives::v7::GroupIndex;
+use polkadot_primitives::v8::GroupIndex;
 
 use crate::builder::BenchBuilder;
 
@@ -107,7 +107,7 @@ benchmarks! {
 	// of a single backed candidate.
 	enter_backed_candidates_variable {
 		let v in (BenchBuilder::<T>::fallback_min_backing_votes())
-			..(BenchBuilder::<T>::fallback_max_validators_per_core());
+			.. max(BenchBuilder::<T>::fallback_min_backing_votes() + 1, BenchBuilder::<T>::fallback_max_validators_per_core());
 
 		let cores_with_backed: BTreeMap<_, _>
 			= vec![(0, v)] // The backed candidate will have `v` validity votes.
@@ -144,8 +144,8 @@ benchmarks! {
 		// Traverse candidates and assert descriptors are as expected
 		for (para_id, backing_validators) in vote.backing_validators_per_candidate.iter().enumerate() {
 			let descriptor = backing_validators.0.descriptor();
-			assert_eq!(ParaId::from(para_id), descriptor.para_id);
-			assert_eq!(header.hash(), descriptor.relay_parent);
+			assert_eq!(ParaId::from(para_id), descriptor.para_id());
+			assert_eq!(header.hash(), descriptor.relay_parent());
 			assert_eq!(backing_validators.1.len(), votes);
 		}
 
@@ -203,8 +203,8 @@ benchmarks! {
 		for (para_id, backing_validators)
 			in vote.backing_validators_per_candidate.iter().enumerate() {
 				let descriptor = backing_validators.0.descriptor();
-				assert_eq!(ParaId::from(para_id), descriptor.para_id);
-				assert_eq!(header.hash(), descriptor.relay_parent);
+				assert_eq!(ParaId::from(para_id), descriptor.para_id());
+				assert_eq!(header.hash(), descriptor.relay_parent());
 				assert_eq!(
 					backing_validators.1.len(),
 					votes,

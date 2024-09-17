@@ -26,15 +26,19 @@ use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	async_backing::{
-		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
-		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
+		AsyncBackingParams, Constraints, InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	NodeFeatures, OccupiedCore, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	slashing,
+	vstaging::{
+		async_backing::{BackingState, CandidatePendingAvailability},
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		OccupiedCore, ScrapedOnChainVotes,
+	},
+	ApprovalVotingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, DisputeState,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::traits::One;
 
