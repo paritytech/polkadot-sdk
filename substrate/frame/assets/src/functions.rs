@@ -523,7 +523,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Ends the asset distribution of `distribution_id`.
-	pub(super) fn do_clean_distribution(
+	pub(super) fn do_destroy_distribution(
 		distribution_id: DistributionCounter,
 	) -> DispatchResultWithPostInfo {
 		let info =
@@ -537,7 +537,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut all_refunded = true;
 		for who in distribution_iterator {
-			if refund_count >= T::RemoveKeysLimit::get() {
+			if refund_count >= T::RemoveItemsLimit::get() {
 				// Not everyone was able to be refunded this time around.
 				all_refunded = false;
 				break
@@ -550,7 +550,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if all_refunded {
 			Self::deposit_event(Event::<T, I>::DistributionPartiallyCleaned { distribution_id });
 			// Refund weight only the amount we actually used.
-			Ok(Some(T::WeightInfo::clean_distribution(refund_count)).into())
+			Ok(Some(T::WeightInfo::destroy_distribution(refund_count)).into())
 		} else {
 			Self::deposit_event(Event::<T, I>::DistributionCleaned { distribution_id });
 			// No weight to refund since we did not finish the loop.

@@ -300,7 +300,6 @@ pub mod pallet {
 			type CallbackHandle = ();
 			type WeightInfo = ();
 			type VerifyExistenceProof = ();
-			type RemoveKeysLimit = ConstU32<100>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
 		}
@@ -324,7 +323,7 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ TypeInfo;
 
-		/// Max number of items to destroy per `destroy_accounts` and `destroy_approvals` call.
+		/// Max number of items to destroy per `destroy_accounts`, `destroy_approvals`, `destroy_distribution` call.
 		///
 		/// Must be configured to result in a weight that makes each call fit in a block.
 		#[pallet::constant]
@@ -409,13 +408,6 @@ pub mod pallet {
 
 		/// A type used to verify merkle proofs used for distributions.
 		type VerifyExistenceProof: VerifyExistenceProof<Hash: Parameter + MaxEncodedLen + Default>;
-
-		/// The number of storage items we can clean up from an ended distribution in one call.
-		/// The larger this number, the more weight `clean_distribution` will use.
-		/// The smaller this number, the more time you would need to call this function to clean
-		/// all the data.
-		#[pallet::constant]
-		type RemoveKeysLimit: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -1933,13 +1925,13 @@ pub mod pallet {
 		///
 		/// Weight: `O(N)` where `N` is the maximum number of elements that can be removed at once.
 		#[pallet::call_index(36)]
-		#[pallet::weight(T::WeightInfo::clean_distribution(100u32))] // TODO
-		pub fn clean_distribution(
+		#[pallet::weight(T::WeightInfo::destroy_distribution(100u32))] // TODO
+		pub fn destroy_distribution(
 			origin: OriginFor<T>,
 			distribution_id: DistributionCounter,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
-			Self::do_clean_distribution(distribution_id)
+			Self::do_destroy_distribution(distribution_id)
 		}
 	}
 

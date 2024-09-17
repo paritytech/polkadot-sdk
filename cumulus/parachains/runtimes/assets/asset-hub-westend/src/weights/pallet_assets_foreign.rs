@@ -560,7 +560,7 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 		Weight::default()
 	}
 
-	fn clean_distribution(_n: u32) -> Weight {
+	fn destroy_distribution(_n: u32) -> Weight {
 		Weight::default()
 	}
 }
