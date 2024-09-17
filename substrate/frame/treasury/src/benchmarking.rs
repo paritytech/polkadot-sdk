@@ -86,10 +86,7 @@ fn create_approved_proposals<T: Config<I>, I: 'static>(n: u32) -> Result<(), &'s
 	if spender.is_ok() {
 		ensure!(Approvals::<T, I>::get().len() == n as usize, "Not all approved");
 	}
-<<<<<<< HEAD
-	ensure!(<Approvals<T, I>>::get().len() == n as usize, "Not all approved");
-=======
->>>>>>> 51f33671 (Fix treasury benchmarks when no SpendOrigin (#3049))
+
 	Ok(())
 }
 
