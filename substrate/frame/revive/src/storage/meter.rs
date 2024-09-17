@@ -21,7 +21,6 @@ use crate::{
 	address::AddressMapper, storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error,
 	Event, HoldReason, Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
-
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
@@ -397,11 +396,7 @@ where
 }
 
 /// Functions that only apply to the nested state.
-impl<T, E> RawMeter<T, E, Nested>
-where
-	T: Config,
-	E: Ext<T>,
-{
+impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// Charges `diff` from the meter.
 	pub fn charge(&mut self, diff: &Diff) {
 		match &mut self.own_contribution {

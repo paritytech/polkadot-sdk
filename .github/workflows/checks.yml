@@ -12,62 +12,38 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions: { }
+permissions: {}
 
 jobs:
-  # temporary disabled because currently doesn't work in merge queue
-  # changes:
-  #   permissions:
-  #     pull-requests: read
-  #   uses: ./.github/workflows/reusable-check-changed-files.yml
-  set-image:
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
-      # By default we use spot machines that can be terminated at any time.
-      # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
-      - id: set_runner
-        run: |
-          # Run merge queues on persistent runners
-          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
-          else
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-          fi
+
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
   cargo-clippy:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    needs: [set-image]
-    # if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
+    # if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 40
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-D warnings"
       SKIP_WASM_BUILD: 1
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
         run: |
           forklift cargo clippy --all-targets --locked --workspace
           forklift cargo clippy --all-targets --all-features --locked --workspace
   check-try-runtime:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    needs: [set-image]
-    # if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
+    # if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 40
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
         run: |
           forklift cargo check --locked --all --features try-runtime
@@ -79,14 +55,14 @@ jobs:
           forklift cargo check --locked --all --features try-runtime,experimental
   # check-core-crypto-features works fast without forklift
   check-core-crypto-features:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    needs: [set-image]
-    # if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
+    # if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 30
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
         run: |
           cd substrate/primitives/core
@@ -105,5 +81,14 @@ jobs:
     name: All checks passed
     # If any new job gets added, be sure to add it to this array
     needs: [cargo-clippy, check-try-runtime, check-core-crypto-features]
+    if: always() && !cancelled()
     steps:
-      - run: echo '### Good job! All the checks passed 🚀' >> $GITHUB_STEP_SUMMARY
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi

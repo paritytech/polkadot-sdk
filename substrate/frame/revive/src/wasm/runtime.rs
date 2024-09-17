@@ -19,12 +19,12 @@
 
 use crate::{
 	address::AddressMapper,
-	exec::{ExecError, ExecResult, Ext, Key, TopicOf},
+	exec::{ExecError, ExecResult, Ext, Key},
 	gas::{ChargedAmount, Token},
 	limits,
 	primitives::ExecReturnValue,
 	weights::WeightInfo,
-	BalanceOf, Config, Error, LOG_TARGET, SENTINEL,
+	Config, Error, LOG_TARGET, SENTINEL,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
@@ -35,14 +35,21 @@ use frame_support::{
 };
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
-use sp_core::{H160, H256};
+use sp_core::{H160, H256, U256};
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
-use sp_runtime::{traits::Zero, DispatchError, RuntimeDebug};
+use sp_runtime::{DispatchError, RuntimeDebug};
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
+
+/// Encode a `U256` into a 32 byte buffer.
+fn as_bytes(u: U256) -> [u8; 32] {
+	let mut bytes = [0u8; 32];
+	u.to_little_endian(&mut bytes);
+	bytes
+}
 
 #[derive(Clone, Copy)]
 pub enum ApiVersion {
@@ -82,6 +89,32 @@ pub trait Memory<T: Config> {
 		let mut buf = vec![0u8; len as usize];
 		self.read_into_buf(ptr, buf.as_mut_slice())?;
 		Ok(buf)
+	}
+
+	/// Same as `read` but reads into a fixed size buffer.
+	fn read_array<const N: usize>(&self, ptr: u32) -> Result<[u8; N], DispatchError> {
+		let mut buf = [0u8; N];
+		self.read_into_buf(ptr, &mut buf)?;
+		Ok(buf)
+	}
+
+	/// Read a `u32` from the sandbox memory.
+	fn read_u32(&self, ptr: u32) -> Result<u32, DispatchError> {
+		let buf: [u8; 4] = self.read_array(ptr)?;
+		Ok(u32::from_le_bytes(buf))
+	}
+
+	/// Read a `U256` from the sandbox memory.
+	fn read_u256(&self, ptr: u32) -> Result<U256, DispatchError> {
+		let buf: [u8; 32] = self.read_array(ptr)?;
+		Ok(U256::from_little_endian(&buf))
+	}
+
+	/// Read a `H256` from the sandbox memory.
+	fn read_h256(&self, ptr: u32) -> Result<H256, DispatchError> {
+		let mut code_hash = H256::default();
+		self.read_into_buf(ptr, code_hash.as_bytes_mut())?;
+		Ok(code_hash)
 	}
 
 	/// Read designated chunk from the sandbox memory and attempt to decode into the specified type.
@@ -281,6 +314,8 @@ pub enum RuntimeCosts {
 	GasLeft,
 	/// Weight of calling `seal_balance`.
 	Balance,
+	/// Weight of calling `seal_balance_of`.
+	BalanceOf,
 	/// Weight of calling `seal_value_transferred`.
 	ValueTransferred,
 	/// Weight of calling `seal_minimum_balance`.
@@ -424,6 +459,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Address => T::WeightInfo::seal_address(),
 			GasLeft => T::WeightInfo::seal_gas_left(),
 			Balance => T::WeightInfo::seal_balance(),
+			BalanceOf => T::WeightInfo::seal_balance_of(),
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
@@ -453,7 +489,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
 			CallInputCloned(len) => cost_args!(seal_call, 0, len),
-			Instantiate { input_data_len } => T::WeightInfo::seal_instantiate(input_data_len, 32),
+			Instantiate { input_data_len } => T::WeightInfo::seal_instantiate(input_data_len),
 			HashSha256(len) => T::WeightInfo::seal_hash_sha2_256(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
 			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
@@ -548,8 +584,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
 						},
-					Err(TrapReason::Termination) =>
-						Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
+					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
 			},
@@ -647,7 +682,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 
 		let buf_len = buf.len() as u32;
-		let len: u32 = memory.read_as(out_len_ptr)?;
+		let len = memory.read_u32(out_len_ptr)?;
 
 		if len < buf_len {
 			return Err(Error::<E::T>::OutputBufferTooSmall.into())
@@ -659,6 +694,27 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		memory.write(out_ptr, buf)?;
 		memory.write(out_len_ptr, &buf_len.encode())
+	}
+
+	/// Same as `write_sandbox_output` but for static size output.
+	pub fn write_fixed_sandbox_output(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		buf: &[u8],
+		allow_skip: bool,
+		create_token: impl FnOnce(u32) -> Option<RuntimeCosts>,
+	) -> Result<(), DispatchError> {
+		if allow_skip && out_ptr == SENTINEL {
+			return Ok(())
+		}
+
+		let buf_len = buf.len() as u32;
+		if let Some(costs) = create_token(buf_len) {
+			self.charge_gas(costs)?;
+		}
+
+		memory.write(out_ptr, buf)
 	}
 
 	/// Computes the given hash function on the supplied input.
@@ -942,13 +998,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			CallType::Call { callee_ptr, value_ptr, deposit_ptr, weight } => {
 				let mut callee = H160::zero();
 				memory.read_into_buf(callee_ptr, callee.as_bytes_mut())?;
-				let deposit_limit: BalanceOf<<E as Ext>::T> = if deposit_ptr == SENTINEL {
-					BalanceOf::<<E as Ext>::T>::zero()
+				let deposit_limit = if deposit_ptr == SENTINEL {
+					U256::zero()
 				} else {
-					memory.read_as(deposit_ptr)?
+					memory.read_u256(deposit_ptr)?
 				};
 				let read_only = flags.contains(CallFlags::READ_ONLY);
-				let value: BalanceOf<<E as Ext>::T> = memory.read_as(value_ptr)?;
+				let value = memory.read_u256(value_ptr)?;
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
 					// error.
@@ -971,7 +1027,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into())
 				}
-				let code_hash = memory.read_as(code_hash_ptr)?;
+
+				let code_hash = memory.read_h256(code_hash_ptr)?;
 				self.ext.delegate_call(code_hash, input_data)
 			},
 		};
@@ -1010,25 +1067,20 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		input_data_ptr: u32,
 		input_data_len: u32,
 		address_ptr: u32,
-		address_len_ptr: u32,
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Instantiate { input_data_len })?;
-		let deposit_limit: BalanceOf<<E as Ext>::T> = if deposit_ptr == SENTINEL {
-			BalanceOf::<<E as Ext>::T>::zero()
-		} else {
-			memory.read_as(deposit_ptr)?
-		};
-		let value: BalanceOf<<E as Ext>::T> = memory.read_as(value_ptr)?;
-		let code_hash: H256 = memory.read_as(code_hash_ptr)?;
+		let deposit_limit: U256 =
+			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
+		let value = memory.read_u256(value_ptr)?;
+		let code_hash = memory.read_h256(code_hash_ptr)?;
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
 		let salt = if salt_ptr == SENTINEL {
 			None
 		} else {
-			let mut salt = [0u8; 32];
-			memory.read_into_buf(salt_ptr, salt.as_mut_slice())?;
+			let salt: [u8; 32] = memory.read_array(salt_ptr)?;
 			Some(salt)
 		};
 		let instantiate_outcome = self.ext.instantiate(
@@ -1041,11 +1093,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		);
 		if let Ok((address, output)) = &instantiate_outcome {
 			if !output.flags.contains(ReturnFlags::REVERT) {
-				self.write_sandbox_output(
+				self.write_fixed_sandbox_output(
 					memory,
 					address_ptr,
-					address_len_ptr,
-					&address.encode(),
+					&address.as_bytes(),
 					true,
 					already_charged,
 				)?;
@@ -1169,13 +1220,13 @@ pub mod env {
 	fn transfer(
 		&mut self,
 		memory: &mut M,
-		account_ptr: u32,
+		address_ptr: u32,
 		value_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Transfer)?;
 		let mut callee = H160::zero();
-		memory.read_into_buf(account_ptr, callee.as_bytes_mut())?;
-		let value: BalanceOf<<E as Ext>::T> = memory.read_as(value_ptr)?;
+		memory.read_into_buf(address_ptr, callee.as_bytes_mut())?;
+		let value: U256 = memory.read_u256(value_ptr)?;
 		let result = self.ext.transfer(&callee, value);
 		match result {
 			Ok(()) => Ok(ReturnErrorCode::Success),
@@ -1258,11 +1309,9 @@ pub mod env {
 		input_data_ptr: u32,
 		input_data_len: u32,
 		address_ptr: u32,
-		address_len_ptr: u32,
 		output_ptr: u32,
 		output_len_ptr: u32,
 		salt_ptr: u32,
-		_salt_len: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.instantiate(
 			memory,
@@ -1273,7 +1322,6 @@ pub mod env {
 			input_data_ptr,
 			input_data_len,
 			address_ptr,
-			address_len_ptr,
 			output_ptr,
 			output_len_ptr,
 			salt_ptr,
@@ -1320,13 +1368,12 @@ pub mod env {
 	/// Stores the address of the caller into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::caller`].
 	#[api_version(0)]
-	fn caller(&mut self, memory: &mut M, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
+	fn caller(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Caller)?;
 		let caller = <E::T as Config>::AddressMapper::to_address(self.ext.caller().account_id()?);
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			caller.as_bytes(),
 			false,
 			already_charged,
@@ -1349,19 +1396,17 @@ pub mod env {
 	fn code_hash(
 		&mut self,
 		memory: &mut M,
-		account_ptr: u32,
+		addr_ptr: u32,
 		out_ptr: u32,
-		out_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeHash)?;
 		let mut address = H160::zero();
-		memory.read_into_buf(account_ptr, address.as_bytes_mut())?;
+		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
 		if let Some(value) = self.ext.code_hash(&address) {
-			self.write_sandbox_output(
+			self.write_fixed_sandbox_output(
 				memory,
 				out_ptr,
-				out_len_ptr,
-				&value.encode(),
+				&value.as_bytes(),
 				false,
 				already_charged,
 			)?;
@@ -1374,19 +1419,13 @@ pub mod env {
 	/// Retrieve the code hash of the currently executing contract.
 	/// See [`pallet_revive_uapi::HostFn::own_code_hash`].
 	#[api_version(0)]
-	fn own_code_hash(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn own_code_hash(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::OwnCodeHash)?;
-		let code_hash_encoded = &self.ext.own_code_hash().encode();
-		Ok(self.write_sandbox_output(
+		let code_hash = *self.ext.own_code_hash();
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			code_hash_encoded,
+			code_hash.as_bytes(),
 			false,
 			already_charged,
 		)?)
@@ -1411,18 +1450,12 @@ pub mod env {
 	/// Stores the address of the current contract into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::address`].
 	#[api_version(0)]
-	fn address(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn address(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Address)?;
 		let address = self.ext.address();
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			address.as_bytes(),
 			false,
 			already_charged,
@@ -1438,14 +1471,12 @@ pub mod env {
 		ref_time_limit: u64,
 		proof_size_limit: u64,
 		out_ptr: u32,
-		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
 		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
 		self.charge_gas(RuntimeCosts::WeightToFee)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
 			&self.ext.get_weight_price(weight).encode(),
 			false,
 			already_charged,
@@ -1476,18 +1507,33 @@ pub mod env {
 	/// Stores the *free* balance of the current account into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::balance`].
 	#[api_version(0)]
-	fn balance(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Balance)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			&self.ext.balance().encode(),
+			&as_bytes(self.ext.balance()),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Stores the *free* balance of the supplied address into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::balance`].
+	#[api_version(0)]
+	fn balance_of(
+		&mut self,
+		memory: &mut M,
+		addr_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BalanceOf)?;
+		let mut address = H160::zero();
+		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&as_bytes(self.ext.balance_of(&address)),
 			false,
 			already_charged,
 		)?)
@@ -1496,18 +1542,12 @@ pub mod env {
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::value_transferred`].
 	#[api_version(0)]
-	fn value_transferred(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn value_transferred(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::ValueTransferred)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			&self.ext.value_transferred().encode(),
+			&as_bytes(self.ext.value_transferred()),
 			false,
 			already_charged,
 		)?)
@@ -1516,13 +1556,12 @@ pub mod env {
 	/// Load the latest block timestamp into the supplied buffer
 	/// See [`pallet_revive_uapi::HostFn::now`].
 	#[api_version(0)]
-	fn now(&mut self, memory: &mut M, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
+	fn now(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Now)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			&self.ext.now().encode(),
+			&as_bytes(self.ext.now()),
 			false,
 			already_charged,
 		)?)
@@ -1531,18 +1570,12 @@ pub mod env {
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
 	#[api_version(0)]
-	fn minimum_balance(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::MinimumBalance)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			&self.ext.minimum_balance().encode(),
+			&as_bytes(self.ext.minimum_balance()),
 			false,
 			already_charged,
 		)?)
@@ -1556,50 +1589,47 @@ pub mod env {
 		&mut self,
 		memory: &mut M,
 		topics_ptr: u32,
-		topics_len: u32,
+		num_topic: u32,
 		data_ptr: u32,
 		data_len: u32,
 	) -> Result<(), TrapReason> {
-		let num_topic = topics_len
-			.checked_div(core::mem::size_of::<TopicOf<E::T>>() as u32)
-			.ok_or("Zero sized topics are not allowed")?;
 		self.charge_gas(RuntimeCosts::DepositEvent { num_topic, len: data_len })?;
+
+		if num_topic > limits::NUM_EVENT_TOPICS {
+			return Err(Error::<E::T>::TooManyTopics.into());
+		}
+
 		if data_len > self.ext.max_value_size() {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let topics: Vec<TopicOf<<E as Ext>::T>> = match topics_len {
+		let topics: Vec<H256> = match num_topic {
 			0 => Vec::new(),
-			_ => memory.read_as_unbounded(topics_ptr, topics_len)?,
+			_ => {
+				let mut v = Vec::with_capacity(num_topic as usize);
+				let topics_len = num_topic * H256::len_bytes() as u32;
+				let buf = memory.read(topics_ptr, topics_len)?;
+				for chunk in buf.chunks_exact(H256::len_bytes()) {
+					v.push(H256::from_slice(chunk));
+				}
+				v
+			},
 		};
 
-		// If there are more than `event_topics`, then trap.
-		if topics.len() as u32 > limits::NUM_EVENT_TOPICS {
-			return Err(Error::<E::T>::TooManyTopics.into());
-		}
-
 		let event_data = memory.read(data_ptr, data_len)?;
-
 		self.ext.deposit_event(topics, event_data);
-
 		Ok(())
 	}
 
 	/// Stores the current block number of the current contract into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::block_number`].
 	#[api_version(0)]
-	fn block_number(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn block_number(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::BlockNumber)?;
-		Ok(self.write_sandbox_output(
+		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			out_len_ptr,
-			&self.ext.block_number().encode(),
+			&as_bytes(self.ext.block_number()),
 			false,
 			already_charged,
 		)?)
@@ -1784,6 +1814,7 @@ pub mod env {
 		&mut self,
 		memory: &mut M,
 		dest_ptr: u32,
+		dest_len: u32,
 		msg_ptr: u32,
 		msg_len: u32,
 		output_ptr: u32,
@@ -1791,10 +1822,12 @@ pub mod env {
 		use xcm::{VersionedLocation, VersionedXcm};
 		use xcm_builder::{SendController, SendControllerWeightInfo};
 
-		self.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
-		let dest: VersionedLocation = memory.read_as(dest_ptr)?;
+		self.charge_gas(RuntimeCosts::CopyFromContract(dest_len))?;
+		let dest: VersionedLocation = memory.read_as_unbounded(dest_ptr, dest_len)?;
 
+		self.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let message: VersionedXcm<()> = memory.read_as_unbounded(msg_ptr, msg_len)?;
+
 		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
 		self.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 		let origin = crate::RawOrigin::Signed(self.ext.account_id().clone()).into();
@@ -1883,7 +1916,7 @@ pub mod env {
 		code_hash_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::SetCodeHash)?;
-		let code_hash: H256 = memory.read_as(code_hash_ptr)?;
+		let code_hash: H256 = memory.read_h256(code_hash_ptr)?;
 		match self.ext.set_code_hash(code_hash) {
 			Err(err) => {
 				let code = Self::err_into_return_code(err)?;
@@ -1925,7 +1958,7 @@ pub mod env {
 		code_hash_ptr: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::LockDelegateDependency)?;
-		let code_hash = memory.read_as(code_hash_ptr)?;
+		let code_hash = memory.read_h256(code_hash_ptr)?;
 		self.ext.lock_delegate_dependency(code_hash)?;
 		Ok(())
 	}
@@ -1940,7 +1973,7 @@ pub mod env {
 		code_hash_ptr: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::UnlockDelegateDependency)?;
-		let code_hash = memory.read_as(code_hash_ptr)?;
+		let code_hash = memory.read_h256(code_hash_ptr)?;
 		self.ext.unlock_delegate_dependency(&code_hash)?;
 		Ok(())
 	}

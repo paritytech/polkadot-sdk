@@ -96,7 +96,7 @@ impl PurgeChainCmd {
 				Some('y') | Some('Y') => {},
 				_ => {
 					println!("Aborted");
-					return Ok(())
+					return Ok(());
 				},
 			}
 		}
@@ -432,19 +432,19 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 	}
 
 	fn rpc_max_request_size(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_max_request_size)
+		self.base.rpc_max_request_size()
 	}
 
 	fn rpc_max_response_size(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_max_response_size)
+		self.base.rpc_max_response_size()
 	}
 
 	fn rpc_max_subscriptions_per_connection(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_max_subscriptions_per_connection)
+		self.base.rpc_max_subscriptions_per_connection()
 	}
 
 	fn rpc_buffer_capacity_per_connection(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_message_buffer_capacity_per_connection)
+		Ok(self.base.rpc_params.rpc_message_buffer_capacity_per_connection)
 	}
 
 	fn rpc_batch_config(&self) -> sc_cli::Result<RpcBatchRequestConfig> {
