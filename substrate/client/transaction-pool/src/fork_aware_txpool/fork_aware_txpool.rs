@@ -1017,7 +1017,7 @@ where
 									Error::InvalidTransaction(_),
 								) => Err((error.expect("already in Ok arm. qed."), tx_hash, tx.tx())),
 								_ => {
-									log::error!(target: LOG_TARGET, "[{:?}] txpool: update_view: something went wrong: {error:?}", tx_hash);
+									log::debug!(target: LOG_TARGET, "[{:?}] txpool: update_view: something went wrong: {error:?}", tx_hash);
 									Err((
 										Error::UnknownTransaction(UnknownTransaction::CannotLookup),
 										tx_hash,
