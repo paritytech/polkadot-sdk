@@ -32,6 +32,7 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
 use kitchensink_runtime::RuntimeApi;
 use node_primitives::Block;
+use polkadot_sdk::sc_service::build_polkadot_syncing_strategy;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
 use sc_network::{
@@ -416,7 +417,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let hwbench = (!disable_hardware_benchmarks)
 		.then_some(config.database.path().map(|database_path| {
 			let _ = std::fs::create_dir_all(&database_path);
-			sc_sysinfo::gather_hwbench(Some(database_path))
+			sc_sysinfo::gather_hwbench(Some(database_path), &SUBSTRATE_REFERENCE_HARDWARE)
 		}))
 		.flatten();
 
@@ -506,6 +507,16 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		Vec::default(),
 	));
 
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		config.protocol_id(),
+		config.chain_spec.fork_id(),
+		&mut net_config,
+		Some(WarpSyncConfig::WithProvider(warp_sync)),
+		client.clone(),
+		&task_manager.spawn_handle(),
+		config.prometheus_config.as_ref().map(|config| &config.registry),
+	)?;
+
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
@@ -515,7 +526,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
+			syncing_strategy,
 			block_relay: None,
 			metrics,
 		})?;
@@ -553,7 +564,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, false) {
 			Err(err) if role.is_authority() => {
 				log::warn!(
 					"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'.",
