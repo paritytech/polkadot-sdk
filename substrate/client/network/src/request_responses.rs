@@ -44,7 +44,7 @@ use crate::{
 use futures::{channel::oneshot, prelude::*};
 use libp2p::{
 	core::{Endpoint, Multiaddr},
-	request_response::{self, Behaviour, Codec, ProtocolSupport, ResponseChannel},
+	request_response::{self, Behaviour, Codec, Message, ProtocolSupport, ResponseChannel},
 	swarm::{
 		behaviour::{ConnectionClosed, FromSwarm},
 		handler::multi::MultiHandler,
@@ -56,8 +56,6 @@ use libp2p::{
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
-	fmt,
-	fmt::{Display, Formatter},
 	io, iter,
 	ops::Deref,
 	pin::Pin,
@@ -73,26 +71,17 @@ pub use libp2p::request_response::{Config, RequestId};
 #[derive(Debug, thiserror::Error)]
 pub enum OutboundFailure {
 	/// The request could not be sent because a dialing attempt failed.
+	#[error("Failed to dial the requested peer")]
 	DialFailure,
 	/// The request timed out before a response was received.
+	#[error("Timeout while waiting for a response")]
 	Timeout,
 	/// The connection closed before a response was received.
+	#[error("Connection was closed before a response was received")]
 	ConnectionClosed,
 	/// The remote supports none of the requested protocols.
+	#[error("The remote supports none of the requested protocols")]
 	UnsupportedProtocols,
-}
-
-impl Display for OutboundFailure {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		match self {
-			OutboundFailure::DialFailure => write!(f, "Failed to dial the requested peer"),
-			OutboundFailure::Timeout => write!(f, "Timeout while waiting for a response"),
-			OutboundFailure::ConnectionClosed =>
-				write!(f, "Connection was closed before a response was received"),
-			OutboundFailure::UnsupportedProtocols =>
-				write!(f, "The remote supports none of the requested protocols"),
-		}
-	}
 }
 
 impl From<request_response::OutboundFailure> for OutboundFailure {
@@ -114,30 +103,17 @@ impl From<request_response::OutboundFailure> for OutboundFailure {
 pub enum InboundFailure {
 	/// The inbound request timed out, either while reading the incoming request or before a
 	/// response is sent
+	#[error("Timeout while receiving request or sending response")]
 	Timeout,
 	/// The connection closed before a response could be send.
+	#[error("Connection was closed before a response could be sent")]
 	ConnectionClosed,
 	/// The local peer supports none of the protocols requested by the remote.
+	#[error("The local peer supports none of the protocols requested by the remote")]
 	UnsupportedProtocols,
 	/// The local peer failed to respond to an inbound request
+	#[error("The response channel was dropped without sending a response to the remote")]
 	ResponseOmission,
-}
-
-impl Display for InboundFailure {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		match self {
-			InboundFailure::Timeout =>
-				write!(f, "Timeout while receiving request or sending response"),
-			InboundFailure::ConnectionClosed =>
-				write!(f, "Connection was closed before a response could be sent"),
-			InboundFailure::UnsupportedProtocols =>
-				write!(f, "The local peer supports none of the protocols requested by the remote"),
-			InboundFailure::ResponseOmission => write!(
-				f,
-				"The response channel was dropped without sending a response to the remote"
-			),
-		}
-	}
 }
 
 impl From<request_response::InboundFailure> for InboundFailure {
@@ -771,7 +747,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						request_response::Event::Message {
 							peer,
 							message:
-								request_response::Message::Request {
+								Message::Request {
 									request_id, request, channel, ..
 								},
 						} => {
@@ -835,7 +811,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						// Received a response from a remote to one of our requests.
 						request_response::Event::Message {
 							peer,
-							message: request_response::Message::Response { request_id, response },
+							message: Message::Response { request_id, response },
 							..
 						} => {
 							let (started, delivered) = match self
