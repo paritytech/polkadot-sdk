@@ -44,7 +44,6 @@ pub struct BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
 {
-	// Deduplicated and flattened list of key value pairs.
 	db: Vec<(Key, Value)>,
 	root: HashOf<Hashing>,
 	_phantom: core::marker::PhantomData<(Key, Value)>,
@@ -89,9 +88,14 @@ where
 	/// nodes within the current `MemoryDB` are insufficient to query the item.
 	pub fn query(&self, key: Key) -> Option<Value>
 	where
-		Value: Decode + Clone,
+		Value: Decode,
 	{
-		self.db.iter().find(|(k, _)| *k == key).map(|(_, v)| v.clone())
+		unimplemented!()
+
+		// let trie = TrieDBBuilder::new(&self.db, &self.root).build();
+		// key.using_encoded(|s| trie.get(s))
+		// 	.ok()?
+		// 	.and_then(|raw| Value::decode(&mut &*raw).ok())
 	}
 
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
@@ -100,28 +104,8 @@ where
 	///
 	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
 	/// compatible with `LayoutV0`.
-	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError> {
-		let mut encoded = Vec::with_capacity(self.db.len()); // Pre-allocate the vector
-		let mut found_index = None;
-
-		// Find the index of our key, and encode the (key, value) pair.
-		for (i, (k, v)) in self.db.into_iter().enumerate() {
-			// If we found the key we are looking for, save it.
-			if k == key {
-				found_index = Some(i);
-			}
-
-			encoded.push((k, v).encode());
-		}
-
-		let index = found_index.ok_or("couldnt find")?;
-
-		let proof = binary_merkle_tree::merkle_proof::<
-			Hashing,
-			_,
-			_,
-		>(encoded, index as u32);
-		Ok(Encode::encode(&proof))
+	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<Vec<u8>>, DispatchError> {
+		unimplemented!()
 	}
 }
 
