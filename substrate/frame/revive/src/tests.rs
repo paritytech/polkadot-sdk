@@ -4254,4 +4254,19 @@ mod run_tests {
 			assert_eq!(usable_balance, value);
 		});
 	}
+
+	#[test]
+	fn call_zero_output_len_works() {
+		let (code, _) = compile_module("call_zero_output_len").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract:
+			assert_ok!(builder::call(addr).build());
+		});
+	}
 }
