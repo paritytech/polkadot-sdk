@@ -93,15 +93,14 @@ where
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
 		let submit_futures = {
 			let active_views = self.active_views.read();
-			let futures = active_views
+			active_views
 				.iter()
 				.map(|(_, view)| {
 					let view = view.clone();
 					let xts = xts.clone();
 					async move { (view.at.hash, view.submit_many(source, xts).await) }
 				})
-				.collect::<Vec<_>>();
-			futures
+				.collect::<Vec<_>>()
 		};
 		let results = futures::future::join_all(submit_futures).await;
 
@@ -127,7 +126,7 @@ where
 		};
 		let submit_and_watch_futures = {
 			let active_views = self.active_views.read();
-			let futures = active_views
+			active_views
 				.iter()
 				.map(|(_, view)| {
 					let view = view.clone();
@@ -147,8 +146,7 @@ where
 						}
 					}
 				})
-				.collect::<Vec<_>>();
-			futures
+				.collect::<Vec<_>>()
 		};
 		let maybe_watchers = futures::future::join_all(submit_and_watch_futures).await;
 		// log::debug!("view::submit_and_watch: maybe_watchers: {:?}", maybe_watchers);
@@ -428,14 +426,13 @@ where
 		let start = Instant::now();
 		let finish_revalidation_futures = {
 			let active_views = self.active_views.read();
-			let futures = active_views
+			active_views
 				.iter()
 				.map(|(_, view)| {
 					let view = view.clone();
 					async move { view.finish_revalidation().await }
 				})
-				.collect::<Vec<_>>();
-			futures
+				.collect::<Vec<_>>()
 		};
 		futures::future::join_all(finish_revalidation_futures).await;
 		log::trace!(target:LOG_TARGET,"finish_background_revalidations took {:?}", start.elapsed());
