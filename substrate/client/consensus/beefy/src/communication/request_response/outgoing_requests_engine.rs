@@ -28,8 +28,8 @@ use sc_network::{
 };
 use sc_network_types::PeerId;
 use sp_consensus_beefy::{AuthorityIdBound, ValidatorSet};
-use sp_runtime::traits::{Block, NumberFor};
-use std::{collections::VecDeque, result::Result, sync::Arc};
+use sp_runtime::traits::{Block, NumberFor, Zero};
+use std::{collections::HashSet, result::Result, sync::Arc};
 
 use crate::{
 	communication::{
@@ -73,8 +73,12 @@ pub struct OnDemandJustificationsEngine<B: Block, AuthorityId: AuthorityIdBound>
 	network: Arc<dyn NetworkRequest + Send + Sync>,
 	protocol_name: ProtocolName,
 
+	/// The live peers of the network.
 	live_peers: Arc<Mutex<KnownPeers<B>>>,
-	peers_cache: VecDeque<PeerId>,
+	/// The block number we are currently requesting for.
+	block_number: NumberFor<B>,
+	/// The peers we have requested from.
+	peers_cache: HashSet<PeerId>,
 
 	state: State<B, AuthorityId>,
 	metrics: Option<OnDemandOutgoingRequestsMetrics>,
@@ -92,24 +96,29 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 			network,
 			protocol_name,
 			live_peers,
-			peers_cache: VecDeque::new(),
+			block_number: NumberFor::<B>::zero(),
+			peers_cache: HashSet::new(),
 			state: State::Idle,
 			metrics,
 		}
 	}
 
 	fn reset_peers_cache_for_block(&mut self, block: NumberFor<B>) {
-		self.peers_cache = self.live_peers.lock().further_than(block);
+		self.block_number = block;
+		self.peers_cache.clear();
 	}
 
 	fn try_next_peer(&mut self) -> Option<PeerId> {
 		let live = self.live_peers.lock();
-		while let Some(peer) = self.peers_cache.pop_front() {
-			if live.contains(&peer) {
-				return Some(peer);
-			}
+
+		let mut available = live.further_than(&self.block_number);
+		let peer = available.find(|peer| !self.peers_cache.contains(peer)).cloned();
+
+		if let Some(peer) = peer {
+			self.peers_cache.insert(peer);
 		}
-		None
+
+		peer
 	}
 
 	fn request_from_peer(&mut self, peer: PeerId, req_info: RequestInfo<B, AuthorityId>) {
