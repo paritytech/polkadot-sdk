@@ -13,3 +13,4 @@ crates:
     bump: patch
   - name: sc-network-sync
     bump: patch
+    
