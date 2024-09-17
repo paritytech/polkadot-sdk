@@ -82,6 +82,7 @@ mod sys {
 		pub fn weight_to_fee(ref_time: u64, proof_size: u64, out_ptr: *mut u8);
 		pub fn weight_left(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn balance(out_ptr: *mut u8);
+		pub fn balance_of(addr_ptr: *const u8, out_ptr: *mut u8);
 		pub fn value_transferred(out_ptr: *mut u8);
 		pub fn now(out_ptr: *mut u8);
 		pub fn minimum_balance(out_ptr: *mut u8);
@@ -197,7 +198,7 @@ impl HostFn for HostFnImpl {
 		input: &[u8],
 		mut address: Option<&mut [u8; 20]>,
 		mut output: Option<&mut &mut [u8]>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 	) -> Result {
 		let address = match address {
 			Some(ref mut data) => data.as_mut_ptr(),
@@ -205,6 +206,7 @@ impl HostFn for HostFnImpl {
 		};
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
+		let salt_ptr = ptr_or_sentinel(&salt);
 		#[repr(packed)]
 		#[allow(dead_code)]
 		struct Args {
@@ -231,7 +233,7 @@ impl HostFn for HostFnImpl {
 			address,
 			output: output_ptr,
 			output_len: &mut output_len as *mut _,
-			salt: salt.as_ptr(),
+			salt: salt_ptr,
 		};
 
 		let ret_code = { unsafe { sys::instantiate(&args as *const Args as *const _) } };
@@ -495,6 +497,10 @@ impl HostFn for HostFnImpl {
 	fn is_contract(address: &[u8; 20]) -> bool {
 		let ret_val = unsafe { sys::is_contract(address.as_ptr()) };
 		ret_val.into_bool()
+	}
+
+	fn balance_of(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::balance_of(address.as_ptr(), output.as_mut_ptr()) };
 	}
 
 	fn caller_is_origin() -> bool {
