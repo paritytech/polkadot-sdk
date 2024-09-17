@@ -69,11 +69,11 @@ const KADEMLIA_QUERY_INTERVAL: Duration = Duration::from_secs(5);
 /// The time is reset to `KADEMLIA_QUERY_INTERVAL` after a failed query.
 const CONVERGENCE_QUERY_INTERVAL: Duration = Duration::from_secs(120);
 
-/// Ensure at least one discovery query is issued every 16 minutes.
+/// Ensure at least one discovery query is issued periodically.
 ///
 /// This has a low impact on the networking backend, while keeping a healthy
 /// subset of the network discovered.
-const MANDATORY_QUERY_INTERVAL: Duration = Duration::from_secs(16 * 60);
+const MANDATORY_QUERY_INTERVAL: Duration = Duration::from_secs(30 * 60);
 
 /// mDNS query interval.
 const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
