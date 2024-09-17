@@ -11,33 +11,16 @@ on:
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
-  set-image:
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
-      - id: set_runner
-        run: |
-          # Run merge queues on persistent runners
-          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
-          else
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-          fi
+
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
   check-runtime-assets:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    needs: [set-image]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
     timeout-minutes: 20
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,11 +30,11 @@ jobs:
           root: cumulus/parachains/runtimes/assets
 
   check-runtime-collectives:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    needs: [check-runtime-assets, set-image]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [check-runtime-assets, preflight]
     timeout-minutes: 20
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,10 +44,10 @@ jobs:
           root: cumulus/parachains/runtimes/collectives
 
   check-runtime-coretime:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    needs: [check-runtime-assets, set-image]
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    needs: [check-runtime-assets, preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -75,10 +58,10 @@ jobs:
           root: cumulus/parachains/runtimes/coretime
 
   check-runtime-bridge-hubs:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    needs: [set-image]
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    needs: [preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -89,10 +72,10 @@ jobs:
           root: cumulus/parachains/runtimes/bridge-hubs
 
   check-runtime-contracts:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    needs: [check-runtime-collectives, set-image]
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    needs: [check-runtime-collectives, preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -103,10 +86,10 @@ jobs:
           root: cumulus/parachains/runtimes/contracts
 
   check-runtime-starters:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    needs: [check-runtime-assets, set-image]
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    needs: [check-runtime-assets, preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -117,10 +100,10 @@ jobs:
           root: cumulus/parachains/runtimes/starters
 
   check-runtime-testing:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    needs: [check-runtime-starters, set-image]
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    needs: [check-runtime-starters, preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
