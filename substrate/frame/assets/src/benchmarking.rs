@@ -575,7 +575,7 @@ benchmarks_instance_pallet! {
 	verify {
 		let count = MerklizedDistribution::<T, I>::count();
 		assert!(count == before_count + 1);
-		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: T::Hash::default() }.into());
+		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: DistributionHashOf::<T, I>::default() }.into());
 	}
 
 	// This function is O(1), so ending any distribution should work.
@@ -588,11 +588,11 @@ benchmarks_instance_pallet! {
 		Assets::<T, I>::mint_distribution(
 			SystemOrigin::Signed(caller.clone()).into(),
 			asset_id.clone(),
-			T::Hash::default(),
+			DistributionHashOf::<T, I>::default(),
 		)?;
 		let count = MerklizedDistribution::<T, I>::count();
 		assert!(count == before_count + 1);
-		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: T::Hash::default() }.into());
+		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: DistributionHashOf::<T, I>::default() }.into());
 	}: _(SystemOrigin::Signed(caller.clone()), before_count)
 	verify {
 		assert_last_event::<T, I>(Event::DistributionEnded { distribution_id: before_count }.into());

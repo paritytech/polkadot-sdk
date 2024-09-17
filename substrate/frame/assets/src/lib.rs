@@ -189,8 +189,8 @@ use frame_support::{
 			WithdrawConsequence,
 		},
 		BalanceStatus::Reserved,
-		BinaryMerkleTreeProver, Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency,
-		StoredMap, VerifyExistenceProof,
+		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
+		VerifyExistenceProof,
 	},
 };
 use frame_system::Config as SystemConfig;
@@ -408,7 +408,7 @@ pub mod pallet {
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
 
 		/// A type used to verify merkle proofs used for distributions.
-		type VerifyExistenceProof: VerifyExistenceProof<Hash: Parameter + MaxEncodedLen>;
+		type VerifyExistenceProof: VerifyExistenceProof<Hash: Parameter + MaxEncodedLen + Default>;
 
 		/// The number of storage items we can clean up from an ended distribution in one call.
 		/// The larger this number, the more weight `clean_distribution` will use.
