@@ -8511,6 +8511,12 @@ mod hold_migration {
 			let expected_force_withdraw = 200;
 			assert_ok!(Balances::reserve(&alice, expected_force_withdraw));
 
+			// ledger mutation would fail in this case before migration because of failing hold.
+			assert_noop!(
+				Staking::unbond(RuntimeOrigin::signed(alice), 100),
+				Error::<Test>::NotEnoughFunds
+			);
+
 			// clear events
 			System::reset_events();
 
@@ -8535,6 +8541,9 @@ mod hold_migration {
 					force_withdraw: expected_force_withdraw
 				}]
 			);
+
+			// unbond works after migration.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
 		});
 	}
 }
