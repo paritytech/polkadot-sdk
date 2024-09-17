@@ -158,9 +158,13 @@ where
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>>,
 	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
-		let xts = xts.into_iter().collect::<Vec<_>>();
-		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
-		self.pool.submit_at(&self.at, source, xts).await
+		if log::log_enabled!(log::Level::Trace) {
+			let xts = xts.into_iter().collect::<Vec<_>>();
+			log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
+			self.pool.submit_at(&self.at, source, xts).await
+		} else {
+			self.pool.submit_at(&self.at, source, xts).await
+		}
 	}
 
 	/// Import a single extrinsic and starts to watch its progress in the view.

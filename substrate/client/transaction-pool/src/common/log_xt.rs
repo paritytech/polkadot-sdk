@@ -45,9 +45,9 @@ macro_rules! log_xt {
 
 /// Logs every transaction from given `tx_collection` with debug level.
 macro_rules! log_xt_trace {
-    (data: $datatype:ident, target: $target:expr, $($arg:tt)+) => ($crate::common::log_xt::log_xt!(data: $datatype, target: $target, log::Level::Debug, $($arg)+));
-    (target: $target:expr, $tx_collection:expr, $text_with_format:expr) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Debug, $tx_collection, $text_with_format));
-    (target: $target:expr, $tx_collection:expr, $text_with_format:expr, $($arg:expr)*) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Debug, $tx_collection, $text_with_format, $($arg)*));
+    (data: $datatype:ident, target: $target:expr, $($arg:tt)+) => ($crate::common::log_xt::log_xt!(data: $datatype, target: $target, log::Level::Trace, $($arg)+));
+    (target: $target:expr, $tx_collection:expr, $text_with_format:expr) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Trace, $tx_collection, $text_with_format));
+    (target: $target:expr, $tx_collection:expr, $text_with_format:expr, $($arg:expr)*) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Trace, $tx_collection, $text_with_format, $($arg)*));
 }
 
 pub(crate) use log_xt;
