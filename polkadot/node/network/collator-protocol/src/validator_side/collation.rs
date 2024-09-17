@@ -205,6 +205,15 @@ impl Default for CollationStatus {
 	}
 }
 
+/// The number of claims in the claim queue and seconded candidates count for a specific `ParaId`.
+#[derive(Default, Debug)]
+struct CandidatesStatePerPara {
+	/// How many collations have been seconded.
+	pub seconded_per_para: usize,
+	// Claims in the claim queue for the `ParaId`.
+	pub claims_per_para: usize,
+}
+
 /// Information about collations per relay parent.
 pub struct Collations {
 	/// What is the current status in regards to a collation for this relay parent?
@@ -216,12 +225,8 @@ pub struct Collations {
 	pub fetching_from: Option<(CollatorId, Option<CandidateHash>)>,
 	/// Collation that were advertised to us, but we did not yet fetch. Grouped by `ParaId`.
 	waiting_queue: BTreeMap<ParaId, VecDeque<(PendingCollation, CollatorId)>>,
-	/// How many collations have been seconded per `ParaId`.
-	seconded_per_para: BTreeMap<ParaId, usize>,
-	// Claims per `ParaId` for the assigned core at the relay parent. This information is obtained
-	// from `GroupAssignments` which contains either the claim queue (if runtime supports it) for
-	// the core or the `ParaId` of the parachain assigned to the core.
-	claims_per_para: BTreeMap<ParaId, usize>,
+	/// Number of seconded candidates and claims in the claim queue per `ParaId`.
+	candidates_state: BTreeMap<ParaId, CandidatesStatePerPara>,
 	// Represents the claim queue at the relay parent. The `bool` field indicates if a candidate
 	// was seconded for the `ParaId` at the position in question. In other words - if the claim is
 	// 'satisfied'. If the claim queue is not available `claim_queue_state` will be `None`.
@@ -240,11 +245,11 @@ impl Collations {
 	/// Once claim queue runtime api is released everywhere this logic won't be needed anymore and
 	/// can be cleaned up.
 	pub(super) fn new(group_assignments: &Vec<ParaId>, has_claim_queue: bool) -> Self {
-		let mut claims_per_para = BTreeMap::new();
+		let mut candidates_state = BTreeMap::<ParaId, CandidatesStatePerPara>::new();
 		let mut claim_queue_state = Vec::with_capacity(group_assignments.len());
 
 		for para_id in group_assignments {
-			*claims_per_para.entry(*para_id).or_default() += 1;
+			candidates_state.entry(*para_id).or_default().claims_per_para += 1;
 			claim_queue_state.push((false, *para_id));
 		}
 
@@ -257,17 +262,16 @@ impl Collations {
 			status: Default::default(),
 			fetching_from: None,
 			waiting_queue: Default::default(),
-			seconded_per_para: Default::default(),
-			claims_per_para,
+			candidates_state,
 			claim_queue_state,
 		}
 	}
 
 	/// Note a seconded collation for a given para.
 	pub(super) fn note_seconded(&mut self, para_id: ParaId) {
-		*self.seconded_per_para.entry(para_id).or_default() += 1;
+		self.candidates_state.entry(para_id).or_default().seconded_per_para += 1;
 
-		gum::trace!(target: LOG_TARGET, ?para_id, new_count=*self.seconded_per_para.entry(para_id).or_default(), "Note seconded.");
+		gum::trace!(target: LOG_TARGET, ?para_id, new_count=self.candidates_state.entry(para_id).or_default().seconded_per_para, "Note seconded.");
 
 		// and the claim queue state
 		if let Some(claim_queue_state) = self.claim_queue_state.as_mut() {
@@ -315,7 +319,7 @@ impl Collations {
 		gum::trace!(
 			target: LOG_TARGET,
 			waiting_queue=?self.waiting_queue,
-			claims_per_para=?self.claims_per_para,
+			candidates_state=?self.candidates_state,
 			"Pick a collation to fetch."
 		);
 
@@ -351,7 +355,11 @@ impl Collations {
 
 	// Returns the number of seconded collations for the specified `ParaId`.
 	pub(super) fn seconded_and_pending_for_para(&self, para_id: &ParaId) -> usize {
-		let seconded_for_para = *self.seconded_per_para.get(&para_id).unwrap_or(&0);
+		let seconded_for_para = self
+			.candidates_state
+			.get(&para_id)
+			.map(|state| state.seconded_per_para)
+			.unwrap_or_default();
 		let pending_for_para = self.pending_for_para(para_id);
 
 		gum::trace!(
@@ -367,7 +375,10 @@ impl Collations {
 
 	// Returns the number of claims in the claim queue for the specified `ParaId`.
 	pub(super) fn claims_for_para(&self, para_id: &ParaId) -> usize {
-		self.claims_per_para.get(para_id).copied().unwrap_or_default()
+		self.candidates_state
+			.get(para_id)
+			.map(|state| state.claims_per_para)
+			.unwrap_or_default()
 	}
 }
 
