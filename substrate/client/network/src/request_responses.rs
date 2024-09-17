@@ -68,7 +68,8 @@ use std::{
 
 pub use libp2p::request_response::{Config, RequestId};
 
-/// Adding a custom OutboundFailure, not depending on libp2p
+/// Possible failures occurring in the context of sending an outbound request and receiving the response.
+
 #[derive(Debug, thiserror::Error)]
 pub enum OutboundFailure {
 	/// The request could not be sent because a dialing attempt failed.
@@ -84,10 +85,10 @@ pub enum OutboundFailure {
 impl Display for OutboundFailure {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			OutboundFailure::DialFailure => write!(f, "DialFailure"),
-			OutboundFailure::Timeout => write!(f, "Timeout"),
-			OutboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
-			OutboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
+			OutboundFailure::DialFailure => write!(f, "Failed to dial the requested peer"),
+			OutboundFailure::Timeout => write!(f, "Timeout while waiting for a response"),
+			OutboundFailure::ConnectionClosed => write!(f, "Connection was closed before a response was received"),
+			OutboundFailure::UnsupportedProtocols => write!(f, "The remote supports none of the requested protocols"),
 		}
 	}
 }
@@ -105,8 +106,9 @@ impl From<request_response::OutboundFailure> for OutboundFailure {
 	}
 }
 
+/// Possible failures occurring in the context of receiving an inbound request and sending a response.
+
 #[derive(Debug, thiserror::Error)]
-#[allow(missing_docs)]
 pub enum InboundFailure {
 	/// The inbound request timed out, either while reading the incoming request or before a
 	/// response is sent
@@ -122,10 +124,10 @@ pub enum InboundFailure {
 impl Display for InboundFailure {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			InboundFailure::Timeout => write!(f, "Timeout"),
-			InboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
-			InboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
-			InboundFailure::ResponseOmission => write!(f, "ResponseOmission"),
+			InboundFailure::Timeout => write!(f, "Timeout while receiving request or sending response"),
+			InboundFailure::ConnectionClosed => write!(f, "Connection was closed before a response could be sent"),
+			InboundFailure::UnsupportedProtocols => write!(f, "The local peer supports none of the protocols requested by the remote"),
+			InboundFailure::ResponseOmission => write!(f, "The response channel was dropped without sending a response to the remote"),
 		}
 	}
 }

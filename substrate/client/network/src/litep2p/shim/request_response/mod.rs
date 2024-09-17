@@ -24,10 +24,9 @@ use crate::{
 	peer_store::PeerStoreProvider,
 	request_responses::{IncomingRequest, OutgoingResponse},
 	service::{metrics::Metrics, traits::RequestResponseConfig as RequestResponseConfigT},
-	IfDisconnected, ProtocolName, RequestFailure,
+	IfDisconnected, OutboundFailure, ProtocolName, RequestFailure,
 };
 
-use crate::request_responses::OutboundFailure;
 use futures::{channel::oneshot, future::BoxFuture, stream::FuturesUnordered, StreamExt};
 use litep2p::{
 	error::{ImmediateDialError, NegotiationError, SubstreamError},
