@@ -651,17 +651,17 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 	/// Write the given buffer and its length to the designated locations in sandbox memory and
 	/// charge gas according to the token returned by `create_token`.
-	//
+	///
 	/// `out_ptr` is the location in sandbox memory where `buf` should be written to.
 	/// `out_len_ptr` is an in-out location in sandbox memory. It is read to determine the
-	/// length of the buffer located at `out_ptr`. If that buffer is large enough the actual
-	/// `buf.len()` is written to this location.
+	/// length of the buffer located at `out_ptr`. If that buffer is smaller than the actual
+	/// `buf.len()`, only what fits into that buffer is written to `out_ptr`.
+	/// The actual amount of bytes copied to `out_ptr` is written to `out_len_ptr`.
 	///
-	/// If `allow_skip` is true, the operation is skipped and `Ok` is returned if either `out_ptr`
-	/// is set to the sentinel value of `SENTINEL` or the provided output length is 0.
-	/// This is supposed to help callers to make copying output optional.
-	/// For example to skip copying back the output buffer of a `seal_call` when the caller is not
-	/// interested in the result.
+	/// If `out_ptr` is set to the sentinel value of `SENTINEL` and `allow_skip` is true the
+	/// operation is skipped and `Ok` is returned. This is supposed to help callers to make copying
+	/// output optional. For example to skip copying back the output buffer of an `seal_call`
+	/// when the caller is not interested in the result.
 	///
 	/// `create_token` can optionally instruct this function to charge the gas meter with the token
 	/// it returns. `create_token` receives the variable amount of bytes that are about to be copied
@@ -682,24 +682,14 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			return Ok(())
 		}
 
-		let buf_len = buf.len() as u32;
 		let len = memory.read_u32(out_len_ptr)?;
-		let skip_on_zero_out_len = allow_skip && len == 0;
-
-		if len < buf_len && !skip_on_zero_out_len {
-			return Err(Error::<E::T>::OutputBufferTooSmall.into())
-		}
+		let buf_len = len.min(buf.len() as u32);
 
 		if let Some(costs) = create_token(buf_len) {
 			self.charge_gas(costs)?;
 		}
 
-		if skip_on_zero_out_len {
-			memory.write(out_len_ptr, &[0u8; 4])?;
-			return Ok(())
-		}
-
-		memory.write(out_ptr, buf)?;
+		memory.write(out_ptr, &buf[..buf_len as usize])?;
 		memory.write(out_len_ptr, &buf_len.encode())
 	}
 
