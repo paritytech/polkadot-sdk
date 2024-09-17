@@ -22,7 +22,6 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::Hash as RelayHash;
 use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
 use sp_runtime::traits::BlakeTwo256;
 
 #[benchmarks]
