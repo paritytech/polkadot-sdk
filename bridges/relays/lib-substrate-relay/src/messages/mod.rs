@@ -27,19 +27,18 @@ use crate::{
 
 use async_std::sync::Arc;
 use bp_messages::{
-	target_chain::FromBridgedChainMessagesProof, ChainWithMessages as _, LaneId, MessageNonce,
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::FromBridgedChainMessagesProof, ChainWithMessages as _, MessageNonce,
 };
-use bp_runtime::{
-	AccountIdOf, Chain as _, EncodedOrDecodedCall, HeaderIdOf, TransactionEra, WeightExtraOps,
-};
-use codec::Encode;
+use bp_runtime::{AccountIdOf, EncodedOrDecodedCall, HeaderIdOf, TransactionEra, WeightExtraOps};
+use codec::{Codec, Encode, EncodeLike};
 use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
-use messages_relay::{message_lane::MessageLane, message_lane_loop::BatchTransaction};
+use messages_relay::{message_lane::MessageLane, message_lane_loop::BatchTransaction, Labeled};
 use pallet_bridge_messages::{Call as BridgeMessagesCall, Config as BridgeMessagesConfig};
 use relay_substrate_client::{
 	transaction_stall_timeout, AccountKeyPairOf, BalanceOf, BlockNumberOf, CallOf, Chain,
-	ChainWithMessages, ChainWithTransactions, Client, Error as SubstrateError, HashOf, SignParam,
-	UnsignedTransaction,
+	ChainBase, ChainWithMessages, ChainWithTransactions, Client, Error as SubstrateError, HashOf,
+	SignParam, UnsignedTransaction,
 };
 use relay_utils::{
 	metrics::{GlobalMetrics, MetricsParams, StandaloneMetric},
@@ -59,6 +58,18 @@ pub trait SubstrateMessageLane: 'static + Clone + Debug + Send + Sync {
 	type SourceChain: ChainWithMessages + ChainWithTransactions;
 	/// Messages from the `SourceChain` are dispatched on this chain.
 	type TargetChain: ChainWithMessages + ChainWithTransactions;
+
+	/// Lane identifier type.
+	type LaneId: Clone
+		+ Copy
+		+ Debug
+		+ Codec
+		+ EncodeLike
+		+ Send
+		+ Sync
+		+ Labeled
+		+ TryFrom<Vec<u8>>
+		+ Default;
 
 	/// How receive messages proof call is built?
 	type ReceiveMessagesProofCallBuilder: ReceiveMessagesProofCallBuilder<Self>;
@@ -81,8 +92,10 @@ impl<P: SubstrateMessageLane> MessageLane for MessageLaneAdapter<P> {
 	const SOURCE_NAME: &'static str = P::SourceChain::NAME;
 	const TARGET_NAME: &'static str = P::TargetChain::NAME;
 
-	type MessagesProof = SubstrateMessagesProof<P::SourceChain>;
-	type MessagesReceivingProof = SubstrateMessagesDeliveryProof<P::TargetChain>;
+	type LaneId = P::LaneId;
+
+	type MessagesProof = SubstrateMessagesProof<P::SourceChain, P::LaneId>;
+	type MessagesReceivingProof = SubstrateMessagesDeliveryProof<P::TargetChain, P::LaneId>;
 
 	type SourceChainBalance = BalanceOf<P::SourceChain>;
 	type SourceHeaderNumber = BlockNumberOf<P::SourceChain>;
@@ -109,7 +122,7 @@ pub struct MessagesRelayParams<P: SubstrateMessageLane, SourceClnt, TargetClnt> 
 	pub target_to_source_headers_relay:
 		Option<Arc<dyn OnDemandRelay<P::TargetChain, P::SourceChain>>>,
 	/// Identifier of lane that needs to be served.
-	pub lane_id: LaneId,
+	pub lane_id: P::LaneId,
 	/// Messages relay limits. If not provided, the relay tries to determine it automatically,
 	/// using `TransactionPayment` pallet runtime API.
 	pub limits: Option<MessagesRelayLimits>,
@@ -293,7 +306,7 @@ pub async fn relay_messages_range<P: SubstrateMessageLane>(
 	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	at_source_block: HeaderIdOf<P::SourceChain>,
-	lane_id: LaneId,
+	lane_id: P::LaneId,
 	range: RangeInclusive<MessageNonce>,
 	outbound_state_proof_required: bool,
 ) -> anyhow::Result<()>
@@ -335,7 +348,7 @@ pub async fn relay_messages_delivery_confirmation<P: SubstrateMessageLane>(
 	target_client: impl Client<P::TargetChain>,
 	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	at_target_block: HeaderIdOf<P::TargetChain>,
-	lane_id: LaneId,
+	lane_id: P::LaneId,
 ) -> anyhow::Result<()>
 where
 	AccountIdOf<P::SourceChain>: From<<AccountKeyPairOf<P::SourceChain> as Pair>::Public>,
@@ -372,7 +385,7 @@ pub trait ReceiveMessagesProofCallBuilder<P: SubstrateMessageLane> {
 	/// messages module at the target chain.
 	fn build_receive_messages_proof_call(
 		relayer_id_at_source: AccountIdOf<P::SourceChain>,
-		proof: SubstrateMessagesProof<P::SourceChain>,
+		proof: SubstrateMessagesProof<P::SourceChain, P::LaneId>,
 		messages_count: u32,
 		dispatch_weight: Weight,
 		trace_call: bool,
@@ -393,10 +406,21 @@ where
 	R::BridgedChain:
 		bp_runtime::Chain<AccountId = AccountIdOf<P::SourceChain>, Hash = HashOf<P::SourceChain>>,
 	CallOf<P::TargetChain>: From<BridgeMessagesCall<R, I>> + GetDispatchInfo,
+	Box<
+		bp_messages::target_chain::FromBridgedChainMessagesProof<
+			<<P as SubstrateMessageLane>::SourceChain as ChainBase>::Hash,
+			<R as pallet_bridge_messages::Config<I>>::LaneId,
+		>,
+	>: From<
+		bp_messages::target_chain::FromBridgedChainMessagesProof<
+			<<P as SubstrateMessageLane>::SourceChain as ChainBase>::Hash,
+			<P as SubstrateMessageLane>::LaneId,
+		>,
+	>,
 {
 	fn build_receive_messages_proof_call(
 		relayer_id_at_source: AccountIdOf<P::SourceChain>,
-		proof: SubstrateMessagesProof<P::SourceChain>,
+		proof: SubstrateMessagesProof<P::SourceChain, P::LaneId>,
 		messages_count: u32,
 		dispatch_weight: Weight,
 		trace_call: bool,
@@ -444,7 +468,8 @@ macro_rules! generate_receive_message_proof_call_builder {
 					<$pipeline as $crate::messages::SubstrateMessageLane>::SourceChain
 				>,
 				proof: $crate::messages::source::SubstrateMessagesProof<
-					<$pipeline as $crate::messages::SubstrateMessageLane>::SourceChain
+					<$pipeline as $crate::messages::SubstrateMessageLane>::SourceChain,
+					<$pipeline as $crate::messages::SubstrateMessageLane>::LaneId
 				>,
 				messages_count: u32,
 				dispatch_weight: bp_messages::Weight,
@@ -470,7 +495,7 @@ pub trait ReceiveMessagesDeliveryProofCallBuilder<P: SubstrateMessageLane> {
 	/// Given messages delivery proof, build call of `receive_messages_delivery_proof` function of
 	/// bridge messages module at the source chain.
 	fn build_receive_messages_delivery_proof_call(
-		proof: SubstrateMessagesDeliveryProof<P::TargetChain>,
+		proof: SubstrateMessagesDeliveryProof<P::TargetChain, P::LaneId>,
 		trace_call: bool,
 	) -> CallOf<P::SourceChain>;
 }
@@ -489,9 +514,18 @@ where
 	I: 'static,
 	R::BridgedChain: bp_runtime::Chain<Hash = HashOf<P::TargetChain>>,
 	CallOf<P::SourceChain>: From<BridgeMessagesCall<R, I>> + GetDispatchInfo,
+	FromBridgedChainMessagesDeliveryProof<
+		<<P as SubstrateMessageLane>::TargetChain as ChainBase>::Hash,
+		<R as pallet_bridge_messages::Config<I>>::LaneId,
+	>: From<
+		FromBridgedChainMessagesDeliveryProof<
+			<<P as SubstrateMessageLane>::TargetChain as ChainBase>::Hash,
+			<P as SubstrateMessageLane>::LaneId,
+		>,
+	>,
 {
 	fn build_receive_messages_delivery_proof_call(
-		proof: SubstrateMessagesDeliveryProof<P::TargetChain>,
+		proof: SubstrateMessagesDeliveryProof<P::TargetChain, P::LaneId>,
 		trace_call: bool,
 	) -> CallOf<P::SourceChain> {
 		let call: CallOf<P::SourceChain> =
@@ -533,7 +567,8 @@ macro_rules! generate_receive_message_delivery_proof_call_builder {
 		{
 			fn build_receive_messages_delivery_proof_call(
 				proof: $crate::messages::target::SubstrateMessagesDeliveryProof<
-					<$pipeline as $crate::messages::SubstrateMessageLane>::TargetChain
+					<$pipeline as $crate::messages::SubstrateMessageLane>::TargetChain,
+					<$pipeline as $crate::messages::SubstrateMessageLane>::LaneId
 				>,
 				_trace_call: bool,
 			) -> relay_substrate_client::CallOf<
@@ -644,7 +679,7 @@ where
 				FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
 					storage_proof: Default::default(),
-					lane: LaneId::new(1, 2),
+					lane: P::LaneId::default(),
 					nonces_start: 1,
 					nonces_end: messages as u64,
 				},
@@ -674,7 +709,7 @@ where
 mod tests {
 	use super::*;
 	use bp_messages::{
-		source_chain::FromBridgedChainMessagesDeliveryProof, UnrewardedRelayersState,
+		source_chain::FromBridgedChainMessagesDeliveryProof, LaneIdType, UnrewardedRelayersState,
 	};
 	use relay_substrate_client::calls::{UtilityCall as MockUtilityCall, UtilityCall};
 
@@ -687,8 +722,8 @@ mod tests {
 	}
 	pub type CodegenBridgeMessagesCall = bp_messages::BridgeMessagesCall<
 		u64,
-		Box<FromBridgedChainMessagesProof<mock::BridgedHeaderHash>>,
-		FromBridgedChainMessagesDeliveryProof<mock::BridgedHeaderHash>,
+		Box<FromBridgedChainMessagesProof<mock::BridgedHeaderHash, mock::TestLaneIdType>>,
+		FromBridgedChainMessagesDeliveryProof<mock::BridgedHeaderHash, mock::TestLaneIdType>,
 	>;
 
 	impl From<MockUtilityCall<RuntimeCall>> for RuntimeCall {
@@ -706,7 +741,7 @@ mod tests {
 		let receive_messages_proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: Default::default(),
 			storage_proof: Default::default(),
-			lane: LaneId::new(1, 2),
+			lane: mock::TestLaneIdType::new(1, 2),
 			nonces_start: 0,
 			nonces_end: 0,
 		};
@@ -761,7 +796,7 @@ mod tests {
 		let receive_messages_delivery_proof = FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: Default::default(),
 			storage_proof: Default::default(),
-			lane: LaneId::new(1, 2),
+			lane: mock::TestLaneIdType::new(1, 2),
 		};
 		let relayers_state = UnrewardedRelayersState {
 			unrewarded_relayer_entries: 0,
@@ -808,7 +843,7 @@ mod tests {
 	// mock runtime with `pallet_bridge_messages`
 	mod mock {
 		use super::super::*;
-		use bp_messages::target_chain::ForbidInboundMessages;
+		use bp_messages::{target_chain::ForbidInboundMessages, HashedLaneId};
 		use bp_runtime::ChainId;
 		use frame_support::derive_impl;
 		use sp_core::H256;
@@ -818,6 +853,9 @@ mod tests {
 
 		type Block = frame_system::mocking::MockBlock<TestRuntime>;
 		pub type SignedBlock = generic::SignedBlock<Block>;
+
+		/// Lane identifier type used for tests.
+		pub type TestLaneIdType = HashedLaneId;
 
 		frame_support::construct_runtime! {
 			pub enum TestRuntime
@@ -840,10 +878,11 @@ mod tests {
 			type BridgedHeaderChain = BridgedHeaderChain;
 			type OutboundPayload = Vec<u8>;
 			type InboundPayload = Vec<u8>;
+			type LaneId = TestLaneIdType;
 			type DeliveryPayments = ();
 			type DeliveryConfirmationPayments = ();
 			type OnMessagesDelivered = ();
-			type MessageDispatch = ForbidInboundMessages<Vec<u8>>;
+			type MessageDispatch = ForbidInboundMessages<Vec<u8>, Self::LaneId>;
 		}
 
 		pub struct ThisUnderlyingChain;
@@ -1005,6 +1044,7 @@ mod tests {
 		impl SubstrateMessageLane for ThisChainToBridgedChainMessageLane {
 			type SourceChain = ThisChain;
 			type TargetChain = BridgedChain;
+			type LaneId = mock::TestLaneIdType;
 			type ReceiveMessagesProofCallBuilder =
 				ThisChainToBridgedChainMessageLaneReceiveMessagesProofCallBuilder;
 			type ReceiveMessagesDeliveryProofCallBuilder =

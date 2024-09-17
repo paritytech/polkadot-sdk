@@ -18,12 +18,11 @@
 
 use crate::TaggedAccount;
 
-use bp_messages::LaneId;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::StorageDoubleMapKeyProvider;
-use codec::Decode;
+use codec::{Decode, EncodeLike};
 use frame_system::AccountInfo;
-use messages_relay::lane_to_label;
+use messages_relay::Labeled;
 use pallet_balances::AccountData;
 use relay_substrate_client::{
 	metrics::{FloatStorageValue, FloatStorageValueMetric},
@@ -36,7 +35,7 @@ use sp_runtime::{FixedPointNumber, FixedU128};
 use std::{fmt::Debug, marker::PhantomData};
 
 /// Add relay accounts balance metrics.
-pub async fn add_relay_balances_metrics<C: ChainWithBalances, BC: ChainWithMessages>(
+pub async fn add_relay_balances_metrics<C: ChainWithBalances, BC: ChainWithMessages, LaneId>(
 	client: impl Client<C>,
 	metrics: &MetricsParams,
 	relay_accounts: &Vec<TaggedAccount<AccountIdOf<C>>>,
@@ -44,6 +43,7 @@ pub async fn add_relay_balances_metrics<C: ChainWithBalances, BC: ChainWithMessa
 ) -> anyhow::Result<()>
 where
 	BalanceOf<C>: Into<u128> + std::fmt::Debug,
+	LaneId: Clone + Copy + Decode + EncodeLike + Send + Sync + Labeled,
 {
 	if relay_accounts.is_empty() {
 		return Ok(())
@@ -87,25 +87,25 @@ where
 				FloatStorageValueMetric::new(
 					AccountBalance::<C> { token_decimals, _phantom: Default::default() },
 					client.clone(),
-					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, BalanceOf<C>>::final_key(
+					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, BalanceOf<C>, LaneId>::final_key(
 						relayers_pallet_name,
 						account.id(),
 						&RewardsAccountParams::new(*lane, BC::ID, RewardsAccountOwner::ThisChain),
 					),
-					format!("at_{}_relay_{}_reward_for_msgs_from_{}_on_lane_{}", C::NAME, account.tag(), BC::NAME, lane_to_label(lane)),
-					format!("Reward of the {} relay account at {} for delivering messages from {} on lane {:?}", account.tag(), C::NAME, BC::NAME, lane),
+					format!("at_{}_relay_{}_reward_for_msgs_from_{}_on_lane_{}", C::NAME, account.tag(), BC::NAME, lane.label()),
+					format!("Reward of the {} relay account at {} for delivering messages from {} on lane {:?}", account.tag(), C::NAME, BC::NAME, lane.label()),
 				)?.register_and_spawn(&metrics.registry)?;
 
 				FloatStorageValueMetric::new(
 					AccountBalance::<C> { token_decimals, _phantom: Default::default() },
 					client.clone(),
-					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, BalanceOf<C>>::final_key(
+					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, BalanceOf<C>, LaneId>::final_key(
 						relayers_pallet_name,
 						account.id(),
 						&RewardsAccountParams::new(*lane, BC::ID, RewardsAccountOwner::BridgedChain),
 					),
-					format!("at_{}_relay_{}_reward_for_msgs_to_{}_on_lane_{}", C::NAME, account.tag(), BC::NAME, lane_to_label(lane)),
-					format!("Reward of the {} relay account at {} for delivering messages confirmations from {} on lane {:?}", account.tag(), C::NAME, BC::NAME, lane),
+					format!("at_{}_relay_{}_reward_for_msgs_to_{}_on_lane_{}", C::NAME, account.tag(), BC::NAME, lane.label()),
+					format!("Reward of the {} relay account at {} for delivering messages confirmations from {} on lane {:?}", account.tag(), C::NAME, BC::NAME, lane.label()),
 				)?.register_and_spawn(&metrics.registry)?;
 			}
 		}

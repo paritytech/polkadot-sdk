@@ -26,7 +26,6 @@ finality-relay = { workspace = true }
 relay-utils = { workspace = true }
 
 sp-arithmetic = { workspace = true, default-features = true }
-sp-runtime = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true }
