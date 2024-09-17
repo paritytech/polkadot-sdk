@@ -83,9 +83,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #config_where_clause {
 				#[doc(hidden)]
 				pub fn error_metadata() -> Option<#frame_support::__private::metadata_ir::PalletErrorMetadataIR> {
-					Some(#frame_support::__private::metadata_ir::PalletErrorMetadataIR {
-						ty: #frame_support::__private::scale_info::meta_type::<#error_ident<#type_use_gen>>()
-					})
+					Some(<#error_ident<#type_use_gen>>::error_metadata())
 				}
 			}
 		)
@@ -187,7 +185,12 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 	];
-
+	let deprecation_status =
+		match crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &def.item.attrs)
+		{
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
 	quote::quote_spanned!(def.pallet_struct.attr_span =>
 		#pallet_error_metadata
 
@@ -286,5 +289,13 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 
 		#storage_info
 		#whitelisted_storage_keys_impl
+
+		impl<#type_use_gen> #pallet_ident<#type_use_gen> {
+			#[allow(dead_code)]
+			#[doc(hidden)]
+			pub fn deprecation_info() -> #frame_support::__private::metadata_ir::DeprecationStatusIR {
+				#deprecation_status
+			}
+		}
 	)
 }

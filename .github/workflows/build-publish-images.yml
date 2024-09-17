@@ -1,0 +1,494 @@
+# GHA for build-*
+name: Build and push images
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+
+  #
+  #
+  #
+  preflight:
+    ## TODO: remove when ready
+    if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
+    uses: ./.github/workflows/reusable-preflight.yml
+
+### Build ########################
+
+  #
+  #
+  #
+  build-linux-stable:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          forklift cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+          ROCOCO_EPOCH_DURATION=10 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
+          ROCOCO_EPOCH_DURATION=100 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-100/
+          ROCOCO_EPOCH_DURATION=600 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-600/
+          pwd
+          ls -alR runtimes
+      - name: pack artifacts
+        run: |
+          mkdir -p ./artifacts
+          VERSION="${{ needs.preflight.outputs.SOURCE_REF_NAME }}" # will be tag or branch name
+          mv ./target/testnet/polkadot ./artifacts/.
+          mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
+          mv ./target/testnet/polkadot-execute-worker ./artifacts/.
+          mv ./runtimes/ ./artifacts/.
+          cd artifacts/
+          sha256sum polkadot | tee polkadot.sha256
+          shasum -c polkadot.sha256
+          cd ../
+          EXTRATAG="${{ needs.preflight.outputs.SOURCE_REF_NAME }}-${COMMIT_SHA}"
+          echo "Polkadot version = ${VERSION} (EXTRATAG = ${EXTRATAG})"
+          echo -n ${VERSION} > ./artifacts/VERSION
+          echo -n ${EXTRATAG} > ./artifacts/EXTRATAG
+          echo -n ${GITHUB_RUN_ID} > ./artifacts/BUILD_LINUX_JOB_ID
+          RELEASE_VERSION=$(./artifacts/polkadot -V | awk '{print $2}'| awk -F "-" '{print $1}')
+          echo -n "v${RELEASE_VERSION}" > ./artifacts/BUILD_RELEASE_VERSION
+          cp -r docker/* ./artifacts
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  build-linux-stable-cumulus:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
+          forklift cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
+          echo "___Packing the artifacts___"
+          mkdir -p ./artifacts
+          mv ./target/release/polkadot-parachain ./artifacts/.
+          echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___"
+          echo ${{ needs.preflight.outputs.SOURCE_REF_NAME }} | tee ./artifacts/VERSION
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  build-test-parachain:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
+          forklift cargo build --release --locked -p cumulus-test-service --bin test-parachain
+      - name: pack artifacts
+        run: |
+          echo "___Packing the artifacts___"
+          mkdir -p ./artifacts
+          mv ./target/release/test-parachain ./artifacts/.
+          mkdir -p ./artifacts/zombienet
+          mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm ./artifacts/zombienet/.
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  build-test-collators:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          forklift cargo build --locked --profile testnet -p test-parachain-adder-collator
+          forklift cargo build --locked --profile testnet -p test-parachain-undying-collator
+      - name: pack artifacts
+        run: |
+          mkdir -p ./artifacts
+          mv ./target/testnet/adder-collator ./artifacts/.
+          mv ./target/testnet/undying-collator ./artifacts/.
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}" > ./artifacts/VERSION
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
+          echo "adder-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
+          echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
+          cp -r ./docker/* ./artifacts
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  build-malus:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          forklift cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
+      - name: pack artifacts
+        run: |
+          mkdir -p ./artifacts
+          mv ./target/testnet/malus ./artifacts/.
+          mv ./target/testnet/polkadot-execute-worker ./artifacts/.
+          mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}" > ./artifacts/VERSION
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
+          echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
+          cp -r ./docker/* ./artifacts
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  build-linux-substrate:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # tldr: we need to checkout the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
+          # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
+          ref:  ${{ github.head_ref || github.ref_name }}
+      - name: build
+        run: |
+          mkdir -p ./artifacts/substrate/
+          WASM_BUILD_NO_COLOR=1 forklift cargo build --locked --release -p staging-node-cli
+          ls -la target/release/
+      - name: pack artifacts
+        run: |
+          mv target/release/substrate-node ./artifacts/substrate/substrate
+          echo -n "Substrate version = "
+          if [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
+          echo "${{ github.ref_name }}" | tee ./artifacts/substrate/VERSION;
+          else
+          ./artifacts/substrate/substrate --version |
+          cut -d ' ' -f 2 | tee ./artifacts/substrate/VERSION;
+          fi
+          sha256sum ./artifacts/substrate/substrate | tee ./artifacts/substrate/substrate.sha256
+          cp -r ./docker/dockerfiles/substrate_injected.Dockerfile ./artifacts/substrate/
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  prepare-bridges-zombienet-artifacts:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          forklift cargo build --locked --profile testnet -p polkadot-test-malus --bin malus --bin polkadot-prepare-worker --bin polkadot-execute-worker
+      - name: pack artifacts
+        run: |
+          mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
+          cp -r bridges/testing ./artifacts/bridges-polkadot-sdk/bridges/testing
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          path: artifacts.tar
+          retention-days: 1
+
+### Publish ########################
+
+  #
+  #
+  #
+  build-push-image-test-parachain:
+    needs: [preflight, build-test-parachain]
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+
+      - name: tar
+        run: tar -xvf artifacts.tar
+
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/test-parachain"
+          dockerfile: "docker/dockerfiles/test-parachain_injected.Dockerfile"
+
+  #
+  #
+  #
+  build-push-image-polkadot-debug:
+    needs: [preflight, build-linux-stable]
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+
+      - name: tar
+        run: tar -xvf artifacts.tar
+
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/polkadot-debug"
+          dockerfile: "docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile"
+
+
+  #
+  #
+  #
+  build-push-image-colander:
+    needs: [preflight, build-test-collators]
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: build-test-collators-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+
+      - name: tar
+        run: tar -xvf artifacts.tar
+
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/colander"
+          dockerfile: "docker/dockerfiles/collator_injected.Dockerfile"
+
+
+  #
+  #
+  #
+  build-push-image-malus:
+    needs: [preflight, build-malus]
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: build-malus-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+
+      - name: tar
+        run: tar -xvf artifacts.tar
+
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/malus"
+          dockerfile: "docker/dockerfiles/malus_injected.Dockerfile"
+
+
+  #
+  #
+  #
+  build-push-image-substrate-pr:
+    needs: [preflight, build-linux-substrate]
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: build-linux-substrate-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+
+      - name: tar
+        run: tar -xvf artifacts.tar
+
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/substrate"
+          dockerfile: "docker/dockerfiles/substrate_injected.Dockerfile"
+
+
+  #
+  #
+  #
+  # unlike other images, bridges+zombienet image is based on Zombienet image that pulls required binaries
+  # from other fresh images (polkadot and cumulus)
+  build-push-image-bridges-zombienet-tests:
+    needs: [preflight, build-linux-stable, build-linux-stable-cumulus, prepare-bridges-zombienet-artifacts]
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+      - name: tar
+        run: |
+         tar -xvf artifacts.tar
+         rm artifacts.tar
+
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+      - name: tar
+        run: |
+         tar -xvf artifacts.tar
+         rm artifacts.tar
+
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: prepare-bridges-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+      - name: tar
+        run: |
+         tar -xvf artifacts.tar
+         rm artifacts.tar
+
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/bridges-zombienet-tests"
+          dockerfile: "docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile"
+
+
+  #
+  #
+  #
+  build-push-image-polkadot-parachain-debug:
+    needs: [preflight, build-linux-stable-cumulus]
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+
+      - name: tar
+        run: tar -xvf artifacts.tar
+
+      - name: build and push image
+        uses: ./.github/actions/build-push-image
+        with:
+          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/polkadot-parachain-debug"
+          dockerfile: "docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"

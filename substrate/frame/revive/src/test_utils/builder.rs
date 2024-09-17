@@ -21,11 +21,8 @@ use crate::{
 	ContractExecResult, ContractInstantiateResult, DebugInfo, EventRecordOf, ExecReturnValue,
 	InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
-use codec::{Encode, HasCompact};
-use core::fmt::Debug;
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
-use scale_info::TypeInfo;
 use sp_core::H160;
 
 /// Helper macro to generate a builder for contract API calls.
@@ -53,7 +50,9 @@ macro_rules! builder {
 		#[allow(dead_code)]
 		impl<T: Config> $name<T>
 		where
-			<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+			BalanceOf<T>: Into<sp_core::U256> + TryFrom<sp_core::U256>,
+			crate::MomentOf<T>: Into<sp_core::U256>,
+			T::Hash: frame_support::traits::IsType<sp_core::H256>,
 		{
 			$(
 				#[doc = concat!("Set the ", stringify!($field))]
@@ -88,7 +87,7 @@ builder!(
 		storage_deposit_limit: BalanceOf<T>,
 		code: Vec<u8>,
 		data: Vec<u8>,
-		salt: [u8; 32],
+		salt: Option<[u8; 32]>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create an [`InstantiateWithCodeBuilder`] with default values.
@@ -100,7 +99,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
-			salt: [0; 32],
+			salt: Some([0; 32]),
 		}
 	}
 );
@@ -113,7 +112,7 @@ builder!(
 		storage_deposit_limit: BalanceOf<T>,
 		code_hash: sp_core::H256,
 		data: Vec<u8>,
-		salt: [u8; 32],
+		salt: Option<[u8; 32]>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create an [`InstantiateBuilder`] with default values.
@@ -125,7 +124,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code_hash,
 			data: vec![],
-			salt: [0; 32],
+			salt: Some([0; 32]),
 		}
 	}
 );
@@ -138,7 +137,7 @@ builder!(
 		storage_deposit_limit: BalanceOf<T>,
 		code: Code,
 		data: Vec<u8>,
-		salt: [u8; 32],
+		salt: Option<[u8; 32]>,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
 	) -> ContractInstantiateResult<BalanceOf<T>, EventRecordOf<T>>;
@@ -164,7 +163,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
-			salt: [0; 32],
+			salt: Some([0; 32]),
 			debug: DebugInfo::UnsafeDebug,
 			collect_events: CollectEvents::Skip,
 		}
