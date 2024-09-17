@@ -351,10 +351,10 @@ parameter_types! {
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-	pub const MaxExposurePageSize: u32 = 64;
+	//pub const MaxExposurePageSize: u32 = 64;
 	pub const MaxNominations: u32 = <NposCompactSolution as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
-	pub const MaxValidatorSet: u32 = 4_000;
+	//pub const MaxValidatorSet: u32 = 4_000;
 }
 
 // Disabling threshold for `UpToLimitDisablingStrategy`
@@ -431,17 +431,33 @@ parameter_types! {
 	pub MaxVoters: u32 = VoterSnapshotPerBlock::get() * Pages::get();
 
 	// SETUPS
+    // see results at https://hackmd.io/KpU6KVL-QOiwRxWPY9FDdQ/view
+    
+    // AAA.
+    // current numbers.
+	// let validators_count = 1_500; in chainspec
+    pub const Period: u32 = 10 * MINUTES;
+	pub const MaxExposurePageSize: u32 = 512;
+	pub const MaxValidatorSet: u32 = 1_000;
+	pub UnsignedPhase: u32 = 45;
+	pub Pages: PageIndex = 20;
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
+	pub MaxBackersPerWinner: u32 = 5_000;
+	pub VoterSnapshotPerBlock: VoterIndex = 1_800;
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); 
 
 	/*
 	// A1.
 	// at voter snapshot creation:
 	// ⚠️  ⚠️   PoV STORAGE PROOF OVER LIMIT (15473.44921875kb > 5120.0kb, ie. 302% overflow)
 	pub const Period: u32 = 3 * MINUTES;
+	pub const MaxExposurePageSize: u32 = 64;
+	pub const MaxValidatorSet: u32 = 4_000;
 	pub Pages: PageIndex = 1;
-	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 	pub MaxBackersPerWinner: u32 = 5_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 10_000;
-	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 	*/
 
 	/*
@@ -449,70 +465,99 @@ parameter_types! {
 	// at voter snapshot creation:
 	// ⚠️  ⚠️   PoV STORAGE PROOF OVER LIMIT (9165.3466796875kb > 5120.0kb, ie. 179% overflow)
 	pub const Period: u32 = 3 * MINUTES;
+	pub const MaxExposurePageSize: u32 = 64;
+	pub const MaxValidatorSet: u32 = 4_000;
 	pub UnsignedPhase: u32 = 5;
 	pub Pages: PageIndex = 1;
-	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 	pub MaxBackersPerWinner: u32 = 5_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 5_000;
-	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 	*/
 
 	/*
 	// C1.
 	// OK E2E
 	pub const Period: u32 = 3 * MINUTES;
+	pub const MaxExposurePageSize: u32 = 64;
+	pub const MaxValidatorSet: u32 = 4_000;
 	pub UnsignedPhase: u32 = 5;
 	pub Pages: PageIndex = 1;
-	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 	pub MaxBackersPerWinner: u32 = 5_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
-	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 	*/
 
 	/*
 	// D1.
 	// OK E2E
 	pub const Period: u32 = 3 * MINUTES;
+	pub const MaxExposurePageSize: u32 = 64;
+	pub const MaxValidatorSet: u32 = 4_000;
 	pub UnsignedPhase: u32 = 5;
 	pub Pages: PageIndex = 1;
 	pub MaxWinnersPerPage: u32 = 30_000;
 	pub MaxBackersPerWinner: u32 = 30_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
-	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 	*/
 
 
 	/*
 	// A2. OK E2E
 	pub const Period: u32 = 12 * MINUTES;
+	pub const MaxExposurePageSize: u32 = 64;
+	pub const MaxValidatorSet: u32 = 4_000;
 	pub UnsignedPhase: u32 = 60;
 	pub Pages: PageIndex = 20;
-	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 	pub MaxBackersPerWinner: u32 = 30_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
-	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 	*/
 
 	/*
 	// B2. OK E2E
 	pub const Period: u32 = 8 * MINUTES;
+	pub const MaxExposurePageSize: u32 = 64;
+	pub const MaxValidatorSet: u32 = 4_000;
 	pub UnsignedPhase: u32 = 30;
 	pub Pages: PageIndex = 10;
-	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 	pub MaxBackersPerWinner: u32 = 30_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
-	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 	*/
 
-	// A3. OK
+    /*
+	// A3. at full page verification:
+    //  ⚠️  ⚠️   PoV STORAGE PROOF OVER LIMIT (5571.548828125kb > 5120.0kb, ie. 108% overflow)
 	// let validators_count = 4_000; in chainspec
 	pub const Period: u32 = 20 * MINUTES;
+	pub const MaxExposurePageSize: u32 = 64;
+	pub const MaxValidatorSet: u32 = 4_000;
 	pub UnsignedPhase: u32 = 80;
 	pub Pages: PageIndex = 20;
-	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get(); // 4_000
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 	pub MaxBackersPerWinner: u32 = 30_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
-	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); // 4_000
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
+    */
+
+    /*
+	// B3. OK
+	// let validators_count = 3_000; in chainspec
+	pub const Period: u32 = 20 * MINUTES;
+	pub const MaxExposurePageSize: u32 = 64;
+	pub const MaxValidatorSet: u32 = 4_000;
+	pub UnsignedPhase: u32 = 80;
+	pub Pages: PageIndex = 20;
+	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
+	pub MaxBackersPerWinner: u32 = 30_000;
+	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
+    */
 
 	// phase boundaries.
 	pub SignedPhase: u32 = 0; // (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
@@ -559,7 +604,7 @@ frame_election_provider_support::generate_solution_type!(
 		TargetIndex = TargetIndex,
 		Accuracy = sp_runtime::PerU16,
 		MaxVoters = MaxVoters,
-	>(24)
+	>(16)
 );
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime

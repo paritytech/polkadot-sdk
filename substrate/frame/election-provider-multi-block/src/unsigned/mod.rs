@@ -221,9 +221,9 @@ pub(crate) mod pallet {
 			)
 			.expect(error_message);
 
-			// if this is the last page, request an async verification finalization which will work
-			// on the queued paged solutions.
-			if page == EPM::<T>::lsp() {
+			// if all pages have been submitted, request an async verification finalization which
+			// will work on the queued paged solutions.
+			if <T::Verifier as Verifier>::next_missing_solution_page().is_none() {
 				<T::Verifier as verifier::AsyncVerifier>::force_finalize_verification(
 					claimed_full_score,
 				)
