@@ -24,7 +24,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-log = { workspace = true }
 
 [dev-dependencies]
 pallet-utility = { workspace = true, default-features = true }
@@ -37,7 +36,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-balances/std",
 	"pallet-utility/std",
 	"scale-info/std",

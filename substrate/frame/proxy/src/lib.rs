@@ -38,13 +38,13 @@ extern crate alloc;
 use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
+	defensive,
 	dispatch::GetDispatchInfo,
 	ensure,
 	traits::{Consideration, Footprint, Get, InstanceFilter, IsSubType, IsType, OriginTrait},
 	BoundedVec,
 };
 use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};
-use log;
 pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
@@ -387,10 +387,9 @@ pub mod pallet {
 
 			if let Some((_, ticket)) = Proxies::<T>::take(&who) {
 				if let Err(e) = ticket.drop(&spawner) {
-					log::error!(
-						"Failed to drop consideration ticket for account {:?}: {:?}",
-						who,
-						e
+					defensive!(
+						"Failed to drop proxy consideration ticket for account {:?}",
+						(&who, e)
 					);
 				}
 			}
@@ -839,10 +838,9 @@ impl<T: Config> Pallet<T> {
 	pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
 		if let Some((_, ticket)) = Proxies::<T>::take(&delegator) {
 			if let Err(e) = ticket.drop(&delegator) {
-				log::error!(
-					"Failed to drop consideration ticket for account {:?}: {:?}",
-					delegator,
-					e
+				defensive!(
+					"Failed to drop proxy consideration ticket for account {:?}",
+					(delegator, e)
 				);
 			}
 		}
