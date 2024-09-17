@@ -208,7 +208,10 @@ fn received_request_triggers_import() {
 		nested_network_dispute_request(
 			&mut handle,
 			req_tx,
-			MOCK_AUTHORITY_DISCOVERY.get_peer_id_by_authority(Sr25519Keyring::Alice),
+			MOCK_AUTHORITY_DISCOVERY
+				.get()
+				.unwrap()
+				.get_peer_id_by_authority(Sr25519Keyring::Alice),
 			message.clone().into(),
 			ImportStatementsResult::ValidImport,
 			true,
@@ -237,7 +240,10 @@ fn batching_works() {
 		nested_network_dispute_request(
 			&mut handle,
 			req_tx,
-			MOCK_AUTHORITY_DISCOVERY.get_peer_id_by_authority(Sr25519Keyring::Alice),
+			MOCK_AUTHORITY_DISCOVERY
+				.get()
+				.unwrap()
+				.get_peer_id_by_authority(Sr25519Keyring::Alice),
 			message.clone().into(),
 			ImportStatementsResult::ValidImport,
 			true,
@@ -248,11 +254,17 @@ fn batching_works() {
 		let mut rx_responses = Vec::new();
 
 		let message = make_dispute_message(candidate.clone(), BOB_INDEX, FERDIE_INDEX);
-		let peer = MOCK_AUTHORITY_DISCOVERY.get_peer_id_by_authority(Sr25519Keyring::Bob);
+		let peer = MOCK_AUTHORITY_DISCOVERY
+			.get()
+			.unwrap()
+			.get_peer_id_by_authority(Sr25519Keyring::Bob);
 		rx_responses.push(send_network_dispute_request(req_tx, peer, message.clone().into()).await);
 
 		let message = make_dispute_message(candidate.clone(), CHARLIE_INDEX, FERDIE_INDEX);
-		let peer = MOCK_AUTHORITY_DISCOVERY.get_peer_id_by_authority(Sr25519Keyring::Charlie);
+		let peer = MOCK_AUTHORITY_DISCOVERY
+			.get()
+			.unwrap()
+			.get_peer_id_by_authority(Sr25519Keyring::Charlie);
 		rx_responses.push(send_network_dispute_request(req_tx, peer, message.clone().into()).await);
 		gum::trace!("Imported 3 votes into batch");
 
@@ -263,12 +275,18 @@ fn batching_works() {
 		gum::trace!("Importing duplicate votes");
 		let mut rx_responses_duplicate = Vec::new();
 		let message = make_dispute_message(candidate.clone(), BOB_INDEX, FERDIE_INDEX);
-		let peer = MOCK_AUTHORITY_DISCOVERY.get_peer_id_by_authority(Sr25519Keyring::Bob);
+		let peer = MOCK_AUTHORITY_DISCOVERY
+			.get()
+			.unwrap()
+			.get_peer_id_by_authority(Sr25519Keyring::Bob);
 		rx_responses_duplicate
 			.push(send_network_dispute_request(req_tx, peer, message.clone().into()).await);
 
 		let message = make_dispute_message(candidate.clone(), CHARLIE_INDEX, FERDIE_INDEX);
-		let peer = MOCK_AUTHORITY_DISCOVERY.get_peer_id_by_authority(Sr25519Keyring::Charlie);
+		let peer = MOCK_AUTHORITY_DISCOVERY
+			.get()
+			.unwrap()
+			.get_peer_id_by_authority(Sr25519Keyring::Charlie);
 		rx_responses_duplicate
 			.push(send_network_dispute_request(req_tx, peer, message.clone().into()).await);
 
@@ -362,7 +380,10 @@ fn receive_rate_limit_is_enforced() {
 		nested_network_dispute_request(
 			&mut handle,
 			req_tx,
-			MOCK_AUTHORITY_DISCOVERY.get_peer_id_by_authority(Sr25519Keyring::Alice),
+			MOCK_AUTHORITY_DISCOVERY
+				.get()
+				.unwrap()
+				.get_peer_id_by_authority(Sr25519Keyring::Alice),
 			message.clone().into(),
 			ImportStatementsResult::ValidImport,
 			true,
@@ -372,7 +393,10 @@ fn receive_rate_limit_is_enforced() {
 
 		let mut rx_responses = Vec::new();
 
-		let peer = MOCK_AUTHORITY_DISCOVERY.get_peer_id_by_authority(Sr25519Keyring::Bob);
+		let peer = MOCK_AUTHORITY_DISCOVERY
+			.get()
+			.unwrap()
+			.get_peer_id_by_authority(Sr25519Keyring::Bob);
 
 		let message = make_dispute_message(candidate.clone(), BOB_INDEX, FERDIE_INDEX);
 		rx_responses.push(send_network_dispute_request(req_tx, peer, message.clone().into()).await);
@@ -875,6 +899,7 @@ where
 	Fut: Future<Output = ()>,
 {
 	sp_tracing::try_init_simple();
+	MOCK_AUTHORITY_DISCOVERY.get_or_init(|| mock::MockAuthorityDiscovery::new());
 	let keystore = make_ferdie_keystore();
 
 	let genesis_hash = Hash::repeat_byte(0xff);
@@ -886,7 +911,7 @@ where
 	let subsystem = DisputeDistributionSubsystem::new(
 		keystore,
 		req_receiver,
-		MOCK_AUTHORITY_DISCOVERY.clone(),
+		MOCK_AUTHORITY_DISCOVERY.get().unwrap().clone(),
 		Metrics::new_dummy(),
 	);
 

@@ -5821,7 +5821,6 @@ dependencies = [
  "gethostname",
  "handlebars",
  "itertools 0.11.0",
- "lazy_static",
  "linked-hash-map",
  "log",
  "parity-scale-codec",
@@ -9264,7 +9263,6 @@ dependencies = [
  "kitchensink-runtime",
  "kvdb",
  "kvdb-rocksdb",
- "lazy_static",
  "log",
  "node-primitives",
  "node-testing",
@@ -13203,7 +13201,6 @@ dependencies = [
  "futures",
  "futures-timer",
  "indexmap 2.2.3",
- "lazy_static",
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
@@ -13247,7 +13244,6 @@ dependencies = [
  "async-trait",
  "futures",
  "futures-timer",
- "lazy_static",
  "parking_lot 0.12.3",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem",
@@ -13919,7 +13915,6 @@ dependencies = [
  "kvdb",
  "kvdb-memorydb",
  "kvdb-shared-tests",
- "lazy_static",
  "log",
  "parity-db",
  "parity-scale-codec",
@@ -18212,7 +18207,6 @@ dependencies = [
  "futures-timer",
  "hyper 0.14.29",
  "hyper-rustls 0.24.2",
- "lazy_static",
  "log",
  "num_cpus",
  "once_cell",
@@ -18595,7 +18589,6 @@ dependencies = [
  "console",
  "criterion",
  "is-terminal",
- "lazy_static",
  "libc",
  "log",
  "parity-scale-codec",
@@ -18684,7 +18677,6 @@ dependencies = [
  "async-channel",
  "futures",
  "futures-timer",
- "lazy_static",
  "log",
  "parking_lot 0.12.3",
  "prometheus",
@@ -20202,7 +20194,6 @@ name = "sp-consensus-beefy"
 version = "13.0.0"
 dependencies = [
  "array-bytes",
- "lazy_static",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -20288,7 +20279,6 @@ dependencies = [
  "impl-serde",
  "itertools 0.11.0",
  "k256",
- "lazy_static",
  "libsecp256k1",
  "log",
  "merlin",
@@ -20323,7 +20313,6 @@ dependencies = [
 name = "sp-core-fuzz"
 version = "0.0.0"
 dependencies = [
- "lazy_static",
  "libfuzzer-sys",
  "regex",
  "sp-core",
@@ -20606,7 +20595,6 @@ name = "sp-panic-handler"
 version = "13.0.0"
 dependencies = [
  "backtrace",
- "lazy_static",
  "regex",
 ]
 
@@ -20934,7 +20922,6 @@ dependencies = [
  "array-bytes",
  "criterion",
  "hash-db",
- "lazy_static",
  "memory-db",
  "nohash-hasher",
  "parity-scale-codec",
@@ -24494,7 +24481,6 @@ name = "zombienet-backchannel"
 version = "1.0.0"
 dependencies = [
  "futures-util",
- "lazy_static",
  "parity-scale-codec",
  "reqwest",
  "serde",
