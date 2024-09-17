@@ -26,14 +26,10 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
-	traits::{fungible::HoldConsideration, Contains, Currency},
+	traits::{Contains, Currency},
 };
 use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, Convert},
-	BuildStorage, DispatchError, RuntimeDebug,
-	TokenError::FundsUnavailable,
-};
+use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -119,50 +115,9 @@ impl Contains<RuntimeCall> for BaseFilter {
 	}
 }
 
-#[derive(Default)]
-pub struct ConvertDeposit;
-impl Convert<Footprint, <Test as pallet_balances::Config>::Balance> for ConvertDeposit {
-	fn convert(a: Footprint) -> <Test as pallet_balances::Config>::Balance {
-		if a.count == 0 {
-			0
-		} else {
-			// base + count
-			1 + a.count
-		}
-	}
-}
-
-#[derive(Default)]
-pub struct AnnouncementHoldReason;
-impl Get<RuntimeHoldReason> for AnnouncementHoldReason {
-	fn get() -> RuntimeHoldReason {
-		RuntimeHoldReason::Proxy(crate::HoldReason::Announcement)
-	}
-}
-
-#[derive(Default)]
-pub struct ProxyHoldReason;
-impl Get<RuntimeHoldReason> for ProxyHoldReason {
-	fn get() -> RuntimeHoldReason {
-		RuntimeHoldReason::Proxy(crate::HoldReason::Proxy)
-	}
-}
-
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type ProxyType = ProxyType;
-	type ProxyConsideration = HoldConsideration<
-		<Test as frame_system::Config>::AccountId,
-		Balances,
-		ProxyHoldReason,
-		ConvertDeposit,
-	>;
-	type AnnouncementConsideration = HoldConsideration<
-		<Test as frame_system::Config>::AccountId,
-		Balances,
-		AnnouncementHoldReason,
-		ConvertDeposit,
-	>;
 }
 
 use super::{Call as ProxyCall, Event as ProxyEvent};
@@ -216,9 +171,6 @@ fn announcement_works() {
 			.into(),
 		);
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
-		assert_eq!(Balances::reserved_balance(1), 2);
-		assert_eq!(Balances::reserved_balance(2), 2);
-		assert_eq!(Balances::reserved_balance(3), 0);
 
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
 		let announcements = Announcements::<Test>::get(3).unwrap();
@@ -226,7 +178,6 @@ fn announcement_works() {
 			announcements.0,
 			vec![Announcement { real: 1, call_hash: [1; 32].into(), height: 1 }]
 		);
-		assert_eq!(Balances::reserved_balance(3), 2);
 
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 2, [2; 32].into()));
 		let announcements = Announcements::<Test>::get(3).unwrap();
@@ -237,7 +188,6 @@ fn announcement_works() {
 				Announcement { real: 2, call_hash: [2; 32].into(), height: 1 },
 			]
 		);
-		assert_eq!(Balances::reserved_balance(3), 3);
 
 		assert_noop!(
 			Proxy::announce(RuntimeOrigin::signed(3), 2, [3; 32].into()),
@@ -261,7 +211,6 @@ fn remove_announcement_works() {
 			announcements.0,
 			vec![Announcement { real: 2, call_hash: [2; 32].into(), height: 1 }]
 		);
-		assert_eq!(Balances::reserved_balance(3), 2);
 	});
 }
 
@@ -282,7 +231,6 @@ fn reject_announcement_works() {
 			announcements.0,
 			vec![Announcement { real: 2, call_hash: [2; 32].into(), height: 1 }]
 		);
-		assert_eq!(Balances::reserved_balance(3), 2);
 	});
 }
 
@@ -346,7 +294,6 @@ fn proxy_announced_removes_announcement_and_returns_deposit() {
 		assert_ok!(Proxy::proxy_announced(RuntimeOrigin::signed(0), 3, 1, None, call.clone()));
 		let announcements = Announcements::<Test>::get(3).unwrap();
 		assert_eq!(announcements.0, vec![Announcement { real: 2, call_hash, height: 1 }]);
-		assert_eq!(Balances::reserved_balance(3), 2);
 	});
 }
 
@@ -448,13 +395,9 @@ fn add_remove_proxies_works() {
 			Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0),
 			Error::<Test>::Duplicate
 		);
-		assert_eq!(Balances::reserved_balance(1), 2);
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
-		assert_eq!(Balances::reserved_balance(1), 3);
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
-		assert_eq!(Balances::reserved_balance(1), 4);
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 4, ProxyType::JustUtility, 0));
-		assert_eq!(Balances::reserved_balance(1), 5);
 		assert_noop!(
 			Proxy::add_proxy(RuntimeOrigin::signed(1), 4, ProxyType::Any, 0),
 			Error::<Test>::TooMany
@@ -473,9 +416,7 @@ fn add_remove_proxies_works() {
 			}
 			.into(),
 		);
-		assert_eq!(Balances::reserved_balance(1), 4);
 		assert_ok!(Proxy::remove_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
-		assert_eq!(Balances::reserved_balance(1), 3);
 		System::assert_last_event(
 			ProxyEvent::ProxyRemoved {
 				delegator: 1,
@@ -486,7 +427,6 @@ fn add_remove_proxies_works() {
 			.into(),
 		);
 		assert_ok!(Proxy::remove_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
-		assert_eq!(Balances::reserved_balance(1), 2);
 		System::assert_last_event(
 			ProxyEvent::ProxyRemoved {
 				delegator: 1,
@@ -497,7 +437,6 @@ fn add_remove_proxies_works() {
 			.into(),
 		);
 		assert_ok!(Proxy::remove_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
-		assert_eq!(Balances::reserved_balance(1), 0);
 		System::assert_last_event(
 			ProxyEvent::ProxyRemoved {
 				delegator: 1,
@@ -511,19 +450,15 @@ fn add_remove_proxies_works() {
 			Proxy::add_proxy(RuntimeOrigin::signed(1), 1, ProxyType::Any, 0),
 			Error::<Test>::NoSelfProxy
 		);
-		assert_eq!(Balances::reserved_balance(1), 0);
 	});
 }
 
 #[test]
-fn cannot_add_proxy_without_balance() {
+fn can_add_proxy_without_balance() {
+	// if proxy consideration is configured empty creating proxy without balance is possible
 	new_test_ext().execute_with(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(5), 3, ProxyType::Any, 0));
-		assert_eq!(Balances::reserved_balance(5), 2);
-		assert_noop!(
-			Proxy::add_proxy(RuntimeOrigin::signed(5), 4, ProxyType::Any, 0),
-			DispatchError::Token(FundsUnavailable),
-		);
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(5), 4, ProxyType::Any, 0));
 	});
 }
 
@@ -544,7 +479,6 @@ fn proxying_works() {
 		);
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()));
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
-		assert_eq!(Balances::free_balance(6), 1);
 
 		let call = Box::new(RuntimeCall::System(SystemCall::set_code { code: vec![] }));
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(3), 1, None, call.clone()));
@@ -563,7 +497,6 @@ fn proxying_works() {
 		);
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(3), 1, None, call.clone()));
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
-		assert_eq!(Balances::free_balance(6), 2);
 	});
 }
 
@@ -602,7 +535,6 @@ fn pure_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), anon, 5));
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(1), anon, None, call));
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
-		assert_eq!(Balances::free_balance(6), 1);
 
 		let call = Box::new(RuntimeCall::Proxy(ProxyCall::new_call_variant_kill_pure(
 			1,
@@ -618,9 +550,7 @@ fn pure_works() {
 			Proxy::kill_pure(RuntimeOrigin::signed(1), 1, ProxyType::Any, 0, 1, 0),
 			Error::<Test>::NoPermission
 		);
-		assert_eq!(Balances::free_balance(1), 1);
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(1), anon, None, call.clone()));
-		assert_eq!(Balances::free_balance(1), 3);
 		assert_noop!(
 			Proxy::proxy(RuntimeOrigin::signed(1), anon, None, call.clone()),
 			Error::<Test>::NotProxy

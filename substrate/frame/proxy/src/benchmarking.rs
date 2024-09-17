@@ -23,26 +23,16 @@ use super::*;
 use crate::Pallet as Proxy;
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
-use frame_support::traits::Currency as CurrencyTrait;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_runtime::traits::Bounded;
 
 const SEED: u32 = 0;
-
-type Balances<T> = pallet_balances::Pallet<T>;
-
-type BalanceOf<T> = <Balances<T> as CurrencyTrait<<T as frame_system::Config>::AccountId>>::Balance;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
-fn add_proxies<T: Config + pallet_balances::Config>(
-	n: u32,
-	maybe_who: Option<T::AccountId>,
-) -> Result<(), &'static str> {
+fn add_proxies<T: Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(), &'static str> {
 	let caller = maybe_who.unwrap_or_else(whitelisted_caller);
-	Balances::<T>::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 	for i in 0..n {
 		let real = T::Lookup::unlookup(account("target", i, SEED));
 
@@ -56,19 +46,17 @@ fn add_proxies<T: Config + pallet_balances::Config>(
 	Ok(())
 }
 
-fn add_announcements<T: Config + pallet_balances::Config>(
+fn add_announcements<T: Config>(
 	n: u32,
 	maybe_who: Option<T::AccountId>,
 	maybe_real: Option<T::AccountId>,
 ) -> Result<(), &'static str> {
 	let caller = maybe_who.unwrap_or_else(|| account("caller", 0, SEED));
 	let caller_lookup = T::Lookup::unlookup(caller.clone());
-	Balances::<T>::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 	let real = if let Some(real) = maybe_real {
 		real
 	} else {
-		let real = account("real", 0, SEED);
-		Balances::<T>::make_free_balance_be(&real, BalanceOf::<T>::max_value() / 2u32.into());
+		let real: T::AccountId = account("real", 0, SEED);
 		Proxy::<T>::add_proxy(
 			RawOrigin::Signed(real.clone()).into(),
 			caller_lookup,
@@ -89,13 +77,12 @@ fn add_announcements<T: Config + pallet_balances::Config>(
 }
 
 benchmarks! {
-	where_clause { where T: Config + pallet_balances::Config }
+	where_clause { where T: Config }
 
 	proxy {
 		let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
-		Balances::<T>::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real);
@@ -112,7 +99,6 @@ benchmarks! {
 		let caller: T::AccountId = account("pure", 0, SEED);
 		let delegate: T::AccountId = account("target", p - 1, SEED);
 		let delegate_lookup = T::Lookup::unlookup(delegate.clone());
-		Balances::<T>::make_free_balance_be(&delegate, BalanceOf::<T>::max_value() / 2u32.into());
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real);
@@ -133,7 +119,6 @@ benchmarks! {
 		let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
-		Balances::<T>::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real);
@@ -156,7 +141,6 @@ benchmarks! {
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		Balances::<T>::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real.clone());
@@ -178,7 +162,6 @@ benchmarks! {
 		let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
-		Balances::<T>::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real.clone());
@@ -253,7 +236,6 @@ benchmarks! {
 
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		Balances::<T>::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		Pallet::<T>::create_pure(
 			RawOrigin::Signed(whitelisted_caller()).into(),
 			T::ProxyType::default(),
