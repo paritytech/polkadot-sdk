@@ -19,41 +19,10 @@ jobs:
   #
   #
   #
-  set-image:
-      ## TODO: remove when ready
-      if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
-      # GitHub Actions allows using 'env' in a container context.
-      # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-      # This workaround sets the container image for each job using 'set-image' job output.
-      runs-on: ubuntu-latest
-      env:
-        BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-      outputs:
-        IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-        RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
-        REF_NAME: ${{ steps.set_vars.outputs.REF_NAME }}
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-        - id: set_image
-          run: cat .github/env >> $GITHUB_OUTPUT
-        - id: log
-          run: |
-            echo ${BRANCH_NAME}
-            echo ${COMMIT_SHA}
-        - id: set_vars
-          run: |
-            echo "REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
-        # By default we use spot machines that can be terminated at any time.
-        # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
-        - id: set_runner
-          run: |
-            # Run merge queues on persistent runners
-            if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-              echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
-            else
-              echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-            fi
+  preflight:
+    ## TODO: remove when ready
+    if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
+    uses: ./.github/workflows/reusable-preflight.yml
 
 ### Build ########################
 
@@ -61,11 +30,11 @@ jobs:
   #
   #
   build-linux-stable:
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUST_TOOLCHAIN: stable
       # Enable debug assertions since we are running optimized builds for testing
@@ -85,7 +54,7 @@ jobs:
       - name: pack artifacts
         run: |
           mkdir -p ./artifacts
-          VERSION="${{ needs.set-image.outputs.REF_NAME }}" # will be tag or branch name
+          VERSION="${{ needs.preflight.outputs.SOURCE_REF_NAME }}" # will be tag or branch name
           mv ./target/testnet/polkadot ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
@@ -94,7 +63,7 @@ jobs:
           sha256sum polkadot | tee polkadot.sha256
           shasum -c polkadot.sha256
           cd ../
-          EXTRATAG="${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA}"
+          EXTRATAG="${{ needs.preflight.outputs.SOURCE_REF_NAME }}-${COMMIT_SHA}"
           echo "Polkadot version = ${VERSION} (EXTRATAG = ${EXTRATAG})"
           echo -n ${VERSION} > ./artifacts/VERSION
           echo -n ${EXTRATAG} > ./artifacts/EXTRATAG
@@ -109,7 +78,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
           path: artifacts.tar
           retention-days: 1
 
@@ -117,11 +86,11 @@ jobs:
   #
   #
   build-linux-stable-cumulus:
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
@@ -135,7 +104,7 @@ jobs:
           mkdir -p ./artifacts
           mv ./target/release/polkadot-parachain ./artifacts/.
           echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___"
-          echo ${{ needs.set-image.outputs.REF_NAME }} | tee ./artifacts/VERSION
+          echo ${{ needs.preflight.outputs.SOURCE_REF_NAME }} | tee ./artifacts/VERSION
 
       - name: tar
         run: tar -cvf artifacts.tar artifacts
@@ -143,7 +112,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
           path: artifacts.tar
           retention-days: 1
 
@@ -151,11 +120,11 @@ jobs:
   #
   #
   build-test-parachain:
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
@@ -179,7 +148,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
           path: artifacts.tar
           retention-days: 1
 
@@ -187,11 +156,11 @@ jobs:
   #
   #
   build-test-collators:
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -204,8 +173,8 @@ jobs:
           mkdir -p ./artifacts
           mv ./target/testnet/adder-collator ./artifacts/.
           mv ./target/testnet/undying-collator ./artifacts/.
-          echo -n "${{ needs.set-image.outputs.REF_NAME }}" > ./artifacts/VERSION
-          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}" > ./artifacts/VERSION
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
           echo "adder-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
@@ -216,7 +185,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
           path: artifacts.tar
           retention-days: 1
 
@@ -224,11 +193,11 @@ jobs:
   #
   #
   build-malus:
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -241,8 +210,8 @@ jobs:
           mv ./target/testnet/malus ./artifacts/.
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
-          echo -n "${{ needs.set-image.outputs.REF_NAME }}" > ./artifacts/VERSION
-          echo -n "${{ needs.set-image.outputs.REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}" > ./artifacts/VERSION
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
           echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
 
@@ -252,7 +221,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
           path: artifacts.tar
           retention-days: 1
 
@@ -260,11 +229,11 @@ jobs:
   #
   #
   build-linux-substrate:
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -296,7 +265,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
           path: artifacts.tar
           retention-days: 1
 
@@ -304,11 +273,11 @@ jobs:
   #
   #
   prepare-bridges-zombienet-artifacts:
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -326,7 +295,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.set-image.outputs.REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
           path: artifacts.tar
           retention-days: 1
 
@@ -336,7 +305,7 @@ jobs:
   #
   #
   build-push-image-test-parachain:
-    needs: [set-image, build-test-parachain]
+    needs: [preflight, build-test-parachain]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     steps:
@@ -345,7 +314,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-test-parachain-${{ needs.set-image.outputs.REF_NAME }}
+          name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
 
       - name: tar
         run: tar -xvf artifacts.tar
@@ -360,7 +329,7 @@ jobs:
   #
   #
   build-push-image-polkadot-debug:
-    needs: [set-image, build-linux-stable]
+    needs: [preflight, build-linux-stable]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     steps:
@@ -369,7 +338,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-linux-stable-${{ needs.set-image.outputs.REF_NAME }}
+          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
 
       - name: tar
         run: tar -xvf artifacts.tar
@@ -385,7 +354,7 @@ jobs:
   #
   #
   build-push-image-colander:
-    needs: [set-image, build-test-collators]
+    needs: [preflight, build-test-collators]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     steps:
@@ -394,7 +363,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-test-collators-${{ needs.set-image.outputs.REF_NAME }}
+          name: build-test-collators-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
 
       - name: tar
         run: tar -xvf artifacts.tar
@@ -410,7 +379,7 @@ jobs:
   #
   #
   build-push-image-malus:
-    needs: [set-image, build-malus]
+    needs: [preflight, build-malus]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     steps:
@@ -419,7 +388,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-malus-${{ needs.set-image.outputs.REF_NAME }}
+          name: build-malus-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
 
       - name: tar
         run: tar -xvf artifacts.tar
@@ -435,7 +404,7 @@ jobs:
   #
   #
   build-push-image-substrate-pr:
-    needs: [set-image, build-linux-substrate]
+    needs: [preflight, build-linux-substrate]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     steps:
@@ -444,7 +413,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-linux-substrate-${{ needs.set-image.outputs.REF_NAME }}
+          name: build-linux-substrate-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
 
       - name: tar
         run: tar -xvf artifacts.tar
@@ -462,7 +431,7 @@ jobs:
   # unlike other images, bridges+zombienet image is based on Zombienet image that pulls required binaries
   # from other fresh images (polkadot and cumulus)
   build-push-image-bridges-zombienet-tests:
-    needs: [set-image, build-linux-stable, build-linux-stable-cumulus, prepare-bridges-zombienet-artifacts]
+    needs: [preflight, build-linux-stable, build-linux-stable-cumulus, prepare-bridges-zombienet-artifacts]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     steps:
@@ -471,7 +440,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-linux-stable-${{ needs.set-image.outputs.REF_NAME }}
+          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
       - name: tar
         run: |
          tar -xvf artifacts.tar
@@ -479,7 +448,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-linux-stable-cumulus-${{ needs.set-image.outputs.REF_NAME }}
+          name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
       - name: tar
         run: |
          tar -xvf artifacts.tar
@@ -487,7 +456,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: prepare-bridges-zombienet-artifacts-${{ needs.set-image.outputs.REF_NAME }}
+          name: prepare-bridges-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
       - name: tar
         run: |
          tar -xvf artifacts.tar
@@ -504,7 +473,7 @@ jobs:
   #
   #
   build-push-image-polkadot-parachain-debug:
-    needs: [set-image, build-linux-stable-cumulus]
+    needs: [preflight, build-linux-stable-cumulus]
     runs-on: arc-runners-polkadot-sdk
     timeout-minutes: 60
     steps:
@@ -513,7 +482,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-linux-stable-cumulus-${{ needs.set-image.outputs.REF_NAME }}
+          name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
 
       - name: tar
         run: tar -xvf artifacts.tar
