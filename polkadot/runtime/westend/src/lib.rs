@@ -1786,6 +1786,7 @@ pub mod migrations {
 			Runtime,
 			MaxAgentsToMigrate,
 		>,
+		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
 	);
 }
 
