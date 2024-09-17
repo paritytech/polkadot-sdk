@@ -28,7 +28,7 @@
 //!
 //! Exceptions to this rule apply: Limits in the [`code`] module can be increased
 //! without emulating the old values for existing contracts. Reason is that those limits are only
-//! applied **once** at code upload time. Since this action cannot be performened by contracts we
+//! applied **once** at code upload time. Since this action cannot be performed by contracts we
 //! can change those limits without breaking existing contracts. Please keep in mind that we should
 //! only ever **increase** those values but never decrease.
 
