@@ -91,6 +91,17 @@ impl Display for OutboundFailure{
 	}
 }
 
+impl From<request_response::OutboundFailure> for OutboundFailure{
+	fn from(out: request_response::OutboundFailure) -> Self {
+		match out{
+			request_response::OutboundFailure::DialFailure => OutboundFailure::DialFailure,
+			request_response::OutboundFailure::Timeout => OutboundFailure::Timeout,
+			request_response::OutboundFailure::ConnectionClosed => OutboundFailure::ConnectionClosed,
+			request_response::OutboundFailure::UnsupportedProtocols => OutboundFailure::UnsupportedProtocols,
+		}
+	}
+}
+
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum  InboundFailure {
@@ -112,6 +123,17 @@ impl Display for  InboundFailure{
 			 InboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
 			 InboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
 			 InboundFailure::ResponseOmission => write!(f, "ResponseOmission"),
+		}
+	}
+}
+
+impl From<request_response::InboundFailure> for InboundFailure{
+	fn from(out: request_response::InboundFailure) -> Self {
+		match out{
+			request_response::InboundFailure::ResponseOmission => InboundFailure::ResponseOmission,
+			request_response::InboundFailure::Timeout => InboundFailure::Timeout,
+			request_response::InboundFailure::ConnectionClosed => InboundFailure::ConnectionClosed,
+			request_response::InboundFailure::UnsupportedProtocols => InboundFailure::UnsupportedProtocols,
 		}
 	}
 }
@@ -298,7 +320,6 @@ pub enum Event {
 		/// Reputation changes.
 		changes: Vec<ReputationChange>,
 	},
-	
 }
 
 /// Combination of a protocol name and a request id.
@@ -735,9 +756,9 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						// Received a request from a remote.
 						request_response::Event::Message {
 							peer,
-							message:
-								request_response::Message::Request {
-									request_id, request, channel, ..
+							message: 
+								request_response::Message::Request { 
+									request_id, request, channel, .. 
 								},
 						} => {
 							self.pending_responses_arrival_time
@@ -883,9 +904,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									}
 
 									if response_tx
-										.send(Err(RequestFailure::Network(
-											OutboundFailure::Timeout,
-										)))
+										.send(Err(RequestFailure::Network(error.clone().into())))
 										.is_err()
 									{
 										log::debug!(
@@ -907,11 +926,12 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									continue
 								},
 							};
+
 							let out = Event::RequestFinished {
 								peer,
 								protocol: protocol.clone(),
 								duration: started.elapsed(),
-								result: Err(RequestFailure::Network(OutboundFailure::Timeout)),
+								result: Err(RequestFailure::Network(error.into())),
 							};
 
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
@@ -919,14 +939,16 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 
 						// An inbound request failed, either while reading the request or due to
 						// failing to send a response.
-						request_response::Event::InboundFailure { request_id, peer, .. } => {
+						request_response::Event::InboundFailure {
+							request_id, peer, error, ..
+						} => {
 							self.pending_responses_arrival_time
 								.remove(&(protocol.clone(), request_id).into());
 							self.send_feedback.remove(&(protocol.clone(), request_id).into());
 							let out = Event::InboundRequest {
 								peer,
 								protocol: protocol.clone(),
-								result: Err(ResponseFailure::Network(InboundFailure::Timeout)),
+								result: Err(ResponseFailure::Network(error.into())),
 							};
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
 						},
@@ -1000,7 +1022,7 @@ pub enum RegisterError {
 pub enum ResponseFailure {
 	/// Problem on the network.
 	#[error("Problem on the network: {0}")]
-	Network( InboundFailure),
+	Network(InboundFailure),
 }
 
 /// Implements the libp2p [`Codec`] trait. Defines how streams of bytes are turned

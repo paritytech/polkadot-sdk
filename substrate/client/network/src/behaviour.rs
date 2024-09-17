@@ -21,12 +21,9 @@ use crate::{
 	event::DhtEvent,
 	peer_info,
 	peer_store::PeerStoreProvider,
-	protocol::{MessageOutcome, NotificationsSink, Protocol},
+	protocol::{CustomMessageOutcome, NotificationsSink, Protocol},
 	protocol_controller::SetId,
-	request_responses::{
-		self, OutboundFailure, IfDisconnected,
-		ProtocolConfig, RequestFailure,
-	},
+	request_responses::{self, IfDisconnected, ProtocolConfig, RequestFailure},
 	service::traits::Direction,
 	types::ProtocolName,
 	ReputationChange,
@@ -51,7 +48,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-pub use crate::request_responses::{InboundFailure, ResponseFailure};
+pub use crate::request_responses::{InboundFailure, OutboundFailure, ResponseFailure};
 
 /// General behaviour of the network. Combines all protocols together.
 #[derive(NetworkBehaviour)]
@@ -319,10 +316,10 @@ impl<B: BlockT> Behaviour<B> {
 	}
 }
 
-impl From<MessageOutcome> for BehaviourOut {
-	fn from(event: MessageOutcome) -> Self {
+impl From<CustomMessageOutcome> for BehaviourOut {
+	fn from(event: CustomMessageOutcome) -> Self {
 		match event {
-			MessageOutcome::NotificationStreamOpened {
+			CustomMessageOutcome::NotificationStreamOpened {
 				remote,
 				set_id,
 				direction,
@@ -337,14 +334,14 @@ impl From<MessageOutcome> for BehaviourOut {
 				received_handshake,
 				notifications_sink,
 			},
-			MessageOutcome::NotificationStreamReplaced {
+			CustomMessageOutcome::NotificationStreamReplaced {
 				remote,
 				set_id,
 				notifications_sink,
 			} => BehaviourOut::NotificationStreamReplaced { remote, set_id, notifications_sink },
-			MessageOutcome::NotificationStreamClosed { remote, set_id } =>
+			CustomMessageOutcome::NotificationStreamClosed { remote, set_id } =>
 				BehaviourOut::NotificationStreamClosed { remote, set_id },
-			MessageOutcome::NotificationsReceived { remote, set_id, notification } =>
+			CustomMessageOutcome::NotificationsReceived { remote, set_id, notification } =>
 				BehaviourOut::NotificationsReceived { remote, set_id, notification },
 		}
 	}
