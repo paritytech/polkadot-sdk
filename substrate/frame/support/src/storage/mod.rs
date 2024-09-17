@@ -1660,7 +1660,7 @@ pub trait TryAppendNMap<K: EncodeLikeTuple<K::KArg> + TupleToEncodedIter, T: Sto
 	) -> Result<(), ()>;
 }
 
-impl<K, T, I, StorageNMapT> TryAppendMap<K, T, I> for StorageMapT
+impl<K, T, I, StorageNMapT> TryAppendNMap<K, T, I> for StorageNMapT
 where
 	K: KeyGenerator,
 	T: FullCodec + StorageTryAppend<I>,
@@ -2141,6 +2141,31 @@ mod test {
 			assert_ok!(FooDoubleMap::try_append(2, 1, 5));
 			assert_eq!(
 				FooDoubleMap::get(2, 1).unwrap(),
+				BoundedVec::<u32, ConstU32<7>>::try_from(vec![4, 5]).unwrap(),
+			);
+		});
+
+		TestExternalities::default().execute_with(|| {
+			let bounded: BoundedVec<u32, ConstU32<7>> = vec![1, 2, 3].try_into().unwrap();
+			FooTripleMap::insert((1, 1, 1), bounded);
+
+			assert_ok!(FooTripleMap::try_append((1, 1, 1), 4));
+			assert_ok!(FooTripleMap::try_append((1, 1, 1), 5));
+			assert_ok!(FooTripleMap::try_append((1, 1, 1), 6));
+			assert_ok!(FooTripleMap::try_append((1, 1, 1), 7));
+			assert_eq!(FooTripleMap::decode_len((1, 1, 1)).unwrap(), 7);
+			assert!(FooTripleMap::try_append((1, 1, 1), 8).is_err());
+
+			// append to a non-existing
+			assert!(FooTripleMap::get((2, 1, 1)).is_none());
+			assert_ok!(FooTripleMap::try_append((2, 1, 1), 4));
+			assert_eq!(
+				FooTripleMap::get((2, 1, 1)).unwrap(),
+				BoundedVec::<u32, ConstU32<7>>::try_from(vec![4]).unwrap(),
+			);
+			assert_ok!(FooTripleMap::try_append((2, 1, 1), 5));
+			assert_eq!(
+				FooTripleMap::get((2, 1, 1)).unwrap(),
 				BoundedVec::<u32, ConstU32<7>>::try_from(vec![4, 5]).unwrap(),
 			);
 		});
