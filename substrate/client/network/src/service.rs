@@ -1515,22 +1515,18 @@ where
 						},
 						Err(err) => {
 							let reason = match err {
-								ResponseFailure::Network( InboundFailure::Timeout) =>
+								ResponseFailure::Network(InboundFailure::Timeout) =>
 									Some("timeout"),
-								ResponseFailure::Network(
-									 InboundFailure::UnsupportedProtocols,
-								) =>
+								ResponseFailure::Network(InboundFailure::UnsupportedProtocols) =>
 								// `UnsupportedProtocols` is reported for every single
 								// inbound request whenever a request with an unsupported
 								// protocol is received. This is not reported in order to
 								// avoid confusions.
 									None,
-								ResponseFailure::Network(
-									 InboundFailure::ResponseOmission,
-								) => Some("busy-omitted"),
-								ResponseFailure::Network(
-									 InboundFailure::ConnectionClosed,
-								) => Some("connection-closed"),
+								ResponseFailure::Network(InboundFailure::ResponseOmission) =>
+									Some("busy-omitted"),
+								ResponseFailure::Network(InboundFailure::ConnectionClosed) =>
+									Some("connection-closed"),
 							};
 
 							if let Some(reason) = reason {

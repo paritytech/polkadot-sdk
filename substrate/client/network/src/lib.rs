@@ -286,11 +286,10 @@ pub use service::{
 		NotificationSender as NotificationSenderT, NotificationSenderError,
 		NotificationSenderReady, NotificationService,
 	},
-	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender,
+	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
 	PublicKey,
 };
 pub use types::ProtocolName;
-pub use crate::request_responses::OutboundFailure;
 
 /// The maximum allowed number of established connections per peer.
 ///
