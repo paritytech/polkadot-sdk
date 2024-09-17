@@ -51,7 +51,7 @@ use std::{
 	cmp,
 	collections::{HashMap, HashSet, VecDeque},
 	pin::Pin,
-	sync::Arc,
+	sync::{atomic::AtomicUsize, Arc},
 	task::{Context, Poll},
 	time::{Duration, Instant},
 };
@@ -204,6 +204,12 @@ pub struct Discovery {
 
 	/// Delay to next `FIND_NODE` query.
 	duration_to_next_find_query: Duration,
+
+	/// Number of connected peers as reported by the blocks announcement protocol.
+	num_connected_peers: Arc<AtomicUsize>,
+
+	/// Number of active connections over which we interrupt the discovery process.
+	discovery_only_if_under_num: usize,
 }
 
 /// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
@@ -238,6 +244,8 @@ impl Discovery {
 		protocol_id: &ProtocolId,
 		known_peers: HashMap<PeerId, Vec<Multiaddr>>,
 		listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
+		num_connected_peers: Arc<AtomicUsize>,
+		discovery_only_if_under_num: usize,
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
@@ -291,12 +299,19 @@ impl Discovery {
 					genesis_hash,
 					fork_id,
 				)]),
+				num_connected_peers,
+				discovery_only_if_under_num,
 			},
 			ping_config,
 			identify_config,
 			kademlia_config,
 			mdns_config,
 		)
+	}
+
+	/// Get number of connected peers.
+	fn num_connected_peers(&self) -> usize {
+		self.num_connected_peers.load(std::sync::atomic::Ordering::Relaxed)
 	}
 
 	/// Add known peer to `Kademlia`.
@@ -458,7 +473,10 @@ impl Stream for Discovery {
 		if let Some(mut delay) = this.next_kad_query.take() {
 			match delay.poll_unpin(cx) {
 				Poll::Ready(()) => {
-					if this.find_node_queries.len() < MAX_INFLIGHT_FIND_NODE_QUERIES {
+					let num_peers = this.num_connected_peers();
+					if num_peers < this.discovery_only_if_under_num &&
+						this.find_node_queries.len() < MAX_INFLIGHT_FIND_NODE_QUERIES
+					{
 						let peer = PeerId::random();
 						log::debug!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
 
@@ -477,7 +495,9 @@ impl Stream for Discovery {
 					} else {
 						log::debug!(
 							target: LOG_TARGET,
-							"discovery is paused; too many in-flight queries",
+							"discovery is paused: {num_peers}/{} connected peers and in flight queries: {}/{MAX_INFLIGHT_FIND_NODE_QUERIES}",
+							this.discovery_only_if_under_num,
+							this.find_node_queries.len(),
 						);
 					}
 

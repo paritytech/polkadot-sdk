@@ -88,7 +88,10 @@ use std::{
 	future::Future,
 	iter,
 	pin::Pin,
-	sync::{atomic::Ordering, Arc},
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc,
+	},
 	time::{Duration, Instant},
 };
 
@@ -162,6 +165,11 @@ pub struct Litep2pNetworkBackend {
 
 	/// Discovery.
 	discovery: Discovery,
+
+	/// Number of uniquely connected peers.
+	///
+	/// This is used to instruct the discovery about the number of connected peers.
+	num_uniquely_connected: Arc<AtomicUsize>,
 
 	/// Connected peers.
 	peers: HashMap<litep2p::PeerId, ConnectionContext>,
@@ -433,6 +441,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let peer_store_handle = params.network_config.peer_store_handle();
 		let executor = Arc::new(Litep2pExecutor { executor: params.executor });
 
+		let limit_discovery_under =
+			params.network_config.network_config.default_peers_set.out_peers as usize + 15;
+
 		let FullNetworkConfiguration {
 			notification_protocols,
 			request_response_protocols,
@@ -536,6 +547,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		// enable ipfs ping, identify and kademlia, and potentially mdns if user enabled it
 		let listen_addresses = Arc::new(Default::default());
+		let num_uniquely_connected = Arc::new(Default::default());
 
 		let (discovery, ping_config, identify_config, kademlia_config, maybe_mdns_config) =
 			Discovery::new(
@@ -545,6 +557,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				&params.protocol_id,
 				known_addresses.clone(),
 				Arc::clone(&listen_addresses),
+				Arc::clone(&num_uniquely_connected),
+				limit_discovery_under,
 				Arc::clone(&peer_store_handle),
 			);
 
@@ -600,6 +614,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			cmd_rx,
 			metrics,
 			peerset_handles: notif_protocols,
+			num_uniquely_connected,
 			discovery,
 			pending_put_values: HashMap::new(),
 			pending_get_values: HashMap::new(),
@@ -676,6 +691,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		log::debug!(target: LOG_TARGET, "starting litep2p network backend");
 
 		loop {
+			self.num_uniquely_connected.store(self.peers.len(), Ordering::Relaxed);
+
 			tokio::select! {
 				command = self.cmd_rx.next() => match command {
 					None => return,
