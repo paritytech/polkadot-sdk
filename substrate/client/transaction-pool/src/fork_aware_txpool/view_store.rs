@@ -357,12 +357,12 @@ where
 	pub(super) fn get_view_at(
 		&self,
 		at: Block::Hash,
-		allow_retracted: bool,
+		allow_inactive: bool,
 	) -> Option<(Arc<View<ChainApi>>, bool)> {
 		if let Some(view) = self.active_views.read().get(&at) {
 			return Some((view.clone(), false));
 		}
-		if allow_retracted {
+		if allow_inactive {
 			if let Some(view) = self.inactive_views.read().get(&at) {
 				return Some((view.clone(), true))
 			}

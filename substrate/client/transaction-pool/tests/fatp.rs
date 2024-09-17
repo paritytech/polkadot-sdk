@@ -2624,3 +2624,93 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 //todo: add test: check len of filter after finalization (!)
 //todo: broadcasted test?
 //todo: ready_at_with_timeout [#5488]
+
+#[test]
+fn fatp_ready_light_empty_on_unmaintained_fork_works() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	let (pool, _) = create_basic_pool(api.clone());
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+
+	let header01a = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	let event = new_best_block_event(&pool, Some(genesis), header01a.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header01a.hash(), &pool, 0, 0);
+
+	let header01b = api.push_block_with_parent(genesis, vec![xt1.clone()], true);
+
+	let mut ready_iterator = pool.ready_at_light(header01b.hash()).now_or_never().unwrap();
+	let ready01 = ready_iterator.next();
+	assert!(ready01.is_none());
+}
+
+#[test]
+fn fatp_ready_light_misc_scenarios_works() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+	let (pool, _) = create_basic_pool(api.clone());
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+	let xt2 = uxt(Charlie, 200);
+
+	//fork A
+	let header01a = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	let event = new_best_block_event(&pool, Some(genesis), header01a.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header01a.hash(), &pool, 0, 0);
+
+	//fork B
+	let header01b = api.push_block_with_parent(genesis, vec![xt1.clone()], true);
+	let event = new_best_block_event(&pool, Some(header01a.hash()), header01b.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header01b.hash(), &pool, 1, 0);
+
+	//new block at fork B
+	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
+
+	// test 1:
+	//ready light returns just txs from view @header01b (which contains retracted xt0)
+	let mut ready_iterator = pool.ready_at_light(header02b.hash()).now_or_never().unwrap();
+	let ready01 = ready_iterator.next();
+	assert_eq!(ready01.unwrap().hash, api.hash_and_length(&xt0).0);
+	assert!(ready_iterator.next().is_none());
+
+	// test 2:
+	// submit new transaction to all views
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+
+	//new block at fork A, not yet notified to pool
+	let header02a = api.push_block_with_parent(header01a.hash(), vec![], true);
+
+	//ready light returns just txs from view @header01a (which contains newly submitted xt2)
+	let mut ready_iterator = pool.ready_at_light(header02a.hash()).now_or_never().unwrap();
+	let ready01 = ready_iterator.next();
+	assert_eq!(ready01.unwrap().hash, api.hash_and_length(&xt2).0);
+	assert!(ready_iterator.next().is_none());
+
+	//test 3:
+	let mut ready_iterator = pool.ready_at_light(header02b.hash()).now_or_never().unwrap();
+	let ready01 = ready_iterator.next();
+	assert_eq!(ready01.unwrap().hash, api.hash_and_length(&xt0).0);
+	let ready02 = ready_iterator.next();
+	assert_eq!(ready02.unwrap().hash, api.hash_and_length(&xt2).0);
+	assert!(ready_iterator.next().is_none());
+
+	//test 4:
+	//new block at fork B, not yet notified to pool
+	let header03b =
+		api.push_block_with_parent(header02b.hash(), vec![xt0.clone(), xt2.clone()], true);
+	//ready light @header03b will be empty: as new block contains xt0/xt2
+	let mut ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
+	assert!(ready_iterator.next().is_none());
+}

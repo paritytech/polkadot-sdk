@@ -342,7 +342,7 @@ where
 	///
 	/// Pruning is just rebuilding the underlying transactions graph, no validations are executed,
 	/// so this process shall be fast.
-	fn ready_at_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
+	pub fn ready_at_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
 		let start = Instant::now();
 		log::trace!(target: LOG_TARGET, "fatp::ready_at_light {:?}", at);
 
@@ -450,9 +450,13 @@ where
 		log::debug!(target: LOG_TARGET, "fatp::ready_at_with_timeout at {:?} allowed delay: {:?}", at, timeout);
 
 		let timeout = futures_timer::Delay::new(timeout);
-		let fall_back_ready = self.ready_at_light(at).map(|ready| Some(ready));
-		let ready_at = self.ready_at(at);
+		let (view_already_exists, ready_at) = self.ready_at_internal(at);
 
+		if view_already_exists {
+			return ready_at;
+		}
+
+		let fall_back_ready = self.ready_at_light(at).map(|ready| Some(ready));
 		let maybe_ready = async move {
 			select! {
 				ready = ready_at => Some(ready),
@@ -467,14 +471,37 @@ where
 			}
 		};
 
-		//todo: if ready_at is immediately available we could skip waiting for fallback.
-
 		Box::pin(async {
 			let (maybe_ready, fall_back_ready) =
 				futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
 			maybe_ready
 				.unwrap_or_else(|| fall_back_ready.expect("Fallback value is always Some. qed"))
 		})
+	}
+
+	fn ready_at_internal(&self, at: Block::Hash) -> (bool, PolledIterator<ChainApi>) {
+		if let Some((view, inactive)) = self.view_store.get_view_at(at, true) {
+			log::debug!(target: LOG_TARGET, "fatp::ready_at {at:?} (inactive:{inactive:?})");
+			let iterator: ReadyIteratorFor<ChainApi> = Box::new(view.pool.validated_pool().ready());
+			return (true, async move { iterator }.boxed());
+		}
+
+		let pending = self
+			.ready_poll
+			.lock()
+			.add(at)
+			.map(|received| {
+				received.unwrap_or_else(|e| {
+					log::warn!(target: LOG_TARGET, "Error receiving ready-set iterator: {:?}", e);
+					Box::new(std::iter::empty())
+				})
+			})
+			.boxed();
+		log::debug!(target: LOG_TARGET,
+			"fatp::ready_at {at:?} pending keys: {:?}",
+			self.ready_poll.lock().pollers.keys()
+		);
+		(false, pending)
 	}
 }
 
@@ -703,28 +730,8 @@ where
 
 	/// Returns an iterator for ready transactions at a specific block, ordered by priority.
 	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<ChainApi> {
-		if let Some((view, retracted)) = self.view_store.get_view_at(at, true) {
-			log::debug!(target: LOG_TARGET, "fatp::ready_at {:?} (retracted:{:?})", at, retracted);
-			let iterator: ReadyIteratorFor<ChainApi> = Box::new(view.pool.validated_pool().ready());
-			return async move { iterator }.boxed();
-		}
-
-		let pending = self
-			.ready_poll
-			.lock()
-			.add(at)
-			.map(|received| {
-				received.unwrap_or_else(|e| {
-					log::warn!(target: LOG_TARGET, "Error receiving ready-set iterator: {:?}", e);
-					Box::new(std::iter::empty())
-				})
-			})
-			.boxed();
-		log::debug!(target: LOG_TARGET,
-			"fatp::ready_at {at:?} pending keys: {:?}",
-			self.ready_poll.lock().pollers.keys()
-		);
-		pending
+		let (_, result) = self.ready_at_internal(at);
+		result
 	}
 
 	/// Returns an iterator for ready transactions, ordered by priority.
