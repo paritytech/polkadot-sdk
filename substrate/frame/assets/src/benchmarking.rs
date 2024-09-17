@@ -571,7 +571,7 @@ benchmarks_instance_pallet! {
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		let before_count = MerklizedDistribution::<T, I>::count();
-	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), T::Hash::default())
+	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), DistributionHashOf::<T, I>::default())
 	verify {
 		let count = MerklizedDistribution::<T, I>::count();
 		assert!(count == before_count + 1);

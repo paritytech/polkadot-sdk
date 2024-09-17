@@ -299,7 +299,8 @@ pub mod pallet {
 			type Extra = ();
 			type CallbackHandle = ();
 			type WeightInfo = ();
-			type VerifyExistenceProof = BinaryMerkleTreeProver<Self::Hashing>;
+			type VerifyExistenceProof = ();
+			type RemoveKeysLimit = ConstU32<100>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
 		}
@@ -407,7 +408,14 @@ pub mod pallet {
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
 
 		/// A type used to verify merkle proofs used for distributions.
-		type VerifyExistenceProof: VerifyExistenceProof<Hash = Self::Hash>;
+		type VerifyExistenceProof: VerifyExistenceProof<Hash: Parameter + MaxEncodedLen>;
+
+		/// The number of storage items we can clean up from an ended distribution in one call.
+		/// The larger this number, the more weight `clean_distribution` will use.
+		/// The smaller this number, the more time you would need to call this function to clean
+		/// all the data.
+		#[pallet::constant]
+		type RemoveKeysLimit: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -467,7 +475,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		DistributionCounter,
-		DistributionInfo<T::AssetId, T::Hash>,
+		DistributionInfo<T::AssetId, DistributionHashOf<T, I>>,
 		OptionQuery,
 	>;
 
@@ -670,7 +678,7 @@ pub mod pallet {
 		DistributionIssued {
 			distribution_id: DistributionCounter,
 			asset_id: T::AssetId,
-			merkle_root: T::Hash,
+			merkle_root: DistributionHashOf<T, I>,
 		},
 		/// A distribution has ended.
 		DistributionEnded { distribution_id: DistributionCounter },
@@ -1863,7 +1871,7 @@ pub mod pallet {
 		pub fn mint_distribution(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
-			merkle_root: T::Hash,
+			merkle_root: DistributionHashOf<T, I>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			let id: T::AssetId = id.into();

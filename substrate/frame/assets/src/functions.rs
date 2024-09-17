@@ -442,7 +442,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// `do_claim_distribution`.
 	pub(super) fn do_mint_distribution(
 		id: T::AssetId,
-		merkle_root: T::Hash,
+		merkle_root: DistributionHashOf<T, I>,
 		maybe_check_issuer: Option<T::AccountId>,
 	) -> DispatchResult {
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
@@ -537,8 +537,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut all_refunded = true;
 		for who in distribution_iterator {
-			if refund_count >= 100 {
-				// TODO: T::RemoveKeysLimit::get() {
+			if refund_count >= T::RemoveKeysLimit::get() {
 				// Not everyone was able to be refunded this time around.
 				all_refunded = false;
 				break

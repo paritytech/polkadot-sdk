@@ -321,6 +321,8 @@ where
 pub type DistributionCounter = u32;
 pub type DistributionProofOf<T, I> =
 	<<T as Config<I>>::VerifyExistenceProof as VerifyExistenceProof>::Proof;
+pub type DistributionHashOf<T, I> =
+	<<T as Config<I>>::VerifyExistenceProof as VerifyExistenceProof>::Hash;
 
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct DistributionInfo<AssetId, Hash> {

@@ -105,6 +105,7 @@ impl Config for Test {
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Freezer = TestFreezer;
 	type CallbackHandle = (AssetsCallbackHandle, AutoIncAssetId<Test>);
+	type VerifyExistenceProof = BinaryMerkleTreeProver<Self::Hashing>;
 }
 
 use std::collections::HashMap;
