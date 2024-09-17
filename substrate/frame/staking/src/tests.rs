@@ -8441,9 +8441,9 @@ use sp_staking::EraIndex;
 				);
 
 			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_some());
-						// Disable 7 and enable 1
-						assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
-						assert_eq!(disabling_decision.reenable.unwrap(), 0);
+			// Disable 7 and enable 1
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
+			assert_eq!(disabling_decision.reenable.unwrap(), 0);
 		});
 	}
 
@@ -8462,9 +8462,29 @@ use sp_staking::EraIndex;
 				);
 
 			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_some());
-						// Disable 7 and enable 1
-						assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
-						assert_eq!(disabling_decision.reenable.unwrap(), 1);
+			// Disable 7 and enable 1
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
+			assert_eq!(disabling_decision.reenable.unwrap(), 1);
+		});
+	}
+
+	#[test]
+	fn update_severity() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(OFFENDER_VALIDATOR_IDX, OFFENDER_SLASH_MINOR), (0, OFFENDER_SLASH_MAJOR)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					OFFENDER_SLASH_MAJOR,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_none());
+			// Disable 7 "again" AKA update their severity
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
 		});
 	}
 }

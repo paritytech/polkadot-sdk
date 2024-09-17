@@ -331,14 +331,15 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
                 // Do nothing
             }
             (Some(offender_idx), None) => {
-                // Add the validator to `DisabledValidators` and disable it. Do nothing if it is
-                // already disabled.
+                // Add the validator to `DisabledValidators` and disable it.
                 if let Err(index) = disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
 					let severity = params.slash;
                     disabled.insert(index, (offender_idx, severity));
                     // Propagate disablement to session level
                     T::SessionInterface::disable_validator(offender_idx);
                 }
+				// If already disabled potentially update severity if it is higher
+				todo!("Add severity updating")
             }
             (Some(offender_idx), Some(reenable_idx)) => {
                 // Remove the validator from `DisabledValidators` and re-enable it.
