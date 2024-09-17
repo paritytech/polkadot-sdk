@@ -51,8 +51,7 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
 	request_async_backing_params,
-	runtime::recv_runtime,
-	vstaging::fetch_claim_queue,
+	runtime::{fetch_claim_queue, recv_runtime},
 };
 use polkadot_primitives::{
 	AsyncBackingParams, CandidateHash, CollatorId, CoreState, Hash, HeadData, Id as ParaId,

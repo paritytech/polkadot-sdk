@@ -18,10 +18,9 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error, Event, HoldReason,
-	Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
+	address::AddressMapper, storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error,
+	Event, HoldReason, Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
-
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
@@ -397,11 +396,7 @@ where
 }
 
 /// Functions that only apply to the nested state.
-impl<T, E> RawMeter<T, E, Nested>
-where
-	T: Config,
-	E: Ext<T>,
-{
+impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// Charges `diff` from the meter.
 	pub fn charge(&mut self, diff: &Diff) {
 		match &mut self.own_contribution {
@@ -537,8 +532,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 				)?;
 
 				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndHeld {
-					from: origin.clone(),
-					to: contract.clone(),
+					from: T::AddressMapper::to_address(origin),
+					to: T::AddressMapper::to_address(contract),
 					amount: *amount,
 				});
 			},
@@ -554,8 +549,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 				)?;
 
 				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndReleased {
-					from: contract.clone(),
-					to: origin.clone(),
+					from: T::AddressMapper::to_address(contract),
+					to: T::AddressMapper::to_address(origin),
 					amount: transferred,
 				});
 

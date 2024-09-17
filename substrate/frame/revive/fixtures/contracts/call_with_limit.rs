@@ -32,7 +32,7 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		256,
-		callee_addr: [u8; 32],
+		callee_addr: &[u8; 20],
 		ref_time: u64,
 		proof_size: u64,
 		forwarded_input: [u8],
@@ -43,8 +43,8 @@ pub extern "C" fn call() {
 		callee_addr,
 		ref_time,
 		proof_size,
-		None,                // No deposit limit.
-		&0u64.to_le_bytes(), // value transferred to the contract.
+		None,       // No deposit limit.
+		&[0u8; 32], // value transferred to the contract.
 		forwarded_input,
 		None,
 	)

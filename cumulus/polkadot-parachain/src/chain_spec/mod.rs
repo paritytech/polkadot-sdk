@@ -18,7 +18,9 @@ use cumulus_primitives_core::ParaId;
 use parachains_common::{AccountId, Signature};
 use polkadot_parachain_lib::{
 	chain_spec::{GenericChainSpec, LoadSpec},
-	runtime::{AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT},
+	runtime::{
+		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
+	},
 };
 use sc_chain_spec::ChainSpec;
 use sp_core::{Pair, Public};
@@ -27,7 +29,6 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 pub mod asset_hubs;
 pub mod bridge_hubs;
 pub mod collectives;
-pub mod contracts;
 pub mod coretime;
 pub mod glutton;
 pub mod penpal;
@@ -148,14 +149,6 @@ impl LoadSpec for ChainSpecLoader {
 				&include_bytes!("../../chain-specs/collectives-westend.json")[..],
 			)?),
 
-			// -- Contracts on Rococo
-			"contracts-rococo-dev" => Box::new(contracts::contracts_rococo_development_config()),
-			"contracts-rococo-local" => Box::new(contracts::contracts_rococo_local_config()),
-			"contracts-rococo-genesis" => Box::new(contracts::contracts_rococo_config()),
-			"contracts-rococo" => Box::new(GenericChainSpec::from_json_bytes(
-				&include_bytes!("../../chain-specs/contracts-rococo.json")[..],
-			)?),
-
 			// -- BridgeHub
 			bridge_like_id
 				if bridge_like_id.starts_with(bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) =>
@@ -238,7 +231,6 @@ enum LegacyRuntime {
 	AssetHubPolkadot,
 	AssetHub,
 	Penpal,
-	ContractsRococo,
 	Collectives,
 	Glutton,
 	BridgeHub(bridge_hubs::BridgeHubRuntimeType),
@@ -266,8 +258,6 @@ impl LegacyRuntime {
 			LegacyRuntime::AssetHub
 		} else if id.starts_with("penpal") {
 			LegacyRuntime::Penpal
-		} else if id.starts_with("contracts-rococo") {
-			LegacyRuntime::ContractsRococo
 		} else if id.starts_with("collectives-polkadot") || id.starts_with("collectives-westend") {
 			LegacyRuntime::Collectives
 		} else if id.starts_with(bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) {
@@ -301,16 +291,16 @@ impl RuntimeResolverT for RuntimeResolver {
 		let legacy_runtime = LegacyRuntime::from_id(chain_spec.id());
 		Ok(match legacy_runtime {
 			LegacyRuntime::AssetHubPolkadot =>
-				Runtime::Omni(Consensus::Aura(AuraConsensusId::Ed25519)),
+				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Ed25519)),
 			LegacyRuntime::AssetHub |
 			LegacyRuntime::BridgeHub(_) |
 			LegacyRuntime::Collectives |
 			LegacyRuntime::Coretime(_) |
 			LegacyRuntime::People(_) |
-			LegacyRuntime::ContractsRococo |
 			LegacyRuntime::Glutton |
 			LegacyRuntime::Penpal |
-			LegacyRuntime::Omni => Runtime::Omni(Consensus::Aura(AuraConsensusId::Sr25519)),
+			LegacyRuntime::Omni =>
+				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)),
 			LegacyRuntime::Shell | LegacyRuntime::Seedling => Runtime::Shell,
 		})
 	}
@@ -382,9 +372,6 @@ mod tests {
 		let chain_spec =
 			create_default_with_extensions("penpal-rococo-1000", Extensions2::default());
 		assert_eq!(LegacyRuntime::Penpal, LegacyRuntime::from_id(chain_spec.id()));
-
-		let chain_spec = crate::chain_spec::contracts::contracts_rococo_local_config();
-		assert_eq!(LegacyRuntime::ContractsRococo, LegacyRuntime::from_id(chain_spec.id()));
 
 		let chain_spec = crate::chain_spec::rococo_parachain::rococo_parachain_local_config();
 		assert_eq!(LegacyRuntime::Omni, LegacyRuntime::from_id(chain_spec.id()));

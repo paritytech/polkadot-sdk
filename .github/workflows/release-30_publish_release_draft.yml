@@ -26,6 +26,7 @@ jobs:
     uses: "./.github/workflows/release-srtool.yml"
     with:
        excluded_runtimes: "substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
+       build_opts: "--features on-chain-release-build"
 
   build-binaries:
     runs-on: ubuntu-latest
@@ -35,7 +36,7 @@ jobs:
         binary: [ [frame-omni-bencher, frame-omni-bencher], [staging-chain-spec-builder, chain-spec-builder] ]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.0.0
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
 
       - name: Install protobuf-compiler
         run: |
@@ -62,7 +63,7 @@ jobs:
       asset_upload_url: ${{ steps.create-release.outputs.upload_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.0.0
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
 
       - name: Download artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
@@ -133,7 +134,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.0.0
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
 
       - name: Download artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8

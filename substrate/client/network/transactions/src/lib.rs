@@ -522,8 +522,14 @@ where
 			return
 		}
 
-		debug!(target: LOG_TARGET, "Propagating transactions");
 		let transactions = self.transaction_pool.transactions();
+
+		if transactions.is_empty() {
+			return
+		}
+
+		debug!(target: LOG_TARGET, "Propagating transactions");
+
 		let propagated_to = self.do_propagate_transactions(&transactions);
 		self.transaction_pool.on_broadcasted(propagated_to);
 	}
