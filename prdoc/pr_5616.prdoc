@@ -5,9 +5,7 @@ title: |
   PVF: drop backing jobs if it is too late
 
 doc:
-  - audience:
-      - "Node Dev"
-      - "Node User"
+  - audience: Node Dev
     description: |
       Introduces the removal of backing jobs that have been back pressured for longer than `allowedAncestryLen`, as these candidates are no longer viable.
 
