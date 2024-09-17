@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -19,7 +19,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::Encode;
+use core::marker::PhantomData;
 use cumulus_primitives_core::{MessageSendError, UpwardMessageSender};
 use frame_support::{
 	defensive,
@@ -33,7 +37,6 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	SaturatedConversion,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion};
 use xcm_builder::{InspectMessageQueues, TakeRevenue};
 use xcm_executor::{
@@ -96,6 +99,10 @@ where
 impl<T: UpwardMessageSender + InspectMessageQueues, W, P> InspectMessageQueues
 	for ParentAsUmp<T, W, P>
 {
+	fn clear_messages() {
+		T::clear_messages();
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		T::get_messages()
 	}
@@ -404,10 +411,22 @@ impl<
 		let first_asset: Asset =
 			payment.fungible.pop_first().ok_or(XcmError::AssetNotFound)?.into();
 		let (fungibles_asset, balance) = FungiblesAssetMatcher::matches_fungibles(&first_asset)
-			.map_err(|_| XcmError::AssetNotFound)?;
+			.map_err(|error| {
+				log::trace!(
+					target: "xcm::weight",
+					"SwapFirstAssetTrader::buy_weight asset {:?} didn't match. Error: {:?}",
+					first_asset,
+					error,
+				);
+				XcmError::AssetNotFound
+			})?;
 
 		let swap_asset = fungibles_asset.clone().into();
 		if Target::get().eq(&swap_asset) {
+			log::trace!(
+				target: "xcm::weight",
+				"SwapFirstAssetTrader::buy_weight Asset was same as Target, swap not needed.",
+			);
 			// current trader is not applicable.
 			return Err(XcmError::FeesNotMet)
 		}
@@ -421,7 +440,12 @@ impl<
 			credit_in,
 			fee,
 		)
-		.map_err(|(credit_in, _)| {
+		.map_err(|(credit_in, error)| {
+			log::trace!(
+				target: "xcm::weight",
+				"SwapFirstAssetTrader::buy_weight swap couldn't be done. Error was: {:?}",
+				error,
+			);
 			drop(credit_in);
 			XcmError::FeesNotMet
 		})?;
@@ -803,7 +827,7 @@ mod test_trader {
 /// needed.
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>(
-	sp_std::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
+	core::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
 );
 
 #[cfg(feature = "runtime-benchmarks")]

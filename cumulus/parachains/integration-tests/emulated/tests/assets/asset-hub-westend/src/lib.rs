@@ -26,21 +26,22 @@ mod imports {
 	};
 
 	// Polkadot
-	pub use xcm::{
-		prelude::{AccountId32 as AccountId32Junction, *},
-		v3,
-	};
+	pub use xcm::prelude::{AccountId32 as AccountId32Junction, *};
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;
 	pub use emulated_integration_tests_common::{
-		test_parachain_is_trusted_teleporter,
+		accounts::DUMMY_EMPTY,
+		get_account_id_from_seed, test_parachain_is_trusted_teleporter,
+		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
 			TestArgs, TestContext, TestExt,
 		},
-		xcm_helpers::{non_fee_asset, xcm_transact_paid_execution},
+		xcm_helpers::{
+			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
+		},
 		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
 	};
 	pub use parachains_common::{AccountId, Balance};
@@ -52,6 +53,7 @@ mod imports {
 					XcmConfig as AssetHubWestendXcmConfig,
 				},
 				AssetConversionOrigin as AssetHubWestendAssetConversionOrigin,
+				ExistentialDeposit as AssetHubWestendExistentialDeposit,
 			},
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
@@ -62,6 +64,7 @@ mod imports {
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
 				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
 				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 			PenpalBParaPallet as PenpalBPallet,
@@ -87,7 +90,6 @@ mod imports {
 	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
 
-	pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
 	pub type RelayToParaTest = Test<Westend, PenpalA>;
 	pub type ParaToRelayTest = Test<PenpalA, Westend>;
 	pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;

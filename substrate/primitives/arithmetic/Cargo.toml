@@ -4,7 +4,7 @@ version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Minimal fixed point arithmetic primitives and types for runtime."
 documentation = "https://docs.rs/sp-arithmetic"
@@ -26,7 +26,6 @@ num-traits = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 static_assertions = { workspace = true, default-features = true }
-sp-std = { workspace = true }
 docify = { workspace = true }
 
 [dev-dependencies]
@@ -43,7 +42,6 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-crypto-hashing/std",
-	"sp-std/std",
 ]
 # Serde support without relying on std features.
 serde = ["dep:serde", "scale-info/serde"]

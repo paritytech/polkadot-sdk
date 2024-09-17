@@ -14,7 +14,7 @@ workspace = true
 bp-header-chain = { workspace = true }
 bp-parachains = { workspace = true }
 bp-polkadot-core = { workspace = true }
-bp-runtime = { workspace = true }
+bp-runtime = { features = ["test-helpers"], workspace = true }
 codec = { workspace = true }
 ed25519-dalek = { workspace = true }
 finality-grandpa = { workspace = true }

@@ -29,7 +29,6 @@ sp-authority-discovery = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 maplit = { workspace = true }
-log = { workspace = true, default-features = true }
-env_logger = { workspace = true }
+sp-tracing = { workspace = true }
 assert_matches = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }

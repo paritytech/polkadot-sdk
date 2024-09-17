@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::marker::PhantomData;
 use cumulus_primitives_core::ParaId;
 use sp_runtime::traits::Get;
-use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
 /// Creates asset pairs for liquidity pools with `Target` always being the first asset.

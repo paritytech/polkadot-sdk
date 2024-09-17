@@ -10,16 +10,19 @@
 forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 <!-- markdownlint-disable-next-line MD013 -->
-[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)
-
-![GitHub lines of code](https://tokei.rs/b1/github/paritytech/polkadot-sdk)&nbsp;&nbsp;
-![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
+[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
 
 > The Polkadot SDK repository provides all the components needed to start building on the
 > [Polkadot](https://polkadot.network) network, a multi-chain blockchain platform that enables
 > different blockchains to interoperate and share information in a secure and scalable way.
 
 </div>
+
+## ⚡ Quickstart
+If you want to get an example node running quickly you can execute the following getting started script:
+```
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
+```
 
 ## 📚 Documentation
 
@@ -35,27 +38,15 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 ## 🚀 Releases
 
-> [!NOTE]
-> Our release process is still Work-In-Progress and may not yet reflect the aspired outline
-> here.
+<!-- markdownlint-disable-next-line MD013 -->
+![Current Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-latest.svg)&nbsp;&nbsp;![Next Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-next.svg)
 
-The Polkadot-SDK has two release channels: `stable` and `nightly`. Production software is advised to
-only use `stable`. `nightly` is meant for tinkerers to try out the latest features. The detailed
-release process is described in [RELEASE.md](docs/RELEASE.md).
+The Polkadot-SDK is released every three months as a `stableYYMMDD` release. They are supported for
+one year with patches. See the next upcoming versions in the [Release
+Registry](https://github.com/paritytech/release-registry/).
 
-You can use [`psvm`](https://github.com/paritytech/psvm) to manage your Polkadot-SDK dependency
-versions in downstream projects.
-
-### 😌 Stable
-
-`stable` releases have a support duration of **three months**. In this period, the release will not
-have any breaking changes. It will receive bug fixes, security fixes, performance fixes and new
-non-breaking features on a **two week** cadence.
-
-### 🤠 Nightly
-
-`nightly` releases are released every night from the `master` branch, potentially with breaking
-changes. They have pre-release version numbers in the format `major.0.0-nightlyYYMMDD`.
+You can use [`psvm`](https://github.com/paritytech/psvm) to update all dependencies to a specific
+version without needing to manually select the correct version for each crate.
 
 ## 🛠️ Tooling
 

@@ -19,8 +19,11 @@ libc = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 
 polkadot-node-core-pvf-common = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
+
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
 
 [features]
 builder = []

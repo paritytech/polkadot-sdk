@@ -85,7 +85,7 @@ impl AggregatedKeyValue for () {
 ///
 /// This concretization is useful when configuring pallets, since a pallet will require a parameter
 /// store for its own KV type and not the aggregated runtime-wide KV type.
-pub struct ParameterStoreAdapter<PS, KV>(sp_std::marker::PhantomData<(PS, KV)>);
+pub struct ParameterStoreAdapter<PS, KV>(core::marker::PhantomData<(PS, KV)>);
 
 impl<PS, KV> ParameterStore<KV> for ParameterStoreAdapter<PS, KV>
 where

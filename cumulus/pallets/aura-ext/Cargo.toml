@@ -21,7 +21,6 @@ pallet-timestamp = { workspace = true }
 sp-application-crypto = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true }
@@ -44,7 +43,6 @@ std = [
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",

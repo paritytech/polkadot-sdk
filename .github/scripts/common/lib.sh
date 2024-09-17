@@ -299,22 +299,23 @@ function check_sha256() {
 }
 
 # Import GPG keys of the release team members
-# This is done in parallel as it can take a while sometimes
 function import_gpg_keys() {
-  GPG_KEYSERVER=${GPG_KEYSERVER:-"keyserver.ubuntu.com"}
+  GPG_KEYSERVER=${GPG_KEYSERVER:-"hkps://keyserver.ubuntu.com"}
   SEC="9D4B2B6EB8F97156D19669A9FF0812D491B96798"
   EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
   MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
+  PARITY_RELEASES="90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
 
-  echo "Importing GPG keys from $GPG_KEYSERVER in parallel"
-  for key in $SEC $EGOR $MORGAN; do
+  echo "Importing GPG keys from $GPG_KEYSERVER"
+  for key in $SEC $EGOR $MORGAN $PARITY_RELEASES; do
     (
       echo "Importing GPG key $key"
       gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key
       echo -e "5\ny\n" | gpg --no-tty --command-fd 0 --expert --edit-key $key trust;
-    ) &
+    )
   done
   wait
+  gpg -k
 }
 
 # Check the GPG signature for a given binary
@@ -443,4 +444,29 @@ get_latest_release_tag() {
     TOKEN="Authorization: Bearer $GITHUB_TOKEN"
     latest_release_tag=$(curl -s -H "$TOKEN" $api_base/paritytech/polkadot-sdk/releases/latest | jq -r '.tag_name')
     printf $latest_release_tag
+}
+
+function get_polkadot_node_version_from_code() {
+   # list all the files with node version
+  git grep -e "\(NODE_VERSION[^=]*= \)\".*\"" |
+  # fetch only the one we need
+  grep  "primitives/src/lib.rs:" |
+  # Print only the version
+  awk '{ print $7 }' |
+  # Remove the quotes
+  sed 's/"//g' |
+  # Remove the semicolon
+  sed 's/;//g'
+}
+
+validate_stable_tag() {
+    tag="$1"
+    pattern='^stable[0-9]+(-[0-9]+)?$'
+
+    if [[ $tag =~ $pattern ]]; then
+        echo $tag
+    else
+        echo "The input '$tag' does not match the pattern."
+        exit 1
+    fi
 }

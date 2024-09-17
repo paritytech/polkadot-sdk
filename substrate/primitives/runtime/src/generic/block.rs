@@ -31,8 +31,8 @@ use crate::{
 	},
 	Justifications,
 };
+use alloc::vec::Vec;
 use sp_core::RuntimeDebug;
-use sp_std::prelude::*;
 
 /// Something to identify a block.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]

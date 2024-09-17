@@ -66,7 +66,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		#[doc(hidden)]
 		#[codec(skip)]
 		__Ignore(
-			#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen)>,
+			core::marker::PhantomData<(#type_use_gen)>,
 			#frame_support::Never,
 		)
 	);
@@ -104,6 +104,19 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
 
+	let deprecation = match crate::deprecation::get_deprecation_enum(
+		&quote::quote! {#frame_support},
+		&error.attrs,
+		error_item.variants.iter().enumerate().map(|(index, item)| {
+			let index = crate::deprecation::variant_index_for_deprecation(index as u8, item);
+
+			(index, item.attrs.as_ref())
+		}),
+	) {
+		Ok(deprecation) => deprecation,
+		Err(e) => return e.into_compile_error(),
+	};
+
 	// derive TypeInfo for error metadata
 	error_item.attrs.push(syn::parse_quote! {
 		#[derive(
@@ -124,11 +137,11 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 
 	quote::quote_spanned!(error.attr_span =>
-		impl<#type_impl_gen> #frame_support::__private::sp_std::fmt::Debug for #error_ident<#type_use_gen>
+		impl<#type_impl_gen> core::fmt::Debug for #error_ident<#type_use_gen>
 			#config_where_clause
 		{
-			fn fmt(&self, f: &mut #frame_support::__private::sp_std::fmt::Formatter<'_>)
-				-> #frame_support::__private::sp_std::fmt::Result
+			fn fmt(&self, f: &mut core::fmt::Formatter<'_>)
+				-> core::fmt::Result
 			{
 				f.write_str(self.as_str())
 			}
@@ -189,5 +202,16 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 
 		pub use #error_token_unique_id as tt_error_token;
+
+		impl<#type_impl_gen> #error_ident<#type_use_gen> #config_where_clause {
+			#[allow(dead_code)]
+			#[doc(hidden)]
+			pub fn error_metadata() -> #frame_support::__private::metadata_ir::PalletErrorMetadataIR {
+				#frame_support::__private::metadata_ir::PalletErrorMetadataIR {
+					ty: #frame_support::__private::scale_info::meta_type::<#error_ident<#type_use_gen>>(),
+					deprecation_info: #deprecation,
+				}
+			}
+		}
 	)
 }

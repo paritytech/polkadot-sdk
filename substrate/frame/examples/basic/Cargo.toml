@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "MIT-0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME example pallet"
 readme = "README.md"
@@ -26,7 +26,6 @@ frame-system = { workspace = true }
 pallet-balances = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true }
@@ -44,7 +43,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

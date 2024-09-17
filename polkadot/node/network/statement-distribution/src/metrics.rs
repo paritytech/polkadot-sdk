@@ -25,13 +25,13 @@ const HISTOGRAM_LATENCY_BUCKETS: &[f64] = &[
 #[derive(Clone)]
 struct MetricsInner {
 	// V1
-	statements_distributed: prometheus::Counter<prometheus::U64>,
 	sent_requests: prometheus::Counter<prometheus::U64>,
 	received_responses: prometheus::CounterVec<prometheus::U64>,
 	network_bridge_update: prometheus::HistogramVec,
 	statements_unexpected: prometheus::CounterVec<prometheus::U64>,
 	created_message_size: prometheus::Gauge<prometheus::U64>,
 	// V1+
+	statements_distributed: prometheus::Counter<prometheus::U64>,
 	active_leaves_update: prometheus::Histogram,
 	share: prometheus::Histogram,
 	// V2+
@@ -48,6 +48,13 @@ impl Metrics {
 	pub fn on_statement_distributed(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.statements_distributed.inc();
+		}
+	}
+
+	/// Update statements distributed counter by an amount
+	pub fn on_statements_distributed(&self, n: usize) {
+		if let Some(metrics) = &self.0 {
+			metrics.statements_distributed.inc_by(n as u64);
 		}
 	}
 

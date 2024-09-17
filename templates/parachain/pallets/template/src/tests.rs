@@ -7,7 +7,7 @@ fn it_works_for_default_value() {
 		// Dispatch a signed extrinsic.
 		assert_ok!(TemplateModule::do_something(RuntimeOrigin::signed(1), 42));
 		// Read pallet storage and assert an expected result.
-		assert_eq!(Something::<Test>::get(), Some(42));
+		assert_eq!(Something::<Test>::get().map(|v| v.block_number), Some(42));
 	});
 }
 

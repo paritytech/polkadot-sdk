@@ -15,21 +15,21 @@
 /// Write your first simple pallet, learning the most most basic features of FRAME along the way.
 pub mod your_first_pallet;
 
-/// Writing your first real [runtime](`crate::reference_docs::wasm_meta_protocol`), and successfully
+/// Write your first real [runtime](`crate::reference_docs::wasm_meta_protocol`),
 /// compiling it to [WASM](crate::polkadot_sdk::substrate#wasm-build).
 pub mod your_first_runtime;
 
-/// Running the given runtime with a node. No specific consensus mechanism is used at this stage.
+// /// Running the given runtime with a node. No specific consensus mechanism is used at this stage.
 // TODO
 // pub mod your_first_node;
 
-/// How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain and connect
-/// it to a relay-chain.
+// /// How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain
+// /// and connect it to a relay-chain.
 // TODO
 // pub mod cumulus_enabled_parachain;
 
-/// How to make a given runtime XCM-enabled, capable of sending messages (`Transact`) between itself
-/// and the relay chain to which it is connected.
+// /// How to make a given runtime XCM-enabled, capable of sending messages (`Transact`) between
+// /// itself and the relay chain to which it is connected.
 // TODO
 // pub mod xcm_enabled_parachain;
 
@@ -41,3 +41,6 @@ pub mod async_backing_guide;
 
 /// How to enable metadata hash verification in the runtime.
 pub mod enable_metadata_hash;
+
+/// How to enable elastic scaling MVP on a parachain.
+pub mod enable_elastic_scaling_mvp;

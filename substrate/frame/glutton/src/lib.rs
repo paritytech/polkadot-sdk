@@ -35,12 +35,14 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use blake2::{Blake2b512, Digest};
 use frame_support::{pallet_prelude::*, weights::WeightMeter, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use sp_io::hashing::twox_256;
 use sp_runtime::{traits::Zero, FixedPointNumber, FixedU64};
-use sp_std::{vec, vec::Vec};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -162,7 +164,7 @@ pub mod pallet {
 		pub block_length: FixedU64,
 		#[serde(skip)]
 		/// The required configuration field.
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

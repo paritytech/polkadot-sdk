@@ -24,17 +24,16 @@ use cumulus_primitives_core::{
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
-	PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
+	BlockNumber, CoreState, PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
 };
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
 
 use sc_client_api::StorageProof;
-use sp_core::sp_std::collections::btree_map::BTreeMap;
 use sp_state_machine::StorageValue;
 use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
-use std::pin::Pin;
+use std::{collections::btree_map::BTreeMap, pin::Pin};
 
 use cumulus_primitives_core::relay_chain::BlockId;
 pub use url::Url;
@@ -251,5 +250,12 @@ impl RelayChainInterface for RelayChainRpcInterface {
 
 	async fn version(&self, relay_parent: RelayHash) -> RelayChainResult<RuntimeVersion> {
 		self.rpc_client.runtime_version(relay_parent).await
+	}
+
+	async fn availability_cores(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Vec<CoreState<RelayHash, BlockNumber>>> {
+		self.rpc_client.parachain_host_availability_cores(relay_parent).await
 	}
 }

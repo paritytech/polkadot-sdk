@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// This file is part of Cumulus.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_state_machine::TrieCacheProvider;
-use sp_std::{
+use alloc::{
 	boxed::Box,
-	cell::{RefCell, RefMut},
 	collections::btree_map::{BTreeMap, Entry},
 };
+use core::cell::{RefCell, RefMut};
+use sp_state_machine::TrieCacheProvider;
 use sp_trie::NodeCodec;
 use trie_db::{node::NodeOwned, Hasher};
 

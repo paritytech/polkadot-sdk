@@ -1,9 +1,9 @@
 [workspace.package]
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
-repository = "https://github.com/paritytech/polkadot-sdk.git"
+homepage = "https://paritytech.github.io/polkadot-sdk/"
 license = "GPL-3.0-only"
-homepage = "https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html"
+repository = "https://github.com/paritytech/polkadot-sdk.git"
 
 [workspace]
 resolver = "2"
@@ -61,6 +61,7 @@ members = [
 	"bridges/snowbridge/primitives/router",
 	"bridges/snowbridge/runtime/runtime-common",
 	"bridges/snowbridge/runtime/test-common",
+	"cumulus/bin/pov-validator",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",
@@ -90,6 +91,8 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend",
+	"cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo",
+	"cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal",
@@ -104,6 +107,8 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/collectives/collectives-westend",
+	"cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-rococo",
+	"cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
@@ -131,6 +136,7 @@ members = [
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
 	"cumulus/polkadot-parachain",
+	"cumulus/polkadot-parachain/polkadot-parachain-lib",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
@@ -389,6 +395,11 @@ members = [
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
 	"substrate/frame/remark",
+	"substrate/frame/revive",
+	"substrate/frame/revive/fixtures",
+	"substrate/frame/revive/mock-network",
+	"substrate/frame/revive/proc-macro",
+	"substrate/frame/revive/uapi",
 	"substrate/frame/root-offences",
 	"substrate/frame/root-testing",
 	"substrate/frame/safe-mode",
@@ -517,7 +528,6 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
-	"templates/minimal",
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
@@ -527,42 +537,46 @@ members = [
 	"templates/solochain/node",
 	"templates/solochain/pallets/template",
 	"templates/solochain/runtime",
+	"templates/zombienet",
 	"umbrella",
 ]
 
 default-members = [
+	"cumulus/polkadot-parachain",
 	"polkadot",
 	"substrate/bin/node/cli",
 ]
 
 [workspace.lints.rust]
 suspicious_double_ref_op = { level = "allow", priority = 2 }
+# `substrate_runtime` is a common `cfg` condition name used in the repo.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
 
 [workspace.lints.clippy]
 all = { level = "allow", priority = 0 }
-correctness = { level = "warn", priority = 1 }
-complexity = { level = "warn", priority = 1 }
-if-same-then-else = { level = "allow", priority = 2 }
-zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
-type_complexity = { level = "allow", priority = 2 }                  # raison d'etre
-nonminimal-bool = { level = "allow", priority = 2 }                  # maybe
-borrowed-box = { level = "allow", priority = 2 }                     # Reasonable to fix this one
-too-many-arguments = { level = "allow", priority = 2 }               # (Turning this on would lead to)
-needless-lifetimes = { level = "allow", priority = 2 }               # generated code
-unnecessary_cast = { level = "allow", priority = 2 }                 # Types may change
-identity-op = { level = "allow", priority = 2 }                      # One case where we do 0 +
-useless_conversion = { level = "allow", priority = 2 }               # Types may change
-unit_arg = { level = "allow", priority = 2 }                         # stylistic
-option-map-unit-fn = { level = "allow", priority = 2 }               # stylistic
 bind_instead_of_map = { level = "allow", priority = 2 }              # stylistic
-erasing_op = { level = "allow", priority = 2 }                       # E.g. 0 * DOLLARS
-eq_op = { level = "allow", priority = 2 }                            # In tests we test equality.
-while_immutable_condition = { level = "allow", priority = 2 }        # false positives
-needless_option_as_deref = { level = "allow", priority = 2 }         # false positives
-derivable_impls = { level = "allow", priority = 2 }                  # false positives
-stable_sort_primitive = { level = "allow", priority = 2 }            # prefer stable sort
-extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
+borrowed-box = { level = "allow", priority = 2 }                     # Reasonable to fix this one
+complexity = { level = "warn", priority = 1 }
+correctness = { level = "warn", priority = 1 }
 default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
+derivable_impls = { level = "allow", priority = 2 }                  # false positives
+eq_op = { level = "allow", priority = 2 }                            # In tests we test equality.
+erasing_op = { level = "allow", priority = 2 }                       # E.g. 0 * DOLLARS
+extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
+identity-op = { level = "allow", priority = 2 }                      # One case where we do 0 +
+if-same-then-else = { level = "allow", priority = 2 }
+needless-lifetimes = { level = "allow", priority = 2 }               # generated code
+needless_option_as_deref = { level = "allow", priority = 2 }         # false positives
+nonminimal-bool = { level = "allow", priority = 2 }                  # maybe
+option-map-unit-fn = { level = "allow", priority = 2 }               # stylistic
+stable_sort_primitive = { level = "allow", priority = 2 }            # prefer stable sort
+too-many-arguments = { level = "allow", priority = 2 }               # (Turning this on would lead to)
+type_complexity = { level = "allow", priority = 2 }                  # raison d'etre
+unit_arg = { level = "allow", priority = 2 }                         # stylistic
+unnecessary_cast = { level = "allow", priority = 2 }                 # Types may change
+useless_conversion = { level = "allow", priority = 2 }               # Types may change
+while_immutable_condition = { level = "allow", priority = 2 }        # false positives
+zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
 
 [workspace.dependencies]
 Inflector = { version = "0.11.4" }
@@ -571,8 +585,7 @@ ahash = { version = "0.8.2" }
 alloy-primitives = { version = "0.4.2", default-features = false }
 alloy-sol-types = { version = "0.4.2", default-features = false }
 always-assert = { version = "0.1" }
-ansi_term = { version = "0.12.1" }
-anyhow = { version = "1.0.81" }
+anyhow = { version = "1.0.81", default-features = false }
 aquamarine = { version = "0.5.0" }
 arbitrary = { version = "1.3.2" }
 ark-bls12-377 = { version = "0.4.0", default-features = false }
@@ -589,7 +602,7 @@ ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.4.1", default-features = f
 ark-scale = { version = "0.0.12", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
-assert_cmd = { version = "2.0.10" }
+assert_cmd = { version = "2.0.14" }
 assert_matches = { version = "1.5.0" }
 asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo" }
 asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false }
@@ -602,14 +615,14 @@ async-std = { version = "1.9.0" }
 async-trait = { version = "0.1.79" }
 asynchronous-codec = { version = "0.6" }
 backoff = { version = "0.4" }
-backtrace = { version = "0.3.64" }
+backtrace = { version = "0.3.71" }
 binary-merkle-tree = { path = "substrate/utils/binary-merkle-tree", default-features = false }
 bincode = { version = "1.3.3" }
 bip39 = { version = "2.0.0" }
 bitflags = { version = "1.3.2" }
 bitvec = { version = "1.0.1", default-features = false }
 blake2 = { version = "0.10.4", default-features = false }
-blake2b_simd = { version = "1.0.1", default-features = false }
+blake2b_simd = { version = "1.0.2", default-features = false }
 blake3 = { version = "1.5" }
 bounded-collections = { version = "0.2.0", default-features = false }
 bounded-vec = { version = "0.7" }
@@ -642,7 +655,7 @@ bridge-hub-test-utils = { path = "cumulus/parachains/runtimes/bridge-hubs/test-u
 bridge-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend" }
 bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
 bridge-runtime-common = { path = "bridges/bin/runtime-common", default-features = false }
-bs58 = { version = "0.5.0", default-features = false }
+bs58 = { version = "0.5.1", default-features = false }
 build-helper = { version = "0.1.1" }
 byte-slice-cast = { version = "1.2.1", default-features = false }
 byteorder = { version = "1.3.2", default-features = false }
@@ -654,20 +667,22 @@ chain-spec-builder = { path = "substrate/bin/utils/chain-spec-builder", default-
 chain-spec-guide-runtime = { path = "docs/sdk/src/reference_docs/chain_spec_runtime" }
 chrono = { version = "0.4.31" }
 cid = { version = "0.9.0" }
-clap = { version = "4.5.3" }
+clap = { version = "4.5.10" }
 clap-num = { version = "1.0.2" }
-clap_complete = { version = "4.0.2" }
+clap_complete = { version = "4.5.13" }
 coarsetime = { version = "0.1.22" }
 codec = { version = "3.6.12", default-features = false, package = "parity-scale-codec" }
 collectives-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend" }
 collectives-westend-runtime = { path = "cumulus/parachains/runtimes/collectives/collectives-westend" }
-color-eyre = { version = "0.6.1", default-features = false }
+color-eyre = { version = "0.6.3", default-features = false }
 color-print = { version = "0.3.4" }
 colored = { version = "2.0.4" }
 comfy-table = { version = "7.1.0", default-features = false }
 console = { version = "0.15.8" }
 contracts-rococo-runtime = { path = "cumulus/parachains/runtimes/contracts/contracts-rococo" }
+coretime-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo" }
 coretime-rococo-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-rococo" }
+coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend" }
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
 cpu-time = { version = "1.0.0" }
 criterion = { version = "0.5.1", default-features = false }
@@ -720,8 +735,7 @@ ed25519-zebra = { version = "4.0.3", default-features = false }
 either = { version = "1.8.1", default-features = false }
 emulated-integration-tests-common = { path = "cumulus/parachains/integration-tests/emulated/common", default-features = false }
 enumflags2 = { version = "0.7.7" }
-enumn = { version = "0.1.12" }
-env_logger = { version = "0.11.3" }
+enumn = { version = "0.1.13" }
 environmental = { version = "1.1.4", default-features = false }
 equivocation-detector = { path = "bridges/relays/equivocation" }
 ethabi = { version = "1.0.0", default-features = false, package = "ethabi-decode" }
@@ -797,9 +811,11 @@ is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 isahc = { version = "1.2" }
 itertools = { version = "0.11" }
+jemalloc_pprof = { version = "0.4" }
+jobserver = { version = "0.1.26" }
 jsonpath_lib = { version = "0.3" }
-jsonrpsee = { version = "0.23.2" }
-jsonrpsee-core = { version = "0.23.2" }
+jsonrpsee = { version = "0.24.3" }
+jsonrpsee-core = { version = "0.24.3" }
 k256 = { version = "0.13.3", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
@@ -807,19 +823,19 @@ kvdb-memorydb = { version = "0.13.0" }
 kvdb-rocksdb = { version = "0.19.0" }
 kvdb-shared-tests = { version = "0.11.0" }
 landlock = { version = "0.3.0" }
-lazy_static = { version = "1.4.0" }
-libc = { version = "0.2.153" }
+lazy_static = { version = "1.5.0" }
+libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }
 libp2p = { version = "0.52.4" }
-libp2p-identity = { version = "0.2.3" }
+libp2p-identity = { version = "0.2.9" }
 libsecp256k1 = { version = "0.7.0", default-features = false }
 linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.6.2" }
-log = { version = "0.4.21", default-features = false }
-macro_magic = { version = "0.5.0" }
+litep2p = { version = "0.7.0", features = ["websocket"] }
+log = { version = "0.4.22", default-features = false }
+macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
 memory-db = { version = "0.32.0", default-features = false }
@@ -855,7 +871,7 @@ num-rational = { version = "0.4.1" }
 num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.19.0" }
-orchestra = { version = "0.3.5", default-features = false }
+orchestra = { version = "0.4.0", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
 pallet-asset-conversion-ops = { path = "substrate/frame/asset-conversion/ops", default-features = false }
@@ -885,7 +901,7 @@ pallet-collator-selection = { path = "cumulus/pallets/collator-selection", defau
 pallet-collective = { path = "substrate/frame/collective", default-features = false }
 pallet-collective-content = { path = "cumulus/parachains/pallets/collective-content", default-features = false }
 pallet-contracts = { path = "substrate/frame/contracts", default-features = false }
-pallet-contracts-fixtures = { path = "substrate/frame/contracts/fixtures" }
+pallet-contracts-fixtures = { path = "substrate/frame/contracts/fixtures", default-features = false }
 pallet-contracts-mock-network = { default-features = false, path = "substrate/frame/contracts/mock-network" }
 pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", default-features = false }
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
@@ -941,6 +957,11 @@ pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
 pallet-remark = { default-features = false, path = "substrate/frame/remark" }
+pallet-revive = { path = "substrate/frame/revive", default-features = false }
+pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
+pallet-revive-mock-network = { default-features = false, path = "substrate/frame/revive/mock-network" }
+pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
+pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = false }
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
 pallet-safe-mode = { default-features = false, path = "substrate/frame/safe-mode" }
@@ -986,7 +1007,7 @@ parity-util-mem = { version = "0.12.0" }
 parity-wasm = { version = "0.45.0" }
 parking_lot = { version = "0.12.1", default-features = false }
 partial_sort = { version = "0.2.0" }
-paste = { version = "1.0.14", default-features = false }
+paste = { version = "1.0.15", default-features = false }
 pbkdf2 = { version = "0.12.2", default-features = false }
 penpal-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal" }
 penpal-runtime = { path = "cumulus/parachains/runtimes/testing/penpal" }
@@ -1034,6 +1055,7 @@ polkadot-node-subsystem-test-helpers = { path = "polkadot/node/subsystem-test-he
 polkadot-node-subsystem-types = { path = "polkadot/node/subsystem-types", default-features = false }
 polkadot-node-subsystem-util = { path = "polkadot/node/subsystem-util", default-features = false }
 polkadot-overseer = { path = "polkadot/node/overseer", default-features = false }
+polkadot-parachain-lib = { path = "cumulus/polkadot-parachain/polkadot-parachain-lib", default-features = false }
 polkadot-parachain-primitives = { path = "polkadot/parachain", default-features = false }
 polkadot-primitives = { path = "polkadot/primitives", default-features = false }
 polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers" }
@@ -1050,7 +1072,7 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = "0.9.3"
+polkavm = { version = "0.9.3", default-features = false }
 polkavm-derive = "0.9.1"
 polkavm-linker = "0.9.2"
 portpicker = { version = "0.1.1" }
@@ -1058,7 +1080,7 @@ pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.12.1", default-features = false }
 proc-macro-crate = { version = "3.0.0" }
 proc-macro-warning = { version = "1.0.0", default-features = false }
-proc-macro2 = { version = "1.0.64" }
+proc-macro2 = { version = "1.0.86" }
 procfs = { version = "0.16.0" }
 prometheus = { version = "0.13.0", default-features = false }
 prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint" }
@@ -1069,7 +1091,7 @@ pyroscope = { version = "0.5.7" }
 pyroscope_pprofrs = { version = "0.2.7" }
 quick_cache = { version = "0.3" }
 quickcheck = { version = "1.0.3", default-features = false }
-quote = { version = "1.0.33" }
+quote = { version = "1.0.37" }
 rand = { version = "0.8.5", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 rand_core = { version = "0.6.2" }
@@ -1077,7 +1099,7 @@ rand_distr = { version = "0.4.3" }
 rand_pcg = { version = "0.3.1" }
 rayon = { version = "1.5.1" }
 rbtag = { version = "0.3" }
-ref-cast = { version = "1.0.0" }
+ref-cast = { version = "1.0.23" }
 regex = { version = "1.10.2" }
 relay-substrate-client = { path = "bridges/relays/client-substrate" }
 relay-utils = { path = "bridges/relays/utils" }
@@ -1095,7 +1117,7 @@ rstest = { version = "0.18.2" }
 rustc-hash = { version = "1.1.0" }
 rustc-hex = { version = "2.1.0", default-features = false }
 rustix = { version = "0.36.7", default-features = false }
-rustversion = { version = "1.0.6" }
+rustversion = { version = "1.0.17" }
 rusty-fork = { version = "0.3.0", default-features = false }
 safe-mix = { version = "1.0", default-features = false }
 sc-allocator = { path = "substrate/client/allocator", default-features = false }
@@ -1157,17 +1179,17 @@ sc-transaction-pool-api = { path = "substrate/client/transaction-pool/api", defa
 sc-utils = { path = "substrate/client/utils", default-features = false }
 scale-info = { version = "2.11.1", default-features = false }
 schemars = { version = "0.8.13", default-features = false }
-schnellru = { version = "0.2.1" }
+schnellru = { version = "0.2.3" }
 schnorrkel = { version = "0.11.4", default-features = false }
 seccompiler = { version = "0.4.0" }
 secp256k1 = { version = "0.28.0", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
 seedling-runtime = { path = "cumulus/parachains/runtimes/starters/seedling" }
 separator = { version = "0.4.1" }
-serde = { version = "1.0.197", default-features = false }
+serde = { version = "1.0.210", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
-serde_json = { version = "1.0.114", default-features = false }
+serde_json = { version = "1.0.128", default-features = false }
 serde_yaml = { version = "0.9" }
 serial_test = { version = "2.0.0" }
 sha1 = { version = "0.10.6" }
@@ -1254,7 +1276,7 @@ sp-version = { path = "substrate/primitives/version", default-features = false }
 sp-version-proc-macro = { path = "substrate/primitives/version/proc-macro", default-features = false }
 sp-wasm-interface = { path = "substrate/primitives/wasm-interface", default-features = false }
 sp-weights = { path = "substrate/primitives/weights", default-features = false }
-spinners = { version = "4.1.0" }
+spinners = { version = "4.1.1" }
 ss58-registry = { version = "1.34.0", default-features = false }
 ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
@@ -1276,7 +1298,7 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-syn = { version = "2.0.53" }
+syn = { version = "2.0.65" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
@@ -1300,7 +1322,7 @@ tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.2" }
 tokio-tungstenite = { version = "0.20.1" }
 tokio-util = { version = "0.7.8" }
-toml = { version = "0.8.8" }
+toml = { version = "0.8.12" }
 toml_edit = { version = "0.19" }
 tower = { version = "0.4.13" }
 tower-http = { version = "0.5.2" }
@@ -1311,10 +1333,10 @@ tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
 trie-bench = { version = "0.39.0" }
-trie-db = { version = "0.29.0", default-features = false }
+trie-db = { version = "0.29.1", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
-trybuild = { version = "1.0.88" }
+trybuild = { version = "1.0.89" }
 tt-call = { version = "1.0.8" }
 tuplex = { version = "0.1", default-features = false }
 twox-hash = { version = "1.6.3", default-features = false }
@@ -1323,7 +1345,7 @@ url = { version = "2.4.0" }
 void = { version = "1.0.2" }
 w3f-bls = { version = "0.1.3", default-features = false }
 wait-timeout = { version = "0.2" }
-walkdir = { version = "2.4.0" }
+walkdir = { version = "2.5.0" }
 wasm-bindgen-test = { version = "0.3.19" }
 wasm-instrument = { version = "0.4", default-features = false }
 wasm-opt = { version = "0.116" }
@@ -1349,22 +1371,22 @@ zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
-panic = "unwind"
 opt-level = 3
+panic = "unwind"
 
 # make sure dev builds with backtrace do not slow us down
 [profile.dev.package.backtrace]
 inherits = "release"
 
 [profile.production]
+codegen-units = 1
 inherits = "release"
 lto = true
-codegen-units = 1
 
 [profile.testnet]
-inherits = "release"
 debug = 1               # debug symbols are useful for profilers
 debug-assertions = true
+inherits = "release"
 overflow-checks = true
 
 # The list of dependencies below (which can be both direct and indirect dependencies) are crates

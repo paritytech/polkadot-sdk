@@ -45,7 +45,7 @@ on:
         type: string
         default: docker.io
 
-      # The owner is often the same than the Docker Hub username but does ont have to be.
+      # The owner is often the same as the Docker Hub username but does ont have to be.
       # In our case, it is not.
       owner:
         description: Owner of the container image repo
@@ -56,6 +56,10 @@ on:
       version:
         description: version to build/release
         default: v0.9.18
+        required: true
+
+      stable_tag:
+        description: Tag matching the actual stable release version in the format stableYYMM or stableYYMM-X for patch releases
         required: true
 
 permissions:
@@ -71,16 +75,43 @@ env:
   # EVENT_ACTION: ${{ github.event.action }}
   EVENT_NAME: ${{ github.event_name }}
   IMAGE_TYPE: ${{ inputs.image_type }}
-  VERSION: ${{ inputs.version }}
 
 jobs:
-  fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
-    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
+  validate-inputs:
     runs-on: ubuntu-latest
+    outputs:
+        version: ${{ steps.validate_inputs.outputs.VERSION }}
+        release_id: ${{ steps.validate_inputs.outputs.RELEASE_ID }}
+        stable_tag: ${{ steps.validate_inputs.outputs.stable_tag }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+
+      - name: Validate inputs
+        id: validate_inputs
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          VERSION=$(filter_version_from_input "${{ inputs.version }}")
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+
+          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
+          echo "RELEASE_ID=${RELEASE_ID}" >> $GITHUB_OUTPUT
+
+          echo "Release ID: $RELEASE_ID"
+
+          STABLE_TAG=$(validate_stable_tag ${{ inputs.stable_tag }})
+          echo "stable_tag=${STABLE_TAG}" >> $GITHUB_OUTPUT
+
+  fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
+    runs-on: ubuntu-latest
+    needs: [validate-inputs]
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
 
       #TODO: this step will be needed when automated triggering will work
         #this step runs only if the workflow is triggered automatically when new release is published
@@ -102,9 +133,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION=$(filter_version_from_input "${{ inputs.version }}")
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-
+          VERSION="${{ needs.validate-inputs.outputs.VERSION }}"
           fetch_release_artifacts_from_s3
 
       - name: Fetch chain-spec-builder rc artifacts or release artifacts based on release id
@@ -112,7 +141,8 @@ jobs:
         if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary == 'chain-spec-builder' }}
         run: |
           . ./.github/scripts/common/lib.sh
-          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
+
+          RELEASE_ID="${{ needs.validate-inputs.outputs.RELEASE_ID }}"
           fetch_release_artifacts
 
       - name: Upload artifacts
@@ -124,15 +154,15 @@ jobs:
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
-    needs: fetch-artifacts
+    needs: [fetch-artifacts, validate-inputs]
     environment: release
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
 
       - name: Download artifacts
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
 
       - name: Check sha256 ${{ env.BINARY }}
         if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
@@ -157,8 +187,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
-          release=release-$RELEASE_ID && \
+          release="release-${{ needs.validate-inputs.outputs.RELEASE_ID }}" && \
           echo "release=${release}" >> $GITHUB_OUTPUT
 
           commit=$(git rev-parse --short HEAD) && \
@@ -174,11 +203,17 @@ jobs:
         id: fetch_release_refs
         run: |
           chmod a+rx $BINARY
-          [[ $BINARY != 'chain-spec-builder' ]] && VERSION=$(./$BINARY --version | awk '{ print $2 }' )
 
-          release=$( echo $VERSION | cut -f1 -d- )
+          if [[ $BINARY != 'chain-spec-builder' ]]; then
+            VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+            release=$( echo $VERSION | cut -f1 -d- )
+          else
+            release=$(echo ${{ needs.validate-inputs.outputs.VERSION }} | sed 's/^v//')
+          fi
+
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
+          echo "stable=${{ needs.validate-inputs.outputs.stable_tag }}" >> $GITHUB_OUTPUT
 
       - name: Build Injected Container image for polkadot rc or chain-spec-builder
         if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'chain-spec-builder' }}
@@ -209,7 +244,7 @@ jobs:
           ./docker/scripts/build-injected.sh
 
       - name: Login to Dockerhub
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           username: ${{ secrets.CUMULUS_DOCKERHUB_USERNAME }}
           password: ${{ secrets.CUMULUS_DOCKERHUB_TOKEN }}
@@ -256,17 +291,17 @@ jobs:
   build-polkadot-release-container: # this job will be triggered for polkadot release build
     if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
     runs-on: ubuntu-latest
-    needs: fetch-latest-debian-package-version
+    needs: [fetch-latest-debian-package-version, validate-inputs]
     environment: release
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+        uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db # v3.6.1
 
       - name: Cache Docker layers
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
         with:
          path: /tmp/.buildx-cache
          key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -274,7 +309,7 @@ jobs:
            ${{ runner.os }}-buildx-
 
       - name: Login to Docker Hub
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           username: ${{ secrets.POLKADOT_DOCKERHUB_USERNAME }}
           password: ${{ secrets.POLKADOT_DOCKERHUB_TOKEN }}
@@ -287,13 +322,14 @@ jobs:
 
       - name: Build and push
         id:   docker_build
-        uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 #  v5.1.0
+        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 #  v6.7.0
         with:
           push: true
           file: docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile
           # TODO: The owner should be used below but buildx does not resolve the VARs
           # TODO: It would be good to get rid of this GHA that we don't really need.
           tags: |
+            parity/polkadot:${{ needs.validate-inputs.outputs.stable_tag }}
             parity/polkadot:latest
             parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_container_tag }}
           build-args: |

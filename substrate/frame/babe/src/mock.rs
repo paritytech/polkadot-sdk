@@ -25,12 +25,12 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, KeyOwnerProofSystem, OnInitialize},
+	traits::{ConstU128, ConstU32, ConstU64, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
 use sp_core::{
-	crypto::{KeyTypeId, Pair, VrfSecret},
+	crypto::{Pair, VrfSecret},
 	U256,
 };
 use sp_io;
@@ -182,7 +182,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type MaxAuthorities = ConstU32<10>;
 	type MaxNominators = ConstU32<100>;
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, AuthorityId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		super::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -213,7 +213,7 @@ pub fn go_to_block(n: u64, s: u64) {
 
 /// Slots will grow accordingly to blocks
 pub fn progress_to_block(n: u64) {
-	let mut slot = u64::from(Babe::current_slot()) + 1;
+	let mut slot = u64::from(CurrentSlot::<Test>::get()) + 1;
 	for i in System::block_number() + 1..=n {
 		go_to_block(i, slot);
 		slot += 1;
@@ -272,7 +272,8 @@ pub fn make_vrf_signature_and_randomness(
 	slot: Slot,
 	pair: &sp_consensus_babe::AuthorityPair,
 ) -> (VrfSignature, Randomness) {
-	let transcript = sp_consensus_babe::make_vrf_transcript(&Babe::randomness(), slot, 0);
+	let transcript =
+		sp_consensus_babe::make_vrf_transcript(&pallet_babe::Randomness::<Test>::get(), slot, 0);
 
 	let randomness =
 		pair.as_ref().make_bytes(sp_consensus_babe::RANDOMNESS_VRF_CONTEXT, &transcript);
@@ -318,7 +319,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 
 	// NOTE: this will initialize the babe authorities
 	// through OneSessionHandler::on_genesis_session
-	pallet_session::GenesisConfig::<Test> { keys: session_keys }
+	pallet_session::GenesisConfig::<Test> { keys: session_keys, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

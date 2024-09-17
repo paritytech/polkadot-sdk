@@ -20,9 +20,8 @@ use crate::{
 	storage::{self, storage_prefix, unhashed, KeyPrefixIterator, PrefixIterator, StorageAppend},
 	Never,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::*;
 
 /// Generator for `StorageMap` used by `decl_storage`.
 ///
@@ -72,47 +71,6 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 		final_key.extend_from_slice(key_hashed.as_ref());
 
 		final_key
-	}
-}
-
-/// Utility to iterate through items in a storage map.
-pub struct StorageMapIterator<K, V, Hasher> {
-	prefix: Vec<u8>,
-	previous_key: Vec<u8>,
-	drain: bool,
-	_phantom: ::sp_std::marker::PhantomData<(K, V, Hasher)>,
-}
-
-impl<K: Decode + Sized, V: Decode + Sized, Hasher: ReversibleStorageHasher> Iterator
-	for StorageMapIterator<K, V, Hasher>
-{
-	type Item = (K, V);
-
-	fn next(&mut self) -> Option<(K, V)> {
-		loop {
-			let maybe_next = sp_io::storage::next_key(&self.previous_key)
-				.filter(|n| n.starts_with(&self.prefix));
-			break match maybe_next {
-				Some(next) => {
-					self.previous_key = next;
-					match unhashed::get::<V>(&self.previous_key) {
-						Some(value) => {
-							if self.drain {
-								unhashed::kill(&self.previous_key)
-							}
-							let mut key_material =
-								Hasher::reverse(&self.previous_key[self.prefix.len()..]);
-							match K::decode(&mut key_material) {
-								Ok(key) => Some((key, value)),
-								Err(_) => continue,
-							}
-						},
-						None => continue,
-					}
-				},
-				None => None,
-			}
-		}
 	}
 }
 
@@ -178,7 +136,7 @@ where
 		loop {
 			previous_key = Self::translate_next(previous_key, &mut f);
 			if previous_key.is_none() {
-				break
+				break;
 			}
 		}
 	}
@@ -200,7 +158,7 @@ where
 					"Invalid translation: failed to decode old value for key",
 					array_bytes::bytes2hex("0x", &current_key)
 				);
-				return Some(current_key)
+				return Some(current_key);
 			},
 		};
 
@@ -212,7 +170,7 @@ where
 					"Invalid translation: failed to decode key",
 					array_bytes::bytes2hex("0x", &current_key)
 				);
-				return Some(current_key)
+				return Some(current_key);
 			},
 		};
 
@@ -370,6 +328,7 @@ mod test_iterators {
 			unhashed,
 		},
 	};
+	use alloc::vec;
 	use codec::Encode;
 
 	#[test]

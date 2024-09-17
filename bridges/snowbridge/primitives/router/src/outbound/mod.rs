@@ -12,9 +12,10 @@ use codec::{Decode, Encode};
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{
 	outbound::{AgentExecuteCommand, Command, Message, SendMessage},
-	ChannelId, ParaId,
+	AgentId, ChannelId, ParaId, TokenId, TokenIdOf,
 };
 use sp_core::{H160, H256};
+use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
@@ -24,15 +25,31 @@ pub struct EthereumBlobExporter<
 	EthereumNetwork,
 	OutboundQueue,
 	AgentHashedDescription,
->(PhantomData<(UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription)>);
+	ConvertAssetId,
+>(
+	PhantomData<(
+		UniversalLocation,
+		EthereumNetwork,
+		OutboundQueue,
+		AgentHashedDescription,
+		ConvertAssetId,
+	)>,
+);
 
-impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription> ExportXcm
-	for EthereumBlobExporter<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription>
-where
+impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, ConvertAssetId>
+	ExportXcm
+	for EthereumBlobExporter<
+		UniversalLocation,
+		EthereumNetwork,
+		OutboundQueue,
+		AgentHashedDescription,
+		ConvertAssetId,
+	> where
 	UniversalLocation: Get<InteriorLocation>,
 	EthereumNetwork: Get<NetworkId>,
 	OutboundQueue: SendMessage<Balance = u128>,
 	AgentHashedDescription: ConvertLocation<H256>,
+	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 {
 	type Ticket = (Vec<u8>, XcmHash);
 
@@ -87,13 +104,8 @@ where
 			SendError::MissingArgument
 		})?;
 
-		let mut converter = XcmConverter::new(&message, &expected_network);
-		let (agent_execute_command, message_id) = converter.convert().map_err(|err|{
-			log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to pattern matching error '{err:?}'.");
-			SendError::Unroutable
-		})?;
-
 		let source_location = Location::new(1, local_sub.clone());
+
 		let agent_id = match AgentHashedDescription::convert_location(&source_location) {
 			Some(id) => id,
 			None => {
@@ -102,13 +114,16 @@ where
 			},
 		};
 
+		let mut converter =
+			XcmConverter::<ConvertAssetId, ()>::new(&message, expected_network, agent_id);
+		let (command, message_id) = converter.convert().map_err(|err|{
+			log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to pattern matching error '{err:?}'.");
+			SendError::Unroutable
+		})?;
+
 		let channel_id: ChannelId = ParaId::from(para_id).into();
 
-		let outbound_message = Message {
-			id: Some(message_id.into()),
-			channel_id,
-			command: Command::AgentExecute { agent_id, command: agent_execute_command },
-		};
+		let outbound_message = Message { id: Some(message_id.into()), channel_id, command };
 
 		// validate the message
 		let (ticket, fee) = OutboundQueue::validate(&outbound_message).map_err(|err| {
@@ -154,6 +169,9 @@ enum XcmConverterError {
 	AssetResolutionFailed,
 	InvalidFeeAsset,
 	SetTopicExpected,
+	ReserveAssetDepositedExpected,
+	InvalidAsset,
+	UnexpectedInstruction,
 }
 
 macro_rules! match_expression {
@@ -165,18 +183,33 @@ macro_rules! match_expression {
 	};
 }
 
-struct XcmConverter<'a, Call> {
+struct XcmConverter<'a, ConvertAssetId, Call> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
-	ethereum_network: &'a NetworkId,
+	ethereum_network: NetworkId,
+	agent_id: AgentId,
+	_marker: PhantomData<ConvertAssetId>,
 }
-impl<'a, Call> XcmConverter<'a, Call> {
-	fn new(message: &'a Xcm<Call>, ethereum_network: &'a NetworkId) -> Self {
-		Self { iter: message.inner().iter().peekable(), ethereum_network }
+impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
+where
+	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+{
+	fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId, agent_id: AgentId) -> Self {
+		Self {
+			iter: message.inner().iter().peekable(),
+			ethereum_network,
+			agent_id,
+			_marker: Default::default(),
+		}
 	}
 
-	fn convert(&mut self) -> Result<(AgentExecuteCommand, [u8; 32]), XcmConverterError> {
-		// Get withdraw/deposit and make native tokens create message.
-		let result = self.native_tokens_unlock_message()?;
+	fn convert(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+		let result = match self.peek() {
+			Ok(ReserveAssetDeposited { .. }) => self.send_native_tokens_message(),
+			// Get withdraw/deposit and make native tokens create message.
+			Ok(WithdrawAsset { .. }) => self.send_tokens_message(),
+			Err(e) => Err(e),
+			_ => return Err(XcmConverterError::UnexpectedInstruction),
+		}?;
 
 		// All xcm instructions must be consumed before exit.
 		if self.next().is_ok() {
@@ -186,9 +219,7 @@ impl<'a, Call> XcmConverter<'a, Call> {
 		Ok(result)
 	}
 
-	fn native_tokens_unlock_message(
-		&mut self,
-	) -> Result<(AgentExecuteCommand, [u8; 32]), XcmConverterError> {
+	fn send_tokens_message(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
 		use XcmConverterError::*;
 
 		// Get the reserve assets from WithdrawAsset.
@@ -262,7 +293,13 @@ impl<'a, Call> XcmConverter<'a, Call> {
 		// Check if there is a SetTopic and skip over it if found.
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
-		Ok((AgentExecuteCommand::TransferToken { token, recipient, amount }, *topic_id))
+		Ok((
+			Command::AgentExecute {
+				agent_id: self.agent_id,
+				command: AgentExecuteCommand::TransferToken { token, recipient, amount },
+			},
+			*topic_id,
+		))
 	}
 
 	fn next(&mut self) -> Result<&'a Instruction<Call>, XcmConverterError> {
@@ -275,9 +312,95 @@ impl<'a, Call> XcmConverter<'a, Call> {
 
 	fn network_matches(&self, network: &Option<NetworkId>) -> bool {
 		if let Some(network) = network {
-			network == self.ethereum_network
+			*network == self.ethereum_network
 		} else {
 			true
 		}
+	}
+
+	/// Convert the xcm for Polkadot-native token from AH into the Command
+	/// To match transfers of Polkadot-native tokens, we expect an input of the form:
+	/// # ReserveAssetDeposited
+	/// # ClearOrigin
+	/// # BuyExecution
+	/// # DepositAsset
+	/// # SetTopic
+	fn send_native_tokens_message(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+		use XcmConverterError::*;
+
+		// Get the reserve assets.
+		let reserve_assets =
+			match_expression!(self.next()?, ReserveAssetDeposited(reserve_assets), reserve_assets)
+				.ok_or(ReserveAssetDepositedExpected)?;
+
+		// Check if clear origin exists and skip over it.
+		if match_expression!(self.peek(), Ok(ClearOrigin), ()).is_some() {
+			let _ = self.next();
+		}
+
+		// Get the fee asset item from BuyExecution or continue parsing.
+		let fee_asset = match_expression!(self.peek(), Ok(BuyExecution { fees, .. }), fees);
+		if fee_asset.is_some() {
+			let _ = self.next();
+		}
+
+		let (deposit_assets, beneficiary) = match_expression!(
+			self.next()?,
+			DepositAsset { assets, beneficiary },
+			(assets, beneficiary)
+		)
+		.ok_or(DepositAssetExpected)?;
+
+		// assert that the beneficiary is AccountKey20.
+		let recipient = match_expression!(
+			beneficiary.unpack(),
+			(0, [AccountKey20 { network, key }])
+				if self.network_matches(network),
+			H160(*key)
+		)
+		.ok_or(BeneficiaryResolutionFailed)?;
+
+		// Make sure there are reserved assets.
+		if reserve_assets.len() == 0 {
+			return Err(NoReserveAssets)
+		}
+
+		// Check the the deposit asset filter matches what was reserved.
+		if reserve_assets.inner().iter().any(|asset| !deposit_assets.matches(asset)) {
+			return Err(FilterDoesNotConsumeAllAssets)
+		}
+
+		// We only support a single asset at a time.
+		ensure!(reserve_assets.len() == 1, TooManyAssets);
+		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
+
+		// If there was a fee specified verify it.
+		if let Some(fee_asset) = fee_asset {
+			// The fee asset must be the same as the reserve asset.
+			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {
+				return Err(InvalidFeeAsset)
+			}
+		}
+
+		let (asset_id, amount) = match reserve_asset {
+			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+				Some((inner_location.clone(), *amount)),
+			_ => None,
+		}
+		.ok_or(AssetResolutionFailed)?;
+
+		// transfer amount must be greater than 0.
+		ensure!(amount > 0, ZeroAssetTransfer);
+
+		let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
+
+		let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
+
+		ensure!(asset_id == expected_asset_id, InvalidAsset);
+
+		// Check if there is a SetTopic and skip over it if found.
+		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
+
+		Ok((Command::MintForeignToken { token_id, recipient, amount }, *topic_id))
 	}
 }
