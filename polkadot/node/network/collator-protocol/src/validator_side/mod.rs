@@ -1061,13 +1061,26 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	if is_seconded_limit_reached(
+	let claims_for_para = per_relay_parent.collations.claims_for_para(&para_id);
+	let seconded_and_pending_at_ancestors = seconded_and_pending_for_para_in_view(
 		&state.implicit_view,
 		&state.per_relay_parent,
-		relay_parent,
-		per_relay_parent,
+		&relay_parent,
 		&para_id,
-	) {
+	);
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?relay_parent,
+		?para_id,
+		claims_for_para,
+		seconded_and_pending_at_ancestors,
+		"Checking if seconded limit is reached"
+	);
+
+	// Checks if another collation can be accepted. The number of collations that can be seconded
+	// per parachain is limited by the entries in claim queue for the `ParaId` in question.
+	if seconded_and_pending_at_ancestors >= claims_for_para {
 		return Err(AdvertisementError::SecondedLimitReached)
 	}
 
@@ -2018,38 +2031,6 @@ async fn handle_collation_fetch_response(
 	};
 	state.metrics.on_request(metrics_result);
 	result
-}
-
-/// Checks if another collation can be accepted. The number of collations that can be seconded
-/// per parachain is limited by the entries in claim queue for the `ParaId` in question. Besides the
-/// seconded collations at the relay parent of the advertisement any pending or seconded collations
-/// at previous relay parents (up to `allowed_ancestry_len` blocks back or last finalized block) are
-/// also counted towards the limit.
-fn is_seconded_limit_reached(
-	implicit_view: &ImplicitView,
-	per_relay_parent: &HashMap<Hash, PerRelayParent>,
-	relay_parent: Hash,
-	relay_parent_state: &PerRelayParent,
-	para_id: &ParaId,
-) -> bool {
-	let claims_for_para = relay_parent_state.collations.claims_for_para(para_id);
-	let seconded_and_pending_at_ancestors = seconded_and_pending_for_para_in_view(
-		implicit_view,
-		per_relay_parent,
-		&relay_parent,
-		para_id,
-	);
-
-	gum::trace!(
-		target: LOG_TARGET,
-		?relay_parent,
-		?para_id,
-		claims_for_para,
-		seconded_and_pending_at_ancestors,
-		"Checking if seconded limit is reached"
-	);
-
-	seconded_and_pending_at_ancestors >= claims_for_para
 }
 
 fn seconded_and_pending_for_para_in_view(
