@@ -5,7 +5,6 @@ on:
     inputs:
       binary:
         description: Binary to be build for the release
-        required: true
         default: all
         type: choice
         options:
@@ -15,225 +14,45 @@ on:
 
       release_tag:
         description: Tag matching the actual release candidate with the format vX.XX.X-rcX or stableYYMM
-        required: true
         type: string
-
-# env:
-#   PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
-#   PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
-#   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#   AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
 
 jobs:
   # TODO: Activate this job when the pipeline is moved to the fork in the `paritytech-release` org
   # check-workflow-can-run:
   #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
 
-  # set-image:
-  #   # GitHub Actions allows using 'env' in a container context.
-  #   # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-  #   # This workaround sets the container image for each job using 'set-image' job output.
-  #   runs-on: ubuntu-latest
-  #   outputs:
-  #     IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
-
-  #     - id: set_image
-  #       run: cat .github/env >> $GITHUB_OUTPUT
-
   build-polkadot-binary:
     # needs: [check-workflow-can-run]
-    # needs: [set-image]
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
     with:
       binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
       package: polkadot
       release_tag: ${{ inputs.release_tag }}
-    # runs-on: ubuntu-latest
-    # # container:
-    # #   image: ${{ needs.set-image.outputs.IMAGE }}
-    # # strategy:
-    # #   matrix:
-    # #     binaries: [polkadot, polkadot-prepare-worker, polkadot-execute-worker]
-
-    # steps:
-    #   - name: Install pgpkkms
-    #     run: |
-    #       # Install pgpkms that is used to sign build artifacts
-    #       python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
-    #       which pgpkms
-
-    #   - name: Checkout sources
-    #     uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
-    #     with:
-    #       ref: ${{ inputs.release_tag }}
-    #       fetch-depth: 0
-
-    #   - name: Import gpg keys
-    #     shell: bash
-    #     run: |
-    #       . ./.github/scripts/common/lib.sh
-
-    #       import_gpg_keys
-
-    #   - name: Build binary
-    #     run: |
-    #       # ARTIFACTS=/artifacts/${{ matrix.binaries }}
-    #       # echo "Artifacts will be copied into $ARTIFACTS"
-    #       # mkdir -p "$ARTIFACTS"
-    #       # cd $ARTIFACTS
-    #       # echo "Test" >> ${{ matrix.binaries }}.txt
-    #       # sha256sum "${{ matrix.binaries }}".txt | tee "${{ matrix.binaries }}.sha256"
-
-    #       ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} polkadot
-
-    #   - name: Sign artifacts
-    #     working-directory: /artifacts/${{ matrix.binaries }}
-    #     run: |
-    #       python3 -m pgpkms sign --input ${{ matrix.binaries }} -o ${{ matrix.binaries }}.asc
-
-    #       # python3 -m pgpkms sign --input ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
-    #       ls -la
-
-    #   - name: Check sha256 ${{ matrix.binaries }}
-    #     working-directory: /artifacts/${{ matrix.binaries }}
-    #     shell: bash
-    #     run: |
-    #       .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
-
-    #       echo "Checking binary  ${{ matrix.binaries }}"
-    #       check_sha256  ${{ matrix.binaries }} && echo "OK" || echo "ERR"
-
-    #   # - name: Check GPG ${{ matrix.binaries }}
-    #   #   working-directory: /artifacts/${{ matrix.binaries }}
-    #   #   shell: bash
-    #   #   run: |
-    #   #     . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
-
-    #   #     check_gpg  ${{ matrix.binaries }}
-
-    #   # - name: Build polkadot deb package
-    #   #   if: ${{ matrix.binaries == 'polkadot' }}
-    #   #   shell: bash
-    #   #   run: |
-    #   #     . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ matrix.binaries }}
-
-
-    #   - name: Upload ${{ matrix.binaries }} artifacts
-    #     uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
-    #     with:
-    #       name: ${{  matrix.binaries }}
-    #       path: /artifacts/${{ matrix.binaries }}
+    secrets:
+      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
 
   build-polkadot-parachain-binary:
     # needs: [check-workflow-can-run]
-    # needs: [set-image]
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
     with:
       binary: '["polkadot-parachain"]'
       package: "polkadot-parachain-bin"
       release_tag: ${{ inputs.release_tag }}
-  #   runs-on: ubuntu-latest
-  #   container:
-  #     image: ${{ needs.set-image.outputs.IMAGE }}
-
-  #   steps:
-  #   - name: Install pgpkkms
-  #     run: |
-  #       # Install pgpkms that is used to sign build artifacts
-  #       python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
-  #       which pgpkms
-
-  #   - name: Checkout sources
-  #     uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
-  #     with:
-  #       ref: ${{ inputs.release_tag }}
-  #       fetch-depth: 0
-
-  #   - name: Import gpg keys
-  #     shell: bash
-  #     run: |
-  #       . ./.github/scripts/common/lib.sh
-
-  #       import_gpg_keys
-
-  #   - name: Build polkadot-parachain binary
-  #     run: |
-  #       # ARTIFACTS=/artifacts/polkadot-parachain
-  #       # echo "Artifacts will be copied into $ARTIFACTS"
-  #       # mkdir -p "$ARTIFACTS"
-  #       # cd $ARTIFACTS
-  #       # echo "Test" >> polkadot-parachain.txt
-  #       # sha256sum "polkadot-parachain".txt | tee "polkadot-parachain.sha256"
-
-  #       ./.github/scripts/release/build-linux-release.sh polkadot-parachain polkadot-parachain-bin
-
-  #   - name: Sign artifacts
-  #     working-directory: /artifacts/polkadot-parachain
-  #     run: |
-  #       python3 -m pgpkms sign --input polkadot-parachain -o polkadot-parachain.asc
-
-  #       # python3 -m pgpkms sign --input polkadot-parachain.txt -o polkadot-parachain.asc
-  #       ls -la
-
-  #   - name: Check sha256 polkadot-parachain
-  #     working-directory: /artifacts/polkadot-parachain
-  #     shell: bash
-  #     run: |
-  #       . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
-
-  #       echo "Checking binary  $polkadot-parachain"
-  #       check_sha256  polkadot-parachain && echo "OK" || echo "ERR"
-
-  #   # - name: Check GPG ${{ matrix.binaries }}
-  #   #   working-directory: /artifacts/${{ matrix.binaries }}#
-  #   #   shell: bash
-  #   #   run: |
-  #   #     . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
-
-  #   #     check_gpg  ${{ matrix.binaries }}
-
-  #   - name: Upload polkadot-parachain artifacts
-  #     uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
-  #     with:
-  #       name: polkadot-parachain
-  #       path: /artifacts/polkadot-parachain
-
-  # upload-artifacts-to-s3:
-  #   needs: [build-polkadot-binary]
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-  #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-  #     AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-  #   strategy:
-  #     matrix:
-  #       binaries: [polkadot, polkadot-prepare-worker, polkadot-execute-worker, polkadot-parachain]
-
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
-
-  #     - name: Download artifacts
-  #       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-  #       with:
-  #         path: artifacts/${{ matrix.binaries }}
-
-  #     - name: Configure AWS Credentials
-  #       uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
-  #       with:
-  #         aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-  #         aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
-  #         aws-region: ${{ env.AWS_REGION }}
-
-  #     - name: Upload ${{ matrix.binaries }} artifacts to s3
-  #       run: |
-  #         . ./.github/scripts/release/release_lib.sh
-  #         upload_s3_release ${{ matrix.binaries }} ${{ inputs.release_tag }}
+    secrets:
+      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
 
 # - name: Upload artifacts to github release
