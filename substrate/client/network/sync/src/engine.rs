@@ -24,7 +24,6 @@ use crate::{
 		BlockAnnounceValidationResult, BlockAnnounceValidator as BlockAnnounceValidatorStream,
 	},
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
-	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
 	pending_responses::{PendingResponses, ResponseEvent},
 	schema::v1::{StateRequest, StateResponse},
 	service::{
@@ -32,8 +31,8 @@ use crate::{
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
 	strategy::{
-		warp::{EncodedProof, WarpProofRequest, WarpSyncConfig},
-		PolkadotSyncingStrategy, StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
+		warp::{EncodedProof, WarpProofRequest},
+		StrategyKey, SyncingAction, SyncingStrategy,
 	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
@@ -189,7 +188,7 @@ pub struct Peer<B: BlockT> {
 
 pub struct SyncingEngine<B: BlockT, Client> {
 	/// Syncing strategy.
-	strategy: PolkadotSyncingStrategy<B, Client>,
+	strategy: Box<dyn SyncingStrategy<B>>,
 
 	/// Blockchain client.
 	client: Arc<Client>,
@@ -271,12 +270,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
 
-	/// Protocol name used to send out state requests
-	state_request_protocol_name: ProtocolName,
-
-	/// Protocol name used to send out warp sync requests
-	warp_sync_protocol_name: Option<ProtocolName>,
-
 	/// Handle to import queue.
 	import_queue: Box<dyn ImportQueueService<B>>,
 }
@@ -301,35 +294,15 @@ where
 		protocol_id: ProtocolId,
 		fork_id: &Option<String>,
 		block_announce_validator: Box<dyn BlockAnnounceValidator<B> + Send>,
-		warp_sync_config: Option<WarpSyncConfig<B>>,
+		syncing_strategy: Box<dyn SyncingStrategy<B>>,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
-		state_request_protocol_name: ProtocolName,
-		warp_sync_protocol_name: Option<ProtocolName>,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
 	) -> Result<(Self, SyncingService<B>, N::NotificationProtocolConfig), ClientError>
 	where
 		N: NetworkBackend<B, <B as BlockT>::Hash>,
 	{
-		let mode = net_config.network_config.sync_mode;
-		let max_parallel_downloads = net_config.network_config.max_parallel_downloads;
-		let max_blocks_per_request =
-			if net_config.network_config.max_blocks_per_request > MAX_BLOCKS_IN_RESPONSE as u32 {
-				log::info!(
-					target: LOG_TARGET,
-					"clamping maximum blocks per request to {MAX_BLOCKS_IN_RESPONSE}",
-				);
-				MAX_BLOCKS_IN_RESPONSE as u32
-			} else {
-				net_config.network_config.max_blocks_per_request
-			};
-		let syncing_config = SyncingConfig {
-			mode,
-			max_parallel_downloads,
-			max_blocks_per_request,
-			metrics_registry: metrics_registry.cloned(),
-		};
 		let cache_capacity = (net_config.network_config.default_peers_set.in_peers +
 			net_config.network_config.default_peers_set.out_peers)
 			.max(1);
@@ -388,10 +361,6 @@ where
 				Arc::clone(&peer_store_handle),
 			);
 
-		// Initialize syncing strategy.
-		let strategy =
-			PolkadotSyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?;
-
 		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
 		let num_connected = Arc::new(AtomicUsize::new(0));
@@ -413,7 +382,7 @@ where
 			Self {
 				roles,
 				client,
-				strategy,
+				strategy: syncing_strategy,
 				network_service,
 				peers: HashMap::new(),
 				block_announce_data_cache: LruMap::new(ByLength::new(cache_capacity)),
@@ -450,8 +419,6 @@ where
 				},
 				pending_responses: PendingResponses::new(),
 				block_downloader,
-				state_request_protocol_name,
-				warp_sync_protocol_name,
 				import_queue,
 			},
 			SyncingService::new(tx, num_connected, is_major_syncing),
@@ -652,16 +619,16 @@ where
 						"Processed {action:?}, response removed: {removed}.",
 					);
 				},
-				SyncingAction::SendStateRequest { peer_id, key, request } => {
-					self.send_state_request(peer_id, key, request);
+				SyncingAction::SendStateRequest { peer_id, key, protocol_name, request } => {
+					self.send_state_request(peer_id, key, protocol_name, request);
 
 					trace!(
 						target: LOG_TARGET,
 						"Processed `ChainSyncAction::SendStateRequest` to {peer_id}.",
 					);
 				},
-				SyncingAction::SendWarpProofRequest { peer_id, key, request } => {
-					self.send_warp_proof_request(peer_id, key, request.clone());
+				SyncingAction::SendWarpProofRequest { peer_id, key, protocol_name, request } => {
+					self.send_warp_proof_request(peer_id, key, protocol_name, request.clone());
 
 					trace!(
 						target: LOG_TARGET,
@@ -1054,6 +1021,7 @@ where
 		&mut self,
 		peer_id: PeerId,
 		key: StrategyKey,
+		protocol_name: ProtocolName,
 		request: OpaqueStateRequest,
 	) {
 		if !self.peers.contains_key(&peer_id) {
@@ -1070,7 +1038,7 @@ where
 			Ok(data) => {
 				self.network_service.start_request(
 					peer_id,
-					self.state_request_protocol_name.clone(),
+					protocol_name,
 					data,
 					tx,
 					IfDisconnected::ImmediateError,
@@ -1089,6 +1057,7 @@ where
 		&mut self,
 		peer_id: PeerId,
 		key: StrategyKey,
+		protocol_name: ProtocolName,
 		request: WarpProofRequest<B>,
 	) {
 		if !self.peers.contains_key(&peer_id) {
@@ -1101,21 +1070,13 @@ where
 
 		self.pending_responses.insert(peer_id, key, PeerRequest::WarpProof, rx.boxed());
 
-		match &self.warp_sync_protocol_name {
-			Some(name) => self.network_service.start_request(
-				peer_id,
-				name.clone(),
-				request.encode(),
-				tx,
-				IfDisconnected::ImmediateError,
-			),
-			None => {
-				log::warn!(
-					target: LOG_TARGET,
-					"Trying to send warp sync request when no protocol is configured {request:?}",
-				);
-			},
-		}
+		self.network_service.start_request(
+			peer_id,
+			protocol_name,
+			request.encode(),
+			tx,
+			IfDisconnected::ImmediateError,
+		);
 	}
 
 	fn encode_state_request(request: &OpaqueStateRequest) -> Result<Vec<u8>, String> {
