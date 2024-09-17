@@ -62,6 +62,20 @@ type ProxyTicketOf<T> = <T as Config>::ProxyConsideration;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
+type ProxiesVec<T> = BoundedVec<
+	ProxyDefinition<
+		<T as frame_system::Config>::AccountId,
+		<T as Config>::ProxyType,
+		BlockNumberFor<T>,
+	>,
+	<T as Config>::MaxProxies,
+>;
+
+type AnnouncementsVec<T> = BoundedVec<
+	Announcement<<T as frame_system::Config>::AccountId, CallHashOf<T>, BlockNumberFor<T>>,
+	<T as Config>::MaxPending,
+>;
+
 /// The parameters under which a particular account has a proxy relationship with some other
 /// account.
 #[derive(
@@ -319,7 +333,7 @@ pub mod pallet {
 
 			let proxy_def =
 				ProxyDefinition { delegate: who.clone(), proxy_type: proxy_type.clone(), delay };
-			let bounded_proxies: BoundedVec<_, T::MaxProxies> =
+			let bounded_proxies: ProxiesVec<T> =
 				vec![proxy_def].try_into().map_err(|_| Error::<T>::TooMany)?;
 
 			let ticket = T::ProxyConsideration::new(
@@ -425,20 +439,14 @@ pub mod pallet {
 			Announcements::<T>::mutate(
 				&who,
 				|value: &mut Option<(
-					BoundedVec<
-						Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>,
-						T::MaxPending,
-					>,
+					AnnouncementsVec<T>,
 					AnnouncementTicketOf<T>,
 				)>|
 				 -> Result<(), DispatchError> {
 					let (mut pending, ticket) = if let Some(v) = value.take() {
 						v
 					} else {
-						let default: BoundedVec<
-							Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>,
-							T::MaxPending,
-						> = Default::default();
+						let default: AnnouncementsVec<T> = Default::default();
 						let size = default.encoded_size();
 						(
 							default,
@@ -619,19 +627,8 @@ pub mod pallet {
 	/// The set of account proxies. Maps the account which has delegated to the accounts
 	/// which are being delegated to, together with the amount held on deposit.
 	#[pallet::storage]
-	pub type Proxies<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		(
-			BoundedVec<
-				ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
-				T::MaxProxies,
-			>,
-			ProxyTicketOf<T>,
-		),
-		OptionQuery,
-	>;
+	pub type Proxies<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, (ProxiesVec<T>, ProxyTicketOf<T>), OptionQuery>;
 
 	/// The announcements made by the proxy (key).
 	#[pallet::storage]
@@ -639,32 +636,21 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		(
-			BoundedVec<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
-			AnnouncementTicketOf<T>,
-		),
+		(AnnouncementsVec<T>, AnnouncementTicketOf<T>),
 		OptionQuery,
 	>;
 }
 
 impl<T: Config> Pallet<T> {
 	/// Public function to proxies storage.
-	pub fn proxies(
-		account: T::AccountId,
-	) -> Option<(
-		BoundedVec<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, T::MaxProxies>,
-		ProxyTicketOf<T>,
-	)> {
+	pub fn proxies(account: T::AccountId) -> Option<(ProxiesVec<T>, ProxyTicketOf<T>)> {
 		Proxies::<T>::get(account)
 	}
 
 	/// Public function to announcements storage.
 	pub fn announcements(
 		account: T::AccountId,
-	) -> Option<(
-		BoundedVec<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
-		AnnouncementTicketOf<T>,
-	)> {
+	) -> Option<(AnnouncementsVec<T>, AnnouncementTicketOf<T>)> {
 		Announcements::<T>::get(account)
 	}
 
@@ -716,10 +702,7 @@ impl<T: Config> Pallet<T> {
 			let (mut proxies, ticket) = if let Some(v) = value.take() {
 				v
 			} else {
-				let default_proxies: BoundedVec<
-					ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
-					T::MaxProxies,
-				> = Default::default();
+				let default_proxies: ProxiesVec<T> = Default::default();
 				let size = default_proxies.encoded_size();
 				(
 					default_proxies,
