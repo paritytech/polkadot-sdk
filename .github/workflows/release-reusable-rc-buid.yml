@@ -20,7 +20,7 @@ on:
 
   workflow_call:
     inputs:
-      binaries:
+      binary:
         description: Binary to be build for the release
         required: true
         default: polkadot
@@ -66,7 +66,7 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     strategy:
       matrix:
-        binaries: ${{ fromJSON(inputs.binaries) }}
+        binaries: ${{ fromJSON(inputs.binary) }}
 
     steps:
       - name: Install pgpkkms
@@ -146,7 +146,7 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
     strategy:
       matrix:
-        binaries: ${{ inputs.binaries }}
+        binaries: ${{ fromJson(inputs.binary) }}
 
     steps:
       - name: Checkout

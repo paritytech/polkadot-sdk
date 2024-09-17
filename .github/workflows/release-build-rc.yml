@@ -50,7 +50,7 @@ jobs:
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
     with:
-      binaries: "[polkadot, polkadot-prepare-worker, polkadot-execute-worker]"
+      binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
       package: polkadot
       release_tag: ${{ inputs.release_tag }}
     # runs-on: ubuntu-latest
@@ -135,7 +135,7 @@ jobs:
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
     with:
-      binaries: "[polkadot-parachain]"
+      binary: '["polkadot-parachain"]'
       package: "polkadot-parachain-bin"
       release_tag: ${{ inputs.release_tag }}
   #   runs-on: ubuntu-latest
