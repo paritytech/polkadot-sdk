@@ -64,8 +64,6 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 pub mod v16 {
 	use super::*;
 
-	// The disabling strategy used by staking pallet
-	type DefaultDisablingStrategy = UpToLimitWithReEnablingDisablingStrategy;
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
 		fn on_runtime_upgrade() -> Weight {
