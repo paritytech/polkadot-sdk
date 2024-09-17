@@ -35,7 +35,7 @@ pub use pallet_distribution::{
 	fungible::InspectHold, AccountIdOf, BalanceOf, HoldReason, Inspect, Mutate, MutateHold,
 	ProjectId, ProjectInfo,
 };
-pub use scale_info::prelude::vec::Vec;
+pub use scale_info::prelude::vec;
 pub use sp_runtime::{
 	traits::{
 		AccountIdConversion, BlockNumberProvider, CheckedAdd, CheckedSub, Convert, Saturating,
