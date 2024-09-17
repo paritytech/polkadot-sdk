@@ -87,10 +87,10 @@ impl Display for OutboundFailure {
 		match self {
 			OutboundFailure::DialFailure => write!(f, "Failed to dial the requested peer"),
 			OutboundFailure::Timeout => write!(f, "Timeout while waiting for a response"),
-			OutboundFailure::ConnectionClosed => 
-					write!(f, "Connection was closed before a response was received"),
-			OutboundFailure::UnsupportedProtocols => 
-					write!(f, "The remote supports none of the requested protocols"),
+			OutboundFailure::ConnectionClosed =>
+				write!(f, "Connection was closed before a response was received"),
+			OutboundFailure::UnsupportedProtocols =>
+				write!(f, "The remote supports none of the requested protocols"),
 		}
 	}
 }
@@ -126,16 +126,16 @@ pub enum InboundFailure {
 impl Display for InboundFailure {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			InboundFailure::Timeout => 
-					write!(f, "Timeout while receiving request or sending response"),
-			InboundFailure::ConnectionClosed => 
-					write!(f, "Connection was closed before a response could be sent"),
-			InboundFailure::UnsupportedProtocols => 
-					write!(f, "The local peer supports none of the protocols requested by the remote"),
+			InboundFailure::Timeout =>
+				write!(f, "Timeout while receiving request or sending response"),
+			InboundFailure::ConnectionClosed =>
+				write!(f, "Connection was closed before a response could be sent"),
+			InboundFailure::UnsupportedProtocols =>
+				write!(f, "The local peer supports none of the protocols requested by the remote"),
 			InboundFailure::ResponseOmission => write!(
-					f, 
-					"The response channel was dropped without sending a response to the remote"
-				),
+				f,
+				"The response channel was dropped without sending a response to the remote"
+			),
 		}
 	}
 }
