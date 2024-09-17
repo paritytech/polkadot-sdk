@@ -61,7 +61,7 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     strategy:
       matrix:
-        binaries: ${{ inputs.binaries }}
+        binaries: ${{ fromJson(inputs.binaries) }}
 
     steps:
       - name: Install pgpkkms
