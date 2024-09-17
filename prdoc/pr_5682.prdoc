@@ -1,0 +1,15 @@
+title: Introduces `VerifyExistenceProof` trait
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduces `VerifyExistenceProof` trait for verifying proofs in the runtime. 
+      An implementation of the trait for binary and 16 patricia merkle tree is provided.
+
+crates:
+  - name: binary-merkle-tree
+    bump: major
+  - name: sp-runtime
+    bump: patch
+  - name: frame-support
+    bump: minor
