@@ -320,8 +320,6 @@ pub struct BlockImportedCandidates {
 	pub block_hash: Hash,
 	pub block_number: BlockNumber,
 	pub block_tick: Tick,
-	#[allow(dead_code)]
-	pub no_show_duration: Tick,
 	pub imported_candidates: Vec<(CandidateHash, CandidateEntry)>,
 }
 
@@ -470,14 +468,7 @@ pub(crate) async fn handle_new_head<
 				None => return Ok(Vec::new()),
 			};
 
-		let (block_tick, no_show_duration) = {
-			let block_tick = slot_number_to_tick(state.slot_duration_millis, slot);
-			let no_show_duration = slot_number_to_tick(
-				state.slot_duration_millis,
-				Slot::from(u64::from(session_info.no_show_slots)),
-			);
-			(block_tick, no_show_duration)
-		};
+		let block_tick = slot_number_to_tick(state.slot_duration_millis, slot);
 
 		let needed_approvals = session_info.needed_approvals;
 		let validator_group_lens: Vec<usize> =
@@ -596,7 +587,6 @@ pub(crate) async fn handle_new_head<
 			block_hash,
 			block_number: block_header.number,
 			block_tick,
-			no_show_duration,
 			imported_candidates: candidate_entries
 				.into_iter()
 				.map(|(h, e)| (h, e.into()))
