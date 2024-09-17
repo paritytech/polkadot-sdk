@@ -746,10 +746,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						// Received a request from a remote.
 						request_response::Event::Message {
 							peer,
-							message:
-								Message::Request {
-									request_id, request, channel, ..
-								},
+							message: Message::Request { request_id, request, channel, .. },
 						} => {
 							self.pending_responses_arrival_time
 								.insert((protocol.clone(), request_id).into(), Instant::now());
