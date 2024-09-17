@@ -564,5 +564,39 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
 	}
 
+	// This function is O(1), so placing any hash as a merkle root should work.
+	mint_distribution {
+		let amount = T::Balance::from(2 * MIN_BALANCE);
+		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+		let before_count = MerklizedDistribution::<T, I>::count();
+	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), T::Hash::default())
+	verify {
+		let count = MerklizedDistribution::<T, I>::count();
+		assert!(count == before_count + 1);
+		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: T::Hash::default() }.into());
+	}
+
+	// This function is O(1), so ending any distribution should work.
+	end_distribution {
+		let amount = T::Balance::from(2 * MIN_BALANCE);
+		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+		let before_count = MerklizedDistribution::<T, I>::count();
+		Assets::<T, I>::mint_distribution(
+			SystemOrigin::Signed(caller.clone()).into(),
+			asset_id.clone(),
+			T::Hash::default(),
+		)?;
+		let count = MerklizedDistribution::<T, I>::count();
+		assert!(count == before_count + 1);
+		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: T::Hash::default() }.into());
+	}: _(SystemOrigin::Signed(caller.clone()), before_count)
+	verify {
+		assert_last_event::<T, I>(Event::DistributionEnded { distribution_id: before_count }.into());
+	}
+
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)
 }
