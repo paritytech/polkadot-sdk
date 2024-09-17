@@ -92,7 +92,7 @@ impl RelayChainInterface for RelayChainRpcInterface {
 				if let Some(hash) = self.rpc_client.chain_get_block_hash(Some(num)).await? {
 					hash
 				} else {
-					return Ok(None);
+					return Ok(None)
 				}
 			},
 		};
