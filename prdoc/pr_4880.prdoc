@@ -4,8 +4,8 @@ doc:
   - audience: "Node Dev"
     description: |
       Implements collation fetching fairness in the validator side of the collator protocol. With
-      core time if two (or more) parachains share a single core no fairness is guaranteed between
-      them in terms of collation fetching. The current implementation was accepting up to
+      core time in place if two (or more) parachains share a single core no fairness is guaranteed
+      between them in terms of collation fetching. The current implementation was accepting up to
       `max_candidate_depth + 1` seconded collations per relay parent and once this limit is reached
       no new collations are accepted. A misbehaving collator can abuse this fact and prevent other
       collators/parachains from advertising collations by advertising `max_candidate_depth + 1`

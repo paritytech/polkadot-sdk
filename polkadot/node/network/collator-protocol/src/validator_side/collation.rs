@@ -18,14 +18,18 @@
 //!
 //! Usually a path of collations is as follows:
 //!    1. First, collation must be advertised by collator.
+//!    2. The validator inspects the claim queue and decides if the collation should be fetched
+//!       based on the entries there. A parachain can't have more fetched collations than the
+//!       entries in the claim queue at a specific relay parent. When calculating this limit the
+//!       validator counts all advertisements within its view not just at the relay parent.
 //!    2. If the advertisement was accepted, it's queued for fetch (per relay parent).
 //!    3. Once it's requested, the collation is said to be Pending.
 //!    4. Pending collation becomes Fetched once received, we send it to backing for validation.
 //!    5. If it turns to be invalid or async backing allows seconding another candidate, carry on
 //!       with the next advertisement, otherwise we're done with this relay parent.
 //!
-//!    ┌──────────────────────────────────────────┐
-//!    └─▶Advertised ─▶ Pending ─▶ Fetched ─▶ Validated
+//!    ┌───────────────────────────────────┐
+//!    └─▶Waiting ─▶ Fetching ─▶ WaitingOnValidation
 
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -189,9 +193,9 @@ pub struct PendingCollationFetch {
 pub enum CollationStatus {
 	/// We are waiting for a collation to be advertised to us.
 	Waiting,
-	/// We are currently fetching a collation.
+	/// We are currently fetching a collation for the specified `ParaId`.
 	Fetching(ParaId),
-	/// We are waiting that a collation is being validated.
+	/// We are waiting that a collation is being validated for the specified `ParaId`.
 	WaitingOnValidation(ParaId),
 }
 
@@ -207,14 +211,8 @@ pub struct Collations {
 	pub status: CollationStatus,
 	/// Collator we're fetching from, optionally which candidate was requested.
 	///
-	/// This is the last fetch for the relay parent. The value is used in
-	/// `get_next_collation_to_fetch` (called from `dequeue_next_collation_and_fetch`) to determine
-	/// if the last fetched collation is the same as the one which just finished. If yes - another
-	/// collation should be fetched. If not - another fetch was already initiated and
-	/// `get_next_collation_to_fetch` will do nothing.
-	///
-	/// For the reasons above this value is not set to `None` when the fetch is done! Don't use it
-	/// to check if there is a pending fetch.
+	/// This is the currently last started fetch, which did not exceed `MAX_UNSHARED_DOWNLOAD_TIME`
+	/// yet.
 	pub fetching_from: Option<(CollatorId, Option<CandidateHash>)>,
 	/// Collation that were advertised to us, but we did not yet fetch. Grouped by `ParaId`.
 	waiting_queue: BTreeMap<ParaId, VecDeque<(PendingCollation, CollatorId)>>,
