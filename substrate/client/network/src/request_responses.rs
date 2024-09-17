@@ -70,7 +70,6 @@ pub use libp2p::request_response::{Config, RequestId};
 
 /// Possible failures occurring in the context of sending an outbound request and receiving the
 /// response.
-
 #[derive(Debug, thiserror::Error)]
 pub enum OutboundFailure {
 	/// The request could not be sent because a dialing attempt failed.
@@ -111,7 +110,6 @@ impl From<request_response::OutboundFailure> for OutboundFailure {
 
 /// Possible failures occurring in the context of receiving an inbound request and sending a
 /// response.
-
 #[derive(Debug, thiserror::Error)]
 pub enum InboundFailure {
 	/// The inbound request timed out, either while reading the incoming request or before a
