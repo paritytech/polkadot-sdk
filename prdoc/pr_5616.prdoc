@@ -1,12 +1,23 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: |
-  PVF: drop backing jobs if it is too late
+title: "PVF: drop backing jobs if it is too late"
 
 doc:
-  - audience: Node Dev
+  - audience: [ Node Dev, Node Operator ]
     description: |
       Introduces the removal of backing jobs that have been back pressured for longer than `allowedAncestryLen`, as these candidates are no longer viable.
 
-crates: [ ]
+crates:
+  - name: polkadot-node-subsystem-types
+    bump: patch
+  - name: polkadot-node-core-approval-voting
+    bump: patch
+  - name: polkadot-node-core-backing
+    bump: patch
+  - name: polkadot-node-core-candidate-validation
+    bump: patch
+  - name: polkadot-node-core-pvf
+    bump: patch
+  - name: polkadot-node-core-dispute-coordinator
+    bump: patch
