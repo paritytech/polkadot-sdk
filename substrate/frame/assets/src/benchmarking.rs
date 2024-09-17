@@ -139,28 +139,28 @@ fn assert_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::Runti
 	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
 }
 
-fn generate_merkle_trie<T: Config<I>, I: 'static>(items: u32) -> (DistributionHashOf<T, I>, DistributionProofOf<T, I>) {
-	use codec::Encode;
-	let flat_distribution = Vec::<Vec<u8>>::with_capacity(items as usize);
-	for i in 0..items {
-		let account: T::AccountId = account("target", i, SEED);
-		let balance: T::Balance = i.into();
+// fn generate_merkle_trie<T: Config<I>, I: 'static>(items: u32) -> (DistributionHashOf<T, I>,
+// DistributionProofOf<T, I>) { 	use codec::Encode;
+// 	let flat_distribution = Vec::<Vec<u8>>::with_capacity(items as usize);
+// 	for i in 0..items {
+// 		let account: T::AccountId = account("target", i, SEED);
+// 		let balance: T::Balance = i.into();
 
-		flat_distribution.push((account, balance).encode());
-	}
+// 		flat_distribution.push((account, balance).encode());
+// 	}
 
-	let root = binary_merkle_tree::merkle_root::<<T as frame_system::Config>::Hashing, _>(
-		flat_distribution.clone(),
-	);
+// 	let root = binary_merkle_tree::merkle_root::<<T as frame_system::Config>::Hashing, _>(
+// 		flat_distribution.clone(),
+// 	);
 
-	let proof = binary_merkle_tree::merkle_proof::<
-		<T as frame_system::Config>::Hashing,
-		_,
-		_,
-	>(flat_distribution.clone(), items);
+// 	let proof = binary_merkle_tree::merkle_proof::<
+// 		<T as frame_system::Config>::Hashing,
+// 		_,
+// 		_,
+// 	>(flat_distribution.clone(), items);
 
-	return (root, proof)
-}
+// 	return (root, proof)
+// }
 
 benchmarks_instance_pallet! {
 	create {

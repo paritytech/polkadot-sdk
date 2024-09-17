@@ -15,14 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Types for a compact base-16 merkle trie used for checking and generating proofs within the
-//! runtime. The `sp-trie` crate exposes all of these same functionality (and more), but this
-//! library is designed to work more easily with runtime native types, which simply need to
-//! implement `Encode`/`Decode`. It also exposes a runtime friendly `TrieError` type which can be
-//! use inside of a FRAME Pallet.
-//!
-//! Proofs are created with latest substrate trie format (`LayoutV1`), and are not compatible with
-//! proofs using `LayoutV0`.
+//! Types for a base-2 merkle tree used for checking and generating proofs within the
+//! runtime. The `binary-merkle-tree` crate exposes all of these same functionality (and more), but
+//! this library is designed to work more easily with runtime native types, which simply need to
+//! implement `Encode`/`Decode`.
 
 use crate::{Decode, DispatchError, Encode, MaxEncodedLen, TypeInfo};
 #[cfg(feature = "serde")]
@@ -63,16 +59,12 @@ where
 	{
 		let mut db_map = BTreeMap::default();
 		for (key, value) in items.into_iter() {
-			db_map.insert(key, value);
+			if db_map.insert(key, value).is_some() {
+				return Err(TrieError::DuplicateKey.into());
+			}
 		}
-
-		let db_map_len = db_map.len();
 
 		let db: Vec<(Key, Value)> = db_map.into_iter().collect();
-
-		if db.len() != db_map_len {
-			return Err("duplicate item key".into())
-		}
 
 		let root =
 			binary_merkle_tree::merkle_root::<Hashing, _>(db.iter().map(|item| item.encode()));
@@ -100,14 +92,17 @@ where
 	///
 	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
 	/// compatible with `LayoutV0`.
-	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError> {
+	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError>
+	where
+		Hashing::Out: Encode,
+	{
 		let mut encoded = Vec::with_capacity(self.db.len()); // Pre-allocate the vector
 		let mut found_index = None;
 
 		// Find the index of our key, and encode the (key, value) pair.
-		for (i, (k, v)) in self.db.into_iter().enumerate() {
+		for (i, (k, v)) in self.db.iter().enumerate() {
 			// If we found the key we are looking for, save it.
-			if k == key {
+			if *k == key {
 				found_index = Some(i);
 			}
 
@@ -116,35 +111,48 @@ where
 
 		let index = found_index.ok_or("couldnt find")?;
 
-		let proof = binary_merkle_tree::merkle_proof::<
-			Hashing,
-			_,
-			_,
-		>(encoded, index as u32);
-		Ok(Encode::encode(&proof))
+		let proof = binary_merkle_tree::merkle_proof::<Hashing, Vec<Vec<u8>>, Vec<u8>>(
+			encoded,
+			index as u32,
+		);
+		Ok(proof.encode())
 	}
 }
 
-/// Verify the existence or non-existence of `key` and `value` in a given trie root and proof.
-///
-/// Proofs must be created with latest substrate trie format (`LayoutV1`).
+/// Verify the existence of `key` and `value` in a given trie root and proof.
 pub fn verify_single_value_proof<Hashing, Key, Value>(
 	root: HashOf<Hashing>,
-	proof: &[Vec<u8>],
+	proof: &[u8],
 	key: Key,
-	maybe_value: Option<Value>,
+	value: Value,
 ) -> Result<(), DispatchError>
 where
 	Hashing: sp_core::Hasher,
-	Key: Encode,
-	Value: Encode,
+	Hashing::Out: Decode,
+	Key: Encode + Decode,
+	Value: Encode + Decode,
 {
-	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(
-		&root,
-		proof,
-		&[(key.encode(), maybe_value.map(|value| value.encode()))],
-	)
-	.map_err(|err| TrieError::from(err).into())
+	let decoded_proof: binary_merkle_tree::MerkleProof<Hashing::Out, Vec<u8>> =
+		Decode::decode(&mut &proof[..]).map_err(|_| TrieError::IncompleteProof)?;
+	if root != decoded_proof.root {
+		return Err(TrieError::RootMismatch.into());
+	}
+
+	if (&key, &value).encode() != decoded_proof.leaf {
+		return Err(TrieError::ValueMismatch.into());
+	}
+
+	if binary_merkle_tree::verify_proof::<Hashing, _, _>(
+		&decoded_proof.root,
+		decoded_proof.proof,
+		decoded_proof.number_of_leaves,
+		decoded_proof.leaf_index,
+		&decoded_proof.leaf,
+	) {
+		Ok(())
+	} else {
+		Err(TrieError::IncompleteProof.into())
+	}
 }
 
 #[cfg(test)]
@@ -159,7 +167,8 @@ mod tests {
 
 	// The expected root hash for an empty trie.
 	fn empty_root() -> H256 {
-		sp_trie::empty_trie_root::<LayoutV1<BlakeTwo256>>()
+		let tree = BalanceTrie::generate_for(Vec::new()).unwrap();
+		*tree.root()
 	}
 
 	fn create_balance_trie() -> BalanceTrie {
@@ -180,8 +189,6 @@ mod tests {
 		assert_eq!(balance_trie.query(6u32), Some(6u128));
 		assert_eq!(balance_trie.query(9u32), Some(9u128));
 		assert_eq!(balance_trie.query(69u32), Some(69u128));
-		// Invalid key returns none.
-		assert_eq!(balance_trie.query(6969u32), None);
 
 		balance_trie
 	}
@@ -204,12 +211,7 @@ mod tests {
 		for i in 0..200u32 {
 			if i == 6 {
 				assert_eq!(
-					verify_single_value_proof::<BlakeTwo256, _, _>(
-						root,
-						&proof,
-						i,
-						Some(u128::from(i))
-					),
+					verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, i, u128::from(i)),
 					Ok(())
 				);
 				// Wrong value is invalid.
@@ -218,39 +220,20 @@ mod tests {
 						root,
 						&proof,
 						i,
-						Some(u128::from(i + 1))
+						u128::from(i + 1)
 					),
-					Err(TrieError::RootMismatch.into())
+					Err(TrieError::ValueMismatch.into())
 				);
 			} else {
 				assert!(verify_single_value_proof::<BlakeTwo256, _, _>(
 					root,
 					&proof,
 					i,
-					Some(u128::from(i))
-				)
-				.is_err());
-				assert!(verify_single_value_proof::<BlakeTwo256, _, _>(
-					root,
-					&proof,
-					i,
-					None::<u128>
+					u128::from(i)
 				)
 				.is_err());
 			}
 		}
-	}
-
-	#[test]
-	fn basic_end_to_end_multi_value() {
-		let balance_trie = create_balance_trie();
-		let root = *balance_trie.root();
-
-		// Create a proof for a valid and invalid key.
-		let proof = balance_trie.create_proof(&[6u32, 69u32, 6969u32]).unwrap();
-		let items = [(6u32, Some(6u128)), (69u32, Some(69u128)), (6969u32, None)];
-
-		assert_eq!(verify_proof::<BlakeTwo256, _, _>(root, &proof, &items), Ok(()));
 	}
 
 	#[test]
@@ -263,24 +246,19 @@ mod tests {
 
 		// Correct data verifies successfully
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, Some(6u128)),
+			verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, 6u128),
 			Ok(())
 		);
 
 		// Fail to verify proof with wrong root
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(
-				Default::default(),
-				&proof,
-				6u32,
-				Some(6u128)
-			),
+			verify_single_value_proof::<BlakeTwo256, _, _>(Default::default(), &proof, 6u32, 6u128),
 			Err(TrieError::RootMismatch.into())
 		);
 
 		// Fail to verify proof with wrong data
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, Some(6u128)),
+			verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, 6u128),
 			Err(TrieError::IncompleteProof.into())
 		);
 	}
