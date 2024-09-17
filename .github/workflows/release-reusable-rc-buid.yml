@@ -105,21 +105,21 @@ jobs:
 
       - name: Build binary
         run: |
-          ARTIFACTS=/artifacts/${{ matrix.binaries }}
-          echo "Artifacts will be copied into $ARTIFACTS"
-          mkdir -p "$ARTIFACTS"
-          cd $ARTIFACTS
-          echo "Test" >> ${{ matrix.binaries }}.txt
-          sha256sum "${{ matrix.binaries }}.txt" | tee "${{ matrix.binaries }}.sha256"
+          # ARTIFACTS=/artifacts/${{ matrix.binaries }}
+          # echo "Artifacts will be copied into $ARTIFACTS"
+          # mkdir -p "$ARTIFACTS"
+          # cd $ARTIFACTS
+          # echo "Test" >> ${{ matrix.binaries }}.txt
+          # sha256sum "${{ matrix.binaries }}.txt" | tee "${{ matrix.binaries }}.sha256"
 
-          # ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
+          ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
 
       - name: Sign artifacts
         working-directory: /artifacts/${{ matrix.binaries }}
         run: |
-          # python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
+          python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
 
-          python3 -m pgpkms sign --input ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
+          # python3 -m pgpkms sign --input ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
           ls -la
 
       - name: Check sha256 ${{ matrix.binaries }}
@@ -131,13 +131,13 @@ jobs:
           echo "Checking binary  ${{ matrix.binaries }}"
           check_sha256  ${{ matrix.binaries }} && echo "OK" || echo "ERR"
 
-      # - name: Check GPG ${{ matrix.binaries }}
-      #   working-directory: /artifacts/${{ matrix.binaries }}
-      #   shell: bash
-      #   run: |
-      #     . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+      - name: Check GPG ${{ matrix.binaries }}
+        working-directory: /artifacts/${{ matrix.binaries }}
+        shell: bash
+        run: |
+          . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-      #     check_gpg  ${{ matrix.binaries }}
+          check_gpg  ${{ matrix.binaries }}
 
       # - name: Build polkadot deb package
       #   if: ${{ matrix.binaries == 'polkadot' }}
