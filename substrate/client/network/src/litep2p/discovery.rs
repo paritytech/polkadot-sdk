@@ -95,18 +95,6 @@ pub enum DiscoveryEvent {
 		/// Peer ID.
 		peer: PeerId,
 
-		/// Identify protocol version.
-		#[allow(dead_code)]
-		protocol_version: Option<String>,
-
-		/// Identify user agent version.
-		#[allow(dead_code)]
-		user_agent: Option<String>,
-
-		/// Observed address.
-		#[allow(dead_code)]
-		observed_address: Multiaddr,
-
 		/// Listen addresses.
 		listen_addresses: Vec<Multiaddr>,
 
@@ -564,11 +552,10 @@ impl Stream for Discovery {
 			Poll::Ready(None) => return Poll::Ready(None),
 			Poll::Ready(Some(IdentifyEvent::PeerIdentified {
 				peer,
-				protocol_version,
-				user_agent,
 				listen_addresses,
 				supported_protocols,
 				observed_address,
+				..
 			})) => {
 				if this.is_new_external_address(&observed_address, peer) {
 					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
@@ -578,10 +565,7 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::Identified {
 					peer,
-					protocol_version,
-					user_agent,
 					listen_addresses,
-					observed_address,
 					supported_protocols,
 				}));
 			},
