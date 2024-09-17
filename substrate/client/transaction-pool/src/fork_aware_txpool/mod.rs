@@ -247,8 +247,8 @@
 //! Transactions within *mempool* are constantly revalidated in the background. The
 //! [revalidation][`mp::revalidate`] is performed in [batches][`batch_size`], and transactions that
 //! were validated as latest, are revalidated first in the next iteration. The revalidation is
-//! triggered on every finalized block. If a transaction is found to be invalid, the [`Invalid`] event
-//! is sent and transaction is removed from the *mempool*.
+//! triggered on every finalized block. If a transaction is found to be invalid, the [`Invalid`]
+//! event is sent and transaction is removed from the *mempool*.
 //!
 //! NOTE: There is one exception: if transaction is referenced by any view as ready, then it is
 //! removed from the *mempool*, but not removed from the view. The [`Invalid`] event is not sent.
