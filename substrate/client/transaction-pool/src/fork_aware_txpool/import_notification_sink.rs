@@ -112,13 +112,11 @@ where
 				tokio::select! {
 					biased;
 					cmd = ctx.command_receiver.next() => {
-						match cmd {
-							Some(Command::AddView(key,stream)) => {
+						match cmd? {
+							Command::AddView(key,stream) => {
 								trace!(target: LOG_TARGET,"Command::AddView {key:?}");
 								ctx.stream_map.get_mut().insert(key,stream);
 							},
-							//controller sender is terminated, terminate the map as well
-							None => { return None }
 						}
 					},
 

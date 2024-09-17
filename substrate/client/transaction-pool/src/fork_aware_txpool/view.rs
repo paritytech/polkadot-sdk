@@ -231,7 +231,7 @@ where
 			tokio::select! {
 				_ = finish_revalidation_request_rx.recv() => {
 					log::trace!(target: LOG_TARGET, "view::revalidate_later: finish revalidation request received at {}.", self.at.hash);
-					should_break = true;
+					break
 				}
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
