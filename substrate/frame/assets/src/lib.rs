@@ -323,7 +323,8 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ TypeInfo;
 
-		/// Max number of items to destroy per `destroy_accounts`, `destroy_approvals`, `destroy_distribution` call.
+		/// Max number of items to destroy per `destroy_accounts`, `destroy_approvals`,
+		/// `destroy_distribution` call.
 		///
 		/// Must be configured to result in a weight that makes each call fit in a block.
 		#[pallet::constant]

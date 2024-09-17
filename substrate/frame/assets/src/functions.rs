@@ -522,7 +522,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// Ends the asset distribution of `distribution_id`.
+	/// Cleans up the distribution tracker of `distribution_id`.
+	/// Iterates and cleans up data in the `MerklizedDistributionTracker` map `RemoveItemsLimit` at
+	/// a time. This function may need to be called multiple times to complete successfully.
 	pub(super) fn do_destroy_distribution(
 		distribution_id: DistributionCounter,
 	) -> DispatchResultWithPostInfo {
@@ -548,11 +550,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		if all_refunded {
-			Self::deposit_event(Event::<T, I>::DistributionPartiallyCleaned { distribution_id });
+			Self::deposit_event(Event::<T, I>::DistributionCleaned { distribution_id });
 			// Refund weight only the amount we actually used.
 			Ok(Some(T::WeightInfo::destroy_distribution(refund_count)).into())
 		} else {
-			Self::deposit_event(Event::<T, I>::DistributionCleaned { distribution_id });
+			Self::deposit_event(Event::<T, I>::DistributionPartiallyCleaned { distribution_id });
 			// No weight to refund since we did not finish the loop.
 			Ok(().into())
 		}
