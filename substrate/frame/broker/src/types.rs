@@ -305,7 +305,7 @@ where
 	/// Check the config for basic validity constraints.
 	pub(crate) fn validate(&self) -> Result<(), ()> {
 		if self.leadin_length.is_zero() {
-			return Err(());
+			return Err(())
 		}
 
 		Ok(())
