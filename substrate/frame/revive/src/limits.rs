@@ -97,19 +97,19 @@ pub mod code {
 	///
 	/// This is `size_of<usize>() + 16`. But we don't use `usize` here so it isn't
 	/// different on the native runtime (used for testing).
-	const BYTE_PER_INSTRUCTION: u32 = 20;
+	const BYTES_PER_INSTRUCTION: u32 = 20;
 
 	/// The code is stored multiple times as part of the compiled program.
 	const EXTRA_OVERHEAD_PER_CODE_BYTE: u32 = 4;
 
 	/// Make sure that the various program parts are within the defined limits.
 	pub fn enforce<T: Config>(blob: &[u8]) -> DispatchResult {
-		fn round_page(n: u32) -> u32 {
+		fn round_page(n: u64) -> u64 {
 			debug_assert!(
 				PAGE_SIZE != 0 && (PAGE_SIZE & (PAGE_SIZE - 1)) == 0,
 				"Page size must be power of 2"
 			);
-			(n + PAGE_SIZE - 1) & !(PAGE_SIZE - 1)
+			(n.saturating_add(PAGE_SIZE as u64) - 1) & !(PAGE_SIZE as u64 - 1)
 		}
 
 		let program = polkavm::ProgramBlob::parse(blob.into()).map_err(|err| {
@@ -127,13 +127,16 @@ pub mod code {
 		// plus RW data in memory, plus stack size in memory.
 		// plus the overhead of instructions in memory which is derived from the code
 		// size itself and the number of instruction
-		let memory_size = blob.len() as u64 + round_page(program.ro_data_size()) as u64 -
-			program.ro_data().len() as u64 +
-			round_page(program.rw_data_size()) as u64 -
-			program.rw_data().len() as u64 +
-			round_page(program.stack_size()) as u64 +
-			num_instructions as u64 * BYTE_PER_INSTRUCTION as u64 +
-			program.code().len() as u64 * EXTRA_OVERHEAD_PER_CODE_BYTE as u64;
+		let memory_size = (blob.len() as u64)
+			.saturating_add(round_page(program.ro_data_size() as u64))
+			.saturating_sub(program.ro_data().len() as u64)
+			.saturating_add(round_page(program.rw_data_size() as u64))
+			.saturating_sub(program.rw_data().len() as u64)
+			.saturating_add(round_page(program.stack_size() as u64))
+			.saturating_add((num_instructions as u64).saturating_mul(BYTES_PER_INSTRUCTION as u64))
+			.saturating_add(
+				(program.code().len() as u64).saturating_mul(EXTRA_OVERHEAD_PER_CODE_BYTE as u64),
+			);
 
 		ensure!(memory_size <= STATIC_MEMORY_BYTES as u64, <Error<T>>::StaticMemoryTooLarge);
 
