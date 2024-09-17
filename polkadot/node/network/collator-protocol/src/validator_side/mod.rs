@@ -342,8 +342,8 @@ struct PerRelayParent {
 }
 
 impl PerRelayParent {
-	fn new(assignments: GroupAssignments, has_claim_queue: bool) -> Self {
-		let collations = Collations::new(&assignments.current, has_claim_queue);
+	fn new(assignments: GroupAssignments) -> Self {
+		let collations = Collations::new(&assignments.current);
 		Self { assignment: assignments, collations }
 	}
 }
@@ -428,15 +428,13 @@ fn is_relay_parent_in_implicit_view(
 	})
 }
 
-// Returns the group assignments for the validator and bool indicating if they are obtained from the
-// claim queue or not. The latter is used to handle the fall back case when the claim queue api is
-// not available in the runtime.
+// Returns the group assignments for the validator based on the information in the claim queue
 async fn assign_incoming<Sender>(
 	sender: &mut Sender,
 	current_assignments: &mut HashMap<ParaId, usize>,
 	keystore: &KeystorePtr,
 	relay_parent: Hash,
-) -> Result<(GroupAssignments, bool)>
+) -> Result<GroupAssignments>
 where
 	Sender: CollatorProtocolSenderTrait,
 {
@@ -463,25 +461,27 @@ where
 		rotation_info.core_for_group(group, cores.len())
 	} else {
 		gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
-		return Ok((GroupAssignments { current: Vec::new() }, false))
+		return Ok(GroupAssignments { current: Vec::new() })
 	};
 
-	let (paras_now, has_claim_queue) = match fetch_claim_queue(sender, relay_parent)
-		.await
-		.map_err(Error::Runtime)?
-	{
+	let paras_now = match fetch_claim_queue(sender, relay_parent).await.map_err(Error::Runtime)? {
 		// Runtime supports claim queue - use it
-		Some(mut claim_queue) => (claim_queue.0.remove(&core_now), true),
-		// Claim queue is not supported by the runtime - use availability cores instead.
-		None => (
+		Some(mut claim_queue) => claim_queue.0.remove(&core_now),
+		// Should never happen since claim queue is released everywhere.
+		None => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"Claim queue is not available, falling back to availability cores",
+			);
+
 			cores.get(core_now.0 as usize).and_then(|c| match c {
 				CoreState::Occupied(core) =>
 					core.next_up_on_available.as_ref().map(|c| [c.para_id].into_iter().collect()),
 				CoreState::Scheduled(core) => Some([core.para_id].into_iter().collect()),
 				CoreState::Free => None,
-			}),
-			false,
-		),
+			})
+		},
 	};
 	let paras_now = paras_now.unwrap_or_else(|| VecDeque::new());
 
@@ -498,10 +498,7 @@ where
 		}
 	}
 
-	Ok((
-		GroupAssignments { current: paras_now.into_iter().collect::<Vec<ParaId>>() },
-		has_claim_queue,
-	))
+	Ok(GroupAssignments { current: paras_now.into_iter().collect::<Vec<ParaId>>() })
 }
 
 fn remove_outgoing(
@@ -1211,13 +1208,11 @@ where
 			state.span_per_relay_parent.insert(*leaf, per_leaf_span);
 		}
 
-		let (assignments, has_claim_queue_support) =
+		let assignments =
 			assign_incoming(sender, &mut state.current_assignments, keystore, *leaf).await?;
 
 		state.active_leaves.insert(*leaf, async_backing_params);
-		state
-			.per_relay_parent
-			.insert(*leaf, PerRelayParent::new(assignments, has_claim_queue_support));
+		state.per_relay_parent.insert(*leaf, PerRelayParent::new(assignments));
 
 		state
 			.implicit_view
@@ -1232,11 +1227,11 @@ where
 			.unwrap_or_default();
 		for block_hash in allowed_ancestry {
 			if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
-				let (assignments, has_claim_queue_support) =
+				let assignments =
 					assign_incoming(sender, &mut state.current_assignments, keystore, *block_hash)
 						.await?;
 
-				entry.insert(PerRelayParent::new(assignments, has_claim_queue_support));
+				entry.insert(PerRelayParent::new(assignments));
 			}
 		}
 	}

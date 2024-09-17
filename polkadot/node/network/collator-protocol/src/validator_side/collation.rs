@@ -227,65 +227,28 @@ pub struct Collations {
 	waiting_queue: BTreeMap<ParaId, VecDeque<(PendingCollation, CollatorId)>>,
 	/// Number of seconded candidates and claims in the claim queue per `ParaId`.
 	candidates_state: BTreeMap<ParaId, CandidatesStatePerPara>,
-	// Represents the claim queue at the relay parent. The `bool` field indicates if a candidate
-	// was seconded for the `ParaId` at the position in question. In other words - if the claim is
-	// 'satisfied'. If the claim queue is not available `claim_queue_state` will be `None`.
-	claim_queue_state: Option<Vec<(bool, ParaId)>>,
 }
 
 impl Collations {
-	/// `Collations` should work with and without claim queue support. If the claim queue runtime
-	/// api is available `GroupAssignments` the claim queue. If not - group assignments will contain
-	/// just one item (what's scheduled on the core).
-	///
-	/// Some of the logic in `Collations` relies on the claim queue and if it is not available
-	/// fallbacks to another logic. For this reason `Collations` needs to know if claim queue is
-	/// available or not.
-	///
-	/// Once claim queue runtime api is released everywhere this logic won't be needed anymore and
-	/// can be cleaned up.
-	pub(super) fn new(group_assignments: &Vec<ParaId>, has_claim_queue: bool) -> Self {
+	pub(super) fn new(group_assignments: &Vec<ParaId>) -> Self {
 		let mut candidates_state = BTreeMap::<ParaId, CandidatesStatePerPara>::new();
-		let mut claim_queue_state = Vec::with_capacity(group_assignments.len());
 
 		for para_id in group_assignments {
 			candidates_state.entry(*para_id).or_default().claims_per_para += 1;
-			claim_queue_state.push((false, *para_id));
 		}
-
-		// Not optimal but if the claim queue is not available `group_assignments` will have just
-		// one element. Can be fixed once claim queue api is released everywhere and the fallback
-		// code is cleaned up.
-		let claim_queue_state = if has_claim_queue { Some(claim_queue_state) } else { None };
 
 		Self {
 			status: Default::default(),
 			fetching_from: None,
 			waiting_queue: Default::default(),
 			candidates_state,
-			claim_queue_state,
 		}
 	}
 
 	/// Note a seconded collation for a given para.
 	pub(super) fn note_seconded(&mut self, para_id: ParaId) {
 		self.candidates_state.entry(para_id).or_default().seconded_per_para += 1;
-
 		gum::trace!(target: LOG_TARGET, ?para_id, new_count=self.candidates_state.entry(para_id).or_default().seconded_per_para, "Note seconded.");
-
-		// and the claim queue state
-		if let Some(claim_queue_state) = self.claim_queue_state.as_mut() {
-			for (satisfied, assignment) in claim_queue_state {
-				if *satisfied {
-					continue
-				}
-
-				if assignment == &para_id {
-					*satisfied = true;
-					break
-				}
-			}
-		}
 	}
 
 	/// Adds a new collation to the waiting queue for the relay parent. This function doesn't
