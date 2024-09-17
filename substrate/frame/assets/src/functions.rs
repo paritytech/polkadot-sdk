@@ -474,29 +474,32 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// whom.
 	pub(super) fn do_claim_distribution(
 		distribution_id: DistributionCounter,
-		beneficiary: T::AccountId,
-		amount: T::Balance,
-		merkle_proof: DistributionProof,
+		merkle_proof: Vec<u8>,
 	) -> DispatchResult {
-		if amount.is_zero() {
-			return Err(Error::<T, I>::BalanceLow.into())
-		}
+		let proof =
+			codec::Decode::decode(&mut &merkle_proof[..]).map_err(|_| Error::<T, I>::BadProof)?;
 
 		let DistributionInfo { asset_id, merkle_root, active } =
 			MerklizedDistribution::<T, I>::get(distribution_id).ok_or(Error::<T, I>::Unknown)?;
 
 		ensure!(active, Error::<T, I>::DistributionEnded);
+
+		let leaf = T::VerifyExistenceProof::verify_proof(proof, &merkle_root)
+			.map_err(|()| Error::<T, I>::BadProof)?;
+		let (beneficiary, amount) =
+			codec::Decode::decode(&mut &leaf[..]).map_err(|_| Error::<T, I>::CannotDecodeLeaf)?;
+
 		ensure!(
 			!MerklizedDistributionTracker::<T, I>::contains_key(distribution_id, &beneficiary),
 			Error::<T, I>::AlreadyClaimed
 		);
 
-		sp_runtime::proving_trie::verify_single_value_proof::<T::Hashing, _, _>(
-			merkle_root,
-			&merkle_proof,
-			&beneficiary,
-			Some(amount),
-		)?;
+		// sp_runtime::proving_trie::verify_single_value_proof::<T::Hashing, _, _>(
+		// 	merkle_root,
+		// 	&merkle_proof,
+		// 	&beneficiary,
+		// 	Some(amount),
+		// )?;
 
 		Self::do_mint(asset_id, &beneficiary, amount, None)?;
 		MerklizedDistributionTracker::<T, I>::insert(&distribution_id, &beneficiary, ());

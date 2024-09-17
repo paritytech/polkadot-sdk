@@ -189,7 +189,8 @@ use frame_support::{
 			WithdrawConsequence,
 		},
 		BalanceStatus::Reserved,
-		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
+		BinaryMerkleTreeProver, Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency,
+		StoredMap, VerifyExistenceProof,
 	},
 };
 use frame_system::Config as SystemConfig;
@@ -298,6 +299,7 @@ pub mod pallet {
 			type Extra = ();
 			type CallbackHandle = ();
 			type WeightInfo = ();
+			type VerifyExistenceProof = BinaryMerkleTreeProver<Self::Hashing>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
 		}
@@ -403,6 +405,9 @@ pub mod pallet {
 		/// The [`AutoIncAssetId`] callback, in conjunction with the [`NextAssetId`], can be
 		/// used to set up auto-incrementing asset IDs for this collection.
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
+
+		/// A type used to verify merkle proofs used for distributions.
+		type VerifyExistenceProof: VerifyExistenceProof<Hash = Self::Hash>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -728,6 +733,10 @@ pub mod pallet {
 		DistributionEnded,
 		/// The asset distribution is still active.
 		DistributionActive,
+		/// The proof provided could not be verified.
+		BadProof,
+		/// The a leaf node was extracted from the proof, but it did not match the expected format.
+		CannotDecodeLeaf,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -1877,13 +1886,10 @@ pub mod pallet {
 		pub fn claim_distribution(
 			origin: OriginFor<T>,
 			distribution_id: DistributionCounter,
-			beneficiary: T::AccountId,
-			amount: T::Balance,
-			merkle_proof: Vec<u8>, // TODO temp
+			merkle_proof: Vec<u8>,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			let proof: DistributionProof = Decode::decode(&mut &merkle_proof[..]).map_err(|_| Error::<T, I>::BadAssetId)?;
-			Self::do_claim_distribution(distribution_id, beneficiary, amount, proof)?;
+			Self::do_claim_distribution(distribution_id, merkle_proof)?;
 			Ok(())
 		}
 

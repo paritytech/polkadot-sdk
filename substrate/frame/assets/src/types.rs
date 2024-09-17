@@ -319,7 +319,8 @@ where
 }
 
 pub type DistributionCounter = u32;
-pub type DistributionProof = Vec<Vec<u8>>;
+pub type DistributionProofOf<T, I> =
+	<<T as Config<I>>::VerifyExistenceProof as VerifyExistenceProof>::Proof;
 
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct DistributionInfo<AssetId, Hash> {
