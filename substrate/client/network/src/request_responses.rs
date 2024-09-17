@@ -68,7 +68,8 @@ use std::{
 
 pub use libp2p::request_response::{Config, RequestId};
 
-/// Possible failures occurring in the context of sending an outbound request and receiving the response.
+/// Possible failures occurring in the context of sending an outbound request and receiving the
+/// response.
 
 #[derive(Debug, thiserror::Error)]
 pub enum OutboundFailure {
@@ -106,7 +107,8 @@ impl From<request_response::OutboundFailure> for OutboundFailure {
 	}
 }
 
-/// Possible failures occurring in the context of receiving an inbound request and sending a response.
+/// Possible failures occurring in the context of receiving an inbound request and sending a
+/// response.
 
 #[derive(Debug, thiserror::Error)]
 pub enum InboundFailure {
