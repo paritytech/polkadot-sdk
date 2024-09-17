@@ -89,9 +89,9 @@ mod tests {
 		peers.note_vote_for(charlie, 10);
 
 		assert_eq!(peers.live.len(), 2);
-		assert!(!peers.contains(&alice));
-		assert!(peers.contains(&bob));
-		assert!(peers.contains(&charlie));
+		assert!(!peers.live.contains(&alice));
+		assert!(peers.live.contains(&bob));
+		assert!(peers.live.contains(&charlie));
 
 		// Get peers at block > 4
 		let further_than_4 = peers.further_than(4);
@@ -113,7 +113,7 @@ mod tests {
 		// Remove Alice
 		peers.remove(&alice);
 		assert_eq!(peers.live.len(), 2);
-		assert!(!peers.contains(&alice));
+		assert!(!peers.live.contains(&alice));
 
 		// Get peers at block >= 9
 		let further_than_9 = peers.further_than(9);
