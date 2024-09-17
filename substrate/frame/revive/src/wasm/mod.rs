@@ -132,8 +132,7 @@ where
 	pub fn from_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		// We do size checks when new code is deployed. This allows us to increase
 		// the limits later without affecting already deployed code.
-		let code: CodeVec = code.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
-		limits::code::enforce::<T>(code.as_slice())?;
+		let code = limits::code::enforce::<T>(code)?;
 
 		let code_len = code.len() as u32;
 		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);

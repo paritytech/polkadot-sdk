@@ -74,9 +74,9 @@ pub const PAGE_SIZE: u32 = 4 * 1024;
 /// will not be affected by those limits.
 pub mod code {
 	use super::PAGE_SIZE;
-	use crate::{Config, Error, LOG_TARGET};
+	use crate::{CodeVec, Config, Error, LOG_TARGET};
 	use frame_support::ensure;
-	use sp_runtime::DispatchResult;
+	use sp_runtime::DispatchError;
 
 	/// The maximum length of a code blob in bytes.
 	///
@@ -103,7 +103,7 @@ pub mod code {
 	const EXTRA_OVERHEAD_PER_CODE_BYTE: u32 = 4;
 
 	/// Make sure that the various program parts are within the defined limits.
-	pub fn enforce<T: Config>(blob: &[u8]) -> DispatchResult {
+	pub fn enforce<T: Config>(blob: Vec<u8>) -> Result<CodeVec, DispatchError> {
 		fn round_page(n: u64) -> u64 {
 			debug_assert!(
 				PAGE_SIZE != 0 && (PAGE_SIZE & (PAGE_SIZE - 1)) == 0,
@@ -112,7 +112,9 @@ pub mod code {
 			(n.saturating_add(PAGE_SIZE as u64) - 1) & !(PAGE_SIZE as u64 - 1)
 		}
 
-		let program = polkavm::ProgramBlob::parse(blob.into()).map_err(|err| {
+		let blob: CodeVec = blob.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
+
+		let program = polkavm::ProgramBlob::parse(blob.as_slice().into()).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to parse polkavm blob: {err:?}");
 			Error::<T>::CodeRejected
 		})?;
@@ -140,6 +142,6 @@ pub mod code {
 
 		ensure!(memory_size <= STATIC_MEMORY_BYTES as u64, <Error<T>>::StaticMemoryTooLarge);
 
-		Ok(())
+		Ok(blob)
 	}
 }
