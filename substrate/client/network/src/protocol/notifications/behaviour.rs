@@ -362,9 +362,6 @@ pub enum NotificationsOut {
 		received_handshake: Vec<u8>,
 		/// Object that permits sending notifications to the peer.
 		notifications_sink: NotificationsSink,
-		/// Is the connection inbound.
-		#[allow(dead_code)]
-		inbound: bool,
 	},
 
 	/// The [`NotificationsSink`] object used to send notifications with the given peer must be
@@ -2062,7 +2059,6 @@ impl NetworkBehaviour for Notifications {
 								let event = NotificationsOut::CustomProtocolOpen {
 									peer_id,
 									set_id,
-									inbound,
 									direction: if inbound {
 										Direction::Inbound
 									} else {
