@@ -32,10 +32,8 @@ use sp_runtime::{
 };
 use std::{marker::PhantomData, sync::Arc};
 
-/// Helper struct containing the id and the key ownership proof for a validator.
-pub struct ProvedValidator<'a, AuthorityId: AuthorityIdBound> {
-	#[allow(dead_code)]
-	pub id: &'a AuthorityId,
+/// Helper struct containing the key ownership proof for a validator.
+pub struct ProvedValidator {
 	pub key_owner_proof: OpaqueKeyOwnershipProof,
 }
 
@@ -67,7 +65,7 @@ where
 		at: BlockId<B>,
 		offender_ids: impl Iterator<Item = &'a AuthorityId>,
 		validator_set_id: ValidatorSetId,
-	) -> Result<Vec<ProvedValidator<'a, AuthorityId>>, Error> {
+	) -> Result<Vec<ProvedValidator>, Error> {
 		let hash = match at {
 			BlockId::Hash(hash) => hash,
 			BlockId::Number(number) => self
@@ -92,7 +90,7 @@ where
 				offender_id.clone(),
 			) {
 				Ok(Some(key_owner_proof)) => {
-					proved_offenders.push(ProvedValidator { id: offender_id, key_owner_proof });
+					proved_offenders.push(ProvedValidator { key_owner_proof });
 				},
 				Ok(None) => {
 					debug!(
