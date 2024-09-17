@@ -252,8 +252,7 @@ impl Collations {
 	}
 
 	/// Adds a new collation to the waiting queue for the relay parent. This function doesn't
-	/// perform any limits check. The caller (`enqueue_collation`) should assure that the collation
-	/// limit is respected.
+	/// perform any limits check. The caller should assure that the collation limit is respected.
 	pub(super) fn add_to_waiting_queue(&mut self, collation: (PendingCollation, CollatorId)) {
 		self.waiting_queue.entry(collation.0.para_id).or_default().push_back(collation);
 	}
@@ -268,13 +267,8 @@ impl Collations {
 	/// fetch is the first unsatisfied entry from the claim queue for which there is an
 	/// advertisement.
 	///
-	/// If claim queue is not supported then `group_assignment` should contain just one element and
-	/// the score won't matter. In this case collations will be fetched in the order they were
-	/// received.
-	///
-	/// Note: `group_assignments` is needed just for the fall back logic. It should be removed once
-	/// claim queue runtime api is released everywhere since it will be redundant - claim queue will
-	/// already be available in `self.claim_queue_state`.
+	/// `claim_queue_state` represents the claim queue and a boolean flag indicating if the claim
+	/// queue entry is fulfilled or not.
 	pub(super) fn pick_a_collation_to_fetch(
 		&mut self,
 		claim_queue_state: Vec<(bool, ParaId)>,
@@ -304,15 +298,14 @@ impl Collations {
 		None
 	}
 
-	// Returns the number of pending collations for the specified `ParaId`. This function should
-	// return either 0 or 1.
-	fn pending_for_para(&self, para_id: &ParaId) -> usize {
+	// Returns `true` if there is a  pending collation for the specified `ParaId`.
+	fn pending_for_para(&self, para_id: &ParaId) -> bool {
 		match self.status {
-			CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => 1,
+			CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => true,
 			CollationStatus::WaitingOnValidation(pending_para_id)
 				if pending_para_id == *para_id =>
-				1,
-			_ => 0,
+				true,
+			_ => false,
 		}
 	}
 
@@ -323,7 +316,7 @@ impl Collations {
 			.get(&para_id)
 			.map(|state| state.seconded_per_para)
 			.unwrap_or_default();
-		let pending_for_para = self.pending_for_para(para_id);
+		let pending_for_para = self.pending_for_para(para_id) as usize;
 
 		gum::trace!(
 			target: LOG_TARGET,

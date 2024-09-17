@@ -409,9 +409,6 @@ struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
-
-	/// Last known finalized block number
-	last_finalized_block_num: u32,
 }
 
 fn is_relay_parent_in_implicit_view(
@@ -1258,8 +1255,6 @@ where
 			state.fetched_candidates.retain(|k, _| k.relay_parent != removed);
 			state.span_per_relay_parent.remove(&removed);
 		}
-
-		state.last_finalized_block_num = view.finalized_number;
 	}
 
 	// Remove blocked seconding requests that left the view.
