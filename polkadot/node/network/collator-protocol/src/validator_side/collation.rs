@@ -299,7 +299,7 @@ impl Collations {
 	}
 
 	// Returns `true` if there is a  pending collation for the specified `ParaId`.
-	fn pending_for_para(&self, para_id: &ParaId) -> bool {
+	fn is_pending_for_para(&self, para_id: &ParaId) -> bool {
 		match self.status {
 			CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => true,
 			CollationStatus::WaitingOnValidation(pending_para_id)
@@ -316,7 +316,7 @@ impl Collations {
 			.get(&para_id)
 			.map(|state| state.seconded_per_para)
 			.unwrap_or_default();
-		let pending_for_para = self.pending_for_para(para_id) as usize;
+		let pending_for_para = self.is_pending_for_para(para_id) as usize;
 
 		gum::trace!(
 			target: LOG_TARGET,
