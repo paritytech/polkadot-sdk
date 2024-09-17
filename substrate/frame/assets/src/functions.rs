@@ -494,13 +494,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Error::<T, I>::AlreadyClaimed
 		);
 
-		// sp_runtime::proving_trie::verify_single_value_proof::<T::Hashing, _, _>(
-		// 	merkle_root,
-		// 	&merkle_proof,
-		// 	&beneficiary,
-		// 	Some(amount),
-		// )?;
-
 		Self::do_mint(asset_id, &beneficiary, amount, None)?;
 		MerklizedDistributionTracker::<T, I>::insert(&distribution_id, &beneficiary, ());
 
