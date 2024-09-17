@@ -95,7 +95,7 @@ jobs:
           mkdir -p "$ARTIFACTS"
           cd $ARTIFACTS
           echo "Test" >> ${{ matrix.binaries }}.txt
-          sha256sum "${{ matrix.binaries }}".txt | tee "${{ matrix.binaries }}.sha256"
+          sha256sum "${{ matrix.binaries }}.txt" | tee "${{ matrix.binaries }}.sha256"
 
           # ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
 
