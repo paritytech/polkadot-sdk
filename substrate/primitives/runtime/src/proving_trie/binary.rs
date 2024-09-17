@@ -28,102 +28,14 @@ use crate::{Decode, DispatchError, Encode, MaxEncodedLen, TypeInfo};
 #[cfg(feature = "serde")]
 use crate::{Deserialize, Serialize};
 
-mod binary;
-
-use sp_std::vec::Vec;
+use super::*;
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1, TrieError as SpTrieError},
 	LayoutV1, MemoryDB, Trie, TrieMut, VerifyError,
 };
 
 type HashOf<Hashing> = <Hashing as sp_core::Hasher>::Out;
-
-/// A runtime friendly error type for tries.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum TrieError {
-	/* From TrieError */
-	/// Attempted to create a trie with a state root not in the DB.
-	InvalidStateRoot,
-	/// Trie item not found in the database,
-	IncompleteDatabase,
-	/// A value was found in the trie with a nibble key that was not byte-aligned.
-	ValueAtIncompleteKey,
-	/// Corrupt Trie item.
-	DecoderError,
-	/// Hash is not value.
-	InvalidHash,
-	/* From VerifyError */
-	/// The statement being verified contains multiple key-value pairs with the same key.
-	DuplicateKey,
-	/// The proof contains at least one extraneous node.
-	ExtraneousNode,
-	/// The proof contains at least one extraneous value which should have been omitted from the
-	/// proof.
-	ExtraneousValue,
-	/// The proof contains at least one extraneous hash reference the should have been omitted.
-	ExtraneousHashReference,
-	/// The proof contains an invalid child reference that exceeds the hash length.
-	InvalidChildReference,
-	/// The proof indicates that an expected value was not found in the trie.
-	ValueMismatch,
-	/// The proof is missing trie nodes required to verify.
-	IncompleteProof,
-	/// The root hash computed from the proof is incorrect.
-	RootMismatch,
-	/// One of the proof nodes could not be decoded.
-	DecodeError,
-}
-
-impl<T> From<SpTrieError<T>> for TrieError {
-	fn from(error: SpTrieError<T>) -> Self {
-		match error {
-			SpTrieError::InvalidStateRoot(..) => Self::InvalidStateRoot,
-			SpTrieError::IncompleteDatabase(..) => Self::IncompleteDatabase,
-			SpTrieError::ValueAtIncompleteKey(..) => Self::ValueAtIncompleteKey,
-			SpTrieError::DecoderError(..) => Self::DecoderError,
-			SpTrieError::InvalidHash(..) => Self::InvalidHash,
-		}
-	}
-}
-
-impl<T, U> From<VerifyError<T, U>> for TrieError {
-	fn from(error: VerifyError<T, U>) -> Self {
-		match error {
-			VerifyError::DuplicateKey(..) => Self::DuplicateKey,
-			VerifyError::ExtraneousNode => Self::ExtraneousNode,
-			VerifyError::ExtraneousValue(..) => Self::ExtraneousValue,
-			VerifyError::ExtraneousHashReference(..) => Self::ExtraneousHashReference,
-			VerifyError::InvalidChildReference(..) => Self::InvalidChildReference,
-			VerifyError::ValueMismatch(..) => Self::ValueMismatch,
-			VerifyError::IncompleteProof => Self::IncompleteProof,
-			VerifyError::RootMismatch(..) => Self::RootMismatch,
-			VerifyError::DecodeError(..) => Self::DecodeError,
-		}
-	}
-}
-
-impl From<TrieError> for &'static str {
-	fn from(e: TrieError) -> &'static str {
-		match e {
-			TrieError::InvalidStateRoot => "The state root is not in the database.",
-			TrieError::IncompleteDatabase => "A trie item was not found in the database.",
-			TrieError::ValueAtIncompleteKey =>
-				"A value was found with a key that is not byte-aligned.",
-			TrieError::DecoderError => "A corrupt trie item was encountered.",
-			TrieError::InvalidHash => "The hash does not match the expected value.",
-			TrieError::DuplicateKey => "The proof contains duplicate keys.",
-			TrieError::ExtraneousNode => "The proof contains extraneous nodes.",
-			TrieError::ExtraneousValue => "The proof contains extraneous values.",
-			TrieError::ExtraneousHashReference => "The proof contains extraneous hash references.",
-			TrieError::InvalidChildReference => "The proof contains an invalid child reference.",
-			TrieError::ValueMismatch => "The proof indicates a value mismatch.",
-			TrieError::IncompleteProof => "The proof is incomplete.",
-			TrieError::RootMismatch => "The root hash computed from the proof is incorrect.",
-			TrieError::DecodeError => "One of the proof nodes could not be decoded.",
-		}
-	}
-}
 
 /// A helper structure for building a basic base-16 merkle trie and creating compact proofs for that
 /// trie. Proofs are created with latest substrate trie format (`LayoutV1`), and are not compatible
@@ -132,7 +44,7 @@ pub struct BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
 {
-	db: MemoryDB<Hashing>,
+	db: Vec<(Key, Value)>,
 	root: HashOf<Hashing>,
 	_phantom: core::marker::PhantomData<(Key, Value)>,
 }
@@ -140,7 +52,7 @@ where
 impl<Hashing, Key, Value> BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
-	Key: Encode,
+	Key: Encode + Ord,
 	Value: Encode,
 {
 	/// Create a new instance of a `ProvingTrie` using an iterator of key/value pairs.
@@ -148,16 +60,21 @@ where
 	where
 		I: IntoIterator<Item = (Key, Value)>,
 	{
-		let mut db = MemoryDB::default();
-		let mut root = Default::default();
-
-		{
-			let mut trie = TrieDBMutBuilderV1::new(&mut db, &mut root).build();
-			for (key, value) in items.into_iter() {
-				key.using_encoded(|k| value.using_encoded(|v| trie.insert(k, v)))
-					.map_err(|_| "failed to insert into trie")?;
-			}
+		let mut db_map = BTreeMap::default();
+		for (key, value) in items.into_iter() {
+			db_map.insert(key, value);
 		}
+
+		let db_map_len = db_map.len();
+
+		let db: Vec<(Key, Value)> = db_map.into_iter().collect();
+
+		if db.len() != db_map_len {
+			return Err("duplicate item key".into())
+		}
+
+		let root =
+			binary_merkle_tree::merkle_root::<Hashing, _>(db.iter().map(|item| item.encode()));
 
 		Ok(Self { db, root, _phantom: Default::default() })
 	}
@@ -173,29 +90,12 @@ where
 	where
 		Value: Decode,
 	{
-		let trie = TrieDBBuilder::new(&self.db, &self.root).build();
-		key.using_encoded(|s| trie.get(s))
-			.ok()?
-			.and_then(|raw| Value::decode(&mut &*raw).ok())
-	}
+		unimplemented!()
 
-	/// Create a compact merkle proof needed to prove all `keys` and their values are in the trie.
-	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
-	/// proof.
-	///
-	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
-	/// compatible with `LayoutV0`.
-	///
-	/// When verifying the proof created by this function, you must include all of the keys and
-	/// values of the proof, else the verifier will complain that extra nodes are provided in the
-	/// proof that are not needed.
-	pub fn create_proof(&self, keys: &[Key]) -> Result<Vec<Vec<u8>>, DispatchError> {
-		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
-			&self.db,
-			self.root,
-			&keys.into_iter().map(|k| k.encode()).collect::<Vec<Vec<u8>>>(),
-		)
-		.map_err(|err| TrieError::from(*err).into())
+		// let trie = TrieDBBuilder::new(&self.db, &self.root).build();
+		// key.using_encoded(|s| trie.get(s))
+		// 	.ok()?
+		// 	.and_then(|raw| Value::decode(&mut &*raw).ok())
 	}
 
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
@@ -205,7 +105,7 @@ where
 	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
 	/// compatible with `LayoutV0`.
 	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<Vec<u8>>, DispatchError> {
-		self.create_proof(&[key])
+		unimplemented!()
 	}
 }
 
@@ -229,28 +129,6 @@ where
 		&[(key.encode(), maybe_value.map(|value| value.encode()))],
 	)
 	.map_err(|err| TrieError::from(err).into())
-}
-
-/// Verify the existence or non-existence of multiple `items` in a given trie root and proof.
-///
-/// Proofs must be created with latest substrate trie format (`LayoutV1`).
-pub fn verify_proof<Hashing, Key, Value>(
-	root: HashOf<Hashing>,
-	proof: &[Vec<u8>],
-	items: &[(Key, Option<Value>)],
-) -> Result<(), DispatchError>
-where
-	Hashing: sp_core::Hasher,
-	Key: Encode,
-	Value: Encode,
-{
-	let items_encoded = items
-		.into_iter()
-		.map(|(key, maybe_value)| (key.encode(), maybe_value.as_ref().map(|value| value.encode())))
-		.collect::<Vec<(Vec<u8>, Option<Vec<u8>>)>>();
-
-	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(&root, proof, &items_encoded)
-		.map_err(|err| TrieError::from(err).into())
 }
 
 #[cfg(test)]

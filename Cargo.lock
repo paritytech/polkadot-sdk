@@ -21778,6 +21778,7 @@ dependencies = [
 name = "sp-runtime"
 version = "31.0.1"
 dependencies = [
+ "binary-merkle-tree",
  "docify",
  "either",
  "hash256-std-hasher",
