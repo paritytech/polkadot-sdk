@@ -21,7 +21,7 @@
 use sc_network::ReputationChange;
 use sc_network_types::PeerId;
 use sp_runtime::traits::{Block, NumberFor, Zero};
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 /// Report specifying a reputation change for a given peer.
 #[derive(Debug, PartialEq)]
@@ -62,18 +62,9 @@ impl<B: Block> KnownPeers<B> {
 		self.live.remove(peer);
 	}
 
-	/// Return _filtered and cloned_ list of peers that have voted on higher than `block`.
-	pub fn further_than(&self, block: NumberFor<B>) -> VecDeque<PeerId> {
-		self.live
-			.iter()
-			.filter_map(|(k, v)| (v.last_voted_on > block).then_some(k))
-			.cloned()
-			.collect()
-	}
-
-	/// Answer whether `peer` is part of `KnownPeers` set.
-	pub fn contains(&self, peer: &PeerId) -> bool {
-		self.live.contains_key(peer)
+	/// Returns a _filtered_ list of peers that have voted on higher than `block`.
+	pub fn further_than<'a>(&'a self, block: &'a NumberFor<B>) -> impl Iterator<Item = &'a PeerId> {
+		self.live.iter().filter_map(|(k, v)| (v.last_voted_on > *block).then_some(k))
 	}
 
 	/// Number of peers in the set.
