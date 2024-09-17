@@ -1,0 +1,23 @@
+title: Make syncing service an argument of `build_network`
+
+doc:
+  - audience: Node Dev
+    description: |
+      `build_network` no longer creates syncing engine internally, it now takes a handle to syncing service is an
+      argument instead. In most cases typical syncing engine with polkadot syncing strategy and default block downloader
+      can be created with newly introduced `sc_service::build_default_syncing_engine()` function, but lower-level
+      `build_default_block_downloader` also exists for those needing more customization.
+
+      These changes allow developers higher than ever control over syncing implementation.
+
+crates:
+  - name: cumulus-client-service
+    bump: patch
+  - name: polkadot-service
+    bump: patch
+  - name: sc-consensus
+    bump: major
+  - name: sc-service
+    bump: major
+  - name: sc-network-sync
+    bump: major
