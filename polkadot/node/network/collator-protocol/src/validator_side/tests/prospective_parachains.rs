@@ -1444,7 +1444,6 @@ fn collations_outside_limits_are_not_fetched() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
-		// Grandparent of head `a`.
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 2;
 
@@ -1548,7 +1547,6 @@ fn fair_collation_fetches() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
-		// Grandparent of head `a`.
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 2;
 

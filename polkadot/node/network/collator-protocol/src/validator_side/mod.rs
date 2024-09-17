@@ -2033,6 +2033,8 @@ async fn handle_collation_fetch_response(
 	result
 }
 
+// Returns how many seconded candidates and pending fetches are there within the view at a specific
+// relay parent
 fn seconded_and_pending_for_para_in_view(
 	implicit_view: &ImplicitView,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
@@ -2044,8 +2046,6 @@ fn seconded_and_pending_for_para_in_view(
 	// If the relay parent is not in the view (unconnected candidate)
 	// `known_allowed_relay_parents_under` will return `None`. In this case we still we just count
 	// the candidate at the specified relay parent.
-	// TODO: what to do when an unconnected candidate becomes connected and potentially we have
-	// accepted more candidates than the claim queue allows?
 	implicit_view
 		.known_allowed_relay_parents_under(relay_parent, Some(*para_id))
 		.or(Some(&[*relay_parent])) // if the relay parent is not in view we still want to count it
@@ -2060,6 +2060,8 @@ fn seconded_and_pending_for_para_in_view(
 		.unwrap_or(0)
 }
 
+// Returns the claim queue with a boolean attached to each entry indicating if the position in the
+// claim queue has got a corresponding pending fetch or seconded candidate.
 fn claim_queue_state(
 	relay_parent: &Hash,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
@@ -2096,12 +2098,8 @@ fn claim_queue_state(
 	Some(claim_queue_state)
 }
 
-/// Returns the next collation to fetch from the `waiting_queue`.
-///
-/// This will reset the status back to `Waiting` using [`CollationStatus::back_to_waiting`].
-///
-/// Returns `Some(_)` if there is any collation to fetch, the `status` is not `Seconded` and
-/// the passed in `finished_one` is the currently `waiting_collation`.
+/// Returns the next collation to fetch from the `waiting_queue` and reset the status back to
+/// `Waiting`.
 fn get_next_collation_to_fetch(
 	finished_one: &(CollatorId, Option<CandidateHash>),
 	relay_parent: Hash,
@@ -2109,7 +2107,7 @@ fn get_next_collation_to_fetch(
 ) -> Option<(PendingCollation, CollatorId)> {
 	let claim_queue_state =
 		claim_queue_state(&relay_parent, &state.per_relay_parent, &state.implicit_view)?;
-	let rp_state = state.per_relay_parent.get_mut(&relay_parent)?; // TODO: this is looked up twice
+	let rp_state = state.per_relay_parent.get_mut(&relay_parent)?;
 
 	// If finished one does not match waiting_collation, then we already dequeued another fetch
 	// to replace it.
