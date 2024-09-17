@@ -27,8 +27,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance, Len, OnUnbalanced,
-		TryCollect, UnixTime,
+		Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
+		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -96,10 +96,12 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
-		let lock = asset::staked::<T>(&stash);
+		// look at any old unmigrated lock as well.
+		let hold_or_lock = asset::staked::<T>(&stash)
+			.max(T::OldCurrency::balance_locked(STAKING_ID, &stash).into());
 
 		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
-			if lock == Zero::zero() {
+			if hold_or_lock == Zero::zero() {
 				Error::<T>::NotStash
 			} else {
 				Error::<T>::BadState
@@ -111,7 +113,7 @@ impl<T: Config> Pallet<T> {
 				if ledger.stash != *stash {
 					Ok(LedgerIntegrityState::Corrupted)
 				} else {
-					if lock != ledger.total {
+					if hold_or_lock != ledger.total {
 						Ok(LedgerIntegrityState::LockCorrupted)
 					} else {
 						Ok(LedgerIntegrityState::Ok)
@@ -1157,8 +1159,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(super) fn do_migrate_currency(stash: &T::AccountId) -> DispatchResult {
-		use frame_support::traits::{InspectLockableCurrency, LockableCurrency};
-
 		// we can't do anything for virtual stakers since their funds are not managed/held by
 		// this pallet.
 		ensure!(!Self::is_virtual_staker(stash), Error::<T>::VirtualStakerNotAllowed);
@@ -2130,7 +2130,7 @@ impl<T: Config> Pallet<T> {
 				if VirtualStakers::<T>::contains_key(stash.clone()) {
 					ensure!(
 						asset::staked::<T>(&stash) == Zero::zero(),
-						"virtual stakers should not have any locked balance"
+						"virtual stakers should not have any staked balance"
 					);
 					ensure!(
 						<Bonded<T>>::get(stash.clone()).unwrap() == stash.clone(),
@@ -2154,7 +2154,7 @@ impl<T: Config> Pallet<T> {
 				} else {
 					ensure!(
 						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-						"bond, ledger and/or staking lock inconsistent for a bonded stash."
+						"bond, ledger and/or staking hold inconsistent for a bonded stash."
 					);
 				}
 
