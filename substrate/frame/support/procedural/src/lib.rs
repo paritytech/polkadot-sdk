@@ -353,7 +353,8 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 		#frame_support::try_runtime_and_std_not_enabled! {
 			#stripped_impl
 		}
-	).into()
+	)
+	.into()
 }
 
 /// Derive [`PartialEq`] but do not bound any generic.

@@ -298,9 +298,7 @@ where
 			// Last item = root.
 			(Some(a), None) => return Ok(a),
 			// Finish up, no more items.
-			_ => {
-				return Err(next)
-			},
+			_ => return Err(next),
 		}
 	}
 }
