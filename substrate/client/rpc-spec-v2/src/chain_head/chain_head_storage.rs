@@ -104,7 +104,6 @@ where
 		items: Vec<StorageQuery<StorageKey>>,
 		child_key: Option<ChildInfo>,
 	) -> Result<(), FollowEventSendError> {
-
 		let mut iter_ops = Vec::new();
 		let mut sender = block_guard.response_sender();
 		let operation = block_guard.operation();
