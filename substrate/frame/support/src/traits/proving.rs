@@ -79,7 +79,7 @@ pub struct SixteenPatriciaMerkleTreeProver<H>(core::marker::PhantomData<H>);
 
 impl<H: Hasher> VerifyExistenceProof for SixteenPatriciaMerkleTreeProver<H>
 where
-	H::Out: Decode + Encode,
+	H::Out: Encode + Decode,
 {
 	type Proof = SixteenPatriciaMerkleTreeExistenceProof;
 	type Hash = H::Out;
