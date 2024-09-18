@@ -66,7 +66,7 @@ pub type PresetId = sp_runtime::RuntimeString;
 /// [`GenesisBuilder`] interface.
 pub const DEV_RUNTIME_PRESET: &'static str = "development";
 
-/// The default `local-testnet` preset used to communicate with the runtime via
+/// The default `local_testnet` preset used to communicate with the runtime via
 /// [`GenesisBuilder`] interface.
 pub const LOCAL_TESTNET_RUNTIME_PRESET: &'static str = "local_testnet";
 
