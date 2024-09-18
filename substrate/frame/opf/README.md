@@ -1,8 +1,10 @@
 # OPF Pallet
 ## Overview
 
-The **OPF Pallet** handles the Optimistic Project Funding. 
-It allows users to nominate projects (whitelisted in OpenGov) with their DOT. This mechanism will be funded with a constant stream of DOT taken directly from inflation and distributed to projects based on the proportion of DOT that has nominated them.
+The **OPF Pallet** handles the Optimistic Project Funding.
+It allows users to nominate projects (whitelisted in OpenGov) with their DOT.
+This mechanism will be funded with a constant stream of DOT taken directly from inflation
+and distributed to projects based on the proportion of DOT that has nominated them.
 The project rewards distribution is handled by the **Distribution Pallet**
 The voting round timeline is described below for someone voting for a project with no conviction round_0 and
 for another project with a conviction of 1x in round_1:
@@ -40,7 +42,10 @@ a signed extrinsic.
 
 **Basic actions:**
 - `vote` - This extrinsic allows users to [vote for/nominate] a whitelisted project using their funds.
-- `remove_vote` - This extrinsic allows users to remove a cast vote, as long as it is within the vote-casting period. The user can add a conviction to the amount appointed to the vote. With a conviction of x2 for example, one additional funds locking period will be added after the end of the round, as shown in the diagram above.  
+- `remove_vote` - This extrinsic allows users to remove a cast vote, as long as it is within the vote-casting period.
+    The user can add a conviction to the amount appointed to the vote.
+    With a conviction of x2 for example, one additional funds locking period will be added after the end of the round,
+    as shown in the diagram above.
 - `unlock_funds` - This extrinsic allows the user to unlock his funds, provided that the funds locking period has ended.
 
 License: Apache-2.0
