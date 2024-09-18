@@ -105,12 +105,9 @@ pub mod code {
 
 	/// Make sure that the various program parts are within the defined limits.
 	pub fn enforce<T: Config>(blob: Vec<u8>) -> Result<CodeVec, DispatchError> {
-		fn round_page(n: u64) -> u64 {
-			debug_assert!(
-				PAGE_SIZE != 0 && (PAGE_SIZE & (PAGE_SIZE - 1)) == 0,
-				"Page size must be power of 2"
-			);
-			(n.saturating_add(PAGE_SIZE as u64) - 1) & !(PAGE_SIZE as u64 - 1)
+		fn round_page(n: u32) -> u32 {
+			// doing the rounding in u64 will prevent panic on overflow
+			u64::from(n).next_multiple_of(PAGE_SIZE.into()) as u32
 		}
 
 		let blob: CodeVec = blob.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
@@ -121,7 +118,7 @@ pub mod code {
 		})?;
 
 		// this is O(n) but it allows us to be more precise
-		let num_instructions = program.instructions().count();
+		let num_instructions = program.instructions().count() as u64;
 
 		// The memory consumptions is the byte size of the whole blob,
 		// minus the RO data payload in the blob,
@@ -131,14 +128,14 @@ pub mod code {
 		// plus the overhead of instructions in memory which is derived from the code
 		// size itself and the number of instruction
 		let memory_size = (blob.len() as u64)
-			.saturating_add(round_page(program.ro_data_size() as u64))
+			.saturating_add(round_page(program.ro_data_size()).into())
 			.saturating_sub(program.ro_data().len() as u64)
-			.saturating_add(round_page(program.rw_data_size() as u64))
+			.saturating_add(round_page(program.rw_data_size()).into())
 			.saturating_sub(program.rw_data().len() as u64)
-			.saturating_add(round_page(program.stack_size() as u64))
-			.saturating_add((num_instructions as u64).saturating_mul(BYTES_PER_INSTRUCTION as u64))
+			.saturating_add(round_page(program.stack_size()).into())
+			.saturating_add((num_instructions).saturating_mul(BYTES_PER_INSTRUCTION.into()))
 			.saturating_add(
-				(program.code().len() as u64).saturating_mul(EXTRA_OVERHEAD_PER_CODE_BYTE as u64),
+				(program.code().len() as u64).saturating_mul(EXTRA_OVERHEAD_PER_CODE_BYTE.into()),
 			);
 
 		ensure!(memory_size <= STATIC_MEMORY_BYTES as u64, <Error<T>>::StaticMemoryTooLarge);
