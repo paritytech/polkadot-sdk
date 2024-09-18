@@ -134,8 +134,8 @@ jobs:
           . ./.github/scripts/common/lib.sh
 
           VERSION="${{ needs.validate-inputs.outputs.VERSION }}"
-          if [[ $inpust.binary == 'polkadot' ]]; then
-            bins=( polkadot polkadot-prepare-worker polkadot-execute-worker )
+          if [[ $BINARY == 'polkadot' ]]; then
+            bins=(polkadot polkadot-prepare-worker polkadot-execute-worker)
             for bin in "${bins[@]}"; do
               fetch_release_artifacts_from_s3 $bin
             done
