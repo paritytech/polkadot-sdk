@@ -235,7 +235,7 @@ jobs:
           ./docker/scripts/polkadot/build-injected.sh $ARTIFACTS_FOLDER
 
       - name: Build Injected Container image chain-spec-builder
-        if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'chain-spec-builder' }}
+        if: ${{ env.BINARY == 'chain-spec-builder' }}
         env:
           ARTIFACTS_FOLDER: release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
