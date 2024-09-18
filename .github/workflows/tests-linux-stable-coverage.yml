@@ -33,7 +33,7 @@ jobs:
       #
       # -Cinstrument-coverage slows everything down but it is necessary for code coverage
       # https://doc.rust-lang.org/rustc/instrument-coverage.html
-      RUSTFLAGS: "-Cdebug-assertions=y  -Cinstrument-coverage"
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings -Cinstrument-coverage"
       LLVM_PROFILE_FILE: "/__w/polkadot-sdk/polkadot-sdk/target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
     strategy:
       fail-fast: false

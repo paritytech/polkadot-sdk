@@ -195,7 +195,7 @@ fn invoke_wasm_build(current_dir: &Path) -> Result<()> {
 		"-Clink-arg=--import-memory",
 		"-Clinker-plugin-lto",
 		"-Ctarget-cpu=mvp",
-		"",
+		"-Dwarnings",
 	]
 	.join("\x1f");
 

@@ -122,7 +122,7 @@ test-doc:
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y "
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo test --doc --workspace
 
