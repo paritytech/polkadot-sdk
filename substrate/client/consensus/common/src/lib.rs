@@ -38,5 +38,3 @@ pub mod shared_data;
 
 pub use longest_chain::LongestChain;
 
-// #[cfg(feature = "doppelganger")]
-// mod doppelganger;

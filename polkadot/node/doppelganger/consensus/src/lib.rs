@@ -94,8 +94,9 @@ where
 				block.post_hash = Some(block.post_header().hash());
 			}
 			let res = self.inner.import_block(block).await;
-			println!("Block import done! : {:?}", res);
-			return res
+			println!("Block import done! : {:?}, killing the process", res);
+			std::process::exit(0);
+			//return res
 		}
 
 		return self.inner.import_block(block).await
