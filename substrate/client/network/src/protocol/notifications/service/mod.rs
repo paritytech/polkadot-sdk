@@ -89,10 +89,12 @@ impl MessageSink for NotificationSink {
 			.await
 			.map_err(|_| error::Error::ConnectionClosed)?;
 
-		permit.send(notification).map_err(|_| error::Error::ChannelClosed).map(|res| {
-			metrics::register_notification_sent(sink.0.metrics(), &sink.1, notification_len);
-			res
-		})
+		permit
+			.send(notification)
+			.map_err(|_| error::Error::ChannelClosed)
+			.inspect(|res| {
+				metrics::register_notification_sent(sink.0.metrics(), &sink.1, notification_len);
+			})
 	}
 }
 
@@ -263,13 +265,12 @@ impl NotificationService for NotificationHandle {
 			.map_err(|_| error::Error::ConnectionClosed)?
 			.send(notification)
 			.map_err(|_| error::Error::ChannelClosed)
-			.map(|res| {
+			.inspect(|res| {
 				metrics::register_notification_sent(
 					sink.metrics(),
 					&self.protocol,
 					notification_len,
 				);
-				res
 			})
 	}
 
