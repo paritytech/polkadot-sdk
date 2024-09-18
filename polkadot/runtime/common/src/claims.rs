@@ -697,7 +697,7 @@ mod secp_utils {
 }
 
 #[cfg(test)]
-pub(super) mod tests {
+mod tests {
 	use super::*;
 	use hex_literal::hex;
 	use secp_utils::*;
@@ -1433,7 +1433,7 @@ pub(super) mod tests {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub(super) mod benchmarking {
+mod benchmarking {
 	use super::*;
 	use crate::claims::Call;
 	use frame_benchmarking::{account, benchmarks};

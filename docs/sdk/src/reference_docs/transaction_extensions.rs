@@ -1,9 +1,9 @@
 //! Transaction extensions are, briefly, a means for different chains to extend the "basic"
 //! extrinsic format with custom data that can be checked by the runtime.
 //!
-//! # FRAME provided signed extensions
+//! # FRAME provided transaction extensions
 //!
-//! FRAME by default already provides the following signed extensions:
+//! FRAME by default already provides the following transaction extensions:
 //!
 //! - [`CheckGenesis`](frame_system::CheckGenesis): Ensures that a transaction was sent for the same
 //!   network. Determined based on genesis.
@@ -48,12 +48,12 @@
 //!   Ledger application and other similar offline wallets.
 //!
 //! - [`StorageWeightReclaim`](cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim): A
-//!   signed extension for parachains that reclaims unused storage weight after executing a
+//!   transaction extension for parachains that reclaims unused storage weight after executing a
 //!   transaction.
 //!
 //! For more information about these extensions, follow the link to the type documentation.
 //!
-//! # Building a custom signed extension
+//! # Building a custom transaction extension
 //!
 //! Defining a couple of very simple transaction extensions looks like the following:
 #![doc = docify::embed!("./src/reference_docs/transaction_extensions.rs", transaction_extensions_example)]
