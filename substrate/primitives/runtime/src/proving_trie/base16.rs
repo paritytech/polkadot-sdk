@@ -94,20 +94,21 @@ where
 	/// When verifying the proof created by this function, you must include all of the keys and
 	/// values of the proof, else the verifier will complain that extra nodes are provided in the
 	/// proof that are not needed.
-	pub fn create_proof(&self, keys: &[Key]) -> Result<Vec<Vec<u8>>, DispatchError> {
+	pub fn create_proof(&self, keys: &[Key]) -> Result<Vec<u8>, DispatchError> {
 		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
 			&self.db,
 			self.root,
 			&keys.into_iter().map(|k| k.encode()).collect::<Vec<Vec<u8>>>(),
 		)
 		.map_err(|err| TrieError::from(*err).into())
+		.map(|structured_proof| structured_proof.encode())
 	}
 
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
 	///
 	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
 	/// compatible with `LayoutV0`.
-	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<Vec<u8>>, DispatchError> {
+	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError> {
 		self.create_proof(&[key])
 	}
 }
@@ -117,7 +118,7 @@ where
 /// Proofs must be created with latest substrate trie format (`LayoutV1`).
 pub fn verify_single_value_proof<Hashing, Key, Value>(
 	root: Hashing::Out,
-	proof: &[Vec<u8>],
+	proof: &[u8],
 	key: Key,
 	maybe_value: Option<Value>,
 ) -> Result<(), DispatchError>
@@ -126,9 +127,11 @@ where
 	Key: Encode,
 	Value: Encode,
 {
+	let structured_proof: Vec<Vec<u8>> =
+		Decode::decode(&mut &proof[..]).map_err(|_| TrieError::DecodeError)?;
 	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(
 		&root,
-		proof,
+		&structured_proof,
 		&[(key.encode(), maybe_value.map(|value| value.encode()))],
 	)
 	.map_err(|err| TrieError::from(err).into())
@@ -139,7 +142,7 @@ where
 /// Proofs must be created with latest substrate trie format (`LayoutV1`).
 pub fn verify_proof<Hashing, Key, Value>(
 	root: Hashing::Out,
-	proof: &[Vec<u8>],
+	proof: &[u8],
 	items: &[(Key, Option<Value>)],
 ) -> Result<(), DispatchError>
 where
@@ -147,13 +150,19 @@ where
 	Key: Encode,
 	Value: Encode,
 {
+	let structured_proof: Vec<Vec<u8>> =
+		Decode::decode(&mut &proof[..]).map_err(|_| TrieError::DecodeError)?;
 	let items_encoded = items
 		.into_iter()
 		.map(|(key, maybe_value)| (key.encode(), maybe_value.as_ref().map(|value| value.encode())))
 		.collect::<Vec<(Vec<u8>, Option<Vec<u8>>)>>();
 
-	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(&root, proof, &items_encoded)
-		.map_err(|err| TrieError::from(err).into())
+	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(
+		&root,
+		&structured_proof,
+		&items_encoded,
+	)
+	.map_err(|err| TrieError::from(err).into())
 }
 
 #[cfg(test)]
@@ -287,10 +296,13 @@ mod tests {
 			Err(TrieError::RootMismatch.into())
 		);
 
-		// Fail to verify proof with wrong data
+		// Crete a bad proof.
+		let bad_proof = balance_trie.create_single_value_proof(99u32).unwrap();
+
+		// Fail to verify data with the wrong proof
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, Some(6u128)),
-			Err(TrieError::IncompleteProof.into())
+			verify_single_value_proof::<BlakeTwo256, _, _>(root, &bad_proof, 6u32, Some(6u128)),
+			Err(TrieError::ExtraneousHashReference.into())
 		);
 	}
 }
