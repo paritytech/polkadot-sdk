@@ -657,20 +657,17 @@ where
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let Some(who) = origin.as_system_origin_signer() else {
-			return Ok((ValidTransaction::default(), (), origin));
-		};
+		if let Some(Call::attest { statement: attested_statement }) = call.is_sub_type() {
+			let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 
-		if let Some(local_call) = call.is_sub_type() {
-			if let Call::attest { statement: attested_statement } = local_call {
-				let signer = Preclaims::<T>::get(who)
-					.ok_or(InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()))?;
-				if let Some(s) = Signing::<T>::get(signer) {
-					let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
-					ensure!(&attested_statement[..] == s.to_text(), e);
-				}
+			let signer = Preclaims::<T>::get(who)
+				.ok_or(InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()))?;
+			if let Some(s) = Signing::<T>::get(signer) {
+				let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
+				ensure!(&attested_statement[..] == s.to_text(), e);
 			}
 		}
+
 		Ok((ValidTransaction::default(), (), origin))
 	}
 	impl_tx_ext_default!(T::RuntimeCall; prepare);
