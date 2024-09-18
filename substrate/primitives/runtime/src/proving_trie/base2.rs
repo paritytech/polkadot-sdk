@@ -20,18 +20,10 @@
 //! this library is designed to work more easily with runtime native types, which simply need to
 //! implement `Encode`/`Decode`.
 
-use crate::{Decode, DispatchError, Encode, MaxEncodedLen, TypeInfo};
-#[cfg(feature = "serde")]
-use crate::{Deserialize, Serialize};
-
-use super::*;
+use super::TrieError;
+use crate::{Decode, DispatchError, Encode};
+use binary_merkle_tree::{merkle_proof, merkle_root, verify_proof, MerkleProof};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
-use sp_trie::{
-	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1, TrieError as SpTrieError},
-	LayoutV1, MemoryDB, Trie, TrieMut, VerifyError,
-};
-
-type HashOf<Hashing> = <Hashing as sp_core::Hasher>::Out;
 
 /// A helper structure for building a basic base-16 merkle trie and creating compact proofs for that
 /// trie. Proofs are created with latest substrate trie format (`LayoutV1`), and are not compatible
@@ -42,7 +34,7 @@ where
 {
 	// Deduplicated and flattened list of key value pairs.
 	db: Vec<(Key, Value)>,
-	root: HashOf<Hashing>,
+	root: Hashing::Out,
 	_phantom: core::marker::PhantomData<(Key, Value)>,
 }
 
@@ -66,14 +58,13 @@ where
 
 		let db: Vec<(Key, Value)> = db_map.into_iter().collect();
 
-		let root =
-			binary_merkle_tree::merkle_root::<Hashing, _>(db.iter().map(|item| item.encode()));
+		let root = merkle_root::<Hashing, _>(db.iter().map(|item| item.encode()));
 
 		Ok(Self { db, root, _phantom: Default::default() })
 	}
 
 	/// Access the underlying trie root.
-	pub fn root(&self) -> &HashOf<Hashing> {
+	pub fn root(&self) -> &Hashing::Out {
 		&self.root
 	}
 
@@ -111,17 +102,14 @@ where
 
 		let index = found_index.ok_or("couldnt find")?;
 
-		let proof = binary_merkle_tree::merkle_proof::<Hashing, Vec<Vec<u8>>, Vec<u8>>(
-			encoded,
-			index as u32,
-		);
+		let proof = merkle_proof::<Hashing, Vec<Vec<u8>>, Vec<u8>>(encoded, index as u32);
 		Ok(proof.encode())
 	}
 }
 
 /// Verify the existence of `key` and `value` in a given trie root and proof.
 pub fn verify_single_value_proof<Hashing, Key, Value>(
-	root: HashOf<Hashing>,
+	root: Hashing::Out,
 	proof: &[u8],
 	key: Key,
 	value: Value,
@@ -132,7 +120,7 @@ where
 	Key: Encode + Decode,
 	Value: Encode + Decode,
 {
-	let decoded_proof: binary_merkle_tree::MerkleProof<Hashing::Out, Vec<u8>> =
+	let decoded_proof: MerkleProof<Hashing::Out, Vec<u8>> =
 		Decode::decode(&mut &proof[..]).map_err(|_| TrieError::IncompleteProof)?;
 	if root != decoded_proof.root {
 		return Err(TrieError::RootMismatch.into());
@@ -142,7 +130,7 @@ where
 		return Err(TrieError::ValueMismatch.into());
 	}
 
-	if binary_merkle_tree::verify_proof::<Hashing, _, _>(
+	if verify_proof::<Hashing, _, _>(
 		&decoded_proof.root,
 		decoded_proof.proof,
 		decoded_proof.number_of_leaves,
@@ -260,6 +248,26 @@ mod tests {
 		assert_eq!(
 			verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, 6u128),
 			Err(TrieError::IncompleteProof.into())
+		);
+	}
+
+	#[test]
+	fn duplicate_key_fails_to_build() {
+		// Create a map of users and their balances.
+		let mut flat = Vec::<(u32, u128)>::new();
+		for i in 0..100u32 {
+			flat.push((i, i.into()));
+		}
+
+		// Duplicate key
+		flat.push((50, 1337.into()));
+
+		let Err(error) = BalanceTrie::generate_for(flat) else {
+			panic!("expected balance trie error");
+		};
+		assert_eq!(
+			error,
+			TrieError::DuplicateKey.into(),
 		);
 	}
 }
