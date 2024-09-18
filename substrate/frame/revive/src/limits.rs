@@ -105,9 +105,9 @@ pub mod code {
 
 	/// Make sure that the various program parts are within the defined limits.
 	pub fn enforce<T: Config>(blob: Vec<u8>) -> Result<CodeVec, DispatchError> {
-		fn round_page(n: u32) -> u32 {
-			// doing the rounding in u64 will prevent panic on overflow
-			u64::from(n).next_multiple_of(PAGE_SIZE.into()) as u32
+		fn round_page(n: u32) -> u64 {
+			// performing the rounding in u64 in order to prevent overflow
+			u64::from(n).next_multiple_of(PAGE_SIZE.into())
 		}
 
 		let blob: CodeVec = blob.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
@@ -128,11 +128,11 @@ pub mod code {
 		// plus the overhead of instructions in memory which is derived from the code
 		// size itself and the number of instruction
 		let memory_size = (blob.len() as u64)
-			.saturating_add(round_page(program.ro_data_size()).into())
+			.saturating_add(round_page(program.ro_data_size()))
 			.saturating_sub(program.ro_data().len() as u64)
-			.saturating_add(round_page(program.rw_data_size()).into())
+			.saturating_add(round_page(program.rw_data_size()))
 			.saturating_sub(program.rw_data().len() as u64)
-			.saturating_add(round_page(program.stack_size()).into())
+			.saturating_add(round_page(program.stack_size()))
 			.saturating_add((num_instructions).saturating_mul(BYTES_PER_INSTRUCTION.into()))
 			.saturating_add(
 				(program.code().len() as u64).saturating_mul(EXTRA_OVERHEAD_PER_CODE_BYTE.into()),
