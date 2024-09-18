@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, One, TransactionExtension,
-		TransactionExtensionBase, ValidateResult, Zero,
+		ValidateResult, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidityError, ValidTransaction,
@@ -66,15 +66,13 @@ impl<T: Config> core::fmt::Debug for CheckNonce<T> {
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for CheckNonce<T> {
-	const IDENTIFIER: &'static str = "CheckNonce";
-	type Implicit = ();
-}
 impl<T: Config> TransactionExtension<T::RuntimeCall> for CheckNonce<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
+	const IDENTIFIER: &'static str = "CheckNonce";
+	type Implicit = ();
 	type Val = Option<(T::AccountId, T::Nonce)>;
 	type Pre = ();
 

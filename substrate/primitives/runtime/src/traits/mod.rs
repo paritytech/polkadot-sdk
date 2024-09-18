@@ -54,7 +54,7 @@ use std::str::FromStr;
 
 pub mod transaction_extension;
 pub use transaction_extension::{
-	DispatchTransaction, TransactionExtension, TransactionExtensionBase,
+	DispatchTransaction, TransactionExtension,
 	TransactionExtensionMetadata, ValidateResult,
 };
 

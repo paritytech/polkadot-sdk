@@ -1321,7 +1321,7 @@ mod tests {
 	use codec::Encode;
 	use sp_runtime::{
 		generic::Era,
-		traits::{TransactionExtensionBase, Zero},
+		traits::{TransactionExtension, Zero},
 	};
 
 	#[test]
@@ -1359,8 +1359,8 @@ mod tests {
                 );
                 assert_eq!(payload.encode().split_last().unwrap().1, bh_indirect_payload.encode());
                 assert_eq!(
-                    payload.implicit().unwrap().encode().split_last().unwrap().1,
-                    bh_indirect_payload.implicit().unwrap().encode()
+                    TxExtension::implicit(&payload).unwrap().encode().split_last().unwrap().1,
+                    sp_runtime::traits::TransactionExtension::<RuntimeCall>::implicit(&bh_indirect_payload).unwrap().encode()
                 )
             }
         });

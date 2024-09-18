@@ -48,7 +48,7 @@ doc:
           contextual data that is injected into the transaction extension logic. It is unused in
           instances migrated from `SignedExtension`.
         - Extensions now track the weight they consume during valdiation, preparation and
-          post-dispatch through the `TransactionExtensionBase::weight` function.
+          post-dispatch through the `TransactionExtension::weight` function.
         - `TestXt` was removed and its usage in tests was replaced with `UncheckedExtrinsic`
           instances.
 

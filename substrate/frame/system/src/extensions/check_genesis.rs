@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{TransactionExtension, TransactionExtensionBase, Zero},
+	traits::{TransactionExtension, Zero},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -53,14 +53,12 @@ impl<T: Config + Send + Sync> CheckGenesis<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckGenesis<T> {
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckGenesis<T> {
 	const IDENTIFIER: &'static str = "CheckGenesis";
 	type Implicit = T::Hash;
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()))
 	}
-}
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckGenesis<T> {
 	type Val = ();
 	type Pre = ();
 	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {

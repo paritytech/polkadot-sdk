@@ -21,7 +21,7 @@ use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{Dispatchable, TransactionExtension, TransactionExtensionBase},
+	traits::{Dispatchable, TransactionExtension},
 	transaction_validity::TransactionValidityError,
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
@@ -123,8 +123,9 @@ impl<S: TransactionExtensionSchema> GenericTransactionExtension<S> {
 	}
 }
 
-impl<S> TransactionExtensionBase for GenericTransactionExtension<S>
+impl<S, C> TransactionExtension<C> for GenericTransactionExtension<S>
 where
+	C: Dispatchable,
 	S: TransactionExtensionSchema,
 	S::Payload: Send + Sync,
 	S::Implicit: Send + Sync,
@@ -142,14 +143,6 @@ where
 				frame_support::unsigned::UnknownTransaction::Custom(0xFF),
 			))
 	}
-}
-impl<S, C> TransactionExtension<C> for GenericTransactionExtension<S>
-where
-	C: Dispatchable,
-	S: TransactionExtensionSchema,
-	S::Payload: Send + Sync,
-	S::Implicit: Send + Sync,
-{
 	type Pre = ();
 	type Val = ();
 

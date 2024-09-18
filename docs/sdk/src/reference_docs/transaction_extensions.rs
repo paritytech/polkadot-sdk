@@ -64,7 +64,7 @@ pub mod transaction_extensions_example {
 	use scale_info::TypeInfo;
 	use sp_runtime::{
 		impl_tx_ext_default,
-		traits::{Dispatchable, TransactionExtension, TransactionExtensionBase},
+		traits::{Dispatchable, TransactionExtension},
 		transaction_validity::TransactionValidityError,
 	};
 
@@ -73,12 +73,9 @@ pub mod transaction_extensions_example {
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 	pub struct AddToPayload(pub u32);
 
-	impl TransactionExtensionBase for AddToPayload {
+	impl<Call: Dispatchable> TransactionExtension<Call> for AddToPayload {
 		const IDENTIFIER: &'static str = "AddToPayload";
 		type Implicit = ();
-	}
-
-	impl<Call: Dispatchable> TransactionExtension<Call> for AddToPayload {
 		type Pre = ();
 		type Val = ();
 
@@ -91,16 +88,13 @@ pub mod transaction_extensions_example {
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 	pub struct AddToSignaturePayload;
 
-	impl TransactionExtensionBase for AddToSignaturePayload {
+	impl<Call: Dispatchable> TransactionExtension<Call> for AddToSignaturePayload {
 		const IDENTIFIER: &'static str = "AddToSignaturePayload";
 		type Implicit = u32;
 
 		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 			Ok(1234)
 		}
-	}
-
-	impl<Call: Dispatchable> TransactionExtension<Call> for AddToSignaturePayload {
 		type Pre = ();
 		type Val = ();
 

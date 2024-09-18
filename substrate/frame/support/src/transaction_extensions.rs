@@ -24,8 +24,8 @@ use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		transaction_extension::TransactionExtensionBase, DispatchInfoOf, Dispatchable,
-		IdentifyAccount, TransactionExtension, Verify,
+		transaction_extension::TransactionExtension, DispatchInfoOf, Dispatchable,
+		IdentifyAccount, Verify,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
@@ -57,16 +57,6 @@ where
 	}
 }
 
-impl<V: Verify> TransactionExtensionBase for VerifyMultiSignature<V>
-where
-	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	<V::Signer as IdentifyAccount>::AccountId:
-		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-{
-	const IDENTIFIER: &'static str = "VerifyMultiSignature";
-	type Implicit = ();
-}
-
 impl<V: Verify, Call: Dispatchable + Encode> TransactionExtension<Call> for VerifyMultiSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
@@ -74,6 +64,8 @@ where
 		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<Call as Dispatchable>::RuntimeOrigin: From<Option<<V::Signer as IdentifyAccount>::AccountId>>,
 {
+	const IDENTIFIER: &'static str = "VerifyMultiSignature";
+	type Implicit = ();
 	type Val = ();
 	type Pre = ();
 	impl_tx_ext_default!(Call; prepare);

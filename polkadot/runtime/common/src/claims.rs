@@ -36,7 +36,7 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
 		AsAuthorizedOrigin, AsSystemOriginSigner, CheckedSub, DispatchInfoOf, Dispatchable,
-		TransactionExtension, TransactionExtensionBase, Zero,
+		TransactionExtension, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -625,20 +625,14 @@ where
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for PrevalidateAttests<T>
-where
-	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-	const IDENTIFIER: &'static str = "PrevalidateAttests";
-	type Implicit = ();
-}
-
 impl<T: Config> TransactionExtension<T::RuntimeCall> for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
 		AsSystemOriginSigner<T::AccountId> + AsAuthorizedOrigin + Clone,
 {
+	const IDENTIFIER: &'static str = "PrevalidateAttests";
+	type Implicit = ();
 	type Pre = ();
 	type Val = ();
 

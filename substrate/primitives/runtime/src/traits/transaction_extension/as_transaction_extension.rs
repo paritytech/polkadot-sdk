@@ -47,7 +47,10 @@ impl<SE: SignedExtension> From<SE> for AsTransactionExtension<SE> {
 	}
 }
 
-impl<SE: SignedExtension> TransactionExtensionBase for AsTransactionExtension<SE> {
+impl<SE: SignedExtension> TransactionExtension<SE::Call> for AsTransactionExtension<SE>
+where
+	<SE::Call as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<SE::AccountId> + Clone,
+{
 	const IDENTIFIER: &'static str = SE::IDENTIFIER;
 	type Implicit = SE::AdditionalSigned;
 
@@ -57,12 +60,6 @@ impl<SE: SignedExtension> TransactionExtensionBase for AsTransactionExtension<SE
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
 		SE::metadata()
 	}
-}
-
-impl<SE: SignedExtension> TransactionExtension<SE::Call> for AsTransactionExtension<SE>
-where
-	<SE::Call as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<SE::AccountId> + Clone,
-{
 	type Val = ();
 	type Pre = SE::Pre;
 
