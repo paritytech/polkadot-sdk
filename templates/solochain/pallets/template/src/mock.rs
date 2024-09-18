@@ -6,8 +6,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-	pub enum Test
-	{
+	pub enum Test {
 		System: frame_system,
 		TemplateModule: pallet_template,
 	}

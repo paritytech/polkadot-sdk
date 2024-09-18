@@ -20,6 +20,7 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 ## ⚡ Quickstart
 If you want to get an example node running quickly you can execute the following getting started script:
+
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
 ```
@@ -33,8 +34,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytec
 	namely how to build your first FRAME pallet.
   * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
     for starting a new project.
-* Other Resources:
-  * [Polkadot Wiki -> Build](https://wiki.polkadot.network/docs/build-guide)
+  * [External Resources](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/external_resources/index.html)
 
 ## 🚀 Releases
 
