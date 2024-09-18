@@ -454,10 +454,6 @@ pub trait Executable<T: Config>: Sized {
 	/// The code hash of the executable.
 	fn code_hash(&self) -> &CodeHash<T>;
 
-	/// Size of the contract code in bytes.
-	#[allow(dead_code)]
-	fn code_len(&self) -> u32;
-
 	/// The code does not contain any instructions which could lead to indeterminism.
 	fn is_deterministic(&self) -> bool;
 }
@@ -1837,10 +1833,6 @@ mod tests {
 
 		fn code_info(&self) -> &CodeInfo<Test> {
 			&self.code_info
-		}
-
-		fn code_len(&self) -> u32 {
-			0
 		}
 
 		fn is_deterministic(&self) -> bool {
