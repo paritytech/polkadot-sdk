@@ -1748,7 +1748,6 @@ fn respects_block_rules() {
 }
 
 #[test]
-#[allow(dead_code)]
 // FIXME: https://github.com/paritytech/polkadot-sdk/issues/48
 fn returns_status_for_pruned_blocks() {
 	use sp_consensus::BlockStatus;
