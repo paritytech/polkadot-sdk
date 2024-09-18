@@ -33,6 +33,12 @@ use crate::chain_head::{
 type NotifyOnDrop = tokio::sync::mpsc::Receiver<()>;
 type SharedOperations = Arc<Mutex<HashMap<String, (NotifyOnDrop, StopHandle)>>>;
 
+/// The buffer capacity for each subscription
+///
+/// Beware of that the JSON-RPC server has a global
+/// buffer per connection and this a extra buffer.
+const BUF_CAP_PER_SUBSCRIPTION: usize = 16;
+
 /// The state machine of a block of a single subscription ID.
 ///
 /// # Motivation
@@ -185,14 +191,6 @@ impl OperationState {
 			self.operations.lock().remove(&self.operation_id);
 		}
 	}
-
-	pub fn is_stopped(&self) -> bool {
-		self.stop.is_stopped()
-	}
-
-	pub async fn stopped(&self) {
-		self.stop.stopped().await;
-	}
 }
 
 /// The registered operation passed to the `chainHead` methods.
@@ -223,6 +221,7 @@ impl RegisteredOperation {
 	/// Returns the number of reserved elements for this permit.
 	///
 	/// This can be smaller than the number of items requested via [`LimitOperations::reserve()`].
+	#[allow(unused)]
 	pub fn num_reserved(&self) -> usize {
 		self.permit.num_ops
 	}
@@ -545,7 +544,8 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 			let (tx_stop, rx_stop) = oneshot::channel();
 			// We are relying on the backpressure from the underlying subscription and we shouldn't
 			// buffer more than the underlying client can handle.
-			let (response_sender, response_receiver) = futures::channel::mpsc::channel(1);
+			let (response_sender, response_receiver) =
+				futures::channel::mpsc::channel(BUF_CAP_PER_SUBSCRIPTION);
 			let state = SubscriptionState::<Block> {
 				with_runtime,
 				tx_stop: Some(tx_stop),

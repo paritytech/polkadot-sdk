@@ -256,8 +256,9 @@ where
 							),
 						};
 
-						let rpc_middleware =
-							RpcServiceBuilder::new().rpc_logger(1024).option_layer(middleware_layer.clone());
+						let rpc_middleware = RpcServiceBuilder::new()
+							.rpc_logger(1024)
+							.option_layer(middleware_layer.clone());
 						let mut svc = service_builder
 							.set_rpc_middleware(rpc_middleware)
 							.build(methods, stop_handle);

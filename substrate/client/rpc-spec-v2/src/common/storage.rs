@@ -29,6 +29,12 @@ use tokio::sync::mpsc;
 use super::events::{StorageResult, StorageResultType};
 use crate::hex_string;
 
+/// The buffer capacity for `Storage::query_iter_pagination`.
+///
+/// This is small because the underlying JSON-RPC server has
+/// its down buffer capacity per connection as well.
+const QUERY_ITER_PAGINATED_BUF_CAP: usize = 16;
+
 /// Call into the storage of blocks.
 pub struct Storage<Client, Block, BE> {
 	/// Substrate client.
@@ -155,7 +161,7 @@ where
 			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
 	}
 
-	/// Iterate over the storage which returns a receiver that will receive the results of the
+	/// Iterate over the storage which returns a stream that receive the results of the
 	/// query.
 	///
 	/// Internally this relies on a bounded channel which provides backpressure to the client
@@ -168,8 +174,7 @@ where
 		hash: Block::Hash,
 		child_key: Option<ChildInfo>,
 	) -> mpsc::Receiver<QueryResult> {
-		// NOTE: This is small because we rely on the buffer from the actual JSON-RPC connection.
-		let (tx, rx) = mpsc::channel(1);
+		let (tx, rx) = mpsc::channel(QUERY_ITER_PAGINATED_BUF_CAP);
 		let storage = self.clone();
 
 		let fut = async move {

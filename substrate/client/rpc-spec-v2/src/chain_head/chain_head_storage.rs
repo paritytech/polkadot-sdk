@@ -28,7 +28,6 @@ use tokio::sync::mpsc;
 
 use crate::{
 	chain_head::{
-		chain_head::LOG_TARGET,
 		event::{OperationError, OperationId, OperationStorageItems},
 		subscription::{BlockGuard, StopHandle},
 		FollowEvent, FollowEventSendError, FollowEventSender,
