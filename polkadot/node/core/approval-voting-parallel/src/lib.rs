@@ -232,7 +232,7 @@ where
 							break;
 						},
 					};
-					approval_distr_instance
+					if approval_distr_instance
 						.handle_from_orchestra(
 							message,
 							&mut approval_distribution_to_approval_voting,
@@ -242,7 +242,13 @@ where
 							&mut rng,
 							&mut session_info_provider,
 						)
-						.await;
+						.await
+					{
+						gum::info!(
+							target: LOG_TARGET,
+							"Approval distribution worker {}, exiting because of shutdown", i
+						);
+					};
 				}
 			}),
 		);
@@ -426,7 +432,7 @@ async fn run_main_loop<Context>(
 }
 
 // It sends a message to all approval workers to get the approval signatures for the requested
-// candidates and then merges them altogether and sends them back to the requester.
+// candidates and then merges them all together and sends them back to the requester.
 #[overseer::contextbounds(ApprovalVotingParallel, prefix = self::overseer)]
 async fn handle_get_approval_signatures<Context>(
 	ctx: &mut Context,
@@ -874,8 +880,7 @@ pub struct ApprovalVotingToApprovalDistribution<S: SubsystemSender<ApprovalVotin
 );
 
 impl<S: SubsystemSender<ApprovalVotingParallelMessage>>
-	overseer::SubsystemSender<ApprovalDistributionMessage>
-	for ApprovalVotingToApprovalDistribution<S>
+	overseer::SubsystemSender<ApprovalDistributionMessage> for ApprovalVotingToApprovalDistribution<S>
 {
 	#[allow(clippy::type_complexity, clippy::type_repetition_in_bounds)]
 	fn send_message<'life0, 'async_trait>(
