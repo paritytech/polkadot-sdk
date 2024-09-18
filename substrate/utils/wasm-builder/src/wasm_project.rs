@@ -602,7 +602,7 @@ fn project_enabled_features(
 			// we need to check if the feature is enabled by checking the env variable.
 			*f != "std" &&
 				*f != "default" &&
-				env::var(format!("CARGO_FEATURE_{}", feature_env))
+				env::var(format!("CARGO_FEATURE_{feature_env}"))
 					.map(|v| v == "1")
 					.unwrap_or_default()
 		})
