@@ -20,7 +20,7 @@ use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, Everything, Nothing, OriginTrait},
+	traits::{ConstU32, Everything, OriginTrait},
 	BoundedSlice,
 };
 use frame_system::EnsureRoot;
@@ -30,10 +30,6 @@ use sp_runtime::{
 	BuildStorage,
 };
 use xcm::prelude::*;
-use xcm_builder::{
-	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset,
-	ParentIsPreset,
-};
 use xcm_executor::traits::ConvertOrigin;
 
 type Block = frame_system::mocking::MockBlock<Test>;

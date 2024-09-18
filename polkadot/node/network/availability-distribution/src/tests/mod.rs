@@ -45,7 +45,7 @@ fn test_harness<T: Future<Output = ()>>(
 	let (context, virtual_overseer) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
-	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver::<
+	let (pov_req_receiver, _pov_req_cfg) = IncomingRequest::get_config_receiver::<
 		Block,
 		sc_network::NetworkWorker<Block, Hash>,
 	>(&req_protocol_names);
@@ -67,7 +67,6 @@ fn test_harness<T: Future<Output = ()>>(
 
 	let test_fut = test_fx(TestHarness {
 		virtual_overseer,
-		pov_req_cfg,
 		chunk_req_v1_cfg,
 		chunk_req_v2_cfg,
 		pool,

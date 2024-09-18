@@ -972,7 +972,6 @@ pub(crate) mod tests {
 	use crate::{artifacts::generate_artifact_path, testing::artifact_id, PossiblyInvalidError};
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
-	use polkadot_node_core_pvf_common::prepare::PrepareStats;
 	use polkadot_node_primitives::BlockData;
 	use sp_core::H256;
 
