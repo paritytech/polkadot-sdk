@@ -1115,7 +1115,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1142,7 +1141,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1175,7 +1173,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1209,7 +1206,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1249,7 +1245,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1300,7 +1295,6 @@ pub mod tests {
 		codec.set_max_len(usize::MAX);
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1339,7 +1333,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1399,7 +1392,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1436,7 +1428,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1482,7 +1473,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1531,7 +1521,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1567,7 +1556,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1642,7 +1630,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::PendingSend(vec![1, 2, 3, 4]),

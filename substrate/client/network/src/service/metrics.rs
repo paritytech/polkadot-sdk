@@ -72,8 +72,6 @@ pub struct Metrics {
 	pub distinct_peers_connections_opened_total: Counter<U64>,
 	pub incoming_connections_errors_total: CounterVec<U64>,
 	pub incoming_connections_total: Counter<U64>,
-	#[allow(dead_code)]
-	pub issued_light_requests: Counter<U64>,
 	pub kademlia_query_duration: HistogramVec,
 	pub kademlia_random_queries_total: Counter<U64>,
 	pub kademlia_records_count: Gauge<U64>,
@@ -126,10 +124,6 @@ impl Metrics {
 			incoming_connections_total: prometheus::register(Counter::new(
 				"substrate_sub_libp2p_incoming_connections_total",
 				"Total number of incoming connections on the listening sockets"
-			)?, registry)?,
-			issued_light_requests: prometheus::register(Counter::new(
-				"substrate_issued_light_requests",
-				"Number of light client requests that our node has issued.",
 			)?, registry)?,
 			kademlia_query_duration: prometheus::register(HistogramVec::new(
 				HistogramOpts {
