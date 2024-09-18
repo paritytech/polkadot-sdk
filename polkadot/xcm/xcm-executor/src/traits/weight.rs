@@ -29,14 +29,6 @@ pub trait WeightBounds<RuntimeCall> {
 	fn instr_weight(instruction: &Instruction<RuntimeCall>) -> Result<Weight, ()>;
 }
 
-/// A means of getting approximate weight consumption for a given destination message executor and a
-/// message.
-#[allow(dead_code)]
-pub trait UniversalWeigher {
-	/// Get the upper limit of weight required for `dest` to execute `message`.
-	fn weigh(dest: impl Into<Location>, message: Xcm<()>) -> Result<Weight, ()>;
-}
-
 /// Charge for weight in order to execute XCM.
 ///
 /// A `WeightTrader` may also be put into a tuple, in which case the default behavior of
