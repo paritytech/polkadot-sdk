@@ -25,7 +25,6 @@ frame-system = { workspace = true , default-features = false }
 sp-io = { workspace = true , default-features = false }
 sp-runtime = { workspace = true , default-features = false }
 sp-core = { workspace = true , default-features = false }
-
 pallet-assets = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
