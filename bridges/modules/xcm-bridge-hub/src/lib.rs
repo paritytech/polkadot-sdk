@@ -252,7 +252,7 @@ pub mod pallet {
 	pub type ThisChainOf<T, I> =
 		pallet_bridge_messages::ThisChainOf<T, <T as Config<I>>::BridgeMessagesPalletInstance>;
 	/// An alias for lane identifier type.
-	type LaneIdOf<T, I> =
+	pub type LaneIdOf<T, I> =
 		<T as BridgeMessagesConfig<<T as Config<I>>::BridgeMessagesPalletInstance>>::LaneId;
 	/// An alias for the associated lanes manager.
 	pub type LanesManagerOf<T, I> =

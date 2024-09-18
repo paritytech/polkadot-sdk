@@ -63,6 +63,14 @@ pub trait LaneIdType:
 )]
 pub struct LegacyLaneId(pub [u8; 4]);
 
+impl LaneIdType for LegacyLaneId {
+	/// Create lane identifier from two locations.
+	fn new<T: Ord + Encode>(_endpoint1: T, _endpoint2: T) -> Self {
+		// we don't support this for `LegacyLaneId`, because it was hard-coded before
+		unimplemented!();
+	}
+}
+
 #[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 impl TryFrom<Vec<u8>> for LegacyLaneId {
 	type Error = ();
@@ -164,7 +172,7 @@ impl LaneIdType for HashedLaneId {
 	fn new<T: Ord + Encode>(endpoint1: T, endpoint2: T) -> Self {
 		const VALUES_SEPARATOR: [u8; 31] = *b"bridges-lane-id-value-separator";
 
-		HashedLaneId(
+		Self(
 			if endpoint1 < endpoint2 {
 				(endpoint1, VALUES_SEPARATOR, endpoint2)
 			} else {

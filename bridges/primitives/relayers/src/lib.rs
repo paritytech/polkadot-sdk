@@ -78,6 +78,11 @@ impl<LaneId: Decode + Encode> RewardsAccountParams<LaneId> {
 	) -> Self {
 		Self { lane_id, bridged_chain_id, owner }
 	}
+
+	/// Getter for `lane_id`.
+	pub const fn lane_id(&self) -> &LaneId {
+		&self.lane_id
+	}
 }
 
 impl<LaneId: Decode + Encode> TypeId for RewardsAccountParams<LaneId> {
