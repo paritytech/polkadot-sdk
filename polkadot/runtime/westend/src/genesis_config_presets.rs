@@ -437,7 +437,7 @@ fn westend_local_testnet_genesis() -> serde_json::Value {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.try_into() {
-		Ok("local_testnet") => westend_local_testnet_genesis(),
+		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => westend_local_testnet_genesis(),
 		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => westend_development_config_genesis(),
 		Ok("staging_testnet") => westend_staging_testnet_config_genesis(),
 		_ => return None,
@@ -452,7 +452,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 /// List of supported presets.
 pub fn preset_names() -> Vec<PresetId> {
 	vec![
-		PresetId::from("local_testnet"),
+		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from("staging_testnet"),
 	]

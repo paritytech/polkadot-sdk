@@ -30,7 +30,7 @@ pub fn asset_hub_westend_development_config() -> GenericChainSpec {
 	.with_name("Westend Asset Hub Development")
 	.with_id("asset-hub-westend-dev")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
+	.with_genesis_config_preset_name(sc_chain_spec::DEV_RUNTIME_PRESET)
 	.with_properties(properties)
 	.build()
 }
@@ -48,7 +48,7 @@ pub fn asset_hub_westend_local_config() -> GenericChainSpec {
 	.with_name("Westend Asset Hub Local")
 	.with_id("asset-hub-westend-local")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name("local")
+	.with_genesis_config_preset_name(sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_properties(properties)
 	.build()
 }
@@ -97,7 +97,7 @@ fn asset_hub_rococo_like_development_config(
 	.with_name(name)
 	.with_id(chain_id)
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
+	.with_genesis_config_preset_name(sc_chain_spec::DEV_RUNTIME_PRESET)
 	.with_properties(properties)
 	.build()
 }
@@ -128,7 +128,7 @@ fn asset_hub_rococo_like_local_config(
 	.with_name(name)
 	.with_id(chain_id)
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name("local")
+	.with_genesis_config_preset_name(sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_properties(properties)
 	.build()
 }

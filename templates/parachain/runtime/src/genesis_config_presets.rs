@@ -10,9 +10,6 @@ use serde_json::Value;
 use sp_core::sr25519;
 use sp_genesis_builder::PresetId;
 
-/// Preset configuration name for a local testnet environment.
-pub const PRESET_LOCAL_TESTNET: &str = "local_testnet";
-
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
@@ -134,7 +131,7 @@ fn development_config_genesis() -> Value {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<vec::Vec<u8>> {
 	let patch = match id.try_into() {
-		Ok(PRESET_LOCAL_TESTNET) => local_testnet_genesis(),
+		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => local_testnet_genesis(),
 		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
 		_ => return None,
 	};
@@ -149,6 +146,6 @@ pub fn get_preset(id: &PresetId) -> Option<vec::Vec<u8>> {
 pub fn preset_names() -> Vec<PresetId> {
 	vec![
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
-		PresetId::from(PRESET_LOCAL_TESTNET),
+		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
 	]
 }

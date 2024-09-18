@@ -46,7 +46,6 @@ testnet-parachains-constants = { features = [
 
 # Substrate
 sp-core = { workspace = true, default-features = true }
-sp-genesis-builder = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }

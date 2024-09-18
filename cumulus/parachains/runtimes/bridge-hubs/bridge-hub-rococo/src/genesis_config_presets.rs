@@ -82,16 +82,10 @@ fn bridge_hub_rococo_genesis(
 	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 
-/// Encapsulates names of predefined presets.
-mod preset_names {
-	pub const PRESET_LOCAL: &str = "local";
-}
-
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
-	use preset_names::*;
 	let patch = match id.try_into() {
-		Ok(PRESET_LOCAL) => bridge_hub_rococo_genesis(
+		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => bridge_hub_rococo_genesis(
 			// initial collators.
 			vec![
 				(
@@ -162,6 +156,8 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 
 /// List of supported presets.
 pub fn preset_names() -> Vec<PresetId> {
-	use preset_names::*;
-	vec![PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET), PresetId::from(PRESET_LOCAL)]
+	vec![
+		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
+		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
+	]
 }

@@ -69,7 +69,6 @@ fn asset_hub_westend_genesis(
 
 /// Encapsulates names of predefined presets.
 mod preset_names {
-	pub const PRESET_LOCAL: &str = "local";
 	pub const PRESET_GENESIS: &str = "genesis";
 }
 
@@ -105,7 +104,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			ASSET_HUB_WESTEND_ED * 4096,
 			1000.into(),
 		),
-		Ok(PRESET_LOCAL) => asset_hub_westend_genesis(
+		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => asset_hub_westend_genesis(
 			// initial collators.
 			vec![
 				(
@@ -165,6 +164,6 @@ pub fn preset_names() -> Vec<PresetId> {
 	vec![
 		PresetId::from(PRESET_GENESIS),
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
-		PresetId::from(PRESET_LOCAL),
+		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
 	]
 }

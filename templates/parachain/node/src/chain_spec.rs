@@ -42,7 +42,7 @@ pub fn development_config() -> ChainSpec {
 	.with_name("Development")
 	.with_id("dev")
 	.with_chain_type(ChainType::Development)
-	.with_genesis_config_preset_name("development")
+	.with_genesis_config_preset_name(sc_chain_spec::DEV_RUNTIME_PRESET)
 	.build()
 }
 
@@ -65,7 +65,7 @@ pub fn local_testnet_config() -> ChainSpec {
 	.with_name("Local Testnet")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name("local_testnet")
+	.with_genesis_config_preset_name(sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_protocol_id("template-local")
 	.with_properties(properties)
 	.build()

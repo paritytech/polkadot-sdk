@@ -157,8 +157,8 @@ pub mod rococo {
 		.with_id(super::ensure_id(id).expect("invalid id"))
 		.with_chain_type(chain_type.clone())
 		.with_genesis_config_preset_name(match chain_type {
-			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
-			ChainType::Local => "local",
+			ChainType::Development => sc_chain_spec::DEV_RUNTIME_PRESET,
+			ChainType::Local => sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET,
 			_ => panic!("chain_type: {chain_type:?} not supported here!"),
 		})
 		.with_properties(properties)
@@ -201,8 +201,8 @@ pub mod westend {
 		.with_id(super::ensure_id(id).expect("invalid id"))
 		.with_chain_type(chain_type.clone())
 		.with_genesis_config_preset_name(match chain_type {
-			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
-			ChainType::Local => "local",
+			ChainType::Development => sc_chain_spec::DEV_RUNTIME_PRESET,
+			ChainType::Local => sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET,
 			_ => panic!("chain_type: {chain_type:?} not supported here!"),
 		})
 		.with_properties(properties)
