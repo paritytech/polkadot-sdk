@@ -592,8 +592,6 @@ pub struct Pallet {
 	pub cfg_pattern: Vec<cfg_expr::Expression>,
 	/// The doc literals
 	pub docs: Vec<syn::Expr>,
-	// attributes
-	//pub attrs: Vec<syn::Attribute>,
 }
 
 impl Pallet {
