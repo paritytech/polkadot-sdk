@@ -458,8 +458,6 @@ pub mod pallet {
 		InvalidCallFlags,
 		/// The executed contract exhausted its gas limit.
 		OutOfGas,
-		/// The output buffer supplied to a contract API call was too small.
-		OutputBufferTooSmall,
 		/// Performing the requested transfer failed. Probably because there isn't enough
 		/// free balance in the sender's account.
 		TransferFailed,

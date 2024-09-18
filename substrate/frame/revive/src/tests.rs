@@ -4292,4 +4292,21 @@ mod run_tests {
 			);
 		});
 	}
+
+	fn call_diverging_out_len_works() {
+		let (code, _) = compile_module("call_diverging_out_len").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create the contract: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: It will issue calls and deploys, asserting on
+			// correct output if the supplied output length was smaller than
+			// than what the callee returned.
+			assert_ok!(builder::call(addr).build());
+		});
+	}
 }
