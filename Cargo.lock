@@ -23399,7 +23399,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "soketto 0.7.1",
+ "soketto 0.8.0",
  "staging-node-inspect",
  "substrate-cli-test-utils",
  "tempfile",
