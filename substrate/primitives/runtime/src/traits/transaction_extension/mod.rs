@@ -462,8 +462,6 @@ pub struct TransactionExtensionMetadata {
 
 #[impl_for_tuples(1, 12)]
 impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
-	for_tuples!( where #( Tuple: TransactionExtension<Call> )* );
-
 	const IDENTIFIER: &'static str = "Use `metadata()`!";
 	for_tuples!( type Implicit = ( #( Tuple::Implicit ),* ); );
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
