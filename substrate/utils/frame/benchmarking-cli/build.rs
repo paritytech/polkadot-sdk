@@ -30,6 +30,6 @@ pub fn main() {
 	if let Ok(profile) = env::var("PROFILE") {
 		println!("cargo:rustc-cfg=build_profile={:?}", profile);
 	} else {
-		println!("cargo:rustc-cfg=build_profile={:?}", "uknown");
+		println!("cargo:rustc-cfg=build_profile={:?}", "unknown");
 	}
 }
