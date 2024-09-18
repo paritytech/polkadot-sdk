@@ -121,18 +121,19 @@ async fn build_interface(
 }
 
 pub async fn build_minimal_relay_chain_node_with_rpc(
-	polkadot_config: Configuration,
+	relay_chain_config: Configuration,
+	parachain_prometheus_registry: Option<&Registry>,
 	task_manager: &mut TaskManager,
 	relay_chain_url: Vec<Url>,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_worker(
 		relay_chain_url,
 		task_manager,
-		polkadot_config.prometheus_registry(),
+		parachain_prometheus_registry,
 	)
 	.await?;
 
-	build_interface(polkadot_config, task_manager, client).await
+	build_interface(relay_chain_config, task_manager, client).await
 }
 
 pub async fn build_minimal_relay_chain_node_light_client(

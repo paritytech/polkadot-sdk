@@ -30,7 +30,7 @@ impl RelaychainRpcMetrics {
 				HistogramVec::new(
 					HistogramOpts {
 						common_opts: Opts::new(
-							"polkadot_parachain_relay_chain_rpc_interface",
+							"relay_chain_rpc_interface",
 							"Tracks stats about cumulus relay chain RPC interface",
 						),
 						buckets: prometheus::exponential_buckets(0.001, 4.0, 9)

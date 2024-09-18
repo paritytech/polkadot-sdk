@@ -4696,6 +4696,7 @@ dependencies = [
  "polkadot-service",
  "polkadot-test-service",
  "portpicker",
+ "prometheus",
  "rand",
  "sc-basic-authorship",
  "sc-block-builder",
