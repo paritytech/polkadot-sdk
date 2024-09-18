@@ -58,7 +58,7 @@ use sc_transaction_pool_api::{
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{AtLeast32Bit, Block as BlockT, ExtrinsicLike, Header as HeaderT, NumberFor, Zero},
+	traits::{AtLeast32Bit, Block as BlockT, Header as HeaderT, NumberFor, Zero},
 };
 use std::time::Instant;
 
