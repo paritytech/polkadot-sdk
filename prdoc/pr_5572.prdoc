@@ -11,9 +11,11 @@ crates:
   - name: cumulus-relay-chain-rpc-interface
     bump: major
   - name: cumulus-relay-chain-minimal-node
-    bump: patch
+    bump: major
   - name: cumulus-test-service
     bump: patch
   - name: substrate-prometheus-endpoint
+    bump: patch
+  - name: cumulus-client-service
     bump: patch
 
