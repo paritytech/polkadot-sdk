@@ -427,6 +427,9 @@ pub trait Ext: sealing::Sealed {
 
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
+
+	/// Returns a mutable reference to saved output of the current frame.
+	fn output_mut(&mut self) -> &mut Vec<u8>;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -547,6 +550,8 @@ struct Frame<T: Config> {
 	read_only: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
+	/// The output of the last call
+	output: Vec<u8>,
 }
 
 /// Used in a delegate call frame arguments in order to override the executable and caller.
@@ -911,6 +916,7 @@ where
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 			read_only,
+			output: Vec::new(),
 		};
 
 		Ok(Some((frame, executable)))
@@ -971,6 +977,9 @@ where
 		let delegated_code_hash =
 			if frame.delegate_caller.is_some() { Some(*executable.code_hash()) } else { None };
 
+		if let Some(previous) = self.caller_output_mut() {
+			*previous = Vec::new();
+		}
 		self.transient_storage.start_transaction();
 
 		let do_transaction = || {
@@ -1264,6 +1273,15 @@ where
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
 		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
+	}
+
+	/// Returns a mutable reference to saved output of the caller frame.
+	fn caller_output_mut(&mut self) -> Option<&mut Vec<u8>> {
+		match self.frames.len() {
+			0 => None,
+			1 => Some(&mut self.first_frame.output),
+			_ => self.frames.get_mut(self.frames.len() - 2).map(|frame| &mut frame.output),
+		}
 	}
 }
 
@@ -1689,6 +1707,10 @@ where
 
 	fn is_read_only(&self) -> bool {
 		self.top_frame().read_only
+	}
+
+	fn output_mut(&mut self) -> &mut Vec<u8> {
+		&mut self.top_frame_mut().output
 	}
 }
 

@@ -237,8 +237,8 @@ parameter_types! {
 	const XcmExecutionFailed: ReturnErrorCode = ReturnErrorCode::XcmExecutionFailed;
 }
 
-impl From<ExecReturnValue> for ReturnErrorCode {
-	fn from(from: ExecReturnValue) -> Self {
+impl<'a> From<&'a ExecReturnValue> for ReturnErrorCode {
+	fn from(from: &'a ExecReturnValue) -> Self {
 		if from.flags.contains(ReturnFlags::REVERT) {
 			Self::CalleeReverted
 		} else {
@@ -763,20 +763,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 	}
 
-	/// Fallible conversion of a `ExecResult` to `ReturnErrorCode`.
-	fn exec_into_return_code(from: ExecResult) -> Result<ReturnErrorCode, DispatchError> {
+	/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
+	fn exec_error_into_return_code(from: ExecError) -> Result<ReturnErrorCode, DispatchError> {
 		use crate::exec::ErrorOrigin::Callee;
 
-		let ExecError { error, origin } = match from {
-			Ok(retval) => return Ok(retval.into()),
-			Err(err) => err,
-		};
-
-		match (error, origin) {
+		match (from.error, from.origin) {
 			(_, Callee) => Ok(ReturnErrorCode::CalleeTrapped),
 			(err, _) => Self::err_into_return_code(err),
 		}
 	}
+
 	fn decode_key(&self, memory: &M, key_ptr: u32, key_len: u32) -> Result<Key, TrapReason> {
 		let res = match key_len {
 			SENTINEL => {
@@ -1041,17 +1037,18 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			}
 		}
 
-		if let Ok(output) = &call_outcome {
-			self.write_sandbox_output(
-				memory,
-				output_ptr,
-				output_len_ptr,
-				&output.data,
-				true,
-				|len| Some(RuntimeCosts::CopyToContract(len)),
-			)?;
-		}
-		Ok(Self::exec_into_return_code(call_outcome)?)
+		let output = match call_outcome {
+			Ok(outcome) => outcome,
+			Err(err) => return Ok(Self::exec_error_into_return_code(err)?),
+		};
+		let return_error_code = (&output).into();
+
+		self.write_sandbox_output(memory, output_ptr, output_len_ptr, &output.data, true, |len| {
+			Some(RuntimeCosts::CopyToContract(len))
+		})?;
+		*self.ext.output_mut() = output.data;
+
+		Ok(return_error_code)
 	}
 
 	fn instantiate(
@@ -1088,26 +1085,28 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			input_data,
 			salt.as_ref(),
 		);
-		if let Ok((address, output)) = &instantiate_outcome {
-			if !output.flags.contains(ReturnFlags::REVERT) {
-				self.write_fixed_sandbox_output(
-					memory,
-					address_ptr,
-					&address.as_bytes(),
-					true,
-					already_charged,
-				)?;
-			}
-			self.write_sandbox_output(
+
+		let (address, retval) = match instantiate_outcome {
+			Ok(outcome) => outcome,
+			Err(err) => return Ok(Self::exec_error_into_return_code(err)?),
+		};
+		let return_error_code = (&retval).into();
+
+		if !retval.flags.contains(ReturnFlags::REVERT) {
+			self.write_fixed_sandbox_output(
 				memory,
-				output_ptr,
-				output_len_ptr,
-				&output.data,
+				address_ptr,
+				&address.as_bytes(),
 				true,
-				|len| Some(RuntimeCosts::CopyToContract(len)),
+				already_charged,
 			)?;
 		}
-		Ok(Self::exec_into_return_code(instantiate_outcome.map(|(_, retval)| retval))?)
+		self.write_sandbox_output(memory, output_ptr, output_len_ptr, &retval.data, true, |len| {
+			Some(RuntimeCosts::CopyToContract(len))
+		})?;
+		*self.ext.output_mut() = retval.data;
+
+		Ok(return_error_code)
 	}
 
 	fn terminate(&mut self, memory: &M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
