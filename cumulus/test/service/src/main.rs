@@ -72,9 +72,12 @@ fn main() -> Result<(), sc_cli::Error> {
 				[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
 			);
 			let tokio_handle = parachain_config.tokio_handle.clone();
-			let relay_chain_config =
-				SubstrateCli::create_configuration(&relay_chain_cli, &relay_chain_cli, tokio_handle)
-					.map_err(|err| format!("Relay chain argument error: {}", err))?;
+			let relay_chain_config = SubstrateCli::create_configuration(
+				&relay_chain_cli,
+				&relay_chain_cli,
+				tokio_handle,
+			)
+			.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
 			let parachain_id = chain_spec::Extensions::try_get(&*parachain_config.chain_spec)
 				.map(|e| e.para_id)
@@ -89,7 +92,8 @@ fn main() -> Result<(), sc_cli::Error> {
 				tracing::info!("PoV recovery failure enabled");
 			}
 
-			let collator_key = parachain_config.role.is_authority().then(|| CollatorPair::generate().0);
+			let collator_key =
+				parachain_config.role.is_authority().then(|| CollatorPair::generate().0);
 
 			let consensus = cli
 				.use_null_consensus
