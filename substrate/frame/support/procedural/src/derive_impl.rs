@@ -77,7 +77,8 @@ impl syn::parse::Parse for DeriveImplAttrArgs {
 					.push(PathSegment { ident: ident.clone(), arguments: PathArguments::None });
 				(default_impl_path, Some(args.clone()))
 			},
-			_ => (default_impl_path, None),
+			Some(PathSegment { arguments: PathArguments::None, .. }) => (default_impl_path, None),
+			_ => return Err(syn::Error::new(default_impl_path.span(), "Invalid default impl path")),
 		};
 
 		let lookahead = input.lookahead1();
