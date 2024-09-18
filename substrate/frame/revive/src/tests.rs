@@ -4256,6 +4256,44 @@ mod run_tests {
 	}
 
 	#[test]
+	fn static_data_limit_is_enforced() {
+		let (oom_rw_trailing, _) = compile_module("oom_rw_trailing").unwrap();
+		let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
+		let (oom_ro, _) = compile_module("oom_ro").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_rw_trailing,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::StaticMemoryTooLarge
+			);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_rw_included,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BlobTooLarge
+			);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_ro,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BlobTooLarge
+			);
+		});
+	}
+
+	#[test]
 	fn call_diverging_out_len_works() {
 		let (code, _) = compile_module("call_diverging_out_len").unwrap();
 
