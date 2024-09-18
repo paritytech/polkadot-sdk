@@ -134,7 +134,14 @@ jobs:
           . ./.github/scripts/common/lib.sh
 
           VERSION="${{ needs.validate-inputs.outputs.VERSION }}"
-          fetch_release_artifacts_from_s3
+          if [[ $BINARY == 'polkadot' ]]; then
+            bins=(polkadot polkadot-prepare-worker polkadot-execute-worker)
+            for bin in "${bins[@]}"; do
+              fetch_release_artifacts_from_s3 $bin
+            done
+          else
+            fetch_release_artifacts_from_s3 $BINARY
+          fi
 
       - name: Fetch chain-spec-builder rc artifacts or release artifacts based on release id
         #this step runs only if the workflow is triggered manually and only for chain-spec-builder
