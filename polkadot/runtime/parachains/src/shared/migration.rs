@@ -74,8 +74,6 @@ mod v1 {
 	use super::*;
 
 	#[cfg(feature = "try-runtime")]
-	use codec::Decode;
-	#[cfg(feature = "try-runtime")]
 	use frame_support::{
 		ensure,
 		traits::{GetStorageVersion, StorageVersion},
