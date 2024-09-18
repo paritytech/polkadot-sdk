@@ -52,7 +52,6 @@ pub enum Location {
 #[derive(Default)]
 pub struct ModuleDefinition {
 	/// Imported memory attached to the module. No memory is imported if `None`.
-	#[allow(dead_code)]
 	pub memory: Option<ImportedMemory>,
 	/// Initializers for the imported memory.
 	pub data_segments: Vec<DataSegment>,
@@ -115,8 +114,6 @@ pub struct ImportedFunction {
 pub struct WasmModule<T: Config> {
 	pub code: Vec<u8>,
 	pub hash: <T::Hashing as Hash>::Output,
-	#[allow(dead_code)]
-	pub memory: Option<ImportedMemory>,
 }
 
 impl<T: Config> From<ModuleDefinition> for WasmModule<T> {
@@ -235,7 +232,7 @@ impl<T: Config> From<ModuleDefinition> for WasmModule<T> {
 
 		let code = contract.build().into_bytes().unwrap();
 		let hash = T::Hashing::hash(&code);
-		Self { code: code.into(), hash, memory: def.memory }
+		Self { code: code.into(), hash }
 	}
 }
 
