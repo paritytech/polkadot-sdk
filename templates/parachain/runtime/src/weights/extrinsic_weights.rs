@@ -16,10 +16,8 @@
 // limitations under the License.
 
 pub mod constants {
-	use frame_support::{
-		parameter_types,
-		weights::{constants, Weight},
-	};
+	use polkadot_sdk::polkadot_sdk_frame::runtime::prelude::*;
+	use weights::{constants, Weight};
 
 	parameter_types! {
 		/// Executing a NO-OP `System::remarks` Extrinsic.
@@ -29,7 +27,8 @@ pub mod constants {
 
 	#[cfg(test)]
 	mod test_weights {
-		use frame_support::weights::constants;
+		use polkadot_sdk::polkadot_sdk_frame::runtime::prelude::*;
+		use weights::constants;
 
 		/// Checks that the weight exists and is sane.
 		// NOTE: If this test fails but you are sure that the generated values are fine,

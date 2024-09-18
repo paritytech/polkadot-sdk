@@ -6,6 +6,22 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use polkadot_sdk::{
+	polkadot_sdk_frame::{
+		prelude::*,
+		runtime::prelude::weights::{
+			constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient,
+			WeightToFeeCoefficients, WeightToFeePolynomial,
+		},
+	},
+	sp_runtime::{
+		create_runtime_str, generic, impl_opaque_keys,
+		traits::{BlakeTwo256, IdentifyAccount, Verify},
+		MultiAddress, MultiSignature, Perbill,
+	},
+	staging_parachain_info as parachain_info, *,
+};
+
 pub mod apis;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
@@ -16,25 +32,13 @@ mod weights;
 extern crate alloc;
 use alloc::vec::Vec;
 use smallvec::smallvec;
-use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiSignature,
-};
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use frame_support::weights::{
-	constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-	WeightToFeePolynomial,
-};
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-pub use sp_runtime::{MultiAddress, Perbill, Permill};
-
 #[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
+pub use polkadot_sdk::sp_runtime::BuildStorage;
 
 use weights::ExtrinsicBaseWeight;
 

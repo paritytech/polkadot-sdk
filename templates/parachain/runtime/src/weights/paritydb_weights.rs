@@ -16,10 +16,8 @@
 // limitations under the License.
 
 pub mod constants {
-	use frame_support::{
-		parameter_types,
-		weights::{constants, RuntimeDbWeight},
-	};
+	use polkadot_sdk::polkadot_sdk_frame::runtime::prelude::*;
+	use weights::{constants, RuntimeDbWeight};
 
 	parameter_types! {
 		/// `ParityDB` can be enabled with a feature flag, but is still experimental. These weights
@@ -33,7 +31,8 @@ pub mod constants {
 	#[cfg(test)]
 	mod test_db_weights {
 		use super::constants::ParityDbWeight as W;
-		use frame_support::weights::constants;
+		use polkadot_sdk::polkadot_sdk_frame::runtime::prelude::*;
+		use weights::constants;
 
 		/// Checks that all weights exist and have sane values.
 		// NOTE: If this test fails but you are sure that the generated values are fine,

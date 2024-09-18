@@ -25,31 +25,29 @@
 
 mod xcm_config;
 
-// Substrate and Polkadot dependencies
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
-use frame_support::{
-	derive_impl,
-	dispatch::DispatchClass,
-	parameter_types,
-	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin, VariantCountOf,
+// Polkadot-sdk dependencies
+use frame::{
+	deps::{
+		frame_support::{weights::ConstantMultiplier, PalletId},
+		frame_system::limits::{BlockLength, BlockWeights},
 	},
-	weights::{ConstantMultiplier, Weight},
-	PalletId,
+	traits::{EitherOfDiverse, TransformOrigin, VariantCountOf},
 };
-use frame_system::{
-	limits::{BlockLength, BlockWeights},
-	EnsureRoot,
+use polkadot_sdk::{
+	cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases,
+	cumulus_primitives_core::{AggregateMessageOrigin, ParaId},
+	pallet_xcm::{EnsureXcm, IsVoiceOfBody},
+	parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+	polkadot_runtime_common::{
+		xcm_sender::NoPriceForMessageDelivery, BlockHashCount, SlowAdjustingFeeUpdate,
+	},
+	polkadot_sdk_frame::{self as frame, prelude::*, runtime::prelude::*},
+	sp_consensus_aura::sr25519::AuthorityId as AuraId,
+	sp_runtime::Perbill,
+	sp_version::RuntimeVersion,
+	staging_parachain_info as parachain_info, staging_xcm as xcm,
+	staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor, *,
 };
-use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
-use polkadot_runtime_common::{
-	xcm_sender::NoPriceForMessageDelivery, BlockHashCount, SlowAdjustingFeeUpdate,
-};
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_runtime::Perbill;
-use sp_version::RuntimeVersion;
 use xcm::latest::prelude::BodyId;
 
 // Local module imports
