@@ -1800,7 +1800,7 @@ mod remote_tests_local {
 	use std::env::var as env_var;
 
 	// we only use the hash type from this, so using the mock should be fine.
-	type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, MockCall, (), ()>;
+	type Extrinsic = sp_runtime::testing::TestXt<MockCall, ()>;
 	type Block = sp_runtime::testing::Block<Extrinsic>;
 
 	#[tokio::test]

@@ -2567,8 +2567,7 @@ pub(crate) mod tests {
 	use sp_blockchain::{lowest_common_ancestor, tree_route};
 	use sp_core::H256;
 	use sp_runtime::{
-		generic::UncheckedExtrinsic,
-		testing::{Block as RawBlock, Header, MockCallU64},
+		testing::{Block as RawBlock, Header, MockCallU64, TestXt},
 		traits::{BlakeTwo256, Hash},
 		ConsensusEngineId, StateVersion,
 	};
@@ -2576,7 +2575,7 @@ pub(crate) mod tests {
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
 
-	type UncheckedXt = UncheckedExtrinsic<u64, MockCallU64, (), ()>;
+	type UncheckedXt = TestXt<MockCallU64, ()>;
 	pub(crate) type Block = RawBlock<UncheckedXt>;
 
 	pub fn insert_header(

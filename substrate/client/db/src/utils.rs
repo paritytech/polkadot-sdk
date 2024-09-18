@@ -613,12 +613,9 @@ impl<'a, 'b> codec::Input for JoinInput<'a, 'b> {
 mod tests {
 	use super::*;
 	use codec::Input;
-	use sp_runtime::{
-		generic::UncheckedExtrinsic,
-		testing::{Block as RawBlock, MockCallU64},
-	};
+	use sp_runtime::testing::{Block as RawBlock, MockCallU64, TestXt};
 
-	pub type UncheckedXt = UncheckedExtrinsic<u64, MockCallU64, (), ()>;
+	pub type UncheckedXt = TestXt<MockCallU64, ()>;
 	type Block = RawBlock<UncheckedXt>;
 
 	#[cfg(feature = "rocksdb")]

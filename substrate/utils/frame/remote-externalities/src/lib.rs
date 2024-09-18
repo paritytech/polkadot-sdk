@@ -1240,7 +1240,7 @@ where
 mod test_prelude {
 	pub(crate) use super::*;
 	pub(crate) use sp_runtime::testing::{Block as RawBlock, MockCallU64};
-	pub(crate) type UncheckedXt = sp_runtime::generic::UncheckedExtrinsic<u64, MockCallU64, (), ()>;
+	pub(crate) type UncheckedXt = sp_runtime::testing::TestXt<MockCallU64, ()>;
 	pub(crate) type Block = RawBlock<UncheckedXt>;
 
 	pub(crate) fn init_logger() {
