@@ -2054,6 +2054,12 @@ mod test {
 		(NMapKey<Twox128, u32>, NMapKey<Twox128, u32>, NMapKey<Twox128, u32>),
 		u64,
 	>;
+	#[crate::storage_alias]
+	type FooQuadMap = StorageNMap<
+		Prefix,
+		(NMapKey<Twox128, u32>, NMapKey<Twox128, u32>, NMapKey<Twox128, u32>, NMapKey<Twox128, u32>),
+		BoundedVec<u32, ConstU32<7>>,
+	>;
 
 	#[test]
 	fn contains_prefix_works() {
@@ -2147,25 +2153,25 @@ mod test {
 
 		TestExternalities::default().execute_with(|| {
 			let bounded: BoundedVec<u32, ConstU32<7>> = vec![1, 2, 3].try_into().unwrap();
-			FooTripleMap::insert((1, 1, 1), bounded);
+			FooQuadMap::insert((1, 1, 1, 1), bounded);
 
-			assert_ok!(FooTripleMap::try_append((1, 1, 1), 4));
-			assert_ok!(FooTripleMap::try_append((1, 1, 1), 5));
-			assert_ok!(FooTripleMap::try_append((1, 1, 1), 6));
-			assert_ok!(FooTripleMap::try_append((1, 1, 1), 7));
-			assert_eq!(FooTripleMap::decode_len((1, 1, 1)).unwrap(), 7);
-			assert!(FooTripleMap::try_append((1, 1, 1), 8).is_err());
+			assert_ok!(FooQuadMap::try_append((1, 1, 1, 1), 4));
+			assert_ok!(FooQuadMap::try_append((1, 1, 1, 1), 5));
+			assert_ok!(FooQuadMap::try_append((1, 1, 1, 1), 6));
+			assert_ok!(FooQuadMap::try_append((1, 1, 1, 1), 7));
+			assert_eq!(FooQuadMap::decode_len((1, 1, 1, 1)).unwrap(), 7);
+			assert!(FooQuadMap::try_append((1, 1, 1, 1), 8).is_err());
 
 			// append to a non-existing
-			assert!(FooTripleMap::get((2, 1, 1)).is_none());
-			assert_ok!(FooTripleMap::try_append((2, 1, 1), 4));
+			assert!(FooQuadMap::get((2, 1, 1, 1)).is_none());
+			assert_ok!(FooQuadMap::try_append((2, 1, 1, 1), 4));
 			assert_eq!(
-				FooTripleMap::get((2, 1, 1)).unwrap(),
+				FooQuadMap::get((2, 1, 1, 1)).unwrap(),
 				BoundedVec::<u32, ConstU32<7>>::try_from(vec![4]).unwrap(),
 			);
-			assert_ok!(FooTripleMap::try_append((2, 1, 1), 5));
+			assert_ok!(FooQuadMap::try_append((2, 1, 1, 1), 5));
 			assert_eq!(
-				FooTripleMap::get((2, 1, 1)).unwrap(),
+				FooQuadMap::get((2, 1, 1, 1)).unwrap(),
 				BoundedVec::<u32, ConstU32<7>>::try_from(vec![4, 5]).unwrap(),
 			);
 		});
