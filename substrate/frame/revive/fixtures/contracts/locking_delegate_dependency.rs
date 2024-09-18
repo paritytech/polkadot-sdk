@@ -23,7 +23,7 @@
 use common::input;
 use uapi::{HostFn, HostFnImpl as api};
 
-const ETH_ALICE: [u8; 20] = [1u8; 20];
+const ALICE_FALLBACK: [u8; 20] = [1u8; 20];
 
 /// Load input data and perform the action specified by the input.
 /// If `delegate_call` is true, then delegate call into the contract.
@@ -44,7 +44,7 @@ fn load_input(delegate_call: bool) {
 		},
 		// 3 = Terminate
 		3 => {
-			api::terminate(&ETH_ALICE);
+			api::terminate(&ALICE_FALLBACK);
 		},
 		// Everything else is a noop
 		_ => {},

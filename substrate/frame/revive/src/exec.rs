@@ -163,6 +163,18 @@ impl<T: Config> Origin<T> {
 			Origin::Root => Err(DispatchError::RootNotAllowed),
 		}
 	}
+
+	/// Make sure that this origin is mapped.
+	///
+	/// We require an origin to be mapped in order to be used in a `Stack`. Otherwise
+	/// [`Stack::caller`] returns an address that can't be reverted to the original address.
+	fn ensure_mapped(&self) -> DispatchResult {
+		match self {
+			Self::Root => Ok(()),
+			Self::Signed(account_id) if T::AddressMapper::is_mapped(account_id) => Ok(()),
+			Self::Signed(_) => Err(<Error<T>>::AccountUnmapped.into()),
+		}
+	}
 }
 
 /// An interface that provides access to the external environment in which the
@@ -749,7 +761,7 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_no_contract(&origin, &dest, value)
+			Self::transfer_from_origin(&origin, &dest, value)
 		}
 	}
 
@@ -830,6 +842,7 @@ where
 		value: BalanceOf<T>,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<Option<(Self, E)>, ExecError> {
+		origin.ensure_mapped()?;
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
@@ -910,7 +923,7 @@ where
 					*executable.code_hash(),
 				)?;
 				(
-					T::AddressMapper::to_account_id_contract(&address),
+					T::AddressMapper::to_fallback_account_id(&address),
 					contract,
 					executable,
 					None,
@@ -1225,13 +1238,13 @@ where
 	}
 
 	/// Transfer some funds from `from` to `to`.
-	fn transfer(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) -> DispatchResult {
+	fn transfer(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) -> ExecResult {
 		// this avoids events to be emitted for zero balance transfers
 		if !value.is_zero() {
 			T::Currency::transfer(from, to, value, Preservation::Preserve)
 				.map_err(|_| Error::<T>::TransferFailed)?;
 		}
-		Ok(())
+		Ok(Default::default())
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
@@ -1239,26 +1252,15 @@ where
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: BalanceOf<T>,
-	) -> DispatchResult {
+	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
 		let from = match from {
 			Origin::Signed(caller) => caller,
-			Origin::Root if value.is_zero() => return Ok(()),
-			Origin::Root => return DispatchError::RootNotAllowed.into(),
+			Origin::Root if value.is_zero() => return Ok(Default::default()),
+			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
 		Self::transfer(from, to, value)
-	}
-
-	/// Same as `transfer_from_origin` but creates an `ExecReturnValue` on success.
-	fn transfer_no_contract(
-		from: &Origin<T>,
-		to: &T::AccountId,
-		value: BalanceOf<T>,
-	) -> ExecResult {
-		Self::transfer_from_origin(from, to, value)
-			.map(|_| ExecReturnValue::default())
-			.map_err(Into::into)
 	}
 
 	/// Reference to the current (top) frame.
@@ -1363,12 +1365,7 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				Self::transfer_no_contract(
-					&Origin::from_account_id(self.account_id().clone()),
-					&dest,
-					value,
-				)?;
-				Ok(())
+				Self::transfer(&self.account_id(), &dest, value).map(|_| ())
 			}
 		};
 
@@ -1472,6 +1469,8 @@ where
 			&T::AddressMapper::to_account_id(to),
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 		)
+		.map(|_| ())
+		.map_err(|error| error.error)
 	}
 
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
@@ -2007,7 +2006,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(&BOB, success_ch);
 			set_balance(&ALICE, 100);
-			let balance = get_balance(&BOB_CONTRACT_ID);
+			let balance = get_balance(&BOB_FALLBACK);
 			let origin = Origin::from_account_id(ALICE);
 			let mut storage_meter = storage::meter::Meter::new(&origin, 0, value).unwrap();
 
@@ -2023,7 +2022,7 @@ mod tests {
 			.unwrap();
 
 			assert_eq!(get_balance(&ALICE), 100 - value);
-			assert_eq!(get_balance(&BOB_CONTRACT_ID), balance + value);
+			assert_eq!(get_balance(&BOB_FALLBACK), balance + value);
 		});
 	}
 
@@ -2045,7 +2044,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(&BOB, delegate_ch);
 			set_balance(&ALICE, 100);
-			let balance = get_balance(&BOB_CONTRACT_ID);
+			let balance = get_balance(&BOB_FALLBACK);
 			let origin = Origin::from_account_id(ALICE);
 			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 55).unwrap();
 
@@ -2061,7 +2060,7 @@ mod tests {
 			.unwrap();
 
 			assert_eq!(get_balance(&ALICE), 100 - value);
-			assert_eq!(get_balance(&BOB_CONTRACT_ID), balance + value);
+			assert_eq!(get_balance(&BOB_FALLBACK), balance + value);
 		});
 	}
 
@@ -2302,9 +2301,10 @@ mod tests {
 			// Record the caller for bob.
 			WitnessedCallerBob::mutate(|caller| {
 				let origin = ctx.ext.caller();
-				*caller = Some(<Test as Config>::AddressMapper::to_address(
-					&origin.account_id().unwrap(),
-				));
+				*caller =
+					Some(<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_address(
+						&origin.account_id().unwrap(),
+					));
 			});
 
 			// Call into CHARLIE contract.
@@ -2326,9 +2326,10 @@ mod tests {
 			// Record the caller for charlie.
 			WitnessedCallerCharlie::mutate(|caller| {
 				let origin = ctx.ext.caller();
-				*caller = Some(<Test as Config>::AddressMapper::to_address(
-					&origin.account_id().unwrap(),
-				));
+				*caller =
+					Some(<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_address(
+						&origin.account_id().unwrap(),
+					));
 			});
 			exec_success()
 		});
@@ -2683,10 +2684,11 @@ mod tests {
 					),
 					Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
 				);
-				let instantiated_contract_id =
-					<Test as Config>::AddressMapper::to_account_id_contract(
-						&instantiated_contract_address,
-					);
+				let instantiated_contract_id = <<Test as Config>::AddressMapper as AddressMapper<
+					Test,
+				>>::to_fallback_account_id(
+					&instantiated_contract_address
+				);
 
 				// Check that the newly created account has the expected code hash and
 				// there are instantiation event.
@@ -2738,10 +2740,11 @@ mod tests {
 					Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
 				);
 
-				let instantiated_contract_id =
-					<Test as Config>::AddressMapper::to_account_id_contract(
-						&instantiated_contract_address,
-					);
+				let instantiated_contract_id = <<Test as Config>::AddressMapper as AddressMapper<
+					Test,
+				>>::to_fallback_account_id(
+					&instantiated_contract_address
+				);
 
 				// Check that the account has not been created.
 				assert!(ContractInfo::<Test>::load_code_hash(&instantiated_contract_id).is_none());
@@ -2804,10 +2807,11 @@ mod tests {
 				let instantiated_contract_address =
 					*instantiated_contract_address.borrow().as_ref().unwrap();
 
-				let instantiated_contract_id =
-					<Test as Config>::AddressMapper::to_account_id_contract(
-						&instantiated_contract_address,
-					);
+				let instantiated_contract_id = <<Test as Config>::AddressMapper as AddressMapper<
+					Test,
+				>>::to_fallback_account_id(
+					&instantiated_contract_address
+				);
 
 				// Check that the newly created account has the expected code hash and
 				// there are instantiation event.
@@ -2862,7 +2866,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				set_balance(&ALICE, 1000);
-				set_balance(&BOB_CONTRACT_ID, 100);
+				set_balance(&BOB_FALLBACK, 100);
 				place_contract(&BOB, instantiator_ch);
 				let origin = Origin::from_account_id(ALICE);
 				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
@@ -2992,7 +2996,8 @@ mod tests {
 	fn recursive_call_during_constructor_is_balance_transfer() {
 		let code = MockLoader::insert(Constructor, |ctx, _| {
 			let account_id = ctx.ext.account_id().clone();
-			let addr = <Test as Config>::AddressMapper::to_address(&account_id);
+			let addr =
+				<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_address(&account_id);
 			let balance = ctx.ext.balance();
 
 			// Calling ourselves during the constructor will trigger a balance
@@ -3053,7 +3058,8 @@ mod tests {
 	fn cannot_send_more_balance_than_available_to_self() {
 		let code_hash = MockLoader::insert(Call, |ctx, _| {
 			let account_id = ctx.ext.account_id().clone();
-			let addr = <Test as Config>::AddressMapper::to_address(&account_id);
+			let addr =
+				<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_address(&account_id);
 			let balance = ctx.ext.balance();
 
 			assert_err!(
@@ -3325,7 +3331,7 @@ mod tests {
 					EventRecord {
 						phase: Phase::Initialization,
 						event: MetaEvent::System(frame_system::Event::Remarked {
-							sender: BOB_CONTRACT_ID,
+							sender: BOB_FALLBACK,
 							hash: remark_hash
 						}),
 						topics: vec![],
@@ -3409,7 +3415,7 @@ mod tests {
 					EventRecord {
 						phase: Phase::Initialization,
 						event: MetaEvent::System(frame_system::Event::Remarked {
-							sender: BOB_CONTRACT_ID,
+							sender: BOB_FALLBACK,
 							hash: remark_hash
 						}),
 						topics: vec![],
@@ -3473,7 +3479,10 @@ mod tests {
 				)
 				.unwrap();
 
-			let account_id = <Test as Config>::AddressMapper::to_account_id_contract(&addr);
+			let account_id =
+				<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_fallback_account_id(
+					&addr,
+				);
 
 			assert_eq!(System::account_nonce(&ALICE), alice_nonce);
 			assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
@@ -4266,7 +4275,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				set_balance(&ALICE, 1000);
-				set_balance(&BOB_CONTRACT_ID, 100);
+				set_balance(&BOB, 100);
 				place_contract(&BOB, instantiator_ch);
 				let origin = Origin::from_account_id(ALICE);
 				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
@@ -4451,7 +4460,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				set_balance(&ALICE, 1000);
-				set_balance(&BOB_CONTRACT_ID, 100);
+				set_balance(&BOB, 100);
 				place_contract(&BOB, instantiator_ch);
 				let origin = Origin::from_account_id(ALICE);
 				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
@@ -4568,7 +4577,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				set_balance(&ALICE, 1000);
-				set_balance(&BOB_CONTRACT_ID, 100);
+				set_balance(&BOB, 100);
 				place_contract(&BOB, instantiator_ch);
 				let origin = Origin::from_account_id(ALICE);
 				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
@@ -4612,7 +4621,7 @@ mod tests {
 			.build()
 			.execute_with(|| {
 				set_balance(&ALICE, 1000);
-				set_balance(&BOB_CONTRACT_ID, 100);
+				set_balance(&BOB, 100);
 				place_contract(&BOB, instantiator_ch);
 				let origin = Origin::from_account_id(ALICE);
 				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();

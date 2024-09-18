@@ -18,10 +18,8 @@
 #![no_std]
 #![no_main]
 
-use common::input;
+extern crate common;
 use uapi::{HostFn, HostFnImpl as api};
-
-const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -30,28 +28,6 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	// If the input data is not empty, then recursively call self with empty input data.
-	// This should trap instead of self-destructing since a contract cannot be removed, while it's
-	// in the execution stack. If the recursive call traps, then trap here as well.
-	input!(input, 4,);
-
-	if !input.is_empty() {
-		let mut addr = [0u8; 20];
-		api::address(&mut addr);
-
-		api::call(
-			uapi::CallFlags::ALLOW_REENTRY,
-			&addr,
-			0u64,       // How much ref_time to devote for the execution. 0 = all.
-			0u64,       // How much proof_size to devote for the execution. 0 = all.
-			None,       // No deposit limit.
-			&[0u8; 32], // Value to transfer.
-			&[0u8; 0],
-			None,
-		)
-		.unwrap();
-	} else {
-		// Try to terminate and give balance to django.
-		api::terminate(&DJANGO_FALLBACK);
-	}
+	let eve = [5u8; 20];
+	api::terminate(&eve);
 }
