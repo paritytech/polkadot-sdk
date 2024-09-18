@@ -32,8 +32,12 @@ crates:
   - name: polkadot-parachain-bin
     bump: patch
   - name: polkadot-runtime-parachains
-    bump: patch
+    bump: none
   - name: polkadot-service
     bump: major
   - name: polkadot-cli
     bump: patch
+  - name: sc-chain-spec
+    bump: none
+  - name: sp-genesis-builder
+    bump: none
