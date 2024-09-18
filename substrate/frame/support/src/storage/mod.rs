@@ -1648,41 +1648,6 @@ where
 	}
 }
 
-
-/// Storage N map that is capable of [`StorageTryAppend`].
-pub trait TryAppendNMap<K: KeyGenerator, T: StorageTryAppend<I>, I: Encode> {
-	/// Try and append the `item` into the storage map at the given `key`.
-	///
-	/// This might fail if bounds are not respected.
-	fn try_append<LikeK: EncodeLikeTuple<K::KArg> + TupleToEncodedIter + Clone, LikeI: EncodeLike<I>>(
-		key: LikeK,
-		item: LikeI,
-	) -> Result<(), ()>;
-}
-
-impl<K, T, I, StorageNMapT> TryAppendNMap<K, T, I> for StorageNMapT
-where
-	K: KeyGenerator,
-	T: FullCodec + StorageTryAppend<I>,
-	I: Encode,
-	StorageNMapT: generator::StorageNMap<K, T>,
-{
-	fn try_append<LikeK: EncodeLikeTuple<K::KArg> + TupleToEncodedIter + Clone, LikeI: EncodeLike<I>>(
-		key: LikeK,
-		item: LikeI,
-	) -> Result<(), ()> {
-		let bound = T::bound();
-		let current = Self::decode_len(key.clone()).unwrap_or_default();
-		if current < bound {
-			let key = Self::storage_n_map_final_key::<K, _>(key);
-			sp_io::storage::append(&key, item.encode());
-			Ok(())
-		} else {
-			Err(())
-		}
-	}
-}
-
 /// Storage double map that is capable of [`StorageTryAppend`].
 pub trait TryAppendDoubleMap<K1: Encode, K2: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage double map at the given `key`.
@@ -1721,6 +1686,40 @@ where
 		if current < bound {
 			let double_map_key = Self::storage_double_map_final_key(key1, key2);
 			sp_io::storage::append(&double_map_key, item.encode());
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+}
+
+/// Storage N map that is capable of [`StorageTryAppend`].
+pub trait TryAppendNMap<K: KeyGenerator, T: StorageTryAppend<I>, I: Encode> {
+	/// Try and append the `item` into the storage N map at the given `key`.
+	///
+	/// This might fail if bounds are not respected.
+	fn try_append<LikeK: EncodeLikeTuple<K::KArg> + TupleToEncodedIter + Clone, LikeI: EncodeLike<I>>(
+		key: LikeK,
+		item: LikeI,
+	) -> Result<(), ()>;
+}
+
+impl<K, T, I, StorageNMapT> TryAppendNMap<K, T, I> for StorageNMapT
+where
+	K: KeyGenerator,
+	T: FullCodec + StorageTryAppend<I>,
+	I: Encode,
+	StorageNMapT: generator::StorageNMap<K, T>,
+{
+	fn try_append<LikeK: EncodeLikeTuple<K::KArg> + TupleToEncodedIter + Clone, LikeI: EncodeLike<I>>(
+		key: LikeK,
+		item: LikeI,
+	) -> Result<(), ()> {
+		let bound = T::bound();
+		let current = Self::decode_len(key.clone()).unwrap_or_default();
+		if current < bound {
+			let key = Self::storage_n_map_final_key::<K, _>(key);
+			sp_io::storage::append(&key, item.encode());
 			Ok(())
 		} else {
 			Err(())
