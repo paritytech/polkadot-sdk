@@ -242,6 +242,7 @@ fetch_release_artifacts() {
 # - GITHUB_TOKEN
 # - REPO in the form paritytech/polkadot
 fetch_release_artifacts_from_s3() {
+  BINARY=$1
   echo "Version    : $VERSION"
   echo "Repo       : $REPO"
   echo "Binary     : $BINARY"
