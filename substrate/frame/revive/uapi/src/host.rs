@@ -409,7 +409,7 @@ pub trait HostFn: private::Sealed {
 		input: &[u8],
 		address: Option<&mut [u8; 20]>,
 		output: Option<&mut &mut [u8]>,
-		salt: &[u8; 32],
+		salt: Option<&[u8; 32]>,
 	) -> Result;
 
 	/// Checks whether a specified address belongs to a contract.

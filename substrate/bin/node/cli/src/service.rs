@@ -32,6 +32,7 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
 use kitchensink_runtime::RuntimeApi;
 use node_primitives::Block;
+use polkadot_sdk::sc_service::build_polkadot_syncing_strategy;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
 use sc_network::{
@@ -508,6 +509,16 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		Vec::default(),
 	));
 
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		config.protocol_id(),
+		config.chain_spec.fork_id(),
+		&mut net_config,
+		Some(WarpSyncConfig::WithProvider(warp_sync)),
+		client.clone(),
+		&task_manager.spawn_handle(),
+		config.prometheus_config.as_ref().map(|config| &config.registry),
+	)?;
+
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
@@ -517,7 +528,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
+			syncing_strategy,
 			block_relay: None,
 			metrics,
 		})?;

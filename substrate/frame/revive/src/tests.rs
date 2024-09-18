@@ -4232,4 +4232,44 @@ mod run_tests {
 			assert_ok!(builder::call(addr_caller).data(addr_callee.encode()).build());
 		});
 	}
+
+	#[test]
+	fn create1_with_value_works() {
+		let (code, code_hash) = compile_module("create1_with_value").unwrap();
+		let value = 42;
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create the contract: Constructor does nothing.
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: Deploys itself using create1 and the expected value
+			assert_ok!(builder::call(addr).value(value).data(code_hash.encode()).build());
+
+			// We should see the expected balance at the expected account
+			let address = crate::address::create1(&addr, 0);
+			let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
+			let usable_balance = <Test as Config>::Currency::usable_balance(&account_id);
+			assert_eq!(usable_balance, value);
+		});
+	}
+
+	#[test]
+	fn call_diverging_out_len_works() {
+		let (code, _) = compile_module("call_diverging_out_len").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create the contract: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: It will issue calls and deploys, asserting on
+			// correct output if the supplied output length was smaller than
+			// than what the callee returned.
+			assert_ok!(builder::call(addr).build());
+		});
+	}
 }
