@@ -213,8 +213,8 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 		} else {
 			old_balance.checked_add(&amount).ok_or(ArithmeticError::Overflow)?
 		};
-		// FIXME(ank4n): add test for this case
-		// look at total balance to ensure ED is respected
+
+		// look at total balance to ensure ED is respected.
 		let new_total_balance = amount.saturating_add(Self::total_balance(who));
 		if new_total_balance < Self::minimum_balance() {
 			// Attempt to increase from 0 to below minimum -> stays at zero.
