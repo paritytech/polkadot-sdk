@@ -642,7 +642,7 @@ mod tests {
 
 	impl CreateInherent<RuntimeCall> for TestRuntime {
 		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-			UncheckedExtrinsic::new_bare(call)
+			Extrinsic::new_bare(call)
 		}
 	}
 
