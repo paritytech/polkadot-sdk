@@ -4293,6 +4293,7 @@ mod run_tests {
 		});
 	}
 
+	#[test]
 	fn call_diverging_out_len_works() {
 		let (code, _) = compile_module("call_diverging_out_len").unwrap();
 

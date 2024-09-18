@@ -608,28 +608,28 @@ pub mod pallet {
 				.checked_mul(2)
 				.expect("MaxTransientStorageSize is too large");
 
+			// We only allow 50% of the runtime memory to be utilized by the contracts call
+			// stack, keeping the rest for other facilities, such as PoV, etc.
+			const TOTAL_MEMORY_DEVIDER: u32 = 2;
+
+			// The inefficiencies of the freeing-bump allocator
+			// being used in the client for the runtime memory allocations, could lead to possible
+			// memory allocations grow up to `x4` times in some extreme cases.
+			const MEMORY_ALLOCATOR_INEFFICENCY_DEVIDER: u32 = 4;
+
 			// Check that the configured `STATIC_MEMORY_BYTES` fits into runtime memory.
 			//
 			// `STATIC_MEMORY_BYTES` is the amount of memory that a contract can consume
 			// in memory and is enforced at upload time.
 			//
-			// The inefficiencies of the freeing-bump allocator
-			// being used in the client for the runtime memory allocations, could lead to possible
-			// memory allocations grow up to `x4` times in some extreme cases.
-			//
-			// Dynamic allocations are metered at runtime as soon as they become available and are
-			// not part of this calculation.
-			//
-			// The pallet holds transient storage with a size up to `max_transient_storage_size`.
-			//
-			// Finally, we allow 50% of the runtime memory to be utilized by the contracts call
-			// stack, keeping the rest for other facilities, such as PoV, etc.
+			// Dynamic allocations are not available, yet. Hence are not taken into consideration
+			// here.
 			let static_memory_limit = max_runtime_mem
-				.saturating_div(2)
+				.saturating_div(TOTAL_MEMORY_DEVIDER)
 				.saturating_sub(max_transient_storage_size)
 				.saturating_div(max_call_depth)
 				.saturating_sub(STATIC_MEMORY_BYTES)
-				.saturating_div(4);
+				.saturating_div(MEMORY_ALLOCATOR_INEFFICENCY_DEVIDER);
 
 			assert!(
 				STATIC_MEMORY_BYTES < static_memory_limit,
