@@ -23,36 +23,15 @@ use bp_messages::{MessageNonce, Weight};
 
 use crate::{
 	message_lane::MessageLane,
-	message_lane_loop::{
-		MessageDetails, MessageDetailsMap, SourceClient as MessageLaneSourceClient,
-		TargetClient as MessageLaneTargetClient,
-	},
+	message_lane_loop::{MessageDetails, MessageDetailsMap},
 	message_race_loop::NoncesRange,
 	message_race_strategy::SourceRangesQueue,
-	metrics::MessageLaneLoopMetrics,
 };
 
 /// Reference data for participating in relay
-pub struct RelayReference<
-	P: MessageLane,
-	SourceClient: MessageLaneSourceClient<P>,
-	TargetClient: MessageLaneTargetClient<P>,
-> {
-	/// The client that is connected to the message lane source node.
-	#[allow(dead_code)] // FAIL-CI
-	pub lane_source_client: SourceClient,
-	/// The client that is connected to the message lane target node.
-	#[allow(dead_code)] // FAIL-CI
-	pub lane_target_client: TargetClient,
-	/// Metrics reference.
-	#[allow(dead_code)] // FAIL-CI
-	pub metrics: Option<MessageLaneLoopMetrics>,
+pub struct RelayReference<P: MessageLane> {
 	/// Messages size summary
 	pub selected_size: u32,
-
-	/// Hard check begin nonce
-	#[allow(dead_code)] // FAIL-CI
-	pub hard_selected_begin_nonce: MessageNonce,
 
 	/// Index by all ready nonces
 	pub index: usize,
@@ -63,23 +42,13 @@ pub struct RelayReference<
 }
 
 /// Relay reference data
-pub struct RelayMessagesBatchReference<
-	P: MessageLane,
-	SourceClient: MessageLaneSourceClient<P>,
-	TargetClient: MessageLaneTargetClient<P>,
-> {
+pub struct RelayMessagesBatchReference<P: MessageLane> {
 	/// Maximal number of relayed messages in single delivery transaction.
 	pub max_messages_in_this_batch: MessageNonce,
 	/// Maximal cumulative dispatch weight of relayed messages in single delivery transaction.
 	pub max_messages_weight_in_single_batch: Weight,
 	/// Maximal cumulative size of relayed messages in single delivery transaction.
 	pub max_messages_size_in_single_batch: u32,
-	/// The client that is connected to the message lane source node.
-	pub lane_source_client: SourceClient,
-	/// The client that is connected to the message lane target node.
-	pub lane_target_client: TargetClient,
-	/// Metrics reference.
-	pub metrics: Option<MessageLaneLoopMetrics>,
 	/// Best available nonce at the **best** target block. We do not want to deliver nonces
 	/// less than this nonce, even though the block may be retracted.
 	pub best_target_nonce: MessageNonce,
@@ -98,12 +67,8 @@ pub struct RelayMessagesBatchReference<
 pub struct MessageRaceLimits;
 
 impl MessageRaceLimits {
-	pub async fn decide<
-		P: MessageLane,
-		SourceClient: MessageLaneSourceClient<P>,
-		TargetClient: MessageLaneTargetClient<P>,
-	>(
-		reference: RelayMessagesBatchReference<P, SourceClient, TargetClient>,
+	pub async fn decide<P: MessageLane>(
+		reference: RelayMessagesBatchReference<P>,
 	) -> Option<RangeInclusive<MessageNonce>> {
 		let mut hard_selected_count = 0;
 
@@ -116,14 +81,8 @@ impl MessageRaceLimits {
 		);
 
 		// relay reference
-		let mut relay_reference = RelayReference {
-			lane_source_client: reference.lane_source_client.clone(),
-			lane_target_client: reference.lane_target_client.clone(),
-			metrics: reference.metrics.clone(),
-
+		let mut relay_reference = RelayReference::<P> {
 			selected_size: 0,
-
-			hard_selected_begin_nonce,
 
 			index: 0,
 			nonce: 0,
