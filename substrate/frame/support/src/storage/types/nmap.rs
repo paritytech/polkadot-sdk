@@ -24,7 +24,7 @@ use crate::{
 			EncodeLikeTuple, HasKeyPrefix, HasReversibleKeyPrefix, OptionQuery, QueryKindTrait,
 			StorageEntryMetadataBuilder, TupleToEncodedIter,
 		},
-		KeyGenerator, PrefixIterator, StorageAppend, StorageDecodeLength, StoragePrefixedMap,
+		KeyGenerator, PrefixIterator, StorageAppend, StorageDecodeLength, StoragePrefixedMap, StorageTryAppend
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 };
