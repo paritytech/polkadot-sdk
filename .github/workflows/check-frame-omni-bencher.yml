@@ -16,39 +16,16 @@ env:
   ARTIFACTS_NAME: frame-omni-bencher-artifacts
 
 jobs:
-  changes:
+
+  preflight:
     # TODO: remove once migration is complete or this workflow is fully stable
     if: contains(github.event.label.name, 'GHA-migration')
-    permissions:
-      pull-requests: read
-    uses: ./.github/workflows/reusable-check-changed-files.yml
-
-  set-image:
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
-      - id: set_runner
-        run: |
-          # Run merge queues on persistent runners
-          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
-          else
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-          fi
+    uses: ./.github/workflows/reusable-preflight.yml
 
   quick-benchmarks-omni:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     env:
       RUSTFLAGS: "-C debug-assertions"
       RUST_BACKTRACE: "full"
@@ -56,7 +33,7 @@ jobs:
       WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
     timeout-minutes: 30
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,9 +43,9 @@ jobs:
           forklift cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
 
   run-frame-omni-bencher:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    needs: [set-image, changes] # , build-frame-omni-bencher ]
-    if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight] # , build-frame-omni-bencher ]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 30
     strategy:
       fail-fast: false # keep running other workflows even if one fails, to see the logs of all possible failures
@@ -89,7 +66,7 @@ jobs:
             glutton-westend-runtime,
           ]
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       PACKAGE_NAME: ${{ matrix.runtime }}
     steps:

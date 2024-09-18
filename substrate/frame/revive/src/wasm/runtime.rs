@@ -651,11 +651,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 	/// Write the given buffer and its length to the designated locations in sandbox memory and
 	/// charge gas according to the token returned by `create_token`.
-	//
+	///
 	/// `out_ptr` is the location in sandbox memory where `buf` should be written to.
 	/// `out_len_ptr` is an in-out location in sandbox memory. It is read to determine the
-	/// length of the buffer located at `out_ptr`. If that buffer is large enough the actual
-	/// `buf.len()` is written to this location.
+	/// length of the buffer located at `out_ptr`. If that buffer is smaller than the actual
+	/// `buf.len()`, only what fits into that buffer is written to `out_ptr`.
+	/// The actual amount of bytes copied to `out_ptr` is written to `out_len_ptr`.
 	///
 	/// If `out_ptr` is set to the sentinel value of `SENTINEL` and `allow_skip` is true the
 	/// operation is skipped and `Ok` is returned. This is supposed to help callers to make copying
@@ -681,18 +682,14 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			return Ok(())
 		}
 
-		let buf_len = buf.len() as u32;
 		let len = memory.read_u32(out_len_ptr)?;
-
-		if len < buf_len {
-			return Err(Error::<E::T>::OutputBufferTooSmall.into())
-		}
+		let buf_len = len.min(buf.len() as u32);
 
 		if let Some(costs) = create_token(buf_len) {
 			self.charge_gas(costs)?;
 		}
 
-		memory.write(out_ptr, buf)?;
+		memory.write(out_ptr, &buf[..buf_len as usize])?;
 		memory.write(out_len_ptr, &buf_len.encode())
 	}
 
