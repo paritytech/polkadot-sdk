@@ -182,7 +182,14 @@ where
 			let futs: FuturesUnordered<_> = queries
 				.into_iter()
 				.map(|query| {
-					query_iter_pagination_one(&storage, query, hash, child_key.as_ref(), &tx, max_iterations)
+					query_iter_pagination_one(
+						&storage,
+						query,
+						hash,
+						child_key.as_ref(),
+						&tx,
+						max_iterations,
+					)
 				})
 				.collect();
 

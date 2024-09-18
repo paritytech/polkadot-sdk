@@ -113,7 +113,12 @@ where
 		}
 
 		if !query_iter.is_empty() {
-			let mut rx = self.client.query_iter_pagination(query_iter, hash, child_key, Some(self.storage_max_descendant_responses));
+			let mut rx = self.client.query_iter_pagination(
+				query_iter,
+				hash,
+				child_key,
+				Some(self.storage_max_descendant_responses),
+			);
 
 			while let Some(val) = rx.blocking_recv() {
 				match val {
