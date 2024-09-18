@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::*;
-use example_runtime::*;
+pub(crate) use example_runtime::*;
 use extensions::AuthorizeCoownership;
 use frame_support::{derive_impl, transaction_extensions::VerifyMultiSignature};
 use frame_system::{CheckEra, CheckGenesis, CheckNonce, CheckTxVersion};
