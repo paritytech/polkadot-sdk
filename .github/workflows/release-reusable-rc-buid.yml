@@ -139,11 +139,11 @@ jobs:
 
           check_gpg  ${{ matrix.binaries }}
 
-      # - name: Build polkadot deb package
-      #   if: ${{ matrix.binaries == 'polkadot' }}
-      #   shell: bash
-      #   run: |
-      #     . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ matrix.binaries }}
+      - name: Build polkadot deb package
+        if: ${{ matrix.binaries == 'polkadot' }}
+        shell: bash
+        run: |
+          . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ matrix.binaries }}
 
 
       - name: Upload ${{ matrix.binaries }} artifacts
