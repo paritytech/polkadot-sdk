@@ -25,7 +25,7 @@ pub fn main() {
 	if let Ok(opt_level) = env::var("OPT_LEVEL") {
 		println!("cargo:rustc-cfg=build_opt_level={:?}", opt_level);
 	} else {
-		println!("cargo:rustc-cfg=build_opt_level={:?}", "uknown");
+		println!("cargo:rustc-cfg=build_opt_level={:?}", "unknown");
 	}
 	if let Ok(profile) = env::var("PROFILE") {
 		println!("cargo:rustc-cfg=build_profile={:?}", profile);
