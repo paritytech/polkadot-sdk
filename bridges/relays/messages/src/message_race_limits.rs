@@ -51,6 +51,7 @@ pub struct RelayReference<
 	pub selected_size: u32,
 
 	/// Hard check begin nonce
+	#[allow(dead_code)] // FAIL-CI
 	pub hard_selected_begin_nonce: MessageNonce,
 
 	/// Index by all ready nonces
