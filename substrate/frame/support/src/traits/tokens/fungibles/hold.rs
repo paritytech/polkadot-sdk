@@ -240,6 +240,7 @@ pub trait Balanced<AccountId>: super::Balanced<AccountId> + Unbalanced<AccountId
 	}
 }
 
+/// Trait for optional bookkeeping callbacks after a slash
 pub trait DoneSlash<AssetId, Reason, AccountId, Balance> {
 	fn done_slash(_asset: AssetId, _reason: &Reason, _who: &AccountId, _amount: Balance) {}
 }

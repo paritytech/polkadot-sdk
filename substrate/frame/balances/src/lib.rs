@@ -314,6 +314,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
 
+		/// Allows callbacks to other pallets so they can update their bookkeeping when a slash occurs
 		type DoneSlashHandler: fungible::hold::DoneSlash<Self::RuntimeHoldReason, Self::AccountId, Self::Balance>;
 	}
 
