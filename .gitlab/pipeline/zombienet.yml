@@ -4,6 +4,10 @@
     ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.105"
     PUSHGATEWAY_URL: "http://zombienet-prometheus-pushgateway.managed-monitoring:9091/metrics/job/zombie-metrics"
     DEBUG: "zombie,zombie::network-node,zombie::kube::client::logs"
+    ZOMBIE_PROVIDER: "k8s"
+    RUST_LOG: "info,zombienet_orchestrator=debug"
+    RUN_IN_CI: "1"
+  timeout: 60m
 
 include:
   # substrate tests
@@ -14,3 +18,5 @@ include:
   - .gitlab/pipeline/zombienet/polkadot.yml
   # bridges tests
   - .gitlab/pipeline/zombienet/bridges.yml
+  # parachain-template-node tests
+  - .gitlab/pipeline/zombienet/parachain-template.yml
