@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: "Add `get_preset` to the testnet runtimes"
+title: "Moved presets to the testnet runtimes"
 
 doc:
   - audience: Runtime Dev
