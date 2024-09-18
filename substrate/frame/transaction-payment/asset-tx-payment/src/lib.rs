@@ -128,8 +128,8 @@ pub mod pallet {
 		type OnChargeAssetTransaction: OnChargeAssetTransaction<Self>;
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
-		#[cfg(feature = "runtime-benchmarks")]
 		/// Benchmark helper
+		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelperTrait<
 			Self::AccountId,
 			<<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,

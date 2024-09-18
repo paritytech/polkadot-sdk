@@ -155,7 +155,8 @@ pub type ValidateResult<Val, Call> =
 /// transaction payment and refunds should be at the end of the pipeline in order to capture the
 /// correct amount of weight used during the call. This is because one canot know the actual weight
 /// of an extension after post dispatch without running the post dispatch ahead of time.
-pub trait TransactionExtension<Call: Dispatchable>: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+pub trait TransactionExtension<Call: Dispatchable>:
+	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
 	/// Unique identifier of this signed extension.
 	///
@@ -313,7 +314,7 @@ pub trait TransactionExtension<Call: Dispatchable>: Codec + Debug + Sync + Send 
 		Ok(Weight::zero())
 	}
 
-	/// A wrapper for [post_dispatch_details](TransactionExtension::post_dispatch_details) that
+	/// A wrapper for [`post_dispatch_details`](TransactionExtension::post_dispatch_details) that
 	/// refunds the unspent weight consumed by this extension into the post dispatch information.
 	///
 	/// If `post_dispatch_details` returns a non-zero unspent weight, which, by definition, must be
@@ -383,9 +384,10 @@ pub trait TransactionExtension<Call: Dispatchable>: Codec + Debug + Sync + Send 
 /// Helper macro to be used in a `impl TransactionExtension` block to add default implementations of
 /// `validate` and/or `prepare`
 ///
-/// The macro is to be used with 3 parameters, separated by ";":
+/// The macro is to be used with 2 parameters, separated by ";":
 /// - the `Call` type;
 /// - the functions for which a default implementation should be generated, separated by " ";
+///   available options are `validate` and `prepare`.
 ///
 /// Example usage:
 /// ```nocompile

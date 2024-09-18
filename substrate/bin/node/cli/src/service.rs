@@ -121,19 +121,16 @@ pub fn create_extrinsic(
 	let tip = 0;
 	let tx_ext: kitchensink_runtime::TxExtension =
 		(
-			(
-				frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
-					period,
-					best_block.saturated_into(),
-				)),
-				frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
-				frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
-			)
-				.into(),
+			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
+				period,
+				best_block.saturated_into(),
+			)),
+			frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
+			frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
 			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<
 					kitchensink_runtime::Runtime,
@@ -1061,16 +1058,13 @@ mod tests {
 				);
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
-					(
-						check_non_zero_sender,
-						check_spec_version,
-						check_tx_version,
-						check_genesis,
-						check_era,
-						check_nonce,
-						check_weight,
-					)
-						.into(),
+					check_non_zero_sender,
+					check_spec_version,
+					check_tx_version,
+					check_genesis,
+					check_era,
+					check_nonce,
+					check_weight,
 					tx_payment,
 					metadata_hash,
 				);
