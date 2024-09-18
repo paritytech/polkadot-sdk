@@ -65,12 +65,8 @@ fn test_harness<T: Future<Output = ()>>(
 	);
 	let subsystem = subsystem.run(context);
 
-	let test_fut = test_fx(TestHarness {
-		virtual_overseer,
-		chunk_req_v1_cfg,
-		chunk_req_v2_cfg,
-		pool,
-	});
+	let test_fut =
+		test_fx(TestHarness { virtual_overseer, chunk_req_v1_cfg, chunk_req_v2_cfg, pool });
 
 	futures::pin_mut!(test_fut);
 	futures::pin_mut!(subsystem);

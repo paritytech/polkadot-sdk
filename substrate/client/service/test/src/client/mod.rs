@@ -1748,11 +1748,9 @@ fn respects_block_rules() {
 }
 
 #[test]
-#[cfg(disable_flaky)]
 #[allow(dead_code)]
-// FIXME: https://github.com/paritytech/substrate/issues/11321
 fn returns_status_for_pruned_blocks() {
-	use sc_consensus::BlockStatus;
+	use sp_consensus::BlockStatus;
 	sp_tracing::try_init_simple();
 	let tmp = tempfile::tempdir().unwrap();
 
