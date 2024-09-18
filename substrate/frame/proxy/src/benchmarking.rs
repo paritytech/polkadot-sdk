@@ -33,6 +33,10 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 fn add_proxies<T: Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(), &'static str> {
 	let caller = maybe_who.unwrap_or_else(whitelisted_caller);
+	T::ProxyConsideration::ensure_successful(
+		&caller,
+		Footprint::from_mel::<(ProxiesVec<T>, ProxyTicketOf<T>)>(),
+	);
 	for i in 0..n {
 		let real = T::Lookup::unlookup(account("target", i, SEED));
 
@@ -57,6 +61,10 @@ fn add_announcements<T: Config>(
 		real
 	} else {
 		let real: T::AccountId = account("real", 0, SEED);
+		T::ProxyConsideration::ensure_successful(
+			&real,
+			Footprint::from_mel::<(ProxiesVec<T>, ProxyTicketOf<T>)>(),
+		);
 		Proxy::<T>::add_proxy(
 			RawOrigin::Signed(real.clone()).into(),
 			caller_lookup,
@@ -66,6 +74,10 @@ fn add_announcements<T: Config>(
 		real
 	};
 	let real_lookup = T::Lookup::unlookup(real);
+	T::AnnouncementConsideration::ensure_successful(
+		&caller,
+		Footprint::from_mel::<(AnnouncementsVec<T>, AnnouncementTicketOf<T>)>(),
+	);
 	for _ in 0..n {
 		Proxy::<T>::announce(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -103,6 +115,7 @@ benchmarks! {
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real);
 		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
+		T::AnnouncementConsideration::ensure_successful(&delegate, Footprint::from_mel::<(AnnouncementsVec<T>, AnnouncementTicketOf<T>)>());
 		Proxy::<T>::announce(
 			RawOrigin::Signed(delegate.clone()).into(),
 			real_lookup.clone(),
@@ -123,6 +136,7 @@ benchmarks! {
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real);
 		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
+		T::AnnouncementConsideration::ensure_successful(&caller, Footprint::from_mel::<(AnnouncementsVec<T>, AnnouncementTicketOf<T>)>());
 		Proxy::<T>::announce(
 			RawOrigin::Signed(caller.clone()).into(),
 			real_lookup.clone(),
@@ -145,6 +159,7 @@ benchmarks! {
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real.clone());
 		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
+		T::AnnouncementConsideration::ensure_successful(&caller, Footprint::from_mel::<(AnnouncementsVec<T>, AnnouncementTicketOf<T>)>());
 		Proxy::<T>::announce(
 			RawOrigin::Signed(caller.clone()).into(),
 			real_lookup,
@@ -177,6 +192,7 @@ benchmarks! {
 		let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
 		let caller: T::AccountId = whitelisted_caller();
 		let real = T::Lookup::unlookup(account("target", T::MaxProxies::get(), SEED));
+		T::ProxyConsideration::ensure_successful(&caller, Footprint::from_mel::<(ProxiesVec<T>, ProxyTicketOf<T>)>());
 	}: _(
 		RawOrigin::Signed(caller.clone()),
 		real,
@@ -215,6 +231,7 @@ benchmarks! {
 	create_pure {
 		let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
 		let caller: T::AccountId = whitelisted_caller();
+		T::ProxyConsideration::ensure_successful(&caller, Footprint::from_mel::<(ProxiesVec<T>, ProxyTicketOf<T>)>());
 	}: _(
 		RawOrigin::Signed(caller.clone()),
 		T::ProxyType::default(),
@@ -236,8 +253,9 @@ benchmarks! {
 
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
+		T::ProxyConsideration::ensure_successful(&caller, Footprint::from_mel::<(ProxiesVec<T>, ProxyTicketOf<T>)>());
 		Pallet::<T>::create_pure(
-			RawOrigin::Signed(whitelisted_caller()).into(),
+			RawOrigin::Signed(caller.clone()).into(),
 			T::ProxyType::default(),
 			BlockNumberFor::<T>::zero(),
 			0
