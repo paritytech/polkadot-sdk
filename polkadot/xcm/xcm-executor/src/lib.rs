@@ -1051,9 +1051,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						&reserve,
 						Some(&mut self.holding),
 					);
-					// TODO: modify the message by adding setAssetClaimer. 
-					// replicate for teleport and regular withdraw functions.
-					// add e2e tests. 
 					let mut message = vec![WithdrawAsset(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
 					self.send(reserve, Xcm(message), FeeReason::InitiateReserveWithdraw)?;

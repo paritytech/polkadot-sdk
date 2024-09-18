@@ -40,15 +40,7 @@ use sp_runtime::traits::AccountIdConversion;
 use sp_std::marker::PhantomData;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
-use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor,
-	FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-};
+use xcm_builder::{AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, GlobalConsensusParachainConvertsFor, HandleFee, HashedDescription, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic};
 use xcm_executor::{
 	traits::{FeeManager, FeeReason, FeeReason::Export},
 	XcmExecutor,
@@ -76,6 +68,9 @@ pub type LocationToAccountId = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
+	// Foreign chain account alias into local accounts according to a hash of their standard
+	// description.
+	HashedDescription<AccountId, DescribeFamily<DescribePalletTerminal>>,
 );
 
 /// Means for transacting the native currency on this chain.

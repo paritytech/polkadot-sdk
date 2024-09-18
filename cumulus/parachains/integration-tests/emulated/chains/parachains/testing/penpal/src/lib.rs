@@ -50,6 +50,7 @@ decl_test_parachains! {
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
 		},
 		pallets = {
+			System: penpal_runtime::System,
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
 			ForeignAssets: penpal_runtime::ForeignAssets,
