@@ -72,6 +72,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-sudo/try-runtime",
+	"pallet-transaction-payment/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-conviction-voting/try-runtime",
