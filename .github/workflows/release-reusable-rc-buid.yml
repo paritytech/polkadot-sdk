@@ -170,7 +170,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
-          path: artifacts/${{ matrix.binaries[0] }}
+          path: artifacts/${{ matrix.binaries }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 PRODUCT=$1
 PROFILE=${PROFILE:-production}

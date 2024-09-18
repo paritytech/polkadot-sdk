@@ -3,6 +3,7 @@
 # This is used to build our binaries:
 # - polkadot
 # - polkadot-parachain
+set -e
 
 BIN=$1
 PACKAGE=${2:-$BIN}
