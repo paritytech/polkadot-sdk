@@ -62,7 +62,7 @@ pub use payment::*;
 use sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
+		Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransaction,
@@ -850,16 +850,12 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
-	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
-	type Implicit = ();
-}
-
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
-	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
+	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
+	type Implicit = ();
 	type Val = (
 		// tip
 		BalanceOf<T>,

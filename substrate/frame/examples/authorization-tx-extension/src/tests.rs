@@ -26,7 +26,7 @@ use frame_support::{
 };
 use sp_keyring::AccountKeyring;
 use sp_runtime::{
-	traits::{Applyable, Checkable, IdentityLookup, TransactionExtensionBase},
+	traits::{Applyable, Checkable, IdentityLookup, TransactionExtension},
 	MultiSignature, MultiSigner,
 };
 

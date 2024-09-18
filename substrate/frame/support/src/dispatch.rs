@@ -28,7 +28,6 @@ use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
 	traits::{
 		Dispatchable, ExtensionPostDispatchWeightHandler, RefundWeight, TransactionExtension,
-		TransactionExtensionBase,
 	},
 	DispatchError, RuntimeDebug,
 };
@@ -385,7 +384,6 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
 	Call: GetDispatchInfo + Dispatchable,
-	Extension: TransactionExtensionBase,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let mut info = self.function.get_dispatch_info();
@@ -399,7 +397,6 @@ impl<AccountId, Call: Dispatchable, Extension: TransactionExtension<Call>> GetDi
 	for CheckedExtrinsic<AccountId, Call, Extension>
 where
 	Call: GetDispatchInfo,
-	Extension: TransactionExtensionBase,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let mut info = self.function.get_dispatch_info();
@@ -1205,7 +1202,6 @@ mod test_extensions {
 		impl_tx_ext_default,
 		traits::{
 			DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf, TransactionExtension,
-			TransactionExtensionBase,
 		},
 		transaction_validity::TransactionValidityError,
 	};
@@ -1217,11 +1213,9 @@ mod test_extensions {
 	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 	pub struct HalfCostIf(pub bool);
 
-	impl TransactionExtensionBase for HalfCostIf {
+	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for HalfCostIf {
 		const IDENTIFIER: &'static str = "HalfCostIf";
 		type Implicit = ();
-	}
-	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for HalfCostIf {
 		type Val = ();
 		type Pre = bool;
 
@@ -1261,14 +1255,12 @@ mod test_extensions {
 	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 	pub struct FreeIfUnder(pub u64);
 
-	impl TransactionExtensionBase for FreeIfUnder {
-		const IDENTIFIER: &'static str = "FreeIfUnder";
-		type Implicit = ();
-	}
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for FreeIfUnder
 	where
 		RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo>,
 	{
+		const IDENTIFIER: &'static str = "FreeIfUnder";
+		type Implicit = ();
 		type Val = ();
 		type Pre = u64;
 
@@ -1309,11 +1301,9 @@ mod test_extensions {
 	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 	pub struct ActualWeightIs(pub u64);
 
-	impl TransactionExtensionBase for ActualWeightIs {
+	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for ActualWeightIs {
 		const IDENTIFIER: &'static str = "ActualWeightIs";
 		type Implicit = ();
-	}
-	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for ActualWeightIs {
 		type Val = ();
 		type Pre = u64;
 

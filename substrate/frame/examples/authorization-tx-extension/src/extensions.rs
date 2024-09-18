@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		DispatchInfoOf, IdentifyAccount, OriginOf, TransactionExtension, TransactionExtensionBase,
+		DispatchInfoOf, IdentifyAccount, OriginOf, TransactionExtension,
 		ValidateResult, Verify,
 	},
 	transaction_validity::{InvalidTransaction, ValidTransaction},
@@ -75,25 +75,6 @@ impl<T: Config, Signer, Signature> fmt::Debug for AuthorizeCoownership<T, Signer
 	}
 }
 
-impl<T: Config + Send + Sync, Signer, Signature> TransactionExtensionBase
-	for AuthorizeCoownership<T, Signer, Signature>
-where
-	Signer: Clone + Eq + PartialEq + Encode + Decode + TypeInfo + Send + Sync + 'static,
-	Signature: Verify<Signer = Signer>
-		+ Clone
-		+ Eq
-		+ PartialEq
-		+ Encode
-		+ Decode
-		+ TypeInfo
-		+ Send
-		+ Sync
-		+ 'static,
-{
-	const IDENTIFIER: &'static str = "AuthorizeCoownership";
-	type Implicit = ();
-}
-
 impl<T: Config + Send + Sync, Signer, Signature> TransactionExtension<T::RuntimeCall>
 	for AuthorizeCoownership<T, Signer, Signature>
 where
@@ -118,6 +99,8 @@ where
 		+ Sync
 		+ 'static,
 {
+	const IDENTIFIER: &'static str = "AuthorizeCoownership";
+	type Implicit = ();
 	type Val = ();
 	type Pre = ();
 

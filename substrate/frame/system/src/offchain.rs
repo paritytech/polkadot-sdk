@@ -61,7 +61,7 @@ use codec::Encode;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	app_crypto::RuntimeAppPublic,
-	traits::{ExtrinsicLike, IdentifyAccount, One, SignaturePayload},
+	traits::{ExtrinsicLike, IdentifyAccount, One},
 	RuntimeDebug,
 };
 
@@ -474,9 +474,6 @@ pub trait CreateTransaction<LocalCall>: CreateTransactionBase<LocalCall> {
 pub trait CreateSignedTransaction<LocalCall>:
 	CreateTransactionBase<LocalCall> + SigningTypes
 {
-	/// TODO: revisit this, currently here for metadata purposes.
-	type SignaturePayload: SignaturePayload;
-
 	/// Attempt to create signed extrinsic data that encodes call from given account.
 	///
 	/// Runtime implementation is free to construct the payload to sign and the signature

@@ -33,7 +33,6 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
 		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase,
 	},
 	transaction_validity::TransactionValidityError,
 	DispatchResult,
@@ -126,15 +125,12 @@ impl<T: Config + Send + Sync> core::fmt::Debug for StorageWeightReclaim<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for StorageWeightReclaim<T> {
-	const IDENTIFIER: &'static str = "StorageWeightReclaim";
-	type Implicit = ();
-}
-
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for StorageWeightReclaim<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
+	const IDENTIFIER: &'static str = "StorageWeightReclaim";
+	type Implicit = ();
 	type Val = ();
 	type Pre = Option<u64>;
 

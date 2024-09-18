@@ -45,7 +45,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, OriginOf,
-		TransactionExtension, TransactionExtensionBase, ValidateResult,
+		TransactionExtension, ValidateResult,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
@@ -279,12 +279,9 @@ construct_runtime! {
 #[derive(Eq, PartialEq, Clone, Default, sp_core::RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct DisallowSigned;
 
-impl TransactionExtensionBase for DisallowSigned {
+impl TransactionExtension<RuntimeCall> for DisallowSigned {
 	const IDENTIFIER: &'static str = "DisallowSigned";
 	type Implicit = ();
-}
-
-impl TransactionExtension<RuntimeCall> for DisallowSigned {
 	type Val = ();
 	type Pre = ();
 	fn validate(

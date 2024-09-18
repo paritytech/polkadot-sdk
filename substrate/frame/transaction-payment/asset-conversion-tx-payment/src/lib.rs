@@ -55,7 +55,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, RefundWeight,
-		TransactionExtension, TransactionExtensionBase, ValidateResult, Zero,
+		TransactionExtension, ValidateResult, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
@@ -250,16 +250,6 @@ impl<T: Config> core::fmt::Debug for ChargeAssetTxPayment<T> {
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for ChargeAssetTxPayment<T>
-where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	BalanceOf<T>: Send + Sync + From<u64>,
-	T::AssetId: Send + Sync,
-{
-	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
-	type Implicit = ();
-}
-
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -267,6 +257,8 @@ where
 	T::AssetId: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
+	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
+	type Implicit = ();
 	type Val = (
 		// tip
 		BalanceOf<T>,

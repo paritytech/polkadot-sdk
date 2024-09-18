@@ -42,11 +42,9 @@ parameter_types! {
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct DummyExtension;
 
-impl TransactionExtensionBase for DummyExtension {
+impl TransactionExtension<RuntimeCall> for DummyExtension {
 	const IDENTIFIER: &'static str = "DummyExtension";
 	type Implicit = ();
-}
-impl TransactionExtension<RuntimeCall> for DummyExtension {
 	type Val = ();
 	type Pre = ();
 

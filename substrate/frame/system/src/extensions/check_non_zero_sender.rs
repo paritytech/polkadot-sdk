@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		transaction_extension::TransactionExtensionBase, DispatchInfoOf, TransactionExtension,
+		DispatchInfoOf, TransactionExtension,
 	},
 	transaction_validity::InvalidTransaction,
 };
@@ -52,11 +52,9 @@ impl<T: Config + Send + Sync> CheckNonZeroSender<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckNonZeroSender<T> {
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
 	const IDENTIFIER: &'static str = "CheckNonZeroSender";
 	type Implicit = ();
-}
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
 	type Val = ();
 	type Pre = ();
 

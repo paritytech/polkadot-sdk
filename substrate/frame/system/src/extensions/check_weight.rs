@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase, ValidateResult,
+		ValidateResult,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 	DispatchResult,
@@ -208,14 +208,12 @@ where
 	Ok(all_weight)
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
-	const IDENTIFIER: &'static str = "CheckWeight";
-	type Implicit = ();
-}
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckWeight<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
+	const IDENTIFIER: &'static str = "CheckWeight";
+	type Implicit = ();
 	type Pre = ();
 	type Val = u32; /* next block length */
 

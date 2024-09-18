@@ -54,7 +54,7 @@ use std::str::FromStr;
 
 pub mod transaction_extension;
 pub use transaction_extension::{
-	DispatchTransaction, TransactionExtension, TransactionExtensionBase,
+	DispatchTransaction, TransactionExtension,
 	TransactionExtensionMetadata, ValidateResult,
 };
 
@@ -1706,7 +1706,7 @@ pub trait SignedExtension:
 		sp_std::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
-			additional_signed: scale_info::meta_type::<Self::AdditionalSigned>()
+			implicit: scale_info::meta_type::<Self::AdditionalSigned>()
 		}]
 	}
 

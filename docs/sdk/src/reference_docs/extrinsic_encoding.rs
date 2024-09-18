@@ -202,7 +202,7 @@
 //!
 //! The bytes representing `call_data` and `transaction_extensions_extra` can be obtained as
 //! descibed above. `transaction_extensions_implicit` is constructed by SCALE encoding the
-//! ["implicit" data][sp_runtime::traits::TransactionExtensionBase::Implicit] for each transaction
+//! ["implicit" data][sp_runtime::traits::TransactionExtension::Implicit] for each transaction
 //! extension that the chain is using, in order.
 //!
 //! Once we've concatenated those together, we hash the result using a Blake2 256bit hasher.

@@ -45,7 +45,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf,
-		TransactionExtension, TransactionExtensionBase, ValidateResult, Zero,
+		TransactionExtension, ValidateResult, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransactionBuilder},
 	DispatchResult, RuntimeDebug,
@@ -125,6 +125,7 @@ where
 		+ TransactionPaymentConfig,
 	C: ExtensionConfig<Runtime = R, Reward = R::Reward>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
 		OnChargeTransaction<R, Balance = R::Reward>,
 {
@@ -265,21 +266,6 @@ where
 	}
 }
 
-impl<R, C> TransactionExtensionBase for BridgeRelayersTransactionExtension<R, C>
-where
-	Self: 'static + Send + Sync,
-	R: RelayersConfig
-		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance>
-		+ TransactionPaymentConfig,
-	C: ExtensionConfig<Runtime = R, Reward = R::Reward>,
-	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	<R as TransactionPaymentConfig>::OnChargeTransaction:
-		OnChargeTransaction<R, Balance = R::Reward>,
-{
-	const IDENTIFIER: &'static str = C::IdProvider::STR;
-	type Implicit = ();
-}
-
 impl<R, C> TransactionExtension<R::RuntimeCall> for BridgeRelayersTransactionExtension<R, C>
 where
 	Self: 'static + Send + Sync,
@@ -292,6 +278,8 @@ where
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
 		OnChargeTransaction<R, Balance = R::Reward>,
 {
+	const IDENTIFIER: &'static str = C::IdProvider::STR;
+	type Implicit = ();
 	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber>>;
 	type Val = Option<ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>>;
 
