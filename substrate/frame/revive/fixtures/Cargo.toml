@@ -16,12 +16,13 @@ sp-core = { workspace = true, default-features = true, optional = true }
 sp-io = { workspace = true, default-features = true, optional = true }
 sp-runtime = { workspace = true, default-features = true, optional = true }
 anyhow = { workspace = true, default-features = true, optional = true }
+log = { workspace = true }
 
 [build-dependencies]
 parity-wasm = { workspace = true }
 tempfile = { workspace = true }
 toml = { workspace = true }
-polkavm-linker = { version = "0.10.0" }
+polkavm-linker = { version = "0.11.0" }
 anyhow = { workspace = true, default-features = true }
 
 [features]
@@ -34,6 +35,7 @@ riscv = []
 std = [
 	"anyhow",
 	"frame-system",
+	"log/std",
 	"sp-core",
 	"sp-io",
 	"sp-runtime",
