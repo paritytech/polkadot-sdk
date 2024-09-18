@@ -215,8 +215,20 @@ jobs:
           echo "release=${release}" >> $GITHUB_OUTPUT
           echo "stable=${{ needs.validate-inputs.outputs.stable_tag }}" >> $GITHUB_OUTPUT
 
-      - name: Build Injected Container image for polkadot rc or chain-spec-builder
-        if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'chain-spec-builder' }}
+      - name: Build Injected Container image for polkadot rc
+        if: ${{ env.BINARY == 'polkadot' }}
+        env:
+          ARTIFACTS_FOLDER: release-artifacts
+          IMAGE_NAME: ${{ env.BINARY }}
+          OWNER: ${{ env.DOCKER_OWNER }}
+          TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
+        run: |
+          ls -al
+          echo "Building container for $BINARY"
+          ./docker/scripts/polkadot/build-injected.sh $ARTIFACTS_FOLDER
+
+      - name: Build Injected Container image chain-spec-builder
+        if: ${{ env.BINARY == 'chain-spec-builder' }}
         env:
           ARTIFACTS_FOLDER: release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
