@@ -25,15 +25,14 @@ use crate::{Decode, DispatchError, Encode};
 use binary_merkle_tree::{merkle_proof, merkle_root, verify_proof, MerkleProof};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
-/// A helper structure for building a basic base-16 merkle trie and creating compact proofs for that
-/// trie. Proofs are created with latest substrate trie format (`LayoutV1`), and are not compatible
-/// with proofs using `LayoutV0`.
+/// A helper structure for building a basic base-2 merkle trie and creating compact proofs for that
+/// trie.
 pub struct BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
 {
 	// Deduplicated and flattened list of key value pairs.
-	db: Vec<(Key, Value)>,
+	db: BTreeMap<Key, Value>,
 	root: Hashing::Out,
 	_phantom: core::marker::PhantomData<(Key, Value)>,
 }
@@ -49,17 +48,11 @@ where
 	where
 		I: IntoIterator<Item = (Key, Value)>,
 	{
-		let mut db_map = BTreeMap::default();
+		let mut db = BTreeMap::default();
 		for (key, value) in items.into_iter() {
-			if db_map.insert(key, value).is_some() {
-				return Err(TrieError::DuplicateKey.into());
-			}
+			db.insert(key, value);
 		}
-
-		let db: Vec<(Key, Value)> = db_map.into_iter().collect();
-
 		let root = merkle_root::<Hashing, _>(db.iter().map(|item| item.encode()));
-
 		Ok(Self { db, root, _phantom: Default::default() })
 	}
 
@@ -69,25 +62,22 @@ where
 	}
 
 	/// Query a value contained within the current trie. Returns `None` if the
-	/// nodes within the current `MemoryDB` are insufficient to query the item.
+	/// nodes within the current `db` are insufficient to query the item.
 	pub fn query(&self, key: Key) -> Option<Value>
 	where
 		Value: Decode + Clone,
 	{
-		self.db.iter().find(|(k, _)| *k == key).map(|(_, v)| v.clone())
+		self.db.get(&key).cloned()
 	}
 
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
-	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
+	/// Returns `None` if the nodes within the current `db` are insufficient to create a
 	/// proof.
-	///
-	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
-	/// compatible with `LayoutV0`.
 	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError>
 	where
 		Hashing::Out: Encode,
 	{
-		let mut encoded = Vec::with_capacity(self.db.len()); // Pre-allocate the vector
+		let mut encoded = Vec::with_capacity(self.db.len());
 		let mut found_index = None;
 
 		// Find the index of our key, and encode the (key, value) pair.
@@ -100,8 +90,7 @@ where
 			encoded.push((k, v).encode());
 		}
 
-		let index = found_index.ok_or("couldnt find")?;
-
+		let index = found_index.ok_or(TrieError::IncompleteDatabase)?;
 		let proof = merkle_proof::<Hashing, Vec<Vec<u8>>, Vec<u8>>(encoded, index as u32);
 		Ok(proof.encode())
 	}
@@ -248,26 +237,6 @@ mod tests {
 		assert_eq!(
 			verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, 6u128),
 			Err(TrieError::IncompleteProof.into())
-		);
-	}
-
-	#[test]
-	fn duplicate_key_fails_to_build() {
-		// Create a map of users and their balances.
-		let mut flat = Vec::<(u32, u128)>::new();
-		for i in 0..100u32 {
-			flat.push((i, i.into()));
-		}
-
-		// Duplicate key
-		flat.push((50, 1337.into()));
-
-		let Err(error) = BalanceTrie::generate_for(flat) else {
-			panic!("expected balance trie error");
-		};
-		assert_eq!(
-			error,
-			TrieError::DuplicateKey.into(),
 		);
 	}
 }
