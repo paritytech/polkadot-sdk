@@ -57,7 +57,7 @@ fn create_asset_works() {
 		);
 		// Add the signature to the extension.
 		let tx_ext = (
-			VerifyMultiSignature::new(tx_sign, alice_account.clone()),
+			VerifyMultiSignature::new_with_signature(tx_sign, alice_account.clone()),
 			frame_system::CheckNonce::<Runtime>::from(initial_nonce),
 			AuthorizeCoownership::<Runtime, MultiSigner, MultiSignature>::default(),
 			frame_system::CheckGenesis::<Runtime>::new(),
@@ -143,7 +143,7 @@ fn create_coowned_asset_works() {
 		);
 		// Add the signature to the extension.
 		let tx_ext = (
-			VerifyMultiSignature::new(tx_sign, charlie_account.clone()),
+			VerifyMultiSignature::new_with_signature(tx_sign, charlie_account.clone()),
 			frame_system::CheckNonce::<Runtime>::from(initial_nonce),
 			AuthorizeCoownership::<Runtime, MultiSigner, MultiSignature>::new(
 				(alice_keyring.into(), alice_inner_sig),
@@ -232,7 +232,7 @@ fn inner_authorization_works() {
 		);
 		// Add the signature to the extension that Charlie signed.
 		let tx_ext = (
-			VerifyMultiSignature::new(tx_sign, charlie_account.clone()),
+			VerifyMultiSignature::new_with_signature(tx_sign, charlie_account.clone()),
 			frame_system::CheckNonce::<Runtime>::from(initial_nonce),
 			AuthorizeCoownership::<Runtime, MultiSigner, MultiSignature>::new(
 				(alice_keyring.into(), alice_inner_sig),
