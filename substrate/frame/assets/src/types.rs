@@ -317,17 +317,3 @@ where
 			.saturating_mul_int(balance))
 	}
 }
-
-pub type DistributionCounter = u32;
-pub type DistributionProofOf<T, I> =
-	<<T as Config<I>>::VerifyExistenceProof as VerifyExistenceProof>::Proof;
-
-#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-pub struct DistributionInfo<AssetId, Hash> {
-	// The asset id we are distributing.
-	pub asset_id: AssetId,
-	// The merkle root which represents all the balances to distribute.
-	pub merkle_root: Hash,
-	// Whether the distribution is still active.
-	pub active: bool,
-}

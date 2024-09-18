@@ -32,7 +32,6 @@ sp-core = { workspace = true }
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
-binary-merkle-tree = { workspace = true }
 
 [features]
 default = ["std"]
