@@ -216,7 +216,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-westend"),
 	impl_name: create_runtime_str!("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_017_000,
+	spec_version: 1_016_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
