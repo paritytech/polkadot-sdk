@@ -47,6 +47,7 @@ use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
+use sc_network::ProtocolName;
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
@@ -318,6 +319,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	max_parallel_downloads: u32,
 	/// Maximum blocks per request.
 	max_blocks_per_request: u32,
+	/// Protocol name used to send out state requests
+	state_request_protocol_name: ProtocolName,
 	/// Total number of downloaded blocks.
 	downloaded_blocks: usize,
 	/// State sync in progress, if any.
@@ -880,7 +883,12 @@ where
 		self.actions.extend(justification_requests);
 
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
-			SyncingAction::SendStateRequest { peer_id, key: StrategyKey::ChainSync, request }
+			SyncingAction::SendStateRequest {
+				peer_id,
+				key: StrategyKey::ChainSync,
+				protocol_name: self.state_request_protocol_name.clone(),
+				request,
+			}
 		});
 		self.actions.extend(state_request);
 
@@ -905,6 +913,7 @@ where
 		client: Arc<Client>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
+		state_request_protocol_name: ProtocolName,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
@@ -923,6 +932,7 @@ where
 			allowed_requests: Default::default(),
 			max_parallel_downloads,
 			max_blocks_per_request,
+			state_request_protocol_name,
 			downloaded_blocks: 0,
 			state_sync: None,
 			import_existing: false,
