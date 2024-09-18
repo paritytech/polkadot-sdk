@@ -995,6 +995,7 @@ impl<T: Config> OnUnbalanced<Credit<T::AccountId, T::Currency>> for FungibleComp
 		use frame_support::traits::fungible::Balanced;
 		let numeric_amount = credit.peek();
 
+		// can't do much if following errors since the calling function is infallible.
 		let _ = T::Currency::resolve(&Pallet::<T>::account_id(), credit);
 
 		Pallet::<T>::deposit_event(Event::Deposit { value: numeric_amount });
