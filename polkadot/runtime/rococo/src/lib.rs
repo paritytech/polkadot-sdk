@@ -1681,6 +1681,7 @@ pub mod migrations {
         parachains_inclusion::migration::MigrateToV1<Runtime>,
 
         parachains_configuration::migration::v13::MigrateToV13<Runtime>,
+        parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
     );
 }
 
