@@ -340,3 +340,6 @@ runtime-metrics = [
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
 on-chain-release-build = ["metadata-hash"]
+
+# Produce a runtime with the spec_version incremented to use in upgrade tests.
+increment-spec-version = []
