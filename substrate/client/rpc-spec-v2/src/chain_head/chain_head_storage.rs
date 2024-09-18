@@ -75,7 +75,7 @@ where
 
 		if !query_iter.is_empty() {
 			process_storage_iter_stream(
-				self.client.query_iter_pagination(query_iter, hash, child_key),
+				self.client.query_iter_pagination(query_iter, hash, child_key, None),
 				block_guard.response_sender(),
 				block_guard.operation().operation_id().to_owned(),
 				&stop_handle,
@@ -178,34 +178,26 @@ async fn process_storage_iter_stream<Hash>(
 	operation_id: String,
 	stop_handle: &StopHandle,
 ) -> Result<(), FollowEventSendError> {
-	let mut buf = Vec::new();
-
 	loop {
 		tokio::select! {
 			_ = stop_handle.stopped() => return Ok(()),
-			len = storage_query_stream.recv_many(&mut buf, 1024) => {
-				if len == 0 {
-					break Ok(());
-				}
+			maybe_storage = storage_query_stream.recv() => {
+				let Some(storage) = maybe_storage else {
+					return Ok(());
+				};
 
-				let mut items = Vec::with_capacity(buf.len());
-
-				for val in buf.drain(..) {
-					match val {
-						QueryResult::Err(error) =>
-							return send_error(&mut sender, operation_id.clone(), error).await,
-						QueryResult::Ok(Some(v)) => {
-							items.push(v)
-						},
-						QueryResult::Ok(None) => continue
+				let item = match storage {
+					QueryResult::Err(error) => {
+						return send_error(&mut sender, operation_id.clone(), error).await;
 					}
-				}
+					QueryResult::Ok(Some(v)) => v,
+					QueryResult::Ok(None) => continue,
+				};
 
-				// Send back the results of the iteration produced so far.
 				sender
 					.send(FollowEvent::OperationStorageItems(OperationStorageItems {
 						operation_id: operation_id.clone(),
-						items,
+						items: vec![item],
 				})).await?;
 
 			},

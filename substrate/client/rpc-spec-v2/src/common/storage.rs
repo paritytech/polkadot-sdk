@@ -173,6 +173,7 @@ where
 		queries: Vec<QueryIter>,
 		hash: Block::Hash,
 		child_key: Option<ChildInfo>,
+		max_iterations: Option<usize>,
 	) -> mpsc::Receiver<QueryResult> {
 		let (tx, rx) = mpsc::channel(QUERY_ITER_PAGINATED_BUF_CAP);
 		let storage = self.clone();
@@ -181,7 +182,7 @@ where
 			let futs: FuturesUnordered<_> = queries
 				.into_iter()
 				.map(|query| {
-					query_iter_pagination_one(&storage, query, hash, child_key.as_ref(), &tx)
+					query_iter_pagination_one(&storage, query, hash, child_key.as_ref(), &tx, max_iterations)
 				})
 				.collect();
 
@@ -201,6 +202,7 @@ async fn query_iter_pagination_one<Client, Block, BE>(
 	hash: Block::Hash,
 	child_key: Option<&ChildInfo>,
 	tx: &mpsc::Sender<QueryResult>,
+	max_iterations: Option<usize>,
 ) where
 	Block: BlockT + Send + 'static,
 	BE: Backend<Block> + Send + 'static,
@@ -221,7 +223,7 @@ async fn query_iter_pagination_one<Client, Block, BE>(
 			.storage_keys(hash, Some(&query_key), pagination_start_key.as_ref())
 	};
 
-	let mut keys_iter = match maybe_storage {
+	let keys_iter = match maybe_storage {
 		Ok(keys_iter) => keys_iter,
 		Err(error) => {
 			_ = tx.send(Err(error.to_string())).await;
@@ -229,7 +231,13 @@ async fn query_iter_pagination_one<Client, Block, BE>(
 		},
 	};
 
-	while let Some(key) = keys_iter.next() {
+	for (idx, key) in keys_iter.into_iter().enumerate() {
+		if let Some(max_iterations) = max_iterations {
+			if idx >= max_iterations {
+				break;
+			}
+		}
+
 		let result = match ty {
 			IterQueryType::Value => storage.query_value(hash, &key, child_key),
 			IterQueryType::Hash => storage.query_hash(hash, &key, child_key),

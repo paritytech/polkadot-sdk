@@ -33,12 +33,25 @@ use crate::common::{
 pub struct ArchiveStorage<Client, Block, BE> {
 	/// Storage client.
 	client: Storage<Client, Block, BE>,
+	/// The maximum number of responses the API can return for a descendant query at a time.
+	storage_max_descendant_responses: usize,
+	/// The maximum number of queried items allowed for the `archive_storage` at a time.
+	storage_max_queried_items: usize,
 }
 
 impl<Client, Block, BE> ArchiveStorage<Client, Block, BE> {
 	/// Constructs a new [`ArchiveStorage`].
-	pub fn new(client: Arc<Client>, executor: SubscriptionTaskExecutor) -> Self {
-		Self { client: Storage::new(client, executor) }
+	pub fn new(
+		client: Arc<Client>,
+		storage_max_descendant_responses: usize,
+		storage_max_queried_items: usize,
+		executor: SubscriptionTaskExecutor,
+	) -> Self {
+		Self {
+			client: Storage::new(client, executor),
+			storage_max_descendant_responses,
+			storage_max_queried_items,
+		}
 	}
 }
 
@@ -52,9 +65,12 @@ where
 	pub fn handle_query(
 		&self,
 		hash: Block::Hash,
-		items: Vec<PaginatedStorageQuery<StorageKey>>,
+		mut items: Vec<PaginatedStorageQuery<StorageKey>>,
 		child_key: Option<ChildInfo>,
 	) -> ArchiveStorageResult {
+		let discarded_items = items.len().saturating_sub(self.storage_max_queried_items);
+		items.truncate(self.storage_max_queried_items);
+
 		let mut storage_results = Vec::with_capacity(items.len());
 		let mut query_iter = Vec::new();
 
@@ -97,7 +113,7 @@ where
 		}
 
 		if !query_iter.is_empty() {
-			let mut rx = self.client.query_iter_pagination(query_iter, hash, child_key);
+			let mut rx = self.client.query_iter_pagination(query_iter, hash, child_key, Some(self.storage_max_descendant_responses));
 
 			while let Some(val) = rx.blocking_recv() {
 				match val {
@@ -108,6 +124,6 @@ where
 			}
 		}
 
-		ArchiveStorageResult::ok(storage_results, 0)
+		ArchiveStorageResult::ok(storage_results, discarded_items)
 	}
 }
