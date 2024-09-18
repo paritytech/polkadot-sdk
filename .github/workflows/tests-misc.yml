@@ -14,7 +14,6 @@ concurrency:
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
-
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
 
@@ -321,7 +320,7 @@ jobs:
 
   cargo-check-all-crate-macos:
     timeout-minutes: 30
-    needs: [ preflight ]
+    needs: [preflight]
     runs-on: parity-macos
     env:
       SKIP_WASM_BUILD: 1
@@ -366,6 +365,7 @@ jobs:
       - check-tracing
       - cargo-check-each-crate
       - test-deterministic-wasm
+      - cargo-check-all-crate-macos
       # - cargo-hfuzz remove from required for now, as it's flaky
     if: always() && !cancelled()
     steps:
