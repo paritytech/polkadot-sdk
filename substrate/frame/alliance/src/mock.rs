@@ -80,6 +80,7 @@ impl pallet_collective::Config<AllianceCollective> for Test {
 	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
 	type KillOrigin = EnsureRoot<Self::AccountId>;
 	type Consideration = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 parameter_types! {
@@ -229,6 +230,7 @@ impl Config for Test {
 	type AllyDeposit = AllyDeposit;
 	type WeightInfo = ();
 	type RetirementPeriod = RetirementPeriod;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 type Block = frame_system::mocking::MockBlock<Test>;

@@ -49,7 +49,7 @@ use core::{marker::PhantomData, result};
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{
-	traits::{Dispatchable, Hash},
+	traits::{BlockNumberProvider, Dispatchable, Hash},
 	DispatchError, RuntimeDebug,
 };
 
@@ -387,6 +387,9 @@ pub mod pallet {
 		/// consider using a constant cost (e.g., [`crate::deposit::Constant`]) equal to the minimum
 		/// balance under the `runtime-benchmarks` feature.
 		type Consideration: MaybeConsideration<Self::AccountId, u32>;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet. 
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
 	#[pallet::genesis_config]
@@ -967,7 +970,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
 		<ProposalOf<T, I>>::insert(proposal_hash, proposal);
 		let votes = {
-			let end = frame_system::Pallet::<T>::block_number() + T::MotionDuration::get();
+			let end = T::BlockNumberProvider::current_block_number() + T::MotionDuration::get();
 			Votes { index, threshold, ayes: vec![], nays: vec![], end }
 		};
 		<Voting<T, I>>::insert(proposal_hash, votes);
@@ -1077,7 +1080,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		// Only allow actual closing of the proposal after the voting period has ended.
-		ensure!(frame_system::Pallet::<T>::block_number() >= voting.end, Error::<T, I>::TooEarly);
+		ensure!(T::BlockNumberProvider::current_block_number() >= voting.end, Error::<T, I>::TooEarly);
 
 		let prime_vote = Prime::<T, I>::get().map(|who| voting.ayes.iter().any(|a| a == &who));
 

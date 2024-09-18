@@ -101,7 +101,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
-	traits::{Dispatchable, Saturating, StaticLookup, Zero},
+	traits::{BlockNumberProvider, Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
 
@@ -308,6 +308,9 @@ pub mod pallet {
 		/// The number of blocks a member must wait between giving a retirement notice and retiring.
 		/// Supposed to be greater than time required to `kick_member`.
 		type RetirementPeriod: Get<BlockNumberFor<Self>>;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet. 
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
 	#[pallet::error]
@@ -763,7 +766,7 @@ pub mod pallet {
 			Self::add_member(&who, MemberRole::Retiring)?;
 			<RetiringMembers<T, I>>::insert(
 				&who,
-				frame_system::Pallet::<T>::block_number()
+				T::BlockNumberProvider::current_block_number()
 					.saturating_add(T::RetirementPeriod::get()),
 			);
 
@@ -781,7 +784,7 @@ pub mod pallet {
 			let retirement_period_end = RetiringMembers::<T, I>::get(&who)
 				.ok_or(Error::<T, I>::RetirementNoticeNotGiven)?;
 			ensure!(
-				frame_system::Pallet::<T>::block_number() >= retirement_period_end,
+				T::BlockNumberProvider::current_block_number() >= retirement_period_end,
 				Error::<T, I>::RetirementPeriodNotPassed
 			);
 

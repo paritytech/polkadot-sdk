@@ -557,6 +557,7 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
 	type KillOrigin = EnsureRoot<Self::AccountId>;
 	type Consideration = ();
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 pub const MAX_FELLOWS: u32 = ALLIANCE_MAX_MEMBERS;
@@ -592,6 +593,7 @@ impl pallet_alliance::Config for Runtime {
 	type MaxMembersCount = ConstU32<ALLIANCE_MAX_MEMBERS>;
 	type AllyDeposit = AllyDeposit;
 	type WeightInfo = weights::pallet_alliance::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
