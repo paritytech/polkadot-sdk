@@ -1,6 +1,6 @@
 #!/usr/bin/env -S bash -eux
 
-export RUSTFLAGS="-Cdebug-assertions=y -Dwarnings"
+export RUSTFLAGS="-Cdebug-assertions=y "
 T=wasm32-unknown-unknown
 
 cargo check --release

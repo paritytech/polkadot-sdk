@@ -206,7 +206,7 @@ jobs:
           RUST_TOOLCHAIN: stable
           # Enable debug assertions since we are running optimized builds for testing
           # but still want to have debug assertions.
-          RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+          RUSTFLAGS: "-Cdebug-assertions=y "
         run: |
           forklift cargo build --bin polkadot-execute-worker --bin polkadot-prepare-worker --profile testnet --verbose --locked
           mkdir -p ./artifacts

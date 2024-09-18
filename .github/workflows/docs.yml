@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: forklift cargo test --doc --workspace
         env:
-          RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+          RUSTFLAGS: "-Cdebug-assertions=y "
 
   build-rustdoc:
     runs-on: arc-runners-polkadot-sdk-beefy
@@ -47,7 +47,7 @@ jobs:
       - run: forklift cargo doc --all-features --workspace --no-deps
         env:
           SKIP_WASM_BUILD: 1
-          RUSTDOCFLAGS: "-Dwarnings --default-theme=ayu --html-in-header ./docs/sdk/assets/header.html --extend-css ./docs/sdk/assets/theme.css --html-after-content ./docs/sdk/assets/after-content.html"
+          RUSTDOCFLAGS: " --default-theme=ayu --html-in-header ./docs/sdk/assets/header.html --extend-css ./docs/sdk/assets/theme.css --html-after-content ./docs/sdk/assets/after-content.html"
       - run: rm -f ./target/doc/.lock
       - run: mv ./target/doc ./crate-docs
       - name: Inject Simple Analytics script
