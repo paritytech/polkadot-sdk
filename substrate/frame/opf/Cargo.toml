@@ -29,8 +29,8 @@ pallet-assets = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
-pallet-transaction-payment = { workspace = true, default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-transaction-payment = { workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-conviction-voting = { workspace = true, default-features = false }
 pallet-distribution = { workspace = true, default-features = false }
 
@@ -45,6 +45,7 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-conviction-voting/std",
+	"pallet-distribution/std",
 	"pallet-timestamp/std",
 	"pallet-sudo/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
@@ -58,14 +59,22 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-distribution/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-sudo/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-conviction-voting/try-runtime",
+	"pallet-distribution/try-runtime",
 	"sp-runtime/try-runtime",
 ]
