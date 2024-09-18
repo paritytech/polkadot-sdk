@@ -5,7 +5,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [ opened, synchronize, reopened, ready_for_review ]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -14,45 +14,18 @@ concurrency:
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
-  #changes:
-  #  permissions:
-  #    pull-requests: read
-  #  uses: ./.github/workflows/reusable-check-changed-files.yml
 
-  set-image:
-    # needs: [ changes ]
-    # if: needs.changes.outputs.rust || needs.changes.outputs.current-workflow
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
-      # By default, we use spot machines that can be terminated at any time.
-      # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
-      - id: set_runner
-        run: |
-          # Run merge queues on persistent runners
-          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
-          else
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-          fi  
-  
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
   # more information about this job can be found here:
   # https://github.com/paritytech/substrate/pull/3778
   test-full-crypto-feature:
-    needs: [ set-image ]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       # Enable debug assertions since we are running optimized builds for testing
       # but still want to have debug assertions.
@@ -60,7 +33,7 @@ jobs:
       RUST_BACKTRACE: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: script
         run: |
@@ -72,10 +45,10 @@ jobs:
   test-frame-examples-compile-to-wasm:
     timeout-minutes: 20
     # into one job
-    needs: [ set-image, test-full-crypto-feature ]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight, test-full-crypto-feature]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       # Enable debug assertions since we are running optimized builds for testing
       # but still want to have debug assertions.
@@ -93,10 +66,10 @@ jobs:
 
   test-frame-ui:
     timeout-minutes: 60
-    needs: [ set-image, test-frame-examples-compile-to-wasm ]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       # Enable debug assertions since we are running optimized builds for testing
       # but still want to have debug assertions.
@@ -121,10 +94,10 @@ jobs:
 
   test-deterministic-wasm:
     timeout-minutes: 20
-    needs: [ set-image ]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight, test-frame-examples-compile-to-wasm]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       WASM_BUILD_NO_COLOR: 1
     steps:
@@ -142,33 +115,23 @@ jobs:
           # confirm checksum
           sha256sum -c checksum.sha256
 
-  cargo-check-benches-branches:
-    needs: [ set-image ]
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
-    timeout-minutes: 60
-    outputs:
-      branch: ${{ steps.branch.outputs.branch }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Branch
-        id: branch
-        run: |
-          echo "branch=['${{ github.base_ref }}', '${{ github.head_ref }}']" >> $GITHUB_OUTPUT
-
   cargo-check-benches:
-    needs: [ set-image, cargo-check-benches-branches ]
+    needs: [preflight]
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
     timeout-minutes: 60
     strategy:
       matrix:
-        branch: ${{ fromJSON(needs.cargo-check-benches-branches.outputs.branch) }}
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+        branch: [master, current]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.branch }}
+          # if branch is master, use the branch, otherwise set empty string, so it uses the current context
+          # either PR (including forks) or merge group (main repo)
+          ref: ${{ matrix.branch == 'master' && matrix.branch || '' }}
 
       - name: script
         run: |
@@ -190,22 +153,24 @@ jobs:
 
   node-bench-regression-guard:
     timeout-minutes: 20
-    runs-on: arc-runners-polkadot-sdk
-    needs: [ set-image, cargo-check-benches ]
+    if: always() && !cancelled()
+    # runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
+    needs: [preflight, cargo-check-benches]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Download artifact (master run)
         uses: actions/download-artifact@v4.1.8
         with:
-          name: cargo-check-benches-${{ github.base_ref }}-${{ github.sha }}
+          name: cargo-check-benches-master-${{ github.sha }}
           path: ./artifacts/master
 
       - name: Download artifact (current run)
         uses: actions/download-artifact@v4.1.8
         with:
-          name: cargo-check-benches-${{ github.head_ref }}-${{ github.sha }}
+          name: cargo-check-benches-current-${{ github.sha }}
           path: ./artifacts/current
 
       - name: script
@@ -227,14 +192,14 @@ jobs:
           fi
 
   test-node-metrics:
-    needs: [ set-image ]
+    needs: [preflight]
     timeout-minutes: 30
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Run tests
         id: tests
@@ -260,13 +225,13 @@ jobs:
   # https://github.com/paritytech/substrate/pull/6916
   check-tracing:
     timeout-minutes: 20
-    needs: [ set-image, test-node-metrics ]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight, test-node-metrics]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: script
         run: |
@@ -275,13 +240,13 @@ jobs:
 
   check-metadata-hash:
     timeout-minutes: 20
-    needs: [ set-image, check-tracing ]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight, check-tracing]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: script
         run: |
@@ -289,10 +254,10 @@ jobs:
 
   cargo-hfuzz:
     timeout-minutes: 20
-    needs: [ set-image, check-metadata-hash ]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight, check-metadata-hash]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       # max 10s per iteration, 60s per file
       HFUZZ_RUN_ARGS: |
@@ -310,7 +275,7 @@ jobs:
         --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Run honggfuzz
         run: |
@@ -329,19 +294,19 @@ jobs:
 
   cargo-check-each-crate:
     timeout-minutes: 140
-    needs: [ set-image ]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-D warnings"
       CI_JOB_NAME: cargo-check-each-crate
     strategy:
       matrix:
-        index: [ 1,2,3,4,5,6,7 ] # 7 parallel jobs
+        index: [1, 2, 3, 4, 5, 6, 7] # 7 parallel jobs
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
 
       - name: Check Rust
         run: |
@@ -354,30 +319,38 @@ jobs:
           cp .forklift/config.toml /github/home/.forklift/config.toml
           PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
 
-  # cargo-check-each-crate-macos:
-  #   timeout-minutes: 120
-  #   needs: [ set-image ]
-  #   runs-on: macOS
-  #   env:
-  #     RUSTFLAGS: "-D warnings"
-  #     CI_JOB_NAME: cargo-check-each-crate
-  #     IMAGE: ${{ needs.set-image.outputs.IMAGE }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       index: [ 1,2,3,4,5,6,7,8,9,10 ] # 10 parallel jobs
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4.1.7
-
-  #     - name: Install dependencies
-  #       uses: ./.github/actions/set-up-mac
-  #       with:
-  #         IMAGE: ${{ needs.set-image.outputs.IMAGE }}
-
-  #     - name: script
-  #       run: |
-  #         PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }} True
+  cargo-check-all-crate-macos:
+    timeout-minutes: 30
+    needs: [ preflight ]
+    runs-on: parity-macos
+    env:
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Set rust version from env file
+        run: |
+          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
+          echo $RUST_VERSION
+          echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
+      - name: Install rust ${{ env.RUST_VERSION }}
+        uses: actions-rust-lang/setup-rust-toolchain@1fbea72663f6d4c03efaab13560c8a24cfd2a7cc # v1.9.0
+        with:
+          cache: false
+          toolchain: ${{ env.RUST_VERSION }}
+          target: wasm32-unknown-unknown
+          components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
+      - name: Install protobuf
+        run: brew install protobuf
+      - name: cargo info
+        run: |
+          echo "######## rustup show ########"
+          rustup show
+          echo "######## cargo --version ########"
+          cargo --version
+      - name: Run cargo check
+        run: cargo check --workspace --locked
 
   confirm-required-test-misc-jobs-passed:
     runs-on: ubuntu-latest
@@ -394,5 +367,14 @@ jobs:
       - cargo-check-each-crate
       - test-deterministic-wasm
       # - cargo-hfuzz remove from required for now, as it's flaky
+    if: always() && !cancelled()
     steps:
-      - run: echo '### Good job! All the required tests passed 🚀' >> $GITHUB_STEP_SUMMARY
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi
