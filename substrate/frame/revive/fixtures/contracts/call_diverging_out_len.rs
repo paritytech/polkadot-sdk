@@ -36,6 +36,8 @@ static DATA: [u8; BUF_SIZE] = [1, 2, 3, 4, 5, 6, 7, 8];
 /// and expect the call output to match `expected_output`.
 fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; BUF_SIZE]) {
 	let mut output_buf = [0u8; BUF_SIZE];
+	let mut output_buf_capped = &mut &mut output_buf[..N];
+
 	api::call(
 		uapi::CallFlags::ALLOW_REENTRY,
 		callee_address,
@@ -44,9 +46,12 @@ fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; 
 		None,
 		&[0u8; 32],
 		&[],
-		Some(&mut &mut output_buf[..N]),
+		Some(output_buf_capped),
 	)
 	.unwrap();
+
+	// The (capped) output buf should get properly resized
+	assert_eq!(output_buf_capped.len(), N);
 	assert_eq!(output_buf, expected_output);
 }
 
@@ -57,6 +62,8 @@ fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
 	api::own_code_hash(&mut code_hash);
 
 	let mut output_buf = [0u8; BUF_SIZE];
+	let mut output_buf_capped = &mut &mut output_buf[..N];
+
 	api::instantiate(
 		&code_hash,
 		0u64,
@@ -65,10 +72,13 @@ fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
 		&[0; 32],
 		&[0; 32],
 		None,
-		Some(&mut &mut output_buf[..N]),
+		Some(output_buf_capped),
 		None,
 	)
 	.unwrap();
+
+	// The (capped) output buf should get properly resized
+	assert_eq!(output_buf_capped.len(), N);
 	assert_eq!(output_buf, expected_output);
 }
 
