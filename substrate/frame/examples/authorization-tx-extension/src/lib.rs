@@ -44,7 +44,10 @@
 //! origins (a single account) or coowner origins, authorized through the
 //! [CoownerOrigin](pallet_assets::Config::CoownerOrigin) type.
 //!
-//! ### Example
+//! ### Example runtime setup
+#![doc = docify::embed!("src/mock.rs", example_runtime)]
+//!
+//! ### Example usage
 #![doc = docify::embed!("src/tests.rs", create_coowned_asset_works)]
 //!
 //! This example does not focus on any pallet logic or syntax, but rather on `TransactionExtension`
