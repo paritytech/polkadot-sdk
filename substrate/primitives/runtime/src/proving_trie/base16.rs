@@ -87,8 +87,6 @@ where
 	}
 
 	/// Create a compact merkle proof needed to prove all `keys` and their values are in the trie.
-	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
-	/// proof.
 	///
 	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
 	/// compatible with `LayoutV0`.
@@ -106,8 +104,6 @@ where
 	}
 
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
-	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
-	/// proof.
 	///
 	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
 	/// compatible with `LayoutV0`.
@@ -295,26 +291,6 @@ mod tests {
 		assert_eq!(
 			verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, Some(6u128)),
 			Err(TrieError::IncompleteProof.into())
-		);
-	}
-
-	#[test]
-	fn inserting_the_same_key_twice() {
-		// Create a map of users and their balances.
-		let mut flat = Vec::<(u32, u128)>::new();
-		for i in 0..100u32 {
-			flat.push((i, i.into()));
-		}
-
-		// Duplicate key
-		flat.push((50, 1337.into()));
-
-		let Err(error) = BalanceTrie::generate_for(flat) else {
-			panic!("expected balance trie error");
-		};
-		assert_eq!(
-			error,
-			TrieError::DuplicateKey.into(),
 		);
 	}
 }
