@@ -39,10 +39,13 @@ pub struct RelayReference<
 	TargetClient: MessageLaneTargetClient<P>,
 > {
 	/// The client that is connected to the message lane source node.
+	#[allow(dead_code)] // FAIL-CI
 	pub lane_source_client: SourceClient,
 	/// The client that is connected to the message lane target node.
+	#[allow(dead_code)] // FAIL-CI
 	pub lane_target_client: TargetClient,
 	/// Metrics reference.
+	#[allow(dead_code)] // FAIL-CI
 	pub metrics: Option<MessageLaneLoopMetrics>,
 	/// Messages size summary
 	pub selected_size: u32,

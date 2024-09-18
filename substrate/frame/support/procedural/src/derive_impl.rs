@@ -258,6 +258,7 @@ fn test_derive_impl_attr_args_parsing() {
 
 #[test]
 fn test_runtime_type_with_doc() {
+	#[allow(dead_code)]
 	trait TestTrait {
 		type Test;
 	}
