@@ -157,7 +157,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let old_owner = details.owner.clone();
 
-		Self::do_transfer(collection, item, buyer.clone(), |_, _| Ok(()))?;
+		Self::do_transfer(collection, item, buyer.clone(), |collection_details, item_details| {
+			Self::do_move_item_deposit(
+				collection,
+				item,
+				buyer.clone(),
+				collection_details,
+				item_details,
+			)
+		})?;
 
 		Self::deposit_event(Event::ItemBought {
 			collection,
