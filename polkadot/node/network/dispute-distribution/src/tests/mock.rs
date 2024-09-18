@@ -19,7 +19,7 @@
 
 use std::{
 	collections::{HashMap, HashSet},
-	sync::{Arc, LazyLock, OnceLock},
+	sync::{Arc, LazyLock},
 	time::Instant,
 };
 
@@ -60,7 +60,8 @@ pub const BOB_INDEX: ValidatorIndex = ValidatorIndex(2);
 pub const CHARLIE_INDEX: ValidatorIndex = ValidatorIndex(3);
 
 /// Mocked `AuthorityDiscovery` service.
-pub static MOCK_AUTHORITY_DISCOVERY: OnceLock<MockAuthorityDiscovery> = OnceLock::new();
+pub static MOCK_AUTHORITY_DISCOVERY: LazyLock<MockAuthorityDiscovery> =
+	LazyLock::new(|| MockAuthorityDiscovery::new());
 // Creating an innocent looking `SessionInfo` is really expensive in a debug build. Around
 // 700ms on my machine, We therefore cache those keys here:
 pub static MOCK_VALIDATORS_DISCOVERY_KEYS: LazyLock<HashMap<Sr25519Keyring, AuthorityDiscoveryId>> =
