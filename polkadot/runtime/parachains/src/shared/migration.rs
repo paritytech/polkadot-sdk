@@ -24,6 +24,16 @@ pub mod v0 {
 	use super::*;
 	use alloc::collections::vec_deque::VecDeque;
 
+	use frame_support::storage_alias;
+
+	/// All allowed relay-parents storage at version 0.
+	#[storage_alias]
+	pub(crate) type AllowedRelayParents<T: Config> = StorageValue<
+		Pallet<T>,
+		super::v0::AllowedRelayParentsTracker<<T as frame_system::Config>::Hash, BlockNumberFor<T>>,
+		ValueQuery,
+	>;
+
 	#[derive(Encode, Decode, Default, TypeInfo)]
 	pub struct AllowedRelayParentsTracker<Hash, BlockNumber> {
 		// The past relay parents, paired with state roots, that are viable to build upon.
@@ -64,30 +74,18 @@ mod v1 {
 	use super::*;
 
 	#[cfg(feature = "try-runtime")]
-	use codec::Decode;
-	#[cfg(feature = "try-runtime")]
 	use frame_support::{
 		ensure,
 		traits::{GetStorageVersion, StorageVersion},
 	};
-
-	use frame_support::storage_alias;
-
-	/// All allowed relay-parents storage at version 0.
-	#[storage_alias]
-	pub(crate) type AllowedRelayParents<T: Config> = StorageValue<
-		Pallet<T>,
-		super::v0::AllowedRelayParentsTracker<<T as frame_system::Config>::Hash, BlockNumberFor<T>>,
-		ValueQuery,
-	>;
 
 	pub struct VersionUncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			log::trace!(target: LOG_TARGET, "Running pre_upgrade() for inclusion MigrateToV1");
-			let bytes = u32::to_ne_bytes(AllowedRelayParents::<T>::get().buffer.len() as u32);
+			log::trace!(target: LOG_TARGET, "Running pre_upgrade() for shared MigrateToV1");
+			let bytes = u32::to_ne_bytes(v0::AllowedRelayParents::<T>::get().buffer.len() as u32);
 
 			Ok(bytes.to_vec())
 		}
@@ -96,7 +94,7 @@ mod v1 {
 			let mut weight: Weight = Weight::zero();
 
 			// Read old storage.
-			let old_rp_tracker = AllowedRelayParents::<T>::take();
+			let old_rp_tracker = v0::AllowedRelayParents::<T>::take();
 
 			super::AllowedRelayParents::<T>::set(old_rp_tracker.into());
 
@@ -107,19 +105,22 @@ mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			log::trace!(target: LOG_TARGET, "Running post_upgrade() for inclusion MigrateToV1");
+			log::trace!(target: LOG_TARGET, "Running post_upgrade() for shared MigrateToV1");
 			ensure!(
 				Pallet::<T>::on_chain_storage_version() >= StorageVersion::new(1),
 				"Storage version should be >= 1 after the migration"
 			);
 
-			let relay_parent_count =
-				u32::decode(&mut &state[..]).expect("Was properly encoded") as usize;
+			let relay_parent_count = u32::from_ne_bytes(
+				state
+					.try_into()
+					.expect("u32::from_ne_bytes(to_ne_bytes(u32)) always works; qed"),
+			);
 
 			let rp_tracker = AllowedRelayParents::<T>::get();
 
 			ensure!(
-				relay_parent_count == rp_tracker.buffer.len(),
+				relay_parent_count as usize == rp_tracker.buffer.len(),
 				"Number of allowed relay parents should be the same as the one before the upgrade."
 			);
 
@@ -155,11 +156,13 @@ mod tests {
 					.collect::<VecDeque<_>>(),
 			};
 
-			v1::AllowedRelayParents::<Test>::put(rp_tracker);
+			v0::AllowedRelayParents::<Test>::put(rp_tracker);
 
 			<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
 
 			let rp_tracker = AllowedRelayParents::<Test>::get();
+
+			assert_eq!(rp_tracker.buffer.len(), 10);
 
 			for idx in 0..10u64 {
 				let relay_parent = Hash::from_low_u64_ne(idx);

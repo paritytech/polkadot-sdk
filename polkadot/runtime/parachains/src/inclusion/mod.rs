@@ -440,6 +440,9 @@ pub(crate) enum UmpAcceptanceCheckErr {
 	TotalSizeExceeded { total_size: u64, limit: u64 },
 	/// A para-chain cannot send UMP messages while it is offboarding.
 	IsOffboarding,
+	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
+	/// Currenly only one such message is allowed.
+	TooManyUMPSignals { count: u32 },
 }
 
 impl fmt::Debug for UmpAcceptanceCheckErr {
@@ -467,6 +470,9 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 			),
 			UmpAcceptanceCheckErr::IsOffboarding => {
 				write!(fmt, "upward message rejected because the para is off-boarding")
+			},
+			UmpAcceptanceCheckErr::TooManyUMPSignals { count } => {
+				write!(fmt, "the umpq queue has too many `UMPSignal` mesages ({} > 1 )", count)
 			},
 		}
 	}
@@ -939,7 +945,15 @@ impl<T: Config> Pallet<T> {
 		let upward_messages = if let Some(separator_index) =
 			upward_messages.iter().rposition(|message| message.is_empty())
 		{
-			upward_messages.split_at(separator_index).0
+			let (upward_messages, ump_signals) = upward_messages.split_at(separator_index);
+
+			if ump_signals.len() > 2 {
+				return Err(UmpAcceptanceCheckErr::TooManyUMPSignals {
+					count: ump_signals.len() as u32,
+				})
+			}
+
+			upward_messages
 		} else {
 			upward_messages
 		};

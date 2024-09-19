@@ -65,38 +65,38 @@ fn tracker_claim_queue_remap() {
 
 	let (info, _block_num) = tracker.acquire_info(Hash::zero(), None).unwrap();
 	assert_eq!(
-		info.claim_queue.get(&Id::from(0)).unwrap()[0],
+		info.claim_queue.get(&Id::from(0)).unwrap()[&0],
 		vec![CoreIndex(0), CoreIndex(1)].into_iter().collect::<BTreeSet<_>>()
 	);
 	assert_eq!(
-		info.claim_queue.get(&Id::from(1)).unwrap()[0],
+		info.claim_queue.get(&Id::from(1)).unwrap()[&0],
 		vec![CoreIndex(2)].into_iter().collect::<BTreeSet<_>>()
 	);
-	assert_eq!(info.claim_queue.get(&Id::from(2)).unwrap()[0], BTreeSet::new());
-	assert_eq!(info.claim_queue.get(&Id::from(100)).unwrap()[0], BTreeSet::new());
+	assert_eq!(info.claim_queue.get(&Id::from(2)).unwrap().get(&0), None);
+	assert_eq!(info.claim_queue.get(&Id::from(100)).unwrap().get(&0), None);
 
 	assert_eq!(
-		info.claim_queue.get(&Id::from(0)).unwrap()[1],
+		info.claim_queue.get(&Id::from(0)).unwrap()[&1],
 		vec![CoreIndex(1)].into_iter().collect::<BTreeSet<_>>()
 	);
 	assert_eq!(
-		info.claim_queue.get(&Id::from(1)).unwrap()[1],
+		info.claim_queue.get(&Id::from(1)).unwrap()[&1],
 		vec![CoreIndex(0)].into_iter().collect::<BTreeSet<_>>()
 	);
 	assert_eq!(
-		info.claim_queue.get(&Id::from(2)).unwrap()[1],
+		info.claim_queue.get(&Id::from(2)).unwrap()[&1],
 		vec![CoreIndex(2)].into_iter().collect::<BTreeSet<_>>()
 	);
-	assert_eq!(info.claim_queue.get(&Id::from(100)).unwrap()[1], BTreeSet::new());
+	assert_eq!(info.claim_queue.get(&Id::from(100)).unwrap().get(&1), None);
 
-	assert_eq!(info.claim_queue.get(&Id::from(0)).unwrap().get(2), None);
-	assert_eq!(info.claim_queue.get(&Id::from(1)).unwrap().get(2), None);
+	assert_eq!(info.claim_queue.get(&Id::from(0)).unwrap().get(&2), None);
+	assert_eq!(info.claim_queue.get(&Id::from(1)).unwrap().get(&2), None);
 	assert_eq!(
-		info.claim_queue.get(&Id::from(2)).unwrap()[2],
+		info.claim_queue.get(&Id::from(2)).unwrap()[&2],
 		vec![CoreIndex(0)].into_iter().collect::<BTreeSet<_>>()
 	);
 	assert_eq!(
-		info.claim_queue.get(&Id::from(100)).unwrap()[2],
+		info.claim_queue.get(&Id::from(100)).unwrap()[&2],
 		vec![CoreIndex(1), CoreIndex(2)].into_iter().collect::<BTreeSet<_>>()
 	);
 }

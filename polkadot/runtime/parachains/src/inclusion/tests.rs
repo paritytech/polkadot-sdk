@@ -26,8 +26,13 @@ use crate::{
 	shared::AllowedRelayParentsTracker,
 };
 use polkadot_primitives::{
-	effective_minimum_backing_votes, AvailabilityBitfield, CandidateDescriptor,
-	SignedAvailabilityBitfields, UncheckedSignedAvailabilityBitfields,
+	effective_minimum_backing_votes,
+	vstaging::{
+		CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector,
+		UMPSignal, UMP_SEPARATOR,
+	},
+	AvailabilityBitfield, CandidateDescriptor, SignedAvailabilityBitfields,
+	UncheckedSignedAvailabilityBitfields,
 };
 
 use assert_matches::assert_matches;
@@ -262,6 +267,10 @@ pub(crate) struct TestCandidateBuilder {
 	pub(crate) new_validation_code: Option<ValidationCode>,
 	pub(crate) validation_code: ValidationCode,
 	pub(crate) hrmp_watermark: BlockNumber,
+	/// Creates a v2 descriptor if set.
+	pub(crate) core_index: Option<CoreIndex>,
+	/// The core selector to use.
+	pub(crate) core_selector: Option<u8>,
 }
 
 impl std::default::Default for TestCandidateBuilder {
@@ -277,14 +286,28 @@ impl std::default::Default for TestCandidateBuilder {
 			new_validation_code: None,
 			validation_code: dummy_validation_code(),
 			hrmp_watermark: 0u32.into(),
+			core_index: None,
+			core_selector: None,
 		}
 	}
 }
 
 impl TestCandidateBuilder {
 	pub(crate) fn build(self) -> CommittedCandidateReceipt {
-		CommittedCandidateReceipt {
-			descriptor: CandidateDescriptor {
+		let descriptor = if let Some(core_index) = self.core_index {
+			CandidateDescriptorV2::new(
+				self.para_id,
+				self.relay_parent,
+				core_index,
+				0,
+				self.persisted_validation_data_hash,
+				self.pov_hash,
+				Default::default(),
+				self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
+				self.validation_code.hash(),
+			)
+		} else {
+			CandidateDescriptor {
 				para_id: self.para_id,
 				pov_hash: self.pov_hash,
 				relay_parent: self.relay_parent,
@@ -301,14 +324,31 @@ impl TestCandidateBuilder {
 				)
 				.expect("32 bytes; qed"),
 			}
-			.into(),
+			.into()
+		};
+		let mut ccr = CommittedCandidateReceipt {
+			descriptor,
 			commitments: CandidateCommitments {
 				head_data: self.head_data,
 				new_validation_code: self.new_validation_code,
 				hrmp_watermark: self.hrmp_watermark,
 				..Default::default()
 			},
+		};
+
+		if ccr.descriptor.version() == CandidateDescriptorVersion::V2 {
+			ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+			ccr.commitments.upward_messages.force_push(
+				UMPSignal::SelectCore(
+					CoreSelector(self.core_selector.unwrap_or_default()),
+					ClaimQueueOffset(0),
+				)
+				.encode(),
+			);
 		}
+
+		ccr
 	}
 }
 
