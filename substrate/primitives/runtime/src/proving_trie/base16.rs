@@ -24,7 +24,7 @@
 //! Proofs are created with latest substrate trie format (`LayoutV1`), and are not compatible with
 //! proofs using `LayoutV0`.
 
-use super::TrieError;
+use super::{ProvingTrie, TrieError};
 use crate::{Decode, DispatchError, Encode};
 use sp_std::vec::Vec;
 use sp_trie::{
@@ -50,8 +50,33 @@ where
 	Key: Encode,
 	Value: Encode,
 {
+	/// Create a compact merkle proof needed to prove all `keys` and their values are in the trie.
+	///
+	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
+	/// compatible with `LayoutV0`.
+	///
+	/// When verifying the proof created by this function, you must include all of the keys and
+	/// values of the proof, else the verifier will complain that extra nodes are provided in the
+	/// proof that are not needed.
+	pub fn create_multi_value_proof(&self, keys: &[Key]) -> Result<Vec<u8>, DispatchError> {
+		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
+			&self.db,
+			self.root,
+			&keys.into_iter().map(|k| k.encode()).collect::<Vec<Vec<u8>>>(),
+		)
+		.map_err(|err| TrieError::from(*err).into())
+		.map(|structured_proof| structured_proof.encode())
+	}
+}
+
+impl<Hashing, Key, Value> ProvingTrie<Hashing, Key, Value> for BasicProvingTrie<Hashing, Key, Value>
+where
+	Hashing: sp_core::Hasher,
+	Key: Encode,
+	Value: Encode,
+{
 	/// Create a new instance of a `ProvingTrie` using an iterator of key/value pairs.
-	pub fn generate_for<I>(items: I) -> Result<Self, DispatchError>
+	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
 	where
 		I: IntoIterator<Item = (Key, Value)>,
 	{
@@ -70,13 +95,13 @@ where
 	}
 
 	/// Access the underlying trie root.
-	pub fn root(&self) -> &Hashing::Out {
+	fn root(&self) -> &Hashing::Out {
 		&self.root
 	}
 
 	/// Query a value contained within the current trie. Returns `None` if the
 	/// nodes within the current `MemoryDB` are insufficient to query the item.
-	pub fn query(&self, key: Key) -> Option<Value>
+	fn query(&self, key: Key) -> Option<Value>
 	where
 		Value: Decode,
 	{
@@ -86,37 +111,31 @@ where
 			.and_then(|raw| Value::decode(&mut &*raw).ok())
 	}
 
-	/// Create a compact merkle proof needed to prove all `keys` and their values are in the trie.
-	///
-	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
-	/// compatible with `LayoutV0`.
-	///
-	/// When verifying the proof created by this function, you must include all of the keys and
-	/// values of the proof, else the verifier will complain that extra nodes are provided in the
-	/// proof that are not needed.
-	pub fn create_proof(&self, keys: &[Key]) -> Result<Vec<u8>, DispatchError> {
-		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
-			&self.db,
-			self.root,
-			&keys.into_iter().map(|k| k.encode()).collect::<Vec<Vec<u8>>>(),
-		)
-		.map_err(|err| TrieError::from(*err).into())
-		.map(|structured_proof| structured_proof.encode())
-	}
-
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
 	///
 	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
 	/// compatible with `LayoutV0`.
-	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError> {
-		self.create_proof(&[key])
+	fn create_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError> {
+		self.create_multi_value_proof(&[key])
+	}
+
+	/// Verify the existence of `key` and `value` in a given trie root and proof.
+	///
+	/// Proofs must be created with latest substrate trie format (`LayoutV1`).
+	fn verify_proof(
+		root: Hashing::Out,
+		proof: &[u8],
+		key: Key,
+		value: Value,
+	) -> Result<(), DispatchError> {
+		verify_proof::<Hashing, Key, Value>(root, proof, key, value)
 	}
 }
 
 /// Verify the existence of `key` and `value` in a given trie root and proof.
 ///
 /// Proofs must be created with latest substrate trie format (`LayoutV1`).
-pub fn verify_single_value_proof<Hashing, Key, Value>(
+pub fn verify_proof<Hashing, Key, Value>(
 	root: Hashing::Out,
 	proof: &[u8],
 	key: Key,
@@ -140,7 +159,7 @@ where
 /// Verify the existence of multiple `items` in a given trie root and proof.
 ///
 /// Proofs must be created with latest substrate trie format (`LayoutV1`).
-pub fn verify_proof<Hashing, Key, Value>(
+pub fn verify_multi_value_proof<Hashing, Key, Value>(
 	root: Hashing::Out,
 	proof: &[u8],
 	items: &[(Key, Value)],
@@ -216,38 +235,22 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid key.
-		let proof = balance_trie.create_single_value_proof(6u32).unwrap();
+		let proof = balance_trie.create_proof(6u32).unwrap();
 
 		// Assert key is provable, all other keys are invalid.
 		for i in 0..200u32 {
 			if i == 6 {
 				assert_eq!(
-					verify_single_value_proof::<BlakeTwo256, _, _>(
-						root,
-						&proof,
-						i,
-						u128::from(i)
-					),
+					verify_proof::<BlakeTwo256, _, _>(root, &proof, i, u128::from(i)),
 					Ok(())
 				);
 				// Wrong value is invalid.
 				assert_eq!(
-					verify_single_value_proof::<BlakeTwo256, _, _>(
-						root,
-						&proof,
-						i,
-						u128::from(i + 1)
-					),
+					verify_proof::<BlakeTwo256, _, _>(root, &proof, i, u128::from(i + 1)),
 					Err(TrieError::RootMismatch.into())
 				);
 			} else {
-				assert!(verify_single_value_proof::<BlakeTwo256, _, _>(
-					root,
-					&proof,
-					i,
-					u128::from(i)
-				)
-				.is_err());
+				assert!(verify_proof::<BlakeTwo256, _, _>(root, &proof, i, u128::from(i)).is_err());
 			}
 		}
 	}
@@ -258,10 +261,10 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid and invalid key.
-		let proof = balance_trie.create_proof(&[6u32, 9u32, 69u32]).unwrap();
+		let proof = balance_trie.create_multi_value_proof(&[6u32, 9u32, 69u32]).unwrap();
 		let items = [(6u32, 6u128), (9u32, 9u128), (69u32, 69u128)];
 
-		assert_eq!(verify_proof::<BlakeTwo256, _, _>(root, &proof, &items), Ok(()));
+		assert_eq!(verify_multi_value_proof::<BlakeTwo256, _, _>(root, &proof, &items), Ok(()));
 	}
 
 	#[test]
@@ -270,31 +273,23 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid key.
-		let proof = balance_trie.create_single_value_proof(6u32).unwrap();
+		let proof = balance_trie.create_proof(6u32).unwrap();
 
 		// Correct data verifies successfully
-		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, 6u128),
-			Ok(())
-		);
+		assert_eq!(verify_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, 6u128), Ok(()));
 
 		// Fail to verify proof with wrong root
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(
-				Default::default(),
-				&proof,
-				6u32,
-				6u128
-			),
+			verify_proof::<BlakeTwo256, _, _>(Default::default(), &proof, 6u32, 6u128),
 			Err(TrieError::RootMismatch.into())
 		);
 
 		// Crete a bad proof.
-		let bad_proof = balance_trie.create_single_value_proof(99u32).unwrap();
+		let bad_proof = balance_trie.create_proof(99u32).unwrap();
 
 		// Fail to verify data with the wrong proof
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &bad_proof, 6u32, 6u128),
+			verify_proof::<BlakeTwo256, _, _>(root, &bad_proof, 6u32, 6u128),
 			Err(TrieError::ExtraneousHashReference.into())
 		);
 	}

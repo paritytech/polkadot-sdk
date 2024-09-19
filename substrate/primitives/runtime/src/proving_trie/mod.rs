@@ -20,9 +20,10 @@
 pub mod base16;
 pub mod base2;
 
-use crate::{Decode, Encode, MaxEncodedLen, TypeInfo};
+use crate::{Decode, DispatchError, Encode, MaxEncodedLen, TypeInfo};
 #[cfg(feature = "serde")]
 use crate::{Deserialize, Serialize};
+use sp_std::vec::Vec;
 use sp_trie::{trie_types::TrieError as SpTrieError, VerifyError};
 
 /// A runtime friendly error type for tries.
@@ -110,4 +111,32 @@ impl From<TrieError> for &'static str {
 			TrieError::DecodeError => "One of the proof nodes could not be decoded.",
 		}
 	}
+}
+
+/// An interface for creating, interacting with, and creating proofs in a merkle trie.
+pub trait ProvingTrie<Hashing, Key, Value>
+where
+	Self: Sized,
+	Hashing: sp_core::Hasher,
+{
+	/// Create a new instance of a `ProvingTrie` using an iterator of key/value pairs.
+	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
+	where
+		I: IntoIterator<Item = (Key, Value)>;
+	/// Access the underlying trie root.
+	fn root(&self) -> &Hashing::Out;
+	/// Query a value contained within the current trie. Returns `None` if the
+	/// the value does not exist in the trie.
+	fn query(&self, key: Key) -> Option<Value>
+	where
+		Value: Decode;
+	/// Create a proof that can be used to verify a key and its value are in the trie.
+	fn create_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError>;
+	/// Verify the existence of `key` and `value` in a given trie root and proof.
+	fn verify_proof(
+		root: Hashing::Out,
+		proof: &[u8],
+		key: Key,
+		value: Value,
+	) -> Result<(), DispatchError>;
 }
