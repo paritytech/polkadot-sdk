@@ -435,7 +435,7 @@ pub use pallet_democracy;
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
 
-/// FRAME Distribution pallet.
+/// FRAME pallet to distribute funds to whitelisted projects.
 #[cfg(feature = "pallet-distribution")]
 pub use pallet_distribution;
 
@@ -547,7 +547,8 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
-/// FRAME Distribution pallet.
+/// Optimist Project Funding - pallet allowing users to nominate projects to be funded, by
+/// locking their DOTS.
 #[cfg(feature = "pallet-opf")]
 pub use pallet_opf;
 
