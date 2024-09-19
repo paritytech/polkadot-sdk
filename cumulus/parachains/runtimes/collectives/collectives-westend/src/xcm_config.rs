@@ -34,17 +34,7 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use westend_runtime_constants::xcm as xcm_constants;
 use xcm::latest::prelude::*;
-use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, LocatableAssetId,
-	OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
-};
+use xcm_builder::{AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete, LocatableAssetId, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents};
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
@@ -81,6 +71,8 @@ pub type LocationToAccountId = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
+	// Foreign locations alias into accounts according to a hash of their standard description.
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
 
 /// Means for transacting the native currency on this chain.#[allow(deprecated)]

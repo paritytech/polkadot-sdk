@@ -46,17 +46,7 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
 use xcm::latest::prelude::*;
-use xcm_builder::{
-	AccountId32Aliases, AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses,
-	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
-	ConvertedConcreteId, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith,
-	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
-};
+use xcm_builder::{AccountId32Aliases, AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex, ConvertedConcreteId, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents};
 use xcm_executor::{traits::JustTry, XcmExecutor};
 
 parameter_types! {
@@ -90,6 +80,8 @@ pub type LocationToAccountId = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
+	// Foreign locations alias into accounts according to a hash of their standard description.
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
 
 /// Means for transacting assets on this chain.
