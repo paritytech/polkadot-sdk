@@ -96,8 +96,8 @@ use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure, print,
 	traits::{
-		fungible::Credit, tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance,
-		OnUnbalanced, ReservableCurrency, WithdrawReasons,
+		fungible::Credit, tokens::Pay, Currency, Defensive, ExistenceRequirement::KeepAlive, Get,
+		Imbalance, OnUnbalanced, ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec, PalletId,
@@ -995,8 +995,7 @@ impl<T: Config> OnUnbalanced<Credit<T::AccountId, T::Currency>> for FungibleComp
 		use frame_support::traits::fungible::Balanced;
 		let numeric_amount = credit.peek();
 
-		// can't do much if following errors since the calling function is infallible.
-		let _ = T::Currency::resolve(&Pallet::<T>::account_id(), credit);
+		let _ = T::Currency::resolve(&Pallet::<T>::account_id(), credit).defensive();
 
 		Pallet::<T>::deposit_event(Event::Deposit { value: numeric_amount });
 	}
