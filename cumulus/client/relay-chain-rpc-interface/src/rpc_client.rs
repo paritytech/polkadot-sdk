@@ -22,6 +22,7 @@ use jsonrpsee::{
 	core::{params::ArrayParams, ClientError as JsonRpseeError},
 	rpc_params,
 };
+use prometheus::Registry;
 use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
 use std::collections::{btree_map::BTreeMap, VecDeque};
@@ -52,6 +53,7 @@ use sp_version::RuntimeVersion;
 
 use crate::{
 	light_client_worker::{build_smoldot_client, LightClientRpcWorker},
+	metrics::RelaychainRpcMetrics,
 	reconnecting_ws_client::ReconnectingWebsocketWorker,
 };
 pub use url::Url;
@@ -87,6 +89,7 @@ pub enum RpcDispatcherMessage {
 pub async fn create_client_and_start_worker(
 	urls: Vec<Url>,
 	task_manager: &mut TaskManager,
+	prometheus_registry: Option<&Registry>,
 ) -> RelayChainResult<RelayChainRpcClient> {
 	let (worker, sender) = ReconnectingWebsocketWorker::new(urls).await;
 
@@ -94,7 +97,7 @@ pub async fn create_client_and_start_worker(
 		.spawn_essential_handle()
 		.spawn("relay-chain-rpc-worker", None, worker.run());
 
-	let client = RelayChainRpcClient::new(sender);
+	let client = RelayChainRpcClient::new(sender, prometheus_registry);
 
 	Ok(client)
 }
@@ -113,7 +116,8 @@ pub async fn create_client_and_start_light_client_worker(
 		.spawn_essential_handle()
 		.spawn("relay-light-client-worker", None, worker.run());
 
-	let client = RelayChainRpcClient::new(sender);
+	// We'll not setup prometheus exporter metrics for the light client worker.
+	let client = RelayChainRpcClient::new(sender, None);
 
 	Ok(client)
 }
@@ -123,6 +127,7 @@ pub async fn create_client_and_start_light_client_worker(
 pub struct RelayChainRpcClient {
 	/// Sender to send messages to the worker.
 	worker_channel: TokioSender<RpcDispatcherMessage>,
+	metrics: Option<RelaychainRpcMetrics>,
 }
 
 impl RelayChainRpcClient {
@@ -130,8 +135,17 @@ impl RelayChainRpcClient {
 	///
 	/// This client expects a channel connected to a worker that processes
 	/// requests sent via this channel.
-	pub(crate) fn new(worker_channel: TokioSender<RpcDispatcherMessage>) -> Self {
-		RelayChainRpcClient { worker_channel }
+	pub(crate) fn new(
+		worker_channel: TokioSender<RpcDispatcherMessage>,
+		prometheus_registry: Option<&Registry>,
+	) -> Self {
+		RelayChainRpcClient {
+			worker_channel,
+			metrics: prometheus_registry
+				.and_then(|inner| RelaychainRpcMetrics::register(inner).map_err(|err| {
+					tracing::warn!(target: LOG_TARGET, error = %err, "Unable to instantiate the RPC client metrics, continuing w/o metrics setup.");
+				}).ok()),
+		}
 	}
 
 	/// Call a call to `state_call` rpc method.
@@ -148,6 +162,7 @@ impl RelayChainRpcClient {
 			payload_bytes,
 			hash
 		};
+
 		let res = self
 			.request_tracing::<sp_core::Bytes, _>("state_call", params, |err| {
 				tracing::trace!(
@@ -190,6 +205,8 @@ impl RelayChainRpcClient {
 		R: DeserializeOwned + std::fmt::Debug,
 		OR: Fn(&RelayChainError),
 	{
+		let _timer = self.metrics.as_ref().map(|inner| inner.start_request_timer(method));
+
 		let (tx, rx) = futures::channel::oneshot::channel();
 
 		let message = RpcDispatcherMessage::Request(method.into(), params, tx);
