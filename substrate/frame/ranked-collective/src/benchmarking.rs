@@ -240,7 +240,7 @@ mod benchmarks {
 		}
 
 		// Vote again with a different decision (false).
-		assert_ok(Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, false));
+		assert_ok!(Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, false));
 
 		// If the class exists, verify the vote event and tally.
 		if class_exists {
