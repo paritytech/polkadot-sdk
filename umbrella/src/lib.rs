@@ -753,9 +753,9 @@ pub use pallet_xcm_bridge_hub;
 #[cfg(feature = "pallet-xcm-bridge-hub-router")]
 pub use pallet_xcm_bridge_hub_router;
 
-/// FRAME XNFT pallet.
-#[cfg(feature = "pallet-xnft")]
-pub use pallet_xnft;
+/// XCM derivatives pallet.
+#[cfg(feature = "pallet-derivatives")]
+pub use pallet_derivatives;
 
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]

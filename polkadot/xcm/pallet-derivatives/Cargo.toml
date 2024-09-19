@@ -1,12 +1,12 @@
 [package]
-name = "pallet-xnft"
+name = "pallet-derivatives"
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME XNFT pallet"
+description = "XCM derivatives pallet"
 readme = "README.md"
 
 [lints]

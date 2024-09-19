@@ -10503,6 +10503,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-derivatives"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+]
+
+[[package]]
 name = "pallet-dev-mode"
 version = "10.0.0"
 dependencies = [
@@ -12020,25 +12039,6 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-builder",
-]
-
-[[package]]
-name = "pallet-xnft"
-version = "1.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std 14.0.0",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
 ]
 
 [[package]]
@@ -14280,6 +14280,7 @@ dependencies = [
  "pallet-core-fellowship",
  "pallet-delegated-staking",
  "pallet-democracy",
+ "pallet-derivatives",
  "pallet-dev-mode",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
@@ -14349,7 +14350,6 @@ dependencies = [
  "pallet-xcm-benchmarks",
  "pallet-xcm-bridge-hub",
  "pallet-xcm-bridge-hub-router",
- "pallet-xnft",
  "parachains-common",
  "parachains-runtimes-test-utils",
  "polkadot-approval-distribution",
