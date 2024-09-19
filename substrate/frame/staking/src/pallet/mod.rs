@@ -752,7 +752,7 @@ pub mod pallet {
 	/// `UnbondPeriodUpperBound` eras. This is used to determine the maximum amount of stake that
 	/// can be unbonded for a period potentially lower than `UnbondPeriodUpperBound` eras.
 	#[pallet::storage]
-	pub(crate) type LowestThirdTotalStake<T: Config> =
+	pub(crate) type EraLowestThirdTotalStake<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
 	#[pallet::genesis_config]

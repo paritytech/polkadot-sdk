@@ -753,7 +753,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate the total stake of the lowest third validators and store it for the planned era.
 	///
-	/// Removes the stale entry from `LowestThirdTotalStake` if it exists.
+	/// Removes the stale entry from `EraLowestThirdTotalStake` if it exists.
 	fn calculate_lowest_third_total_stake(
 		new_planned_era: EraIndex,
 		mut exposures_total_stake: Vec<(T::AccountId, BalanceOf<T>)>,
@@ -775,10 +775,10 @@ impl<T: Config> Pallet<T> {
 			.unwrap_or(Default::default());
 
 		// Store the total stake of the lowest third validators for the planned era.
-		LowestThirdTotalStake::<T>::insert(new_planned_era, lowest_third_total_stake);
+		EraLowestThirdTotalStake::<T>::insert(new_planned_era, lowest_third_total_stake);
 
-		// Remove stale entry from `LowestThirdTotalStake`.
-		<LowestThirdTotalStake<T>>::remove(
+		// Remove stale entry from `EraLowestThirdTotalStake`.
+		<EraLowestThirdTotalStake<T>>::remove(
 			new_planned_era.saturating_sub(<UnbondPeriodUpperBound<T>>::get()),
 		);
 	}
@@ -818,6 +818,29 @@ impl<T: Config> Pallet<T> {
 			})
 			.try_collect()
 			.expect("we only map through support vector which cannot change the size; qed")
+	}
+
+	/// Gets the lowest of the lowest third validator stake entries for the last
+	/// `UnbondPeriodUpperBound` eras.
+	pub fn get_min_lowest_third_stake(from_era: EraIndex) -> BalanceOf<T> {
+		// Find the minimum total stake of the lowest third validators over the configured number of
+		// eras.
+		let mut eras_checked = 0;
+		let mut current_era = from_era;
+		let mut lowest_stake: BalanceOf<T> = Zero::zero();
+		let last_era = from_era.saturating_sub(<UnbondPeriodUpperBound<T>>::get());
+
+		while current_era >= last_era || eras_checked <= <UnbondPeriodUpperBound<T>>::get() {
+			if let Some(lowest_third_total_stake) = <EraLowestThirdTotalStake<T>>::get(current_era)
+			{
+				if eras_checked == 0 || lowest_third_total_stake < lowest_stake {
+					lowest_stake = lowest_third_total_stake;
+				}
+			}
+			current_era = current_era.saturating_sub(1);
+			eras_checked += 1;
+		}
+		lowest_stake
 	}
 
 	/// Remove all associated data of a stash account from the staking system.
