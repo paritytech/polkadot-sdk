@@ -20,7 +20,7 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use futures::{stream::FuturesUnordered, StreamExt};
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sc_rpc::SubscriptionTaskExecutor;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
