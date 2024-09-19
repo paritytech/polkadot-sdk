@@ -30,11 +30,11 @@ use futures::StreamExt;
 use std::sync::Arc;
 
 /// Inform the transaction pool about imported and finalized blocks.
-pub async fn notification_future<Client, Pool, Block>(client: Arc<Client>, txpool: Arc<Pool>)
+pub async fn notification_future<Client, Pool, Block>(client: Arc<Client>, txpool: Pool)
 where
 	Block: sp_runtime::traits::Block,
 	Client: sc_client_api::BlockchainEvents<Block>,
-	Pool: sc_transaction_pool_api::MaintainedTransactionPool<Block = Block>,
+	Pool: sc_transaction_pool_api::MaintainedTransactionPool<Block = Block> + 'static + Clone,
 {
 	let import_stream = client
 		.import_notification_stream()

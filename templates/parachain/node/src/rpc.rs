@@ -22,7 +22,7 @@ pub struct FullDeps<C, P> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
-	pub pool: Arc<P>,
+	pub pool: P,
 }
 
 /// Instantiate all RPC extensions.

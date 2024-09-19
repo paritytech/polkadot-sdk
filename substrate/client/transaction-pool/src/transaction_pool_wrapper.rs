@@ -154,6 +154,19 @@ where
 	> {
 		self.0.ready_at_with_timeout(at, timeout)
 	}
+
+	fn as_transaction_pool_arc(
+		self: Arc<Self>,
+	) -> Arc<
+		dyn TransactionPool<
+			Block = Self::Block,
+			Hash = Self::Hash,
+			InPoolTransaction = Self::InPoolTransaction,
+			Error = Self::Error,
+		>,
+	> {
+		self
+	}
 }
 
 #[async_trait]
@@ -194,5 +207,17 @@ where
 		xt: LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
 		self.0.submit_local(at, xt)
+	}
+
+	fn as_local_pool_arc(
+		self: Arc<Self>,
+	) -> Arc<
+		dyn sc_transaction_pool_api::LocalTransactionPool<
+			Block = Self::Block,
+			Hash = Self::Hash,
+			Error = Self::Error,
+		>,
+	> {
+		self
 	}
 }

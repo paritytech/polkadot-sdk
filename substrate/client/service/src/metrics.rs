@@ -173,13 +173,14 @@ impl MetricsService {
 	pub async fn run<TBl, TExPool, TCl, TNet, TSync>(
 		mut self,
 		client: Arc<TCl>,
-		transactions: Arc<TExPool>,
+		transactions: TExPool,
 		network: TNet,
 		syncing: TSync,
 	) where
 		TBl: Block,
 		TCl: ProvideRuntimeApi<TBl> + UsageProvider<TBl>,
-		TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as Block>::Hash>,
+		TExPool:
+			MaintainedTransactionPool<Block = TBl, Hash = <TBl as Block>::Hash> + 'static + Clone,
 		TNet: NetworkStatusProvider,
 		TSync: SyncStatusProvider<TBl>,
 	{

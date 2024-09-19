@@ -47,14 +47,14 @@ pub struct Transaction<Pool, Client> {
 	/// Substrate client.
 	client: Arc<Client>,
 	/// Transactions pool.
-	pool: Arc<Pool>,
+	pool: Pool,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 }
 
 impl<Pool, Client> Transaction<Pool, Client> {
 	/// Creates a new [`Transaction`].
-	pub fn new(client: Arc<Client>, pool: Arc<Pool>, executor: SubscriptionTaskExecutor) -> Self {
+	pub fn new(client: Arc<Client>, pool: Pool, executor: SubscriptionTaskExecutor) -> Self {
 		Transaction { client, pool, executor }
 	}
 }
@@ -69,7 +69,7 @@ const TX_SOURCE: TransactionSource = TransactionSource::External;
 #[async_trait]
 impl<Pool, Client> TransactionApiServer<BlockHash<Pool>> for Transaction<Pool, Client>
 where
-	Pool: TransactionPool + Sync + Send + 'static,
+	Pool: TransactionPool + Sync + Send + 'static + Clone,
 	Pool::Hash: Unpin,
 	<Pool::Block as BlockT>::Hash: Unpin,
 	Client: HeaderBackend<Pool::Block> + Send + Sync + 'static,

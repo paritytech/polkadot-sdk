@@ -23,7 +23,7 @@ use crate::{
 	fork_aware_txpool::ForkAwareTxPool as ForkAwareFullPool,
 	graph::{base_pool::Transaction, ChainApi, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
 	single_state_txpool::BasicPool as SingleStateFullPool,
-	TransactionPoolWrapper, LOG_TARGET,
+	LOG_TARGET,
 };
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{LocalTransactionPool, MaintainedTransactionPool};
@@ -165,7 +165,8 @@ where
 /// `FullClientTransactionPool` with the given `Client` and `Block` types.
 ///
 /// This trait object abstracts away the specific type of the transaction pool.
-pub type TransactionPoolImpl<Block, Client> = TransactionPoolWrapper<Block, Client>;
+// pub type TransactionPoolImpl<Block, Client> = TransactionPoolWrapper<Block, Client>;
+pub type TransactionPoolImpl<Block, Client> = Arc<dyn FullClientTransactionPool<Block, Client>>;
 
 /// Builder allowing to create specific instance of transaction pool.
 pub struct Builder<'a, Block, Client> {
@@ -224,21 +225,21 @@ where
 	/// Creates an instance of transaction pool.
 	pub fn build(self) -> TransactionPoolImpl<Block, Client> {
 		log::info!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
-		TransactionPoolWrapper::<Block, Client>(match self.options.txpool_type {
-			TransactionPoolType::SingleState => Box::new(SingleStateFullPool::new_full(
+		match self.options.txpool_type {
+			TransactionPoolType::SingleState => Arc::from(SingleStateFullPool::new_full(
 				self.options.options,
 				self.is_validator,
 				self.prometheus,
 				self.spawner,
 				self.client,
 			)),
-			TransactionPoolType::ForkAware => Box::new(ForkAwareFullPool::new_full(
+			TransactionPoolType::ForkAware => Arc::from(ForkAwareFullPool::new_full(
 				self.options.options,
 				self.is_validator,
 				self.prometheus,
 				self.spawner,
 				self.client,
 			)),
-		})
+		}
 	}
 }

@@ -52,7 +52,7 @@ pub struct Author<P, Client> {
 	/// Substrate client
 	client: Arc<Client>,
 	/// Transactions pool
-	pool: Arc<P>,
+	pool: P,
 	/// The key store.
 	keystore: KeystorePtr,
 	/// Executor to spawn subscriptions.
@@ -63,7 +63,7 @@ impl<P, Client> Author<P, Client> {
 	/// Create new instance of Authoring API.
 	pub fn new(
 		client: Arc<Client>,
-		pool: Arc<P>,
+		pool: P,
 		keystore: KeystorePtr,
 		executor: SubscriptionTaskExecutor,
 	) -> Self {

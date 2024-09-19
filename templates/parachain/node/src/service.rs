@@ -174,7 +174,7 @@ fn start_consensus(
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	transaction_pool: Arc<sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient>>,
+	transaction_pool: sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient>,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,

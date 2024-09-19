@@ -154,7 +154,7 @@ pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, Transact
 	/// An import queue.
 	pub import_queue: ImportQueue,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TransactionPool>,
+	pub transaction_pool: TransactionPool,
 	/// Everything else that needs to be passed into the main build function.
 	pub other: Other,
 }
@@ -458,13 +458,13 @@ where
 
 /// Transaction pool adapter.
 pub struct TransactionPoolAdapter<C, P> {
-	pool: Arc<P>,
+	pool: P,
 	client: Arc<C>,
 }
 
 impl<C, P> TransactionPoolAdapter<C, P> {
 	/// Constructs a new instance of [`TransactionPoolAdapter`].
-	pub fn new(pool: Arc<P>, client: Arc<C>) -> Self {
+	pub fn new(pool: P, client: Arc<C>) -> Self {
 		Self { pool, client }
 	}
 }
@@ -505,7 +505,7 @@ where
 	E: 'static + IntoPoolError + From<sc_transaction_pool_api::error::Error>,
 {
 	fn transactions(&self) -> Vec<(H, B::Extrinsic)> {
-		transactions_to_propagate(&*self.pool)
+		transactions_to_propagate(&self.pool)
 	}
 
 	fn hash_of(&self, transaction: &B::Extrinsic) -> H {

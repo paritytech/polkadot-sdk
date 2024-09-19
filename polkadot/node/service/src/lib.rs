@@ -512,16 +512,14 @@ fn new_partial<ChainSelection>(
 where
 	ChainSelection: 'static + SelectChain<Block>,
 {
-	let transaction_pool = Arc::from(
-		sc_transaction_pool::Builder::new(
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-			config.role.is_authority().into(),
-		)
-		.with_options(config.transaction_pool.clone())
-		.with_prometheus(config.prometheus_registry())
-		.build(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new(
+		task_manager.spawn_essential_handle(),
+		client.clone(),
+		config.role.is_authority().into(),
+	)
+	.with_options(config.transaction_pool.clone())
+	.with_prometheus(config.prometheus_registry())
+	.build();
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
 		grandpa_support::kusama_hard_forks()
@@ -574,7 +572,9 @@ where
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
-			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
+				transaction_pool.clone().as_local_pool_arc(),
+			),
 		})?;
 
 	let justification_stream = grandpa_link.justification_stream();
@@ -1034,7 +1034,7 @@ pub fn new_full<
 			config: &config,
 			net_config,
 			client: client.clone(),
-			transaction_pool: transaction_pool.clone(),
+			transaction_pool: transaction_pool.clone().as_transaction_pool_arc(),
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,

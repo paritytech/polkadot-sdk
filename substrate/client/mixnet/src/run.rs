@@ -153,7 +153,7 @@ pub async fn run<B, C, S, P>(
 	sync: Arc<S>,
 	network: Arc<dyn NetworkService>,
 	protocol_name: ProtocolName,
-	transaction_pool: Arc<P>,
+	transaction_pool: P,
 	keystore: Option<KeystorePtr>,
 	mut notification_service: Box<dyn NotificationService>,
 ) where
@@ -161,7 +161,7 @@ pub async fn run<B, C, S, P>(
 	C: BlockchainEvents<B> + ProvideRuntimeApi<B> + HeaderBackend<B>,
 	C::Api: MixnetApi<B>,
 	S: SyncOracle,
-	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static,
+	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static + Clone,
 {
 	let local_peer_id = network.local_peer_id();
 	let Some(local_peer_id) = to_core_peer_id(&local_peer_id) else {

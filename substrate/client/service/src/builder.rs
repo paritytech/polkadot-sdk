@@ -356,7 +356,7 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
 	/// A shared keystore returned by `new_full_parts`.
 	pub keystore: KeystorePtr,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TExPool>,
+	pub transaction_pool: TExPool,
 	/// Builds additional [`RpcModule`]s that should be added to the server
 	pub rpc_builder: Box<dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>>,
 	/// A shared network instance.
@@ -399,7 +399,7 @@ where
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
 	TBackend: 'static + sc_client_api::backend::Backend<TBl> + Send,
-	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
+	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static + Clone,
 {
 	let SpawnTasksParams {
 		mut config,
@@ -549,14 +549,15 @@ where
 
 /// Returns a future that forwards imported transactions to the transaction networking protocol.
 pub async fn propagate_transaction_notifications<Block, ExPool>(
-	transaction_pool: Arc<ExPool>,
+	transaction_pool: ExPool,
 	tx_handler_controller: sc_network_transactions::TransactionsHandlerController<
 		<Block as BlockT>::Hash,
 	>,
 	telemetry: Option<TelemetryHandle>,
 ) where
 	Block: BlockT,
-	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash>,
+	ExPool:
+		MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static + Clone,
 {
 	// transaction notifications
 	transaction_pool
@@ -621,10 +622,10 @@ where
 }
 
 /// Generate RPC module using provided configuration
-pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
+pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool: Clone>(
 	spawn_handle: SpawnTaskHandle,
 	client: Arc<TCl>,
-	transaction_pool: Arc<TExPool>,
+	transaction_pool: TExPool,
 	keystore: KeystorePtr,
 	system_rpc_tx: TracingUnboundedSender<sc_rpc::system::Request<TBl>>,
 	impl_name: String,
@@ -781,7 +782,7 @@ pub struct BuildNetworkParams<
 	/// A shared client returned by `new_full_parts`.
 	pub client: Arc<TCl>,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TExPool>,
+	pub transaction_pool: TExPool,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
 	/// An import queue.
@@ -822,7 +823,7 @@ where
 		+ HeaderBackend<TBl>
 		+ BlockchainEvents<TBl>
 		+ 'static,
-	TExPool: TransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
+	TExPool: TransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static + Clone,
 	TImpQu: ImportQueue<TBl> + 'static,
 	TNet: NetworkBackend<TBl, <TBl as BlockT>::Hash>,
 {
