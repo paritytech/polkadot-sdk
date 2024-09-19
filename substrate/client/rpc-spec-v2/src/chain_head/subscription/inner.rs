@@ -542,7 +542,6 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 	) -> Option<InsertedSubscriptionData<Block>> {
 		if let Entry::Vacant(entry) = self.subs.entry(sub_id) {
 			let (tx_stop, rx_stop) = oneshot::channel();
-			// We are relying on the backpressure from the underlying subscription and we shouldn't
 			let (response_sender, response_receiver) =
 				futures::channel::mpsc::channel(BUF_CAP_PER_SUBSCRIPTION);
 			let state = SubscriptionState::<Block> {
