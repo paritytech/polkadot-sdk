@@ -57,7 +57,9 @@ where
 	Block: BlockT + Send + 'static,
 	BE: Backend<Block> + Send + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
-	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<<<Block as BlockT>::Header as HeaderT>::Hashing>>::RawIter: Send
+	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<
+		<<Block as BlockT>::Header as HeaderT>::Hashing,
+	>>::RawIter: Send,
 {
 	/// Iterate over (key, hash) and (key, value) generating the `WaitingForContinue` event if
 	/// necessary.

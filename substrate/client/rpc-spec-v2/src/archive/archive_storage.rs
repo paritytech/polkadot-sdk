@@ -60,7 +60,9 @@ where
 	Block: BlockT + Send + 'static,
 	BE: Backend<Block> + Send + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
-	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<<<Block as BlockT>::Header as HeaderT>::Hashing>>::RawIter: Send
+	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<
+		<<Block as BlockT>::Header as HeaderT>::Hashing,
+	>>::RawIter: Send,
 {
 	/// Generate the response of the `archive_storage` method.
 	pub fn handle_query(

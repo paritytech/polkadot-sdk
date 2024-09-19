@@ -84,7 +84,9 @@ where
 	Block: BlockT + Send + 'static,
 	BE: Backend<Block> + Send + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
-	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<<<Block as BlockT>::Header as HeaderT>::Hashing>>::RawIter: Send,
+	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<
+		<<Block as BlockT>::Header as HeaderT>::Hashing,
+	>>::RawIter: Send,
 {
 	/// Fetch the value from storage.
 	pub fn query_value(
@@ -219,8 +221,9 @@ async fn query_iter_pagination_one<Client, Block, BE>(
 	Block: BlockT + Send + 'static,
 	BE: Backend<Block> + Send + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
-	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<<<Block as BlockT>::Header as HeaderT>::Hashing>>::RawIter: std::marker::Send,
-
+	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<
+		<<Block as BlockT>::Header as HeaderT>::Hashing,
+	>>::RawIter: std::marker::Send,
 {
 	let QueryIter { ty, query_key, pagination_start_key } = query;
 

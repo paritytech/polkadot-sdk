@@ -86,7 +86,7 @@ use sp_consensus::block_validation::{
 };
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, BlockIdTo, NumberFor, Zero};
+use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header as HeaderT, NumberFor, Zero};
 use std::{str::FromStr, sync::Arc, time::SystemTime};
 
 /// Full client type.
@@ -405,7 +405,9 @@ where
 	TBl::Header: Unpin,
 	TBackend: 'static + sc_client_api::backend::Backend<TBl> + Send,
 	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
-	<<TBackend as sc_client_api::Backend<TBl>>::State as sc_client_api::StateBackend<<<TBl as BlockT>::Header as HeaderT>::Hashing>>::RawIter: Send
+	<<TBackend as sc_client_api::Backend<TBl>>::State as sc_client_api::StateBackend<
+		<<TBl as BlockT>::Header as HeaderT>::Hashing,
+	>>::RawIter: Send,
 {
 	let SpawnTasksParams {
 		mut config,
@@ -670,7 +672,9 @@ where
 	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
-	<<TBackend as sc_client_api::Backend<TBl>>::State as sc_client_api::StateBackend<<<TBl as BlockT>::Header as HeaderT>::Hashing>>::RawIter: Send
+	<<TBackend as sc_client_api::Backend<TBl>>::State as sc_client_api::StateBackend<
+		<<TBl as BlockT>::Header as HeaderT>::Hashing,
+	>>::RawIter: Send,
 {
 	let system_info = sc_rpc::system::SystemInfo {
 		chain_name: chain_spec.name().into(),

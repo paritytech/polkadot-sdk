@@ -141,7 +141,9 @@ where
 		+ CallApiAt<Block>
 		+ StorageProvider<Block, BE>
 		+ 'static,
-	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<<<Block as BlockT>::Header as HeaderT>::Hashing>>::RawIter: Send
+	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<
+		<<Block as BlockT>::Header as HeaderT>::Hashing,
+	>>::RawIter: Send,
 {
 	fn archive_unstable_body(&self, hash: Block::Hash) -> RpcResult<Option<Vec<String>>> {
 		let Ok(Some(signed_block)) = self.client.block(hash) else { return Ok(None) };

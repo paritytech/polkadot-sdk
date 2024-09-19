@@ -182,7 +182,9 @@ where
 		+ CallApiAt<Block>
 		+ StorageProvider<Block, BE>
 		+ 'static,
-	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<<<Block as BlockT>::Header as HeaderT>::Hashing>>::RawIter: Send
+	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<
+		<<Block as BlockT>::Header as HeaderT>::Hashing,
+	>>::RawIter: Send,
 {
 	fn chain_head_unstable_follow(&self, pending: PendingSubscriptionSink, with_runtime: bool) {
 		let subscriptions = self.subscriptions.clone();
