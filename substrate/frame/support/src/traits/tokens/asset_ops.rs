@@ -42,6 +42,9 @@ pub trait AssetDefinition<AssetKind> {
 	type Id;
 }
 
+/// Get the `Id` type of the asset kind.
+pub type AssetIdOf<AssetKind, T> = <T as AssetDefinition<AssetKind>>::Id;
+
 /// A strategy for use in the [`InspectMetadata`] implementations.
 ///
 /// The common inspect strategies are:
