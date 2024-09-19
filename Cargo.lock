@@ -23632,6 +23632,7 @@ dependencies = [
 name = "xcm-emulator"
 version = "0.15.0"
 dependencies = [
+ "array-bytes",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",

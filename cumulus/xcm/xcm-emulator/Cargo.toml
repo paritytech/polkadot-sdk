@@ -15,6 +15,7 @@ paste = { workspace = true, default-features = true }
 log = { workspace = true }
 lazy_static = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
+<<<<<<< HEAD
 frame-support.workspace = true
 frame-support.default-features = true
 frame-system.workspace = true
@@ -59,3 +60,34 @@ polkadot-parachain-primitives.workspace = true
 polkadot-parachain-primitives.default-features = true
 polkadot-runtime-parachains.workspace = true
 polkadot-runtime-parachains.default-features = true
+=======
+array-bytes = { workspace = true }
+
+# Substrate
+frame-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-std = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-message-queue = { workspace = true, default-features = true }
+
+# Cumulus
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-pallet-xcmp-queue = { workspace = true, default-features = true }
+cumulus-pallet-parachain-system = { workspace = true, default-features = true }
+cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+parachains-common = { workspace = true, default-features = true }
+
+# Polkadot
+xcm = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+>>>>>>> b230b0e ([xcm-emulator] Better logs for message execution and processing (#5712))
