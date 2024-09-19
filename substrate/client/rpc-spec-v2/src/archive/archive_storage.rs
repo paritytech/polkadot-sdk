@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sc_rpc::SubscriptionTaskExecutor;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use crate::common::{
 	events::{ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType},
@@ -60,6 +60,7 @@ where
 	Block: BlockT + Send + 'static,
 	BE: Backend<Block> + Send + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
+	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<<<Block as BlockT>::Header as HeaderT>::Hashing>>::RawIter: Send
 {
 	/// Generate the response of the `archive_storage` method.
 	pub fn handle_query(

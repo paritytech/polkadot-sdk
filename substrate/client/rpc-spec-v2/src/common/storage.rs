@@ -23,7 +23,7 @@ use std::{marker::PhantomData, sync::Arc};
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sc_rpc::SubscriptionTaskExecutor;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use tokio::sync::mpsc;
 
 use super::events::{StorageResult, StorageResultType};
@@ -84,6 +84,7 @@ where
 	Block: BlockT + Send + 'static,
 	BE: Backend<Block> + Send + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
+	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<<<Block as BlockT>::Header as HeaderT>::Hashing>>::RawIter: Send,
 {
 	/// Fetch the value from storage.
 	pub fn query_value(
@@ -164,10 +165,11 @@ where
 	/// Iterate over the storage which returns a stream that receive the results of the
 	/// query.
 	///
-	/// Internally this relies on a bounded channel which provides backpressure to the client
-	/// and that's why we don't need a static limit.
+	/// Internally this relies on a bounded channel which provides backpressure which needs
+	/// propagated down the underlying client.
 	///
-	/// Thus, if the client is slow then we will slow down the iteration.
+	/// For users of this API, if you can't rely on backpressure then you can
+	/// use `max_iterations` to limit the number of iterations.
 	pub fn query_iter_pagination(
 		&self,
 		queries: Vec<QueryIter>,
@@ -178,8 +180,8 @@ where
 		let (tx, rx) = mpsc::channel(QUERY_ITER_PAGINATED_BUF_CAP);
 		let storage = self.clone();
 
-		let fut = async move {
-			let futs: FuturesUnordered<_> = queries
+		let pending_queries = async move {
+			let queries: FuturesUnordered<_> = queries
 				.into_iter()
 				.map(|query| {
 					query_iter_pagination_one(
@@ -193,11 +195,14 @@ where
 				})
 				.collect();
 
-			futs.for_each(|_| async {}).await;
+			queries.for_each(|_| async {}).await;
 		};
 
-		self.executor
-			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+		self.executor.spawn_blocking(
+			"substrate-rpc-subscription",
+			Some("rpc"),
+			Box::pin(pending_queries),
+		);
 
 		rx
 	}
@@ -214,6 +219,8 @@ async fn query_iter_pagination_one<Client, Block, BE>(
 	Block: BlockT + Send + 'static,
 	BE: Backend<Block> + Send + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
+	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<<<Block as BlockT>::Header as HeaderT>::Hashing>>::RawIter: std::marker::Send,
+
 {
 	let QueryIter { ty, query_key, pagination_start_key } = query;
 
@@ -238,9 +245,9 @@ async fn query_iter_pagination_one<Client, Block, BE>(
 		},
 	};
 
-	for (idx, key) in keys_iter.into_iter().enumerate() {
+	for (count, key) in keys_iter.into_iter().enumerate() {
 		if let Some(max_iterations) = max_iterations {
-			if idx >= max_iterations {
+			if count >= max_iterations {
 				break;
 			}
 		}

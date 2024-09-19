@@ -23,7 +23,7 @@ use std::{marker::PhantomData, sync::Arc};
 use futures::SinkExt;
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sc_rpc::SubscriptionTaskExecutor;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use tokio::sync::mpsc;
 
 use crate::{
@@ -57,6 +57,7 @@ where
 	Block: BlockT + Send + 'static,
 	BE: Backend<Block> + Send + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
+	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<<<Block as BlockT>::Header as HeaderT>::Hashing>>::RawIter: Send
 {
 	/// Iterate over (key, hash) and (key, value) generating the `WaitingForContinue` event if
 	/// necessary.
