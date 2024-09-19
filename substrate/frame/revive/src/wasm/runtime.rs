@@ -1592,11 +1592,11 @@ pub mod env {
 		self.charge_gas(RuntimeCosts::DepositEvent { num_topic, len: data_len })?;
 
 		if num_topic > limits::NUM_EVENT_TOPICS {
-			return Err(Error::<E::T>::TooManyTopics.into())
+			return Err(Error::<E::T>::TooManyTopics.into());
 		}
 
 		if data_len > self.ext.max_value_size() {
-			return Err(Error::<E::T>::ValueTooLarge.into())
+			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
 		let topics: Vec<H256> = match num_topic {

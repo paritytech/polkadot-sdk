@@ -553,8 +553,8 @@ struct Frame<T: Config> {
 	read_only: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
-	/// The output of the last call
-	output: Vec<u8>,
+	/// The output of the last call frame
+	last_frame_output: Vec<u8>,
 }
 
 /// Used in a delegate call frame arguments in order to override the executable and caller.
@@ -919,7 +919,7 @@ where
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 			read_only,
-			output: Vec::new(),
+			last_frame_output: Vec::new(),
 		};
 
 		Ok(Some((frame, executable)))
@@ -1282,8 +1282,8 @@ where
 	fn caller_output_mut(&mut self) -> Option<&mut Vec<u8>> {
 		match self.frames.len() {
 			0 => None,
-			1 => Some(&mut self.first_frame.output),
-			_ => self.frames.get_mut(self.frames.len() - 2).map(|frame| &mut frame.output),
+			1 => Some(&mut self.first_frame.last_frame_output),
+			_ => self.frames.get_mut(self.frames.len() - 2).map(|frame| &mut frame.last_frame_output),
 		}
 	}
 }
@@ -1713,11 +1713,11 @@ where
 	}
 
 	fn last_frame_output(&self) -> &[u8] {
-		&self.top_frame().output
+		&self.top_frame().last_frame_output
 	}
 
 	fn last_frame_output_mut(&mut self) -> &mut Vec<u8> {
-		&mut self.top_frame_mut().output
+		&mut self.top_frame_mut().last_frame_output
 	}
 }
 
