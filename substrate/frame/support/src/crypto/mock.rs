@@ -17,6 +17,7 @@
 
 use codec::{Decode, Encode};
 
+/// A mock type for account, identifies a u64 and consider any signature valid.
 #[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, scale_info::TypeInfo)]
 pub struct AccountU64(u64);
 impl sp_runtime::traits::IdentifyAccount for AccountU64 {

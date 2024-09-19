@@ -101,9 +101,9 @@ where
 			return Err(InvalidTransaction::Stale.into())
 		}
 
-		let provides = vec![Encode::encode(&(who.clone(), self.0))];
+		let provides = vec![Encode::encode(&(&who, self.0))];
 		let requires = if account.nonce < self.0 {
-			vec![Encode::encode(&(who.clone(), self.0.saturating_sub(One::one())))]
+			vec![Encode::encode(&(&who, self.0.saturating_sub(One::one())))]
 		} else {
 			vec![]
 		};

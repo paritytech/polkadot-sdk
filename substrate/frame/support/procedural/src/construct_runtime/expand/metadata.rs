@@ -123,7 +123,11 @@ pub fn expand_runtime_metadata(
 						extensions: <
 								<
 									#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
-								>::SignedExtensions as #scrate::sp_runtime::traits::TransactionExtension::<<#runtime as #system_path::Config>::RuntimeCall> // TODO TODO: double check
+								>::SignedExtensions
+								as
+								#scrate::sp_runtime::traits::TransactionExtension::<
+									<#runtime as #system_path::Config>::RuntimeCall
+								>
 							>::metadata()
 								.into_iter()
 								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {

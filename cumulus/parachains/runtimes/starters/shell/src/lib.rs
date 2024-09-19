@@ -275,7 +275,7 @@ construct_runtime! {
 	}
 }
 
-/// Simple implementation which fails any transaction which is signed.
+/// Simple implementation which fails any transaction which is signed or general.
 #[derive(Eq, PartialEq, Clone, Default, sp_core::RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct DisallowSigned;
 
