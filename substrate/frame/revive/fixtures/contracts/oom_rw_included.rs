@@ -15,11 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! This creates a large rw section but with its contents
+//! included into the blob. It should be rejected for its
+//! blob size.
+
 #![no_std]
 #![no_main]
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+extern crate common;
+
+use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
+
+static mut BUFFER: [u8; 513 * 1024] = [42; 513 * 1024];
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub unsafe extern "C" fn call_never() {
+	// make sure the buffer is not optimized away
+	api::return_value(ReturnFlags::empty(), &BUFFER);
+}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -27,13 +41,4 @@ pub extern "C" fn deploy() {}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {
-	input!(code_hash: &[u8; 32],);
-
-	let mut value = [0; 32];
-	api::value_transferred(&mut value);
-
-	// Deploy the contract with no salt (equivalent to create1).
-	let ret = api::instantiate(code_hash, 0u64, 0u64, None, &value, &[], None, None, None);
-	assert!(ret.is_ok());
-}
+pub extern "C" fn call() {}
