@@ -2995,6 +2995,41 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
+		/// Remove the member if stake falls below the existential deposit.
+		#[pallet::call_index(26)]
+		// FIXME weight functions
+		#[pallet::weight(T::WeightInfo::reap_member_below_ed())]
+		pub fn reap_member_below_ed(
+			origin: OriginFor<T>,
+			member_account: AccountIdLookupOf<T>,
+			num_slashing_spans: u32,
+		) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+			let account = T::Lookup::lookup(member_account)?;
+			let member = PoolMembers::<T>::get(&account).ok_or(Error::<T>::PoolMemberNotFound)?;
+			let bonded_pool = BondedPool::<T>::get(member.pool_id)
+				.defensive_ok_or::<Error<T>>(DefensiveError::PoolNotFound.into())?;
+			let sub_pools = SubPoolsStorage::<T>::get(member.pool_id).ok_or(Error::<T>::SubPoolsNotFound)?;
+
+			let balance = member.total_balance();
+			let ed = T::Currency::minimum_balance();
+
+			// FIXME is weight info needed in return?
+			if balance < ed {
+				Self::do_reap_member(account.clone(), &member, &bonded_pool, num_slashing_spans);
+
+				if account == bonded_pool.roles.depositor {
+					Pallet::<T>::dissolve_pool(bonded_pool);
+				} else {
+					bonded_pool.dec_members().put();
+					SubPoolsStorage::<T>::insert(member.pool_id, sub_pools);
+				}
+			}
+
+			Ok(())
+		}
+
+
 		/// Migrates delegated funds from the pool account to the `member_account`.
 		///
 		/// Fails unless [`crate::pallet::Config::StakeAdapter`] is of strategy type:
@@ -4019,6 +4054,39 @@ impl<T: Config> Pallet<T> {
 	pub fn api_pool_balance(pool_id: PoolId) -> BalanceOf<T> {
 		T::StakeAdapter::total_balance(Pool::from(Self::generate_bonded_account(pool_id)))
 			.unwrap_or_default()
+	}
+
+	fn do_reap_member(
+		member_account: T::AccountId,
+		pool_member: &PoolMember<T>,
+		bonded_pool: &BondedPool<T>,
+		num_slashing_spans: u32,
+	) {
+		ClaimPermissions::<T>::remove(&member_account);
+		PoolMembers::<T>::remove(&member_account);
+
+		let member = Member::from(member_account.clone());
+		let pool = Pool::from(bonded_pool.bonded_account());
+
+		// Ensure any dangling delegation is withdrawn.
+		let dangling_withdrawal = match T::StakeAdapter::member_delegation_balance(member.clone()) {
+			Some(amount) => {
+				T::StakeAdapter::member_withdraw(
+					member,
+					pool,
+					amount,
+					num_slashing_spans,
+				);
+				amount
+			},
+			None => Zero::zero(),
+		};
+
+		Self::deposit_event(Event::<T>::MemberRemoved {
+			pool_id: pool_member.pool_id,
+			member: member_account,
+			released_balance: dangling_withdrawal,
+		});
 	}
 }
 
