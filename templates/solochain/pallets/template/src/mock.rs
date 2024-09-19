@@ -4,15 +4,6 @@ use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-// Configure a mock runtime to test the pallet.
-// frame_support::construct_runtime!(
-// 	pub enum Test
-// 	{
-// 		System: frame_system,
-// 		TemplateModule: pallet_template,
-// 	}
-// );
-
 #[crate::runtime]
 mod runtime {
 	// The main runtime
@@ -34,11 +25,11 @@ mod runtime {
 
 	// Use the concrete pallet type
 	#[runtime::pallet_index(0)]
-	pub type System = frame_system::Pallet<Runtime>;
+	pub type System = frame_system::Pallet<Test>;
 
 	// // Use path to the pallet
 	#[runtime::pallet_index(1)]
-	pub type TemplateModule = pallet_template::Pallet<Test>;
+	pub type Template = pallet_template::Pallet<Test>;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
