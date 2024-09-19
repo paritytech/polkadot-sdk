@@ -20,6 +20,7 @@ use sp_core::{sr25519, storage::Storage};
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, get_account_id_from_seed,
+	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation,
 	PenpalSiblingSovereignAccount, PenpalTeleportableAssetLocation, RESERVABLE_ASSET_ID,
 	SAFE_XCM_VERSION, USDT_ID,
 };
@@ -27,6 +28,7 @@ use parachains_common::{AccountId, Balance};
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
+pub const USDT_ED: Balance = 70_000;
 
 parameter_types! {
 	pub AssetHubWestendAssetOwner: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
@@ -67,7 +69,7 @@ pub fn genesis() -> Storage {
 		assets: asset_hub_westend_runtime::AssetsConfig {
 			assets: vec![
 				(RESERVABLE_ASSET_ID, AssetHubWestendAssetOwner::get(), false, ED),
-				(USDT_ID, AssetHubWestendAssetOwner::get(), true, ED),
+				(USDT_ID, AssetHubWestendAssetOwner::get(), true, USDT_ED),
 			],
 			..Default::default()
 		},
@@ -77,6 +79,13 @@ pub fn genesis() -> Storage {
 				(
 					PenpalTeleportableAssetLocation::get(),
 					PenpalSiblingSovereignAccount::get(),
+					false,
+					ED,
+				),
+				// PenpalB's teleportable asset representation
+				(
+					PenpalBTeleportableAssetLocation::get(),
+					PenpalBSiblingSovereignAccount::get(),
 					false,
 					ED,
 				),

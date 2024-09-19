@@ -30,6 +30,7 @@ use crate::{
 use log::{debug, error, trace};
 use sc_client_api::ProofProvider;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
+use sc_network::ProtocolName;
 use sc_network_common::sync::message::BlockAnnounce;
 use sc_network_types::PeerId;
 use sp_consensus::BlockOrigin;
@@ -52,7 +53,7 @@ mod rep {
 /// Action that should be performed on [`StateStrategy`]'s behalf.
 pub enum StateStrategyAction<B: BlockT> {
 	/// Send state request to peer.
-	SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
+	SendStateRequest { peer_id: PeerId, protocol_name: ProtocolName, request: OpaqueStateRequest },
 	/// Disconnect and report peer.
 	DropPeer(BadPeer),
 	/// Import blocks.
@@ -83,6 +84,7 @@ pub struct StateStrategy<B: BlockT> {
 	peers: HashMap<PeerId, Peer<B>>,
 	disconnected_peers: DisconnectedPeers,
 	actions: Vec<StateStrategyAction<B>>,
+	protocol_name: ProtocolName,
 	succeeded: bool,
 }
 
@@ -95,6 +97,7 @@ impl<B: BlockT> StateStrategy<B> {
 		target_justifications: Option<Justifications>,
 		skip_proof: bool,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
+		protocol_name: ProtocolName,
 	) -> Self
 	where
 		Client: ProofProvider<B> + Send + Sync + 'static,
@@ -115,6 +118,7 @@ impl<B: BlockT> StateStrategy<B> {
 			peers,
 			disconnected_peers: DisconnectedPeers::new(),
 			actions: Vec::new(),
+			protocol_name,
 			succeeded: false,
 		}
 	}
@@ -125,6 +129,7 @@ impl<B: BlockT> StateStrategy<B> {
 	fn new_with_provider(
 		state_sync_provider: Box<dyn StateSyncProvider<B>>,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
+		protocol_name: ProtocolName,
 	) -> Self {
 		Self {
 			state_sync: state_sync_provider,
@@ -135,6 +140,7 @@ impl<B: BlockT> StateStrategy<B> {
 				.collect(),
 			disconnected_peers: DisconnectedPeers::new(),
 			actions: Vec::new(),
+			protocol_name,
 			succeeded: false,
 		}
 	}
@@ -340,7 +346,6 @@ impl<B: BlockT> StateStrategy<B> {
 			},
 			best_seen_block: Some(self.state_sync.target_number()),
 			num_peers: self.peers.len().saturated_into(),
-			num_connected_peers: self.peers.len().saturated_into(),
 			queued_blocks: 0,
 			state_sync: Some(self.state_sync.progress()),
 			warp_sync: None,
@@ -350,10 +355,13 @@ impl<B: BlockT> StateStrategy<B> {
 	/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
 	#[must_use]
 	pub fn actions(&mut self) -> impl Iterator<Item = StateStrategyAction<B>> {
-		let state_request = self
-			.state_request()
-			.into_iter()
-			.map(|(peer_id, request)| StateStrategyAction::SendStateRequest { peer_id, request });
+		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
+			StateStrategyAction::SendStateRequest {
+				peer_id,
+				protocol_name: self.protocol_name.clone(),
+				request,
+			}
+		});
 		self.actions.extend(state_request);
 
 		std::mem::take(&mut self.actions).into_iter()
@@ -410,8 +418,15 @@ mod test {
 			.block;
 		let target_header = target_block.header().clone();
 
-		let mut state_strategy =
-			StateStrategy::new(client, target_header, None, None, false, std::iter::empty());
+		let mut state_strategy = StateStrategy::new(
+			client,
+			target_header,
+			None,
+			None,
+			false,
+			std::iter::empty(),
+			ProtocolName::Static(""),
+		);
 
 		assert!(state_strategy
 			.schedule_next_peer(PeerState::DownloadingState, Zero::zero())
@@ -443,6 +458,7 @@ mod test {
 				None,
 				false,
 				initial_peers,
+				ProtocolName::Static(""),
 			);
 
 			let peer_id =
@@ -476,6 +492,7 @@ mod test {
 				None,
 				false,
 				initial_peers,
+				ProtocolName::Static(""),
 			);
 
 			let peer_id = state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
@@ -509,6 +526,7 @@ mod test {
 			None,
 			false,
 			initial_peers,
+			ProtocolName::Static(""),
 		);
 
 		// Disconnecting a peer without an inflight request has no effect on persistent states.
@@ -558,6 +576,7 @@ mod test {
 			None,
 			false,
 			initial_peers,
+			ProtocolName::Static(""),
 		);
 
 		let (_peer_id, mut opaque_request) = state_strategy.state_request().unwrap();
@@ -588,6 +607,7 @@ mod test {
 			None,
 			false,
 			initial_peers,
+			ProtocolName::Static(""),
 		);
 
 		// First request is sent.
@@ -603,8 +623,11 @@ mod test {
 		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
 		// Manually set the peer's state.
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
@@ -621,8 +644,11 @@ mod test {
 		state_sync_provider.expect_import().return_once(|_| ImportResult::BadResponse);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
 		// Manually set the peer's state.
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
@@ -640,8 +666,11 @@ mod test {
 		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
 		// Manually set the peer's state .
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
@@ -699,8 +728,11 @@ mod test {
 		// Prepare `StateStrategy`.
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
 		// Manually set the peer's state .
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
@@ -723,8 +755,11 @@ mod test {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);
 
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			std::iter::empty(),
+			ProtocolName::Static(""),
+		);
 
 		// Unknown block imported.
 		state_strategy.on_blocks_processed(
@@ -746,8 +781,11 @@ mod test {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);
 
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			std::iter::empty(),
+			ProtocolName::Static(""),
+		);
 
 		// Target block imported.
 		state_strategy.on_blocks_processed(
@@ -770,8 +808,11 @@ mod test {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);
 
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			std::iter::empty(),
+			ProtocolName::Static(""),
+		);
 
 		// Target block import failed.
 		state_strategy.on_blocks_processed(
@@ -798,8 +839,11 @@ mod test {
 		// Get enough peers for possible spurious requests.
 		let initial_peers = (1..=10).map(|best_number| (PeerId::random(), best_number));
 
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
 
 		state_strategy.on_blocks_processed(
 			1,

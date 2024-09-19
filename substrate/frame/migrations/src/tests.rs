@@ -30,6 +30,31 @@ fn simple_works() {
 	use Event::*;
 	test_closure(|| {
 		// Add three migrations, each taking one block longer than the previous.
+		MockedMigrations::set(vec![(SucceedAfter, 2)]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		run_to_block(10);
+
+		// Check that the executed migrations are recorded in `Historical`.
+		assert_eq!(historic(), vec![mocked_id(SucceedAfter, 2),]);
+
+		// Check that we got all events.
+		assert_events(vec![
+			UpgradeStarted { migrations: 1 },
+			MigrationAdvanced { index: 0, took: 1 },
+			MigrationAdvanced { index: 0, took: 2 },
+			MigrationCompleted { index: 0, took: 3 },
+			UpgradeCompleted,
+		]);
+	});
+}
+
+#[test]
+fn simple_multiple_works() {
+	use Event::*;
+	test_closure(|| {
+		// Add three migrations, each taking one block longer than the previous.
 		MockedMigrations::set(vec![(SucceedAfter, 0), (SucceedAfter, 1), (SucceedAfter, 2)]);
 
 		System::set_block_number(1);

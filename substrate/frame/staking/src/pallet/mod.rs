@@ -1046,7 +1046,8 @@ pub mod pallet {
 				return Err(Error::<T>::InsufficientBond.into())
 			}
 
-			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
+			// Would fail if account has no provider.
+			frame_system::Pallet::<T>::inc_consumers(&stash)?;
 
 			let stash_balance = T::Currency::free_balance(&stash);
 			let value = value.min(stash_balance);
