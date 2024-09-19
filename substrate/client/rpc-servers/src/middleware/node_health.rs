@@ -98,17 +98,18 @@ where
 		let fut = self.0.call(req);
 
 		async move {
-			let res = fut.await.map_err(|err| err.into())?;
-
 			Ok(match maybe_intercept {
-				InterceptRequest::Deny =>
-					http_response(StatusCode::METHOD_NOT_ALLOWED, HttpBody::empty()),
-				InterceptRequest::No => res,
+				InterceptRequest::Deny => {
+					http_response(StatusCode::METHOD_NOT_ALLOWED, HttpBody::empty())
+				},
+				InterceptRequest::No => fut.await.map_err(|err| err.into())?,
 				InterceptRequest::Health => {
+					let res = fut.await.map_err(|err| err.into())?;
 					let health = parse_rpc_response(res.into_body()).await?;
 					http_ok_response(serde_json::to_string(&health)?)
 				},
 				InterceptRequest::Readiness => {
+					let res = fut.await.map_err(|err| err.into())?;
 					let health = parse_rpc_response(res.into_body()).await?;
 					if (!health.is_syncing && health.peers > 0) || !health.should_have_peers {
 						http_ok_response(HttpBody::empty())
@@ -184,18 +185,20 @@ enum InterceptRequest {
 impl InterceptRequest {
 	fn from_http(req: &HttpRequest) -> InterceptRequest {
 		match req.uri().path() {
-			"/health" =>
+			"/health" => {
 				if req.method() == http::Method::GET {
 					InterceptRequest::Health
 				} else {
 					InterceptRequest::Deny
-				},
-			"/health/readiness" =>
+				}
+			},
+			"/health/readiness" => {
 				if req.method() == http::Method::GET {
 					InterceptRequest::Readiness
 				} else {
 					InterceptRequest::Deny
-				},
+				}
+			},
 			// Forward all other requests to the RPC server.
 			_ => InterceptRequest::No,
 		}
