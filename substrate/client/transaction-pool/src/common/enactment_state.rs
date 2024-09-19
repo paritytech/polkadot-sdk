@@ -34,7 +34,7 @@ const SKIP_MAINTENANCE_THRESHOLD: u16 = 20;
 /// is to figure out which phases (enactment / finalization) of transaction pool
 /// maintenance are needed.
 ///
-/// Given the following chain:
+/// Example: given the following chain:
 ///
 ///   B1-C1-D1-E1
 ///  /
@@ -42,8 +42,8 @@ const SKIP_MAINTENANCE_THRESHOLD: u16 = 20;
 ///  \
 ///   B2-C2-D2-E2
 ///
-/// Some scenarios and expected behavior for sequence of `NewBestBlock` (`nbb`) and `Finalized`
-/// (`f`) events:
+/// the list presents scenarios and expected behavior for sequence of `NewBestBlock` (`nbb`)
+/// and `Finalized` (`f`) events. true/false means if enactiment is required:
 ///
 /// - `nbb(C1)`, `f(C1)` -> false (enactment was already performed in `nbb(C1))`
 /// - `f(C1)`, `nbb(C1)` -> false (enactment was already performed in `f(C1))`
