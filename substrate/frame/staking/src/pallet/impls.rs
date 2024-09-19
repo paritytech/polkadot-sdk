@@ -698,7 +698,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Process the output of the election.
 	///
-	/// Store staking information for the new planned era
+	/// Store staking information for the new planned era.
 	pub fn store_stakers_info(
 		exposures: BoundedVec<
 			(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>),
@@ -709,12 +709,17 @@ impl<T: Config> Pallet<T> {
 		// Populate elected stash, stakers, exposures, and the snapshot of validator prefs.
 		let mut total_stake: BalanceOf<T> = Zero::zero();
 		let mut elected_stashes = Vec::with_capacity(exposures.len());
+		// Populate exposures by total stake, to be truncated to lowest third.
+		let mut exposures_total_stake: Vec<(T::AccountId, BalanceOf<T>)> =
+			Vec::with_capacity(exposures.len());
 
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			// build elected stash
 			elected_stashes.push(stash.clone());
 			// accumulate total stake
 			total_stake = total_stake.saturating_add(exposure.total);
+			// add this validator's total stake to the lowest third total stake
+			exposures_total_stake.push((stash.clone(), exposure.total));
 			// store staker exposure for this era
 			EraInfo::<T>::set_exposure(new_planned_era, &stash, exposure);
 		});
@@ -731,6 +736,9 @@ impl<T: Config> Pallet<T> {
 			<ErasValidatorPrefs<T>>::insert(&new_planned_era, stash, pref);
 		}
 
+		// Update unbonding queue related storage.
+		Self::calculate_lowest_third_total_stake(new_planned_era, exposures_total_stake);
+
 		if new_planned_era > 0 {
 			log!(
 				info,
@@ -741,6 +749,38 @@ impl<T: Config> Pallet<T> {
 		}
 
 		elected_stashes
+	}
+
+	/// Calculate the total stake of the lowest third validators and store it for the planned era.
+	///
+	/// Removes the stale entry from `LowestThirdTotalStake` if it exists.
+	fn calculate_lowest_third_total_stake(
+		new_planned_era: EraIndex,
+		mut exposures_total_stake: Vec<(T::AccountId, BalanceOf<T>)>,
+	) {
+		// Determine the total stake from lowest third of validators and persist for the era.
+		let total_unbonding_eras_to_check: EraIndex =
+			Perbill::from_percent(33) * <UnbondPeriodUpperBound<T>>::get();
+
+		// Sort exposure total stake by lowest first, and truncate to lowest third.
+		exposures_total_stake.sort_by(|(_, a), (_, b)| b.cmp(&a));
+		exposures_total_stake
+			.truncate(total_unbonding_eras_to_check.try_into().unwrap_or(Default::default()));
+
+		// Calculate the total stake of the lowest third validators.
+		let lowest_third_total_stake: BalanceOf<T> = exposures_total_stake
+			.into_iter()
+			.map(|(_, a)| a)
+			.reduce(|a, b| a.saturating_add(b))
+			.unwrap_or(Default::default());
+
+		// Store the total stake of the lowest third validators for the planned era.
+		LowestThirdTotalStake::<T>::insert(new_planned_era, lowest_third_total_stake);
+
+		// Remove stale entry from `LowestThirdTotalStake`.
+		<LowestThirdTotalStake<T>>::remove(
+			new_planned_era.saturating_sub(<UnbondPeriodUpperBound<T>>::get()),
+		);
 	}
 
 	/// Consume a set of [`BoundedSupports`] from [`sp_npos_elections`] and collect them into a

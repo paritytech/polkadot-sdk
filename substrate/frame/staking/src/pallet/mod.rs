@@ -748,6 +748,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type UnbondPeriodUpperBound<T: Config> = StorageValue<_, EraIndex, ValueQuery>;
 
+	/// The total amount of stake backed by the lowest third of validators for the last
+	/// `UnbondPeriodUpperBound` eras. This is used to determine the maximum amount of stake that
+	/// can be unbonded for a period potentially lower than `UnbondPeriodUpperBound` eras.
+	#[pallet::storage]
+	pub(crate) type LowestThirdTotalStake<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
