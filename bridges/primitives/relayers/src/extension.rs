@@ -132,7 +132,7 @@ pub trait ExtensionConfig {
 	/// GRANDPA chain, it must be it.
 	type RemoteGrandpaChainBlockNumber: Clone + Copy + Debug;
 
-	/// Given runtime call, check if it is supported by the signed extension. Additionally,
+	/// Given runtime call, check if it is supported by the transaction extension. Additionally,
 	/// check if call (or any of batched calls) are obsolete.
 	fn parse_and_check_for_obsolete_call(
 		call: &<Self::Runtime as SystemConfig>::RuntimeCall,
