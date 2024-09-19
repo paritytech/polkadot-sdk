@@ -16,19 +16,19 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { workspace = true, default-features = true }
-frame-benchmarking = { optional = true, workspace = true, default-features = true }
-frame-support = { workspace = true, default-features = true }
-frame-system = { workspace = true, default-features = true }
+codec = { workspace = true, default-features = false }
+frame-benchmarking = { optional = true, workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
 log = { workspace = true }
-pallet-conviction-voting = { workspace = true, default-features = true }
-pallet-distribution = { workspace = true, default-features = true }
+pallet-conviction-voting = { workspace = true, default-features = false }
+pallet-distribution = { workspace = true, default-features = false }
 scale-info = { features = [
 	"derive",
-], workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+], workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
 
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }
