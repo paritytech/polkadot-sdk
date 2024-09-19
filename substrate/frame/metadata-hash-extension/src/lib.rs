@@ -44,7 +44,7 @@ use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{TransactionExtension},
+	traits::TransactionExtension,
 	transaction_validity::{TransactionValidityError, UnknownTransaction},
 };
 

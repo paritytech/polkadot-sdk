@@ -93,7 +93,7 @@ pub enum StatementKind {
 
 impl StatementKind {
 	/// Convert this to the (English) statement it represents.
-	pub fn to_text(self) -> &'static [u8] {
+	fn to_text(self) -> &'static [u8] {
 		match self {
 			StatementKind::Regular =>
 				&b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
@@ -651,9 +651,9 @@ where
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		if let Some(local_call) = call.is_sub_type() {
 			if let Call::attest { statement: attested_statement } = local_call {
+				let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 				let signer = Preclaims::<T>::get(who)
 					.ok_or(InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()))?;
 				if let Some(s) = Signing::<T>::get(signer) {

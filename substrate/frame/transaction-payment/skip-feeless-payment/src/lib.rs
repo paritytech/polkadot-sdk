@@ -44,10 +44,7 @@ use frame_support::{
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
-	traits::{
-		DispatchInfoOf, OriginOf, PostDispatchInfoOf, TransactionExtension,
-		ValidateResult,
-	},
+	traits::{DispatchInfoOf, OriginOf, PostDispatchInfoOf, TransactionExtension, ValidateResult},
 	transaction_validity::TransactionValidityError,
 };
 

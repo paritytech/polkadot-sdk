@@ -21,10 +21,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	generic::Era,
 	impl_tx_ext_default,
-	traits::{
-		DispatchInfoOf, SaturatedConversion, TransactionExtension,
-		ValidateResult,
-	},
+	traits::{DispatchInfoOf, SaturatedConversion, TransactionExtension, ValidateResult},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 

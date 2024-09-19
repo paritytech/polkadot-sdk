@@ -31,9 +31,7 @@ use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-	},
+	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension},
 	transaction_validity::TransactionValidityError,
 	DispatchResult,
 };

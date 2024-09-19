@@ -38,9 +38,7 @@ use frame_support::{
 use frame_system::limits;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{Dispatchable},
-	transaction_validity::TransactionValidityError,
+	impl_tx_ext_default, traits::Dispatchable, transaction_validity::TransactionValidityError,
 	Perbill, StateVersion,
 };
 
@@ -101,10 +99,13 @@ where
 	C: Dispatchable,
 {
 	const IDENTIFIER: &'static str = "Not needed.";
-	type Implicit = <TransactionExtensionSchema as sp_runtime::traits::TransactionExtension<C>>::Implicit;
+	type Implicit =
+		<TransactionExtensionSchema as sp_runtime::traits::TransactionExtension<C>>::Implicit;
 
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		<TransactionExtensionSchema as sp_runtime::traits::TransactionExtension<C>>::implicit(&self.0)
+		<TransactionExtensionSchema as sp_runtime::traits::TransactionExtension<C>>::implicit(
+			&self.0,
+		)
 	}
 	type Pre = ();
 	type Val = ();
