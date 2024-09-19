@@ -2520,18 +2520,11 @@ mod sanitizers {
 		// Para 6 is not scheduled. One candidate supplied.
 		// Para 7 is scheduled on core 7 and 8, but the candidate contains the wrong core index.
 		// Para 8 is scheduled on core 9, but the candidate contains the wrong core index.
-		fn get_test_data_multiple_cores_per_para(core_index_enabled: bool) -> TestData {
+		fn get_test_data_multiple_cores_per_para(
+			core_index_enabled: bool,
+			v2_descriptor: bool,
+		) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
-
-			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
-			// votes) won't behave correctly
-			shared::Pallet::<Test>::add_allowed_relay_parent(
-				default_header().hash(),
-				Default::default(),
-				Default::default(),
-				RELAY_PARENT_NUM,
-				1,
-			);
 
 			let header = default_header();
 			let relay_parent = header.hash();
@@ -2651,6 +2644,21 @@ mod sanitizers {
 				),
 			]));
 
+			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
+			// votes) won't behave correctly
+			shared::Pallet::<Test>::add_allowed_relay_parent(
+				relay_parent,
+				Default::default(),
+				scheduler::ClaimQueue::<Test>::get()
+					.into_iter()
+					.map(|(core_index, paras)| {
+						(core_index, paras.into_iter().map(|e| e.para_id()).collect())
+					})
+					.collect(),
+				RELAY_PARENT_NUM,
+				1,
+			);
+
 			// Set the on-chain included head data and current code hash.
 			for id in 1..=8u32 {
 				paras::Pallet::<Test>::set_current_head(ParaId::from(id), HeadData(vec![id as u8]));
@@ -2680,6 +2688,14 @@ mod sanitizers {
 			let mut backed_candidates = vec![];
 			let mut expected_backed_candidates_with_core = BTreeMap::new();
 
+			let maybe_core_index = |core_index: CoreIndex| -> Option<CoreIndex> {
+				if !v2_descriptor {
+					None
+				} else {
+					Some(core_index)
+				}
+			};
+
 			// Para 1
 			{
 				let candidate = TestCandidateBuilder {
@@ -2696,6 +2712,7 @@ mod sanitizers {
 					hrmp_watermark: RELAY_PARENT_NUM,
 					head_data: HeadData(vec![1, 1]),
 					validation_code: ValidationCode(vec![1]),
+					core_index: maybe_core_index(CoreIndex(0)),
 					..Default::default()
 				}
 				.build();
@@ -2711,7 +2728,7 @@ mod sanitizers {
 					core_index_enabled.then_some(CoreIndex(0 as u32)),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled {
+				if core_index_enabled || v2_descriptor {
 					expected_backed_candidates_with_core
 						.entry(ParaId::from(1))
 						.or_insert(vec![])
@@ -2732,6 +2749,8 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![1]),
+					core_index: maybe_core_index(CoreIndex(1)),
+					core_selector: Some(1),
 					..Default::default()
 				}
 				.build();
@@ -2746,7 +2765,7 @@ mod sanitizers {
 					core_index_enabled.then_some(CoreIndex(1 as u32)),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled {
+				if core_index_enabled || v2_descriptor {
 					expected_backed_candidates_with_core
 						.entry(ParaId::from(1))
 						.or_insert(vec![])
@@ -2769,6 +2788,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![2]),
+					core_index: maybe_core_index(CoreIndex(2)),
 					..Default::default()
 				}
 				.build();
@@ -2783,7 +2803,7 @@ mod sanitizers {
 					core_index_enabled.then_some(CoreIndex(2 as u32)),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled {
+				if core_index_enabled || v2_descriptor {
 					expected_backed_candidates_with_core
 						.entry(ParaId::from(2))
 						.or_insert(vec![])
@@ -2806,6 +2826,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![3]),
+					core_index: maybe_core_index(CoreIndex(4)),
 					..Default::default()
 				}
 				.build();
@@ -2841,6 +2862,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![4]),
+					core_index: maybe_core_index(CoreIndex(5)),
 					..Default::default()
 				}
 				.build();
@@ -2875,6 +2897,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![4]),
+					core_index: maybe_core_index(CoreIndex(5)),
 					..Default::default()
 				}
 				.build();
@@ -2908,6 +2931,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![6]),
+					core_index: maybe_core_index(CoreIndex(6)),
 					..Default::default()
 				}
 				.build();
@@ -2939,6 +2963,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![7]),
+					core_index: maybe_core_index(CoreIndex(6)),
 					..Default::default()
 				}
 				.build();
@@ -2970,6 +2995,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![8]),
+					core_index: maybe_core_index(CoreIndex(7)),
 					..Default::default()
 				}
 				.build();
@@ -2984,7 +3010,7 @@ mod sanitizers {
 					core_index_enabled.then_some(CoreIndex(7 as u32)),
 				);
 				backed_candidates.push(backed.clone());
-				if !core_index_enabled {
+				if !core_index_enabled && !v2_descriptor {
 					expected_backed_candidates_with_core
 						.entry(ParaId::from(8))
 						.or_insert(vec![])
@@ -3044,14 +3070,6 @@ mod sanitizers {
 			const RELAY_PARENT_NUM: u32 = 3;
 			let header = default_header();
 			let relay_parent = header.hash();
-
-			shared::Pallet::<Test>::add_allowed_relay_parent(
-				relay_parent,
-				Default::default(),
-				Default::default(),
-				RELAY_PARENT_NUM,
-				1,
-			);
 
 			let session_index = SessionIndex::from(0_u32);
 
@@ -3163,6 +3181,19 @@ mod sanitizers {
 					)]),
 				),
 			]));
+
+			shared::Pallet::<Test>::add_allowed_relay_parent(
+				relay_parent,
+				Default::default(),
+				scheduler::ClaimQueue::<Test>::get()
+					.into_iter()
+					.map(|(core_index, paras)| {
+						(core_index, paras.into_iter().map(|e| e.para_id()).collect())
+					})
+					.collect(),
+				RELAY_PARENT_NUM,
+				1,
+			);
 
 			// Set the on-chain included head data and current code hash.
 			for id in 1..=4u32 {
@@ -3958,15 +3989,20 @@ mod sanitizers {
 		}
 
 		#[rstest]
-		#[case(false)]
-		#[case(true)]
-		fn test_with_multiple_cores_per_para(#[case] core_index_enabled: bool) {
+		#[case(false, false)]
+		#[case(true, false)]
+		#[case(false, true)]
+		#[case(true, true)]
+		fn test_with_multiple_cores_per_para(
+			#[case] core_index_enabled: bool,
+			#[case] v2_descriptor: bool,
+		) {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
 					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
-				} = get_test_data_multiple_cores_per_para(core_index_enabled);
+				} = get_test_data_multiple_cores_per_para(core_index_enabled, v2_descriptor);
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
@@ -3975,7 +4011,7 @@ mod sanitizers {
 						BTreeSet::new(),
 						scheduled,
 						core_index_enabled,
-						false,
+						v2_descriptor,
 					),
 					expected_backed_candidates_with_core,
 				);
@@ -4162,17 +4198,22 @@ mod sanitizers {
 
 		// nothing is scheduled, so no paraids match, thus all backed candidates are skipped
 		#[rstest]
-		#[case(false, false)]
-		#[case(true, true)]
-		#[case(false, true)]
-		#[case(true, false)]
+		#[case(false, false, true)]
+		#[case(true, true, true)]
+		#[case(false, true, true)]
+		#[case(true, false, true)]
+		#[case(false, false, false)]
+		#[case(true, true, false)]
+		#[case(false, true, false)]
+		#[case(true, false, false)]
 		fn nothing_scheduled(
 			#[case] core_index_enabled: bool,
 			#[case] multiple_cores_per_para: bool,
+			#[case] v2_descriptor: bool,
 		) {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { backed_candidates, .. } = if multiple_cores_per_para {
-					get_test_data_multiple_cores_per_para(core_index_enabled)
+					get_test_data_multiple_cores_per_para(core_index_enabled, v2_descriptor)
 				} else {
 					get_test_data_one_core_per_para(core_index_enabled)
 				};
@@ -4229,8 +4270,14 @@ mod sanitizers {
 		}
 
 		// candidates that have concluded as invalid are filtered out, as well as their descendants.
-		#[test]
-		fn concluded_invalid_are_filtered_out_multiple_cores_per_para() {
+		#[rstest]
+		#[case(false, true)]
+		#[case(true, false)]
+		#[case(true, true)]
+		fn concluded_invalid_are_filtered_out_multiple_cores_per_para(
+			#[case] core_index_enabled: bool,
+			#[case] v2_descriptor: bool,
+		) {
 			// Mark the first candidate of paraid 1 as invalid. Its descendant should also
 			// be dropped. Also mark the candidate of paraid 3 as invalid.
 			new_test_ext(default_config()).execute_with(|| {
@@ -4239,7 +4286,7 @@ mod sanitizers {
 					scheduled_paras: scheduled,
 					mut expected_backed_candidates_with_core,
 					..
-				} = get_test_data_multiple_cores_per_para(true);
+				} = get_test_data_multiple_cores_per_para(core_index_enabled, v2_descriptor);
 
 				let mut invalid_set = std::collections::BTreeSet::new();
 
@@ -4258,8 +4305,8 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
-					true,
-					false,
+					core_index_enabled,
+					v2_descriptor,
 				);
 
 				// We'll be left with candidates from paraid 2 and 4.
@@ -4278,7 +4325,7 @@ mod sanitizers {
 					scheduled_paras: scheduled,
 					mut expected_backed_candidates_with_core,
 					..
-				} = get_test_data_multiple_cores_per_para(true);
+				} = get_test_data_multiple_cores_per_para(core_index_enabled, v2_descriptor);
 
 				let mut invalid_set = std::collections::BTreeSet::new();
 
@@ -4295,8 +4342,8 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
-					true,
-					false,
+					core_index_enabled,
+					v2_descriptor,
 				);
 
 				// Only the second candidate of paraid 1 should be removed.
@@ -4507,7 +4554,7 @@ mod sanitizers {
 			// Disable Bob, only the second candidate of paraid 1 should be removed.
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut expected_backed_candidates_with_core, .. } =
-					get_test_data_multiple_cores_per_para(true);
+					get_test_data_multiple_cores_per_para(true, false);
 
 				set_disabled_validators(vec![1]);
 
@@ -4529,7 +4576,7 @@ mod sanitizers {
 			for disabled in [vec![0], vec![0, 1]] {
 				new_test_ext(default_config()).execute_with(|| {
 					let TestData { mut expected_backed_candidates_with_core, .. } =
-						get_test_data_multiple_cores_per_para(true);
+						get_test_data_multiple_cores_per_para(true, false);
 
 					set_disabled_validators(disabled);
 
