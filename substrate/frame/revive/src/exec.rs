@@ -428,8 +428,11 @@ pub trait Ext: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
-	/// Returns a mutable reference to saved output of the current frame.
-	fn output_mut(&mut self) -> &mut Vec<u8>;
+	/// Returns an immutable reference to saved output of the last executed call frame.
+	fn last_frame_output(&self) -> &[u8];
+
+	/// Returns a mutable reference to saved output of the last executed call frame.
+	fn last_frame_output_mut(&mut self) -> &mut Vec<u8>;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1709,7 +1712,11 @@ where
 		self.top_frame().read_only
 	}
 
-	fn output_mut(&mut self) -> &mut Vec<u8> {
+	fn last_frame_output(&self) -> &[u8] {
+		&self.top_frame().output
+	}
+
+	fn last_frame_output_mut(&mut self) -> &mut Vec<u8> {
 		&mut self.top_frame_mut().output
 	}
 }

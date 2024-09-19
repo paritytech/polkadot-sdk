@@ -1046,7 +1046,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		self.write_sandbox_output(memory, output_ptr, output_len_ptr, &output.data, true, |len| {
 			Some(RuntimeCosts::CopyToContract(len))
 		})?;
-		*self.ext.output_mut() = output.data;
+		*self.ext.last_frame_output_mut() = output.data;
 
 		Ok(return_error_code)
 	}
@@ -1104,7 +1104,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		self.write_sandbox_output(memory, output_ptr, output_len_ptr, &retval.data, true, |len| {
 			Some(RuntimeCosts::CopyToContract(len))
 		})?;
-		*self.ext.output_mut() = retval.data;
+		*self.ext.last_frame_output_mut() = retval.data;
 
 		Ok(return_error_code)
 	}
@@ -1592,11 +1592,11 @@ pub mod env {
 		self.charge_gas(RuntimeCosts::DepositEvent { num_topic, len: data_len })?;
 
 		if num_topic > limits::NUM_EVENT_TOPICS {
-			return Err(Error::<E::T>::TooManyTopics.into());
+			return Err(Error::<E::T>::TooManyTopics.into())
 		}
 
 		if data_len > self.ext.max_value_size() {
-			return Err(Error::<E::T>::ValueTooLarge.into());
+			return Err(Error::<E::T>::ValueTooLarge.into())
 		}
 
 		let topics: Vec<H256> = match num_topic {
@@ -1972,5 +1972,44 @@ pub mod env {
 		let code_hash = memory.read_h256(code_hash_ptr)?;
 		self.ext.unlock_delegate_dependency(&code_hash)?;
 		Ok(())
+	}
+
+	/// Stores the length of the data returned by the last call into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::return_data_size`].
+	#[api_version(0)]
+	fn return_data_size(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&as_bytes(U256::from(self.ext.last_frame_output().len())),
+			false,
+			|len| Some(RuntimeCosts::CopyToContract(len)),
+		)?)
+	}
+
+	/// Stores data returned by the last call starting from `offset` into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::return_data`].
+	#[api_version(0)]
+	fn return_data(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		out_len_ptr: u32,
+		offset: u32,
+	) -> Result<(), TrapReason> {
+		if offset as usize > self.ext.last_frame_output().len() {
+			return Err(Error::<E::T>::OutOfBounds.into())
+		}
+		let buf = core::mem::take(self.ext.last_frame_output_mut());
+		let result = self.write_sandbox_output(
+			memory,
+			out_ptr,
+			out_len_ptr,
+			&buf[offset as usize..],
+			false,
+			|len| Some(RuntimeCosts::CopyToContract(len)),
+		);
+		*self.ext.last_frame_output_mut() = buf;
+		Ok(result?)
 	}
 }
