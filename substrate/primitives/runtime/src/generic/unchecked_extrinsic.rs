@@ -142,10 +142,11 @@ where
 		match &self {
 			Preamble::Bare(_) => EXTRINSIC_FORMAT_VERSION.size_hint(),
 			Preamble::Signed(address, signature, ext_version, ext, EXTRINSIC_FORMAT_VERSION) =>
-				EXTRINSIC_FORMAT_VERSION.size_hint() +
-					address.size_hint() + signature.size_hint() +
-					ext_version.size_hint() +
-					ext.size_hint(),
+				EXTRINSIC_FORMAT_VERSION.size_hint()
+					.saturating_add(address.size_hint())
+					.saturating_add(signature.size_hint())
+					.saturating_add(ext_version.size_hint())
+					.saturating_add(ext.size_hint()),
 			Preamble::Signed(
 				address,
 				signature,
@@ -153,11 +154,14 @@ where
 				ext,
 				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION,
 			) =>
-				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION.size_hint() +
-					address.size_hint() + signature.size_hint() +
-					ext.size_hint(),
+				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION.size_hint()
+					.saturating_add(address.size_hint())
+					.saturating_add(signature.size_hint())
+					.saturating_add(ext.size_hint()),
 			Preamble::General(ext_version, ext) =>
-				EXTRINSIC_FORMAT_VERSION.size_hint() + ext_version.size_hint() + ext.size_hint(),
+				EXTRINSIC_FORMAT_VERSION.size_hint()
+					.saturating_add(ext_version.size_hint())
+					.saturating_add(ext.size_hint()),
 			_ => {
 				// unreachable, versions are checked in the constructor
 				0
