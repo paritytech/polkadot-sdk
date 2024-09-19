@@ -40,7 +40,7 @@ jobs:
         run: |
           shopt -s globstar
           npx @paritytech/license-scanner scan \
-            --ensure-licenses ${{ env.LICENSES }} \
+            --ensure-licenses ${{ env.LICENSES }} 'Unlicense' \
             --file-extensions '.rs' \
             -- ./cumulus
 
