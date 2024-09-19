@@ -22,9 +22,7 @@ use frame_support::{traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		DispatchInfoOf, TransactionExtension,
-	},
+	traits::{DispatchInfoOf, TransactionExtension},
 	transaction_validity::InvalidTransaction,
 };
 
