@@ -58,6 +58,14 @@ mod imports {
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
+		bridge_hub_westend_emulated_chain::{
+			bridge_hub_westend_runtime::{
+				xcm_config::{
+					self as bhw_xcm_config,
+					XcmConfig as BridgeHubWestendXcmConfig,
+				},
+			},
+		},
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		penpal_emulated_chain::{
 			penpal_runtime::xcm_config::{
