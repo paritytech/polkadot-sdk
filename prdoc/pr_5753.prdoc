@@ -6,7 +6,7 @@ title: Use maximum allowed response size for request/response protocols
 doc:
   - audience: Node Dev
     description: |
-      Adjust the PoV response size to the default values used in the substrate.
+     Increase maximum PoV response size to 16MB which is equal to the default value used in the substrate.
 
 crates:
   - name: sc-network
