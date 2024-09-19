@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// This file is part of Cumulus.
 
 // Copyright (C) 2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -27,6 +27,7 @@ pub mod pallet_broker;
 pub mod pallet_collator_selection;
 pub mod pallet_message_queue;
 pub mod pallet_multisig;
+pub mod pallet_proxy;
 pub mod pallet_session;
 pub mod pallet_timestamp;
 pub mod pallet_utility;

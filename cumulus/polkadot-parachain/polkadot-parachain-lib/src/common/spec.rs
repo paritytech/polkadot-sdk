@@ -80,7 +80,9 @@ where
 fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	// Polkadot para-chains should generally use these requirements to ensure that the relay-chain
 	// will not take longer than expected to import its blocks.
-	if let Err(err) = frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench) {
+	if let Err(err) =
+		frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench, false)
+	{
 		log::warn!(
 			"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
 			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
@@ -127,14 +129,15 @@ pub(crate) trait NodeSpec {
 			})
 			.transpose()?;
 
-		let heap_pages = config.default_heap_pages.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| {
-			HeapAllocStrategy::Static { extra_pages: h as _ }
-		});
+		let heap_pages =
+			config.executor.default_heap_pages.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| {
+				HeapAllocStrategy::Static { extra_pages: h as _ }
+			});
 
 		let executor = sc_executor::WasmExecutor::<ParachainHostFunctions>::builder()
-			.with_execution_method(config.wasm_method)
-			.with_max_runtime_instances(config.max_runtime_instances)
-			.with_runtime_cache_size(config.runtime_cache_size)
+			.with_execution_method(config.executor.wasm_method)
+			.with_max_runtime_instances(config.executor.max_runtime_instances)
+			.with_runtime_cache_size(config.executor.runtime_cache_size)
 			.with_onchain_heap_alloc_strategy(heap_pages)
 			.with_offchain_heap_alloc_strategy(heap_pages)
 			.build();

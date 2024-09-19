@@ -34,6 +34,7 @@ mod client;
 mod metrics;
 mod task_manager;
 
+use crate::config::Multiaddr;
 use std::{
 	collections::HashMap,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -50,6 +51,7 @@ use sc_network::{
 };
 use sc_network_sync::SyncingService;
 use sc_network_types::PeerId;
+use sc_rpc_server::Server;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::SyncOracle;
@@ -57,11 +59,11 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
-		build_network, gen_rpc_module, init_telemetry, new_client, new_db_backend, new_full_client,
-		new_full_parts, new_full_parts_record_import, new_full_parts_with_genesis_builder,
-		new_wasm_executor, propagate_transaction_notifications, spawn_tasks, BuildNetworkParams,
-		KeystoreContainer, NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor,
-		TFullClient,
+		build_network, build_polkadot_syncing_strategy, gen_rpc_module, init_telemetry, new_client,
+		new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
+		new_full_parts_with_genesis_builder, new_wasm_executor,
+		propagate_transaction_notifications, spawn_tasks, BuildNetworkParams, KeystoreContainer,
+		NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor, TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -83,6 +85,8 @@ pub use sc_chain_spec::{
 	Properties,
 };
 
+use crate::config::RpcConfiguration;
+use prometheus_endpoint::Registry;
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
 pub use sc_network_sync::WarpSyncConfig;
@@ -95,17 +99,26 @@ pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, Trans
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};
 pub use task_manager::{SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME};
+use tokio::runtime::Handle;
 
 const DEFAULT_PROTOCOL_ID: &str = "sup";
 
-/// RPC handlers that can perform RPC queries.
+/// A running RPC service that can perform in-memory RPC queries.
 #[derive(Clone)]
-pub struct RpcHandlers(Arc<RpcModule<()>>);
+pub struct RpcHandlers {
+	// This is legacy and may be removed at some point, it was for WASM stuff before smoldot was a
+	// thing. https://github.com/paritytech/polkadot-sdk/pull/5038#discussion_r1694971805
+	rpc_module: Arc<RpcModule<()>>,
+
+	// This can be used to introspect the port the RPC server is listening on. SDK consumers are
+	// depending on this and it should be supported even if in-memory query support is removed.
+	listen_addresses: Vec<Multiaddr>,
+}
 
 impl RpcHandlers {
 	/// Create PRC handlers instance.
-	pub fn new(inner: Arc<RpcModule<()>>) -> Self {
-		Self(inner)
+	pub fn new(rpc_module: Arc<RpcModule<()>>, listen_addresses: Vec<Multiaddr>) -> Self {
+		Self { rpc_module, listen_addresses }
 	}
 
 	/// Starts an RPC query.
@@ -127,12 +140,17 @@ impl RpcHandlers {
 		// This limit is used to prevent panics and is large enough.
 		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
 
-		self.0.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
+		self.rpc_module.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
 	}
 
 	/// Provides access to the underlying `RpcModule`
 	pub fn handle(&self) -> Arc<RpcModule<()>> {
-		self.0.clone()
+		self.rpc_module.clone()
+	}
+
+	/// Provides access to listen addresses
+	pub fn listen_addresses(&self) -> &[Multiaddr] {
+		&self.listen_addresses[..]
 	}
 }
 
@@ -360,74 +378,63 @@ pub async fn build_system_rpc_future<
 	debug!("`NetworkWorker` has terminated, shutting down the system RPC future.");
 }
 
-// Wrapper for HTTP and WS servers that makes sure they are properly shut down.
-mod waiting {
-	pub struct Server(pub Option<sc_rpc_server::Server>);
-
-	impl Drop for Server {
-		fn drop(&mut self) {
-			if let Some(server) = self.0.take() {
-				// This doesn't not wait for the server to be stopped but fires the signal.
-				let _ = server.stop();
-			}
-		}
-	}
-}
-
 /// Starts RPC servers.
 pub fn start_rpc_servers<R>(
-	config: &Configuration,
+	rpc_configuration: &RpcConfiguration,
+	registry: Option<&Registry>,
+	tokio_handle: &Handle,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
-) -> Result<Box<dyn std::any::Any + Send + Sync>, error::Error>
+) -> Result<Server, error::Error>
 where
 	R: Fn() -> Result<RpcModule<()>, Error>,
 {
 	let endpoints: Vec<sc_rpc_server::RpcEndpoint> = if let Some(endpoints) =
-		config.rpc_addr.as_ref()
+		rpc_configuration.addr.as_ref()
 	{
 		endpoints.clone()
 	} else {
-		let ipv6 = SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, config.rpc_port, 0, 0));
-		let ipv4 = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, config.rpc_port));
+		let ipv6 =
+			SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, rpc_configuration.port, 0, 0));
+		let ipv4 = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, rpc_configuration.port));
 
 		vec![
 			sc_rpc_server::RpcEndpoint {
-				batch_config: config.rpc_batch_config,
-				cors: config.rpc_cors.clone(),
+				batch_config: rpc_configuration.batch_config,
+				cors: rpc_configuration.cors.clone(),
 				listen_addr: ipv4,
-				max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
-				max_connections: config.rpc_max_connections,
-				max_payload_in_mb: config.rpc_max_request_size,
-				max_payload_out_mb: config.rpc_max_response_size,
-				max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
-				rpc_methods: config.rpc_methods.into(),
-				rate_limit: config.rpc_rate_limit,
-				rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
-				rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+				max_buffer_capacity_per_connection: rpc_configuration.message_buffer_capacity,
+				max_connections: rpc_configuration.max_connections,
+				max_payload_in_mb: rpc_configuration.max_request_size,
+				max_payload_out_mb: rpc_configuration.max_response_size,
+				max_subscriptions_per_connection: rpc_configuration.max_subs_per_conn,
+				rpc_methods: rpc_configuration.methods.into(),
+				rate_limit: rpc_configuration.rate_limit,
+				rate_limit_trust_proxy_headers: rpc_configuration.rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: rpc_configuration.rate_limit_whitelisted_ips.clone(),
 				retry_random_port: true,
 				is_optional: false,
 			},
 			sc_rpc_server::RpcEndpoint {
-				batch_config: config.rpc_batch_config,
-				cors: config.rpc_cors.clone(),
+				batch_config: rpc_configuration.batch_config,
+				cors: rpc_configuration.cors.clone(),
 				listen_addr: ipv6,
-				max_buffer_capacity_per_connection: config.rpc_message_buffer_capacity,
-				max_connections: config.rpc_max_connections,
-				max_payload_in_mb: config.rpc_max_request_size,
-				max_payload_out_mb: config.rpc_max_response_size,
-				max_subscriptions_per_connection: config.rpc_max_subs_per_conn,
-				rpc_methods: config.rpc_methods.into(),
-				rate_limit: config.rpc_rate_limit,
-				rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
-				rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+				max_buffer_capacity_per_connection: rpc_configuration.message_buffer_capacity,
+				max_connections: rpc_configuration.max_connections,
+				max_payload_in_mb: rpc_configuration.max_request_size,
+				max_payload_out_mb: rpc_configuration.max_response_size,
+				max_subscriptions_per_connection: rpc_configuration.max_subs_per_conn,
+				rpc_methods: rpc_configuration.methods.into(),
+				rate_limit: rpc_configuration.rate_limit,
+				rate_limit_trust_proxy_headers: rpc_configuration.rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: rpc_configuration.rate_limit_whitelisted_ips.clone(),
 				retry_random_port: true,
 				is_optional: true,
 			},
 		]
 	};
 
-	let metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?;
+	let metrics = sc_rpc_server::RpcMetrics::new(registry)?;
 	let rpc_api = gen_rpc_module()?;
 
 	let server_config = sc_rpc_server::Config {
@@ -435,7 +442,7 @@ where
 		rpc_api,
 		metrics,
 		id_provider: rpc_id_provider,
-		tokio_handle: config.tokio_handle.clone(),
+		tokio_handle: tokio_handle.clone(),
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
@@ -443,9 +450,9 @@ where
 	// `block_in_place` is a hack to allow callers to call `block_on` prior to
 	// calling `start_rpc_servers`.
 	match tokio::task::block_in_place(|| {
-		config.tokio_handle.block_on(sc_rpc_server::start_server(server_config))
+		tokio_handle.block_on(sc_rpc_server::start_server(server_config))
 	}) {
-		Ok(server) => Ok(Box::new(waiting::Server(Some(server)))),
+		Ok(server) => Ok(server),
 		Err(e) => Err(Error::Application(e)),
 	}
 }

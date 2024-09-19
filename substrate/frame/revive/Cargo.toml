@@ -3,7 +3,6 @@ name = "pallet-revive"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
-build = "build.rs"
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
@@ -18,8 +17,9 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+environmental = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.10.0", default-features = false }
+polkavm = { version = "0.11.0", default-features = false }
 bitflags = { workspace = true }
 codec = { features = [
 	"derive",
@@ -29,9 +29,9 @@ scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 impl-trait-for-tuples = { workspace = true }
+rlp = { workspace = true }
 
-# Substrate Dependencies
-environmental = { workspace = true }
+# Polkadot SDK Dependencies
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -54,10 +54,7 @@ pretty_assertions = { workspace = true }
 wat = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 
-# Polkadot Dependencies
-xcm-builder = { workspace = true, default-features = true }
-
-# Substrate Dependencies
+# Polkadot SDK Dependencies
 pallet-balances = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
@@ -66,6 +63,7 @@ pallet-assets = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -86,6 +84,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-utility/std",
 	"polkavm/std",
+	"rlp/std",
 	"scale-info/std",
 	"serde",
 	"sp-api/std",
