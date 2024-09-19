@@ -58,7 +58,7 @@ on:
       REF_SLUG:
         value: ${{ jobs.preflight.outputs.REF_SLUG }}
         description: |
-          Name of the current ref (depending on the event) with `/` replaced by `_`, e.g:
+          Name of the current revision (depending on the event) with `/` replaced by `_`, e.g:
           push - master
           pull_request - 49_merge
           merge_group - gh-readonly-queue_master_pr-49-38d43798a986430231c828b2c762997f818ac012
@@ -79,6 +79,8 @@ jobs:
 
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
 
+      # Runners
+      # https://github.com/paritytech/ci_cd/wiki/GitHub#paritytech-self-hosted-runners
       RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
       RUNNER_OLDLINUX: ${{ steps.set_runner.outputs.RUNNER_OLDLINUX }}
       RUNNER_DEFAULT: ${{ steps.set_runner.outputs.RUNNER_DEFAULT }}
@@ -99,7 +101,8 @@ jobs:
       #
       # Set changes
       #
-      - id: current_file
+      - name: Current file
+        id: current_file
         shell: bash
         run: |
           echo "currentWorkflowFile=$(echo ${{ github.workflow_ref }} | sed -nE "s/.*(\.github\/workflows\/[a-zA-Z0-9_-]*\.y[a]?ml)@refs.*/\1/p")" >> $GITHUB_OUTPUT
@@ -133,7 +136,8 @@ jobs:
       # By default we use spot machines that can be terminated at any time.
       # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
       #
-      - id: set_runner
+      - name: Set runner
+        id: set_runner
         shell: bash
         run: |
           echo "RUNNER_DEFAULT=parity-default" >> $GITHUB_OUTPUT
@@ -153,7 +157,8 @@ jobs:
       #
       # Set vars
       #
-      - id: set_vars
+      - name: Set vars
+        id: set_vars
         shell: bash
         run: |
           export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
@@ -175,3 +180,8 @@ jobs:
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
           echo "github.sha: ${{ github.sha }}"
+          #
+          echo "COMMIT_SHAgithub.sha: ${{ steps.set_vars.outputs.COMMIT_SHA }}"
+          echo "COMMIT_SHA_SHORT: ${{ steps.set_vars.outputs.COMMIT_SHA_SHORT }}"
+          echo "SOURCE_REF_SLUG: ${{ steps.set_vars.outputs.SOURCE_REF_SLUG }}"
+          echo "REF_SLUG: ${{ steps.set_vars.outputs.REF_SLUG }}"
