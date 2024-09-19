@@ -20,7 +20,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::pallet_prelude::*;
-use sp_runtime::DispatchResult;
+use sp_runtime::{DispatchError, DispatchResult};
 use xcm_builder::unique_instances::derivatives::DerivativesRegistry;
 
 pub use pallet::*;
@@ -79,8 +79,14 @@ pub mod pallet {
 		/// A derivative already exists.
 		DerivativeAlreadyExists,
 
-		/// Failed to deregister a non-registered derivative
+		/// Failed to deregister a non-registered derivative.
 		NoDerivativeToDeregister,
+
+		/// Failed to get a derivative for the given original.
+		DerivativeNotFound,
+
+		/// Failed to get an original for the given derivative.
+		OriginalNotFound,
 	}
 
 	#[pallet::call]
@@ -124,11 +130,11 @@ impl<T: Config<I>, I: 'static> DerivativesRegistry<OriginalOf<T, I>, DerivativeO
 		Ok(())
 	}
 
-	fn get_derivative(original: &OriginalOf<T, I>) -> Option<DerivativeOf<T, I>> {
-		<OriginalToDerivative<T, I>>::get(original)
+	fn get_derivative(original: &OriginalOf<T, I>) -> Result<DerivativeOf<T, I>, DispatchError> {
+		<OriginalToDerivative<T, I>>::get(original).ok_or(Error::<T, I>::DerivativeNotFound.into())
 	}
 
-	fn get_original(derivative: &DerivativeOf<T, I>) -> Option<OriginalOf<T, I>> {
-		<DerivativeToOriginal<T, I>>::get(derivative)
+	fn get_original(derivative: &DerivativeOf<T, I>) -> Result<OriginalOf<T, I>, DispatchError> {
+		<DerivativeToOriginal<T, I>>::get(derivative).ok_or(Error::<T, I>::OriginalNotFound.into())
 	}
 }
