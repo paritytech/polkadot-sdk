@@ -822,7 +822,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Gets the lowest of the lowest third validator stake entries for the last
 	/// `UnbondPeriodUpperBound` eras.
-	pub fn get_min_lowest_third_stake(from_era: EraIndex) -> BalanceOf<T> {
+	pub(crate) fn get_min_lowest_third_stake(from_era: EraIndex) -> BalanceOf<T> {
 		// Find the minimum total stake of the lowest third validators over the configured number of
 		// eras.
 		let mut eras_checked = 0;
@@ -841,6 +841,12 @@ impl<T: Config> Pallet<T> {
 			eras_checked += 1;
 		}
 		lowest_stake
+	}
+
+	// Get the maximum unstake amount for quicker unbond time supported at the time of an unbond
+	// request.
+	pub fn get_quick_unbond_max_unstake(from_era: EraIndex) -> BalanceOf<T> {
+		<MinSlashableShare<T>>::get() * Self::get_min_lowest_third_stake(from_era)
 	}
 
 	/// Remove all associated data of a stash account from the staking system.
