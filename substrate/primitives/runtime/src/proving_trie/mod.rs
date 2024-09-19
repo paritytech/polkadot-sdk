@@ -127,9 +127,7 @@ where
 	fn root(&self) -> &Hashing::Out;
 	/// Query a value contained within the current trie. Returns `None` if the
 	/// the value does not exist in the trie.
-	fn query(&self, key: Key) -> Option<Value>
-	where
-		Value: Decode;
+	fn query(&self, key: Key) -> Option<Value>;
 	/// Create a proof that can be used to verify a key and its value are in the trie.
 	fn create_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError>;
 	/// Verify the existence of `key` and `value` in a given trie root and proof.

@@ -20,9 +20,9 @@
 //! this library is designed to work more easily with runtime native types, which simply need to
 //! implement `Encode`/`Decode`.
 
-use super::TrieError;
+use super::{ProvingTrie, TrieError};
 use crate::{Decode, DispatchError, Encode};
-use binary_merkle_tree::{merkle_proof, merkle_root, verify_proof, MerkleProof};
+use binary_merkle_tree::{merkle_proof, merkle_root, MerkleProof};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// A helper structure for building a basic base-2 merkle trie and creating compact proofs for that
@@ -37,14 +37,15 @@ where
 	_phantom: core::marker::PhantomData<(Key, Value)>,
 }
 
-impl<Hashing, Key, Value> BasicProvingTrie<Hashing, Key, Value>
+impl<Hashing, Key, Value> ProvingTrie<Hashing, Key, Value> for BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
-	Key: Encode + Ord,
-	Value: Encode,
+	Hashing::Out: Encode + Decode,
+	Key: Encode + Decode + Ord,
+	Value: Encode + Decode + Clone,
 {
 	/// Create a new instance of a `ProvingTrie` using an iterator of key/value pairs.
-	pub fn generate_for<I>(items: I) -> Result<Self, DispatchError>
+	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
 	where
 		I: IntoIterator<Item = (Key, Value)>,
 	{
@@ -57,26 +58,20 @@ where
 	}
 
 	/// Access the underlying trie root.
-	pub fn root(&self) -> &Hashing::Out {
+	fn root(&self) -> &Hashing::Out {
 		&self.root
 	}
 
 	/// Query a value contained within the current trie. Returns `None` if the
 	/// nodes within the current `db` are insufficient to query the item.
-	pub fn query(&self, key: Key) -> Option<Value>
-	where
-		Value: Decode + Clone,
-	{
+	fn query(&self, key: Key) -> Option<Value> {
 		self.db.get(&key).cloned()
 	}
 
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
 	/// Returns `None` if the nodes within the current `db` are insufficient to create a
 	/// proof.
-	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError>
-	where
-		Hashing::Out: Encode,
-	{
+	fn create_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError> {
 		let mut encoded = Vec::with_capacity(self.db.len());
 		let mut found_index = None;
 
@@ -94,10 +89,20 @@ where
 		let proof = merkle_proof::<Hashing, Vec<Vec<u8>>, Vec<u8>>(encoded, index as u32);
 		Ok(proof.encode())
 	}
+
+	/// Verify the existence of `key` and `value` in a given trie root and proof.
+	fn verify_proof(
+		root: Hashing::Out,
+		proof: &[u8],
+		key: Key,
+		value: Value,
+	) -> Result<(), DispatchError> {
+		verify_proof::<Hashing, Key, Value>(root, proof, key, value)
+	}
 }
 
 /// Verify the existence of `key` and `value` in a given trie root and proof.
-pub fn verify_single_value_proof<Hashing, Key, Value>(
+pub fn verify_proof<Hashing, Key, Value>(
 	root: Hashing::Out,
 	proof: &[u8],
 	key: Key,
@@ -119,7 +124,7 @@ where
 		return Err(TrieError::ValueMismatch.into());
 	}
 
-	if verify_proof::<Hashing, _, _>(
+	if binary_merkle_tree::verify_proof::<Hashing, _, _>(
 		&decoded_proof.root,
 		decoded_proof.proof,
 		decoded_proof.number_of_leaves,
