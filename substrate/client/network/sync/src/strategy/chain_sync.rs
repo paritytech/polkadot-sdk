@@ -1823,6 +1823,8 @@ where
 			})
 			.collect::<Vec<_>>();
 
+		// Clear the allowed_requests state when sending new block requests
+		// to prevent multiple inflight block requests from being issued.
 		if !requests.is_empty() {
 			self.allowed_requests.take();
 		}
