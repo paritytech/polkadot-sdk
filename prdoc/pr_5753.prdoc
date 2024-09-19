@@ -8,4 +8,14 @@ doc:
     description: |
       Adjust the PoV response size to the default values used in the substrate.
 
-crates: [ ]
+crates:
+  - name: sc-network
+    bump: patch
+  - name: sc-network-light
+    bump: patch
+  - name: sc-network-sync
+    bump: patch
+  - name: polkadot-node-network-protocol
+    bump: patch
+  - name: sc-network-transactions
+    bump: patch
