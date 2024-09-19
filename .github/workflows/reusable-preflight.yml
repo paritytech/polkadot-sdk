@@ -151,7 +151,7 @@ jobs:
             echo "RUNNER_OLDLINUX=parity-oldlinux-persistent" >> $GITHUB_OUTPUT
           else
             echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
-            echo "RUNNER_OLDLINUXRUNNER=parity-oldlinux" >> $GITHUB_OUTPUT
+            echo "RUNNER_OLDLINUX=parity-oldlinux" >> $GITHUB_OUTPUT
           fi
 
       #
