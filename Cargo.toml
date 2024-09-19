@@ -236,6 +236,7 @@ members = [
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
+	"polkadot/zombienet-sdk-tests",
 	"substrate/bin/node/bench",
 	"substrate/bin/node/cli",
 	"substrate/bin/node/inspect",
@@ -1216,7 +1217,7 @@ snowbridge-router-primitives = { path = "bridges/snowbridge/primitives/router", 
 snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false }
 snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-common", default-features = false }
 snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false }
-soketto = { version = "0.7.1" }
+soketto = { version = "0.8.0" }
 solochain-template-runtime = { path = "templates/solochain/runtime" }
 sp-api = { path = "substrate/primitives/api", default-features = false }
 sp-api-proc-macro = { path = "substrate/primitives/api/proc-macro", default-features = false }
