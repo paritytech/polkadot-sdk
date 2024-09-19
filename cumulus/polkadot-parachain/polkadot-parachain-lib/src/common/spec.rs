@@ -39,7 +39,7 @@ use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock}
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
-use sc_transaction_pool::TransactionPoolImpl;
+use sc_transaction_pool::TransactionPoolHandle;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
@@ -64,7 +64,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: TransactionPoolImpl<Block, ParachainClient<Block, RuntimeApi>>,
+		transaction_pool: TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -102,7 +102,7 @@ pub(crate) trait NodeSpec {
 	type BuildRpcExtensions: BuildRpcExtensions<
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,
-		TransactionPoolImpl<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
 	>;
 
 	type StartConsensus: StartConsensus<Self::Block, Self::RuntimeApi>;
