@@ -147,6 +147,7 @@ mod bridge_hub_westend_tests {
 	use super::*;
 	use bridge_common_config::{
 		BridgeGrandpaWestendInstance, BridgeParachainWestendInstance, DeliveryRewardInBalance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 	};
 	use bridge_hub_test_utils::test_cases::from_parachain;
 	use bridge_to_westend_config::{
@@ -174,6 +175,7 @@ mod bridge_hub_westend_tests {
 		BridgeGrandpaWestendInstance,
 		BridgeParachainWestendInstance,
 		WithBridgeHubWestendMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 	>;
 
 	#[test]
@@ -506,6 +508,7 @@ mod bridge_hub_westend_tests {
 mod bridge_hub_bulletin_tests {
 	use super::*;
 	use bridge_common_config::BridgeGrandpaRococoBulletinInstance;
+	use bridge_hub_rococo_runtime::bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance;
 	use bridge_hub_test_utils::test_cases::from_grandpa_chain;
 	use bridge_to_bulletin_config::{
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
@@ -527,6 +530,7 @@ mod bridge_hub_bulletin_tests {
 		AllPalletsWithoutSystem,
 		BridgeGrandpaRococoBulletinInstance,
 		WithRococoBulletinMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 	>;
 
 	#[test]

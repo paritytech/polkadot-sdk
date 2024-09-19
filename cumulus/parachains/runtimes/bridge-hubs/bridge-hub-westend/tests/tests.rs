@@ -17,7 +17,10 @@
 #![cfg(test)]
 
 use bp_polkadot_core::Signature;
-use bridge_common_config::{DeliveryRewardInBalance, RequiredStakeForStakeAndSlash};
+use bridge_common_config::{
+	DeliveryRewardInBalance, RelayersForLegacyLaneIdsMessagesInstance,
+	RequiredStakeForStakeAndSlash,
+};
 use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
@@ -63,6 +66,7 @@ type RuntimeTestsAdapter = from_parachain::WithRemoteParachainHelperAdapter<
 	BridgeGrandpaRococoInstance,
 	BridgeParachainRococoInstance,
 	WithBridgeHubRococoMessagesInstance,
+	RelayersForLegacyLaneIdsMessagesInstance,
 >;
 
 parameter_types! {

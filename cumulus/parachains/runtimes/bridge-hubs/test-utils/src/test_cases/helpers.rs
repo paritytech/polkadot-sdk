@@ -19,7 +19,7 @@
 use crate::test_cases::{bridges_prelude::*, run_test, RuntimeHelper};
 
 use asset_test_utils::BasicParachainRuntime;
-use bp_messages::{LaneId, MessageNonce};
+use bp_messages::MessageNonce;
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use bp_relayers::RewardsAccountParams;
 use bp_runtime::Chain;
@@ -33,7 +33,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
-use pallet_bridge_messages::BridgedChainOf;
+use pallet_bridge_messages::{BridgedChainOf, LaneIdOf};
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
@@ -132,8 +132,8 @@ where
 }
 
 /// Checks that the latest delivered nonce in the bridge messages pallet equals to given one.
-pub struct VerifySubmitMessagesProofOutcome<Runtime, MPI> {
-	lane: LaneId,
+pub struct VerifySubmitMessagesProofOutcome<Runtime: BridgeMessagesConfig<MPI>, MPI: 'static> {
+	lane: LaneIdOf<Runtime, MPI>,
 	expected_nonce: MessageNonce,
 	_marker: PhantomData<(Runtime, MPI)>,
 }
@@ -145,7 +145,7 @@ where
 {
 	/// Expect given delivered nonce to be the latest after transaction.
 	pub fn expect_last_delivered_nonce(
-		lane: LaneId,
+		lane: LaneIdOf<Runtime, MPI>,
 		expected_nonce: MessageNonce,
 	) -> Box<dyn VerifyTransactionOutcome> {
 		Box::new(Self { lane, expected_nonce, _marker: PhantomData })
@@ -167,30 +167,32 @@ where
 }
 
 /// Verifies that relayer is rewarded at this chain.
-pub struct VerifyRelayerRewarded<Runtime: frame_system::Config> {
+pub struct VerifyRelayerRewarded<Runtime: pallet_bridge_relayers::Config<RPI>, RPI: 'static> {
 	relayer: Runtime::AccountId,
-	reward_params: RewardsAccountParams,
+	reward_params: RewardsAccountParams<Runtime::LaneId>,
 }
 
-impl<Runtime> VerifyRelayerRewarded<Runtime>
+impl<Runtime, RPI> VerifyRelayerRewarded<Runtime, RPI>
 where
-	Runtime: pallet_bridge_relayers::Config,
+	Runtime: pallet_bridge_relayers::Config<RPI>,
+	RPI: 'static,
 {
 	/// Expect given delivered nonce to be the latest after transaction.
 	pub fn expect_relayer_reward(
 		relayer: Runtime::AccountId,
-		reward_params: RewardsAccountParams,
+		reward_params: RewardsAccountParams<Runtime::LaneId>,
 	) -> Box<dyn VerifyTransactionOutcome> {
 		Box::new(Self { relayer, reward_params })
 	}
 }
 
-impl<Runtime> VerifyTransactionOutcome for VerifyRelayerRewarded<Runtime>
+impl<Runtime, RPI> VerifyTransactionOutcome for VerifyRelayerRewarded<Runtime, RPI>
 where
-	Runtime: pallet_bridge_relayers::Config,
+	Runtime: pallet_bridge_relayers::Config<RPI>,
+	RPI: 'static,
 {
 	fn verify_outcome(&self) {
-		assert!(pallet_bridge_relayers::RelayerRewards::<Runtime>::get(
+		assert!(pallet_bridge_relayers::RelayerRewards::<Runtime, RPI>::get(
 			&self.relayer,
 			&self.reward_params,
 		)
@@ -388,7 +390,7 @@ fn execute_and_verify_calls<Runtime: frame_system::Config>(
 
 /// Helper function to open the bridge/lane for `source` and `destination` while ensuring all
 /// required balances are placed into the SA of the source.
-pub fn ensure_opened_bridge<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(source: Location, destination: InteriorLocation) -> (BridgeLocations, LaneId)
+pub fn ensure_opened_bridge<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(source: Location, destination: InteriorLocation) -> (BridgeLocations, pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>)
 where
 	Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
 	XcmOverBridgePalletInstance: 'static,

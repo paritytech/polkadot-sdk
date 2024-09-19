@@ -24,14 +24,14 @@ use crate::{
 
 use alloc::{boxed::Box, vec};
 use bp_header_chain::ChainWithGrandpa;
-use bp_messages::{LaneId, UnrewardedRelayersState};
+use bp_messages::UnrewardedRelayersState;
 use bp_polkadot_core::parachains::ParaHash;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{Chain, Parachain};
 use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_bridge_messages::{BridgedChainOf, ThisChainOf};
+use pallet_bridge_messages::{BridgedChainOf, LaneIdOf, ThisChainOf};
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
 };
@@ -53,7 +53,7 @@ pub trait WithRemoteParachainHelper {
 			Self::MPI,
 			InboundPayload = XcmAsPlainPayload,
 			OutboundPayload = XcmAsPlainPayload,
-		> + pallet_bridge_relayers::Config;
+		> + pallet_bridge_relayers::Config<Self::RPI, LaneId = LaneIdOf<Self::Runtime, Self::MPI>>;
 	/// All pallets of this chain, excluding system pallet.
 	type AllPalletsWithoutSystem: OnInitialize<BlockNumberFor<Self::Runtime>>
 		+ OnFinalize<BlockNumberFor<Self::Runtime>>;
@@ -63,15 +63,18 @@ pub trait WithRemoteParachainHelper {
 	type PPI: 'static;
 	/// Instance of the `pallet-bridge-messages`, used to bridge with remote parachain.
 	type MPI: 'static;
+	/// Instance of the `pallet-bridge-relayers`, used to collect rewards from messages `MPI`
+	/// instance.
+	type RPI: 'static;
 }
 
 /// Adapter struct that implements `WithRemoteParachainHelper`.
-pub struct WithRemoteParachainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI>(
-	core::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI)>,
+pub struct WithRemoteParachainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, RPI>(
+	core::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, RPI)>,
 );
 
-impl<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI> WithRemoteParachainHelper
-	for WithRemoteParachainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI>
+impl<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, RPI> WithRemoteParachainHelper
+	for WithRemoteParachainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, RPI>
 where
 	Runtime: BasicParachainRuntime
 		+ cumulus_pallet_xcmp_queue::Config
@@ -81,19 +84,20 @@ where
 			MPI,
 			InboundPayload = XcmAsPlainPayload,
 			OutboundPayload = XcmAsPlainPayload,
-		> + pallet_bridge_relayers::Config,
+		> + pallet_bridge_relayers::Config<RPI, LaneId = LaneIdOf<Runtime, MPI>>,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	GPI: 'static,
 	PPI: 'static,
 	MPI: 'static,
-	// MB: MessageBridge,
+	RPI: 'static,
 {
 	type Runtime = Runtime;
 	type AllPalletsWithoutSystem = AllPalletsWithoutSystem;
 	type GPI = GPI;
 	type PPI = PPI;
 	type MPI = MPI;
+	type RPI = RPI;
 }
 
 /// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
@@ -106,7 +110,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	prepare_configuration: impl Fn() -> LaneId,
+	prepare_configuration: impl Fn() -> LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
@@ -161,6 +165,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+				LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			>(
 				lane_id,
 				xcm.into(),
@@ -208,7 +213,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 							lane_id,
 							1,
 						),
-						helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime>::expect_relayer_reward(
+						helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime, RuntimeHelper::RPI>::expect_relayer_reward(
 							relayer_id_at_this_chain,
 							RewardsAccountParams::new(
 								lane_id,
@@ -234,7 +239,7 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	prepare_configuration: impl Fn() -> LaneId,
+	prepare_configuration: impl Fn() -> LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
@@ -312,6 +317,7 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+				LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			>(
 				lane_id,
 				xcm.into(),
@@ -371,7 +377,7 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 							lane_id,
 							1,
 						),
-						helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime>::expect_relayer_reward(
+						helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime, RuntimeHelper::RPI>::expect_relayer_reward(
 							relayer_id_at_this_chain,
 							RewardsAccountParams::new(
 								lane_id,
@@ -396,7 +402,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	prepare_configuration: impl Fn() -> LaneId,
+	prepare_configuration: impl Fn() -> LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
@@ -454,6 +460,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+				LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			>(
 				lane_id,
 				xcm.into(),
@@ -468,9 +475,10 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 			let parachain_head_hash = parachain_head.hash();
 			let relay_chain_header_hash = relay_chain_header.hash();
 			let relay_chain_header_number = *relay_chain_header.number();
-			vec![(
-				pallet_utility::Call::<RuntimeHelper::Runtime>::batch_all {
-					calls: vec![
+			vec![
+				(
+					pallet_utility::Call::<RuntimeHelper::Runtime>::batch_all {
+						calls: vec![
 						BridgeGrandpaCall::<RuntimeHelper::Runtime, RuntimeHelper::GPI>::submit_finality_proof {
 							finality_target: Box::new(relay_chain_header),
 							justification: grandpa_justification,
@@ -487,31 +495,37 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 							dispatch_weight: Weight::from_parts(1000000000, 0),
 						}.into(),
 					],
-				}
-				.into(),
-				Box::new((
-					helpers::VerifySubmitGrandpaFinalityProofOutcome::<
-						RuntimeHelper::Runtime,
-						RuntimeHelper::GPI,
-					>::expect_best_header_hash(relay_chain_header_hash),
-					helpers::VerifySubmitParachainHeaderProofOutcome::<
-						RuntimeHelper::Runtime,
-						RuntimeHelper::PPI,
-					>::expect_best_header_hash(bridged_para_id, parachain_head_hash),
-					helpers::VerifySubmitMessagesProofOutcome::<
-						RuntimeHelper::Runtime,
-						RuntimeHelper::MPI,
-					>::expect_last_delivered_nonce(lane_id, 1),
-					helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime>::expect_relayer_reward(
-						relayer_id_at_this_chain,
-						RewardsAccountParams::new(
-							lane_id,
-							bridged_chain_id,
-							RewardsAccountOwner::ThisChain,
+					}
+					.into(),
+					Box::new(
+						(
+							helpers::VerifySubmitGrandpaFinalityProofOutcome::<
+								RuntimeHelper::Runtime,
+								RuntimeHelper::GPI,
+							>::expect_best_header_hash(relay_chain_header_hash),
+							helpers::VerifySubmitParachainHeaderProofOutcome::<
+								RuntimeHelper::Runtime,
+								RuntimeHelper::PPI,
+							>::expect_best_header_hash(bridged_para_id, parachain_head_hash),
+							helpers::VerifySubmitMessagesProofOutcome::<
+								RuntimeHelper::Runtime,
+								RuntimeHelper::MPI,
+							>::expect_last_delivered_nonce(lane_id, 1),
+							helpers::VerifyRelayerRewarded::<
+								RuntimeHelper::Runtime,
+								RuntimeHelper::RPI,
+							>::expect_relayer_reward(
+								relayer_id_at_this_chain,
+								RewardsAccountParams::new(
+									lane_id,
+									bridged_chain_id,
+									RewardsAccountOwner::ThisChain,
+								),
+							),
 						),
 					),
-				)),
-			)]
+				),
+			]
 		},
 	);
 }
@@ -551,8 +565,9 @@ where
 			<RuntimeHelper::Runtime as pallet_bridge_grandpa::Config<RuntimeHelper::GPI>>::BridgedChain,
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+			LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>
 		>(
-			LaneId::new(1, 2),
+			LaneIdOf::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::default(),
 			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 			1,
 			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
@@ -621,8 +636,9 @@ where
 			<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+			LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 		>(
-			LaneId::new(1, 2),
+			LaneIdOf::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::default(),
 			1,
 			5,
 			1_000,
@@ -683,8 +699,9 @@ where
 			<RuntimeHelper::Runtime as pallet_bridge_grandpa::Config<RuntimeHelper::GPI>>::BridgedChain,
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+			LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 		>(
-			LaneId::new(1, 2),
+			LaneIdOf::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::default(),
 			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 			1,
 			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
@@ -738,8 +755,9 @@ where
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+				LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			>(
-				LaneId::new(1, 2),
+				LaneIdOf::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::default(),
 				1,
 				5,
 				1_000,

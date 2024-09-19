@@ -29,7 +29,7 @@ use crate::{test_cases::bridges_prelude::*, test_data};
 use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	LaneId, LaneState, MessageKey, MessagesOperatingMode, OutboundLaneData,
+	LaneState, MessageKey, MessagesOperatingMode, OutboundLaneData,
 };
 use bp_runtime::BasicOperatingMode;
 use bp_xcm_bridge_hub::{Bridge, BridgeState, XcmAsPlainPayload};
@@ -71,6 +71,7 @@ pub(crate) mod bridges_prelude {
 
 // Re-export test_case from assets
 pub use asset_test_utils::include_teleports_for_native_asset_works;
+use pallet_bridge_messages::LaneIdOf;
 
 pub type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -326,7 +327,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 	export_message_instruction: fn() -> Instruction<XcmConfig::RuntimeCall>,
 	existential_deposit: Option<Asset>,
 	maybe_paid_export_message: Option<Asset>,
-	prepare_configuration: impl Fn() -> LaneId,
+	prepare_configuration: impl Fn() -> LaneIdOf<Runtime, MessagesPalletInstance>,
 ) where
 	Runtime: BasicParachainRuntime + BridgeMessagesConfig<MessagesPalletInstance>,
 	XcmConfig: xcm_executor::Config,
@@ -469,7 +470,7 @@ pub fn message_dispatch_routing_works<
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
 		prepare_configuration();
 
-		let dummy_lane_id = LaneId::new(1, 2);
+		let dummy_lane_id = LaneIdOf::<Runtime, MessagesPalletInstance>::default();
 		let mut alice = [0u8; 32];
 		alice[0] = 1;
 
