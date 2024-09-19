@@ -1,12 +1,15 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: ...
+title: Added foreign locations to local accounts converter to all the parachains.
 
 doc:
   - audience: Runtime Dev
     description: |
-      Added foreign locations to local accounts converter to all the parachains
+      Added foreign locations to local accounts converter to all the parachains (i.e. added HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>> to LocationToAccountId)
+  - audience: Runtime Users
+      description: |
+        Now any user account can have a sovereign account on another chain controlled by the original account
 
 crates:
   - name: asset-hub-westend-runtime
