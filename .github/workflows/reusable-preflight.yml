@@ -35,12 +35,23 @@ on:
       OLDLINUXRUNNER:
         value: ${{ jobs.preflight.outputs.OLDLINUXRUNNER }}
 
-      SOURCE_REF_NAME:
-        value: ${{ jobs.preflight.outputs.SOURCE_REF_NAME }}
-        description: "Name of the current branch for `push` or source branch for `pull_request`"
+      SOURCE_REF_SLUG:
+        value: ${{ jobs.preflight.outputs.SOURCE_REF_SLUG }}
+        description: "Name of the current branch for `push` or source branch for `pull_request` with `/` replaced by `_`. Does not exists in merge_group"
+      REF_SLUG:
+        value: ${{ jobs.preflight.outputs.REF_SLUG }}
+        description: |
+          Name of the current ref (depending on the event) with `/` replaced by `_`, e.g:
+          push - master
+          pull_request - 49_merge
+          merge_group - gh-readonly-queue_master_pr-49-38d43798a986430231c828b2c762997f818ac012
+
       COMMIT_SHA:
         value: ${{ jobs.preflight.outputs.COMMIT_SHA }}
-        description: "Sha of the current commit for `push` or head of the source branch for `pull_request`"
+        description: "Sha of the current revision"
+      COMMIT_SHA_SHORT:
+        value: ${{ jobs.preflight.outputs.COMMIT_SHA_SHORT }}
+        description: "Sha of the current revision, 8-symbols long"
 
 jobs:
   preflight:
@@ -53,9 +64,11 @@ jobs:
       RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
       OLDLINUXRUNNER: ${{ steps.set_runner.outputs.OLDLINUXRUNNER }}
 
-      SOURCE_REF_NAME: ${{ steps.set_vars.outputs.SOURCE_REF_NAME }}
-      COMMIT_SHA: ${{ steps.set_vars.outputs.COMMIT_SHA }}
+      SOURCE_REF_SLUG: ${{ steps.set_vars.outputs.SOURCE_REF_SLUG }}
+      REF_SLUG: ${{ steps.set_vars.outputs.REF_SLUG }}
 
+      COMMIT_SHA: ${{ steps.set_vars.outputs.COMMIT_SHA }}
+      COMMIT_SHA_SHORT: ${{ steps.set_vars.outputs.COMMIT_SHA_SHORT }}
 
     steps:
 
@@ -116,9 +129,15 @@ jobs:
       - id: set_vars
         shell: bash
         run: |
-          export BRANCH_NAME=${{ github.head_ref || github.ref_name }}
-          echo "SOURCE_REF_NAME=${BRANCH_NAME//\//-}" >> $GITHUB_OUTPUT
-          echo "COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}" >> $GITHUB_OUTPUT
+          export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
+          echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}" >> $GITHUB_OUTPUT
+          #
+          export COMMIT_SHA=${{ github.sha }}
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "COMMIT_SHA_SHORT=${COMMIT_SHACOMMIT_SHA:0:8}" >> $GITHUB_OUTPUT
+          #
+          export REF_NAME=${{ github.ref_name }}
+          echo "REF_SLUG=${REF_NAME//\//_}" >> $GITHUB_OUTPUT
 
 
       - name: log
