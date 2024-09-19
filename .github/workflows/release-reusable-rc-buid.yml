@@ -139,11 +139,11 @@ jobs:
 
           check_gpg  ${{ matrix.binaries }}
 
-      - name: Build polkadot deb package
-        if: ${{ matrix.binaries == 'polkadot' }}
-        shell: bash
-        run: |
-          . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ matrix.binaries }}
+      # - name: Build polkadot deb package
+      #   if: ${{ matrix.binaries == 'polkadot' }}
+      #   shell: bash
+      #   run: |
+      #     . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ matrix.binaries }}
 
 
       - name: Upload ${{ matrix.binaries }} artifacts
@@ -152,6 +152,38 @@ jobs:
           name: ${{ matrix.binaries }}
           path: /artifacts/${{ matrix.binaries }}
 
+  build-polkadot-deb-package:
+    if: ${{ inputs.package == 'polkadot' }}
+    needs: [build-rc]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      with:
+        ref: ${{ inputs.release_tag }}
+        fetch-depth: 0
+
+    - name: Download artifacts
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        path: target/production/${{ inputs.package }}
+
+    - name: Debug
+      working-directory: target/production/${{ inputs.package }}
+      run: ls -la
+
+    - name: Build polkadot deb package
+      shell: bash
+      run: |
+        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }}
+
+    - name: Upload ${{inputs.package }} artifacts
+      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+      with:
+        name: ${{ inputs.package }}
+        path: target/production/${{ inputs.package }}
+
   upload-artifacts-to-s3:
     needs: [build-rc]
     runs-on: ubuntu-latest
@@ -159,9 +191,9 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-    strategy:
-      matrix:
-        binaries: ${{ fromJson(inputs.binary) }}
+    # strategy:
+    #   matrix:
+    #     binaries: ${{ fromJson(inputs.binary) }}
 
     steps:
       - name: Checkout
@@ -170,7 +202,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
-          path: artifacts/${{ matrix.binaries }}
+          path: artifacts/${{ inputs.package }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
@@ -179,9 +211,9 @@ jobs:
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload ${{ matrix.binaries }} artifacts to s3
+      - name: Upload ${{ inputs.package }} artifacts to s3
         run: |
           . ./.github/scripts/release/release_lib.sh
-          upload_s3_release ${{ matrix.binaries }} ${{ inputs.release_tag }}
+          upload_s3_release ${{ inputs.package }} ${{ inputs.release_tag }}
 
 # - name: Upload artifacts to github release
