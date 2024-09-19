@@ -190,43 +190,6 @@ impl Header {
 	}
 }
 
-/// An opaque extrinsic wrapper type, all extrinsics are considered not bare.
-#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode)]
-pub struct ExtrinsicWrapper<Xt>(Xt);
-
-impl<Xt> traits::ExtrinsicLike for ExtrinsicWrapper<Xt> {
-	fn is_signed(&self) -> Option<bool> {
-		None
-	}
-
-	fn is_bare(&self) -> bool {
-		false
-	}
-}
-
-impl<Xt: Encode> serde::Serialize for ExtrinsicWrapper<Xt> {
-	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
-	where
-		S: ::serde::Serializer,
-	{
-		self.using_encoded(|bytes| seq.serialize_bytes(bytes))
-	}
-}
-
-impl<Xt> From<Xt> for ExtrinsicWrapper<Xt> {
-	fn from(xt: Xt) -> Self {
-		ExtrinsicWrapper(xt)
-	}
-}
-
-impl<Xt> core::ops::Deref for ExtrinsicWrapper<Xt> {
-	type Target = Xt;
-
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
-
 /// Testing block
 #[derive(PartialEq, Eq, Clone, Serialize, Debug, Encode, Decode, TypeInfo)]
 pub struct Block<Xt> {
