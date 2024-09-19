@@ -52,7 +52,7 @@
 use std::{collections::HashMap, time::Duration, u64};
 
 use polkadot_primitives::MAX_CODE_SIZE;
-use sc_network::NetworkBackend;
+use sc_network::{NetworkBackend, MAX_RESPONSE_SIZE};
 use sp_runtime::traits::Block;
 use strum::{EnumIter, IntoEnumIterator};
 
@@ -160,7 +160,7 @@ pub const MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS: u32 = 5;
 /// Response size limit for responses of POV like data.
 ///
 /// Same as what we use in substrate networking.
-const POV_RESPONSE_SIZE: u64 = 16 * 1024 * 1024;
+const POV_RESPONSE_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Maximum response sizes for `StatementFetchingV1`.
 ///
