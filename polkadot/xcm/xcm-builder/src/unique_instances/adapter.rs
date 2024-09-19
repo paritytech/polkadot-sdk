@@ -7,6 +7,8 @@ use frame_support::traits::tokens::asset_ops::{
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{ConvertLocation, Error as MatchError, MatchesInstance, TransactAsset};
 
+use super::NonFungibleAsset;
+
 const LOG_TARGET: &str = "xcm::unique_instances";
 
 /// The `UniqueInstancesAdapter` implements the [`TransactAsset`] for unique instances (NFT-like
@@ -110,33 +112,22 @@ where
 }
 
 /// The `UniqueInstancesDepositAdapter` implements the [`TransactAsset`] to create unique instances
-/// (NFT-like entities), for which the `Matcher` can **not** deduce the instance ID from the XCM
-/// [`AssetId`]. Instead, this adapter requires the `Matcher` to return
-/// the derive ID parameters (the `DeriveIdParams`) for the [`DeriveAndReportId`] ID assignment
-/// approach.
-///
-/// The new instance will be created using the `InstanceCreateOp` and then deposited to a
-/// beneficiary.
-pub struct UniqueInstancesDepositAdapter<
-	AccountId,
-	AccountIdConverter,
-	DeriveIdParams,
-	Matcher,
-	InstanceCreateOp,
->(PhantomData<(AccountId, AccountIdConverter, DeriveIdParams, Matcher, InstanceCreateOp)>);
+/// (NFT-like entities), for which no `Matcher` deduce the instance ID from the XCM
+/// [`AssetId`]. Instead, this adapter requires the `InstanceCreateOp` to create an instance using
+/// [`NonFungibleAsset`] as derive id parameters.
+pub struct UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, InstanceCreateOp>(
+	PhantomData<(AccountId, AccountIdConverter, InstanceCreateOp)>,
+);
 
-impl<AccountId, AccountIdConverter, Matcher, DeriveIdParams, InstanceCreateOp> TransactAsset
-	for UniqueInstancesDepositAdapter<
-		AccountId,
-		AccountIdConverter,
-		DeriveIdParams,
-		Matcher,
-		InstanceCreateOp,
-	> where
+impl<AccountId, AccountIdConverter, InstanceCreateOp> TransactAsset
+	for UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, InstanceCreateOp>
+where
 	AccountIdConverter: ConvertLocation<AccountId>,
-	Matcher: MatchesInstance<DeriveIdParams>,
 	InstanceCreateOp: AssetDefinition<Instance>
-		+ Create<Instance, Owned<AccountId, DeriveAndReportId<DeriveIdParams, InstanceCreateOp::Id>>>,
+		+ Create<
+			Instance,
+			Owned<AccountId, DeriveAndReportId<NonFungibleAsset, InstanceCreateOp::Id>>,
+		>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		log::trace!(
@@ -147,11 +138,15 @@ impl<AccountId, AccountIdConverter, Matcher, DeriveIdParams, InstanceCreateOp> T
 			context,
 		);
 
-		let derive_id_params = Matcher::matches_instance(what)?;
+		let asset = match what.fun {
+			Fungibility::NonFungible(asset_instance) => (what.id.clone(), asset_instance),
+			_ => return Err(MatchError::AssetNotHandled.into()),
+		};
+
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceCreateOp::create(Owned::new(who, DeriveAndReportId::from(derive_id_params)))
+		InstanceCreateOp::create(Owned::new(who, DeriveAndReportId::from(asset)))
 			.map(|_reported_id| ())
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
 	}

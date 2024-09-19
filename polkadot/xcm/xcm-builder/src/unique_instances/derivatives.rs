@@ -31,29 +31,17 @@ pub trait DerivativesRegistry<Original, Derivative> {
 	fn get_original(derivative: &Derivative) -> Option<Original>;
 }
 
-/// Parameters for registering a new derivative instance.
-pub struct DerivativeRegisterParams<DerivativeIdParams> {
-	/// The XCM identified of the original unique instance.
-	pub foreign_nonfungible: NonFungibleAsset,
-
-	/// The derive ID parameters for the [`DeriveAndReportId`]
-	/// to create a new derivative instance.
-	pub derivative_id_params: DerivativeIdParams,
-}
-
 /// The `RegisterOnCreate` is a utility for creating a new instance
 /// and immediately binding it to the original instance using the [`DerivativesRegistry`].
 ///
-/// It implements the [`Create`] operation using the [`Owned`] strategy
-/// and the [`DeriveAndReportId`] ID assignment, accepting the [`DerivativeRegisterParams`] as the
-/// parameters.
+/// It implements the [`Create`] operation using the [`Owned`] strategy.
 ///
 /// The `RegisterOnCreate` will create a new derivative instance using the `InstanceOps`
 /// and then bind it to the original instance via the `Registry`'s
 /// [`try_register_derivative`](DerivativesRegistry::try_register_derivative).
 ///
 /// The `InstanceOps` must be capable of creating a new instance by deriving the ID
-/// based on the [`derivative_id_params`](DerivativeRegisterParams::derivative_id_params).
+/// based on the [`NonFungibleAsset`].
 pub struct RegisterOnCreate<Registry, InstanceOps>(PhantomData<(Registry, InstanceOps)>);
 impl<Registry, InstanceOps> AssetDefinition<Instance> for RegisterOnCreate<Registry, InstanceOps>
 where
@@ -61,40 +49,25 @@ where
 {
 	type Id = InstanceOps::Id;
 }
-impl<AccountId, DerivativeIdParams, Registry, InstanceOps>
-	Create<
-		Instance,
-		Owned<
-			AccountId,
-			DeriveAndReportId<DerivativeRegisterParams<DerivativeIdParams>, InstanceOps::Id>,
-		>,
-	> for RegisterOnCreate<Registry, InstanceOps>
+impl<AccountId, Registry, InstanceOps>
+	Create<Instance, Owned<AccountId, DeriveAndReportId<NonFungibleAsset, InstanceOps::Id>>>
+	for RegisterOnCreate<Registry, InstanceOps>
 where
 	Registry: DerivativesRegistry<NonFungibleAsset, InstanceOps::Id>,
 	InstanceOps: AssetDefinition<Instance>
-		+ Create<Instance, Owned<AccountId, DeriveAndReportId<DerivativeIdParams, InstanceOps::Id>>>,
+		+ Create<Instance, Owned<AccountId, DeriveAndReportId<NonFungibleAsset, InstanceOps::Id>>>,
 {
 	fn create(
-		strategy: Owned<
-			AccountId,
-			DeriveAndReportId<DerivativeRegisterParams<DerivativeIdParams>, InstanceOps::Id>,
-		>,
+		strategy: Owned<AccountId, DeriveAndReportId<NonFungibleAsset, InstanceOps::Id>>,
 	) -> Result<InstanceOps::Id, DispatchError> {
 		let Owned { owner, id_assignment, .. } = strategy;
 
-		let DerivativeRegisterParams { foreign_nonfungible, derivative_id_params } =
-			id_assignment.params;
-
-		if Registry::get_derivative(&foreign_nonfungible).is_some() {
-			return Err(DispatchError::Other(
-				"an attempt to register a duplicate of an existing derivative instance",
-			));
-		}
+		let asset = id_assignment.params;
 
 		let instance_id =
-			InstanceOps::create(Owned::new(owner, DeriveAndReportId::from(derivative_id_params)))?;
+			InstanceOps::create(Owned::new(owner, DeriveAndReportId::from(asset.clone())))?;
 
-		Registry::try_register_derivative(&foreign_nonfungible, &instance_id)?;
+		Registry::try_register_derivative(&asset, &instance_id)?;
 
 		Ok(instance_id)
 	}
@@ -122,44 +95,8 @@ where
 	InstanceOps: Destroy<Instance, IfOwnedBy<AccountId>>,
 {
 	fn destroy(id: &Self::Id, strategy: IfOwnedBy<AccountId>) -> DispatchResult {
-		if Registry::get_original(id).is_none() {
-			return Err(DispatchError::Other(
-				"an attempt to deregister an instance that isn't a derivative",
-			));
-		}
-
-		InstanceOps::destroy(id, strategy)?;
-
-		Registry::try_deregister_derivative(id)
-	}
-}
-
-/// The `MatchDerivativeRegisterParams` is an XCM Matcher
-/// that returns [the parameters](DerivativeRegisterParams) for registering a new derivative
-/// instance.
-///
-/// This Matcher can be used in the
-/// [`UniqueInstancesDepositAdapter`](super::UniqueInstancesDepositAdapter).
-pub struct MatchDerivativeRegisterParams<Registry>(PhantomData<Registry>);
-impl<Registry: DerivativesRegistry<AssetId, DerivativeIdParams>, DerivativeIdParams>
-	MatchesInstance<DerivativeRegisterParams<DerivativeIdParams>>
-	for MatchDerivativeRegisterParams<Registry>
-{
-	fn matches_instance(
-		asset: &Asset,
-	) -> Result<DerivativeRegisterParams<DerivativeIdParams>, Error> {
-		match asset.fun {
-			Fungibility::NonFungible(asset_instance) => {
-				let derivative_id_params =
-					Registry::get_derivative(&asset.id).ok_or(Error::AssetNotHandled)?;
-
-				Ok(DerivativeRegisterParams {
-					foreign_nonfungible: (asset.id.clone(), asset_instance),
-					derivative_id_params,
-				})
-			},
-			Fungibility::Fungible(_) => Err(Error::AssetNotHandled),
-		}
+		Registry::try_deregister_derivative(id)?;
+		InstanceOps::destroy(id, strategy)
 	}
 }
 
