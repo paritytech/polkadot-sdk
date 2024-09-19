@@ -361,7 +361,15 @@ fn rewards_should_work() {
 				remainder: maximum_payout - total_payout_0
 			}
 		);
+
+		// make note of total issuance before rewards.
+		let total_issuance_0 = asset::total_issuance::<Test>();
+
 		mock::make_all_reward_payment(0);
+
+		// total issuance should have increased
+		let total_issuance_1 = asset::total_issuance::<Test>();
+		assert_eq!(total_issuance_1, total_issuance_0 + total_payout_0);
 
 		assert_eq_error_rate!(
 			asset::total_balance::<Test>(&11),
@@ -402,6 +410,7 @@ fn rewards_should_work() {
 		);
 		mock::make_all_reward_payment(1);
 
+		assert_eq!(asset::total_issuance::<Test>(), total_issuance_1 + total_payout_1);
 		assert_eq_error_rate!(
 			asset::total_balance::<Test>(&11),
 			init_balance_11 + part_for_11 * (total_payout_0 * 2 / 3 + total_payout_1),
