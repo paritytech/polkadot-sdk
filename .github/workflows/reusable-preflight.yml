@@ -26,15 +26,32 @@ on:
       IMAGE:
         value: ${{ jobs.preflight.outputs.IMAGE }}
         description: "CI image"
+
+      # Runners
+      # https://github.com/paritytech/ci_cd/wiki/GitHub#paritytech-self-hosted-runners
       RUNNER:
         value: ${{ jobs.preflight.outputs.RUNNER }}
         description: |
-          Runner name.
+          Main runner for resource-intensive tasks
           By default we use spot machines that can be terminated at any time.
           Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
-      OLDLINUXRUNNER:
-        value: ${{ jobs.preflight.outputs.OLDLINUXRUNNER }}
+      RUNNER_OLDLINUX:
+        value: ${{ jobs.preflight.outputs.RUNNER_OLDLINUX }}
+        description: |
+          parity-oldlinux
+          By default we use spot machines that can be terminated at any time.
+          Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      RUNNER_DEFAULT:
+        value: ${{ jobs.preflight.outputs.RUNNER_DEFAULT }}
+        description: "Relatively lightweight runner. When `ubuntu-latest` is not enough"
+      RUNNER_WEIGHTS:
+        value: ${{ jobs.preflight.outputs.RUNNER_WEIGHTS }}
+      RUNNER_BENCHMARK:
+        value: ${{ jobs.preflight.outputs.RUNNER_BENCHMARK }}
+      RUNNER_MACOS:
+        value: ${{ jobs.preflight.outputs.RUNNER_MACOS }}
 
+      # Vars
       SOURCE_REF_SLUG:
         value: ${{ jobs.preflight.outputs.SOURCE_REF_SLUG }}
         description: "Name of the current branch for `push` or source branch for `pull_request` with `/` replaced by `_`. Does not exists in merge_group"
@@ -61,8 +78,13 @@ jobs:
       changes_currentWorkflow: ${{ steps.set_changes.outputs.currentWorkflow_any_changed }}
 
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+
       RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
-      OLDLINUXRUNNER: ${{ steps.set_runner.outputs.OLDLINUXRUNNER }}
+      RUNNER_OLDLINUX: ${{ steps.set_runner.outputs.RUNNER_OLDLINUX }}
+      RUNNER_DEFAULT: ${{ steps.set_runner.outputs.RUNNER_DEFAULT }}
+      RUNNER_WEIGHTS: ${{ steps.set_runner.outputs.RUNNER_WEIGHTS }}
+      RUNNER_BENCHMARK: ${{ steps.set_runner.outputs.RUNNER_BENCHMARK }}
+      RUNNER_MACOS: ${{ steps.set_runner.outputs.RUNNER_MACOS }}
 
       SOURCE_REF_SLUG: ${{ steps.set_vars.outputs.SOURCE_REF_SLUG }}
       REF_SLUG: ${{ steps.set_vars.outputs.REF_SLUG }}
@@ -114,13 +136,18 @@ jobs:
       - id: set_runner
         shell: bash
         run: |
+          echo "RUNNER_DEFAULT=parity-default" >> $GITHUB_OUTPUT
+          echo "RUNNER_WEIGHTS=parity-weights" >> $GITHUB_OUTPUT
+          echo "RUNNER_BENCHMARK=parity-benchmark" >> $GITHUB_OUTPUT
+          echo "RUNNER_MACOS=parity-macos" >> $GITHUB_OUTPUT
+          #
           # Run merge queues on persistent runners
           if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
-            echo "OLDLINUXRUNNER=oldlinux-persistent" >> $GITHUB_OUTPUT
+            echo "RUNNER=parity-large-persistent" >> $GITHUB_OUTPUT
+            echo "RUNNER_OLDLINUX=parity-oldlinux-persistent" >> $GITHUB_OUTPUT
           else
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-            echo "OLDLINUXRUNNER=oldlinux" >> $GITHUB_OUTPUT
+            echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
+            echo "RUNNER_OLDLINUXRUNNER=parity-oldlinux" >> $GITHUB_OUTPUT
           fi
 
       #
