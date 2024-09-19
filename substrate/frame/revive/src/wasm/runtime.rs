@@ -1990,7 +1990,7 @@ pub mod env {
 	/// Stores data returned by the last call starting from `offset` into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::return_data`].
 	#[api_version(0)]
-	fn return_data(
+	fn return_data_copy(
 		&mut self,
 		memory: &mut M,
 		out_ptr: u32,
