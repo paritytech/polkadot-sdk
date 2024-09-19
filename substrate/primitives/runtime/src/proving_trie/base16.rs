@@ -113,14 +113,14 @@ where
 	}
 }
 
-/// Verify the existence or non-existence of `key` and `value` in a given trie root and proof.
+/// Verify the existence of `key` and `value` in a given trie root and proof.
 ///
 /// Proofs must be created with latest substrate trie format (`LayoutV1`).
 pub fn verify_single_value_proof<Hashing, Key, Value>(
 	root: Hashing::Out,
 	proof: &[u8],
 	key: Key,
-	maybe_value: Option<Value>,
+	value: Value,
 ) -> Result<(), DispatchError>
 where
 	Hashing: sp_core::Hasher,
@@ -132,18 +132,18 @@ where
 	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(
 		&root,
 		&structured_proof,
-		&[(key.encode(), maybe_value.map(|value| value.encode()))],
+		&[(key.encode(), Some(value.encode()))],
 	)
 	.map_err(|err| TrieError::from(err).into())
 }
 
-/// Verify the existence or non-existence of multiple `items` in a given trie root and proof.
+/// Verify the existence of multiple `items` in a given trie root and proof.
 ///
 /// Proofs must be created with latest substrate trie format (`LayoutV1`).
 pub fn verify_proof<Hashing, Key, Value>(
 	root: Hashing::Out,
 	proof: &[u8],
-	items: &[(Key, Option<Value>)],
+	items: &[(Key, Value)],
 ) -> Result<(), DispatchError>
 where
 	Hashing: sp_core::Hasher,
@@ -154,7 +154,7 @@ where
 		Decode::decode(&mut &proof[..]).map_err(|_| TrieError::DecodeError)?;
 	let items_encoded = items
 		.into_iter()
-		.map(|(key, maybe_value)| (key.encode(), maybe_value.as_ref().map(|value| value.encode())))
+		.map(|(key, value)| (key.encode(), Some(value.encode())))
 		.collect::<Vec<(Vec<u8>, Option<Vec<u8>>)>>();
 
 	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(
@@ -226,7 +226,7 @@ mod tests {
 						root,
 						&proof,
 						i,
-						Some(u128::from(i))
+						u128::from(i)
 					),
 					Ok(())
 				);
@@ -236,7 +236,7 @@ mod tests {
 						root,
 						&proof,
 						i,
-						Some(u128::from(i + 1))
+						u128::from(i + 1)
 					),
 					Err(TrieError::RootMismatch.into())
 				);
@@ -245,14 +245,7 @@ mod tests {
 					root,
 					&proof,
 					i,
-					Some(u128::from(i))
-				)
-				.is_err());
-				assert!(verify_single_value_proof::<BlakeTwo256, _, _>(
-					root,
-					&proof,
-					i,
-					None::<u128>
+					u128::from(i)
 				)
 				.is_err());
 			}
@@ -265,8 +258,8 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid and invalid key.
-		let proof = balance_trie.create_proof(&[6u32, 69u32, 6969u32]).unwrap();
-		let items = [(6u32, Some(6u128)), (69u32, Some(69u128)), (6969u32, None)];
+		let proof = balance_trie.create_proof(&[6u32, 9u32, 69u32]).unwrap();
+		let items = [(6u32, 6u128), (9u32, 9u128), (69u32, 69u128)];
 
 		assert_eq!(verify_proof::<BlakeTwo256, _, _>(root, &proof, &items), Ok(()));
 	}
@@ -281,7 +274,7 @@ mod tests {
 
 		// Correct data verifies successfully
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, Some(6u128)),
+			verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, 6u128),
 			Ok(())
 		);
 
@@ -291,7 +284,7 @@ mod tests {
 				Default::default(),
 				&proof,
 				6u32,
-				Some(6u128)
+				6u128
 			),
 			Err(TrieError::RootMismatch.into())
 		);
@@ -301,7 +294,7 @@ mod tests {
 
 		// Fail to verify data with the wrong proof
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &bad_proof, 6u32, Some(6u128)),
+			verify_single_value_proof::<BlakeTwo256, _, _>(root, &bad_proof, 6u32, 6u128),
 			Err(TrieError::ExtraneousHashReference.into())
 		);
 	}
