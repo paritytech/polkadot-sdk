@@ -138,3 +138,35 @@ where
 		value: Value,
 	) -> Result<(), DispatchError>;
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::traits::BlakeTwo256;
+	use sp_core::H256;
+	use sp_std::collections::btree_map::BTreeMap;
+
+	// A trie which simulates a trie of accounts (u32) and balances (u128).
+	type BalanceTrie2 = base2::BasicProvingTrie<BlakeTwo256, u32, u128>;
+	type BalanceTrie16 = base16::BasicProvingTrie<BlakeTwo256, u32, u128>;
+
+	#[test]
+	fn basic_api_usage_base_2() {
+		let balance_trie = BalanceTrie2::generate_for((0..100u32).map(|i| (i, i.into()))).unwrap();
+		let root = *balance_trie.root();
+		assert_eq!(balance_trie.query(69), Some(69));
+		assert_eq!(balance_trie.query(6969), None);
+		let proof = balance_trie.create_proof(69u32).unwrap();
+		assert_eq!(BalanceTrie2::verify_proof(root, &proof, 69u32, 69u128), Ok(()));
+	}
+
+	#[test]
+	fn basic_api_usage_base_16() {
+		let balance_trie = BalanceTrie16::generate_for((0..100u32).map(|i| (i, i.into()))).unwrap();
+		let root = *balance_trie.root();
+		assert_eq!(balance_trie.query(69), Some(69));
+		assert_eq!(balance_trie.query(6969), None);
+		let proof = balance_trie.create_proof(69u32).unwrap();
+		assert_eq!(BalanceTrie16::verify_proof(root, &proof, 69u32, 69u128), Ok(()));
+	}
+}

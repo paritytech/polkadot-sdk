@@ -187,18 +187,18 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid key.
-		let proof = balance_trie.create_single_value_proof(6u32).unwrap();
+		let proof = balance_trie.create_proof(6u32).unwrap();
 
 		// Assert key is provable, all other keys are invalid.
 		for i in 0..200u32 {
 			if i == 6 {
 				assert_eq!(
-					verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, i, u128::from(i)),
+					verify_proof::<BlakeTwo256, _, _>(root, &proof, i, u128::from(i)),
 					Ok(())
 				);
 				// Wrong value is invalid.
 				assert_eq!(
-					verify_single_value_proof::<BlakeTwo256, _, _>(
+					verify_proof::<BlakeTwo256, _, _>(
 						root,
 						&proof,
 						i,
@@ -207,7 +207,7 @@ mod tests {
 					Err(TrieError::ValueMismatch.into())
 				);
 			} else {
-				assert!(verify_single_value_proof::<BlakeTwo256, _, _>(
+				assert!(verify_proof::<BlakeTwo256, _, _>(
 					root,
 					&proof,
 					i,
@@ -224,23 +224,23 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid key.
-		let proof = balance_trie.create_single_value_proof(6u32).unwrap();
+		let proof = balance_trie.create_proof(6u32).unwrap();
 
 		// Correct data verifies successfully
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, 6u128),
+			verify_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, 6u128),
 			Ok(())
 		);
 
 		// Fail to verify proof with wrong root
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(Default::default(), &proof, 6u32, 6u128),
+			verify_proof::<BlakeTwo256, _, _>(Default::default(), &proof, 6u32, 6u128),
 			Err(TrieError::RootMismatch.into())
 		);
 
 		// Fail to verify proof with wrong data
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &[], 6u32, 6u128),
+			verify_proof::<BlakeTwo256, _, _>(root, &[], 6u32, 6u128),
 			Err(TrieError::IncompleteProof.into())
 		);
 	}
