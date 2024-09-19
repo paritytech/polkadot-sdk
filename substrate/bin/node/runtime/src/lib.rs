@@ -3026,6 +3026,23 @@ impl_runtime_apis! {
 			)
 		}
 
+		fn eth_call(
+			origin: H160,
+			dest: H160,
+			value: Balance,
+			input: Vec<u8>,
+		) -> pallet_revive::ContractExecResult<Balance, EventRecord>
+		{
+			Revive::bare_eth_call(
+				origin,
+				dest,
+				value,
+				input,
+				pallet_revive::DebugInfo::UnsafeDebug,
+				pallet_revive::CollectEvents::UnsafeCollect,
+			)
+		}
+
 		fn instantiate(
 			origin: AccountId,
 			value: Balance,

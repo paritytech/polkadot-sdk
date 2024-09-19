@@ -148,6 +148,14 @@ pub enum Code {
 	Existing(sp_core::H256),
 }
 
+/// The input used by EVM wallet to instantiate a new contract.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct EthInstantiateInput {
+	pub code: Vec<u8>,
+	pub data: Vec<u8>,
+	pub salt: Option<[u8; 32]>,
+}
+
 /// The amount of balance that was either charged or refunded in order to pay for storage.
 #[derive(
 	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo,

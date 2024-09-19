@@ -396,6 +396,8 @@ members = [
 	"substrate/frame/referenda",
 	"substrate/frame/remark",
 	"substrate/frame/revive",
+	"substrate/frame/revive/evm",
+	"substrate/frame/revive/evm/codegen",
 	"substrate/frame/revive/fixtures",
 	"substrate/frame/revive/mock-network",
 	"substrate/frame/revive/proc-macro",
@@ -900,6 +902,7 @@ pallet-collator-selection = { path = "cumulus/pallets/collator-selection", defau
 pallet-collective = { path = "substrate/frame/collective", default-features = false }
 pallet-collective-content = { path = "cumulus/parachains/pallets/collective-content", default-features = false }
 pallet-contracts = { path = "substrate/frame/contracts", default-features = false }
+pallet-contracts-evm = { path = "substrate/frame/contracts/evm", default-features = false }
 pallet-contracts-fixtures = { path = "substrate/frame/contracts/fixtures", default-features = false }
 pallet-contracts-mock-network = { default-features = false, path = "substrate/frame/contracts/mock-network" }
 pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", default-features = false }

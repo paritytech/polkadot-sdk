@@ -200,7 +200,10 @@ where
 						&self.code_info.owner,
 						deposit,
 					)
-					.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
+					.map_err(|err| {
+						log::debug!(target: LOG_TARGET, "failed to store code for owner: {:?}: {err:?}", self.code_info.owner);
+						<Error<T>>::StorageDepositNotEnoughFunds
+					})?;
 
 					self.code_info.refcount = 0;
 					<PristineCode<T>>::insert(code_hash, &self.code);

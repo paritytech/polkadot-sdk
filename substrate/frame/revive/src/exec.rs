@@ -1046,6 +1046,7 @@ where
 					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
+					// TODO fix inconsistency between Called and Instantiated
 					let caller = T::AddressMapper::to_address(self.caller().account_id()?);
 
 					// Deposit an instantiation event.
@@ -1068,6 +1069,7 @@ where
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
 					let caller = self.caller();
+
 					Contracts::<T>::deposit_event(Event::Called {
 						caller: caller.clone(),
 						contract: account_id,

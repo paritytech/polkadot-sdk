@@ -27,7 +27,7 @@ mod benchmarking_dummy;
 mod exec;
 mod gas;
 mod primitives;
-use crate::exec::MomentOf;
+pub use crate::exec::MomentOf;
 use frame_support::traits::IsType;
 pub use primitives::*;
 use sp_core::U256;
@@ -78,7 +78,7 @@ use sp_runtime::{
 };
 
 pub use crate::{
-	address::{AddressMapper, DefaultAddressMapper},
+	address::{create1, create2, AddressMapper, DefaultAddressMapper},
 	debug::Tracing,
 	pallet::*,
 };
@@ -88,7 +88,7 @@ pub use weights::WeightInfo;
 pub use crate::wasm::SyscallDoc;
 
 type TrieId = BoundedVec<u8, ConstU32<128>>;
-type BalanceOf<T> =
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type CodeVec<T> = BoundedVec<u8, <T as Config>::MaxCodeLen>;
 type EventRecordOf<T> =
@@ -1116,6 +1116,85 @@ where
 		}
 	}
 
+	/// TODO
+	pub fn bare_eth_call(
+		origin: H160,
+		dest: H160,
+		value: BalanceOf<T>,
+		input: Vec<u8>,
+		debug: DebugInfo,
+		collect_events: CollectEvents,
+	) -> ContractExecResult<BalanceOf<T>, EventRecordOf<T>> {
+		use frame_support::pallet_prelude::DispatchClass;
+		use sp_arithmetic::traits::Bounded;
+
+		let gas_limit = T::BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.max_total
+			.unwrap_or_else(|| T::BlockWeights::get().max_block);
+
+		let origin = T::AddressMapper::to_account_id(&origin);
+		let storage_deposit_limit = BalanceOf::<T>::max_value();
+
+		// Instantiate a new contract.
+		if dest == H160::zero() {
+			let Ok(EthInstantiateInput { code, data, salt }) =
+				EthInstantiateInput::decode(&mut &input[..])
+			else {
+				return ContractResult {
+					gas_consumed: Weight::default(),
+					gas_required: Weight::default(),
+					storage_deposit: StorageDeposit::Charge(0u32.into()),
+					debug_message: "Input Decoding Failed".as_bytes().to_vec(),
+					result: Err(Error::<T>::DecodingFailed.into()),
+					events: None,
+				}
+			};
+
+			log::debug!(
+				target: LOG_TARGET,
+				"EthCall: Instantiate: code: {:?}, data: {:?}, salt: {:?}",
+				code,
+				data,
+				salt,
+			);
+
+			let instantiate_res = Self::bare_instantiate(
+				RawOrigin::Signed(origin).into(),
+				value,
+				gas_limit,
+				storage_deposit_limit,
+				Code::Upload(code),
+				data,
+				salt,
+				debug,
+				collect_events,
+			);
+
+			ContractResult {
+				gas_consumed: instantiate_res.gas_consumed,
+				gas_required: instantiate_res.gas_required,
+				storage_deposit: instantiate_res.storage_deposit,
+				debug_message: instantiate_res.debug_message,
+				result: instantiate_res.result.map(|r| r.result),
+				events: instantiate_res.events,
+			}
+
+			// Call an existing contract.
+		} else {
+			Self::bare_call(
+				RawOrigin::Signed(origin).into(),
+				dest,
+				value,
+				gas_limit,
+				storage_deposit_limit,
+				input,
+				debug,
+				collect_events,
+			)
+		}
+	}
+
 	/// A generalized version of [`Self::upload_code`].
 	///
 	/// It is identical to [`Self::upload_code`] and only differs in the information it returns.
@@ -1150,6 +1229,11 @@ where
 			err
 		})?;
 		let deposit = module.store_code()?;
+
+		log::debug!(
+			target: LOG_TARGET,
+			"Code uploaded with limit {storage_deposit_limit:?}  - deposit {deposit:?}",
+		);
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
 	}
@@ -1222,6 +1306,17 @@ sp_api::decl_runtime_apis! {
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
 		) -> ContractInstantiateResult<Balance, EventRecord>;
+
+
+		/// Dry-run a call or a contract instantiation.
+		///
+		/// See [`crate::Pallet::bare_eth_call`]
+		fn eth_call(
+			origin: H160,
+			dest: H160,
+			value: Balance,
+			input: Vec<u8>,
+		) -> ContractExecResult<Balance, EventRecord>;
 
 		/// Upload new code without instantiating a contract from it.
 		///

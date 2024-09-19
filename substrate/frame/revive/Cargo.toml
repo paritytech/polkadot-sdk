@@ -40,6 +40,7 @@ pallet-revive-fixtures = { workspace = true, default-features = false }
 pallet-revive-uapi = { workspace = true, default-features = true }
 pallet-revive-proc-macro = { workspace = true, default-features = true }
 sp-api = { workspace = true }
+sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
