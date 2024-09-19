@@ -451,7 +451,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		pub(crate) fn do_open_bridge(
+		/// Open bridge for lane.
+		pub fn do_open_bridge(
 			locations: Box<BridgeLocations>,
 			lane_id: T::LaneId,
 			create_lanes: bool,

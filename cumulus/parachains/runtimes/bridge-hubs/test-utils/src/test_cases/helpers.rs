@@ -390,7 +390,12 @@ fn execute_and_verify_calls<Runtime: frame_system::Config>(
 
 /// Helper function to open the bridge/lane for `source` and `destination` while ensuring all
 /// required balances are placed into the SA of the source.
-pub fn ensure_opened_bridge<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(source: Location, destination: InteriorLocation) -> (BridgeLocations, pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>)
+pub fn ensure_opened_bridge<
+	Runtime,
+	XcmOverBridgePalletInstance,
+	LocationToAccountId,
+	TokenLocation>
+(source: Location, destination: InteriorLocation, bridge_opener: impl Fn(BridgeLocations, Asset)) -> (BridgeLocations, pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>)
 where
 	Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
 	XcmOverBridgePalletInstance: 'static,
@@ -427,22 +432,10 @@ TokenLocation: Get<Location>{
 	let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
 		.expect("mint_into passes");
 
-	// open bridge with `Transact` call
-	let open_bridge_call = RuntimeCallOf::<Runtime>::from(BridgeXcmOverBridgeCall::<
-		Runtime,
-		XcmOverBridgePalletInstance,
-	>::open_bridge {
-		bridge_destination_universal_location: Box::new(destination.into()),
-	});
+	// call the bridge opener
+	bridge_opener(*locations.clone(), buy_execution_fee);
 
-	// execute XCM as source origin would do with `Transact -> Origin::Xcm`
-	assert_ok!(RuntimeHelper::<Runtime>::execute_as_origin_xcm(
-		open_bridge_call,
-		source.clone(),
-		buy_execution_fee
-	)
-	.ensure_complete());
-
+	// check opened bridge
 	let bridge = pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 		locations.bridge_id(),
 	)
@@ -455,6 +448,58 @@ TokenLocation: Get<Location>{
 
 	// return locations
 	(*locations, bridge.lane_id)
+}
+
+/// Utility for opening bridge with dedicated `pallet_xcm_bridge_hub`'s extrinsic.
+pub fn open_bridge_with_extrinsic<Runtime, XcmOverBridgePalletInstance>(
+	locations: BridgeLocations,
+	buy_execution_fee: Asset,
+) where
+	Runtime: frame_system::Config
+		+ pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_xcm::Config,
+	XcmOverBridgePalletInstance: 'static,
+	<Runtime as frame_system::Config>::RuntimeCall:
+		GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
+{
+	// open bridge with `Transact` call
+	let open_bridge_call = RuntimeCallOf::<Runtime>::from(BridgeXcmOverBridgeCall::<
+		Runtime,
+		XcmOverBridgePalletInstance,
+	>::open_bridge {
+		bridge_destination_universal_location: Box::new(
+			locations.bridge_destination_universal_location().clone().into(),
+		),
+	});
+
+	// execute XCM as source origin would do with `Transact -> Origin::Xcm`
+	assert_ok!(RuntimeHelper::<Runtime>::execute_as_origin_xcm(
+		locations.bridge_origin_relative_location().clone(),
+		open_bridge_call,
+		buy_execution_fee
+	)
+	.ensure_complete());
+}
+
+/// Utility for opening bridge directly inserting data to the storage (used only for legacy
+/// purposes).
+pub fn open_bridge_with_storage<Runtime, XcmOverBridgePalletInstance>(
+	locations: BridgeLocations,
+	_buy_execution_fee: Asset,
+	lane_id: pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>,
+) where
+	Runtime: pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>,
+	XcmOverBridgePalletInstance: 'static,
+{
+	// insert bridge data directly to the storage
+	assert_ok!(
+		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_open_bridge(
+			Box::new(locations),
+			lane_id,
+			true
+		)
+	);
 }
 
 /// Helper function to close the bridge/lane for `source` and `destination`.
@@ -506,8 +551,8 @@ TokenLocation: Get<Location>{
 
 	// execute XCM as source origin would do with `Transact -> Origin::Xcm`
 	assert_ok!(RuntimeHelper::<Runtime>::execute_as_origin_xcm(
-		close_bridge_call,
 		source.clone(),
+		close_bridge_call,
 		buy_execution_fee
 	)
 	.ensure_complete());

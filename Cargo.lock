@@ -2355,6 +2355,7 @@ dependencies = [
  "pallet-bridge-relayers",
  "pallet-timestamp",
  "pallet-utility",
+ "pallet-xcm",
  "pallet-xcm-bridge-hub",
  "parachains-common",
  "parachains-runtimes-test-utils",

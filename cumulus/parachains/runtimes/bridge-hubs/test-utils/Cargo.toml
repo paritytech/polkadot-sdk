@@ -37,6 +37,7 @@ parachains-runtimes-test-utils = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
+pallet-xcm = { workspace = true }
 
 # Bridges
 bp-header-chain = { workspace = true }

@@ -77,6 +77,7 @@ pub type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
 
 // Re-export test_case from `parachains-runtimes-test-utils`
+use crate::test_cases::helpers::open_bridge_with_extrinsic;
 pub use parachains_runtimes_test_utils::test_cases::{
 	change_storage_constant_by_governance_works, set_storage_keys_by_governance_works,
 };
@@ -715,7 +716,11 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 				XcmOverBridgePalletInstance,
 				LocationToAccountId,
 				TokenLocation,
-			>(source.clone(), destination.clone())
+			>(
+				source.clone(),
+				destination.clone(),
+				open_bridge_with_extrinsic::<Runtime, XcmOverBridgePalletInstance>
+			)
 			.0
 			.bridge_id(),
 			locations.bridge_id()

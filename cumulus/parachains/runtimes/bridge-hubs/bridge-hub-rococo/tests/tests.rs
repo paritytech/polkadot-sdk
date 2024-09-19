@@ -145,6 +145,7 @@ fn change_required_stake_by_governance_works() {
 
 mod bridge_hub_westend_tests {
 	use super::*;
+	use bp_messages::LegacyLaneId;
 	use bridge_common_config::{
 		BridgeGrandpaWestendInstance, BridgeParachainWestendInstance, DeliveryRewardInBalance,
 		RelayersForLegacyLaneIdsMessagesInstance,
@@ -340,7 +341,16 @@ mod bridge_hub_westend_tests {
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get()).1
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverBridgeHubWestendInstance
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					}
+				).1
 			},
 		)
 	}
@@ -395,7 +405,16 @@ mod bridge_hub_westend_tests {
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverBridgeHubWestendInstance,
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					},
+				)
 				.1
 			},
 			construct_and_apply_extrinsic,
@@ -419,7 +438,16 @@ mod bridge_hub_westend_tests {
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverBridgeHubWestendInstance,
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					},
+				)
 				.1
 			},
 			construct_and_apply_extrinsic,
@@ -507,6 +535,7 @@ mod bridge_hub_westend_tests {
 
 mod bridge_hub_bulletin_tests {
 	use super::*;
+	use bp_messages::LegacyLaneId;
 	use bridge_common_config::BridgeGrandpaRococoBulletinInstance;
 	use bridge_hub_rococo_runtime::bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance;
 	use bridge_hub_test_utils::test_cases::from_grandpa_chain;
@@ -593,7 +622,16 @@ mod bridge_hub_bulletin_tests {
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get()).1
+				>(
+					SiblingPeopleParachainLocation::get(),
+					BridgedBulletinLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverPolkadotBulletinInstance
+						>(locations, fee, LegacyLaneId([0, 0, 0, 2]))
+					}
+				).1
 			},
 		)
 	}
@@ -647,7 +685,16 @@ mod bridge_hub_bulletin_tests {
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get())
+				>(
+					SiblingPeopleParachainLocation::get(),
+					BridgedBulletinLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverPolkadotBulletinInstance,
+						>(locations, fee, LegacyLaneId([0, 0, 0, 2]))
+					},
+				)
 				.1
 			},
 			construct_and_apply_extrinsic,
@@ -670,7 +717,16 @@ mod bridge_hub_bulletin_tests {
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get())
+				>(
+					SiblingPeopleParachainLocation::get(),
+					BridgedBulletinLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverPolkadotBulletinInstance,
+						>(locations, fee, LegacyLaneId([0, 0, 0, 2]))
+					},
+				)
 				.1
 			},
 			construct_and_apply_extrinsic,

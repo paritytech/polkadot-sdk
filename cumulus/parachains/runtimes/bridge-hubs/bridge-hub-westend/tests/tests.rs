@@ -16,6 +16,7 @@
 
 #![cfg(test)]
 
+use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
 use bridge_common_config::{
 	DeliveryRewardInBalance, RelayersForLegacyLaneIdsMessagesInstance,
@@ -239,7 +240,15 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 					XcmOverBridgeHubRococoInstance,
 					LocationToAccountId,
 					WestendLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get()).1
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime, XcmOverBridgeHubRococoInstance
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					}
+				).1
 			},
 		)
 }
@@ -292,7 +301,12 @@ fn relayed_incoming_message_works() {
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
 				WestendLocation,
-			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
+			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get(), |locations, fee| {
+				bridge_hub_test_utils::open_bridge_with_storage::<
+					Runtime,
+					XcmOverBridgeHubRococoInstance,
+				>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+			})
 			.1
 		},
 		construct_and_apply_extrinsic,
@@ -316,7 +330,12 @@ fn free_relay_extrinsic_works() {
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
 				WestendLocation,
-			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
+			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get(), |locations, fee| {
+				bridge_hub_test_utils::open_bridge_with_storage::<
+					Runtime,
+					XcmOverBridgeHubRococoInstance,
+				>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+			})
 			.1
 		},
 		construct_and_apply_extrinsic,

@@ -15,13 +15,12 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
-use bp_messages::LaneId;
+use bp_messages::LegacyLaneId;
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as BridgeHubBalance;
 use polkadot_parachain_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::ChainSpec;
 use sp_core::sr25519;
-use sp_runtime::Either;
 use std::str::FromStr;
 use xcm::latest::prelude::*;
 
@@ -88,7 +87,7 @@ impl BridgeHubRuntimeType {
 				vec![(
 					Location::new(1, [Parachain(1000)]),
 					Junctions::from([Rococo.into(), Parachain(1000)]),
-					Some(LaneId::from_inner(Either::Right([0, 0, 0, 2]))),
+					Some(LegacyLaneId([0, 0, 0, 2])),
 				)],
 			))),
 			BridgeHubRuntimeType::WestendDevelopment => Ok(Box::new(westend::local_config(
@@ -111,7 +110,7 @@ impl BridgeHubRuntimeType {
 				vec![(
 					Location::new(1, [Parachain(1000)]),
 					Junctions::from([Westend.into(), Parachain(1000)]),
-					Some(LaneId::from_inner(Either::Right([0, 0, 0, 2]))),
+					Some(LegacyLaneId([0, 0, 0, 2])),
 				)],
 				|_| (),
 			))),
@@ -162,7 +161,7 @@ pub mod rococo {
 		relay_chain: &str,
 		para_id: ParaId,
 		bridges_pallet_owner_seed: Option<String>,
-		opened_bridges: Vec<(Location, InteriorLocation, Option<LaneId>)>,
+		opened_bridges: Vec<(Location, InteriorLocation, Option<LegacyLaneId>)>,
 		modify_props: ModifyProperties,
 	) -> GenericChainSpec {
 		// Rococo defaults
@@ -221,7 +220,7 @@ pub mod rococo {
 		endowed_accounts: Vec<AccountId>,
 		id: ParaId,
 		bridges_pallet_owner: Option<AccountId>,
-		opened_bridges: Vec<(Location, InteriorLocation, Option<LaneId>)>,
+		opened_bridges: Vec<(Location, InteriorLocation, Option<LegacyLaneId>)>,
 	) -> serde_json::Value {
 		serde_json::json!({
 			"balances": {
@@ -292,7 +291,7 @@ pub mod westend {
 		relay_chain: &str,
 		para_id: ParaId,
 		bridges_pallet_owner_seed: Option<String>,
-		opened_bridges: Vec<(Location, InteriorLocation, Option<LaneId>)>,
+		opened_bridges: Vec<(Location, InteriorLocation, Option<LegacyLaneId>)>,
 	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("tokenSymbol".into(), "WND".into());
@@ -347,7 +346,7 @@ pub mod westend {
 		endowed_accounts: Vec<AccountId>,
 		id: ParaId,
 		bridges_pallet_owner: Option<AccountId>,
-		opened_bridges: Vec<(Location, InteriorLocation, Option<LaneId>)>,
+		opened_bridges: Vec<(Location, InteriorLocation, Option<LegacyLaneId>)>,
 	) -> serde_json::Value {
 		serde_json::json!({
 			"balances": {
