@@ -16,3 +16,5 @@ crates:
     bump: patch
   - name: westend-runtime
     bump: patch
+  - name: polkadot
+    bump: patch
