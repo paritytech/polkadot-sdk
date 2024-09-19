@@ -4,7 +4,7 @@ use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-#[crate::runtime]
+#[frame_construct_runtime]
 mod runtime {
 	// The main runtime
 	#[runtime::runtime]

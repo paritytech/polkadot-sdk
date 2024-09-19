@@ -77,7 +77,7 @@ type SignedExtra = (
 );
 
 // Composes the runtime by adding all the used pallets and deriving necessary types.
-#[crate::runtime]
+#[frame_construct_runtime]
 mod runtime {
 	/// The main runtime type.
 	#[runtime::runtime]
