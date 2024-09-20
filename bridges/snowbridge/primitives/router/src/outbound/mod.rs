@@ -71,11 +71,13 @@ impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, 
 		let dest = destination.take().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
 			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched remote destination {dest:?}.");
-			// We need to make sure that destination is not consumed in case of `NotApplicable`.
+			// We need to make sure that mutable variables are not consumed in case of
+			// `NotApplicable`, since they may be used by a subsequent exporter.
 			*destination = Some(dest);
 			return Err(SendError::NotApplicable)
 		}
 
+		let universal_source_value = universal_source.clone();
 		let (local_net, local_sub) = universal_source
 			.take()
 			.ok_or_else(|| {
@@ -90,6 +92,10 @@ impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, 
 
 		if Ok(local_net) != universal_location.global_consensus() {
 			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched relay network {local_net:?}.");
+			// We need to make sure that mutable variables are not consumed in case of
+			// `NotApplicable`, since they may be used by a subsequent exporter.
+			*universal_source = universal_source_value.clone();
+			*destination = Some(dest);
 			return Err(SendError::NotApplicable)
 		}
 
