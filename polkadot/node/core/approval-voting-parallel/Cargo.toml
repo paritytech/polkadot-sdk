@@ -13,7 +13,7 @@ workspace = true
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { workspace = true }
 itertools = { workspace = true }
 thiserror = { workspace = true }
 
