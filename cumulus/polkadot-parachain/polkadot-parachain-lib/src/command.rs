@@ -287,37 +287,18 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				info!("🧾 Parachain Account: {}", parachain_account);
 				info!("✍️ Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				start_node(
-					node_spec,
-					config,
-					polkadot_config,
-					collator_options,
-					para_id,
-					cli.node_extra_args(),
-					hwbench,
-				)
-				.await
+				node_spec
+					.start_node(
+						config,
+						polkadot_config,
+						collator_options,
+						para_id,
+						hwbench,
+						cli.node_extra_args(),
+					)
+					.await
+					.map_err(Into::into)
 			})
 		},
 	}
-}
-
-/// This method is needed only for `#[sc_tracing::logging::prefix_logs_with("Parachain")]`.
-///
-/// Adding this annotation to `DynNodeSpec::start_node()` doesn't work, probably because of the
-/// `Pin<Box<dyn Future<...>>>` return type.
-#[sc_tracing::logging::prefix_logs_with("Parachain")]
-async fn start_node(
-	node_spec: Box<dyn DynNodeSpecExt>,
-	config: sc_service::Configuration,
-	polkadot_config: sc_service::Configuration,
-	collator_options: cumulus_client_cli::CollatorOptions,
-	id: ParaId,
-	extra_args: NodeExtraArgs,
-	hwbench: Option<sc_sysinfo::HwBench>,
-) -> Result<sc_service::TaskManager> {
-	node_spec
-		.start_node(config, polkadot_config, collator_options, id, hwbench, extra_args)
-		.await
-		.map_err(Into::into)
 }

@@ -28,6 +28,7 @@ pub mod types;
 
 use cumulus_primitives_core::CollectCollationInfo;
 use sc_client_db::DbHash;
+use serde::de::DeserializeOwned;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
 use sp_runtime::{
@@ -45,7 +46,7 @@ use std::{
 
 pub trait NodeBlock:
 	BlockT<Extrinsic = OpaqueExtrinsic, Header = Self::BoundedHeader, Hash = DbHash>
-	+ for<'de> serde::Deserialize<'de>
+	+ DeserializeOwned
 	+ UnwindSafe
 	+ RefUnwindSafe
 {
@@ -57,7 +58,7 @@ pub trait NodeBlock:
 impl<T> NodeBlock for T
 where
 	T: BlockT<Extrinsic = OpaqueExtrinsic, Hash = DbHash>
-		+ for<'de> serde::Deserialize<'de>
+		+ DeserializeOwned
 		+ UnwindSafe
 		+ RefUnwindSafe,
 	<T as BlockT>::Header: Unpin + UnwindSafe + RefUnwindSafe,

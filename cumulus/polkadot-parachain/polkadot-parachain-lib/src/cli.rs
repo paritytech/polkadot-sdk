@@ -120,8 +120,6 @@ pub struct Cli<Config: CliConfig> {
 	pub run: cumulus_client_cli::RunCmd,
 
 	/// Dev option for producing a block each `dev_block_time` ms.
-	///
-	/// This works only with dev chains (e.g. asset-hub-rococo-dev).
 	#[arg(long)]
 	pub dev_block_time: Option<u64>,
 
