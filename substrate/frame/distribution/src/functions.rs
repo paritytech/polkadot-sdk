@@ -77,14 +77,11 @@ impl<T: Config> Pallet<T> {
 					if check.is_ok() {
 						// Create a new Spend
 						let new_spend = SpendInfo::<T>::new(&project);
-						match T::NativeBalance::hold(
+						let _ = T::NativeBalance::hold(
 							&HoldReason::FundsReserved.into(),
 							&pot,
 							project.amount,
-						) {
-							Ok(_x) => println!("Hold operation succeded!"),
-							Err(e) => println!("{:?}", e),
-						};
+						).expect("Funds Reserve Failed");
 
 						// Remove project from project_list
 						projects.retain(|value| *value != project);
