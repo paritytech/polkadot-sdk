@@ -60,6 +60,7 @@
 // unused dependencies can not work for test and examples at the same time
 // yielding false positives
 #![warn(missing_docs)]
+#![allow(dead_code)] // TODO https://github.com/paritytech/polkadot-sdk/issues/5793
 
 use std::{
 	collections::{hash_map, HashMap},
