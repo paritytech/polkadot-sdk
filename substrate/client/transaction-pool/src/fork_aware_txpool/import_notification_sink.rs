@@ -24,7 +24,7 @@
 use crate::LOG_TARGET;
 use futures::{
 	channel::mpsc::{channel, Receiver as EventStream, Sender as ExternalSink},
-	stream::{self, Fuse, StreamExt},
+	stream::StreamExt,
 	Future, FutureExt,
 };
 use log::trace;
@@ -78,10 +78,10 @@ impl<K, I: Send + Sync> Debug for Command<K, I> {
 /// map, ensuring new views can be dynamically added and events from any active view can be
 /// processed.
 struct AggregatedStreamContext<K, I: Send + Sync> {
-	/// A fused map of streams identified by unique keys,
-	stream_map: Fuse<StreamMap<K, StreamOf<I>>>,
+	/// A map of streams identified by unique keys,
+	stream_map: StreamMap<K, StreamOf<I>>,
 	/// A receiver for handling control commands, such as adding new views.
-	command_receiver: Fuse<CommandReceiver<Command<K, I>>>,
+	command_receiver: CommandReceiver<Command<K, I>>,
 }
 
 impl<K, I> AggregatedStreamContext<K, I>
@@ -91,9 +91,8 @@ where
 {
 	/// Creates a new aggregated stream of items and its command controller.
 	///
-	/// This function sets up the initial context with a stream map containing a pending stream
-	/// (what prevents the premature termination of the output stream). The aggregated output stream
-	/// of items (e.g. hashes of transactions that become ready) is unfolded.
+	/// This function sets up the initial context with an empty stream map. The aggregated output
+	/// stream of items (e.g. hashes of transactions that become ready) is unfolded.
 	///
 	/// It returns a tuple containing the output stream and the command controller, allowing
 	/// external components to control this stream.
@@ -101,11 +100,7 @@ where
 		let (sender, receiver) =
 			sc_utils::mpsc::tracing_unbounded::<Command<K, I>>("import-notification-sink", 16);
 
-		let mut stream_map: StreamMap<K, StreamOf<I>> = StreamMap::new();
-		//note: do not terminate stream-map if input streams (views) are all done:
-		stream_map.insert(Default::default(), stream::pending().boxed());
-
-		let ctx = Self { stream_map: stream_map.fuse(), command_receiver: receiver.fuse() };
+		let ctx = Self { stream_map: StreamMap::new(), command_receiver: receiver };
 
 		let output_stream = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
@@ -115,12 +110,12 @@ where
 						match cmd? {
 							Command::AddView(key,stream) => {
 								trace!(target: LOG_TARGET,"Command::AddView {key:?}");
-								ctx.stream_map.get_mut().insert(key,stream);
+								ctx.stream_map.insert(key,stream);
 							},
 						}
 					},
 
-					event = futures::StreamExt::select_next_some(&mut ctx.stream_map) => {
+					Some(event) = futures::StreamExt::next(&mut ctx.stream_map) => {
 						trace!(target: LOG_TARGET, "select_next_some -> {:#?}", event);
 						return Some((event.1, ctx));
 					}
