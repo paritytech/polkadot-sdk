@@ -1148,13 +1148,13 @@ path = "../substrate/frame/offences"
 default-features = false
 optional = true
 
-[dependencies.pallet-opf]
-path = "../substrate/frame/opf"
+[dependencies.pallet-offences-benchmarking]
+path = "../substrate/frame/offences/benchmarking"
 default-features = false
 optional = true
 
-[dependencies.pallet-offences-benchmarking]
-path = "../substrate/frame/offences/benchmarking"
+[dependencies.pallet-opf]
+path = "../substrate/frame/opf"
 default-features = false
 optional = true
 
