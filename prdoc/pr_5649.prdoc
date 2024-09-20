@@ -8,23 +8,23 @@ doc:
 
 crates:
 - name: bridge-runtime-common
-  bump: major
+  bump: patch
 - name: bp-runtime
-  bump: minor
+  bump: patch
 - name: staging-xcm-executor
   bump: none
 - name: parachains-runtimes-test-utils
-  bump: major
+  bump: patch
 - name: bp-messages
   bump: major
 - name: bp-relayers
   bump: major
 - name: bp-xcm-bridge-hub
-  bump: major
+  bump: patch
 - name: pallet-bridge-messages
-  bump: minor
+  bump: patch
 - name: pallet-bridge-relayers
-  bump: major
+  bump: patch
 - name: pallet-xcm-bridge-hub
   bump: major
 - name: emulated-integration-tests-common
@@ -44,4 +44,6 @@ crates:
 - name: bridge-hub-westend-runtime
   bump: patch
 - name: polkadot-parachain-bin
+  bump: patch
+- name: bridge-hub-test-utils
   bump: patch
