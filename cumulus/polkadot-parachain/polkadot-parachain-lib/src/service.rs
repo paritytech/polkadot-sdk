@@ -53,7 +53,7 @@ use sc_consensus::{
 };
 use sc_service::{Configuration, Error, TaskManager};
 use sc_telemetry::TelemetryHandle;
-use sc_transaction_pool::TransactionPoolHandle;
+use sc_transaction_pool::TransactionPoolImpl;
 use sp_api::ProvideRuntimeApi;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -264,7 +264,7 @@ impl StartConsensus<Block<u32>, FakeRuntimeApi> for StartRelayChainConsensus {
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: TransactionPoolHandle<
+		transaction_pool: TransactionPoolImpl<
 			Block<u32>,
 			ParachainClient<Block<u32>, FakeRuntimeApi>,
 		>,
@@ -393,7 +393,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+		transaction_pool: TransactionPoolImpl<Block, ParachainClient<Block, RuntimeApi>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -490,7 +490,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+		transaction_pool: TransactionPoolImpl<Block, ParachainClient<Block, RuntimeApi>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,

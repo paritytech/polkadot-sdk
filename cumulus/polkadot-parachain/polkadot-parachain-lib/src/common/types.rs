@@ -20,7 +20,7 @@ use sc_consensus::DefaultImportQueue;
 use sc_executor::WasmExecutor;
 use sc_service::{PartialComponents, TFullBackend, TFullClient};
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
-use sc_transaction_pool::TransactionPoolHandle;
+use sc_transaction_pool::TransactionPoolImpl;
 use sp_runtime::{generic, traits::BlakeTwo256};
 use std::sync::Arc;
 
@@ -51,6 +51,6 @@ pub type ParachainService<Block, RuntimeApi> = PartialComponents<
 	ParachainBackend<Block>,
 	(),
 	DefaultImportQueue<Block>,
-	TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+	TransactionPoolImpl<Block, ParachainClient<Block, RuntimeApi>>,
 	(ParachainBlockImport<Block, RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;

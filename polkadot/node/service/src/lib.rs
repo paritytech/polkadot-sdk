@@ -484,7 +484,7 @@ fn new_partial<ChainSelection>(
 		FullBackend,
 		ChainSelection,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+		sc_transaction_pool::TransactionPoolImpl<Block, FullClient>,
 		(
 			impl Fn(
 				polkadot_rpc::SubscriptionTaskExecutor,

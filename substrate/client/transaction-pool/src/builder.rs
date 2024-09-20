@@ -161,14 +161,14 @@ where
 {
 }
 
-/// The public type alias for the actual type providing the implementation of
+/// The type alias for a type providing an object implementing
 /// `FullClientTransactionPool` with the given `Client` and `Block` types.
 ///
-/// This handle abstracts away the specific type of the transaction pool. Should be used
-/// externally to keep reference to transaction pool.
-pub type TransactionPoolHandle<Block, Client> = Arc<dyn FullClientTransactionPool<Block, Client>>;
+/// This trait object abstracts away the specific type of the transaction pool.
+// pub type TransactionPoolImpl<Block, Client> = TransactionPoolWrapper<Block, Client>;
+pub type TransactionPoolImpl<Block, Client> = Arc<dyn FullClientTransactionPool<Block, Client>>;
 
-/// Builder allowing to create a specific instance of transaction pool.
+/// Builder allowing to create specific instance of transaction pool.
 pub struct Builder<'a, Block, Client> {
 	options: TransactionPoolOptions,
 	is_validator: IsValidator,
@@ -223,7 +223,7 @@ where
 	}
 
 	/// Creates an instance of transaction pool.
-	pub fn build(self) -> TransactionPoolHandle<Block, Client> {
+	pub fn build(self) -> TransactionPoolImpl<Block, Client> {
 		log::info!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
 		match self.options.txpool_type {
 			TransactionPoolType::SingleState => Arc::from(SingleStateFullPool::new_full(

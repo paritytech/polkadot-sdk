@@ -55,7 +55,7 @@ pub type Service = PartialComponents<
 	ParachainBackend,
 	(),
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient>,
+	sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient>,
 	(ParachainBlockImport, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
 
@@ -174,7 +174,7 @@ fn start_consensus(
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	transaction_pool: sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient>,
+	transaction_pool: sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient>,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,

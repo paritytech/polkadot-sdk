@@ -33,7 +33,7 @@ use common::{api, enactment_state};
 use std::{future::Future, pin::Pin, sync::Arc};
 
 pub use api::FullChainApi;
-pub use builder::{Builder, TransactionPoolHandle, TransactionPoolOptions, TransactionPoolType};
+pub use builder::{Builder, TransactionPoolImpl, TransactionPoolOptions, TransactionPoolType};
 pub use common::notification_future;
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 pub use graph::{base_pool::Limit as PoolLimit, ChainApi, Options, Pool};
