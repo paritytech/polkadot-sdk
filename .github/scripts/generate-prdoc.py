@@ -113,17 +113,28 @@ def setup_yaml():
 
 	yaml.add_representer(str, yaml_multiline_string_presenter)
 
-def parse_args():
-	parser = argparse.ArgumentParser()
-	parser.add_argument("--pr", type=int, required=True)
-	parser.add_argument("--audience", type=str, default="TODO")
-	parser.add_argument("--bump", type=str, default="TODO")
-	parser.add_argument("--force", type=str)
-	return parser.parse_args()
+# parse_args is also used by cmd/cmd.py
+def setup_parser(parser=None):
+	if parser is None:
+		parser = argparse.ArgumentParser()
+	parser.add_argument("--pr", type=int, required=True, help="The PR number to generate the PrDoc for."	)
+	parser.add_argument("--audience", type=str, default="TODO", help="The audience of whom the changes may concern.")
+	parser.add_argument("--bump", type=str, default="TODO", help="A default bump level for all crates.")
+	parser.add_argument("--force", type=str, help="Whether to overwrite any existing PrDoc.")
+	
+	return parser
 
-if __name__ == "__main__":
-	args = parse_args()
+def main(args):
 	force = True if (args.force or "false").lower() == "true" else False
 	print(f"Args: {args}, force: {force}")
 	setup_yaml()
-	from_pr_number(args.pr, args.audience, args.bump, force)
+	try:
+		from_pr_number(args.pr, args.audience, args.bump, force)
+		return 0
+	except Exception as e:
+		print(f"Error generating prdoc: {e}")
+		return 1
+
+if __name__ == "__main__":
+	args = setup_parser().parse_args()
+	main(args)
