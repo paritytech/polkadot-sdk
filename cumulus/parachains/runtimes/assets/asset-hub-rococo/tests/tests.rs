@@ -54,6 +54,7 @@ use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::W
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{JustTry, WeightTrader};
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -1354,4 +1355,18 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 			}
 		},
 	)
+}
+
+#[test]
+fn location_conversion_works() {
+	let alice_on_bh = Location::new(
+		1,
+		[
+			Parachain(1111),
+			Junction::AccountId32 { network: None, id: AccountId::from(ALICE).into() },
+		],
+	);
+	assert_ok!(LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+		alice_on_bh.into()
+	));
 }

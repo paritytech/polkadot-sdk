@@ -511,6 +511,8 @@ mod bridge_hub_bulletin_tests {
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
 		WithRococoBulletinMessagesInstance, XcmOverPolkadotBulletinInstance,
 	};
+	use frame_support::assert_ok;
+	use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 	// Random para id of sibling chain used in tests.
 	pub const SIBLING_PEOPLE_PARACHAIN_ID: u32 =
@@ -690,5 +692,19 @@ mod bridge_hub_bulletin_tests {
 				BridgedBulletinLocation::get(),
 			)
 		}
+	}
+
+	#[test]
+	fn location_conversion_works() {
+		let alice_on_ah = Location::new(
+			1,
+			[
+				Parachain(1111),
+				Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() },
+			],
+		);
+		assert_ok!(LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+			alice_on_ah.into()
+		));
 	}
 }

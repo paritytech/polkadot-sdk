@@ -32,7 +32,7 @@ use bridge_to_rococo_config::{
 	WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
-use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
+use frame_support::{assert_ok, dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
 use parachains_common::{AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_keyring::AccountKeyring::Alice;
@@ -42,6 +42,7 @@ use sp_runtime::{
 };
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
 use xcm::latest::prelude::*;
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 // Random para id of sibling chain used in tests.
 pub const SIBLING_PARACHAIN_ID: u32 = 2053;
@@ -395,4 +396,18 @@ fn open_and_close_bridge_works() {
 			BridgedUniversalLocation::get(),
 		)
 	}
+}
+
+#[test]
+fn location_conversion_works() {
+	let alice_on_ah = Location::new(
+		1,
+		[
+			Parachain(1111),
+			Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() },
+		],
+	);
+	assert_ok!(LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+		alice_on_ah.into()
+	));
 }

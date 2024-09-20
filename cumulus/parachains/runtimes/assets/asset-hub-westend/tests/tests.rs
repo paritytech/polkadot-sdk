@@ -49,12 +49,16 @@ use frame_support::{
 };
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
-use sp_runtime::traits::MaybeEquivalence;
+use sp_runtime::{
+	traits::{IdentifyAccount, MaybeEquivalence, Verify},
+	MultiSignature,
+};
 use std::{convert::Into, ops::Mul};
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -1328,4 +1332,18 @@ fn reserve_transfer_native_asset_to_non_teleport_para_works() {
 		}),
 		WeightLimit::Unlimited,
 	);
+}
+
+#[test]
+fn location_conversion_works() {
+	let alice_on_bh = Location::new(
+		1,
+		[
+			Parachain(1111),
+			Junction::AccountId32 { network: None, id: AccountId::from(ALICE).into() },
+		],
+	);
+	assert_ok!(LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+		alice_on_bh.into()
+	));
 }
