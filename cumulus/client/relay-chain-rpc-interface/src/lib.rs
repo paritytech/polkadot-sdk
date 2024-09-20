@@ -165,6 +165,18 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		self.rpc_client.chain_get_finalized_head().await
 	}
 
+	async fn call_runtime_api(
+		&self,
+		method_name: &'static str,
+		hash: RelayHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		self.rpc_client
+			.call_remote_runtime_function_encoded(method_name, hash, payload)
+			.await
+			.map(|bytes| bytes.to_vec())
+	}
+
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
 		self.rpc_client.system_health().await.map(|h| h.is_syncing)
 	}
