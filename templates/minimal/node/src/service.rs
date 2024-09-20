@@ -21,14 +21,9 @@ use minimal_template_runtime::{interface::OpaqueBlock as Block, RuntimeApi};
 use polkadot_sdk::{
 	sc_client_api::backend::Backend,
 	sc_executor::WasmExecutor,
-	sc_network_sync::service::network::NetworkServiceProvider,
-	sc_service::{
-		build_default_syncing_engine, error::Error as ServiceError, Configuration,
-		DefaultSyncingEngineConfig, ImportQueue, TaskManager,
-	},
+	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
 	sc_telemetry::{Telemetry, TelemetryWorker},
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
-	sp_consensus::block_validation::DefaultBlockAnnounceValidator,
 	sp_runtime::traits::Block as BlockT,
 	*,
 };
@@ -124,7 +119,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		other: mut telemetry,
 	} = new_partial(&config)?;
 
-	let mut net_config = sc_network::config::FullNetworkConfiguration::<
+	let net_config = sc_network::config::FullNetworkConfiguration::<
 		Block,
 		<Block as BlockT>::Hash,
 		Network,
@@ -136,36 +131,17 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 	);
 
-	let network_service_provider = NetworkServiceProvider::new();
-	let (sync_service, block_announce_config) =
-		build_default_syncing_engine(DefaultSyncingEngineConfig {
-			role: config.role,
-			protocol_id: config.protocol_id(),
-			fork_id: None,
-			net_config: &mut net_config,
-			block_announce_validator: Box::new(DefaultBlockAnnounceValidator),
-			network_service_handle: network_service_provider.handle(),
-			warp_sync_config: None,
-			client: client.clone(),
-			import_queue_service: import_queue.service(),
-			num_peers_hint: config.network.default_peers_set.in_peers as usize +
-				config.network.default_peers_set.out_peers as usize,
-			spawn_handle: &task_manager.spawn_handle(),
-			metrics_registry: config.prometheus_config.as_ref().map(|config| &config.registry),
-			metrics: metrics.clone(),
-		})?;
-
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
+			net_config,
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
-			sync_service,
-			block_announce_config,
-			net_config,
-			network_service_provider,
+			block_announce_validator_builder: None,
+			warp_sync_config: None,
+			block_relay: None,
 			metrics,
 		})?;
 

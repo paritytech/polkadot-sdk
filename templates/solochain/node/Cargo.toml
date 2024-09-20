@@ -25,7 +25,6 @@ sc-cli = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
-sc-network-sync = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
@@ -35,7 +34,6 @@ sc-consensus = { workspace = true, default-features = true }
 sc-consensus-aura = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sc-consensus-grandpa = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
 sp-consensus-grandpa = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-basic-authorship = { workspace = true, default-features = true }
@@ -69,21 +67,21 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"solochain-template-runtime/std",
+    "solochain-template-runtime/std",
 ]
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
-	"frame-benchmarking-cli/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"sc-service/runtime-benchmarks",
-	"solochain-template-runtime/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+    "frame-benchmarking-cli/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "sc-service/runtime-benchmarks",
+    "solochain-template-runtime/runtime-benchmarks",
+    "sp-runtime/runtime-benchmarks",
 ]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
 try-runtime = [
-	"frame-system/try-runtime",
-	"pallet-transaction-payment/try-runtime",
-	"solochain-template-runtime/try-runtime",
-	"sp-runtime/try-runtime",
+    "frame-system/try-runtime",
+    "pallet-transaction-payment/try-runtime",
+    "solochain-template-runtime/try-runtime",
+    "sp-runtime/try-runtime",
 ]

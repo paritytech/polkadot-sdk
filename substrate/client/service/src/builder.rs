@@ -84,7 +84,9 @@ use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
-use sp_consensus::block_validation::{BlockAnnounceValidator, Chain};
+use sp_consensus::block_validation::{
+	BlockAnnounceValidator, Chain, DefaultBlockAnnounceValidator,
+};
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
@@ -781,30 +783,35 @@ where
 	Ok(rpc_api)
 }
 
-/// Parameters to pass into `build_network`.
-pub struct BuildNetworkParams<'a, Block, Net, TxPool, IQ, Client>
-where
-	Block: BlockT,
-	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
-{
+/// Parameters to pass into [`build_network`].
+pub struct BuildNetworkParams<
+	'a,
+	TBl: BlockT,
+	TNet: NetworkBackend<TBl, <TBl as BlockT>::Hash>,
+	TExPool,
+	TImpQu,
+	TCl,
+> {
 	/// The service configuration.
 	pub config: &'a Configuration,
 	/// Full network configuration.
-	pub net_config: FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
+	pub net_config: FullNetworkConfiguration<TBl, <TBl as BlockT>::Hash, TNet>,
 	/// A shared client returned by `new_full_parts`.
-	pub client: Arc<Client>,
+	pub client: Arc<TCl>,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TxPool>,
+	pub transaction_pool: Arc<TExPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
 	/// An import queue.
-	pub import_queue: IQ,
-	/// Syncing service to communicate with syncing engine.
-	pub sync_service: SyncingService<Block>,
-	/// Block announce config.
-	pub block_announce_config: Net::NotificationProtocolConfig,
-	/// Network service provider to drive with network internally.
-	pub network_service_provider: NetworkServiceProvider,
+	pub import_queue: TImpQu,
+	/// A block announce validator builder.
+	pub block_announce_validator_builder:
+		Option<Box<dyn FnOnce(Arc<TCl>) -> Box<dyn BlockAnnounceValidator<TBl> + Send> + Send>>,
+	/// Optional warp sync config.
+	pub warp_sync_config: Option<WarpSyncConfig<TBl>>,
+	/// User specified block relay params. If not specified, the default
+	/// block request handler will be used.
+	pub block_relay: Option<BlockRelayParams<TBl, TNet>>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
 }
@@ -838,6 +845,153 @@ where
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	let BuildNetworkParams {
+		config,
+		mut net_config,
+		client,
+		transaction_pool,
+		spawn_handle,
+		import_queue,
+		block_announce_validator_builder,
+		warp_sync_config,
+		block_relay,
+		metrics,
+	} = params;
+
+	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
+		f(client.clone())
+	} else {
+		Box::new(DefaultBlockAnnounceValidator)
+	};
+
+	let network_service_provider = NetworkServiceProvider::new();
+	let protocol_id = config.protocol_id();
+	let fork_id = config.chain_spec.fork_id();
+	let metrics_registry = config.prometheus_config.as_ref().map(|config| &config.registry);
+
+	let block_downloader = match block_relay {
+		Some(params) => {
+			let BlockRelayParams { mut server, downloader, request_response_config } = params;
+
+			net_config.add_request_response_protocol(request_response_config);
+
+			spawn_handle.spawn("block-request-handler", Some("networking"), async move {
+				server.run().await;
+			});
+
+			downloader
+		},
+		None => build_default_block_downloader(
+			&protocol_id,
+			fork_id,
+			&mut net_config,
+			network_service_provider.handle(),
+			Arc::clone(&client),
+			config.network.default_peers_set.in_peers as usize +
+				config.network.default_peers_set.out_peers as usize,
+			&spawn_handle,
+		),
+	};
+
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		protocol_id.clone(),
+		fork_id,
+		&mut net_config,
+		warp_sync_config,
+		block_downloader,
+		client.clone(),
+		&spawn_handle,
+		metrics_registry,
+	)?;
+
+	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
+		Roles::from(&config.role),
+		Arc::clone(&client),
+		metrics_registry,
+		metrics.clone(),
+		&net_config,
+		protocol_id,
+		fork_id,
+		block_announce_validator,
+		syncing_strategy,
+		network_service_provider.handle(),
+		import_queue.service(),
+		net_config.peer_store_handle(),
+	)?;
+
+	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
+
+	build_network_advanced(BuildNetworkAdvancedParams {
+		config,
+		net_config,
+		client,
+		transaction_pool,
+		spawn_handle,
+		import_queue,
+		sync_service,
+		block_announce_config,
+		network_service_provider,
+		metrics,
+	})
+}
+
+/// Parameters to pass into [`build_network_advanced`].
+pub struct BuildNetworkAdvancedParams<'a, Block, Net, TxPool, IQ, Client>
+where
+	Block: BlockT,
+	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+{
+	/// The service configuration.
+	pub config: &'a Configuration,
+	/// Full network configuration.
+	pub net_config: FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
+	/// A shared client returned by `new_full_parts`.
+	pub client: Arc<Client>,
+	/// A shared transaction pool.
+	pub transaction_pool: Arc<TxPool>,
+	/// A handle for spawning tasks.
+	pub spawn_handle: SpawnTaskHandle,
+	/// An import queue.
+	pub import_queue: IQ,
+	/// Syncing service to communicate with syncing engine.
+	pub sync_service: SyncingService<Block>,
+	/// Block announce config.
+	pub block_announce_config: Net::NotificationProtocolConfig,
+	/// Network service provider to drive with network internally.
+	pub network_service_provider: NetworkServiceProvider,
+	/// Metrics.
+	pub metrics: NotificationMetrics,
+}
+
+/// Build the network service, the network status sinks and an RPC sender, this is a lower-level
+/// version of [`build_network`] for those needing more control.
+pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
+	params: BuildNetworkAdvancedParams<Block, Net, TxPool, IQ, Client>,
+) -> Result<
+	(
+		Arc<dyn sc_network::service::traits::NetworkService>,
+		TracingUnboundedSender<sc_rpc::system::Request<Block>>,
+		sc_network_transactions::TransactionsHandlerController<<Block as BlockT>::Hash>,
+		NetworkStarter,
+		Arc<SyncingService<Block>>,
+	),
+	Error,
+>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ Chain<Block>
+		+ BlockBackend<Block>
+		+ BlockIdTo<Block, Error = sp_blockchain::Error>
+		+ ProofProvider<Block>
+		+ HeaderBackend<Block>
+		+ BlockchainEvents<Block>
+		+ 'static,
+	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
+	IQ: ImportQueue<Block> + 'static,
+	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+{
+	let BuildNetworkAdvancedParams {
 		config,
 		mut net_config,
 		client,
