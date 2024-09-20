@@ -305,9 +305,9 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				use $crate::extensions::__private::tuplex::PushBack;
 				use sp_runtime::traits::AsSystemOriginSigner;
 
-				let who = origin.as_system_origin_signer() else {
+				let Some(who) = origin.as_system_origin_signer() else {
 					return Ok((Default::default(), None, origin));
-				}
+				};
 
 				let to_post_dispatch = ();
 				let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
@@ -317,11 +317,11 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 						$crate::extensions::BridgeRuntimeFilterCall<
 							$account_id,
 							$call,
-						>>::validate(&who, call);
+						>>::validate(who, call);
 					let to_post_dispatch = to_post_dispatch.push_back(from_validate);
 					let tx_validity = tx_validity.combine_with(call_filter_validity?);
 				)*
-				Ok((tx_validity, Some((who, reto_post_dispatch)), origin))
+				Ok((tx_validity, Some((who.clone(), to_post_dispatch)), origin))
 			}
 
 			fn prepare(
