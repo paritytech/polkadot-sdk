@@ -424,10 +424,10 @@ pub trait Ext: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
-	/// Returns an immutable reference to saved output of the last executed call frame.
+	/// Returns an immutable reference to the output of the last executed call frame.
 	fn last_frame_output(&self) -> &ExecReturnValue;
 
-	/// Returns a mutable reference to saved output of the last executed call frame.
+	/// Returns a mutable reference to the output of the last executed call frame.
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
 }
 
@@ -549,7 +549,7 @@ struct Frame<T: Config> {
 	read_only: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
-	/// The output of the last call frame
+	/// The output of the last executed call frame. 
 	last_frame_output: ExecReturnValue,
 }
 
@@ -1274,10 +1274,10 @@ where
 		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
 	}
 
-	/// Replaces the last frame output with the default value, dropping it.
+	/// Replaces the `last_frame_output` of the **caller** frame with the default value.
 	fn take_caller_output(&mut self) {
 		let len = self.frames.len();
-		core::mem::take(match len {
+		mem::take(match len {
 			0 => return,
 			1 => &mut self.first_frame.last_frame_output,
 			_ => &mut self.frames.get_mut(len - 2).expect("len >= 2; qed").last_frame_output,

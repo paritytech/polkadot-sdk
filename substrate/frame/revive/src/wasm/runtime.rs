@@ -28,7 +28,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
-use core::{fmt, marker::PhantomData};
+use core::{mem, fmt, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
 	traits::Get, weights::Weight,
@@ -1026,7 +1026,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 		};
 
-		let output = core::mem::take(self.ext.last_frame_output_mut());
+		let output = mem::take(self.ext.last_frame_output_mut());
 		match call_outcome {
 			// `TAIL_CALL` only matters on an `OK` result. Otherwise the call stack comes to
 			// a halt anyways without anymore code being executed.
@@ -1088,7 +1088,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			salt.as_ref(),
 		) {
 			Ok(address) => {
-				let output = core::mem::take(self.ext.last_frame_output_mut());
+				let output = mem::take(self.ext.last_frame_output_mut());
 				if !output.flags.contains(ReturnFlags::REVERT) {
 					self.write_fixed_sandbox_output(
 						memory,
@@ -1992,7 +1992,7 @@ pub mod env {
 		)?)
 	}
 
-	/// Stores data returned by the last call starting from `offset` into the supplied buffer.
+	/// Stores data returned by the last call, starting from `offset`, into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::return_data`].
 	#[api_version(0)]
 	fn return_data_copy(
@@ -2002,7 +2002,7 @@ pub mod env {
 		out_len_ptr: u32,
 		offset: u32,
 	) -> Result<(), TrapReason> {
-		let output = core::mem::take(self.ext.last_frame_output_mut());
+		let output = mem::take(self.ext.last_frame_output_mut());
 		if offset as usize > output.data.len() {
 			return Err(Error::<E::T>::OutOfBounds.into());
 		}
