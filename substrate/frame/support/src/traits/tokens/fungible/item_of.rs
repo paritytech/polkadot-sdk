@@ -22,7 +22,6 @@
 //!
 //! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
-use frame_support::traits::fungible::hold::DoneSlash;
 use super::*;
 use crate::traits::{
 	fungible::imbalance,
@@ -31,6 +30,7 @@ use crate::traits::{
 		WithdrawConsequence,
 	},
 };
+use frame_support::traits::fungible::hold::DoneSlash;
 use sp_core::Get;
 use sp_runtime::{DispatchError, DispatchResult};
 
@@ -469,13 +469,18 @@ impl<
 }
 
 impl<
-	F: fungibles::BalancedHold<AccountId>,
-	A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
-	AccountId,
-> DoneSlash<F::Reason, AccountId, F::Balance> for ItemOf<F, A, AccountId>
+		F: fungibles::BalancedHold<AccountId>,
+		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
+		AccountId,
+	> DoneSlash<F::Reason, AccountId, F::Balance> for ItemOf<F, A, AccountId>
 {
 	fn done_slash(reason: &F::Reason, who: &AccountId, amount: F::Balance) {
-		<F as fungibles::hold::DoneSlash<F::AssetId, F::Reason, AccountId, F::Balance>>::done_slash(A::get(), reason, who, amount)
+		<F as fungibles::hold::DoneSlash<F::AssetId, F::Reason, AccountId, F::Balance>>::done_slash(
+			A::get(),
+			reason,
+			who,
+			amount,
+		)
 	}
 }
 

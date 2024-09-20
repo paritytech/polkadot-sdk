@@ -430,7 +430,11 @@ pub trait Mutate<AccountId>:
 }
 
 /// Trait for slashing a fungible asset which can be place on hold.
-pub trait Balanced<AccountId>: super::Balanced<AccountId> + Unbalanced<AccountId> + DoneSlash<Self::Reason, AccountId, Self::Balance> {
+pub trait Balanced<AccountId>:
+	super::Balanced<AccountId>
+	+ Unbalanced<AccountId>
+	+ DoneSlash<Self::Reason, AccountId, Self::Balance>
+{
 	/// Reduce the balance of some funds on hold in an account.
 	///
 	/// The resulting imbalance is the first item of the tuple returned.
@@ -462,4 +466,3 @@ impl<Reason, AccountId, Balance: Copy> DoneSlash<Reason, AccountId, Balance> for
 		for_tuples!( #( Tuple::done_slash(reason, who, amount); )* );
 	}
 }
-

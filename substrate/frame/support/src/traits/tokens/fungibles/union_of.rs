@@ -825,8 +825,10 @@ impl<
 }
 
 impl<
-		Left: fungibles::BalancedHold<AccountId> + fungibles::hold::DoneSlash<Self::AssetId, Self::Reason, AccountId, Self::Balance>,
-		Right: fungibles::BalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason> + fungibles::hold::DoneSlash<Self::AssetId, Self::Reason, AccountId, Self::Balance>,
+		Left: fungibles::BalancedHold<AccountId>
+			+ fungibles::hold::DoneSlash<Self::AssetId, Self::Reason, AccountId, Self::Balance>,
+		Right: fungibles::BalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>
+			+ fungibles::hold::DoneSlash<Self::AssetId, Self::Reason, AccountId, Self::Balance>,
 		Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
 		AssetKind: AssetId,
 		AccountId,
@@ -854,14 +856,18 @@ impl<
 }
 
 impl<
-	Reason,
-	Balance,
-	Left: fungibles::Inspect<AccountId> + fungibles::hold::DoneSlash<Left::AssetId, Reason, AccountId, Balance>,
-	Right: fungibles::Inspect<AccountId> + fungibles::hold::DoneSlash<Right::AssetId, Reason, AccountId, Balance>,
-	Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
-	AssetKind: AssetId,
-	AccountId,
-> fungibles::hold::DoneSlash<AssetKind, Reason, AccountId, Balance> for UnionOf<Left, Right, Criterion, AssetKind, AccountId> {
+		Reason,
+		Balance,
+		Left: fungibles::Inspect<AccountId>
+			+ fungibles::hold::DoneSlash<Left::AssetId, Reason, AccountId, Balance>,
+		Right: fungibles::Inspect<AccountId>
+			+ fungibles::hold::DoneSlash<Right::AssetId, Reason, AccountId, Balance>,
+		Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::hold::DoneSlash<AssetKind, Reason, AccountId, Balance>
+	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
 	fn done_slash(asset: AssetKind, reason: &Reason, who: &AccountId, amount: Balance) {
 		match Criterion::convert(asset.clone()) {
 			Left(a) => {
