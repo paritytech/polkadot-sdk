@@ -4314,7 +4314,8 @@ mod run_tests {
 	#[test]
 	fn return_data_api_works() {
 		let (code_return_data_api, _) = compile_module("return_data_api").unwrap();
-		let (code_return_with_data, hash_return_with_data) = compile_module("return_with_data").unwrap();
+		let (code_return_with_data, hash_return_with_data) =
+			compile_module("return_with_data").unwrap();
 
 		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);

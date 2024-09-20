@@ -1725,9 +1725,8 @@ pub mod env {
 			Environment::new(self, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
 		let ret = match chain_extension.call(env)? {
 			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } => {
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data }))
-			},
+			RetVal::Diverging { flags, data } =>
+				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
 		};
 		self.chain_extension = Some(chain_extension);
 		ret
