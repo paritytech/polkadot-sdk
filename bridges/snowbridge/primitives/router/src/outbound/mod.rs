@@ -71,6 +71,8 @@ impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, 
 		let dest = destination.take().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
 			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched remote destination {dest:?}.");
+			// We need to make sure that destination is not consumed in case of `NotApplicable`.
+			*destination = Some(dest);
 			return Err(SendError::NotApplicable)
 		}
 

@@ -1163,3 +1163,52 @@ fn xcm_converter_transfer_native_token_with_invalid_location_will_fail() {
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::InvalidAsset));
 }
+
+#[test]
+fn exporter_validate_with_unknown_network_yields_not_applicable_does_not_alter_destination() {
+	let network = BridgedNetwork::get();
+	let mut destination: InteriorLocation = Parachain(1000).into();
+
+	let mut universal_source: Option<InteriorLocation> =
+		Some([GlobalConsensus(Polkadot), Parachain(1000)].into());
+
+	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let channel: u32 = 0;
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
+		fun: Fungible(1000),
+	}]
+	.into();
+	let fee = assets.clone().get(0).unwrap().clone();
+	let filter: AssetFilter = assets.clone().into();
+	let msg: Xcm<()> = vec![
+		WithdrawAsset(assets.clone()),
+		ClearOrigin,
+		BuyExecution { fees: fee, weight_limit: Unlimited },
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut msg_wrapper: Option<Xcm<()>> = Some(msg.clone());
+	let mut dest_wrapper = Some(destination.clone());
+
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(network, channel, &mut universal_source, &mut dest_wrapper, &mut msg_wrapper);
+
+	assert_eq!(result, Err(XcmSendError::NotApplicable));
+
+	// ensure dest and msg are untouched
+	assert_eq!(Some(destination), dest_wrapper);
+	assert_eq!(Some(msg), msg_wrapper);
+}
