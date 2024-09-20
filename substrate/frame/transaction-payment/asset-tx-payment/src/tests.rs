@@ -17,9 +17,9 @@ use super::*;
 
 use frame_support::{
 	assert_ok,
-	dispatch::{DispatchInfo, PostDispatchInfo},
+	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::fungibles::Mutate,
+	traits::{fungibles::Mutate, OriginTrait},
 	weights::Weight,
 };
 use frame_system as system;
@@ -577,7 +577,9 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 				.unwrap();
 			// `Pays::No` implies no pre-dispatch fees
 			assert_eq!(Assets::balance(asset_id, caller), balance);
-			let (_tip, _who, initial_payment, _asset_id, _extension_weight) = &pre;
+			let Pre::Charge { initial_payment, .. } = &pre else {
+				panic!("Expected Charge");
+			};
 			let not_paying = match initial_payment {
 				&InitialPayment::Nothing => true,
 				_ => false,
@@ -595,4 +597,41 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 		});
+}
+
+#[test]
+fn no_fee_and_no_weight_for_other_origins() {
+	ExtBuilder::default().build().execute_with(|| {
+		let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
+
+		let mut info = CALL.get_dispatch_info();
+		info.extension_weight = ext.weight(CALL);
+
+		// Ensure we test the refund.
+		assert!(info.extension_weight != Weight::zero());
+
+		let len = CALL.encoded_size();
+
+		let origin = frame_system::RawOrigin::Root.into();
+		let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len).unwrap();
+
+		assert!(origin.as_system_ref().unwrap().is_root());
+
+		let pd_res = Ok(());
+		let mut post_info = frame_support::dispatch::PostDispatchInfo {
+			actual_weight: Some(info.total_weight()),
+			pays_fee: Default::default(),
+		};
+
+		<ChargeAssetTxPayment<Runtime> as TransactionExtension<RuntimeCall>>::post_dispatch(
+			pre,
+			&info,
+			&mut post_info,
+			len,
+			&pd_res,
+		)
+		.unwrap();
+
+		assert_eq!(post_info.actual_weight, Some(info.call_weight));
+	})
 }

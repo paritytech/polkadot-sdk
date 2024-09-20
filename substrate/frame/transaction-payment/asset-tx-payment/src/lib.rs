@@ -262,6 +262,38 @@ impl<T: Config> core::fmt::Debug for ChargeAssetTxPayment<T> {
 	}
 }
 
+/// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
+pub enum Val<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// transaction fee
+		fee: BalanceOf<T>,
+	},
+	NoCharge,
+}
+
+/// The info passed between the prepare and post-dispatch steps for the `ChargeAssetTxPayment`
+/// extension.
+pub enum Pre<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// imbalance resulting from withdrawing the fee
+		initial_payment: InitialPayment<T>,
+		// asset_id for the transaction payment
+		asset_id: Option<ChargeAssetIdOf<T>>,
+		// weight used by the extension
+		weight: Weight,
+	},
+	NoCharge {
+		// weight used by the extension
+		weight: Weight,
+	},
+}
+
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -273,26 +305,8 @@ where
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
 	type Implicit = ();
-	type Val = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee
-		T::AccountId,
-		// transaction fee
-		BalanceOf<T>,
-	);
-	type Pre = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee
-		T::AccountId,
-		// imbalance resulting from withdrawing the fee
-		InitialPayment<T>,
-		// asset_id for the transaction payment
-		Option<ChargeAssetIdOf<T>>,
-		// weight used by the extension
-		Weight,
-	);
+	type Val = Val<T>;
+	type Pre = Pre<T>;
 
 	fn weight(&self, _: &T::RuntimeCall) -> Weight {
 		if self.asset_id.is_some() {
@@ -315,12 +329,14 @@ where
 		TransactionValidityError,
 	> {
 		use pallet_transaction_payment::ChargeTransactionPayment;
-		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+		let Some(who) = origin.as_system_origin_signer() else {
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin))
+		};
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
 		self.can_withdraw_fee(&who, call, info, fee)?;
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
-		let val = (self.tip, who.clone(), fee);
+		let val = Val::Charge { tip: self.tip, who: who.clone(), fee };
 		let validity = ValidTransaction { priority, ..Default::default() };
 		Ok((validity, val, origin))
 	}
@@ -333,10 +349,20 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (tip, who, fee) = val;
-		// Mutating call of `withdraw_fee` to actually charge for the transaction.
-		let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
-		Ok((tip, who, initial_payment, self.asset_id, self.weight(call)))
+		match val {
+			Val::Charge { tip, who, fee } => {
+				// Mutating call of `withdraw_fee` to actually charge for the transaction.
+				let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
+				Ok(Pre::Charge {
+					tip,
+					who,
+					initial_payment,
+					asset_id: self.asset_id,
+					weight: self.weight(call),
+				})
+			},
+			Val::NoCharge => Ok(Pre::NoCharge { weight: self.weight(call) }),
+		}
 	}
 
 	fn post_dispatch_details(
@@ -346,7 +372,15 @@ where
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		let (tip, who, initial_payment, asset_id, extension_weight) = pre;
+		let (tip, who, initial_payment, asset_id, extension_weight) = match pre {
+			Pre::Charge { tip, who, initial_payment, asset_id, weight } =>
+				(tip, who, initial_payment, asset_id, weight),
+			Pre::NoCharge { weight } => {
+				// No-op: Refund everything
+				return Ok(weight)
+			},
+		};
+
 		match initial_payment {
 			InitialPayment::Native(already_withdrawn) => {
 				// Take into account the weight used by this extension before calculating the
@@ -356,7 +390,11 @@ where
 				let mut actual_post_info = *post_info;
 				actual_post_info.refund(unspent_weight);
 				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
-					(tip, who, already_withdrawn),
+					pallet_transaction_payment::Pre::Charge {
+						tip,
+						who,
+						imbalance: already_withdrawn,
+					},
 					info,
 					&actual_post_info,
 					len,

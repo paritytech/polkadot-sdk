@@ -47,8 +47,7 @@ pub trait BridgeRuntimeFilterCall<AccountId, Call> {
 	/// Data that may be passed from the validate to `post_dispatch`.
 	type ToPostDispatch;
 	/// Called during validation. Needs to checks whether a runtime call, submitted
-	/// by the `who` is valid. `who` may be `None` if transaction is not signed
-	/// by a regular account.
+	/// by the `who` is valid. Transactions not signed are not validated.
 	fn validate(who: &AccountId, call: &Call) -> (Self::ToPostDispatch, TransactionValidity);
 	/// Called after transaction is dispatched.
 	fn post_dispatch(_who: &AccountId, _has_failed: bool, _to_post_dispatch: Self::ToPostDispatch) {
@@ -277,7 +276,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 		impl sp_runtime::traits::TransactionExtension<$call> for BridgeRejectObsoleteHeadersAndMessages {
 			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
 			type Implicit = ();
-			type Pre = Option<(
+			type Val = Option<(
 				$account_id,
 				( $(
 					<$filter_call as $crate::extensions::BridgeRuntimeFilterCall<
@@ -286,7 +285,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 					>>::ToPostDispatch,
 				)* ),
 			)>;
-			type Val = ();
+			type Pre = Self::Val;
 
 			fn validate(
 				&self,
@@ -303,44 +302,37 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 					<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
 				), sp_runtime::transaction_validity::TransactionValidityError
 			> {
+				use $crate::extensions::__private::tuplex::PushBack;
 				use sp_runtime::traits::AsSystemOriginSigner;
+
+				let Some(who) = origin.as_system_origin_signer() else {
+					return Ok((Default::default(), None, origin));
+				};
+
+				let to_post_dispatch = ();
 				let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
-				let who = origin.as_system_origin_signer().ok_or(sp_runtime::transaction_validity::InvalidTransaction::BadSigner)?;
 				$(
-					let (_from_validate, call_filter_validity) = <
+					let (from_validate, call_filter_validity) = <
 						$filter_call as
 						$crate::extensions::BridgeRuntimeFilterCall<
 							$account_id,
 							$call,
-						>>::validate(&who, call);
+						>>::validate(who, call);
+					let to_post_dispatch = to_post_dispatch.push_back(from_validate);
 					let tx_validity = tx_validity.combine_with(call_filter_validity?);
 				)*
-				Ok((tx_validity, (), origin))
+				Ok((tx_validity, Some((who.clone(), to_post_dispatch)), origin))
 			}
 
 			fn prepare(
 				self,
-				_val: Self::Val,
-				origin: &<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-				call: &$call,
+				val: Self::Val,
+				_origin: &<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				_call: &$call,
 				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				_len: usize,
 			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-				use $crate::extensions::__private::tuplex::PushBack;
-				use sp_runtime::traits::AsSystemOriginSigner;
-
-				let to_post_dispatch = ();
-				let relayer = origin.as_system_origin_signer().ok_or(sp_runtime::transaction_validity::InvalidTransaction::BadSigner)?;
-				$(
-					let (from_validate, _call_filter_validity) = <
-						$filter_call as
-						$crate::extensions::BridgeRuntimeFilterCall<
-							$account_id,
-							$call,
-						>>::validate(&relayer, call);
-					let to_post_dispatch = to_post_dispatch.push_back(from_validate);
-				)*
-				Ok(Some((relayer.clone(), to_post_dispatch)))
+				Ok(val)
 			}
 
 			#[allow(unused_variables)]
@@ -353,7 +345,10 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 			) -> Result<frame_support::pallet_prelude::Weight, sp_runtime::transaction_validity::TransactionValidityError> {
 				use $crate::extensions::__private::tuplex::PopFront;
 
-				let Some((relayer, to_post_dispatch)) = to_post_dispatch else { return Ok(frame_support::pallet_prelude::Weight::zero()) };
+				let Some((relayer, to_post_dispatch)) = to_post_dispatch else {
+					return Ok(frame_support::pallet_prelude::Weight::zero())
+				};
+
 				let has_failed = result.is_err();
 				$(
 					let (item, to_post_dispatch) = to_post_dispatch.pop_front();

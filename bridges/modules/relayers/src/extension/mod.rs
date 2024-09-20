@@ -139,13 +139,12 @@ where
 	/// virtually boosted. The relayer registration (we only boost priority for registered
 	/// relayer transactions) must be checked outside.
 	fn bundled_messages_for_priority_boost(
-		call_info: Option<&ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>>,
+		parsed_call: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>,
 	) -> Option<MessageNonce> {
 		// we only boost priority of message delivery transactions
-		let parsed_call = match call_info {
-			Some(parsed_call) if parsed_call.is_receive_messages_proof_call() => parsed_call,
-			_ => return None,
-		};
+		if !parsed_call.is_receive_messages_proof_call() {
+			return None;
+		}
 
 		// compute total number of messages in transaction
 		let bundled_messages = parsed_call.messages_call_info().bundled_messages().saturating_len();
@@ -163,7 +162,7 @@ where
 	/// Given post-dispatch information, analyze the outcome of relayer call and return
 	/// actions that need to be performed on relayer account.
 	fn analyze_call_result(
-		pre: Option<Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber>>>,
+		pre: Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber>>,
 		info: &DispatchInfo,
 		post_info: &PostDispatchInfo,
 		len: usize,
@@ -171,7 +170,7 @@ where
 	) -> RelayerAccountAction<R::AccountId, R::Reward> {
 		// We don't refund anything for transactions that we don't support.
 		let (relayer, call_info) = match pre {
-			Some(Some(pre)) => (pre.relayer, pre.call_info),
+			Some(pre) => (pre.relayer, pre.call_info),
 			_ => return RelayerAccountAction::None,
 		};
 
@@ -200,8 +199,7 @@ where
 		//
 		// - when relayer is registered after `validate` is called and priority is not boosted:
 		//   relayer should be ready for slashing after registration.
-		let may_slash_relayer =
-			Self::bundled_messages_for_priority_boost(Some(&call_info)).is_some();
+		let may_slash_relayer = Self::bundled_messages_for_priority_boost(&call_info).is_some();
 		let slash_relayer_if_delivery_result = may_slash_relayer
 			.then(|| RelayerAccountAction::Slash(relayer.clone(), reward_account_params))
 			.unwrap_or(RelayerAccountAction::None);
@@ -281,7 +279,7 @@ where
 	const IDENTIFIER: &'static str = C::IdProvider::STR;
 	type Implicit = ();
 	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber>>;
-	type Val = Option<ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>>;
+	type Val = Self::Pre;
 
 	fn validate(
 		&self,
@@ -292,26 +290,32 @@ where
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, R::RuntimeCall> {
-		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		// this is the only relevant line of code for the `pre_dispatch`
 		//
 		// we're not calling `validate` from `pre_dispatch` directly because of performance
 		// reasons, so if you're adding some code that may fail here, please check if it needs
 		// to be added to the `pre_dispatch` as well
-		let parsed_call = C::parse_and_check_for_obsolete_call(call)?;
+		let parsed_call = match C::parse_and_check_for_obsolete_call(call)? {
+			Some(parsed_call) => parsed_call,
+			None => return Ok((Default::default(), None, origin)),
+		};
+
+		// Those calls are only for signed transactions.
+		let relayer = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+
+		let data = PreDispatchData { relayer: relayer.clone(), call_info: parsed_call };
 
 		// the following code just plays with transaction priority and never returns an error
 
 		// we only boost priority of presumably correct message delivery transactions
-		let bundled_messages = match Self::bundled_messages_for_priority_boost(parsed_call.as_ref())
-		{
+		let bundled_messages = match Self::bundled_messages_for_priority_boost(&data.call_info) {
 			Some(bundled_messages) => bundled_messages,
-			None => return Ok((Default::default(), parsed_call, origin)),
+			None => return Ok((Default::default(), Some(data), origin)),
 		};
 
 		// we only boost priority if relayer has staked required balance
-		if !RelayersPallet::<R>::is_registration_active(who) {
-			return Ok((Default::default(), parsed_call, origin))
+		if !RelayersPallet::<R>::is_registration_active(&data.relayer) {
+			return Ok((Default::default(), Some(data), origin))
 		}
 
 		// compute priority boost
@@ -324,34 +328,33 @@ where
 			"{}.{:?}: has boosted priority of message delivery transaction \
 			of relayer {:?}: {} messages -> {} priority",
 			Self::IDENTIFIER,
-			parsed_call.as_ref().map(|p| p.messages_call_info().lane_id()),
-			who,
+			data.call_info.messages_call_info().lane_id(),
+			data.relayer,
 			bundled_messages,
 			priority_boost,
 		);
 
 		let validity = valid_transaction.build()?;
-		Ok((validity, parsed_call, origin))
+		Ok((validity, Some(data), origin))
 	}
 
 	fn prepare(
 		self,
 		val: Self::Val,
-		origin: &<R::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		_origin: &<R::RuntimeCall as Dispatchable>::RuntimeOrigin,
 		_call: &R::RuntimeCall,
 		_info: &DispatchInfoOf<R::RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
-		Ok(val.map(|call_info| {
+		Ok(val.map(|data| {
 			log::trace!(
 				target: LOG_TARGET,
-				"{}.{:?}: parsed bridge transaction in pre-dispatch: {:?}",
+				"{}.{:?}: parsed bridge transaction in prepare: {:?}",
 				Self::IDENTIFIER,
-				call_info.messages_call_info().lane_id(),
-				call_info,
+				data.call_info.messages_call_info().lane_id(),
+				data.call_info,
 			);
-			PreDispatchData { relayer: who.clone(), call_info }
+			data
 		}))
 	}
 
@@ -363,7 +366,7 @@ where
 		result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		let lane_id = pre.as_ref().map(|p| p.call_info.messages_call_info().lane_id());
-		let call_result = Self::analyze_call_result(Some(pre), info, post_info, len, result);
+		let call_result = Self::analyze_call_result(pre, info, post_info, len, result);
 
 		match call_result {
 			RelayerAccountAction::None => (),
@@ -1932,7 +1935,7 @@ mod tests {
 		dispatch_result: DispatchResult,
 	) -> RelayerAccountAction<ThisChainAccountId, ThisChainBalance> {
 		TestExtension::analyze_call_result(
-			Some(Some(pre_dispatch_data)),
+			Some(pre_dispatch_data),
 			&dispatch_info(),
 			&post_dispatch_info(),
 			1024,
