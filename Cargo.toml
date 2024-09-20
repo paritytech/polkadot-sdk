@@ -236,6 +236,7 @@ members = [
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
+	"polkadot/zombienet-sdk-tests",
 	"substrate/bin/node/bench",
 	"substrate/bin/node/cli",
 	"substrate/bin/node/inspect",
@@ -537,6 +538,7 @@ members = [
 	"templates/solochain/node",
 	"templates/solochain/pallets/template",
 	"templates/solochain/runtime",
+	"templates/zombienet",
 	"umbrella",
 ]
 
@@ -666,7 +668,7 @@ chain-spec-builder = { path = "substrate/bin/utils/chain-spec-builder", default-
 chain-spec-guide-runtime = { path = "docs/sdk/src/reference_docs/chain_spec_runtime" }
 chrono = { version = "0.4.31" }
 cid = { version = "0.9.0" }
-clap = { version = "4.5.10" }
+clap = { version = "4.5.13" }
 clap-num = { version = "1.0.2" }
 clap_complete = { version = "4.5.13" }
 coarsetime = { version = "0.1.22" }
@@ -1215,7 +1217,7 @@ snowbridge-router-primitives = { path = "bridges/snowbridge/primitives/router", 
 snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false }
 snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-common", default-features = false }
 snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false }
-soketto = { version = "0.7.1" }
+soketto = { version = "0.8.0" }
 solochain-template-runtime = { path = "templates/solochain/runtime" }
 sp-api = { path = "substrate/primitives/api", default-features = false }
 sp-api-proc-macro = { path = "substrate/primitives/api/proc-macro", default-features = false }
@@ -1297,7 +1299,7 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-syn = { version = "2.0.65" }
+syn = { version = "2.0.77" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
