@@ -843,10 +843,33 @@ impl<T: Config> Pallet<T> {
 		lowest_stake
 	}
 
-	// Get the maximum unstake amount for quicker unbond time supported at the time of an unbond
+	// Get the maximum unstake amount for quick unbond time supported at the time of an unbond
 	// request.
 	pub fn get_quick_unbond_max_unstake(from_era: EraIndex) -> BalanceOf<T> {
 		<MinSlashableShare<T>>::get() * Self::get_min_lowest_third_stake(from_era)
+	}
+
+	// Get the unbonding time (in blocks) for quick unbond for an unbond request.
+	//
+	// We implement the calculation `unbonding_time_delta = new_unbonding_stake / max_unstake *
+	// `UnbondPeriodUpperBound` period in blocks.
+	pub fn get_unbond_time_delta(unbond_stake: BalanceOf<T>, era: EraIndex) -> BlockNumberFor<T> {
+		// Conversions are made to `u32` to allow the calculation to be made between block number
+		// and balance types.
+		let session_length_as_u32: u32 =
+			T::NextNewSession::average_session_length().saturated_into();
+		let max_unstake_as_u32: u32 = Self::get_quick_unbond_max_unstake(era).saturated_into();
+		let unbond_stake_as_u32: u32 = unbond_stake.saturated_into();
+
+		// Worst case unbond time is maximum eras multiplied by average session length, in blocks.
+		let max_unbond_blocks = <UnbondPeriodUpperBound<T>>::get() * session_length_as_u32;
+
+		let denominator = max_unstake_as_u32 * max_unbond_blocks;
+		// To prevent division errors, return the max unbond time.
+		if denominator == 0 {
+			return (session_length_as_u32 * UnbondPeriodUpperBound::<T>::get()).saturated_into();
+		}
+		unbond_stake_as_u32.saturating_div(denominator).saturated_into()
 	}
 
 	/// Remove all associated data of a stash account from the staking system.
