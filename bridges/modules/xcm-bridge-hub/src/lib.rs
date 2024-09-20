@@ -753,43 +753,15 @@ pub mod pallet {
 					bridge_destination_universal_location.clone().into(),
 				)
 				.expect("Invalid genesis configuration");
+
 				let lane_id = match maybe_lane_id {
-					Some(lane_id) => lane_id.clone(),
+					Some(lane_id) => *lane_id,
 					None =>
 						locations.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations"),
 				};
-				let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
-					locations.bridge_origin_relative_location(),
-				)
-				.expect("Invalid genesis configuration");
 
-				Bridges::<T, I>::insert(
-					locations.bridge_id(),
-					Bridge {
-						bridge_origin_relative_location: Box::new(
-							locations.bridge_origin_relative_location().clone().into(),
-						),
-						bridge_origin_universal_location: Box::new(
-							locations.bridge_origin_universal_location().clone().into(),
-						),
-						bridge_destination_universal_location: Box::new(
-							locations.bridge_destination_universal_location().clone().into(),
-						),
-						state: BridgeState::Opened,
-						bridge_owner_account,
-						deposit: Zero::zero(),
-						lane_id,
-					},
-				);
-				LaneToBridge::<T, I>::insert(lane_id, locations.bridge_id());
-
-				let lanes_manager = LanesManagerOf::<T, I>::new();
-				lanes_manager
-					.create_inbound_lane(lane_id)
-					.expect("Invalid genesis configuration");
-				lanes_manager
-					.create_outbound_lane(lane_id)
-					.expect("Invalid genesis configuration");
+				Pallet::<T, I>::do_open_bridge(locations, lane_id, true)
+					.expect("Valid opened bridge!");
 			}
 		}
 	}
