@@ -61,7 +61,7 @@ pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
 
 type Block = frame_system::mocking::MockBlockU32<Runtime>;
-type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
 	pub enum Runtime {

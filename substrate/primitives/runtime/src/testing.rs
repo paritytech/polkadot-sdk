@@ -19,7 +19,7 @@
 
 use crate::{
 	codec::{Codec, Decode, Encode, MaxEncodedLen},
-	generic,
+	generic::{self, UncheckedExtrinsic},
 	scale_info::TypeInfo,
 	traits::{self, BlakeTwo256, Dispatchable, OpaqueKeys},
 	DispatchResultWithInfo, KeyTypeId,
@@ -247,6 +247,9 @@ where
 			.map_err(|e| DeError::custom(format!("Invalid value passed into decode: {}", e)))
 	}
 }
+
+/// Extrinsic type with `u64` accounts and mocked signatures, used in testing.
+pub type TestXt<Call, Extra> = UncheckedExtrinsic<u64, Call, (), Extra>;
 
 /// Wrapper over a `u64` that can be used as a `RuntimeCall`.
 #[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, TypeInfo)]

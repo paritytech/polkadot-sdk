@@ -38,17 +38,16 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	T: Config,
 	T::RuntimeOrigin: AsAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    BalanceOf<T>: Send + Sync + From<u64>,
 )]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
 	fn charge_transaction_payment() {
-		let caller: T::AccountId = whitelisted_caller();
+		let caller: T::AccountId = account("caller", 0, 0);
 		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(
 			&caller,
-			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance() * 1000.into(),
+			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance() * 1000u32.into(),
 		);
 		let tip = <T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance();
 		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(tip);

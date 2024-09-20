@@ -132,6 +132,9 @@ pub mod dynamic_params;
 pub mod tasks;
 pub use tasks::Task;
 
+mod proving;
+pub use proving::*;
+
 #[cfg(feature = "try-runtime")]
 mod try_runtime;
 #[cfg(feature = "try-runtime")]

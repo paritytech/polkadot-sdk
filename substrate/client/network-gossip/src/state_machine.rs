@@ -549,8 +549,7 @@ mod tests {
 	};
 	use sc_network_types::multiaddr::Multiaddr;
 	use sp_runtime::{
-		generic::UncheckedExtrinsic,
-		testing::{Block as RawBlock, MockCallU64, H256},
+		testing::{Block as RawBlock, MockCallU64, TestXt, H256},
 		traits::NumberFor,
 	};
 	use std::{
@@ -559,7 +558,7 @@ mod tests {
 		sync::{Arc, Mutex},
 	};
 
-	type Block = RawBlock<UncheckedExtrinsic<u64, MockCallU64, (), ()>>;
+	type Block = RawBlock<TestXt<MockCallU64, ()>>;
 
 	macro_rules! push_msg {
 		($consensus:expr, $topic:expr, $hash: expr, $m:expr) => {

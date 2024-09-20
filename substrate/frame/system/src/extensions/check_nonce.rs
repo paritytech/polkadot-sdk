@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf,
-		TransactionExtension, TransactionExtensionBase, ValidateResult, Zero,
+		TransactionExtension, ValidateResult, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidityError, ValidTransaction,
@@ -86,15 +86,13 @@ pub enum Pre {
 	Refund(Weight),
 }
 
-impl<T: Config> TransactionExtensionBase for CheckNonce<T> {
-	const IDENTIFIER: &'static str = "CheckNonce";
-	type Implicit = ();
-}
 impl<T: Config> TransactionExtension<T::RuntimeCall> for CheckNonce<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
+	const IDENTIFIER: &'static str = "CheckNonce";
+	type Implicit = ();
 	type Val = Val<T>;
 	type Pre = Pre;
 
@@ -123,9 +121,9 @@ where
 			return Err(InvalidTransaction::Stale.into())
 		}
 
-		let provides = vec![Encode::encode(&(who.clone(), self.0))];
+		let provides = vec![Encode::encode(&(&who, self.0))];
 		let requires = if account.nonce < self.0 {
-			vec![Encode::encode(&(who.clone(), self.0.saturating_sub(One::one())))]
+			vec![Encode::encode(&(&who, self.0.saturating_sub(One::one())))]
 		} else {
 			vec![]
 		};

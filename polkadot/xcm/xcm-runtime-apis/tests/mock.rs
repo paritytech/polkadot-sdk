@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -61,36 +61,13 @@ construct_runtime! {
 
 pub type TxExtension = (frame_system::CheckWeight<TestRuntime>,);
 
-#[derive(Clone, Debug, Encode, codec::Decode, PartialEq, Eq, scale_info::TypeInfo)]
-pub struct AccountU64(u64);
-impl sp_runtime::traits::IdentifyAccount for AccountU64 {
-	type AccountId = u64;
-	fn into_account(self) -> u64 {
-		self.0
-	}
-}
-
-impl sp_runtime::traits::Verify for AccountU64 {
-	type Signer = AccountU64;
-	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(
-		&self,
-		_msg: L,
-		_signer: &<Self::Signer as sp_runtime::traits::IdentifyAccount>::AccountId,
-	) -> bool {
-		true
-	}
-}
-
-impl From<u64> for AccountU64 {
-	fn from(value: u64) -> Self {
-		Self(value)
-	}
-}
-
-// pub type TestXt = sp_runtime::testing::TestXt<RuntimeCall, TxExtension>;
 // we only use the hash type from this, so using the mock should be fine.
-pub(crate) type Extrinsic =
-	sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, AccountU64, TxExtension>;
+pub(crate) type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	frame_support::crypto::mock::AccountU64,
+	TxExtension,
+>;
 type Block = sp_runtime::testing::Block<Extrinsic>;
 type Balance = u128;
 type AssetIdForAssetsPallet = u32;

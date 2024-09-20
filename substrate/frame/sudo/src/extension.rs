@@ -22,10 +22,7 @@ use frame_support::{dispatch::DispatchInfo, ensure};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension,
-		TransactionExtensionBase,
-	},
+	traits::{AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, UnknownTransaction,
 		ValidTransaction,
@@ -69,10 +66,6 @@ impl<T: Config + Send + Sync> CheckOnlySudoAccount<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckOnlySudoAccount<T> {
-	const IDENTIFIER: &'static str = "CheckOnlySudoAccount";
-	type Implicit = ();
-}
 impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
 	for CheckOnlySudoAccount<T>
 where
@@ -80,6 +73,8 @@ where
 	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
 		AsSystemOriginSigner<T::AccountId> + Clone,
 {
+	const IDENTIFIER: &'static str = "CheckOnlySudoAccount";
+	type Implicit = ();
 	type Pre = ();
 	type Val = ();
 

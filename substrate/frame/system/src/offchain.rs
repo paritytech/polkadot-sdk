@@ -61,7 +61,7 @@ use codec::Encode;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	app_crypto::RuntimeAppPublic,
-	traits::{ExtrinsicLike, IdentifyAccount, One, SignaturePayload},
+	traits::{ExtrinsicLike, IdentifyAccount, One},
 	RuntimeDebug,
 };
 
@@ -474,9 +474,6 @@ pub trait CreateTransaction<LocalCall>: CreateTransactionBase<LocalCall> {
 pub trait CreateSignedTransaction<LocalCall>:
 	CreateTransactionBase<LocalCall> + SigningTypes
 {
-	/// TODO: revisit this, currently here for metadata purposes.
-	type SignaturePayload: SignaturePayload;
-
 	/// Attempt to create signed extrinsic data that encodes call from given account.
 	///
 	/// Runtime implementation is free to construct the payload to sign and the signature
@@ -629,17 +626,14 @@ mod tests {
 	use crate::mock::{RuntimeCall, Test as TestRuntime, CALL};
 	use codec::Decode;
 	use sp_core::offchain::{testing, TransactionPoolExt};
-	use sp_runtime::{
-		generic::UncheckedExtrinsic,
-		testing::{TestSignature, UintAuthorityId},
-	};
+	use sp_runtime::testing::{TestSignature, TestXt, UintAuthorityId};
 
 	impl SigningTypes for TestRuntime {
 		type Public = UintAuthorityId;
 		type Signature = TestSignature;
 	}
 
-	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+	type Extrinsic = TestXt<RuntimeCall, ()>;
 
 	impl CreateTransactionBase<RuntimeCall> for TestRuntime {
 		type Extrinsic = Extrinsic;
@@ -648,7 +642,7 @@ mod tests {
 
 	impl CreateInherent<RuntimeCall> for TestRuntime {
 		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-			UncheckedExtrinsic::new_bare(call)
+			Extrinsic::new_bare(call)
 		}
 	}
 

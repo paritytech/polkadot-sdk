@@ -63,7 +63,7 @@ pub use payment::*;
 use sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
+		Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{TransactionPriority, TransactionValidityError, ValidTransaction},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
@@ -849,11 +849,6 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
-	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
-	type Implicit = ();
-}
-
 /// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
 #[derive(RuntimeDebugNoBound)]
 pub enum Val<T: Config> {
@@ -902,9 +897,10 @@ impl<T: Config> core::fmt::Debug for Pre<T> {
 
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
-	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
+	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
+	type Implicit = ();
 	type Val = Val<T>;
 	type Pre = Pre<T>;
 

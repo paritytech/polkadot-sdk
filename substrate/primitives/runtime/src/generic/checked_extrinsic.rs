@@ -45,10 +45,6 @@ pub enum ExtrinsicFormat<AccountId, Extension> {
 	General(Extension),
 }
 
-// TODO: Deprecate `ValidateUnsigned` and move all current unsigned extrinsic usage into either
-// inherents as `Bare` extrinsics or `General` transactions, solution outlined in
-// https://github.com/paritytech/polkadot-sdk/issues/2415).
-
 /// Definition of something that the external world might want to say; its existence implies that it
 /// has been checked and is good, particularly with regards to the signature.
 ///

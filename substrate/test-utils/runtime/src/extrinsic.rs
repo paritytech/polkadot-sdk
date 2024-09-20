@@ -27,7 +27,7 @@ use frame_system::{CheckNonce, CheckWeight};
 use sp_core::crypto::Pair as TraitPair;
 use sp_keyring::AccountKeyring;
 use sp_runtime::{
-	generic::Preamble, traits::TransactionExtensionBase, transaction_validity::TransactionPriority,
+	generic::Preamble, traits::TransactionExtension, transaction_validity::TransactionPriority,
 	Perbill,
 };
 

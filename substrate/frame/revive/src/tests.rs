@@ -50,7 +50,6 @@ use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
 	derive_impl,
-	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	storage::child,
@@ -158,6 +157,12 @@ pub mod test_utils {
 		assert!(CodeInfoOf::<Test>::contains_key(&code_hash));
 		// Assert that contract code is stored, and get its size.
 		PristineCode::<Test>::try_get(&code_hash).unwrap().len()
+	}
+	pub fn u256_bytes(u: u64) -> [u8; 32] {
+		let mut buffer = [0u8; 32];
+		let bytes = u.to_le_bytes();
+		buffer[..8].copy_from_slice(&bytes);
+		buffer
 	}
 }
 
@@ -589,25 +594,15 @@ mod run_tests {
 	use pretty_assertions::{assert_eq, assert_ne};
 	use sp_core::U256;
 
-	// Perform a call to a plain account.
-	// The actual transfer fails because we can only call contracts.
-	// Then we check that at least the base costs where charged (no runtime gas costs.)
 	#[test]
-	fn calling_plain_account_fails() {
+	fn calling_plain_account_is_balance_transfer() {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
-			let base_cost = <<Test as Config>::WeightInfo as WeightInfo>::call();
-
-			assert_eq!(
-				builder::call(BOB_ADDR).build(),
-				Err(DispatchErrorWithPostInfo {
-					error: Error::<Test>::ContractNotFound.into(),
-					post_info: PostDispatchInfo {
-						actual_weight: Some(base_cost),
-						pays_fee: Default::default(),
-					},
-				})
-			);
+			assert!(!<ContractInfoOf<Test>>::contains_key(BOB_ADDR));
+			assert_eq!(test_utils::get_balance(&BOB_CONTRACT_ID), 0);
+			let result = builder::bare_call(BOB_ADDR).value(42).build_and_unwrap_result();
+			assert_eq!(test_utils::get_balance(&BOB_CONTRACT_ID), 42);
+			assert_eq!(result, Default::default());
 		});
 	}
 
@@ -1472,6 +1467,8 @@ mod run_tests {
 
 	#[test]
 	fn call_return_code() {
+		use test_utils::u256_bytes;
+
 		let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
 		let (callee_code, _callee_hash) = compile_module("ok_trap_revert").unwrap();
 		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
@@ -1481,28 +1478,60 @@ mod run_tests {
 
 			let bob = builder::bare_instantiate(Code::Upload(caller_code))
 				.value(min_balance * 100)
-				.data(vec![0])
 				.build_and_unwrap_contract();
-			<Test as Config>::Currency::set_balance(&bob.account_id, min_balance);
 
 			// Contract calls into Django which is no valid contract
+			// This will be a balance transfer into a new account
+			// with more than the contract has which will make the transfer fail
 			let result = builder::bare_call(bob.addr)
-				.data(AsRef::<[u8]>::as_ref(&DJANGO).to_vec())
+				.data(
+					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+						.iter()
+						.chain(&u256_bytes(min_balance * 200))
+						.cloned()
+						.collect(),
+				)
 				.build_and_unwrap_result();
-			assert_return_code!(result, RuntimeReturnCode::NotCallable);
+			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
+
+			// Sending less than the minimum balance will also make the transfer fail
+			let result = builder::bare_call(bob.addr)
+				.data(
+					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+						.iter()
+						.chain(&u256_bytes(42))
+						.cloned()
+						.collect(),
+				)
+				.build_and_unwrap_result();
+			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
+
+			// Sending at least the minimum balance should result in success but
+			// no code called.
+			assert_eq!(test_utils::get_balance(&ETH_DJANGO), 0);
+			let result = builder::bare_call(bob.addr)
+				.data(
+					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+						.iter()
+						.chain(&u256_bytes(55))
+						.cloned()
+						.collect(),
+				)
+				.build_and_unwrap_result();
+			assert_return_code!(result, RuntimeReturnCode::Success);
+			assert_eq!(test_utils::get_balance(&ETH_DJANGO), 55);
 
 			let django = builder::bare_instantiate(Code::Upload(callee_code))
 				.origin(RuntimeOrigin::signed(CHARLIE))
 				.value(min_balance * 100)
-				.data(vec![0])
 				.build_and_unwrap_contract();
-			<Test as Config>::Currency::set_balance(&django.account_id, min_balance);
 
-			// Contract has only the minimal balance so any transfer will fail.
+			// Sending more than the contract has will make the transfer fail.
 			let result = builder::bare_call(bob.addr)
 				.data(
 					AsRef::<[u8]>::as_ref(&django.addr)
 						.iter()
+						.chain(&u256_bytes(min_balance * 300))
 						.chain(&0u32.to_le_bytes())
 						.cloned()
 						.collect(),
@@ -1516,6 +1545,7 @@ mod run_tests {
 				.data(
 					AsRef::<[u8]>::as_ref(&django.addr)
 						.iter()
+						.chain(&u256_bytes(5))
 						.chain(&1u32.to_le_bytes())
 						.cloned()
 						.collect(),
@@ -1528,6 +1558,7 @@ mod run_tests {
 				.data(
 					AsRef::<[u8]>::as_ref(&django.addr)
 						.iter()
+						.chain(&u256_bytes(5))
 						.chain(&2u32.to_le_bytes())
 						.cloned()
 						.collect(),
@@ -4033,6 +4064,31 @@ mod run_tests {
 	}
 
 	#[test]
+	fn balance_of_api() {
+		let (wasm, _code_hash) = compile_module("balance_of").unwrap();
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+			let _ = Balances::set_balance(&ETH_ALICE, 1_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(wasm.to_vec())).build_and_unwrap_contract();
+
+			// The fixture asserts a non-zero returned free balance of the account;
+			// The ETH_ALICE account is endowed;
+			// Hence we should not revert
+			assert_ok!(builder::call(addr).data(ALICE_ADDR.0.to_vec()).build());
+
+			// The fixture asserts a non-zero returned free balance of the account;
+			// The ETH_BOB account is not endowed;
+			// Hence we should revert
+			assert_err_ignore_postinfo!(
+				builder::call(addr).data(BOB_ADDR.0.to_vec()).build(),
+				<Error<Test>>::ContractTrapped
+			);
+		});
+	}
+
+	#[test]
 	fn balance_api_returns_free_balance() {
 		let (wasm, _code_hash) = compile_module("balance").unwrap();
 		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -4174,6 +4230,84 @@ mod run_tests {
 				builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_contract();
 
 			assert_ok!(builder::call(addr_caller).data(addr_callee.encode()).build());
+		});
+	}
+
+	#[test]
+	fn create1_with_value_works() {
+		let (code, code_hash) = compile_module("create1_with_value").unwrap();
+		let value = 42;
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create the contract: Constructor does nothing.
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: Deploys itself using create1 and the expected value
+			assert_ok!(builder::call(addr).value(value).data(code_hash.encode()).build());
+
+			// We should see the expected balance at the expected account
+			let address = crate::address::create1(&addr, 0);
+			let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
+			let usable_balance = <Test as Config>::Currency::usable_balance(&account_id);
+			assert_eq!(usable_balance, value);
+		});
+	}
+
+	#[test]
+	fn static_data_limit_is_enforced() {
+		let (oom_rw_trailing, _) = compile_module("oom_rw_trailing").unwrap();
+		let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
+		let (oom_ro, _) = compile_module("oom_ro").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_rw_trailing,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::StaticMemoryTooLarge
+			);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_rw_included,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BlobTooLarge
+			);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_ro,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BlobTooLarge
+			);
+		});
+	}
+
+	#[test]
+	fn call_diverging_out_len_works() {
+		let (code, _) = compile_module("call_diverging_out_len").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create the contract: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: It will issue calls and deploys, asserting on
+			// correct output if the supplied output length was smaller than
+			// than what the callee returned.
+			assert_ok!(builder::call(addr).build());
 		});
 	}
 }

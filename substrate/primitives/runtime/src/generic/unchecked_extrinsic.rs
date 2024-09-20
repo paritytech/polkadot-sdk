@@ -20,9 +20,8 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, transaction_extension::TransactionExtensionBase, Checkable, Dispatchable,
-		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
-		TransactionExtension,
+		self, transaction_extension::TransactionExtension, Checkable, Dispatchable, ExtrinsicLike,
+		ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -143,22 +142,27 @@ where
 		match &self {
 			Preamble::Bare(_) => EXTRINSIC_FORMAT_VERSION.size_hint(),
 			Preamble::Signed(address, signature, ext_version, ext, EXTRINSIC_FORMAT_VERSION) =>
-				EXTRINSIC_FORMAT_VERSION.size_hint() +
-					address.size_hint() + signature.size_hint() +
-					ext_version.size_hint() +
-					ext.size_hint(),
+				EXTRINSIC_FORMAT_VERSION
+					.size_hint()
+					.saturating_add(address.size_hint())
+					.saturating_add(signature.size_hint())
+					.saturating_add(ext_version.size_hint())
+					.saturating_add(ext.size_hint()),
 			Preamble::Signed(
 				address,
 				signature,
 				_,
 				ext,
 				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION,
-			) =>
-				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION.size_hint() +
-					address.size_hint() + signature.size_hint() +
-					ext.size_hint(),
-			Preamble::General(ext_version, ext) =>
-				EXTRINSIC_FORMAT_VERSION.size_hint() + ext_version.size_hint() + ext.size_hint(),
+			) => LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION
+				.size_hint()
+				.saturating_add(address.size_hint())
+				.saturating_add(signature.size_hint())
+				.saturating_add(ext.size_hint()),
+			Preamble::General(ext_version, ext) => EXTRINSIC_FORMAT_VERSION
+				.size_hint()
+				.saturating_add(ext_version.size_hint())
+				.saturating_add(ext.size_hint()),
 			_ => {
 				// unreachable, versions are checked in the constructor
 				0
@@ -568,7 +572,7 @@ impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extension: Decode> se
 /// Note that the payload that we sign to produce unchecked extrinsic signature
 /// is going to be different than the `SignaturePayload` - so the thing the extrinsic
 /// actually contains.
-pub struct SignedPayload<Call: Dispatchable, Extension: TransactionExtensionBase>(
+pub struct SignedPayload<Call: Dispatchable, Extension: TransactionExtension<Call>>(
 	(Call, Extension, Extension::Implicit),
 	ExtrinsicVersion,
 );
@@ -576,7 +580,7 @@ pub struct SignedPayload<Call: Dispatchable, Extension: TransactionExtensionBase
 impl<Call, Extension> SignedPayload<Call, Extension>
 where
 	Call: Encode + Dispatchable,
-	Extension: TransactionExtensionBase,
+	Extension: TransactionExtension<Call>,
 {
 	/// Create new `SignedPayload`.
 	///
@@ -610,7 +614,7 @@ where
 impl<Call, Extension> Encode for SignedPayload<Call, Extension>
 where
 	Call: Encode + Dispatchable,
-	Extension: TransactionExtensionBase,
+	Extension: TransactionExtension<Call>,
 {
 	/// Get an encoded version of this `blake2_256`-hashed payload.
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -631,7 +635,7 @@ where
 impl<Call, Extension> EncodeLike for SignedPayload<Call, Extension>
 where
 	Call: Encode + Dispatchable,
-	Extension: TransactionExtensionBase,
+	Extension: TransactionExtension<Call>,
 {
 }
 
@@ -819,11 +823,9 @@ mod tests {
 	// NOTE: this is demonstration. One can simply use `()` for testing.
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, TypeInfo)]
 	struct DummyExtension;
-	impl TransactionExtensionBase for DummyExtension {
+	impl TransactionExtension<TestCall> for DummyExtension {
 		const IDENTIFIER: &'static str = "DummyExtension";
 		type Implicit = ();
-	}
-	impl TransactionExtension<TestCall> for DummyExtension {
 		type Val = ();
 		type Pre = ();
 		impl_tx_ext_default!(TestCall; validate prepare);

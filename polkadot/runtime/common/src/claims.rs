@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Pallet to process claims from Ethereum addresses.
 
@@ -36,7 +36,7 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
 		AsAuthorizedOrigin, AsSystemOriginSigner, CheckedSub, DispatchInfoOf, Dispatchable,
-		TransactionExtension, TransactionExtensionBase, Zero,
+		TransactionExtension, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
@@ -93,7 +93,7 @@ pub enum StatementKind {
 
 impl StatementKind {
 	/// Convert this to the (English) statement it represents.
-	pub fn to_text(self) -> &'static [u8] {
+	fn to_text(self) -> &'static [u8] {
 		match self {
 			StatementKind::Regular =>
 				&b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
@@ -625,20 +625,14 @@ where
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for PrevalidateAttests<T>
-where
-	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-{
-	const IDENTIFIER: &'static str = "PrevalidateAttests";
-	type Implicit = ();
-}
-
 impl<T: Config> TransactionExtension<T::RuntimeCall> for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
 		AsSystemOriginSigner<T::AccountId> + AsAuthorizedOrigin + Clone,
 {
+	const IDENTIFIER: &'static str = "PrevalidateAttests";
+	type Implicit = ();
 	type Pre = ();
 	type Val = ();
 
@@ -657,17 +651,17 @@ where
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		if let Some(Call::attest { statement: attested_statement }) = call.is_sub_type() {
-			let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
-
-			let signer = Preclaims::<T>::get(who)
-				.ok_or(InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()))?;
-			if let Some(s) = Signing::<T>::get(signer) {
-				let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
-				ensure!(&attested_statement[..] == s.to_text(), e);
+		if let Some(local_call) = call.is_sub_type() {
+			if let Call::attest { statement: attested_statement } = local_call {
+				let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+				let signer = Preclaims::<T>::get(who)
+					.ok_or(InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()))?;
+				if let Some(s) = Signing::<T>::get(signer) {
+					let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
+					ensure!(&attested_statement[..] == s.to_text(), e);
+				}
 			}
 		}
-
 		Ok((ValidTransaction::default(), (), origin))
 	}
 	impl_tx_ext_default!(T::RuntimeCall; prepare);
@@ -703,7 +697,7 @@ mod secp_utils {
 }
 
 #[cfg(test)]
-pub(super) mod tests {
+mod tests {
 	use super::*;
 	use hex_literal::hex;
 	use secp_utils::*;
@@ -1439,7 +1433,7 @@ pub(super) mod tests {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub(super) mod benchmarking {
+mod benchmarking {
 	use super::*;
 	use crate::claims::Call;
 	use frame_benchmarking::{account, benchmarks};

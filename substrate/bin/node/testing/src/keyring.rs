@@ -72,16 +72,13 @@ pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 /// Returns transaction extra.
 pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 	(
-		(
-			frame_system::CheckNonZeroSender::new(),
-			frame_system::CheckSpecVersion::new(),
-			frame_system::CheckTxVersion::new(),
-			frame_system::CheckGenesis::new(),
-			frame_system::CheckEra::from(Era::mortal(256, 0)),
-			frame_system::CheckNonce::from(nonce),
-			frame_system::CheckWeight::new(),
-		)
-			.into(),
+		frame_system::CheckNonZeroSender::new(),
+		frame_system::CheckSpecVersion::new(),
+		frame_system::CheckTxVersion::new(),
+		frame_system::CheckGenesis::new(),
+		frame_system::CheckEra::from(Era::mortal(256, 0)),
+		frame_system::CheckNonce::from(nonce),
+		frame_system::CheckWeight::new(),
 		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
 		),

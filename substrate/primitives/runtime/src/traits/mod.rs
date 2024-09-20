@@ -54,8 +54,7 @@ use std::str::FromStr;
 
 pub mod transaction_extension;
 pub use transaction_extension::{
-	DispatchTransaction, TransactionExtension, TransactionExtensionBase,
-	TransactionExtensionMetadata, ValidateResult,
+	DispatchTransaction, TransactionExtension, TransactionExtensionMetadata, ValidateResult,
 };
 
 /// A lazy value.
@@ -1342,9 +1341,7 @@ pub trait Extrinsic: Sized {
 
 	/// Returns `true` if this `Extrinsic` is bare.
 	fn is_bare(&self) -> bool {
-		!self
-			.is_signed()
-			.expect("`is_signed` must return `Some` on production extrinsics; qed")
+		!self.is_signed().unwrap_or(true)
 	}
 
 	/// Create a new old-school extrinsic, either a bare extrinsic if `_signed_data` is `None` or
@@ -1706,7 +1703,7 @@ pub trait SignedExtension:
 		sp_std::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
-			additional_signed: scale_info::meta_type::<Self::AdditionalSigned>()
+			implicit: scale_info::meta_type::<Self::AdditionalSigned>()
 		}]
 	}
 

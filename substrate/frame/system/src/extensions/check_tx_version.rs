@@ -19,8 +19,7 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{transaction_extension::TransactionExtensionBase, TransactionExtension},
+	impl_tx_ext_default, traits::TransactionExtension,
 	transaction_validity::TransactionValidityError,
 };
 
@@ -53,16 +52,14 @@ impl<T: Config + Send + Sync> CheckTxVersion<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckTxVersion<T> {
+impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
+	for CheckTxVersion<T>
+{
 	const IDENTIFIER: &'static str = "CheckTxVersion";
 	type Implicit = u32;
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::runtime_version().transaction_version)
 	}
-}
-impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
-	for CheckTxVersion<T>
-{
 	type Val = ();
 	type Pre = ();
 	fn weight(&self, _: &<T as Config>::RuntimeCall) -> sp_weights::Weight {

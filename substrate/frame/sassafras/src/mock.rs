@@ -34,7 +34,6 @@ use sp_core::{
 	H256, U256,
 };
 use sp_runtime::{
-	generic::UncheckedExtrinsic,
 	testing::{Digest, DigestItem, Header},
 	BuildStorage,
 };
@@ -54,7 +53,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type RuntimeCall = RuntimeCall;
-	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+	type Extrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 }
 
 impl<C> frame_system::offchain::CreateInherent<C> for Test
@@ -62,7 +61,7 @@ where
 	RuntimeCall: From<C>,
 {
 	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-		UncheckedExtrinsic::new_bare(call)
+		frame_system::mocking::MockUncheckedExtrinsic::<Test>::new_bare(call)
 	}
 }
 

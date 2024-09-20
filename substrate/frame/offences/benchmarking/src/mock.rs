@@ -112,8 +112,6 @@ parameter_types! {
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
-pub type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
-
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Test;
@@ -161,7 +159,7 @@ impl<T> frame_system::offchain::CreateTransactionBase<T> for Test
 where
 	RuntimeCall: From<T>,
 {
-	type Extrinsic = Extrinsic;
+	type Extrinsic = UncheckedExtrinsic;
 	type RuntimeCall = RuntimeCall;
 }
 
@@ -170,7 +168,7 @@ where
 	RuntimeCall: From<T>,
 {
 	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Extrinsic::new_bare(call)
+		UncheckedExtrinsic::new_bare(call)
 	}
 }
 

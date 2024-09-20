@@ -64,9 +64,35 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn check_mortality() -> Result<(), BenchmarkError> {
+	fn check_mortality_mortal_transaction() -> Result<(), BenchmarkError> {
 		let len = 0_usize;
 		let ext = CheckMortality::<T>::from(Era::mortal(16, 256));
+		let block_number: BlockNumberFor<T> = 17u32.into();
+		System::<T>::set_block_number(block_number);
+		let prev_block: BlockNumberFor<T> = 16u32.into();
+		let default_hash: T::Hash = Default::default();
+		frame_system::BlockHash::<T>::insert(prev_block, default_hash);
+		let caller = account("caller", 0, 0);
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(100, 0),
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+
+		#[block]
+		{
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+				.unwrap()
+				.unwrap();
+		}
+		Ok(())
+	}
+
+	#[benchmark]
+	fn check_mortality_immortal_transaction() -> Result<(), BenchmarkError> {
+		let len = 0_usize;
+		let ext = CheckMortality::<T>::from(Era::immortal());
 		let block_number: BlockNumberFor<T> = 17u32.into();
 		System::<T>::set_block_number(block_number);
 		let prev_block: BlockNumberFor<T> = 16u32.into();

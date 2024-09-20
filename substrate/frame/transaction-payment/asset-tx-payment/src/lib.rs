@@ -53,7 +53,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, RefundWeight,
-		TransactionExtension, TransactionExtensionBase, Zero,
+		TransactionExtension, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
@@ -128,8 +128,8 @@ pub mod pallet {
 		type OnChargeAssetTransaction: OnChargeAssetTransaction<Self>;
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
-		#[cfg(feature = "runtime-benchmarks")]
 		/// Benchmark helper
+		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelperTrait<
 			Self::AccountId,
 			<<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
@@ -262,17 +262,6 @@ impl<T: Config> core::fmt::Debug for ChargeAssetTxPayment<T> {
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for ChargeAssetTxPayment<T>
-where
-	AssetBalanceOf<T>: Send + Sync,
-	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
-	ChargeAssetIdOf<T>: Send + Sync,
-	Credit<T::AccountId, T::Fungibles>: IsType<ChargeAssetLiquidityOf<T>>,
-{
-	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
-	type Implicit = ();
-}
-
 /// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
 pub enum Val<T: Config> {
 	Charge {
@@ -314,6 +303,8 @@ where
 	Credit<T::AccountId, T::Fungibles>: IsType<ChargeAssetLiquidityOf<T>>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
+	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
+	type Implicit = ();
 	type Val = Val<T>;
 	type Pre = Pre<T>;
 

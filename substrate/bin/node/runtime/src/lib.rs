@@ -1414,7 +1414,6 @@ impl pallet_revive::Config for Runtime {
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type ChainExtension = ();
 	type AddressMapper = pallet_revive::DefaultAddressMapper;
-	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 	type UnsafeUnstableInterface = ConstBool<false>;
@@ -1456,8 +1455,6 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for R
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type SignaturePayload = UncheckedSignaturePayload;
-
 	fn create_signed_transaction<
 		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
 	>(
@@ -1477,16 +1474,13 @@ where
 			.saturating_sub(1);
 		let era = Era::mortal(period, current_block);
 		let tx_ext: TxExtension = (
-			(
-				frame_system::CheckNonZeroSender::<Runtime>::new(),
-				frame_system::CheckSpecVersion::<Runtime>::new(),
-				frame_system::CheckTxVersion::<Runtime>::new(),
-				frame_system::CheckGenesis::<Runtime>::new(),
-				frame_system::CheckEra::<Runtime>::from(era),
-				frame_system::CheckNonce::<Runtime>::from(nonce),
-				frame_system::CheckWeight::<Runtime>::new(),
-			)
-				.into(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(era),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
 					tip, None,
@@ -2580,15 +2574,13 @@ pub type BlockId = generic::BlockId<Block>;
 ///
 /// [`sign`]: <../../testing/src/keyring.rs.html>
 pub type TxExtension = (
-	(
-		frame_system::CheckNonZeroSender<Runtime>,
-		frame_system::CheckSpecVersion<Runtime>,
-		frame_system::CheckTxVersion<Runtime>,
-		frame_system::CheckGenesis<Runtime>,
-		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
-		frame_system::CheckWeight<Runtime>,
-	),
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_system::CheckWeight<Runtime>,
 	pallet_skip_feeless_payment::SkipCheckIfFeeless<
 		Runtime,
 		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,

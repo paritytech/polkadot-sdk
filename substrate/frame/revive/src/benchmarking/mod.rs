@@ -68,10 +68,8 @@ struct Contract<T: Config> {
 impl<T> Contract<T>
 where
 	T: Config + pallet_balances::Config,
-	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
-	T::Hash: IsType<H256>,
 {
 	/// Returns the address of the contract.
 	fn address(&self) -> H160 {
@@ -221,12 +219,10 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 
 #[benchmarks(
 	where
-		<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
-		BalanceOf<T>: From<<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance> + Into<U256> + TryFrom<U256>,
+		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		T: Config + pallet_balances::Config,
 		MomentOf<T>: Into<U256>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
-		T::Hash: IsType<H256>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
 )]
 mod benchmarks {
@@ -262,7 +258,7 @@ mod benchmarks {
 	// call_with_code_per_byte(0)`.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_code_per_byte(
-		c: Linear<0, { T::MaxCodeLen::get() }>,
+		c: Linear<0, { limits::code::BLOB_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::sized(c), vec![])?;
@@ -287,8 +283,8 @@ mod benchmarks {
 	// `i`: Size of the input in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
-		c: Linear<0, { T::MaxCodeLen::get() }>,
-		i: Linear<0, { limits::MEMORY_BYTES }>,
+		c: Linear<0, { limits::code::BLOB_BYTES }>,
+		i: Linear<0, { limits::code::BLOB_BYTES }>,
 	) {
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
@@ -320,7 +316,7 @@ mod benchmarks {
 	// `i`: Size of the input in bytes.
 	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn instantiate(i: Linear<0, { limits::MEMORY_BYTES }>) -> Result<(), BenchmarkError> {
+	fn instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -405,7 +401,7 @@ mod benchmarks {
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn upload_code(c: Linear<0, { T::MaxCodeLen::get() }>) {
+	fn upload_code(c: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::sized(c);
@@ -613,6 +609,26 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_balance_of() {
+		let len = <sp_core::U256 as MaxEncodedLen>::max_encoded_len();
+		let account = account::<T::AccountId>("target", 0, 0);
+		let address = T::AddressMapper::to_address(&account);
+		let balance = Pallet::<T>::min_balance() * 2u32.into();
+		T::Currency::set_balance(&account, balance);
+
+		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_balance_of(memory.as_mut_slice(), len as u32, 0);
+		}
+
+		assert_ok!(result);
+		assert_eq!(U256::from_little_endian(&memory[..len]), runtime.ext().balance_of(&address));
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_value_transferred() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
@@ -679,7 +695,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_input(n: Linear<0, { limits::MEMORY_BYTES - 4 }>) {
+	fn seal_input(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; n as usize]);
@@ -694,7 +710,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_return(n: Linear<0, { limits::MEMORY_BYTES - 4 }>) {
+	fn seal_return(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
 		build_runtime!(runtime, memory: [n.to_le_bytes(), vec![42u8; n as usize], ]);
 
 		let result;
@@ -784,7 +800,7 @@ mod benchmarks {
 	// buffer size, whichever is less.
 	#[benchmark]
 	fn seal_debug_message(
-		i: Linear<0, { (limits::MEMORY_BYTES).min(limits::DEBUG_BUFFER_BYTES) }>,
+		i: Linear<0, { (limits::code::BLOB_BYTES).min(limits::DEBUG_BUFFER_BYTES) }>,
 	) {
 		let mut setup = CallSetup::<T>::default();
 		setup.enable_debug_message();
@@ -1378,7 +1394,7 @@ mod benchmarks {
 	// t: with or without some value to transfer
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(t: Linear<0, 1>, i: Linear<0, { limits::MEMORY_BYTES }>) {
+	fn seal_call(t: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let Contract { account_id: callee, .. } =
 			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 		let callee_bytes = callee.encode();
@@ -1453,7 +1469,7 @@ mod benchmarks {
 	// t: value to transfer
 	// i: size of input in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_instantiate(i: Linear<0, { limits::MEMORY_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
 		let code = WasmModule::dummy();
 		let hash = Contract::<T>::with_index(1, WasmModule::dummy(), vec![])?.info()?.code_hash;
 		let hash_bytes = hash.encode();
@@ -1519,7 +1535,7 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_sha2_256(n: Linear<0, { limits::MEMORY_BYTES }>) {
+	fn seal_hash_sha2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
 
 		let result;
@@ -1533,7 +1549,7 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_keccak_256(n: Linear<0, { limits::MEMORY_BYTES }>) {
+	fn seal_hash_keccak_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
 
 		let result;
@@ -1547,7 +1563,7 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_256(n: Linear<0, { limits::MEMORY_BYTES }>) {
+	fn seal_hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
 
 		let result;
@@ -1561,7 +1577,7 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_128(n: Linear<0, { limits::MEMORY_BYTES }>) {
+	fn seal_hash_blake2_128(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		build_runtime!(runtime, memory: [[0u8; 16], vec![0u8; n as usize], ]);
 
 		let result;
@@ -1576,7 +1592,7 @@ mod benchmarks {
 	// `n`: Message input length to verify in bytes.
 	// need some buffer so the code size does not exceed the max code size.
 	#[benchmark(pov_mode = Measured)]
-	fn seal_sr25519_verify(n: Linear<0, { T::MaxCodeLen::get() - 255 }>) {
+	fn seal_sr25519_verify(n: Linear<0, { limits::code::BLOB_BYTES - 255 }>) {
 		let message = (0..n).zip((32u8..127u8).cycle()).map(|(_, c)| c).collect::<Vec<_>>();
 		let message_len = message.len() as u32;
 

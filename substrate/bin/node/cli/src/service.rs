@@ -32,6 +32,7 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
 use kitchensink_runtime::RuntimeApi;
 use node_primitives::Block;
+use polkadot_sdk::sc_service::build_polkadot_syncing_strategy;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
 use sc_network::{
@@ -121,19 +122,16 @@ pub fn create_extrinsic(
 	let tip = 0;
 	let tx_ext: kitchensink_runtime::TxExtension =
 		(
-			(
-				frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
-					period,
-					best_block.saturated_into(),
-				)),
-				frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
-				frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
-			)
-				.into(),
+			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
+				period,
+				best_block.saturated_into(),
+			)),
+			frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
+			frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
 			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<
 					kitchensink_runtime::Runtime,
@@ -146,15 +144,13 @@ pub fn create_extrinsic(
 		function.clone(),
 		tx_ext.clone(),
 		(
-			(
-				(),
-				kitchensink_runtime::VERSION.spec_version,
-				kitchensink_runtime::VERSION.transaction_version,
-				genesis_hash,
-				best_hash,
-				(),
-				(),
-			),
+			(),
+			kitchensink_runtime::VERSION.spec_version,
+			kitchensink_runtime::VERSION.transaction_version,
+			genesis_hash,
+			best_hash,
+			(),
+			(),
 			(),
 			None,
 		),
@@ -511,6 +507,16 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		Vec::default(),
 	));
 
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		config.protocol_id(),
+		config.chain_spec.fork_id(),
+		&mut net_config,
+		Some(WarpSyncConfig::WithProvider(warp_sync)),
+		client.clone(),
+		&task_manager.spawn_handle(),
+		config.prometheus_config.as_ref().map(|config| &config.registry),
+	)?;
+
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
@@ -520,7 +526,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
+			syncing_strategy,
 			block_relay: None,
 			metrics,
 		})?;
@@ -1061,16 +1067,13 @@ mod tests {
 				);
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
-					(
-						check_non_zero_sender,
-						check_spec_version,
-						check_tx_version,
-						check_genesis,
-						check_era,
-						check_nonce,
-						check_weight,
-					)
-						.into(),
+					check_non_zero_sender,
+					check_spec_version,
+					check_tx_version,
+					check_genesis,
+					check_era,
+					check_nonce,
+					check_weight,
 					tx_payment,
 					metadata_hash,
 				);
@@ -1078,7 +1081,13 @@ mod tests {
 					function,
 					tx_ext,
 					(
-						((), spec_version, transaction_version, genesis_hash, genesis_hash, (), ()),
+						(),
+						spec_version,
+						transaction_version,
+						genesis_hash,
+						genesis_hash,
+						(),
+						(),
 						(),
 						None,
 					),
