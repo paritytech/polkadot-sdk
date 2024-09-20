@@ -1026,26 +1026,28 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 		};
 
-		let output = mem::take(self.ext.last_frame_output_mut());
 		match call_outcome {
 			// `TAIL_CALL` only matters on an `OK` result. Otherwise the call stack comes to
 			// a halt anyways without anymore code being executed.
 			Ok(_) if flags.contains(CallFlags::TAIL_CALL) => {
+				let output = mem::take(self.ext.last_frame_output_mut());
 				return Err(TrapReason::Return(ReturnData {
 					flags: output.flags.bits(),
 					data: output.data,
 				}));
 			},
 			Ok(_) => {
-				self.write_sandbox_output(
+				let output = mem::take(self.ext.last_frame_output_mut());
+				let write_result = self.write_sandbox_output(
 					memory,
 					output_ptr,
 					output_len_ptr,
 					&output.data,
 					true,
 					|len| Some(RuntimeCosts::CopyToContract(len)),
-				)?;
+				);
 				*self.ext.last_frame_output_mut() = output;
+				write_result?;
 				Ok(self.ext.last_frame_output().into())
 			},
 			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
@@ -1088,8 +1090,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			salt.as_ref(),
 		) {
 			Ok(address) => {
-				let output = mem::take(self.ext.last_frame_output_mut());
-				if !output.flags.contains(ReturnFlags::REVERT) {
+				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
 					self.write_fixed_sandbox_output(
 						memory,
 						address_ptr,
@@ -1098,15 +1099,17 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						already_charged,
 					)?;
 				}
-				self.write_sandbox_output(
+				let output = mem::take(self.ext.last_frame_output_mut());
+				let write_result = self.write_sandbox_output(
 					memory,
 					output_ptr,
 					output_len_ptr,
 					&output.data,
 					true,
 					|len| Some(RuntimeCosts::CopyToContract(len)),
-				)?;
+				);
 				*self.ext.last_frame_output_mut() = output;
+				write_result?;
 				Ok(self.ext.last_frame_output().into())
 			},
 			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
