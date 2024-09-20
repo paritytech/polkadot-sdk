@@ -337,6 +337,15 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
 		unimplemented!("Not needed for test");
 	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: PHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn make_validator_and_api() -> (

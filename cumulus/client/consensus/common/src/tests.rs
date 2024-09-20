@@ -275,6 +275,15 @@ impl RelayChainInterface for Relaychain {
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
 		unimplemented!("Not needed for test");
 	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: PHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn sproof_with_best_parent(client: &Client) -> RelayStateSproofBuilder {
