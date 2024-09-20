@@ -81,7 +81,8 @@ impl<T: Config> Pallet<T> {
 							&HoldReason::FundsReserved.into(),
 							&pot,
 							project.amount,
-						).expect("Funds Reserve Failed");
+						)
+						.expect("Funds Reserve Failed");
 
 						// Remove project from project_list
 						projects.retain(|value| *value != project);
