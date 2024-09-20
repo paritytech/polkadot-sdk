@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 use std::env;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{tx_helper::RuntimeUpgradeOptions, NetworkConfigBuilder};
 
-const best_block_metric: &str = "block_height{status=\"best\"}";
+const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn runtime_upgrade_test() -> Result<(), anyhow::Error> {
@@ -34,30 +34,32 @@ async fn runtime_upgrade_test() -> Result<(), anyhow::Error> {
 
 	// wait 10 blocks
 	let latest_release = network.get_node("latest-release")?;
-	assert!(latest_release.wait_metric(best_block_metric, |b| b > 10_f64).await.is_ok());
+	assert!(latest_release.wait_metric(BEST_BLOCK_METRIC, |b| b > 10_f64).await.is_ok());
 
 	// get current runtime spec
 	let client = network.get_node("latest-release")?.client::<subxt::PolkadotConfig>().await?;
 	let current_runtime = client.backend().current_runtime_version().await?;
 
 	// get current best
-	node.wait_metric(best_block_metric, |x| x > 10_f64).await?;
-	let best_block = node.reports(best_block_metric).await?;
+	latest_release.wait_metric(BEST_BLOCK_METRIC, |x| x > 10_f64).await?;
+	let best_block = latest_release.reports(BEST_BLOCK_METRIC).await?;
 
 	// upgrade runtime
 	let wasm = env::var("ZOMBIE_WASM_INCREMENTED_PATH").unwrap_or(
-		"target/testnet/wbuild/rococo-runtime/wasm_binary_spec_version_incremented.rs.compact.wasm",
+		String::from("target/testnet/wbuild/rococo-runtime/wasm_binary_spec_version_incremented.rs.compact.wasm"),
 	);
 
 	network
 		.relaychain()
-		.runtime_upgrade(RuntimeUpgradeOptions::new(wasm.into()))
+		.runtime_upgrade(RuntimeUpgradeOptions::new(wasm.as_str().into()))
 		.await?;
 
 	// wait 10 more blocks
-	node.wait_metric(best_block_metric, |x| x > best_block + 10_f64);
+	latest_release.wait_metric(BEST_BLOCK_METRIC, |x| x > best_block + 10_f64).await?;
 
 	let incremented_runtime = client.backend().current_runtime_version().await?;
 
-	assert_eq(incremented_runtime, current_version + 1000, "version should be incremented");
+	assert_eq!(incremented_runtime.spec_version, current_runtime.spec_version + 1000, "version should be incremented");
+
+    Ok(())
 }
