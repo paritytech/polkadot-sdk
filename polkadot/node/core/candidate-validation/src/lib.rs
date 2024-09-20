@@ -997,7 +997,7 @@ trait ValidationBackend {
 		retry_delay: Duration,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The priority for the preparation job.
+		// The priority for the execution job.
 		execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
