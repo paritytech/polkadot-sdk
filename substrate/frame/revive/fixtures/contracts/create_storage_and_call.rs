@@ -32,8 +32,8 @@ pub extern "C" fn call() {
 	input!(
 		buffer,
 		input: [u8; 4],
-		callee: [u8; 20],
-		deposit_limit: [u8; 8],
+		callee: &[u8; 20],
+		deposit_limit: &[u8; 32],
 	);
 
 	// create 4 byte of storage before calling
@@ -46,7 +46,7 @@ pub extern "C" fn call() {
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		Some(deposit_limit),
-		&0u64.to_le_bytes(), // Value transferred to the contract.
+		&[0u8; 32], // Value transferred to the contract.
 		input,
 		None,
 	)

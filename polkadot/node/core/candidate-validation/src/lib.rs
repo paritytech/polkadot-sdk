@@ -47,7 +47,7 @@ use polkadot_primitives::{
 	},
 	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
 	CandidateReceipt, ExecutorParams, Hash, OccupiedCoreAssumption, PersistedValidationData,
-	PvfExecKind, PvfPrepKind, SessionIndex, ValidationCode, ValidationCodeHash,
+	PvfExecKind, PvfPrepKind, SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
 };
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;
@@ -427,14 +427,15 @@ where
 		.iter()
 		.any(|v| keystore.has_keys(&[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]));
 
-	let is_present_authority = session_info
-		.discovery_keys
+	// We could've checked discovery_keys but on Kusama validators.len() < discovery_keys.len().
+	let is_present_validator = session_info
+		.validators
 		.iter()
-		.any(|v| keystore.has_keys(&[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]));
+		.any(|v| keystore.has_keys(&[(v.to_raw_vec(), ValidatorId::ID)]));
 
 	// There is still a chance to be a previous session authority, but this extra work does not
 	// affect the finalization.
-	is_past_present_or_future_authority && !is_present_authority
+	is_past_present_or_future_authority && !is_present_validator
 }
 
 // Sends PVF with unknown code hashes to the validation host returning the list of code hashes sent.
