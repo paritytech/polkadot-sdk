@@ -76,12 +76,12 @@ impl<T: Config> Pallet<T> {
 					let check = Self::pot_check(project.amount);
 					if check.is_ok() {
 						// Create a new Spend
-						let new_spend = SpendInfo::<T>::new(&project);						
+						let new_spend = SpendInfo::<T>::new(&project);
 						match T::NativeBalance::hold(
 							&HoldReason::FundsReserved.into(),
 							&pot,
 							project.amount,
-						){
+						) {
 							Ok(_x) => println!("Hold operation succeded!"),
 							Err(e) => println!("{:?}", e),
 						};
