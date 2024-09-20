@@ -336,10 +336,8 @@ pub mod pallet {
 			let bounded_proxies: ProxiesVec<T> =
 				vec![proxy_def].try_into().map_err(|_| Error::<T>::TooMany)?;
 
-			let ticket = T::ProxyConsideration::new(
-				&who,
-				Footprint::from_parts(bounded_proxies.len(), bounded_proxies.encoded_size()),
-			)?;
+			let ticket =
+				T::ProxyConsideration::new(&who, Footprint::from_encodable(&bounded_proxies))?;
 			Proxies::<T>::insert(&pure, (bounded_proxies, ticket));
 
 			Self::deposit_event(Event::PureCreated {
@@ -446,19 +444,19 @@ pub mod pallet {
 						v
 					} else {
 						let default: AnnouncementsVec<T> = Default::default();
-						let size = default.encoded_size();
+						let footprint = Footprint::from_encodable(&default);
 						(
 							default,
 							T::AnnouncementConsideration::new(
 								&who,
-								Footprint::from_parts(0, size),
+								footprint,
 							)?,
 						)
 					};
 					pending.try_push(announcement).map_err(|_| Error::<T>::TooMany)?;
 					let new_ticket = ticket.update(
 						&who,
-						Footprint::from_parts(pending.len(), pending.encoded_size()),
+						Footprint::from_encodable(&pending),
 					)?;
 					*value = Some((pending, new_ticket));
 					Ok::<(), DispatchError>(())
@@ -702,11 +700,8 @@ impl<T: Config> Pallet<T> {
 				v
 			} else {
 				let default_proxies: ProxiesVec<T> = Default::default();
-				let size = default_proxies.encoded_size();
-				(
-					default_proxies,
-					T::ProxyConsideration::new(delegator, Footprint::from_parts(0, size))?,
-				)
+				let footprint = Footprint::from_encodable(&default_proxies);
+				(default_proxies, T::ProxyConsideration::new(delegator, footprint)?)
 			};
 
 			let proxy_def = ProxyDefinition {
@@ -717,8 +712,7 @@ impl<T: Config> Pallet<T> {
 			let i = proxies.binary_search(&proxy_def).err().ok_or(Error::<T>::Duplicate)?;
 			proxies.try_insert(i, proxy_def).map_err(|_| Error::<T>::TooMany)?;
 
-			let new_ticket = ticket
-				.update(delegator, Footprint::from_parts(proxies.len(), proxies.encoded_size()))?;
+			let new_ticket = ticket.update(delegator, Footprint::from_encodable(&proxies))?;
 
 			*value = Some((proxies, new_ticket));
 
@@ -756,8 +750,7 @@ impl<T: Config> Pallet<T> {
 			let i = proxies.binary_search(&proxy_def).ok().ok_or(Error::<T>::NotFound)?;
 			proxies.remove(i);
 			// If this was the last proxy, the ticket will be updated to 0.
-			let new_ticket = ticket
-				.update(delegator, Footprint::from_parts(proxies.len(), proxies.encoded_size()))?;
+			let new_ticket = ticket.update(delegator, Footprint::from_encodable(&proxies))?;
 			if !proxies.is_empty() {
 				*x = Some((proxies, new_ticket))
 			}
@@ -782,8 +775,7 @@ impl<T: Config> Pallet<T> {
 			let orig_pending_len = pending.len();
 			pending.retain(f);
 			ensure!(orig_pending_len > pending.len(), Error::<T>::NotFound);
-			let new_ticket = ticket
-				.update(delegate, Footprint::from_parts(pending.len(), pending.encoded_size()))?;
+			let new_ticket = ticket.update(delegate, Footprint::from_encodable(&pending))?;
 			*x = Some((pending, new_ticket));
 			Ok(())
 		})
