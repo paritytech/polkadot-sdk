@@ -33,13 +33,12 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 fn add_proxies<T: Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(), &'static str> {
 	let caller = maybe_who.unwrap_or_else(whitelisted_caller);
-	T::ProxyConsideration::ensure_successful(
-		&caller,
-		Footprint::from_mel::<(ProxiesVec<T>, ProxyTicketOf<T>)>(),
-	);
 	for i in 0..n {
 		let real = T::Lookup::unlookup(account("target", i, SEED));
-
+		T::ProxyConsideration::ensure_successful(
+			&caller,
+			Footprint::from_mel::<(ProxiesVec<T>, ProxyTicketOf<T>)>(),
+		);
 		Proxy::<T>::add_proxy(
 			RawOrigin::Signed(caller.clone()).into(),
 			real,
@@ -74,11 +73,11 @@ fn add_announcements<T: Config>(
 		real
 	};
 	let real_lookup = T::Lookup::unlookup(real);
-	T::AnnouncementConsideration::ensure_successful(
-		&caller,
-		Footprint::from_mel::<(AnnouncementsVec<T>, AnnouncementTicketOf<T>)>(),
-	);
 	for _ in 0..n {
+		T::AnnouncementConsideration::ensure_successful(
+			&caller,
+			Footprint::from_mel::<(AnnouncementsVec<T>, AnnouncementTicketOf<T>)>(),
+		);
 		Proxy::<T>::announce(
 			RawOrigin::Signed(caller.clone()).into(),
 			real_lookup.clone(),
@@ -183,6 +182,7 @@ benchmarks! {
 		add_announcements::<T>(a, Some(caller.clone()), None)?;
 		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
 		let call_hash = T::CallHasher::hash_of(&call);
+		T::AnnouncementConsideration::ensure_successful(&caller, Footprint::from_mel::<(AnnouncementsVec<T>, AnnouncementTicketOf<T>)>());
 	}: _(RawOrigin::Signed(caller.clone()), real_lookup, call_hash)
 	verify {
 		assert_last_event::<T>(Event::Announced { real, proxy: caller, call_hash }.into());
