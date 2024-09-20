@@ -84,7 +84,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use prometheus_endpoint::Registry;
 #[cfg(feature = "full-node")]
 use sc_service::KeystoreContainer;
-use sc_service::{RpcHandlers, SpawnTaskHandle};
+use sc_service::{build_polkadot_syncing_strategy, RpcHandlers, SpawnTaskHandle};
 use sc_telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
@@ -1041,6 +1041,16 @@ pub fn new_full<
 		})
 	};
 
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		config.protocol_id(),
+		config.chain_spec.fork_id(),
+		&mut net_config,
+		Some(WarpSyncConfig::WithProvider(warp_sync)),
+		client.clone(),
+		&task_manager.spawn_handle(),
+		config.prometheus_config.as_ref().map(|config| &config.registry),
+	)?;
+
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
@@ -1050,7 +1060,7 @@ pub fn new_full<
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
+			syncing_strategy,
 			block_relay: None,
 			metrics,
 		})?;

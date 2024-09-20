@@ -36,7 +36,7 @@ use sc_client_api::{
 	StorageProof,
 };
 use sc_telemetry::TelemetryWorkerHandle;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{CallApiAt, CallApiAtParams, CallContext, ProvideRuntimeApi};
 use sp_consensus::SyncOracle;
 use sp_core::Pair;
 use sp_state_machine::{Backend as StateBackend, StorageValue};
@@ -178,6 +178,23 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 
 	async fn finalized_block_hash(&self) -> RelayChainResult<PHash> {
 		Ok(self.backend.blockchain().info().finalized_hash)
+	}
+
+	async fn call_runtime_api(
+		&self,
+		method_name: &'static str,
+		hash: PHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		Ok(self.full_client.call_api_at(CallApiAtParams {
+			at: hash,
+			function: method_name,
+			arguments: payload.to_vec(),
+			overlayed_changes: &Default::default(),
+			call_context: CallContext::Offchain,
+			recorder: &None,
+			extensions: &Default::default(),
+		})?)
 	}
 
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
