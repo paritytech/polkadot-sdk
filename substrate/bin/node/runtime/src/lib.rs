@@ -2188,7 +2188,7 @@ impl pallet_broker::Config for Runtime {
 
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"py/potid");
-	pub const Period:BlockNumber = 5*MINUTES;
+	pub const Period:BlockNumber = 5 * MINUTES;
 	pub const MaxProjects:u32 = 50;
 	pub const EpochDurationBlocks: BlockNumber = EPOCH_DURATION_IN_BLOCKS;
 }

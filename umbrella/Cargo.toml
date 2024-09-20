@@ -551,7 +551,7 @@ runtime = [
 	"frame-executive",
 	"frame-metadata-hash-extension",
 	"frame-support",
-	"frame-support-procedural",pallet-opf
+	"frame-support-procedural",
 	"frame-support-procedural-tools-derive",
 	"frame-system",
 	"frame-system-benchmarking",

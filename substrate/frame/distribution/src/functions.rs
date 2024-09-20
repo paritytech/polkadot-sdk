@@ -22,15 +22,14 @@ impl<T: Config> Pallet<T> {
 	pub fn pot_account() -> AccountIdOf<T> {
 		// Get Pot account
 		let pot_id = T::PotId::get();
-		let pot_account: AccountIdOf<T> = pot_id.into_account_truncating();
-		pot_account
+		pot_id.into_account_truncating()
 	}
 
 	/// Series of checks on the Pot, to ensure that we have enough funds
 	/// before executing a Spend
 	pub fn pot_check(spend: BalanceOf<T>) -> DispatchResult {
 		// Get Pot account
-		let pot_account: AccountIdOf<T> = Self::pot_account();
+		let pot_account= Self::pot_account();
 
 		// Check that the Pot as enough funds for the transfer
 		let balance = T::NativeBalance::balance(&pot_account);
@@ -48,8 +47,7 @@ impl<T: Config> Pallet<T> {
 		let pot_account: AccountIdOf<T> = Self::pot_account();
 
 		//Operate the transfer
-		T::NativeBalance::transfer(&pot_account, &beneficiary, amount, Preservation::Preserve)
-			.map_err(|_| Error::<T>::TransferFailed)?;
+		T::NativeBalance::transfer(&pot_account, &beneficiary, amount, Preservation::Preserve)?;
 
 		Ok(())
 	}
@@ -62,7 +60,7 @@ impl<T: Config> Pallet<T> {
 	// funds for created `SpendInfos`. the function will be use in a hook.
 
 	pub fn begin_block(now: BlockNumberFor<T>) -> Weight {
-		let max_block_weight = Weight::from_parts(1000_u64, 0);
+		let max_block_weight = T::BlockWeights::get().max_block;
 		let epoch = T::EpochDurationBlocks::get();
 
 		//We reach the check period
@@ -70,15 +68,15 @@ impl<T: Config> Pallet<T> {
 			let mut projects = Projects::<T>::get();
 
 			if projects.len() > 0 {
+				// Reserve funds for the project
+				let pot = Self::pot_account();
+				
 				for project in projects.clone() {
 					// check if the pot has enough fund for the Spend
 					let check = Self::pot_check(project.amount);
 					if check.is_ok() {
 						// Create a new Spend
-						let new_spend = SpendInfo::<T>::new(&project);
-
-						// Reserve funds for the project
-						let pot = Self::pot_account();
+						let new_spend = SpendInfo::<T>::new(&project);						
 						let _ = T::NativeBalance::hold(
 							&HoldReason::FundsReserved.into(),
 							&pot,
