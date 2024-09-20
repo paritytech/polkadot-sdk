@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
 	/// before executing a Spend
 	pub fn pot_check(spend: BalanceOf<T>) -> DispatchResult {
 		// Get Pot account
-		let pot_account= Self::pot_account();
+		let pot_account = Self::pot_account();
 
 		// Check that the Pot as enough funds for the transfer
 		let balance = T::NativeBalance::balance(&pot_account);
@@ -70,19 +70,21 @@ impl<T: Config> Pallet<T> {
 			if projects.len() > 0 {
 				// Reserve funds for the project
 				let pot = Self::pot_account();
-				
+
 				for project in projects.clone() {
 					// check if the pot has enough fund for the Spend
 					let check = Self::pot_check(project.amount);
 					if check.is_ok() {
 						// Create a new Spend
 						let new_spend = SpendInfo::<T>::new(&project);						
-						let _ = T::NativeBalance::hold(
+						match T::NativeBalance::hold(
 							&HoldReason::FundsReserved.into(),
 							&pot,
 							project.amount,
-						)
-						.expect("Funds Reserve Failed");
+						){
+							Ok(_x) => println!("Hold operation succeded!"),
+							Err(e) => println!("{:?}", e),
+						};
 
 						// Remove project from project_list
 						projects.retain(|value| *value != project);
