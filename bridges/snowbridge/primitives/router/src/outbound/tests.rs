@@ -1165,7 +1165,7 @@ fn xcm_converter_transfer_native_token_with_invalid_location_will_fail() {
 }
 
 #[test]
-fn exporter_validate_with_unknown_network_yields_not_applicable_does_not_alter_destination() {
+fn exporter_validate_with_invalid_dest_does_not_alter_destination() {
 	let network = BridgedNetwork::get();
 	let mut destination: InteriorLocation = Parachain(1000).into();
 
