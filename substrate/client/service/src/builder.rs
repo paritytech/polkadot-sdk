@@ -909,7 +909,7 @@ where
 		metrics_registry,
 		metrics.clone(),
 		&net_config,
-		protocol_id,
+		protocol_id.clone(),
 		fork_id,
 		block_announce_validator,
 		syncing_strategy,
@@ -921,7 +921,11 @@ where
 	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
 
 	build_network_advanced(BuildNetworkAdvancedParams {
-		config,
+		role: config.role,
+		protocol_id,
+		fork_id,
+		ipfs_server: config.network.ipfs_server,
+		announce_block: config.announce_block,
 		net_config,
 		client,
 		transaction_pool,
@@ -930,6 +934,7 @@ where
 		sync_service,
 		block_announce_config,
 		network_service_provider,
+		metrics_registry,
 		metrics,
 	})
 }
@@ -940,8 +945,16 @@ where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
-	/// The service configuration.
-	pub config: &'a Configuration,
+	/// Role of the local node.
+	pub role: Role,
+	/// Protocol name prefix.
+	pub protocol_id: ProtocolId,
+	/// Fork ID.
+	pub fork_id: Option<&'a str>,
+	/// Enable serving block data over IPFS bitswap.
+	pub ipfs_server: bool,
+	/// Announce block automatically after they have been imported.
+	pub announce_block: bool,
 	/// Full network configuration.
 	pub net_config: FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
 	/// A shared client returned by `new_full_parts`.
@@ -958,6 +971,8 @@ where
 	pub block_announce_config: Net::NotificationProtocolConfig,
 	/// Network service provider to drive with network internally.
 	pub network_service_provider: NetworkServiceProvider,
+	/// Prometheus metrics registry.
+	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
 }
@@ -992,7 +1007,11 @@ where
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	let BuildNetworkAdvancedParams {
-		config,
+		role,
+		protocol_id,
+		fork_id,
+		ipfs_server,
+		announce_block,
 		mut net_config,
 		client,
 		transaction_pool,
@@ -1001,19 +1020,16 @@ where
 		sync_service,
 		block_announce_config,
 		network_service_provider,
+		metrics_registry,
 		metrics,
 	} = params;
 
-	let protocol_id = config.protocol_id();
 	let genesis_hash = client.info().genesis_hash;
 
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) = LightClientRequestHandler::new::<Net>(
-			&protocol_id,
-			config.chain_spec.fork_id(),
-			client.clone(),
-		);
+		let (handler, protocol_config) =
+			LightClientRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone());
 		spawn_handle.spawn("light-client-request-handler", Some("networking"), handler.run());
 		protocol_config
 	};
@@ -1021,7 +1037,7 @@ where
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	let bitswap_config = config.network.ipfs_server.then(|| {
+	let bitswap_config = ipfs_server.then(|| {
 		let (handler, config) = Net::bitswap_server(client.clone());
 		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
 
@@ -1033,7 +1049,7 @@ where
 		sc_network_transactions::TransactionsHandlerPrototype::new::<_, Block, Net>(
 			protocol_id.clone(),
 			genesis_hash,
-			config.chain_spec.fork_id(),
+			fork_id,
 			metrics.clone(),
 			net_config.peer_store_handle(),
 		);
@@ -1046,7 +1062,7 @@ where
 	let sync_service = Arc::new(sync_service);
 
 	let network_params = sc_network::config::Params::<Block, <Block as BlockT>::Hash, Net> {
-		role: config.role,
+		role,
 		executor: {
 			let spawn_handle = Clone::clone(&spawn_handle);
 			Box::new(move |fut| {
@@ -1056,8 +1072,8 @@ where
 		network_config: net_config,
 		genesis_hash,
 		protocol_id,
-		fork_id: config.chain_spec.fork_id().map(ToOwned::to_owned),
-		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
+		fork_id: fork_id.map(ToOwned::to_owned),
+		metrics_registry: metrics_registry.cloned(),
 		block_announce_config,
 		bitswap_config,
 		notification_metrics: metrics,
@@ -1071,7 +1087,7 @@ where
 		network.clone(),
 		sync_service.clone(),
 		Arc::new(TransactionPoolAdapter { pool: transaction_pool, client: client.clone() }),
-		config.prometheus_config.as_ref().map(|config| &config.registry),
+		metrics_registry,
 	)?;
 	spawn_handle.spawn_blocking(
 		"network-transactions-handler",
@@ -1095,7 +1111,7 @@ where
 		"system-rpc-handler",
 		Some("networking"),
 		build_system_rpc_future::<_, _, <Block as BlockT>::Hash>(
-			config.role,
+			role,
 			network_mut.network_service(),
 			sync_service.clone(),
 			client.clone(),
@@ -1108,7 +1124,7 @@ where
 		network_mut,
 		client,
 		sync_service.clone(),
-		config.announce_block,
+		announce_block,
 	);
 
 	// TODO: Normally, one is supposed to pass a list of notifications protocols supported by the
