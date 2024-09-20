@@ -237,8 +237,8 @@ parameter_types! {
 	const XcmExecutionFailed: ReturnErrorCode = ReturnErrorCode::XcmExecutionFailed;
 }
 
-impl<'a> From<&'a ExecReturnValue> for ReturnErrorCode {
-	fn from(from: &'a ExecReturnValue) -> Self {
+impl From<ExecReturnValue> for ReturnErrorCode {
+	fn from(from: ExecReturnValue) -> Self {
 		if from.flags.contains(ReturnFlags::REVERT) {
 			Self::CalleeReverted
 		} else {
@@ -763,11 +763,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 	}
 
-	/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
-	fn exec_error_into_return_code(from: ExecError) -> Result<ReturnErrorCode, DispatchError> {
+	/// Fallible conversion of a `ExecResult` to `ReturnErrorCode`.
+	fn exec_into_return_code(from: ExecResult) -> Result<ReturnErrorCode, DispatchError> {
 		use crate::exec::ErrorOrigin::Callee;
 
-		match (from.error, from.origin) {
+		let ExecError { error, origin } = match from {
+			Ok(retval) => return Ok(retval.into()),
+			Err(err) => err,
+		};
+
+		match (error, origin) {
 			(_, Callee) => Ok(ReturnErrorCode::CalleeTrapped),
 			(err, _) => Self::err_into_return_code(err),
 		}
@@ -1037,18 +1042,17 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			}
 		}
 
-		let output = match call_outcome {
-			Ok(outcome) => outcome,
-			Err(err) => return Ok(Self::exec_error_into_return_code(err)?),
-		};
-		let return_error_code = (&output).into();
-
-		self.write_sandbox_output(memory, output_ptr, output_len_ptr, &output.data, true, |len| {
-			Some(RuntimeCosts::CopyToContract(len))
-		})?;
-		*self.ext.last_frame_output_mut() = output.data;
-
-		Ok(return_error_code)
+		if let Ok(output) = &call_outcome {
+			self.write_sandbox_output(
+				memory,
+				output_ptr,
+				output_len_ptr,
+				&output.data,
+				true,
+				|len| Some(RuntimeCosts::CopyToContract(len)),
+			)?;
+		}
+		Ok(Self::exec_into_return_code(call_outcome)?)
 	}
 
 	fn instantiate(
@@ -1086,27 +1090,26 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			salt.as_ref(),
 		);
 
-		let (address, retval) = match instantiate_outcome {
-			Ok(outcome) => outcome,
-			Err(err) => return Ok(Self::exec_error_into_return_code(err)?),
-		};
-		let return_error_code = (&retval).into();
-
-		if !retval.flags.contains(ReturnFlags::REVERT) {
-			self.write_fixed_sandbox_output(
+		if let Ok((address, output)) = &instantiate_outcome {
+			if !output.flags.contains(ReturnFlags::REVERT) {
+				self.write_fixed_sandbox_output(
+					memory,
+					address_ptr,
+					&address.as_bytes(),
+					true,
+					already_charged,
+				)?;
+			}
+			self.write_sandbox_output(
 				memory,
-				address_ptr,
-				&address.as_bytes(),
+				output_ptr,
+				output_len_ptr,
+				&output.data,
 				true,
-				already_charged,
+				|len| Some(RuntimeCosts::CopyToContract(len)),
 			)?;
 		}
-		self.write_sandbox_output(memory, output_ptr, output_len_ptr, &retval.data, true, |len| {
-			Some(RuntimeCosts::CopyToContract(len))
-		})?;
-		*self.ext.last_frame_output_mut() = retval.data;
-
-		Ok(return_error_code)
+		Ok(Self::exec_into_return_code(instantiate_outcome.map(|(_, retval)| retval))?)
 	}
 
 	fn terminate(&mut self, memory: &M, beneficiary_ptr: u32) -> Result<(), TrapReason> {

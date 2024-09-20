@@ -1121,6 +1121,9 @@ where
 		}
 
 		self.pop_frame(success);
+		if let Ok(output) = output.as_ref() {
+			self.top_frame_mut().last_frame_output = output.data.clone();
+		}
 		output
 	}
 
