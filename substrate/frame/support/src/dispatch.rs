@@ -1201,7 +1201,7 @@ mod test_extensions {
 	use sp_runtime::{
 		impl_tx_ext_default,
 		traits::{
-			DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf, TransactionExtension,
+			DispatchInfoOf, Dispatchable, DispatchOriginOf, PostDispatchInfoOf, TransactionExtension,
 		},
 		transaction_validity::TransactionValidityError,
 	};
@@ -1226,7 +1226,7 @@ mod test_extensions {
 		fn prepare(
 			self,
 			_val: Self::Val,
-			_origin: &OriginOf<RuntimeCall>,
+			_origin: &DispatchOriginOf<RuntimeCall>,
 			_call: &RuntimeCall,
 			_info: &DispatchInfoOf<RuntimeCall>,
 			_len: usize,
@@ -1271,7 +1271,7 @@ mod test_extensions {
 		fn prepare(
 			self,
 			_val: Self::Val,
-			_origin: &OriginOf<RuntimeCall>,
+			_origin: &DispatchOriginOf<RuntimeCall>,
 			_call: &RuntimeCall,
 			_info: &DispatchInfoOf<RuntimeCall>,
 			_len: usize,
@@ -1314,7 +1314,7 @@ mod test_extensions {
 		fn prepare(
 			self,
 			_val: Self::Val,
-			_origin: &OriginOf<RuntimeCall>,
+			_origin: &DispatchOriginOf<RuntimeCall>,
 			_call: &RuntimeCall,
 			_info: &DispatchInfoOf<RuntimeCall>,
 			_len: usize,

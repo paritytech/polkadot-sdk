@@ -44,7 +44,7 @@ use frame_support::{
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
-	traits::{DispatchInfoOf, OriginOf, PostDispatchInfoOf, TransactionExtension, ValidateResult},
+	traits::{DispatchInfoOf, DispatchOriginOf, PostDispatchInfoOf, TransactionExtension, ValidateResult},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -128,8 +128,8 @@ where
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		self.0.implicit()
 	}
-	type Val = Intermediate<S::Val, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
-	type Pre = Intermediate<S::Pre, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
+	type Val = Intermediate<S::Val, <DispatchOriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
+	type Pre = Intermediate<S::Pre, <DispatchOriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
 
 	fn weight(&self, call: &T::RuntimeCall) -> frame_support::weights::Weight {
 		self.0.weight(call)
@@ -137,7 +137,7 @@ where
 
 	fn validate(
 		&self,
-		origin: OriginOf<T::RuntimeCall>,
+		origin: DispatchOriginOf<T::RuntimeCall>,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
@@ -156,7 +156,7 @@ where
 	fn prepare(
 		self,
 		val: Self::Val,
-		origin: &OriginOf<T::RuntimeCall>,
+		origin: &DispatchOriginOf<T::RuntimeCall>,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,

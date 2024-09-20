@@ -70,8 +70,8 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		Bounded, DispatchInfoOf, OriginOf, SaturatedConversion, Saturating, TransactionExtension,
-		ValidateResult,
+		Bounded, DispatchInfoOf, DispatchOriginOf, SaturatedConversion, Saturating,
+		TransactionExtension, ValidateResult,
 	},
 	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
@@ -501,7 +501,7 @@ where
 
 	fn validate(
 		&self,
-		origin: OriginOf<<T as frame_system::Config>::RuntimeCall>,
+		origin: DispatchOriginOf<<T as frame_system::Config>::RuntimeCall>,
 		call: &<T as frame_system::Config>::RuntimeCall,
 		_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,

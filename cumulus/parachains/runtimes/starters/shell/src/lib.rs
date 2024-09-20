@@ -44,7 +44,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, OriginOf,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, DispatchOriginOf,
 		TransactionExtension, ValidateResult,
 	},
 	transaction_validity::{
@@ -286,7 +286,7 @@ impl TransactionExtension<RuntimeCall> for DisallowSigned {
 	type Pre = ();
 	fn validate(
 		&self,
-		_origin: OriginOf<RuntimeCall>,
+		_origin: DispatchOriginOf<RuntimeCall>,
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
@@ -298,7 +298,7 @@ impl TransactionExtension<RuntimeCall> for DisallowSigned {
 	fn prepare(
 		self,
 		_val: Self::Val,
-		_origin: &OriginOf<RuntimeCall>,
+		_origin: &DispatchOriginOf<RuntimeCall>,
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,

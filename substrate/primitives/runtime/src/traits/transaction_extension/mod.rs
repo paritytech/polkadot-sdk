@@ -31,8 +31,8 @@ use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
 
 use super::{
-	DispatchInfoOf, Dispatchable, ExtensionPostDispatchWeightHandler, OriginOf, PostDispatchInfoOf,
-	RefundWeight,
+	DispatchInfoOf, DispatchOriginOf, Dispatchable, ExtensionPostDispatchWeightHandler,
+	PostDispatchInfoOf, RefundWeight,
 };
 
 mod as_transaction_extension;
@@ -43,7 +43,7 @@ pub use dispatch_transaction::DispatchTransaction;
 
 /// Shortcut for the result value of the `validate` function.
 pub type ValidateResult<Val, Call> =
-	Result<(ValidTransaction, Val, OriginOf<Call>), TransactionValidityError>;
+	Result<(ValidTransaction, Val, DispatchOriginOf<Call>), TransactionValidityError>;
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
@@ -236,7 +236,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	/// [prepare](TransactionExtension::prepare) and is ultimately used for dispatch.
 	fn validate(
 		&self,
-		origin: OriginOf<Call>,
+		origin: DispatchOriginOf<Call>,
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
@@ -269,7 +269,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	fn prepare(
 		self,
 		val: Self::Val,
-		origin: &OriginOf<Call>,
+		origin: &DispatchOriginOf<Call>,
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,

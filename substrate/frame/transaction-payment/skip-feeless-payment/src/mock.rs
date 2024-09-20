@@ -19,7 +19,7 @@ use crate as pallet_skip_feeless_payment;
 use frame_support::{derive_impl, parameter_types};
 use frame_system as system;
 use sp_runtime::{
-	traits::{OriginOf, TransactionExtension},
+	traits::{DispatchOriginOf, TransactionExtension},
 	transaction_validity::ValidTransaction,
 };
 
@@ -50,7 +50,7 @@ impl TransactionExtension<RuntimeCall> for DummyExtension {
 
 	fn validate(
 		&self,
-		origin: OriginOf<RuntimeCall>,
+		origin: DispatchOriginOf<RuntimeCall>,
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
@@ -64,7 +64,7 @@ impl TransactionExtension<RuntimeCall> for DummyExtension {
 	fn prepare(
 		self,
 		_val: Self::Val,
-		_origin: &OriginOf<RuntimeCall>,
+		_origin: &DispatchOriginOf<RuntimeCall>,
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
