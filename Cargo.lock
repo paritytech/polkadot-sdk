@@ -809,6 +809,7 @@ dependencies = [
  "cumulus-primitives-core",
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-asset-rewards",
  "parachains-common",
  "rococo-emulated-chain",
  "sp-core 28.0.0",
@@ -826,6 +827,7 @@ dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-asset-conversion",
+ "pallet-asset-rewards",
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
@@ -875,6 +877,7 @@ dependencies = [
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
+ "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
  "pallet-aura",
@@ -956,6 +959,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-asset-conversion",
+ "pallet-asset-rewards",
  "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-balances",
@@ -1007,6 +1011,7 @@ dependencies = [
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
+ "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
  "pallet-aura",
@@ -10707,6 +10712,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-asset-rewards"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-assets-freezer",
+ "pallet-balances",
+ "parity-scale-codec",
+ "primitive-types",
+ "scale-info",
+ "sp-api",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-asset-tx-payment"
 version = "28.0.0"
 dependencies = [
@@ -15264,6 +15290,7 @@ dependencies = [
  "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-rate",
+ "pallet-asset-rewards",
  "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-assets-freezer",

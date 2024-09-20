@@ -48,7 +48,7 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
+	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
 	MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
@@ -64,6 +64,7 @@ use xcm_executor::XcmExecutor;
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Westend);
+	pub const GovernanceLocation: Location = Location::parent();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
@@ -95,7 +96,7 @@ pub type LocationToAccountId = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign chain account alias into local accounts according to a hash of their standard
 	// description.
-	HashedDescription<AccountId, DescribeFamily<DescribePalletTerminal>>,
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 	// Different global consensus parachain sovereign account.
 	// (Used for over-bridge transfers and reserve processing)
 	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
@@ -357,7 +358,7 @@ pub type TrustedTeleporters = (
 /// asset and the asset required for fee payment.
 pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	crate::AssetConversion,
-	crate::NativeAndAssets,
+	crate::NativeAndNonPoolAssets,
 	(
 		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v4::Location>,
 		ForeignAssetsConvertedConcreteId,
@@ -407,7 +408,7 @@ impl xcm_executor::Config for XcmConfig {
 			WestendLocation,
 			crate::AssetConversion,
 			WeightToFee,
-			crate::NativeAndAssets,
+			crate::NativeAndNonPoolAssets,
 			(
 				TrustBackedAssetsAsLocation<
 					TrustBackedAssetsPalletLocation,
@@ -416,7 +417,7 @@ impl xcm_executor::Config for XcmConfig {
 				>,
 				ForeignAssetsConvertedConcreteId,
 			),
-			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
+			ResolveAssetTo<StakingPot, crate::NativeAndNonPoolAssets>,
 			AccountId,
 		>,
 		// This trader allows to pay with `is_sufficient=true` "Trust Backed" assets from dedicated

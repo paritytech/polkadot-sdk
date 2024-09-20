@@ -24,6 +24,7 @@ frame-system = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-asset-conversion = { workspace = true }
+pallet-asset-rewards = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-transaction-payment = { workspace = true }

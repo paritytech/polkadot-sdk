@@ -15,6 +15,7 @@ workspace = true
 # Substrate
 sp-core = { workspace = true }
 frame-support = { workspace = true }
+pallet-asset-rewards = { workspace = true }
 
 # Cumulus
 parachains-common = { workspace = true, default-features = true }

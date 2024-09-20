@@ -16,6 +16,7 @@
 mod claim_assets;
 mod hybrid_transfers;
 mod reserve_transfer;
+mod reward_pool;
 mod send;
 mod set_xcm_versions;
 mod swap;
