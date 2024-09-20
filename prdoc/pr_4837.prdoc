@@ -9,4 +9,18 @@ doc:
       The new logic optimizes the distribution of execution jobs for disputes, approvals, and backings.
       The main goal is to create back pressure for backing in the presence of disputes or numerous approval jobs.
 
-crates: [ ]
+crates:
+  - name: polkadot-overseer
+    bump: minor
+  - name: polkadot-node-subsystem-types
+    bump: minor
+  - name: polkadot-node-core-approval-voting
+    bump: minor
+  - name: polkadot-node-core-backing
+    bump: minor
+  - name: polkadot-node-core-candidate-validation
+    bump: minor
+  - name: polkadot-node-core-pvf
+    bump: minor
+  - name: polkadot-node-core-dispute-coordinator
+    bump: minor
