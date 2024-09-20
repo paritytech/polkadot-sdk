@@ -63,6 +63,7 @@ use {
 };
 
 use polkadot_node_subsystem_util::database::Database;
+use polkadot_overseer::SpawnGlue;
 
 #[cfg(feature = "full-node")]
 pub use {
@@ -83,7 +84,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use prometheus_endpoint::Registry;
 #[cfg(feature = "full-node")]
 use sc_service::KeystoreContainer;
-use sc_service::RpcHandlers;
+use sc_service::{build_polkadot_syncing_strategy, RpcHandlers, SpawnTaskHandle};
 use sc_telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
@@ -1027,6 +1028,16 @@ pub fn new_full<
 		})
 	};
 
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		config.protocol_id(),
+		config.chain_spec.fork_id(),
+		&mut net_config,
+		Some(WarpSyncConfig::WithProvider(warp_sync)),
+		client.clone(),
+		&task_manager.spawn_handle(),
+		config.prometheus_config.as_ref().map(|config| &config.registry),
+	)?;
+
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
@@ -1036,7 +1047,7 @@ pub fn new_full<
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
+			syncing_strategy,
 			block_relay: None,
 			metrics,
 		})?;
@@ -1500,6 +1511,7 @@ pub fn revert_backend(
 	backend: Arc<FullBackend>,
 	blocks: BlockNumber,
 	config: Configuration,
+	task_handle: SpawnTaskHandle,
 ) -> Result<(), Error> {
 	let best_number = client.info().best_number;
 	let finalized = client.info().finalized_number;
@@ -1520,7 +1532,7 @@ pub fn revert_backend(
 	let parachains_db = open_database(&config.database)
 		.map_err(|err| sp_blockchain::Error::Backend(err.to_string()))?;
 
-	revert_approval_voting(parachains_db.clone(), hash)?;
+	revert_approval_voting(parachains_db.clone(), hash, task_handle)?;
 	revert_chain_selection(parachains_db, hash)?;
 	// Revert Substrate consensus related components
 	sc_consensus_babe::revert(client.clone(), backend, blocks)?;
@@ -1543,7 +1555,11 @@ fn revert_chain_selection(db: Arc<dyn Database>, hash: Hash) -> sp_blockchain::R
 		.map_err(|err| sp_blockchain::Error::Backend(err.to_string()))
 }
 
-fn revert_approval_voting(db: Arc<dyn Database>, hash: Hash) -> sp_blockchain::Result<()> {
+fn revert_approval_voting(
+	db: Arc<dyn Database>,
+	hash: Hash,
+	task_handle: SpawnTaskHandle,
+) -> sp_blockchain::Result<()> {
 	let config = approval_voting_subsystem::Config {
 		col_approval_data: parachains_db::REAL_COLUMNS.col_approval_data,
 		slot_duration_millis: Default::default(),
@@ -1555,6 +1571,7 @@ fn revert_approval_voting(db: Arc<dyn Database>, hash: Hash) -> sp_blockchain::R
 		Arc::new(sc_keystore::LocalKeystore::in_memory()),
 		Box::new(sp_consensus::NoNetwork),
 		approval_voting_subsystem::Metrics::default(),
+		Arc::new(SpawnGlue(task_handle)),
 	);
 
 	approval_voting

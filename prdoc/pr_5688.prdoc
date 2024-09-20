@@ -1,0 +1,10 @@
+title: "Fix `paras_inherent` benchmark"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes the benchmark for relay chains like rococo-dev with `max_validators_per_core` value lower than 2.
+
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
