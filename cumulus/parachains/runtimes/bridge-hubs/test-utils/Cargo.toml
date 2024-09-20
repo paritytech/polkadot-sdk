@@ -82,6 +82,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-utility/std",
 	"pallet-xcm-bridge-hub/std",
+	"pallet-xcm/std",
 	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",
 	"sp-core/std",
