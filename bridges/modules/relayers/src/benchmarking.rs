@@ -32,7 +32,7 @@ const REWARD_AMOUNT: u32 = u32::MAX;
 pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);
 
 /// Trait that must be implemented by runtime.
-pub trait Config<I: 'static>: crate::Config<I> {
+pub trait Config<I: 'static = ()>: crate::Config<I> {
 	/// Lane id to use in benchmarks.
 	fn bench_lane_id() -> Self::LaneId {
 		Self::LaneId::default()

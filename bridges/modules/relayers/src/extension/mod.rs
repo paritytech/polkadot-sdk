@@ -377,7 +377,7 @@ where
 		let lane_id = pre
 			.as_ref()
 			.and_then(|p| p.as_ref())
-			.map(|p| p.call_info.messages_call_info().lane_id().clone());
+			.map(|p| p.call_info.messages_call_info().lane_id());
 		let call_result = Self::analyze_call_result(pre, info, post_info, len, result);
 
 		match call_result {

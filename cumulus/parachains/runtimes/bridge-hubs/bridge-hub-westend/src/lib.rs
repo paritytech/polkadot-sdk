@@ -1135,15 +1135,20 @@ impl_runtime_apis! {
 					);
 
 					// open bridge
-					let origin = RuntimeOrigin::from(pallet_xcm::Origin::Xcm(sibling_parachain_location.clone()));
-					XcmOverBridgeHubRococo::open_bridge(
-						origin.clone(),
-						alloc::boxed::Box::new(VersionedInteriorLocation::from([GlobalConsensus(NetworkId::Rococo), Parachain(8765)])),
+					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(NetworkId::Rococo), Parachain(8765)].into();
+					let locations = XcmOverBridgeHubRococo::bridge_locations(
+						sibling_parachain_location.clone(),
+						bridge_destination_universal_location.clone(),
+					)?;
+					XcmOverBridgeHubRococo::do_open_bridge(
+						locations,
+						bp_messages::LegacyLaneId([1, 2, 3, 4]),
+						true,
 					).map_err(|e| {
 						log::error!(
 							"Failed to `XcmOverBridgeHubRococo::open_bridge`({:?}, {:?})`, error: {:?}",
-							origin,
-							[GlobalConsensus(NetworkId::Rococo), Parachain(8765)],
+							sibling_parachain_location,
+							bridge_destination_universal_location,
 							e
 						);
 						BenchmarkError::Stop("Bridge was not opened!")

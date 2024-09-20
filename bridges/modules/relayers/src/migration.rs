@@ -147,7 +147,7 @@ pub mod v1 {
 			// re-register rewards with new format of `RewardsAccountParams`.
 			for (key1, key2, reward) in rewards_to_migrate {
 				// expand old key
-				let v0::RewardsAccountParams { owner, lane_id, bridged_chain_id } = key2.clone();
+				let v0::RewardsAccountParams { owner, lane_id, bridged_chain_id } = key2;
 
 				// re-register reward
 				Pallet::<T, I>::register_relayer_reward(

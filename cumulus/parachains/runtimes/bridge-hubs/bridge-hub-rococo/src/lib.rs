@@ -1242,15 +1242,20 @@ impl_runtime_apis! {
 					);
 
 					// open bridge
-					let origin = RuntimeOrigin::from(pallet_xcm::Origin::Xcm(sibling_parachain_location.clone()));
-					XcmOverBridgeHubWestend::open_bridge(
-						origin.clone(),
-						Box::new(VersionedInteriorLocation::from([GlobalConsensus(NetworkId::Westend), Parachain(8765)])),
+					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(NetworkId::Westend), Parachain(8765)].into();
+					let locations = XcmOverBridgeHubWestend::bridge_locations(
+						sibling_parachain_location.clone(),
+						bridge_destination_universal_location.clone(),
+					)?;
+					XcmOverBridgeHubWestend::do_open_bridge(
+						locations,
+						bp_messages::LegacyLaneId([1, 2, 3, 4]),
+						true,
 					).map_err(|e| {
 						log::error!(
 							"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`, error: {:?}",
-							origin,
-							[GlobalConsensus(NetworkId::Westend), Parachain(8765)],
+							sibling_parachain_location,
+							bridge_destination_universal_location,
 							e
 						);
 						BenchmarkError::Stop("Bridge was not opened!")
