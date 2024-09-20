@@ -53,4 +53,3 @@ polkadot-primitives-test-helpers = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 polkadot-subsystem-bench = { workspace = true, default-features = true }
 schnorrkel = { workspace = true, default-features = true }
-
