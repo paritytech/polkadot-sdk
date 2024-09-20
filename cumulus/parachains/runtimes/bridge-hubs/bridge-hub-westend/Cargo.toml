@@ -1,6 +1,10 @@
 [package]
 name = "bridge-hub-westend-runtime"
+<<<<<<< HEAD
 version = "0.12.0"
+=======
+version = "0.3.0"
+>>>>>>> 86bb5cb (Add Snowbridge initialize migration on Westend (#5747))
 authors.workspace = true
 edition.workspace = true
 description = "Westend's BridgeHub parachain runtime (polkadot v1.15.0)"
