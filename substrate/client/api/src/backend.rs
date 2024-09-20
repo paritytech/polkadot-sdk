@@ -218,7 +218,8 @@ pub trait BlockImportOperation<Block: BlockT> {
 	where
 		I: IntoIterator<Item = (Vec<u8>, Option<Vec<u8>>)>;
 
-	/// Mark a block as finalized.
+	/// Mark a block as finalized, if multiple blocks are finalized in the same operation then they
+	/// must be marked in ascending order.
 	fn mark_finalized(
 		&mut self,
 		hash: Block::Hash,

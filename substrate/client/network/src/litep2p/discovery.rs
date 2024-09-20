@@ -145,6 +145,9 @@ pub enum DiscoveryEvent {
 		/// Record.
 		record: Record,
 	},
+
+	/// Started a random Kademlia query.
+	RandomKademliaStarted,
 }
 
 /// Discovery.
@@ -456,6 +459,7 @@ impl Stream for Discovery {
 					match this.kademlia_handle.try_find_node(peer) {
 						Ok(query_id) => {
 							this.find_node_query_id = Some(query_id);
+							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
 						},
 						Err(()) => {
 							this.duration_to_next_find_query = cmp::min(

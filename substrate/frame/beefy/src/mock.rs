@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use std::vec;
 
 use frame_election_provider_support::{
@@ -28,8 +30,12 @@ use frame_support::{
 use pallet_session::historical as pallet_session_historical;
 use sp_core::{crypto::KeyTypeId, ConstU128};
 use sp_runtime::{
-	app_crypto::ecdsa::Public, curve::PiecewiseLinear, impl_opaque_keys, testing::TestXt,
-	traits::OpaqueKeys, BuildStorage, Perbill,
+	app_crypto::ecdsa::Public,
+	curve::PiecewiseLinear,
+	impl_opaque_keys,
+	testing::TestXt,
+	traits::{Header as HeaderT, OpaqueKeys},
+	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 use sp_state_machine::BasicExternalities;
@@ -37,6 +43,7 @@ use sp_state_machine::BasicExternalities;
 use crate as pallet_beefy;
 
 pub use sp_consensus_beefy::{ecdsa_crypto::AuthorityId as BeefyId, ConsensusLog, BEEFY_ENGINE_ID};
+use sp_consensus_beefy::{AncestryHelper, Commitment};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -75,11 +82,46 @@ where
 	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+pub struct MockAncestryProofContext {
+	pub is_valid: bool,
+}
+
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+pub struct MockAncestryProof {
+	pub is_non_canonical: bool,
+}
+
 parameter_types! {
 	pub const Period: u64 = 1;
 	pub const ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * Period::get();
 	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+
+	pub storage AncestryProofContext: Option<MockAncestryProofContext> = Some(
+		MockAncestryProofContext {
+			is_valid: true,
+		}
+	);
+}
+
+pub struct MockAncestryHelper;
+
+impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
+	type Proof = MockAncestryProof;
+	type ValidationContext = MockAncestryProofContext;
+
+	fn extract_validation_context(_header: Header) -> Option<Self::ValidationContext> {
+		AncestryProofContext::get()
+	}
+
+	fn is_non_canonical(
+		_commitment: &Commitment<Header::Number>,
+		proof: Self::Proof,
+		context: Self::ValidationContext,
+	) -> bool {
+		context.is_valid && proof.is_non_canonical
+	}
 }
 
 impl pallet_beefy::Config for Test {
@@ -88,6 +130,7 @@ impl pallet_beefy::Config for Test {
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type OnNewValidatorSet = ();
+	type AncestryHelper = MockAncestryHelper;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =

@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub use asset_hub_rococo_runtime;
+
 pub mod genesis;
 
 // Substrate

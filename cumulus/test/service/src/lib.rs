@@ -25,7 +25,10 @@ pub mod chain_spec;
 
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::{
-	collators::lookahead::{self as aura, Params as AuraParams},
+	collators::{
+		lookahead::{self as aura, Params as AuraParams},
+		slot_based::{self as slot_based, Params as SlotBasedParams},
+	},
 	ImportQueueParams,
 };
 use cumulus_client_consensus_proposer::Proposer;
@@ -45,7 +48,7 @@ use cumulus_client_cli::{CollatorOptions, RelayChainMode};
 use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
-use cumulus_client_pov_recovery::RecoveryHandle;
+use cumulus_client_pov_recovery::{RecoveryDelayRange, RecoveryHandle};
 #[allow(deprecated)]
 use cumulus_client_service::old_consensus;
 use cumulus_client_service::{
@@ -304,7 +307,7 @@ async fn build_relay_chain_interface(
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
-#[sc_tracing::logging::prefix_logs_with(parachain_config.network.node_name.as_str())]
+#[sc_tracing::logging::prefix_logs_with("Parachain")]
 pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	collator_key: Option<CollatorPair>,
@@ -316,6 +319,7 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	consensus: Consensus,
 	collator_options: CollatorOptions,
 	proof_recording_during_import: bool,
+	use_slot_based_collator: bool,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
@@ -409,7 +413,6 @@ where
 	} else {
 		Box::new(overseer_handle.clone())
 	};
-	let is_collator = collator_key.is_some();
 	let relay_chain_slot_duration = Duration::from_secs(6);
 
 	start_relay_chain_tasks(StartRelayChainTasksParams {
@@ -418,11 +421,11 @@ where
 		para_id,
 		relay_chain_interface: relay_chain_interface.clone(),
 		task_manager: &mut task_manager,
-		da_recovery_profile: if is_collator {
-			DARecoveryProfile::Collator
-		} else {
-			DARecoveryProfile::FullNode
-		},
+		// Increase speed of recovery for testing purposes.
+		da_recovery_profile: DARecoveryProfile::Other(RecoveryDelayRange {
+			min: Duration::from_secs(1),
+			max: Duration::from_secs(5),
+		}),
 		import_queue: import_queue_service,
 		relay_chain_slot_duration,
 		recovery_handle,
@@ -461,29 +464,72 @@ where
 			);
 
 			let client_for_aura = client.clone();
-			let params = AuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-				block_import,
-				para_client: client.clone(),
-				para_backend: backend.clone(),
-				relay_client: relay_chain_interface,
-				code_hash_provider: move |block_hash| {
-					client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
-				},
-				sync_oracle: sync_service,
-				keystore,
-				collator_key,
-				para_id,
-				overseer_handle,
-				relay_chain_slot_duration,
-				proposer,
-				collator_service,
-				authoring_duration: Duration::from_millis(2000),
-				reinitialize: false,
-			};
 
-			let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
-			task_manager.spawn_essential_handle().spawn("aura", None, fut);
+			if use_slot_based_collator {
+				tracing::info!(target: LOG_TARGET, "Starting block authoring with slot based authoring.");
+				let params = SlotBasedParams {
+					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+					block_import,
+					para_client: client.clone(),
+					para_backend: backend.clone(),
+					relay_client: relay_chain_interface,
+					code_hash_provider: move |block_hash| {
+						client_for_aura
+							.code_at(block_hash)
+							.ok()
+							.map(|c| ValidationCode::from(c).hash())
+					},
+					keystore,
+					collator_key,
+					para_id,
+					relay_chain_slot_duration,
+					proposer,
+					collator_service,
+					authoring_duration: Duration::from_millis(2000),
+					reinitialize: false,
+					slot_drift: Duration::from_secs(1),
+				};
+
+				let (collation_future, block_builer_future) =
+					slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
+				task_manager.spawn_essential_handle().spawn(
+					"collation-task",
+					None,
+					collation_future,
+				);
+				task_manager.spawn_essential_handle().spawn(
+					"block-builder-task",
+					None,
+					block_builer_future,
+				);
+			} else {
+				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
+				let params = AuraParams {
+					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+					block_import,
+					para_client: client.clone(),
+					para_backend: backend.clone(),
+					relay_client: relay_chain_interface,
+					code_hash_provider: move |block_hash| {
+						client_for_aura
+							.code_at(block_hash)
+							.ok()
+							.map(|c| ValidationCode::from(c).hash())
+					},
+					keystore,
+					collator_key,
+					para_id,
+					overseer_handle,
+					relay_chain_slot_duration,
+					proposer,
+					collator_service,
+					authoring_duration: Duration::from_millis(2000),
+					reinitialize: false,
+				};
+
+				let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
+				task_manager.spawn_essential_handle().spawn("aura", None, fut);
+			}
 		}
 	}
 
@@ -721,6 +767,7 @@ impl TestNodeBuilder {
 						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
+						false,
 					)
 					.await
 					.expect("could not create Cumulus test service"),
@@ -736,6 +783,7 @@ impl TestNodeBuilder {
 						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
+						false,
 					)
 					.await
 					.expect("could not create Cumulus test service"),
@@ -767,8 +815,11 @@ pub fn node_config(
 	let root = base_path.path().join(format!("cumulus_test_service_{}", key));
 	let role = if is_collator { Role::Authority } else { Role::Full };
 	let key_seed = key.to_seed();
-	let mut spec =
-		Box::new(chain_spec::get_chain_spec_with_extra_endowed(Some(para_id), endowed_accounts));
+	let mut spec = Box::new(chain_spec::get_chain_spec_with_extra_endowed(
+		Some(para_id),
+		endowed_accounts,
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+	));
 
 	let mut storage = spec.as_storage_builder().build_storage().expect("could not build storage");
 

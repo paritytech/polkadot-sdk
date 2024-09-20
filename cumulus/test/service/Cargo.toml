@@ -92,8 +92,6 @@ pallet-timestamp = { workspace = true, default-features = true }
 [dev-dependencies]
 futures = { workspace = true }
 portpicker = { workspace = true }
-rococo-parachain-runtime = { workspace = true }
-sp-consensus-grandpa = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
 cumulus-test-client = { workspace = true }
 
@@ -116,7 +114,6 @@ runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",
 	"polkadot-test-service/runtime-benchmarks",
-	"rococo-parachain-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]

@@ -309,7 +309,7 @@ sp_api::mock_impl_runtime_apis! {
 			self.inner.validator_set.clone()
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
+		fn submit_report_double_voting_unsigned_extrinsic(
 			proof: DoubleVotingProof<NumberFor<Block>, AuthorityId, Signature>,
 			_dummy: OpaqueKeyOwnershipProof,
 		) -> Option<()> {

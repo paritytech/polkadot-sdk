@@ -170,7 +170,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 		assert_ok!(<PenpalA as Chain>::System::set_storage(
 			<PenpalA as Chain>::RuntimeOrigin::root(),
 			vec![(
-				penpal_runtime::xcm_config::CustomizableAssetFromSystemAssetHub::key().to_vec(),
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
 				Location::new(2, [GlobalConsensus(Rococo)]).encode(),
 			)],
 		));
@@ -300,7 +300,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 		assert_ok!(<PenpalA as Chain>::System::set_storage(
 			<PenpalA as Chain>::RuntimeOrigin::root(),
 			vec![(
-				penpal_runtime::xcm_config::CustomizableAssetFromSystemAssetHub::key().to_vec(),
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
 				Location::new(2, [GlobalConsensus(Rococo)]).encode(),
 			)],
 		));
@@ -455,7 +455,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		assert_ok!(<PenpalB as Chain>::System::set_storage(
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
-				penpal_runtime::xcm_config::CustomizableAssetFromSystemAssetHub::key().to_vec(),
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
 				Location::new(2, [GlobalConsensus(Rococo)]).encode(),
 			)],
 		));

@@ -1550,6 +1550,8 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(())
 	}
 
+	/// `remove_displaced` can be set to `false` if this is not the last of many subsequent calls
+	/// for performance reasons.
 	fn finalize_block_with_transaction(
 		&self,
 		transaction: &mut Transaction<DbHash>,
@@ -1558,6 +1560,7 @@ impl<Block: BlockT> Backend<Block> {
 		last_finalized: Option<Block::Hash>,
 		justification: Option<Justification>,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
+		remove_displaced: bool,
 	) -> ClientResult<MetaUpdate<Block>> {
 		// TODO: ensure best chain contains this block.
 		let number = *header.number();
@@ -1570,6 +1573,7 @@ impl<Block: BlockT> Backend<Block> {
 			hash,
 			with_state,
 			current_transaction_justifications,
+			remove_displaced,
 		)?;
 
 		if let Some(justification) = justification {
@@ -1649,7 +1653,8 @@ impl<Block: BlockT> Backend<Block> {
 
 		let mut current_transaction_justifications: HashMap<Block::Hash, Justification> =
 			HashMap::new();
-		for (block_hash, justification) in operation.finalized_blocks {
+		let mut finalized_blocks = operation.finalized_blocks.into_iter().peekable();
+		while let Some((block_hash, justification)) = finalized_blocks.next() {
 			let block_header = self.blockchain.expect_header(block_hash)?;
 			meta_updates.push(self.finalize_block_with_transaction(
 				&mut transaction,
@@ -1658,6 +1663,7 @@ impl<Block: BlockT> Backend<Block> {
 				Some(last_finalized_hash),
 				justification,
 				&mut current_transaction_justifications,
+				finalized_blocks.peek().is_none(),
 			)?);
 			last_finalized_hash = block_hash;
 			last_finalized_num = *block_header.number();
@@ -1887,6 +1893,7 @@ impl<Block: BlockT> Backend<Block> {
 					hash,
 					operation.commit_state,
 					&mut current_transaction_justifications,
+					true,
 				)?;
 			} else {
 				// canonicalize blocks which are old enough, regardless of finality.
@@ -2011,9 +2018,10 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(())
 	}
 
-	// write stuff to a transaction after a new block is finalized.
-	// this canonicalizes finalized blocks. Fails if called with a block which
-	// was not a child of the last finalized block.
+	// Write stuff to a transaction after a new block is finalized. This canonicalizes finalized
+	// blocks. Fails if called with a block which was not a child of the last finalized block.
+	/// `remove_displaced` can be set to `false` if this is not the last of many subsequent calls
+	/// for performance reasons.
 	fn note_finalized(
 		&self,
 		transaction: &mut Transaction<DbHash>,
@@ -2021,6 +2029,7 @@ impl<Block: BlockT> Backend<Block> {
 		f_hash: Block::Hash,
 		with_state: bool,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
+		remove_displaced: bool,
 	) -> ClientResult<()> {
 		let f_num = *f_header.number();
 
@@ -2049,13 +2058,23 @@ impl<Block: BlockT> Backend<Block> {
 			}
 		}
 
-		let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
-		let finalization_outcome =
-			FinalizationOutcome::new(new_displaced.displaced_leaves.clone().into_iter());
+		if remove_displaced {
+			let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
 
-		self.blockchain.leaves.write().remove_displaced_leaves(&finalization_outcome);
+			self.blockchain.leaves.write().remove_displaced_leaves(FinalizationOutcome::new(
+				new_displaced.displaced_leaves.iter().copied(),
+			));
 
-		self.prune_blocks(transaction, f_num, &new_displaced, current_transaction_justifications)?;
+			if !matches!(self.blocks_pruning, BlocksPruning::KeepAll) {
+				self.prune_displaced_branches(transaction, &new_displaced, true, false)?;
+			}
+
+			if !matches!(self.state_pruning, PruningMode::ArchiveAll) {
+				self.prune_displaced_branches(transaction, &new_displaced, false, true)?;
+			}
+		}
+
+		self.prune_blocks(transaction, f_num, current_transaction_justifications)?;
 
 		Ok(())
 	}
@@ -2064,54 +2083,37 @@ impl<Block: BlockT> Backend<Block> {
 		&self,
 		transaction: &mut Transaction<DbHash>,
 		finalized_number: NumberFor<Block>,
-		displaced: &DisplacedLeavesAfterFinalization<Block>,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
 	) -> ClientResult<()> {
-		match self.blocks_pruning {
-			BlocksPruning::KeepAll => {},
-			BlocksPruning::Some(blocks_pruning) => {
-				// Always keep the last finalized block
-				let keep = std::cmp::max(blocks_pruning, 1);
-				if finalized_number >= keep.into() {
-					let number = finalized_number.saturating_sub(keep.into());
+		if let BlocksPruning::Some(blocks_pruning) = self.blocks_pruning {
+			// Always keep the last finalized block
+			let keep = std::cmp::max(blocks_pruning, 1);
+			if finalized_number >= keep.into() {
+				let number = finalized_number.saturating_sub(keep.into());
 
-					// Before we prune a block, check if it is pinned
-					if let Some(hash) = self.blockchain.hash(number)? {
-						// If the block was finalized in this transaction, it will not be in the db
-						// yet.
-						if let Some(justification) =
-							current_transaction_justifications.remove(&hash)
-						{
-							self.blockchain.insert_justifications_if_pinned(hash, justification);
-						} else {
-							self.blockchain.insert_persisted_justifications_if_pinned(hash)?;
-						}
-
-						self.prune_block(transaction, hash, true, false)?;
-					};
-				}
-				self.prune_displaced_branches(transaction, displaced, true, false)?;
-			},
-			BlocksPruning::KeepFinalized => {
-				self.prune_displaced_branches(transaction, displaced, true, false)?;
-			},
-		}
-		match self.state_pruning {
-			PruningMode::ArchiveAll => {},
-			PruningMode::Constrained(sc_state_db::Constraints { max_blocks }) => {
-				// Always keep the last finalized block
-				let keep = std::cmp::max(max_blocks.unwrap_or_default(), 1);
-				if finalized_number >= keep.into() {
-					let number = finalized_number.saturating_sub(keep.into());
-					if let Some(hash) = self.blockchain.hash(number)? {
-						self.prune_block(transaction, hash, false, true)?;
+				// Before we prune a block, check if it is pinned
+				if let Some(hash) = self.blockchain.hash(number)? {
+					// If the block was finalized in this transaction, it will not be in the db
+					// yet.
+					if let Some(justification) = current_transaction_justifications.remove(&hash) {
+						self.blockchain.insert_justifications_if_pinned(hash, justification);
+					} else {
+						self.blockchain.insert_persisted_justifications_if_pinned(hash)?;
 					}
+
+					self.prune_block(transaction, hash, true, false)?;
+				};
+			}
+		}
+		if let PruningMode::Constrained(sc_state_db::Constraints { max_blocks }) = self.state_pruning {
+			// Always keep the last finalized block
+			let keep = std::cmp::max(max_blocks.unwrap_or_default(), 1);
+			if finalized_number >= keep.into() {
+				let number = finalized_number.saturating_sub(keep.into());
+				if let Some(hash) = self.blockchain.hash(number)? {
+					self.prune_block(transaction, hash, false, true)?;
 				}
-				self.prune_displaced_branches(transaction, displaced, false, true)?;
-			},
-			PruningMode::ArchiveCanonical => {
-				self.prune_displaced_branches(transaction, displaced, false, true)?;
-			},
+			}
 		}
 		Ok(())
 	}
@@ -2124,10 +2126,8 @@ impl<Block: BlockT> Backend<Block> {
 		clean_state: bool,
 	) -> ClientResult<()> {
 		// Discard all blocks from displaced branches
-		for (_, tree_route) in displaced.tree_routes.iter() {
-			for r in tree_route.retracted() {
-				self.prune_block(transaction, r.hash, clean_body, clean_state)?;
-			}
+		for &hash in displaced.displaced_blocks.iter() {
+			self.prune_block(transaction, hash, clean_body, clean_state)?;
 		}
 		Ok(())
 	}
@@ -2394,6 +2394,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			None,
 			justification,
 			&mut current_transaction_justifications,
+			true,
 		)?;
 
 		self.storage.db.commit(transaction)?;
@@ -2810,7 +2811,7 @@ pub(crate) mod tests {
 		backend::{Backend as BTrait, BlockImportOperation as Op},
 		blockchain::Backend as BLBTrait,
 	};
-	use sp_blockchain::{lowest_common_ancestor, lowest_common_ancestor_multiblock, tree_route};
+	use sp_blockchain::{lowest_common_ancestor, tree_route};
 	use sp_core::{blake2_256, H256};
 	use sp_runtime::{
 		testing::{Block as RawBlock, ExtrinsicWrapper, Header},
@@ -3435,121 +3436,118 @@ pub(crate) mod tests {
 	}
 
 	#[test]
-	fn lowest_common_ancestors_multiblock_works() {
+	fn displaced_leaves_after_finalizing_works() {
 		let backend = Backend::<Block>::new_test(1000, 100);
 		let blockchain = backend.blockchain();
-		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
+		let genesis_number = 0;
+		let genesis_hash =
+			insert_header(&backend, genesis_number, Default::default(), None, Default::default());
 
 		// fork from genesis: 3 prong.
 		// block 0 -> a1 -> a2 -> a3
-		//    |
-		//     -> b1 -> b2 -> c1 -> c2
-		//           |
-		//           -> d1 -> d2
-		let a1 = insert_header(&backend, 1, block0, None, Default::default());
-		let a2 = insert_header(&backend, 2, a1, None, Default::default());
-		let a3 = insert_header(&backend, 3, a2, None, Default::default());
+		//        \
+		//         -> b1 -> b2 -> c1 -> c2
+		//              \
+		//               -> d1 -> d2
+		let a1_number = 1;
+		let a1_hash = insert_header(&backend, a1_number, genesis_hash, None, Default::default());
+		let a2_number = 2;
+		let a2_hash = insert_header(&backend, a2_number, a1_hash, None, Default::default());
+		let a3_number = 3;
+		let a3_hash = insert_header(&backend, a3_number, a2_hash, None, Default::default());
+
+		{
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(genesis_hash, genesis_number)
+				.unwrap();
+			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+		{
+			let displaced_a1 =
+				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			assert_eq!(displaced_a1.displaced_leaves, vec![]);
+			assert_eq!(displaced_a1.displaced_blocks, vec![]);
+
+			let displaced_a2 =
+				blockchain.displaced_leaves_after_finalizing(a2_hash, a3_number).unwrap();
+			assert_eq!(displaced_a2.displaced_leaves, vec![]);
+			assert_eq!(displaced_a2.displaced_blocks, vec![]);
+
+			let displaced_a3 =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(displaced_a3.displaced_leaves, vec![]);
+			assert_eq!(displaced_a3.displaced_blocks, vec![]);
+		}
 
 		// fork from genesis: 2 prong.
-		let b1 = insert_header(&backend, 1, block0, None, H256::from([1; 32]));
-		let b2 = insert_header(&backend, 2, b1, None, Default::default());
+		let b1_number = 1;
+		let b1_hash = insert_header(&backend, b1_number, genesis_hash, None, H256::from([1; 32]));
+		let b2_number = 2;
+		let b2_hash = insert_header(&backend, b2_number, b1_hash, None, Default::default());
 
 		// fork from b2.
-		let c1 = insert_header(&backend, 3, b2, None, H256::from([2; 32]));
-		let c2 = insert_header(&backend, 4, c1, None, Default::default());
+		let c1_number = 3;
+		let c1_hash = insert_header(&backend, c1_number, b2_hash, None, H256::from([2; 32]));
+		let c2_number = 4;
+		let c2_hash = insert_header(&backend, c2_number, c1_hash, None, Default::default());
 
 		// fork from b1.
-		let d1 = insert_header(&backend, 2, b1, None, H256::from([3; 32]));
-		let d2 = insert_header(&backend, 3, d1, None, Default::default());
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, b2]).unwrap().unwrap();
+		let d1_number = 2;
+		let d1_hash = insert_header(&backend, d1_number, b1_hash, None, H256::from([3; 32]));
+		let d2_number = 3;
+		let d2_hash = insert_header(&backend, d2_number, d1_hash, None, Default::default());
 
-			assert_eq!(lca.hash, block0);
-			assert_eq!(lca.number, 0);
+		{
+			let displaced_a1 =
+				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			assert_eq!(
+				displaced_a1.displaced_leaves,
+				vec![(c2_number, c2_hash), (d2_number, d2_hash)]
+			);
+			let mut displaced_blocks = vec![b1_hash, b2_hash, c1_hash, c2_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced_a1.displaced_blocks, displaced_blocks);
+
+			let displaced_a2 =
+				blockchain.displaced_leaves_after_finalizing(a2_hash, a2_number).unwrap();
+			assert_eq!(displaced_a1.displaced_leaves, displaced_a2.displaced_leaves);
+			assert_eq!(displaced_a1.displaced_blocks, displaced_a2.displaced_blocks);
+
+			let displaced_a3 =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(displaced_a1.displaced_leaves, displaced_a3.displaced_leaves);
+			assert_eq!(displaced_a1.displaced_blocks, displaced_a3.displaced_blocks);
 		}
-
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1, a3]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a1);
-			assert_eq!(lca.number, 1);
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(b1_hash, b1_number).unwrap();
+			assert_eq!(displaced.displaced_leaves, vec![(a3_number, a3_hash)]);
+			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
-
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, a1]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a1);
-			assert_eq!(lca.number, 1);
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(b2_hash, b2_number).unwrap();
+			assert_eq!(
+				displaced.displaced_leaves,
+				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
+			);
+			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
-
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a3]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a2);
-			assert_eq!(lca.number, 2);
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a1]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a1);
-			assert_eq!(lca.number, 1);
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a2]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a2);
-			assert_eq!(lca.number, 2);
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, d2, c2])
-				.unwrap()
-				.unwrap();
-
-			assert_eq!(lca.hash, block0);
-			assert_eq!(lca.number, 0);
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![c2, d2, b2])
-				.unwrap()
-				.unwrap();
-
-			assert_eq!(lca.hash, b1);
-			assert_eq!(lca.number, 1);
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1, a2, a3])
-				.unwrap()
-				.unwrap();
-
-			assert_eq!(lca.hash, a1);
-			assert_eq!(lca.number, 1);
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![b1, b2, d1])
-				.unwrap()
-				.unwrap();
-
-			assert_eq!(lca.hash, b1);
-			assert_eq!(lca.number, 1);
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![]);
-
-			assert_eq!(true, matches!(lca, Ok(None)));
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a1);
-			assert_eq!(lca.number, 1);
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(c2_hash, c2_number).unwrap();
+			assert_eq!(
+				displaced.displaced_leaves,
+				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
+			);
+			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
 	}
 

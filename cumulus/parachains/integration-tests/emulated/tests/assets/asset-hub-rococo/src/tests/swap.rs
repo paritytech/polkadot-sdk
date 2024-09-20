@@ -17,10 +17,7 @@ use crate::imports::*;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
-	let asset_native = Box::new(
-		v3::Location::try_from(asset_hub_rococo_runtime::xcm_config::TokenLocation::get())
-			.expect("conversion works"),
-	);
+	let asset_native = Box::new(v3::Location::try_from(RelayLocation::get()).unwrap());
 	let asset_one = Box::new(v3::Location::new(
 		0,
 		[
@@ -230,12 +227,12 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 #[test]
 fn cannot_create_pool_from_pool_assets() {
-	let asset_native = asset_hub_rococo_runtime::xcm_config::TokenLocation::get();
-	let mut asset_one = asset_hub_rococo_runtime::xcm_config::PoolAssetsPalletLocation::get();
+	let asset_native = RelayLocation::get();
+	let mut asset_one = ahr_xcm_config::PoolAssetsPalletLocation::get();
 	asset_one.append_with(GeneralIndex(ASSET_ID.into())).expect("pool assets");
 
 	AssetHubRococo::execute_with(|| {
-		let pool_owner_account_id = asset_hub_rococo_runtime::AssetConversionOrigin::get();
+		let pool_owner_account_id = AssetHubRococoAssetConversionOrigin::get();
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::PoolAssets::create(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(pool_owner_account_id.clone()),
@@ -255,8 +252,8 @@ fn cannot_create_pool_from_pool_assets() {
 		assert_matches::assert_matches!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 				<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-				Box::new(v3::Location::try_from(asset_native).expect("conversion works")),
-				Box::new(v3::Location::try_from(asset_one).expect("conversion works")),
+				Box::new(v3::Location::try_from(asset_native).unwrap()),
+				Box::new(v3::Location::try_from(asset_one).unwrap()),
 			),
 			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("Unknown"))
 		);
@@ -265,9 +262,7 @@ fn cannot_create_pool_from_pool_assets() {
 
 #[test]
 fn pay_xcm_fee_with_some_asset_swapped_for_native() {
-	let asset_native =
-		v3::Location::try_from(asset_hub_rococo_runtime::xcm_config::TokenLocation::get())
-			.expect("conversion works");
+	let asset_native = v3::Location::try_from(RelayLocation::get()).unwrap();
 	let asset_one = xcm::v3::Location {
 		parents: 0,
 		interior: [

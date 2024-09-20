@@ -823,10 +823,6 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
 		for (delegator, delegation) in delegations.iter() {
-			ensure!(
-				T::CoreStaking::status(delegator).is_err(),
-				"delegator should not be directly staked"
-			);
 			ensure!(!Self::is_agent(delegator), "delegator cannot be an agent");
 
 			delegation_aggregation

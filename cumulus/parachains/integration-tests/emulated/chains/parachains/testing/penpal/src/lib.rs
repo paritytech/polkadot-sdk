@@ -13,11 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub use penpal_runtime::{self, xcm_config::RelayNetworkId as PenpalRelayNetworkId};
+
 mod genesis;
 pub use genesis::{genesis, PenpalAssetOwner, PenpalSudoAccount, ED, PARA_ID_A, PARA_ID_B};
-pub use penpal_runtime::xcm_config::{
-	CustomizableAssetFromSystemAssetHub, RelayNetworkId as PenpalRelayNetworkId,
-};
 
 // Substrate
 use frame_support::traits::OnInitialize;

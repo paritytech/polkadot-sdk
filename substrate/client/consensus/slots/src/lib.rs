@@ -29,8 +29,8 @@ mod aux_schema;
 mod slots;
 
 pub use aux_schema::{check_equivocation, MAX_SLOT_CAPACITY, PRUNING_BOUND};
-pub use slots::SlotInfo;
 use slots::Slots;
+pub use slots::{time_until_next_slot, SlotInfo};
 
 use futures::{future::Either, Future, TryFutureExt};
 use futures_timer::Delay;

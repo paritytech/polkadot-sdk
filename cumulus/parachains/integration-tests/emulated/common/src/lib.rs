@@ -51,10 +51,13 @@ pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 type AccountPublic = <MultiSignature as Verify>::Signer;
 
-// This asset is added to AH as Asset and reserved transfer between Parachain and AH
+// (trust-backed) Asset registered on AH and reserve-transferred between Parachain and AH
 pub const RESERVABLE_ASSET_ID: u32 = 1;
-// This asset is added to AH as ForeignAsset and teleported between Penpal and AH
+// ForeignAsset registered on AH and teleported between Penpal and AH
 pub const TELEPORTABLE_ASSET_ID: u32 = 2;
+
+// USDT registered on AH as (trust-backed) Asset and reserve-transferred between Parachain and AH
+pub const USDT_ID: u32 = 1984;
 
 pub const PENPAL_ID: u32 = 2000;
 pub const ASSETS_PALLET_ID: u8 = 50;

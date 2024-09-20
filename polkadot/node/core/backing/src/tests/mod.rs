@@ -703,7 +703,7 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			std::iter::once((
 				test_state.chain_ids[0],
 				vec![(candidate_a_hash, test_state.relay_parent)],
@@ -895,7 +895,7 @@ fn get_backed_candidate_preserves_order() {
 
 		// Happy case, all candidates should be present.
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			[
 				(
 					test_state.chain_ids[0],
@@ -946,7 +946,7 @@ fn get_backed_candidate_preserves_order() {
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackedCandidates(
+			let msg = CandidateBackingMessage::GetBackableCandidates(
 				[
 					(test_state.chain_ids[0], candidates),
 					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
@@ -985,7 +985,7 @@ fn get_backed_candidate_preserves_order() {
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackedCandidates(
+			let msg = CandidateBackingMessage::GetBackableCandidates(
 				[
 					(test_state.chain_ids[0], candidates),
 					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
@@ -1030,7 +1030,7 @@ fn get_backed_candidate_preserves_order() {
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackedCandidates(
+			let msg = CandidateBackingMessage::GetBackableCandidates(
 				[
 					(test_state.chain_ids[0], candidates),
 					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
@@ -1321,7 +1321,7 @@ fn backing_works_while_validation_ongoing() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			std::iter::once((
 				test_state.chain_ids[0],
 				vec![(candidate_a.hash(), test_state.relay_parent)],
@@ -1942,7 +1942,7 @@ fn backing_works_after_failed_validation() {
 		// Try to get a set of backable candidates to trigger _some_ action in the subsystem
 		// and check that it is still alive.
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			std::iter::once((
 				test_state.chain_ids[0],
 				vec![(candidate.hash(), test_state.relay_parent)],

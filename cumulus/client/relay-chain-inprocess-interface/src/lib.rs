@@ -19,9 +19,9 @@ use std::{pin::Pin, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost, Block as PBlock, BlockId, CommittedCandidateReceipt,
-		Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidationCodeHash, ValidatorId,
+		runtime_api::ParachainHost, Block as PBlock, BlockId, BlockNumber,
+		CommittedCandidateReceipt, CoreState, Hash as PHash, Header as PHeader, InboundHrmpMessage,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -254,6 +254,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 					notification.is_new_best.then_some(notification.header)
 				});
 		Ok(Box::pin(notifications_stream))
+	}
+
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		Ok(self.full_client.runtime_api().availability_cores(relay_parent)?)
 	}
 
 	async fn candidates_pending_availability(

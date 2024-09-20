@@ -805,7 +805,6 @@ name = "asset-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "asset-hub-rococo-runtime",
  "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
@@ -819,9 +818,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "polkadot-runtime-common",
- "rococo-runtime",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
  "sp-runtime",
@@ -933,7 +930,6 @@ name = "asset-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "asset-hub-westend-runtime",
  "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -951,14 +947,12 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "polkadot-runtime-common",
  "sp-core",
  "sp-keyring",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
- "westend-runtime",
  "westend-system-emulated-network",
  "xcm-runtime-apis",
 ]
@@ -2062,8 +2056,6 @@ dependencies = [
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
- "asset-hub-rococo-runtime",
- "bridge-hub-rococo-runtime",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
@@ -2247,10 +2239,10 @@ dependencies = [
 name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
- "bridge-hub-westend-runtime",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
+ "hex-literal",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -2891,8 +2883,6 @@ name = "collectives-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "asset-hub-westend-runtime",
- "collectives-westend-runtime",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
@@ -2911,7 +2901,6 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "testnet-parachains-constants",
- "westend-runtime",
  "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
@@ -3295,6 +3284,7 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -3361,6 +3351,7 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -3780,6 +3771,7 @@ dependencies = [
  "sc-consensus-babe",
  "sc-consensus-slots",
  "sc-telemetry",
+ "sc-utils",
  "schnellru",
  "sp-api",
  "sp-application-crypto",
@@ -3794,6 +3786,7 @@ dependencies = [
  "sp-state-machine",
  "sp-timestamp",
  "substrate-prometheus-endpoint",
+ "tokio",
  "tracing",
 ]
 
@@ -3914,7 +3907,6 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "parity-scale-codec",
  "sc-client-api",
- "scale-info",
  "sp-api",
  "sp-crypto-hashing",
  "sp-inherents",
@@ -4340,15 +4332,8 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-rpc-interface",
  "futures",
- "parking_lot 0.12.3",
- "polkadot-availability-recovery",
- "polkadot-collator-protocol",
  "polkadot-core-primitives",
  "polkadot-network-bridge",
- "polkadot-node-collation-generation",
- "polkadot-node-core-chain-api",
- "polkadot-node-core-prospective-parachains",
- "polkadot-node-core-runtime-api",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
@@ -4542,7 +4527,6 @@ dependencies = [
  "polkadot-test-service",
  "portpicker",
  "rand",
- "rococo-parachain-runtime",
  "sc-basic-authorship",
  "sc-block-builder",
  "sc-chain-spec",
@@ -4567,7 +4551,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-aura",
- "sp-consensus-grandpa",
  "sp-core",
  "sp-io",
  "sp-keyring",
@@ -6855,9 +6838,9 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
-version = "0.14.27"
+version = "0.14.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffb1cfd654a8219eaef89881fdb3bb3b1cdc5fa75ded05d6933b2b382e395468"
+checksum = "f361cde2f109281a220d4307746cdfd5ee3f410da58a70377762396775634b33"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -6870,7 +6853,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.12",
- "socket2 0.4.9",
+ "socket2 0.5.7",
  "tokio",
  "tower-service",
  "tracing",
@@ -6900,13 +6883,13 @@ dependencies = [
 
 [[package]]
 name = "hyper-rustls"
-version = "0.24.1"
+version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d78e1e73ec14cf7375674f74d7dde185c8206fd9dea6fb6295e8a98098aaa97"
+checksum = "ec3efd23720e2049821a693cbc7e65ea87c72f1c58ff2f9522ff332b1491e590"
 dependencies = [
  "futures-util",
  "http 0.2.9",
- "hyper 0.14.27",
+ "hyper 0.14.29",
  "log",
  "rustls 0.21.7",
  "rustls-native-certs 0.6.3",
@@ -7036,7 +7019,7 @@ dependencies = [
  "bytes",
  "futures",
  "http 0.2.9",
- "hyper 0.14.27",
+ "hyper 0.14.29",
  "log",
  "rand",
  "tokio",
@@ -12549,9 +12532,7 @@ dependencies = [
  "pallet-message-queue",
  "parachains-common",
  "parity-scale-codec",
- "people-rococo-runtime",
  "polkadot-runtime-common",
- "rococo-runtime",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
  "sp-runtime",
@@ -12650,12 +12631,10 @@ dependencies = [
  "pallet-message-queue",
  "parachains-common",
  "parity-scale-codec",
- "people-westend-runtime",
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
- "westend-runtime",
  "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
@@ -13681,7 +13660,9 @@ dependencies = [
  "bs58 0.5.0",
  "futures",
  "futures-timer",
- "hyper 0.14.27",
+ "http-body-util",
+ "hyper 1.3.1",
+ "hyper-util",
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
@@ -16303,8 +16284,8 @@ dependencies = [
  "h2 0.3.26",
  "http 0.2.9",
  "http-body 0.4.5",
- "hyper 0.14.27",
- "hyper-rustls 0.24.1",
+ "hyper 0.14.29",
+ "hyper-rustls 0.24.2",
  "ipnet",
  "js-sys",
  "log",
@@ -18045,8 +18026,8 @@ dependencies = [
  "fnv",
  "futures",
  "futures-timer",
- "hyper 0.14.27",
- "hyper-rustls 0.24.1",
+ "hyper 0.14.29",
+ "hyper-rustls 0.24.2",
  "lazy_static",
  "log",
  "num_cpus",
@@ -20019,6 +20000,7 @@ dependencies = [
  "schnellru",
  "sp-api",
  "sp-consensus",
+ "sp-core",
  "sp-database",
  "sp-runtime",
  "sp-state-machine",
@@ -21374,7 +21356,9 @@ dependencies = [
 name = "substrate-prometheus-endpoint"
 version = "0.17.0"
 dependencies = [
- "hyper 0.14.27",
+ "http-body-util",
+ "hyper 1.3.1",
+ "hyper-util",
  "log",
  "prometheus",
  "thiserror",
