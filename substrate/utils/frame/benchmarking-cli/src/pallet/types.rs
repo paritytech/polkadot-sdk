@@ -24,7 +24,7 @@ use sp_runtime::traits::Hash;
 /// How the genesis state for benchmarking should be build.
 #[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy)]
 #[clap(rename_all = "kebab-case")]
-pub enum GenesisBuilder {
+pub enum GenesisBuilderPolicy {
 	/// Do not provide any genesis state.
 	///
 	/// Benchmarks are advised to function with this, since they should setup their own required

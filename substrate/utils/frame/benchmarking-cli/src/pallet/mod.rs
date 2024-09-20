@@ -19,7 +19,7 @@ mod command;
 mod types;
 mod writer;
 
-use crate::{pallet::types::GenesisBuilder, shared::HostInfoParams};
+use crate::{pallet::types::GenesisBuilderPolicy, shared::HostInfoParams};
 use clap::ValueEnum;
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
@@ -177,9 +177,10 @@ pub struct PalletCmd {
 
 	/// How to construct the genesis state.
 	///
-	/// Uses `GenesisBuilder::Spec` by default and  `GenesisBuilder::Runtime` if `runtime` is set.
-	#[arg(long, value_enum)]
-	pub genesis_builder: Option<GenesisBuilder>,
+	/// Uses `GenesisBuilderPolicy::Spec` by default and  `GenesisBuilderPolicy::Runtime` if
+	/// `runtime` is set.
+	#[arg(long, value_enum, alias = "genesis-builder-policy")]
+	pub genesis_builder: Option<GenesisBuilderPolicy>,
 
 	/// The preset that we expect to find in the GenesisBuilder runtime API.
 	///

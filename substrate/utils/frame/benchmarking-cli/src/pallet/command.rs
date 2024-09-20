@@ -19,7 +19,7 @@ use super::{
 	types::{ComponentRange, ComponentRangeMap},
 	writer, ListOutput, PalletCmd,
 };
-use crate::pallet::{types::FetchedCode, GenesisBuilder};
+use crate::pallet::{types::FetchedCode, GenesisBuilderPolicy};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
@@ -568,11 +568,11 @@ impl PalletCmd {
 		chain_spec: &Option<Box<dyn ChainSpec>>,
 	) -> Result<sp_storage::Storage> {
 		Ok(match (self.genesis_builder, self.runtime.as_ref()) {
-			(Some(GenesisBuilder::None), Some(_)) => return Err("Cannot use `--genesis-builder=none` with `--runtime` since the runtime would be ignored.".into()),
-			(Some(GenesisBuilder::None), None) => Storage::default(),
-			(Some(GenesisBuilder::SpecGenesis | GenesisBuilder::Spec), Some(_)) =>
+			(Some(GenesisBuilderPolicy::None), Some(_)) => return Err("Cannot use `--genesis-builder=none` with `--runtime` since the runtime would be ignored.".into()),
+			(Some(GenesisBuilderPolicy::None), None) => Storage::default(),
+			(Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), Some(_)) =>
 					return Err("Cannot use `--genesis-builder=spec-genesis` with `--runtime` since the runtime would be ignored.".into()),
-			(Some(GenesisBuilder::SpecGenesis | GenesisBuilder::Spec), None) | (None, None) => {
+			(Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), None) | (None, None) => {
 				log::warn!("{WARN_SPEC_GENESIS_CTOR}");
 				let Some(chain_spec) = chain_spec else {
 					return Err("No chain spec specified to generate the genesis state".into());
@@ -584,17 +584,17 @@ impl PalletCmd {
 
 				storage
 			},
-			(Some(GenesisBuilder::SpecRuntime), Some(_)) =>
+			(Some(GenesisBuilderPolicy::SpecRuntime), Some(_)) =>
 				return Err("Cannot use `--genesis-builder=spec` with `--runtime` since the runtime would be ignored.".into()),
-			(Some(GenesisBuilder::SpecRuntime), None) => {
+			(Some(GenesisBuilderPolicy::SpecRuntime), None) => {
 				let Some(chain_spec) = chain_spec else {
 					return Err("No chain spec specified to generate the genesis state".into());
 				};
 
 				self.genesis_from_spec_runtime::<F>(chain_spec.as_ref())?
 			},
-			(Some(GenesisBuilder::Runtime), None) => return Err("Cannot use `--genesis-builder=runtime` without `--runtime`".into()),
-			(Some(GenesisBuilder::Runtime), Some(runtime)) | (None, Some(runtime)) => {
+			(Some(GenesisBuilderPolicy::Runtime), None) => return Err("Cannot use `--genesis-builder=runtime` without `--runtime`".into()),
+			(Some(GenesisBuilderPolicy::Runtime), Some(runtime)) | (None, Some(runtime)) => {
 				log::info!("Loading WASM from {}", runtime.display());
 
 				let code = fs::read(&runtime).map_err(|e| {
