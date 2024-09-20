@@ -128,7 +128,7 @@ async fn async_backing_params(
 }
 
 // Return all the cores assigned to the para at the provided relay parent, using the claim queue
-// offset. This assumes the relay chain runtime supports the claimqueue runtime API.
+// offset.
 // Will return an empty vec if the provided offset is higher than the claim queue length (which
 // corresponds to the scheduling_lookahead on the relay chain).
 async fn cores_scheduled_for_para(

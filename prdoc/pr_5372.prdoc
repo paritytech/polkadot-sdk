@@ -1,16 +1,16 @@
-title: "elastic scaling: add claim queue offset to cumulus"
+title: "elastic scaling: add core selector to cumulus"
 
 doc:
   - audience: [Node Dev, Runtime Dev]
     description: |
-      Add a claim queue offset storage item to the parachain-system pallet and a runtime API for querying it.
-      Also use the claim queue offset and the claim queue relay chain runtime API in the slot based collator (if available)
+      Adds a runtime API for querying the core selector of a parachain.
+      Also use the core selector API and the claim queue relay chain runtime API in the slot based collator (if available)
       to determine which cores to build on.
       Part of implementing https://github.com/polkadot-fellows/RFCs/pull/103.
 
 crates:
   - name: cumulus-client-consensus-aura
-    bump: minor
+    bump: major
   - name: cumulus-relay-chain-inprocess-interface
     bump: minor
   - name: cumulus-relay-chain-interface
@@ -22,36 +22,36 @@ crates:
   - name: cumulus-pallet-parachain-system
     bump: minor
   - name: asset-hub-rococo-runtime
-    bump: minor
+    bump: patch
   - name: asset-hub-westend-runtime
-    bump: minor
+    bump: patch
   - name: bridge-hub-rococo-runtime
-    bump: minor
+    bump: patch
   - name: bridge-hub-westend-runtime
-    bump: minor
+    bump: patch
   - name: collectives-westend-runtime
-    bump: minor
+    bump: patch
   - name: contracts-rococo-runtime
-    bump: minor
+    bump: patch
   - name: coretime-rococo-runtime
-    bump: minor
+    bump: patch
   - name: coretime-westend-runtime
-    bump: minor
+    bump: patch
   - name: glutton-westend-runtime
-    bump: minor
+    bump: patch
   - name: people-rococo-runtime
-    bump: minor
+    bump: patch
   - name: people-westend-runtime
     bump: minor
   - name: seedling-runtime
-    bump: minor
+    bump: patch
   - name: shell-runtime
-    bump: minor
+    bump: patch
   - name: penpal-runtime
-    bump: minor
+    bump: patch
   - name: rococo-parachain-runtime
-    bump: minor
-  - name: polkadot-parachain-bin
+    bump: patch
+  - name: polkadot-parachain-lib
     bump: major
   - name: cumulus-primitives-core
     bump: minor

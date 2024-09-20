@@ -203,10 +203,7 @@ impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
 	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset) {
 		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
 
-		(
-			CoreSelector((core_selector.low_u32() & 255) as u8),
-			ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
-		)
+		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 }
 

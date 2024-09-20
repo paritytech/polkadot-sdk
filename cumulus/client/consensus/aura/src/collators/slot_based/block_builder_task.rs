@@ -38,10 +38,10 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot};
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, U256};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, One};
 use sp_timestamp::Timestamp;
 use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
@@ -240,19 +240,21 @@ where
 				continue
 			};
 
-			let parent_header = parent.header;
 			let parent_hash = parent.hash;
 
 			// Retrieve the core selector.
-			let Ok(maybe_core_selector) = core_selector(&*para_client, parent_hash).await else {
-				continue
-			};
-			// If the runtime API does not support the core selector API, fallback to some default
-			// values.
-			let (core_selector, claim_queue_offset) = maybe_core_selector.unwrap_or((
-				CoreSelector(*para_slot.slot as u8),
-				ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
-			));
+			let (core_selector, claim_queue_offset) =
+				match core_selector(&*para_client, &parent).await {
+					Ok(core_selector) => core_selector,
+					Err(err) => {
+						tracing::trace!(
+							target: crate::LOG_TARGET,
+							"Unable to retrieve the core selector from the runtime API: {}",
+							err
+						);
+						continue
+					},
+				};
 
 			let Ok(RelayChainData {
 				relay_parent_header,
@@ -280,12 +282,8 @@ where
 
 			let core_selector = core_selector.0 as usize % scheduled_cores.len();
 			let Some(core_index) = scheduled_cores.get(core_selector) else {
-				tracing::debug!(
-					target: LOG_TARGET,
-					core_selector,
-					core_len = scheduled_cores.len(),
-					"Para is not scheduled on enough cores"
-				);
+				// This cannot really happen, as we modulo the core selector with the
+				// scheduled_cores length and we check that the scheduled_cores is not empty.
 				continue;
 			};
 
@@ -297,6 +295,8 @@ where
 				);
 				continue
 			}
+
+			let parent_header = parent.header;
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
@@ -454,11 +454,11 @@ where
 	/// Fetch required [`RelayChainData`] from the relay chain.
 	/// If this data has been fetched in the past for the incoming hash, it will reuse
 	/// cached data.
-	pub async fn get_mut_relay_chain_data<'a>(
-		&'a mut self,
+	pub async fn get_mut_relay_chain_data(
+		&mut self,
 		relay_parent: RelayHash,
 		claim_queue_offset: ClaimQueueOffset,
-	) -> Result<&'a mut RelayChainData, ()> {
+	) -> Result<&mut RelayChainData, ()> {
 		match &self.last_data {
 			Some((last_seen_hash, _)) if *last_seen_hash == relay_parent => {
 				tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Using cached data for relay parent.");
@@ -518,17 +518,22 @@ where
 
 async fn core_selector<Block: BlockT, Client>(
 	para_client: &Client,
-	block_hash: Block::Hash,
-) -> Result<Option<(CoreSelector, ClaimQueueOffset)>, sp_api::ApiError>
+	parent: &consensus_common::PotentialParent<Block>,
+) -> Result<(CoreSelector, ClaimQueueOffset), sp_api::ApiError>
 where
 	Client: ProvideRuntimeApi<Block> + Send + Sync,
 	Client::Api: GetCoreSelectorApi<Block>,
 {
+	let block_hash = parent.hash;
 	let runtime_api = para_client.runtime_api();
 
 	if runtime_api.has_api::<dyn GetCoreSelectorApi<Block>>(block_hash)? {
-		Ok(Some(runtime_api.core_selector(block_hash)?))
+		Ok(runtime_api.core_selector(block_hash)?)
 	} else {
-		Ok(None)
+		let next_block_number: U256 = (*parent.header.number() + One::one()).into();
+
+		// If the runtime API does not support the core selector API, fallback to some default
+		// values.
+		Ok((CoreSelector(next_block_number.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)))
 	}
 }
