@@ -270,29 +270,3 @@ impl From<u64> for MockCallU64 {
 		Self(value)
 	}
 }
-
-/// A dummy signature scheme which considers any signature valid.
-/// `AccountId` must be u64.
-#[derive(Default, Clone, Debug, Encode, codec::Decode, PartialEq, Eq, scale_info::TypeInfo)]
-pub struct MockU64Signature;
-
-/// The signer for [`MockU64Signature`].
-pub struct MockU64Signer(pub u64);
-
-impl traits::IdentifyAccount for MockU64Signer {
-	type AccountId = u64;
-	fn into_account(self) -> u64 {
-		self.0
-	}
-}
-
-impl traits::Verify for MockU64Signature {
-	type Signer = MockU64Signer;
-	fn verify<L: traits::Lazy<[u8]>>(
-		&self,
-		_msg: L,
-		_signer: &<Self::Signer as traits::IdentifyAccount>::AccountId,
-	) -> bool {
-		true
-	}
-}
