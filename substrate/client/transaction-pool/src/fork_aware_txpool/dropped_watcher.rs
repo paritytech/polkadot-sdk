@@ -25,7 +25,7 @@ use crate::{
 	graph::{BlockHash, ChainApi, ExtrinsicHash},
 	LOG_TARGET,
 };
-use futures::stream::{self, Fuse, StreamExt};
+use futures::stream::StreamExt;
 use log::{debug, trace};
 use sc_transaction_pool_api::TransactionStatus;
 use sc_utils::mpsc;
@@ -92,10 +92,10 @@ where
 	/// A map that associates the views identified by corresponding block hashes with their streams
 	/// of dropped-related events. This map is used to keep track of active views and their event
 	/// streams.
-	stream_map: Fuse<StreamMap<BlockHash<C>, ViewStream<C>>>,
+	stream_map: StreamMap<BlockHash<C>, ViewStream<C>>,
 	/// A receiver for commands to control the state of the stream, allowing the addition and
 	/// removal of views. This is used to dynamically update which views are being tracked.
-	command_receiver: Fuse<CommandReceiver<Command<C>>>,
+	command_receiver: CommandReceiver<Command<C>>,
 
 	/// For each transaction hash we keep the set of hashes representing the views that see this
 	/// transaction as ready or future.
@@ -121,7 +121,7 @@ where
 		debug!(
 			target: LOG_TARGET,
 			"dropped_watcher: got event: views:{:#?}, event: {:?} states: {:?}",
-			self.stream_map.get_ref().keys().collect::<Vec<_>>(),
+			self.stream_map.keys().collect::<Vec<_>>(),
 			event,
 			self.transaction_states
 		);
@@ -139,7 +139,7 @@ where
 						views_keeping_tx_valid
 							.get()
 							.iter()
-							.all(|h| !self.stream_map.get_ref().contains_key(h))
+							.all(|h| !self.stream_map.contains_key(h))
 					{
 						debug!("[{:?}] dropped_watcher: removing tx", tx_hash);
 						return Some(tx_hash)
@@ -162,39 +162,37 @@ where
 	fn event_stream() -> (StreamOfDropped<C>, Controller<Command<C>>) {
 		//note: 64 allows to avoid warning messages during execution of unit tests.
 		const CHANNEL_SIZE: usize = 64;
-		let (sender, receiver) = sc_utils::mpsc::tracing_unbounded::<Command<C>>(
+		let (sender, command_receiver) = sc_utils::mpsc::tracing_unbounded::<Command<C>>(
 			"tx-pool-dropped-watcher-cmd-stream",
 			CHANNEL_SIZE,
 		);
 
-		let mut stream_map: StreamMap<BlockHash<C>, ViewStream<C>> = StreamMap::new();
-		//note: do not terminate stream-map if input streams (views) are all done:
-		stream_map.insert(Default::default(), stream::pending().boxed());
-
 		let ctx = Self {
-			stream_map: stream_map.fuse(),
-			command_receiver: receiver.fuse(),
+			stream_map: StreamMap::new(),
+			command_receiver,
 			transaction_states: Default::default(),
 		};
 
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
-				futures::select_biased! {
+				trace!("xxx");
+				tokio::select! {
+					biased;
 					cmd = ctx.command_receiver.next() => {
 						match cmd? {
 							Command::AddView(key,stream) => {
-								trace!(target: LOG_TARGET,"dropped_watcher: Command::AddView {key:?}");
-								ctx.stream_map.get_mut().insert(key,stream);
+								trace!(target: LOG_TARGET,"dropped_watcher: Command::AddView {key:?} {:#?}",ctx.stream_map.keys().collect::<Vec<_>>());
+								ctx.stream_map.insert(key,stream);
 							},
 							Command::RemoveView(key) => {
-								trace!(target: LOG_TARGET,"dropped_watcher: Command::RemoveView {key:?}");
-								ctx.stream_map.get_mut().remove(&key);
+								trace!(target: LOG_TARGET,"dropped_watcher: Command::RemoveView {key:?} {:#?}",ctx.stream_map.keys().collect::<Vec<_>>());
+								ctx.stream_map.remove(&key);
 							},
 						}
 					},
 
-					event = futures::StreamExt::select_next_some(&mut ctx.stream_map) => {
-						debug!(target: LOG_TARGET, "dropped_watcher: select_next_some -> {:#?}", event);
+					Some(event) = futures::StreamExt::next(&mut ctx.stream_map) => {
+						debug!(target: LOG_TARGET, "dropped_watcher: select_next_some -> {:#?} {:#?}", event, ctx.stream_map.keys().collect::<Vec<_>>());
 						if let Some(dropped) = ctx.handle_event(event.0, event.1) {
 							debug!("dropped_watcher: sending out: {dropped:?}");
 							return Some((dropped, ctx));
@@ -356,6 +354,7 @@ mod dropped_watcher_tests {
 	async fn test05() {
 		sp_tracing::try_init_simple();
 		let (watcher, mut output_stream) = MultiViewDroppedWatcher::new();
+		assert!(output_stream.next().now_or_never().is_none());
 
 		let block_hash0 = H256::repeat_byte(0x01);
 		let block_hash1 = H256::repeat_byte(0x02);
@@ -365,18 +364,32 @@ mod dropped_watcher_tests {
 			(tx_hash, TransactionStatus::Future),
 			(tx_hash, TransactionStatus::InBlock((block_hash1, 0))),
 		])
-		.chain(pending())
 		.boxed();
 		watcher.add_view(block_hash0, view_stream0);
 		assert!(output_stream.next().now_or_never().is_none());
 
 		let view_stream1 = futures::stream::iter(vec![
 			(tx_hash, TransactionStatus::Ready),
-			(tx_hash, TransactionStatus::Dropped),
+			(tx_hash, TransactionStatus::InBlock((block_hash0, 0))),
 		])
 		.boxed();
 
 		watcher.add_view(block_hash1, view_stream1);
 		assert!(output_stream.next().now_or_never().is_none());
+		assert!(output_stream.next().now_or_never().is_none());
+		assert!(output_stream.next().now_or_never().is_none());
+		assert!(output_stream.next().now_or_never().is_none());
+		assert!(output_stream.next().now_or_never().is_none());
+
+		let tx_hash = H256::repeat_byte(0x0c);
+		let view_stream2 = futures::stream::iter(vec![
+			(tx_hash, TransactionStatus::Future),
+			(tx_hash, TransactionStatus::Dropped),
+		])
+		.boxed();
+		let block_hash2 = H256::repeat_byte(0x03);
+		watcher.add_view(block_hash2, view_stream2);
+		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
+		assert_eq!(handle.await.unwrap(), vec![tx_hash]);
 	}
 }
