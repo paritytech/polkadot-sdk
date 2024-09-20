@@ -123,7 +123,7 @@ impl core::Benchmark for ConstructionBenchmark {
 		let mut proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			context.spawn_handle.clone(),
 			context.client.clone(),
-			self.transactions.clone(),
+			self.transactions.clone().into(),
 			None,
 			None,
 		);
@@ -319,18 +319,5 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		>,
 	> {
 		unimplemented!()
-	}
-
-	fn as_transaction_pool_arc(
-		self: Arc<Self>,
-	) -> Arc<
-		dyn sc_transaction_pool_api::TransactionPool<
-			Block = Self::Block,
-			Hash = Self::Hash,
-			InPoolTransaction = Self::InPoolTransaction,
-			Error = Self::Error,
-		>,
-	> {
-		self
 	}
 }

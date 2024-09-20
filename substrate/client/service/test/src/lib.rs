@@ -72,10 +72,10 @@ pub trait TestNetNode: Clone + Future<Output = Result<(), Error>> + Send + 'stat
 	type Backend: Backend<Self::Block>;
 	type Executor: CallExecutor<Self::Block> + Send + Sync;
 	type RuntimeApi: Send + Sync;
-	type TransactionPool: TransactionPool<Block = Self::Block> + 'static + Clone;
+	type TransactionPool: TransactionPool<Block = Self::Block>;
 
 	fn client(&self) -> Arc<Client<Self::Backend, Self::Executor, Self::Block, Self::RuntimeApi>>;
-	fn transaction_pool(&self) -> Self::TransactionPool;
+	fn transaction_pool(&self) -> Arc<Self::TransactionPool>;
 	fn network(&self) -> Arc<dyn sc_network::service::traits::NetworkService>;
 	fn sync(&self) -> &Arc<SyncingService<Self::Block>>;
 	fn spawn_handle(&self) -> SpawnTaskHandle;
@@ -84,7 +84,7 @@ pub trait TestNetNode: Clone + Future<Output = Result<(), Error>> + Send + 'stat
 pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> {
 	task_manager: Arc<Mutex<TaskManager>>,
 	client: Arc<Client<TBackend, TExec, TBl, TRtApi>>,
-	transaction_pool: TExPool,
+	transaction_pool: Arc<TExPool>,
 	network: Arc<dyn sc_network::service::traits::NetworkService>,
 	sync: Arc<SyncingService<TBl>>,
 }
@@ -97,7 +97,7 @@ impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool>
 		client: Arc<Client<TBackend, TExec, TBl, TRtApi>>,
 		network: Arc<dyn sc_network::service::traits::NetworkService>,
 		sync: Arc<SyncingService<TBl>>,
-		transaction_pool: TExPool,
+		transaction_pool: Arc<TExPool>,
 	) -> Self {
 		Self {
 			client,
@@ -109,7 +109,7 @@ impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool>
 	}
 }
 
-impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: Clone> Clone
+impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> Clone
 	for TestNetComponents<TBl, TBackend, TExec, TRtApi, TExPool>
 {
 	fn clone(&self) -> Self {
@@ -140,7 +140,7 @@ where
 	TBackend: sc_client_api::Backend<TBl> + Send + Sync + 'static,
 	TExec: CallExecutor<TBl> + Send + Sync + 'static,
 	TRtApi: Send + Sync + 'static,
-	TExPool: TransactionPool<Block = TBl> + Send + Sync + 'static + Clone,
+	TExPool: TransactionPool<Block = TBl> + Send + Sync + 'static,
 {
 	type Block = TBl;
 	type Backend = TBackend;
@@ -151,7 +151,7 @@ where
 	fn client(&self) -> Arc<Client<Self::Backend, Self::Executor, Self::Block, Self::RuntimeApi>> {
 		self.client.clone()
 	}
-	fn transaction_pool(&self) -> Self::TransactionPool {
+	fn transaction_pool(&self) -> Arc<Self::TransactionPool> {
 		self.transaction_pool.clone()
 	}
 	fn network(&self) -> Arc<dyn sc_network::service::traits::NetworkService> {

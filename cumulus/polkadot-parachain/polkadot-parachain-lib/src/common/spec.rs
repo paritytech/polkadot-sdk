@@ -64,7 +64,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: TransactionPoolImpl<Block, ParachainClient<Block, RuntimeApi>>,
+		transaction_pool: Arc<TransactionPoolImpl<Block, ParachainClient<Block, RuntimeApi>>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,

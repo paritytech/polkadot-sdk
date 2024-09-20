@@ -19,7 +19,7 @@ pub struct FullDeps<C, P> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
-	pub pool: P,
+	pub pool: Arc<P>,
 }
 
 /// Instantiate all full RPC extensions.
@@ -33,7 +33,7 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BlockBuilder<Block>,
-	P: TransactionPool + 'static + Clone,
+	P: TransactionPool + 'static,
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};

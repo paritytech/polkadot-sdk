@@ -63,7 +63,7 @@ pub struct ProposerFactory<A, C, PR> {
 	/// The client instance.
 	client: Arc<C>,
 	/// The transaction pool.
-	transaction_pool: A,
+	transaction_pool: Arc<A>,
 	/// Prometheus Link,
 	metrics: PrometheusMetrics,
 	/// The default block size limit.
@@ -86,7 +86,7 @@ pub struct ProposerFactory<A, C, PR> {
 	_phantom: PhantomData<PR>,
 }
 
-impl<A: Clone, C, PR> Clone for ProposerFactory<A, C, PR> {
+impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
 	fn clone(&self) -> Self {
 		Self {
 			spawn_handle: self.spawn_handle.clone(),
@@ -110,7 +110,7 @@ impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 	pub fn new(
 		spawn_handle: impl SpawnNamed + 'static,
 		client: Arc<C>,
-		transaction_pool: A,
+		transaction_pool: Arc<A>,
 		prometheus: Option<&PrometheusRegistry>,
 		telemetry: Option<TelemetryHandle>,
 	) -> Self {
@@ -138,7 +138,7 @@ impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
 	pub fn with_proof_recording(
 		spawn_handle: impl SpawnNamed + 'static,
 		client: Arc<C>,
-		transaction_pool: A,
+		transaction_pool: Arc<A>,
 		prometheus: Option<&PrometheusRegistry>,
 		telemetry: Option<TelemetryHandle>,
 	) -> Self {
@@ -192,7 +192,7 @@ impl<A, C, PR> ProposerFactory<A, C, PR> {
 
 impl<Block, C, A, PR> ProposerFactory<A, C, PR>
 where
-	A: TransactionPool<Block = Block> + 'static + Clone,
+	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -231,7 +231,7 @@ where
 
 impl<A, Block, C, PR> sp_consensus::Environment<Block> for ProposerFactory<A, C, PR>
 where
-	A: TransactionPool<Block = Block> + 'static + Clone,
+	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -252,7 +252,7 @@ pub struct Proposer<Block: BlockT, C, A: TransactionPool, PR> {
 	client: Arc<C>,
 	parent_hash: Block::Hash,
 	parent_number: <<Block as BlockT>::Header as HeaderT>::Number,
-	transaction_pool: A,
+	transaction_pool: Arc<A>,
 	now: Box<dyn Fn() -> time::Instant + Send + Sync>,
 	metrics: PrometheusMetrics,
 	default_block_size_limit: usize,
@@ -315,7 +315,7 @@ const MAX_SKIPPED_TRANSACTIONS: usize = 8;
 
 impl<A, Block, C, PR> Proposer<Block, C, A, PR>
 where
-	A: TransactionPool<Block = Block> + 'static,
+	A: TransactionPool<Block = Block>,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,

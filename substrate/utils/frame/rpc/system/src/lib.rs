@@ -73,13 +73,13 @@ impl From<Error> for i32 {
 /// An implementation of System-specific RPC methods on full client.
 pub struct System<P: TransactionPool, C, B> {
 	client: Arc<C>,
-	pool: P,
+	pool: Arc<P>,
 	_marker: std::marker::PhantomData<B>,
 }
 
 impl<P: TransactionPool, C, B> System<P, C, B> {
 	/// Create new `FullSystem` given client and transaction pool.
-	pub fn new(client: Arc<C>, pool: P) -> Self {
+	pub fn new(client: Arc<C>, pool: Arc<P>) -> Self {
 		Self { client, pool, _marker: Default::default() }
 	}
 }
@@ -109,7 +109,7 @@ where
 				Some(e.to_string()),
 			)
 		})?;
-		Ok(adjust_nonce(&self.pool, account, nonce))
+		Ok(adjust_nonce(&*self.pool, account, nonce))
 	}
 
 	async fn dry_run(

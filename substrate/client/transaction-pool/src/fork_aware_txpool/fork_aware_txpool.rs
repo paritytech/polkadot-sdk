@@ -761,19 +761,6 @@ where
 	) -> PolledIterator<ChainApi> {
 		self.ready_at_with_timeout_internal(at, timeout)
 	}
-
-	fn as_transaction_pool_arc(
-		self: Arc<Self>,
-	) -> Arc<
-		dyn TransactionPool<
-			Block = Self::Block,
-			Hash = Self::Hash,
-			InPoolTransaction = Self::InPoolTransaction,
-			Error = Self::Error,
-		>,
-	> {
-		self
-	}
 }
 
 impl<Block, Client> sc_transaction_pool_api::LocalTransactionPool
@@ -801,10 +788,6 @@ where
 		//todo [#5493]
 		//looks like view_store / view needs non async submit_local method ?.
 		unimplemented!();
-	}
-
-	fn as_local_pool_arc(self: Arc<Self>) -> Arc<dyn sc_transaction_pool_api::LocalTransactionPool<Block=Self::Block,Hash=Self::Hash, Error=Self::Error>> {
-		self
 	}
 }
 

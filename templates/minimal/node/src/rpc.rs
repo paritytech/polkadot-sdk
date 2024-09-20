@@ -36,7 +36,7 @@ pub struct FullDeps<C, P> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
-	pub pool: P,
+	pub pool: Arc<P>,
 }
 
 #[docify::export]
@@ -54,7 +54,7 @@ where
 		+ 'static,
 	C::Api: sp_block_builder::BlockBuilder<OpaqueBlock>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
-	P: TransactionPool + 'static + Clone,
+	P: TransactionPool + 'static,
 {
 	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 	let mut module = RpcModule::new(());

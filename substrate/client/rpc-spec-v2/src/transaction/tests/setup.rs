@@ -72,7 +72,7 @@ pub fn setup_api(
 	Arc<TestApi>,
 	Arc<MiddlewarePool>,
 	Arc<ChainHeadMockClient<Client<Backend>>>,
-	RpcModule<RpcTransactionBroadcast<Arc<MiddlewarePool>, ChainHeadMockClient<Client<Backend>>>>,
+	RpcModule<RpcTransactionBroadcast<MiddlewarePool, ChainHeadMockClient<Client<Backend>>>>,
 	TaskExecutorState,
 	MiddlewarePoolRecv,
 ) {
@@ -101,7 +101,7 @@ pub fn setup_api_tx() -> (
 	Arc<TestApi>,
 	Arc<MiddlewarePool>,
 	Arc<ChainHeadMockClient<Client<Backend>>>,
-	RpcModule<RpcTransaction<Arc<MiddlewarePool>, ChainHeadMockClient<Client<Backend>>>>,
+	RpcModule<RpcTransaction<MiddlewarePool, ChainHeadMockClient<Client<Backend>>>>,
 	TaskExecutorState,
 	MiddlewarePoolRecv,
 ) {

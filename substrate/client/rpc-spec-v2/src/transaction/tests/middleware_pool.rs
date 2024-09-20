@@ -199,17 +199,4 @@ impl TransactionPool for MiddlewarePool {
 	> {
 		self.inner_pool.ready_at(at)
 	}
-
-	fn as_transaction_pool_arc(
-		self: Arc<Self>,
-	) -> Arc<
-		dyn TransactionPool<
-			Block = Self::Block,
-			Hash = Self::Hash,
-			InPoolTransaction = Self::InPoolTransaction,
-			Error = Self::Error,
-		>,
-	> {
-		self
-	}
 }

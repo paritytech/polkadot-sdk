@@ -23,7 +23,7 @@ use assert_matches::assert_matches;
 use codec::Encode;
 use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError, RpcModule};
 use sc_rpc_api::DenyUnsafe;
-use sc_transaction_pool::{BasicPool, TransactionPoolImpl};
+use sc_transaction_pool::{BasicPool, FullChainApi};
 use sc_transaction_pool_api::TransactionStatus;
 use sp_core::{
 	bytes::to_hex,
@@ -52,12 +52,12 @@ fn uxt(sender: AccountKeyring, nonce: u64) -> Extrinsic {
 	ExtrinsicBuilder::new_transfer(tx).build()
 }
 
-type FullTransactionPool = TransactionPoolImpl<Block, Client<Backend>>;
+type FullTransactionPool = BasicPool<FullChainApi<Client<Backend>, Block>, Block>;
 
 struct TestSetup {
 	pub client: Arc<Client<Backend>>,
 	pub keystore: Arc<MemoryKeystore>,
-	pub pool: FullTransactionPool,
+	pub pool: Arc<FullTransactionPool>,
 }
 
 impl Default for TestSetup {

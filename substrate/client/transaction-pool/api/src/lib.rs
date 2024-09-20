@@ -338,125 +338,6 @@ pub trait TransactionPool: Send + Sync {
 				+ '_,
 		>,
 	>;
-
-	/// Allows to upcast trait objects to Arc<dyn TransactionPool>.
-	fn as_transaction_pool_arc(
-		self: Arc<Self>,
-	) -> Arc<
-		dyn TransactionPool<
-			Block = Self::Block,
-			Hash = Self::Hash,
-			InPoolTransaction = Self::InPoolTransaction,
-			Error = Self::Error,
-		>,
-	>;
-}
-
-impl<T: TransactionPool + ?Sized + 'static> TransactionPool for Arc<T> {
-	type Block = T::Block;
-	type Hash = T::Hash;
-	type InPoolTransaction = T::InPoolTransaction;
-	type Error = T::Error;
-
-	fn submit_at(
-		&self,
-		at: <Self::Block as BlockT>::Hash,
-		source: TransactionSource,
-		xts: Vec<TransactionFor<Self>>,
-	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
-		T::submit_at(self, at, source, xts)
-	}
-
-	fn submit_one(
-		&self,
-		at: <Self::Block as BlockT>::Hash,
-		source: TransactionSource,
-		xt: TransactionFor<Self>,
-	) -> PoolFuture<TxHash<Self>, Self::Error> {
-		T::submit_one(self, at, source, xt)
-	}
-
-	fn submit_and_watch(
-		&self,
-		at: <Self::Block as BlockT>::Hash,
-		source: TransactionSource,
-		xt: TransactionFor<Self>,
-	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		T::submit_and_watch(self, at, source, xt)
-	}
-
-	fn ready_at(
-		&self,
-		at: <Self::Block as BlockT>::Hash,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-				> + Send,
-		>,
-	> {
-		T::ready_at(self, at)
-	}
-
-	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
-		T::ready(self)
-	}
-
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		T::remove_invalid(self, hashes)
-	}
-
-	fn futures(&self) -> Vec<Self::InPoolTransaction> {
-		T::futures(self)
-	}
-
-	fn status(&self) -> PoolStatus {
-		T::status(self)
-	}
-
-	fn import_notification_stream(&self) -> ImportNotificationStream<TxHash<Self>> {
-		T::import_notification_stream(self)
-	}
-
-	fn on_broadcasted(&self, propagations: HashMap<TxHash<Self>, Vec<String>>) {
-		T::on_broadcasted(self, propagations)
-	}
-
-	fn hash_of(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
-		T::hash_of(self, xt)
-	}
-
-	fn ready_transaction(&self, hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
-		T::ready_transaction(self, hash)
-	}
-
-	fn ready_at_with_timeout(
-		&self,
-		at: <Self::Block as BlockT>::Hash,
-		timeout: std::time::Duration,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-				> + Send
-				+ '_,
-		>,
-	> {
-		T::ready_at_with_timeout(self, at, timeout)
-	}
-
-	fn as_transaction_pool_arc(
-		self: Arc<Self>,
-	) -> Arc<
-		dyn TransactionPool<
-			Block = T::Block,
-			Hash = T::Hash,
-			InPoolTransaction = T::InPoolTransaction,
-			Error = T::Error,
-		>,
-	> {
-		self
-	}
 }
 
 /// An iterator of ready transactions.
@@ -522,13 +403,6 @@ pub trait MaintainedTransactionPool: TransactionPool {
 	async fn maintain(&self, event: ChainEvent<Self::Block>);
 }
 
-#[async_trait]
-impl<T: MaintainedTransactionPool + ?Sized + 'static> MaintainedTransactionPool for Arc<T> {
-	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		T::maintain(self, event).await;
-	}
-}
-
 /// Transaction pool interface for submitting local transactions that exposes a
 /// blocking interface for submission.
 pub trait LocalTransactionPool: Send + Sync {
@@ -549,14 +423,9 @@ pub trait LocalTransactionPool: Send + Sync {
 		at: <Self::Block as BlockT>::Hash,
 		xt: LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error>;
-
-	/// Allows to upcast trait objects to Arc<dyn LocalTransactionPool>.
-	fn as_local_pool_arc(
-		self: Arc<Self>,
-	) -> Arc<dyn LocalTransactionPool<Block = Self::Block, Hash = Self::Hash, Error = Self::Error>>;
 }
 
-impl<T: LocalTransactionPool + 'static + ?Sized> LocalTransactionPool for Arc<T> {
+impl<T: LocalTransactionPool> LocalTransactionPool for Arc<T> {
 	type Block = T::Block;
 
 	type Hash = T::Hash;
@@ -569,12 +438,6 @@ impl<T: LocalTransactionPool + 'static + ?Sized> LocalTransactionPool for Arc<T>
 		xt: LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
 		(**self).submit_local(at, xt)
-	}
-
-	fn as_local_pool_arc(
-		self: Arc<Self>,
-	) -> Arc<dyn LocalTransactionPool<Block = T::Block, Hash = T::Hash, Error = T::Error>> {
-		self
 	}
 }
 
@@ -626,17 +489,6 @@ pub struct OffchainTransactionPoolFactory<Block: BlockT> {
 impl<Block: BlockT> OffchainTransactionPoolFactory<Block> {
 	/// Creates a new instance using the given `tx_pool`.
 	pub fn new<T: LocalTransactionPool<Block = Block> + 'static>(tx_pool: T) -> Self {
-		Self { pool: Arc::new(tx_pool) as Arc<_> }
-	}
-
-	/// Creates a new instance using the given `tx_pool` trait object.
-	pub fn new_with_arc<H, E>(
-		tx_pool: Arc<dyn LocalTransactionPool<Block = Block, Hash = H, Error = E>>,
-	) -> Self
-	where
-		H: Hash + Eq + Member + Serialize,
-		E: From<crate::error::Error> + crate::error::IntoPoolError + 'static,
-	{
 		Self { pool: Arc::new(tx_pool) as Arc<_> }
 	}
 
@@ -716,13 +568,6 @@ impl<Block: BlockT> LocalTransactionPool for RejectAllTxPool<Block> {
 
 	fn submit_local(&self, _: Block::Hash, _: Block::Extrinsic) -> Result<Self::Hash, Self::Error> {
 		Err(error::Error::ImmediatelyDropped)
-	}
-
-	fn as_local_pool_arc(
-		self: Arc<Self>,
-	) -> Arc<dyn LocalTransactionPool<Block = Self::Block, Hash = Self::Hash, Error = Self::Error>>
-	{
-		self
 	}
 }
 

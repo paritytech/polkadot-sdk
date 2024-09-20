@@ -91,7 +91,7 @@ pub struct FullDeps<C, P, SC, B, AuthorityId: AuthorityIdBound> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
-	pub pool: P,
+	pub pool: Arc<P>,
 	/// The SelectChain Strategy
 	pub select_chain: SC,
 	/// A copy of the chain spec.

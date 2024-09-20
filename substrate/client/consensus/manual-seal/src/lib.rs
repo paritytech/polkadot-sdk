@@ -98,7 +98,7 @@ pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, C
 	pub client: Arc<C>,
 
 	/// Shared reference to the transaction pool.
-	pub pool: TP,
+	pub pool: Arc<TP>,
 
 	/// Stream<Item = EngineCommands>, Basically the receiving end of a channel for sending
 	/// commands to the authorship task.
@@ -126,7 +126,7 @@ pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, 
 	pub client: Arc<C>,
 
 	/// Shared reference to the transaction pool.
-	pub pool: TP,
+	pub pool: Arc<TP>,
 
 	/// SelectChain strategy.
 	pub select_chain: SC,
@@ -171,7 +171,7 @@ pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP, P>(
 	E::Proposer: Proposer<B, Proof = P>,
 	CS: Stream<Item = EngineCommand<<B as BlockT>::Hash>> + Unpin + 'static,
 	SC: SelectChain<B> + 'static,
-	TP: TransactionPool<Block = B> + 'static + Clone,
+	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
 	P: codec::Encode + Send + Sync + 'static,
 {
@@ -229,7 +229,7 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P>(
 	E: Environment<B> + 'static,
 	E::Proposer: Proposer<B, Proof = P>,
 	SC: SelectChain<B> + 'static,
-	TP: TransactionPool<Block = B> + 'static + Clone,
+	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
 	P: codec::Encode + Send + Sync + 'static,
 {
@@ -279,7 +279,7 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP, P>(
 	E: Environment<B> + 'static,
 	E::Proposer: Proposer<B, Proof = P>,
 	SC: SelectChain<B> + 'static,
-	TP: TransactionPool<Block = B> + 'static + Clone,
+	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
 	P: codec::Encode + Send + Sync + 'static,
 {

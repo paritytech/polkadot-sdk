@@ -174,7 +174,7 @@ pub fn new_full<
 			config: &config,
 			net_config,
 			client: client.clone(),
-			transaction_pool: transaction_pool.clone().as_transaction_pool_arc(),
+			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,

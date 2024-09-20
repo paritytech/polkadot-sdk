@@ -44,7 +44,7 @@ pub struct SealBlockParams<'a, B: BlockT, BI, SC, C: ProvideRuntimeApi<B>, E, TP
 	/// sender to report errors/success to the rpc.
 	pub sender: rpc::Sender<CreatedBlock<<B as BlockT>::Hash>>,
 	/// transaction pool
-	pub pool: TP,
+	pub pool: Arc<TP>,
 	/// header backend
 	pub client: Arc<C>,
 	/// Environment trait object for creating a proposer
@@ -80,7 +80,7 @@ pub async fn seal_block<B, BI, SC, C, E, TP, CIDP, P>(
 	C: HeaderBackend<B> + ProvideRuntimeApi<B>,
 	E: Environment<B>,
 	E::Proposer: Proposer<B, Proof = P>,
-	TP: TransactionPool<Block = B> + 'static,
+	TP: TransactionPool<Block = B>,
 	SC: SelectChain<B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
 	P: codec::Encode + Send + Sync + 'static,
