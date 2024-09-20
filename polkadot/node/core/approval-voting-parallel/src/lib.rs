@@ -698,8 +698,8 @@ where
 	}
 }
 
-/// Just a wrapper for implementing overseer::SubsystemSender<ApprovalVotingMessage> and
-/// overseer::SubsystemSender<ApprovalDistributionMessage>.
+/// Just a wrapper for implementing `overseer::SubsystemSender<ApprovalVotingMessage>` and
+/// `overseer::SubsystemSender<ApprovalDistributionMessage>`.
 ///
 /// The instance of this struct can be injected into the workers, so they can talk
 /// directly with each other without intermediating in this subsystem loop.
@@ -872,8 +872,8 @@ where
 	(to_worker, WorkProviderImpl::from_rx_worker(rx_worker, prio_right))
 }
 
-/// Just a wrapper for implementing overseer::SubsystemSender<ApprovalDistributionMessage>, so that
-/// we can inject into the approval voting subsystem.
+/// Just a wrapper for implementing `overseer::SubsystemSender<ApprovalDistributionMessage>`, so
+/// that we can inject into the approval voting subsystem.
 #[derive(Clone)]
 pub struct ApprovalVotingToApprovalDistribution<S: SubsystemSender<ApprovalVotingParallelMessage>>(
 	S,
