@@ -602,10 +602,6 @@ pub(crate) fn bond_virtual_nominator(
 	val: Balance,
 	target: Vec<AccountId>,
 ) {
-	// In a real scenario, `who` is a keyless account managed by another pallet which provides for
-	// it.
-	System::inc_providers(&who);
-
 	// Bond who virtually.
 	assert_ok!(<Staking as sp_staking::StakingUnchecked>::virtual_bond(&who, val, &payee));
 	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));

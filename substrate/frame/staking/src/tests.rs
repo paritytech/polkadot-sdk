@@ -8554,5 +8554,27 @@ mod hold_migration {
 			// unbond works after migration.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
 		});
+
+		#[test]
+		fn virtual_staker_consumer_provider_dec() {
+			// Ensure virtual stakers consumer and provider count is decremented.
+			ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+				// 200 virtual bonds
+				bond_virtual_nominator(200, 201, 500, vec![11, 21]);
+
+				// previously the virtual nominator had a provider inc by the delegation system as
+				// well as a consumer by this pallet.
+				System::inc_providers(&200);
+				System::inc_consumers(&200).expect("has provider, can consume");
+
+				// migrate 200
+				assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), 200));
+
+				// ensure account does not exist in system anymore.
+				assert_eq!(System::consumers(&200), 0);
+				assert_eq!(System::providers(&200), 0);
+				assert!(!System::account_exists(&200));
+			});
+		}
 	}
 }
