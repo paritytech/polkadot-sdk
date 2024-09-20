@@ -1412,7 +1412,6 @@ impl pallet_revive::Config for Runtime {
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type ChainExtension = ();
 	type AddressMapper = pallet_revive::DefaultAddressMapper;
-	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 	type UnsafeUnstableInterface = ConstBool<false>;
