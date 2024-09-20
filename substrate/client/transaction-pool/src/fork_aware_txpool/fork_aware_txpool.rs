@@ -456,7 +456,6 @@ where
 			return ready_at;
 		}
 
-		let fall_back_ready = self.ready_at_light(at).map(|ready| Some(ready));
 		let maybe_ready = async move {
 			select! {
 				ready = ready_at => Some(ready),
@@ -471,11 +470,11 @@ where
 			}
 		};
 
+		let fall_back_ready = self.ready_at_light(at);
 		Box::pin(async {
 			let (maybe_ready, fall_back_ready) =
 				futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
-			maybe_ready
-				.unwrap_or_else(|| fall_back_ready.expect("Fallback value is always Some. qed"))
+			maybe_ready.unwrap_or(fall_back_ready)
 		})
 	}
 
