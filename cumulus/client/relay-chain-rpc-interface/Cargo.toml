@@ -29,6 +29,7 @@ sp-version = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 
 tokio = { features = ["sync"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
@@ -49,3 +50,4 @@ either = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 rand = { workspace = true, default-features = true }
 pin-project = { workspace = true }
+prometheus = { workspace = true }

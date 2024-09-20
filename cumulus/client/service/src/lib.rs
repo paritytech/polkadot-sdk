@@ -370,6 +370,7 @@ pub async fn build_relay_chain_interface(
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
 			build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
+				parachain_config.prometheus_registry(),
 				task_manager,
 				rpc_target_urls,
 			)
