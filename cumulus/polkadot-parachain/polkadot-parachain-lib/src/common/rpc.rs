@@ -46,7 +46,7 @@ impl<Block: BlockT, RuntimeApi>
 	BuildRpcExtensions<
 		ParachainClient<Block, RuntimeApi>,
 		ParachainBackend<Block>,
-		sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<Block, RuntimeApi>>,
+		sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
 	> for BuildEmptyRpcExtensions<Block, RuntimeApi>
 where
 	RuntimeApi:
@@ -56,7 +56,7 @@ where
 		_client: Arc<ParachainClient<Block, RuntimeApi>>,
 		_backend: Arc<ParachainBackend<Block>>,
 		_pool: Arc<
-			sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<Block, RuntimeApi>>,
+			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
 		>,
 	) -> sc_service::error::Result<RpcExtension> {
 		Ok(RpcExtension::new(()))
@@ -69,7 +69,7 @@ impl<Block: BlockT, RuntimeApi>
 	BuildRpcExtensions<
 		ParachainClient<Block, RuntimeApi>,
 		ParachainBackend<Block>,
-		sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<Block, RuntimeApi>>,
+		sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
 	> for BuildParachainRpcExtensions<Block, RuntimeApi>
 where
 	RuntimeApi:
@@ -81,7 +81,7 @@ where
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		backend: Arc<ParachainBackend<Block>>,
 		pool: Arc<
-			sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<Block, RuntimeApi>>,
+			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
 		>,
 	) -> sc_service::error::Result<RpcExtension> {
 		let build = || -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>> {

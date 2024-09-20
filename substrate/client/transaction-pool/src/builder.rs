@@ -161,11 +161,12 @@ where
 {
 }
 
-/// The type alias for a type providing an object implementing
+/// The public type alias for the actual type providing the implementation of
 /// `FullClientTransactionPool` with the given `Client` and `Block` types.
 ///
-/// This trait object abstracts away the specific type of the transaction pool.
-pub type TransactionPoolImpl<Block, Client> = TransactionPoolWrapper<Block, Client>;
+/// This handle abstracts away the specific type of the transaction pool. Should be used
+/// externally to keep reference to transaction pool.
+pub type TransactionPoolHandle<Block, Client> = TransactionPoolWrapper<Block, Client>;
 
 /// Builder allowing to create specific instance of transaction pool.
 pub struct Builder<'a, Block, Client> {
@@ -222,7 +223,7 @@ where
 	}
 
 	/// Creates an instance of transaction pool.
-	pub fn build(self) -> TransactionPoolImpl<Block, Client> {
+	pub fn build(self) -> TransactionPoolHandle<Block, Client> {
 		log::info!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
 		TransactionPoolWrapper::<Block, Client>(match self.options.txpool_type {
 			TransactionPoolType::SingleState => Box::new(SingleStateFullPool::new_full(
