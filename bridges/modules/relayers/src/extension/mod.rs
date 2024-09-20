@@ -1935,7 +1935,7 @@ mod tests {
 		dispatch_result: DispatchResult,
 	) -> RelayerAccountAction<ThisChainAccountId, ThisChainBalance> {
 		TestExtension::analyze_call_result(
-			Some(Some(pre_dispatch_data)),
+			Some(pre_dispatch_data),
 			&dispatch_info(),
 			&post_dispatch_info(),
 			1024,

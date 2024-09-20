@@ -327,8 +327,8 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 			fn prepare(
 				self,
 				val: Self::Val,
-				origin: &<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
-				call: &$call,
+				_origin: &<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				_call: &$call,
 				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				_len: usize,
 			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
