@@ -8554,19 +8554,21 @@ mod hold_migration {
 			// unbond works after migration.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
 		});
+	}
 
-		#[test]
-		fn virtual_staker_consumer_provider_dec() {
-			// Ensure virtual stakers consumer and provider count is decremented.
-			ExtBuilder::default().has_stakers(true).build_and_execute(|| {
-				// 200 virtual bonds
-				bond_virtual_nominator(200, 201, 500, vec![11, 21]);
+	#[test]
+	fn virtual_staker_consumer_provider_dec() {
+		// Ensure virtual stakers consumer and provider count is decremented.
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// 200 virtual bonds
+			bond_virtual_nominator(200, 201, 500, vec![11, 21]);
 
-				// previously the virtual nominator had a provider inc by the delegation system as
-				// well as a consumer by this pallet.
-				System::inc_providers(&200);
-				System::inc_consumers(&200).expect("has provider, can consume");
+			// previously the virtual nominator had a provider inc by the delegation system as
+			// well as a consumer by this pallet.
+			System::inc_providers(&200);
+			System::inc_consumers(&200).expect("has provider, can consume");
 
+			hypothetically!({
 				// migrate 200
 				assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), 200));
 
@@ -8575,6 +8577,30 @@ mod hold_migration {
 				assert_eq!(System::providers(&200), 0);
 				assert!(!System::account_exists(&200));
 			});
-		}
+
+			hypothetically!({
+				// 200 has an erroneously extra provider
+				System::inc_providers(&200);
+
+				// causes migration to fail.
+				assert_noop!(
+					Staking::migrate_currency(RuntimeOrigin::signed(1), 200),
+					Error::<Test>::BadState
+				);
+			});
+
+			// 200 is funded for more than ED by a random account.
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(999), 200, 10));
+
+			// it has an extra provider now.
+			assert_eq!(System::providers(&200), 2);
+
+			// migrate 200
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), 200));
+
+			// 1 provider is left, consumers is 0.
+			assert_eq!(System::providers(&200), 1);
+			assert_eq!(System::consumers(&200), 0);
+		});
 	}
 }
