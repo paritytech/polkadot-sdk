@@ -173,6 +173,25 @@ build-short-benchmark:
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
 
+build-polkadot-zombienet-tests:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  needs:
+    - job: build-linux-stable
+      artifacts: true
+    - job: build-linux-stable-cumulus
+      artifacts: true
+
+  script:
+    - cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --features zombie-metadata --archive-file polkadot-zombienet-tests.tar.zst
+    - mkdir -p artifacts
+    - cp polkadot-zombienet-tests.tar.zst ./artifacts
+
+
 # build jobs from cumulus
 
 build-linux-stable-cumulus:
