@@ -1,5 +1,5 @@
-use std::env;
 use anyhow::anyhow;
+use std::env;
 use zombienet_sdk::NetworkConfigBuilder;
 
 const best_block_metric: &str = "block_height{status=\"best\"}";
@@ -17,14 +17,12 @@ async fn runtime_upgrade_test() -> Result<(), anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_node(|node| {
-                    node.with_name("latest-release")
-                    // used for getting the chain-spec
-                    .with_image("parity/polkadot:latest")
-                })
+					node.with_name("latest-release")
+						// used for getting the chain-spec
+						.with_image("parity/polkadot:latest")
+				})
 				.with_node(|node| node.with_name("bob"))
-				.with_node(|node| node.with_name("charlie"))
 		})
-
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
@@ -34,22 +32,32 @@ async fn runtime_upgrade_test() -> Result<(), anyhow::Error> {
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;
 
-    // wait 10 blocks
-    let latest_release = network.get_node("latest-release")?;
-    assert!(latest_release.wait_metric(best_block_metric, |b| b > 10_f64).await.is_ok());
+	// wait 10 blocks
+	let latest_release = network.get_node("latest-release")?;
+	assert!(latest_release.wait_metric(best_block_metric, |b| b > 10_f64).await.is_ok());
 
-    // ge current best
-    node.wait_metric(best_block_metric, |x| x > 10_f64).await?;
-    let best_block = node.reports(best_block_metric).await?;
+	// get current runtime spec
+	let client = network.get_node("latest-release")?.client::<subxt::PolkadotConfig>().await?;
+	let current_runtime = client.backend().current_runtime_version().await?;
 
-    // upgrade runtime
-    let wasm = env::var("ZOMBIE_WASM_INCREMENTED_PATH").unwrap_or("target/testnet/wbuild/rococo-runtime/wasm_binary_spec_version_incremented.rs.compact.wasm");
+	// get current best
+	node.wait_metric(best_block_metric, |x| x > 10_f64).await?;
+	let best_block = node.reports(best_block_metric).await?;
 
-    network
-        .relaychain()
-        .runtime_upgrade(RuntimeUpgradeOptions::new(wasm.into()))
-        .await?;
+	// upgrade runtime
+	let wasm = env::var("ZOMBIE_WASM_INCREMENTED_PATH").unwrap_or(
+		"target/testnet/wbuild/rococo-runtime/wasm_binary_spec_version_incremented.rs.compact.wasm",
+	);
 
-    // wait 10 more blocks
-    node.wait_metric(best_block_metric, |x| x > best_block + 10_f64);
+	network
+		.relaychain()
+		.runtime_upgrade(RuntimeUpgradeOptions::new(wasm.into()))
+		.await?;
+
+	// wait 10 more blocks
+	node.wait_metric(best_block_metric, |x| x > best_block + 10_f64);
+
+	let incremented_runtime = client.backend().current_runtime_version().await?;
+
+	assert_eq(incremented_runtime, current_version + 1000, "version should be incremented");
 }
