@@ -549,7 +549,7 @@ struct Frame<T: Config> {
 	read_only: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
-	/// The output of the last executed call frame. 
+	/// The output of the last executed call frame.
 	last_frame_output: ExecReturnValue,
 }
 
@@ -4131,5 +4131,81 @@ mod tests {
 			);
 			assert_matches!(result, Ok(_));
 		});
+	}
+
+	#[test]
+	fn last_frame_output_works_on_instantiate() {
+		let ok_ch = MockLoader::insert(Constructor, move |_, _| {
+			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] })
+		});
+		let revert_ch = MockLoader::insert(Constructor, move |_, _| {
+			Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] })
+		});
+		let trap_ch = MockLoader::insert(Constructor, |_, _| Err("It's a trap!".into()));
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+
+				// Successful instantiation should set the output
+				let address = ctx
+					.ext
+					.instantiate(Weight::zero(), U256::zero(), ok_ch, value, vec![], None)
+					.unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
+				);
+
+				// Plain transfers should not set the output
+				ctx.ext.transfer(&address, U256::from(1)).unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
+				);
+
+				// Reverted instantiation should set the output
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), revert_ch, value, vec![], None)
+					.unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] }
+				);
+
+				// Trapped instantiation should clear the output
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), trap_ch, value, vec![], None)
+					.unwrap_err();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![] }
+				);
+
+				exec_success()
+			}
+		});
+
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
 	}
 }
