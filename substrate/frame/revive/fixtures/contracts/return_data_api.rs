@@ -16,10 +16,10 @@
 // limitations under the License.
 
 //! This tests that the `return_data_size` and `return_data_copy` APIs work.
-//! 
+//!
 //! It does so by calling and instantiating the "return_with_data" fixture,
 //! which always echoes back the input[4..] regardless of the call outcome.
-//! 
+//!
 //! We also check that the saved return data is properly reset after a trap
 //! and unaffected by plain transfers.
 

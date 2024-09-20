@@ -237,8 +237,8 @@ parameter_types! {
 	const XcmExecutionFailed: ReturnErrorCode = ReturnErrorCode::XcmExecutionFailed;
 }
 
-impl From<ExecReturnValue> for ReturnErrorCode {
-	fn from(from: ExecReturnValue) -> Self {
+impl<'a> From<&'a ExecReturnValue> for ReturnErrorCode {
+	fn from(from: &'a ExecReturnValue) -> Self {
 		if from.flags.contains(ReturnFlags::REVERT) {
 			Self::CalleeReverted
 		} else {
@@ -763,16 +763,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 	}
 
-	/// Fallible conversion of a `ExecResult` to `ReturnErrorCode`.
-	fn exec_into_return_code(from: ExecResult) -> Result<ReturnErrorCode, DispatchError> {
+	/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
+	fn exec_error_into_return_code(from: ExecError) -> Result<ReturnErrorCode, DispatchError> {
 		use crate::exec::ErrorOrigin::Callee;
 
-		let ExecError { error, origin } = match from {
-			Ok(retval) => return Ok(retval.into()),
-			Err(err) => err,
-		};
-
-		match (error, origin) {
+		match (from.error, from.origin) {
 			(_, Callee) => Ok(ReturnErrorCode::CalleeTrapped),
 			(err, _) => Self::err_into_return_code(err),
 		}
@@ -1031,28 +1026,30 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 		};
 
-		// `TAIL_CALL` only matters on an `OK` result. Otherwise the call stack comes to
-		// a halt anyways without anymore code being executed.
-		if flags.contains(CallFlags::TAIL_CALL) {
-			if let Ok(return_value) = call_outcome {
+		let output = core::mem::take(self.ext.last_frame_output_mut());
+		match call_outcome {
+			// `TAIL_CALL` only matters on an `OK` result. Otherwise the call stack comes to
+			// a halt anyways without anymore code being executed.
+			Ok(_) if flags.contains(CallFlags::TAIL_CALL) => {
 				return Err(TrapReason::Return(ReturnData {
-					flags: return_value.flags.bits(),
-					data: return_value.data,
-				}))
-			}
+					flags: output.flags.bits(),
+					data: output.data,
+				}));
+			},
+			Ok(_) => {
+				self.write_sandbox_output(
+					memory,
+					output_ptr,
+					output_len_ptr,
+					&output.data,
+					true,
+					|len| Some(RuntimeCosts::CopyToContract(len)),
+				)?;
+				*self.ext.last_frame_output_mut() = output;
+				Ok(self.ext.last_frame_output().into())
+			},
+			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
 		}
-
-		if let Ok(output) = &call_outcome {
-			self.write_sandbox_output(
-				memory,
-				output_ptr,
-				output_len_ptr,
-				&output.data,
-				true,
-				|len| Some(RuntimeCosts::CopyToContract(len)),
-			)?;
-		}
-		Ok(Self::exec_into_return_code(call_outcome)?)
 	}
 
 	fn instantiate(
@@ -1081,35 +1078,39 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			let salt: [u8; 32] = memory.read_array(salt_ptr)?;
 			Some(salt)
 		};
-		let instantiate_outcome = self.ext.instantiate(
+
+		match self.ext.instantiate(
 			weight,
 			deposit_limit,
 			code_hash,
 			value,
 			input_data,
 			salt.as_ref(),
-		);
-
-		if let Ok((address, output)) = &instantiate_outcome {
-			if !output.flags.contains(ReturnFlags::REVERT) {
-				self.write_fixed_sandbox_output(
+		) {
+			Ok(address) => {
+				let output = core::mem::take(self.ext.last_frame_output_mut());
+				if !output.flags.contains(ReturnFlags::REVERT) {
+					self.write_fixed_sandbox_output(
+						memory,
+						address_ptr,
+						&address.as_bytes(),
+						true,
+						already_charged,
+					)?;
+				}
+				self.write_sandbox_output(
 					memory,
-					address_ptr,
-					&address.as_bytes(),
+					output_ptr,
+					output_len_ptr,
+					&output.data,
 					true,
-					already_charged,
+					|len| Some(RuntimeCosts::CopyToContract(len)),
 				)?;
-			}
-			self.write_sandbox_output(
-				memory,
-				output_ptr,
-				output_len_ptr,
-				&output.data,
-				true,
-				|len| Some(RuntimeCosts::CopyToContract(len)),
-			)?;
+				*self.ext.last_frame_output_mut() = output;
+				Ok(self.ext.last_frame_output().into())
+			},
+			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
 		}
-		Ok(Self::exec_into_return_code(instantiate_outcome.map(|(_, retval)| retval))?)
 	}
 
 	fn terminate(&mut self, memory: &M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
@@ -1721,8 +1722,9 @@ pub mod env {
 			Environment::new(self, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
 		let ret = match chain_extension.call(env)? {
 			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } =>
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
+			RetVal::Diverging { flags, data } => {
+				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data }))
+			},
 		};
 		self.chain_extension = Some(chain_extension);
 		ret
@@ -1984,7 +1986,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(U256::from(self.ext.last_frame_output().len())),
+			&as_bytes(U256::from(self.ext.last_frame_output().data.len())),
 			false,
 			|len| Some(RuntimeCosts::CopyToContract(len)),
 		)?)
@@ -2000,19 +2002,19 @@ pub mod env {
 		out_len_ptr: u32,
 		offset: u32,
 	) -> Result<(), TrapReason> {
-		if offset as usize > self.ext.last_frame_output().len() {
-			return Err(Error::<E::T>::OutOfBounds.into())
+		let output = core::mem::take(self.ext.last_frame_output_mut());
+		if offset as usize > output.data.len() {
+			return Err(Error::<E::T>::OutOfBounds.into());
 		}
-		let buf = core::mem::take(self.ext.last_frame_output_mut());
 		let result = self.write_sandbox_output(
 			memory,
 			out_ptr,
 			out_len_ptr,
-			&buf[offset as usize..],
+			&output.data[offset as usize..],
 			false,
 			|len| Some(RuntimeCosts::CopyToContract(len)),
 		);
-		*self.ext.last_frame_output_mut() = buf;
+		*self.ext.last_frame_output_mut() = output;
 		Ok(result?)
 	}
 }

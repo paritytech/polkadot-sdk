@@ -189,16 +189,12 @@ pub trait Ext: sealing::Sealed {
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
-	) -> Result<ExecReturnValue, ExecError>;
+	) -> Result<(), ExecError>;
 
 	/// Execute code in the current frame.
 	///
 	/// Returns the code size of the called contract.
-	fn delegate_call(
-		&mut self,
-		code: H256,
-		input_data: Vec<u8>,
-	) -> Result<ExecReturnValue, ExecError>;
+	fn delegate_call(&mut self, code: H256, input_data: Vec<u8>) -> Result<(), ExecError>;
 
 	/// Instantiate a contract from the given code.
 	///
@@ -213,7 +209,7 @@ pub trait Ext: sealing::Sealed {
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-	) -> Result<(H160, ExecReturnValue), ExecError>;
+	) -> Result<H160, ExecError>;
 
 	/// Transfer all funds to `beneficiary` and delete the contract.
 	///
@@ -429,10 +425,10 @@ pub trait Ext: sealing::Sealed {
 	fn is_read_only(&self) -> bool;
 
 	/// Returns an immutable reference to saved output of the last executed call frame.
-	fn last_frame_output(&self) -> &[u8];
+	fn last_frame_output(&self) -> &ExecReturnValue;
 
 	/// Returns a mutable reference to saved output of the last executed call frame.
-	fn last_frame_output_mut(&mut self) -> &mut Vec<u8>;
+	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -554,7 +550,7 @@ struct Frame<T: Config> {
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
 	/// The output of the last call frame
-	last_frame_output: Vec<u8>,
+	last_frame_output: ExecReturnValue,
 }
 
 /// Used in a delegate call frame arguments in order to override the executable and caller.
@@ -739,9 +735,9 @@ where
 			value,
 			debug_message,
 		)? {
-			stack.run(executable, input_data)
+			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_no_contract(&origin, &dest, value)
+			Self::transfer_no_contract(&origin, &dest, value).map(|_| Default::default())
 		}
 	}
 
@@ -780,7 +776,9 @@ where
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
-		stack.run(executable, input_data).map(|ret| (address, ret))
+		stack
+			.run(executable, input_data)
+			.map(|_| (address, stack.first_frame.last_frame_output))
 	}
 
 	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
@@ -919,7 +917,7 @@ where
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 			read_only,
-			last_frame_output: Vec::new(),
+			last_frame_output: Default::default(),
 		};
 
 		Ok(Some((frame, executable)))
@@ -974,15 +972,13 @@ where
 	/// Run the current (top) frame.
 	///
 	/// This can be either a call or an instantiate.
-	fn run(&mut self, executable: E, input_data: Vec<u8>) -> ExecResult {
+	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
 		let delegated_code_hash =
 			if frame.delegate_caller.is_some() { Some(*executable.code_hash()) } else { None };
 
-		if let Some(previous) = self.caller_output_mut() {
-			*previous = Vec::new();
-		}
+		self.take_caller_output();
 		self.transient_storage.start_transaction();
 
 		let do_transaction = || {
@@ -1121,10 +1117,9 @@ where
 		}
 
 		self.pop_frame(success);
-		if let Ok(output) = output.as_ref() {
-			self.top_frame_mut().last_frame_output = output.data.clone();
-		}
-		output
+		output.map(|output| {
+			self.top_frame_mut().last_frame_output = output;
+		})
 	}
 
 	/// Remove the current (top) frame from the stack.
@@ -1237,10 +1232,8 @@ where
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: BalanceOf<T>,
-	) -> ExecResult {
-		Self::transfer_from_origin(from, to, value)
-			.map(|_| ExecReturnValue::default())
-			.map_err(Into::into)
+	) -> Result<(), ExecError> {
+		Self::transfer_from_origin(from, to, value).map_err(Into::into)
 	}
 
 	/// Reference to the current (top) frame.
@@ -1281,13 +1274,14 @@ where
 		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
 	}
 
-	/// Returns a mutable reference to saved output of the caller frame.
-	fn caller_output_mut(&mut self) -> Option<&mut Vec<u8>> {
-		match self.frames.len() {
-			0 => None,
-			1 => Some(&mut self.first_frame.last_frame_output),
-			_ => self.frames.get_mut(self.frames.len() - 2).map(|frame| &mut frame.last_frame_output),
-		}
+	/// Replaces the last frame output with the default value, dropping it.
+	fn take_caller_output(&mut self) {
+		let len = self.frames.len();
+		core::mem::take(match len {
+			0 => return,
+			1 => &mut self.first_frame.last_frame_output,
+			_ => &mut self.frames.get_mut(len - 2).expect("len >= 2; qed").last_frame_output,
+		});
 	}
 }
 
@@ -1309,7 +1303,7 @@ where
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
-	) -> ExecResult {
+	) -> Result<(), ExecError> {
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
@@ -1360,11 +1354,7 @@ where
 		result
 	}
 
-	fn delegate_call(
-		&mut self,
-		code_hash: H256,
-		input_data: Vec<u8>,
-	) -> Result<ExecReturnValue, ExecError> {
+	fn delegate_call(&mut self, code_hash: H256, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let top_frame = self.top_frame_mut();
 		let contract_info = top_frame.contract_info().clone();
@@ -1392,7 +1382,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-	) -> Result<(H160, ExecReturnValue), ExecError> {
+	) -> Result<H160, ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = &self.top_frame().account_id;
 		let executable = self.push_frame(
@@ -1409,7 +1399,7 @@ where
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
-			.map(|ret| (address, ret))
+			.map(|_| address)
 	}
 
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult {
@@ -1715,11 +1705,11 @@ where
 		self.top_frame().read_only
 	}
 
-	fn last_frame_output(&self) -> &[u8] {
+	fn last_frame_output(&self) -> &ExecReturnValue {
 		&self.top_frame().last_frame_output
 	}
 
-	fn last_frame_output_mut(&mut self) -> &mut Vec<u8> {
+	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		&mut self.top_frame_mut().last_frame_output
 	}
 }
@@ -2385,15 +2375,17 @@ mod tests {
 			// ALICE is the origin of the call stack
 			assert!(ctx.ext.caller_is_origin());
 			// BOB calls CHARLIE
-			ctx.ext.call(
-				Weight::zero(),
-				U256::zero(),
-				&CHARLIE_ADDR,
-				U256::zero(),
-				vec![],
-				true,
-				false,
-			)
+			ctx.ext
+				.call(
+					Weight::zero(),
+					U256::zero(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					true,
+					false,
+				)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2479,15 +2471,17 @@ mod tests {
 			// root is the origin of the call stack.
 			assert!(ctx.ext.caller_is_root());
 			// BOB calls CHARLIE.
-			ctx.ext.call(
-				Weight::zero(),
-				U256::zero(),
-				&CHARLIE_ADDR,
-				U256::zero(),
-				vec![],
-				true,
-				false,
-			)
+			ctx.ext
+				.call(
+					Weight::zero(),
+					U256::zero(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					true,
+					false,
+				)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2698,6 +2692,7 @@ mod tests {
 						vec![],
 						Some(&[48; 32]),
 					)
+					.map(|address| (address, ctx.ext.last_frame_output().clone()))
 					.unwrap();
 
 				*instantiated_contract_address.borrow_mut() = Some(address);
@@ -2873,15 +2868,17 @@ mod tests {
 				assert_eq!(info.storage_byte_deposit, 0);
 				info.storage_byte_deposit = 42;
 				assert_eq!(
-					ctx.ext.call(
-						Weight::zero(),
-						U256::zero(),
-						&CHARLIE_ADDR,
-						U256::zero(),
-						vec![],
-						true,
-						false
-					),
+					ctx.ext
+						.call(
+							Weight::zero(),
+							U256::zero(),
+							&CHARLIE_ADDR,
+							U256::zero(),
+							vec![],
+							true,
+							false
+						)
+						.map(|_| ctx.ext.last_frame_output().clone()),
 					exec_trapped()
 				);
 				assert_eq!(ctx.ext.contract_info().storage_byte_deposit, 42);
@@ -3127,6 +3124,7 @@ mod tests {
 			let dest = H160::from_slice(ctx.input_data.as_ref());
 			ctx.ext
 				.call(Weight::zero(), U256::zero(), &dest, U256::zero(), vec![], false, false)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3169,15 +3167,17 @@ mod tests {
 	fn call_deny_reentry() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
-				ctx.ext.call(
-					Weight::zero(),
-					U256::zero(),
-					&CHARLIE_ADDR,
-					U256::zero(),
-					vec![],
-					false,
-					false,
-				)
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						false,
+						false,
+					)
+					.map(|_| ctx.ext.last_frame_output().clone())
 			} else {
 				exec_success()
 			}
@@ -3185,15 +3185,9 @@ mod tests {
 
 		// call BOB with input set to '1'
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(
-				Weight::zero(),
-				U256::zero(),
-				&BOB_ADDR,
-				U256::zero(),
-				vec![1],
-				true,
-				false,
-			)
+			ctx.ext
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![1], true, false)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -3392,7 +3386,7 @@ mod tests {
 			let alice_nonce = System::account_nonce(&ALICE);
 			assert_eq!(System::account_nonce(ctx.ext.account_id()), 0);
 			assert_eq!(ctx.ext.caller().account_id().unwrap(), &ALICE);
-			let (addr, _) = ctx
+			let addr = ctx
 				.ext
 				.instantiate(
 					Weight::zero(),
@@ -3948,15 +3942,17 @@ mod tests {
 					Ok(WriteOutcome::New)
 				);
 				assert_eq!(
-					ctx.ext.call(
-						Weight::zero(),
-						U256::zero(),
-						&CHARLIE_ADDR,
-						U256::zero(),
-						vec![],
-						true,
-						false,
-					),
+					ctx.ext
+						.call(
+							Weight::zero(),
+							U256::zero(),
+							&CHARLIE_ADDR,
+							U256::zero(),
+							vec![],
+							true,
+							false,
+						)
+						.map(|_| ctx.ext.last_frame_output().clone()),
 					exec_success()
 				);
 				assert_eq!(ctx.ext.get_transient_storage(storage_key_1), Some(vec![3]));
@@ -4052,15 +4048,17 @@ mod tests {
 					Ok(WriteOutcome::New)
 				);
 				assert_eq!(
-					ctx.ext.call(
-						Weight::zero(),
-						U256::zero(),
-						&CHARLIE_ADDR,
-						U256::zero(),
-						vec![],
-						true,
-						false
-					),
+					ctx.ext
+						.call(
+							Weight::zero(),
+							U256::zero(),
+							&CHARLIE_ADDR,
+							U256::zero(),
+							vec![],
+							true,
+							false
+						)
+						.map(|_| ctx.ext.last_frame_output().clone()),
 					exec_trapped()
 				);
 				assert_eq!(ctx.ext.get_transient_storage(storage_key), Some(vec![1, 2]));
