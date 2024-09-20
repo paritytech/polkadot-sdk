@@ -9,8 +9,8 @@ doc:
       Added foreign locations to local accounts converter to all the parachains (i.e. added HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>> to LocationToAccountId)
 
   - audience: Runtime Users
-      description: |
-        Now any user account can have a sovereign account on another chain controlled by the original account
+    description: |
+      Now any user account can have a sovereign account on another chain controlled by the original account
 
 crates:
   - name: asset-hub-westend-runtime
