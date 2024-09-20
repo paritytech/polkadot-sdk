@@ -440,25 +440,28 @@ pub mod pallet {
 					AnnouncementTicketOf<T>,
 				)>|
 				 -> Result<(), DispatchError> {
-					let (mut pending, ticket) = if let Some(v) = value.take() {
-						v
-					} else {
-						let default: AnnouncementsVec<T> = Default::default();
-						let footprint = Footprint::from_encodable(&default);
-						(
-							default,
-							T::AnnouncementConsideration::new(
+					let result = match value.take() {
+						Some((mut pending, ticket)) => {
+							pending.try_push(announcement).map_err(|_| Error::<T>::TooMany)?;
+							let new_ticket = ticket.update(
 								&who,
-								footprint,
-							)?,
-						)
+								Footprint::from_encodable(&pending),
+							)?;
+							(pending, new_ticket)
+						}
+						None => {
+							let default: AnnouncementsVec<T> = vec![announcement].try_into().map_err(|_| Error::<T>::TooMany)?;
+							let footprint = Footprint::from_encodable(&default);
+							(
+								default,
+								T::AnnouncementConsideration::new(
+									&who,
+									footprint,
+								)?,
+							)
+						}
 					};
-					pending.try_push(announcement).map_err(|_| Error::<T>::TooMany)?;
-					let new_ticket = ticket.update(
-						&who,
-						Footprint::from_encodable(&pending),
-					)?;
-					*value = Some((pending, new_ticket));
+					*value = Some(result);
 					Ok::<(), DispatchError>(())
 				},
 			)?;
