@@ -28,7 +28,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
-use core::{mem, fmt, marker::PhantomData};
+use core::{fmt, marker::PhantomData, mem};
 use frame_support::{
 	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
 	traits::Get, weights::Weight,
@@ -2003,17 +2003,18 @@ pub mod env {
 		offset: u32,
 	) -> Result<(), TrapReason> {
 		let output = mem::take(self.ext.last_frame_output_mut());
-		if offset as usize > output.data.len() {
-			return Err(Error::<E::T>::OutOfBounds.into());
-		}
-		let result = self.write_sandbox_output(
-			memory,
-			out_ptr,
-			out_len_ptr,
-			&output.data[offset as usize..],
-			false,
-			|len| Some(RuntimeCosts::CopyToContract(len)),
-		);
+		let result = if offset as usize > output.data.len() {
+			Err(Error::<E::T>::OutOfBounds.into())
+		} else {
+			self.write_sandbox_output(
+				memory,
+				out_ptr,
+				out_len_ptr,
+				&output.data[offset as usize..],
+				false,
+				|len| Some(RuntimeCosts::CopyToContract(len)),
+			)
+		};
 		*self.ext.last_frame_output_mut() = output;
 		Ok(result?)
 	}
