@@ -9,7 +9,7 @@ use frame_support::{
 		AssetDefinition, Create, Destroy,
 	},
 };
-use sp_runtime::{DispatchError, DispatchResult};
+use sp_runtime::DispatchResult;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{Error, MatchesInstance};
 
@@ -26,9 +26,9 @@ pub trait DerivativesRegistry<Original, Derivative> {
 
 	fn try_deregister_derivative(derivative: &Derivative) -> DispatchResult;
 
-	fn get_derivative(original: &Original) -> Result<Derivative, DispatchError>;
+	fn get_derivative(original: &Original) -> Option<Derivative>;
 
-	fn get_original(derivative: &Derivative) -> Result<Original, DispatchError>;
+	fn get_original(derivative: &Derivative) -> Option<Original>;
 }
 
 /// The `MatchDerivativeInstances` is an XCM Matcher
@@ -42,7 +42,7 @@ impl<Registry: DerivativesRegistry<NonFungibleAsset, DerivativeId>, DerivativeId
 		match asset.fun {
 			Fungibility::NonFungible(asset_instance) =>
 				Registry::get_derivative(&(asset.id.clone(), asset_instance))
-					.map_err(|_| Error::AssetNotHandled),
+					.ok_or(Error::AssetNotHandled),
 			Fungibility::Fungible(_) => Err(Error::AssetNotHandled),
 		}
 	}
@@ -77,7 +77,7 @@ impl<
 	fn matches_instance(asset: &Asset) -> Result<DerivativeId, Error> {
 		let instance_id = Matcher::matches_instance(asset)?;
 
-		ensure!(Registry::get_original(&instance_id).is_err(), Error::AssetNotHandled);
+		ensure!(Registry::get_original(&instance_id).is_none(), Error::AssetNotHandled);
 
 		Ok(instance_id)
 	}
