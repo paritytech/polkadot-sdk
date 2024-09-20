@@ -5,8 +5,8 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
+/// EVM JSON-RPC API types.
 pub mod api;
-pub mod runtime;
 
-#[cfg(feature = "std")]
-pub use secp256k1;
+/// Runtime utilities for integrating pallet-revive with the EVM.
+pub mod runtime;

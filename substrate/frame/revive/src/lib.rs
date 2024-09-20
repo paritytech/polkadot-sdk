@@ -1116,7 +1116,8 @@ where
 		}
 	}
 
-	/// TODO
+	/// A generalized version of [`Self::bare_call`] and [`Self::bare_instantiate`] used to dry-run
+	/// Ethereum calls.
 	pub fn bare_eth_call(
 		origin: H160,
 		dest: H160,

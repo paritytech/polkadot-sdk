@@ -10,15 +10,13 @@ pub use rlp_codec::*;
 mod type_id;
 pub use type_id::*;
 
-pub use ethereum_types::{Address, H256, U256, U64};
-
 mod rpc_types;
-pub use rpc_types::*;
+mod rpc_types_gen;
+pub use rpc_types_gen::*;
 
 #[cfg(feature = "std")]
-pub mod rpc_methods;
+pub mod rpc_methods_gen;
 #[cfg(feature = "std")]
-pub use rpc_methods::*;
+pub use rpc_methods_gen::*;
 
-pub mod adapters;
-pub mod signature;
+mod signature;

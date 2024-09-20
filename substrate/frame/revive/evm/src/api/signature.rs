@@ -66,7 +66,6 @@ impl TransactionLegacySigned {
 	}
 
 	/// Recover the public key from the signed transaction.
-	/// TODO check slightly different call in  claim.rs
 	fn recover_pub_key(&self) -> Result<PublicKey, secp256k1::Error> {
 		let sig = self.recoverable_signature()?;
 		let rlp_encoded = self.transaction_legacy_unsigned.rlp_bytes();

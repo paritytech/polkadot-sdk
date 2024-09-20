@@ -34,7 +34,7 @@ use sp_runtime::AccountId32;
 /// case for all existing runtimes as of right now. Reasing is that this will allow
 /// us to reverse an address -> account_id mapping by just stripping the prefix.
 pub trait AddressMapper<T>: private::Sealed {
-	/// Convert an account id to an ethereum adress.
+	/// Convert an account id to an ethereum address.
 	///
 	/// This mapping is **not** required to be reversible.
 	fn to_address(account_id: &T) -> H160;
