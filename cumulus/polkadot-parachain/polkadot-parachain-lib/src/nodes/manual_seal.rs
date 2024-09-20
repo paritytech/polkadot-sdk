@@ -26,7 +26,7 @@ use cumulus_primitives_core::ParaId;
 use sc_consensus::{DefaultImportQueue, LongestChain};
 use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 use sc_network::NetworkBackend;
-use sc_service::{Configuration, PartialComponents, TaskManager};
+use sc_service::{build_polkadot_syncing_strategy, Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sp_runtime::traits::Header;
 use sp_timestamp::Timestamp;
@@ -89,13 +89,23 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
 
-		let net_config = sc_network::config::FullNetworkConfiguration::<_, _, Net>::new(
+		let mut net_config = sc_network::config::FullNetworkConfiguration::<_, _, Net>::new(
 			&config.network,
 			config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
 		);
 		let metrics = Net::register_notification_metrics(
 			config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 		);
+
+		let syncing_strategy = build_polkadot_syncing_strategy(
+			config.protocol_id(),
+			config.chain_spec.fork_id(),
+			&mut net_config,
+			None,
+			client.clone(),
+			&task_manager.spawn_handle(),
+			config.prometheus_config.as_ref().map(|config| &config.registry),
+		)?;
 
 		let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
@@ -106,7 +116,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 				import_queue,
 				net_config,
 				block_announce_validator_builder: None,
-				warp_sync_config: None,
+				syncing_strategy,
 				block_relay: None,
 				metrics,
 			})?;
