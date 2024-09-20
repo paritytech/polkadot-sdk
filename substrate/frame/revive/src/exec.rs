@@ -4208,4 +4208,72 @@ mod tests {
 				.unwrap()
 			});
 	}
+
+	#[test]
+	fn last_frame_output_works_on_nested_call() {
+		// Call stack: BOB -> CHARLIE(revert) -> BOB' (success)
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			if ctx.input_data.is_empty() {
+				// We didn't do anything yet
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![] }
+				);
+
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						true,
+						false,
+					)
+					.unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] }
+				);
+			}
+
+			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] })
+		});
+		let code_charlie = MockLoader::insert(Call, |ctx, _| {
+			// We didn't do anything yet
+			assert_eq!(
+				ctx.ext.last_frame_output(),
+				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![] }
+			);
+
+			assert!(ctx
+				.ext
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+				.is_ok());
+			assert_eq!(
+				ctx.ext.last_frame_output(),
+				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
+			);
+
+			Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] })
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+
+			let result = MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				0,
+				vec![0],
+				None,
+			);
+			assert_matches!(result, Ok(_));
+		});
+	}
 }

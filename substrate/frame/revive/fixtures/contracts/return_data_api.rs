@@ -112,7 +112,7 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(code_hash: &[u8; 32],);
 
-	// we didn't do anything yet; return data size should be 0
+	// We didn't do anything yet; return data size should be 0
 	assert_return_data_size_of(0);
 
 	recursion_guard();
