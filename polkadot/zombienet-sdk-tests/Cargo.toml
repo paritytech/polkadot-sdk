@@ -20,7 +20,8 @@ serde_json = "1.0.114"
 parity-scale-codec = { version = "3.6.9", features = ["derive"] }
 
 [features]
-zombie-metadata = []
+zombienet = []
+zombie-metadata = ["zombienet"]
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }

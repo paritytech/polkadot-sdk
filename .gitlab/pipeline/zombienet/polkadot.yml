@@ -357,3 +357,22 @@ zombienet-polkadot-coretime-revenue:
     - unset NEXTEST_FAILURE_OUTPUT
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- smoke::coretime_revenue::coretime_revenue_test
+
+zombienet-polkadot-smoke-runtime-upgrade:
+  extends:
+    - .zombienet-polkadot-common
+  needs:
+    - job: build-linux-stable
+      artifacts: true
+    - job: build-polkadot-zombienet-tests
+      artifacts: true
+  before_script:
+    - !reference [".zombienet-polkadot-common", "before_script"]
+    - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - export ZOMBIE_WASM_INCREMENTED_PATH="./artifacts/wasm_binary_spec_version_incremented.rs.compact.wasm"
+  script:
+  # we want to use `--no-capture` in zombienet tests.
+    - unset NEXTEST_FAILURE_OUTPUT
+    - unset NEXTEST_SUCCESS_OUTPUT
+    - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- smoke::runtime_upgrade::runtime_upgrade_test
+

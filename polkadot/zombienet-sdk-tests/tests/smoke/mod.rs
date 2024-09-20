@@ -3,3 +3,6 @@
 
 #[cfg(feature = "zombie-metadata")]
 mod coretime_revenue;
+
+#[cfg(feature = "zombienet")]
+mod runtime_upgrade;
