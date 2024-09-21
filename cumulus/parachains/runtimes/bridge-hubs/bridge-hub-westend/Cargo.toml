@@ -89,7 +89,7 @@ bp-messages = { workspace = true }
 bp-parachains = { workspace = true }
 bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
-bp-runtime = { workspace = true }
+bp-runtime = { features = ["test-helpers"], workspace = true }
 bp-rococo = { workspace = true }
 bp-westend = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }

@@ -818,7 +818,7 @@ linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
 litep2p = { version = "0.6.2" }
 log = { version = "0.4.21", default-features = false }
-macro_magic = { version = "0.5.0" }
+macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
 merkleized-metadata = { version = "0.1.0" }

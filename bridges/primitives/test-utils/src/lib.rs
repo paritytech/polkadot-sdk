@@ -176,6 +176,7 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 ) -> (H::Hash, ParaHeadsProof, Vec<(ParaId, ParaHash)>) {
 	let mut parachains = Vec::with_capacity(heads.len());
 	let mut mdb = MemoryDB::default();
+	let mut storage_keys = vec![];
 	let mut trie = TrieDBMutBuilderV1::<H::Hashing>::new(&mdb).build();
 	for (parachain, head) in heads {
 		let storage_key =
@@ -183,11 +184,12 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 		trie.insert(&storage_key.0, &head.encode())
 			.map_err(|_| "TrieDBMut::insert has failed")
 			.expect("TrieDBMut::insert should not fail in tests");
+		storage_keys.push(storage_key.0);
 		parachains.push((ParaId(parachain), head.hash()));
 	}
 	let root = trie.commit().apply_to(&mut mdb);
 
-	// generate storage proof to be delivered to This chain
+	// generate storage proof to be delivered to this chain
 	let storage_proof = record_all_trie_keys::<LayoutV1<H::Hashing, ()>>(&mdb, &root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");

@@ -27,7 +27,7 @@ impl<Balance> MatchesFungible<Balance> for Tuple {
 		for_tuples!( #(
 			match Tuple::matches_fungible(a) { o @ Some(_) => return o, _ => () }
 		)* );
-		log::trace!(target: "xcm::matches_fungible", "did not match fungible asset: {:?}", &a);
+		tracing::trace!(target: "xcm::matches_fungible", asset = ?a, "did not match fungible asset");
 		None
 	}
 }
@@ -42,7 +42,7 @@ impl<Instance> MatchesNonFungible<Instance> for Tuple {
 		for_tuples!( #(
 			match Tuple::matches_nonfungible(a) { o @ Some(_) => return o, _ => () }
 		)* );
-		log::trace!(target: "xcm::matches_non_fungible", "did not match non-fungible asset: {:?}", &a);
+		tracing::trace!(target: "xcm::matches_non_fungible", asset = ?a, "did not match non-fungible asset");
 		None
 	}
 }
@@ -86,7 +86,7 @@ impl<AssetId, Balance> MatchesFungibles<AssetId, Balance> for Tuple {
 		for_tuples!( #(
 			match Tuple::matches_fungibles(a) { o @ Ok(_) => return o, _ => () }
 		)* );
-		log::trace!(target: "xcm::matches_fungibles", "did not match fungibles asset: {:?}", &a);
+		tracing::trace!(target: "xcm::matches_fungibles", asset = ?a, "did not match fungibles asset");
 		Err(Error::AssetNotHandled)
 	}
 }
@@ -101,7 +101,7 @@ impl<AssetId, Instance> MatchesNonFungibles<AssetId, Instance> for Tuple {
 		for_tuples!( #(
 			match Tuple::matches_nonfungibles(a) { o @ Ok(_) => return o, _ => () }
 		)* );
-		log::trace!(target: "xcm::matches_non_fungibles", "did not match fungibles asset: {:?}", &a);
+		tracing::trace!(target: "xcm::matches_non_fungibles", asset = ?a, "did not match fungibles asset");
 		Err(Error::AssetNotHandled)
 	}
 }

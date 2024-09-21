@@ -12,6 +12,8 @@ mod benchmarks;
 mod configs;
 mod weights;
 
+extern crate alloc;
+use alloc::{boxed::Box, vec::Vec};
 use smallvec::smallvec;
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
@@ -19,7 +21,6 @@ use sp_runtime::{
 	MultiSignature,
 };
 
-use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;

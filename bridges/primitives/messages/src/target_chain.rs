@@ -16,16 +16,47 @@
 
 //! Primitives of messages module, that are used on the target chain.
 
-use crate::{
-	LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData, VerificationError,
-};
+use crate::{LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData};
 
-use bp_runtime::{messages::MessageDispatchResult, Size};
+use bp_runtime::{messages::MessageDispatchResult, raw_storage_proof_size, RawStorageProof, Size};
 use codec::{Decode, Encode, Error as CodecError};
-use frame_support::{weights::Weight, Parameter};
+use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, marker::PhantomData, prelude::*};
+
+/// Messages proof from bridged chain.
+///
+/// It contains everything required to prove that bridged (source) chain has
+/// sent us some messages:
+///
+/// - hash of finalized header;
+///
+/// - storage proof of messages and (optionally) outbound lane state;
+///
+/// - lane id;
+///
+/// - nonces (inclusive range) of messages which are included in this proof.
+#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
+	/// Hash of the finalized bridged header the proof is for.
+	pub bridged_header_hash: BridgedHeaderHash,
+	/// A storage trie proof of messages being delivered.
+	pub storage_proof: RawStorageProof,
+	/// Messages in this proof are sent over this lane.
+	pub lane: LaneId,
+	/// Nonce of the first message being delivered.
+	pub nonces_start: MessageNonce,
+	/// Nonce of the last message being delivered.
+	pub nonces_end: MessageNonce,
+}
+
+impl<BridgedHeaderHash> Size for FromBridgedChainMessagesProof<BridgedHeaderHash> {
+	fn size(&self) -> u32 {
+		use frame_support::sp_runtime::SaturatedConversion;
+		raw_storage_proof_size(&self.storage_proof).saturated_into()
+	}
+}
 
 /// Proved messages from the source chain.
 pub type ProvedMessages<Message> = BTreeMap<LaneId, ProvedLaneMessages<Message>>;
@@ -53,33 +84,6 @@ pub struct DispatchMessage<DispatchPayload> {
 	pub key: MessageKey,
 	/// Message data with decoded dispatch payload.
 	pub data: DispatchMessageData<DispatchPayload>,
-}
-
-/// Source chain API. Used by target chain, to verify source chain proofs.
-///
-/// All implementations of this trait should only work with finalized data that
-/// can't change. Wrong implementation may lead to invalid lane states (i.e. lane
-/// that's stuck) and/or processing messages without paying fees.
-pub trait SourceHeaderChain {
-	/// Proof that messages are sent from source chain. This may also include proof
-	/// of corresponding outbound lane states.
-	type MessagesProof: Parameter + Size;
-
-	/// Verify messages proof and return proved messages.
-	///
-	/// Returns error if either proof is incorrect, or the number of messages in the proof
-	/// is not matching the `messages_count`.
-	///
-	/// Messages vector is required to be sorted by nonce within each lane. Out-of-order
-	/// messages will be rejected.
-	///
-	/// The `messages_count` argument verification (sane limits) is supposed to be made
-	/// outside this function. This function only verifies that the proof declares exactly
-	/// `messages_count` messages.
-	fn verify_messages_proof(
-		proof: Self::MessagesProof,
-		messages_count: u32,
-	) -> Result<ProvedMessages<Message>, VerificationError>;
 }
 
 /// Called when inbound message is received.
@@ -167,32 +171,11 @@ impl<AccountId> DeliveryPayments<AccountId> for () {
 	}
 }
 
-/// Structure that may be used in place of `SourceHeaderChain` and `MessageDispatch` on chains,
+/// Structure that may be used in place of  `MessageDispatch` on chains,
 /// where inbound messages are forbidden.
-pub struct ForbidInboundMessages<MessagesProof, DispatchPayload>(
-	PhantomData<(MessagesProof, DispatchPayload)>,
-);
+pub struct ForbidInboundMessages<DispatchPayload>(PhantomData<DispatchPayload>);
 
-/// Error message that is used in `ForbidInboundMessages` implementation.
-const ALL_INBOUND_MESSAGES_REJECTED: &str =
-	"This chain is configured to reject all inbound messages";
-
-impl<MessagesProof: Parameter + Size, DispatchPayload> SourceHeaderChain
-	for ForbidInboundMessages<MessagesProof, DispatchPayload>
-{
-	type MessagesProof = MessagesProof;
-
-	fn verify_messages_proof(
-		_proof: Self::MessagesProof,
-		_messages_count: u32,
-	) -> Result<ProvedMessages<Message>, VerificationError> {
-		Err(VerificationError::Other(ALL_INBOUND_MESSAGES_REJECTED))
-	}
-}
-
-impl<MessagesProof, DispatchPayload: Decode> MessageDispatch
-	for ForbidInboundMessages<MessagesProof, DispatchPayload>
-{
+impl<DispatchPayload: Decode> MessageDispatch for ForbidInboundMessages<DispatchPayload> {
 	type DispatchPayload = DispatchPayload;
 	type DispatchLevelResult = ();
 

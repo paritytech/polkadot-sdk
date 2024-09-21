@@ -48,7 +48,7 @@ bp-runtime = { workspace = true }
 bp-test-utils = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-parachains = { workspace = true }
-pallet-bridge-messages = { workspace = true }
+pallet-bridge-messages = { features = ["test-helpers"], workspace = true }
 pallet-bridge-relayers = { workspace = true }
 bridge-runtime-common = { workspace = true }
 

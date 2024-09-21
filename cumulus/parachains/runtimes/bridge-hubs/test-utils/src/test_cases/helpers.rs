@@ -29,6 +29,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
+use pallet_bridge_messages::BridgedChainOf;
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
@@ -240,10 +241,12 @@ pub(crate) fn initialize_bridge_grandpa_pallet<Runtime, GPI>(
 pub type CallsAndVerifiers<Runtime> =
 	Vec<(RuntimeCallOf<Runtime>, Box<dyn VerifyTransactionOutcome>)>;
 
+pub type InboundRelayerId<Runtime, MPI> = bp_runtime::AccountIdOf<BridgedChainOf<Runtime, MPI>>;
+
 /// Returns relayer id at the bridged chain.
 pub fn relayer_id_at_bridged_chain<Runtime: pallet_bridge_messages::Config<MPI>, MPI>(
-) -> Runtime::InboundRelayer {
-	Runtime::InboundRelayer::decode(&mut TrailingZeroInput::zeroes()).unwrap()
+) -> InboundRelayerId<Runtime, MPI> {
+	Decode::decode(&mut TrailingZeroInput::zeroes()).unwrap()
 }
 
 /// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
@@ -260,7 +263,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	) -> sp_runtime::DispatchOutcome,
 	prepare_message_proof_import: impl FnOnce(
 		Runtime::AccountId,
-		Runtime::InboundRelayer,
+		InboundRelayerId<Runtime, MPI>,
 		InteriorLocation,
 		MessageNonce,
 		Xcm<()>,

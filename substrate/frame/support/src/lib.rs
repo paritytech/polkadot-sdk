@@ -2297,6 +2297,18 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	///
+	/// ### Value Trait Bounds
+	///
+	/// To use a type as the value of a storage type, be it `StorageValue`, `StorageMap` or
+	/// anything else, you need to meet a number of trait bound constraints.
+	///
+	/// See: <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_storage_derives/index.html>.
+	///
+	/// Notably, all value types need to implement `Encode`, `Decode`, `MaxEncodedLen` and
+	/// `TypeInfo`, and possibly `Default`, if
+	/// [`ValueQuery`](frame_support::storage::types::ValueQuery) is used, explained in the
+	/// next section.
+	///
 	/// ### QueryKind
 	///
 	/// Every storage type mentioned above has a generic type called

@@ -213,9 +213,6 @@ pub enum Error {
 	/// The bridge pallet is not yet initialized and all transactions will be rejected.
 	#[error("Bridge pallet is not initialized.")]
 	BridgePalletIsNotInitialized,
-	/// An error has happened when we have tried to parse storage proof.
-	#[error("Error when parsing storage proof: {0:?}.")]
-	StorageProofError(bp_runtime::StorageProofError),
 	/// The Substrate transaction is invalid.
 	#[error("Substrate transaction is invalid: {0:?}")]
 	TransactionInvalid(#[from] TransactionValidityError),

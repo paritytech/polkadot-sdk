@@ -192,7 +192,7 @@ where
 	F: FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration),
 {
 	let runner = cli
-		.create_runner_with_logger_hook::<sc_cli::RunCmd, F>(&cli.run.base, logger_hook)
+		.create_runner_with_logger_hook::<_, _, F>(&cli.run.base, logger_hook)
 		.map_err(Error::from)?;
 	let chain_spec = &runner.config().chain_spec;
 

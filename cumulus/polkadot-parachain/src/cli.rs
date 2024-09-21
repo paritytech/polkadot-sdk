@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::common::NodeExtraArgs;
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_cli::SubstrateCli;
 use std::path::PathBuf;
@@ -92,6 +93,12 @@ pub struct Cli {
 	/// Relay chain arguments
 	#[arg(raw = true)]
 	pub relay_chain_args: Vec<String>,
+}
+
+impl Cli {
+	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
+		NodeExtraArgs { use_slot_based_consensus: self.experimental_use_slot_based }
+	}
 }
 
 #[derive(Debug)]

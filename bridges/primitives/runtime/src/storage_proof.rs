@@ -14,34 +14,91 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Logic for checking Substrate storage proofs.
+//! Logic for working with storage proofs.
 
-use crate::StrippableError;
-use codec::{Decode, Encode};
 use frame_support::PalletError;
-use scale_info::TypeInfo;
-use sp_std::{boxed::Box, vec::Vec};
-pub use sp_trie::RawStorageProof;
+use sp_core::RuntimeDebug;
+use sp_std::{default::Default, vec::Vec};
 use sp_trie::{
-	accessed_nodes_tracker::{AccessedNodesTracker, Error as AccessedNodesTrackerError},
-	read_trie_value,
-	recorder_ext::RecorderExt,
-	LayoutV1, MemoryDB, Recorder, StorageProof, StorageProofError, Trie, TrieConfiguration,
-	TrieDBBuilder, TrieError, TrieHash,
+	accessed_nodes_tracker::AccessedNodesTracker, read_trie_value, LayoutV1, MemoryDB, StorageProof,
 };
 use trie_db::node_db::{Hasher, EMPTY_PREFIX};
 
-/// Storage proof size requirements.
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+#[cfg(feature = "test-helpers")]
+use sp_trie::{recorder_ext::RecorderExt, Recorder, TrieDBBuilder, TrieError, TrieHash};
+#[cfg(feature = "test-helpers")]
+use trie_db::{Trie, TrieConfiguration, TrieDBMut};
+
+/// Errors that can occur when interacting with `UnverifiedStorageProof` and `VerifiedStorageProof`.
+#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
+pub enum StorageProofError {
+	/// Call to `generate_trie_proof()` failed.
+	UnableToGenerateTrieProof,
+	/// Call to `verify_trie_proof()` failed.
+	InvalidProof,
+	/// The `Vec` entries weren't sorted as expected.
+	UnsortedEntries,
+	/// The provided key wasn't found.
+	UnavailableKey,
+	/// The value associated to the provided key is `None`.
+	EmptyVal,
+	/// Error decoding value associated to a provided key.
+	DecodeError,
+	/// At least one key or node wasn't read.
+	UnusedKey,
+
+	/// Expected storage root is missing from the proof. (for non-compact proofs)
+	StorageRootMismatch,
+	/// Unable to reach expected storage value using provided trie nodes. (for non-compact proofs)
+	StorageValueUnavailable,
+	/// The proof contains duplicate nodes. (for non-compact proofs)
+	DuplicateNodes,
+}
+
+impl From<sp_trie::StorageProofError> for StorageProofError {
+	fn from(e: sp_trie::StorageProofError) -> Self {
+		match e {
+			sp_trie::StorageProofError::DuplicateNodes => StorageProofError::DuplicateNodes,
+		}
+	}
+}
+
+impl From<sp_trie::accessed_nodes_tracker::Error> for StorageProofError {
+	fn from(e: sp_trie::accessed_nodes_tracker::Error) -> Self {
+		match e {
+			sp_trie::accessed_nodes_tracker::Error::UnusedNodes => StorageProofError::UnusedKey,
+		}
+	}
+}
+
+/// Raw storage proof type (just raw trie nodes).
+pub type RawStorageProof = sp_trie::RawStorageProof;
+
+/// Calculates size for `RawStorageProof`.
+pub fn raw_storage_proof_size(raw_storage_proof: &RawStorageProof) -> usize {
+	raw_storage_proof
+		.iter()
+		.fold(0usize, |sum, node| sum.saturating_add(node.len()))
+}
+
+/// Storage values size requirements.
 ///
 /// This is currently used by benchmarks when generating storage proofs.
-#[derive(Clone, Copy, Debug)]
-pub enum ProofSize {
-	/// The proof is expected to be minimal. If value size may be changed, then it is expected to
-	/// have given size.
-	Minimal(u32),
-	/// The proof is expected to have at least given size and grow by increasing value that is
-	/// stored in the trie.
-	HasLargeLeaf(u32),
+#[cfg(feature = "test-helpers")]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct UnverifiedStorageProofParams {
+	/// Expected storage proof size in bytes.
+	pub db_size: Option<u32>,
+}
+
+#[cfg(feature = "test-helpers")]
+impl UnverifiedStorageProofParams {
+	/// Make storage proof parameters that require proof of at least `db_size` bytes.
+	pub fn from_db_size(db_size: u32) -> Self {
+		Self { db_size: Some(db_size) }
+	}
 }
 
 /// This struct is used to read storage values from a subset of a Merklized database. The "proof"
@@ -64,15 +121,14 @@ where
 	/// Constructs a new storage proof checker.
 	///
 	/// This returns an error if the given proof is invalid with respect to the given root.
-	pub fn new(root: H::Out, proof: RawStorageProof) -> Result<Self, Error> {
-		let proof = StorageProof::new_with_duplicate_nodes_check(proof)
-			.map_err(|e| Error::StorageProof(e.into()))?;
+	pub fn new(root: H::Out, proof: RawStorageProof) -> Result<Self, StorageProofError> {
+		let proof = StorageProof::new_with_duplicate_nodes_check(proof)?;
 
 		let recorder = AccessedNodesTracker::new(proof.len());
 
 		let db = proof.into_memory_db();
 		if !db.contains(&root, EMPTY_PREFIX) {
-			return Err(Error::StorageRootMismatch)
+			return Err(StorageProofError::StorageRootMismatch)
 		}
 
 		Ok(StorageProofChecker { root, db, accessed_nodes_tracker: recorder })
@@ -80,15 +136,13 @@ where
 
 	/// Returns error if the proof has some nodes that are left intact by previous `read_value`
 	/// calls.
-	pub fn ensure_no_unused_nodes(self) -> Result<(), Error> {
-		self.accessed_nodes_tracker
-			.ensure_no_unused_nodes()
-			.map_err(|e| Error::AccessedNodesTracker(e.into()))
+	pub fn ensure_no_unused_nodes(self) -> Result<(), StorageProofError> {
+		self.accessed_nodes_tracker.ensure_no_unused_nodes().map_err(Into::into)
 	}
 
 	/// Reads a value from the available subset of storage. If the value cannot be read due to an
 	/// incomplete or otherwise invalid proof, this function returns an error.
-	pub fn read_value(&mut self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+	pub fn read_value(&mut self, key: &[u8]) -> Result<Option<Vec<u8>>, StorageProofError> {
 		// LayoutV1 or LayoutV0 is identical for proof that only read values.
 		read_trie_value::<LayoutV1<H, ()>, _>(
 			&self.db,
@@ -97,53 +151,128 @@ where
 			Some(&mut self.accessed_nodes_tracker),
 			None,
 		)
-		.map_err(|_| Error::StorageValueUnavailable)
+		.map_err(|_| StorageProofError::StorageValueUnavailable)
 	}
 
 	/// Reads and decodes a value from the available subset of storage. If the value cannot be read
 	/// due to an incomplete or otherwise invalid proof, this function returns an error. If value is
 	/// read, but decoding fails, this function returns an error.
-	pub fn read_and_decode_value<T: Decode>(&mut self, key: &[u8]) -> Result<Option<T>, Error> {
+	pub fn read_and_decode_value<T: Decode>(
+		&mut self,
+		key: &[u8],
+	) -> Result<Option<T>, StorageProofError> {
 		self.read_value(key).and_then(|v| {
-			v.map(|v| T::decode(&mut &v[..]).map_err(|e| Error::StorageValueDecodeFailed(e.into())))
-				.transpose()
+			v.map(|v| {
+				T::decode(&mut &v[..]).map_err(|e| {
+					log::warn!(target: "bridge-storage-proofs", "read_and_decode_value error: {e:?}");
+					StorageProofError::DecodeError
+				})
+			})
+			.transpose()
 		})
 	}
 
 	/// Reads and decodes a value from the available subset of storage. If the value cannot be read
 	/// due to an incomplete or otherwise invalid proof, or if the value is `None`, this function
 	/// returns an error. If value is read, but decoding fails, this function returns an error.
-	pub fn read_and_decode_mandatory_value<T: Decode>(&mut self, key: &[u8]) -> Result<T, Error> {
-		self.read_and_decode_value(key)?.ok_or(Error::StorageValueEmpty)
+	pub fn read_and_decode_mandatory_value<T: Decode>(
+		&mut self,
+		key: &[u8],
+	) -> Result<T, StorageProofError> {
+		self.read_and_decode_value(key)?.ok_or(StorageProofError::EmptyVal)
 	}
 
 	/// Reads and decodes a value from the available subset of storage. If the value cannot be read
 	/// due to an incomplete or otherwise invalid proof, this function returns `Ok(None)`.
 	/// If value is read, but decoding fails, this function returns an error.
-	pub fn read_and_decode_opt_value<T: Decode>(&mut self, key: &[u8]) -> Result<Option<T>, Error> {
+	pub fn read_and_decode_opt_value<T: Decode>(
+		&mut self,
+		key: &[u8],
+	) -> Result<Option<T>, StorageProofError> {
 		match self.read_and_decode_value(key) {
 			Ok(outbound_lane_data) => Ok(outbound_lane_data),
-			Err(Error::StorageValueUnavailable) => Ok(None),
+			Err(StorageProofError::StorageValueUnavailable) => Ok(None),
 			Err(e) => Err(e),
 		}
 	}
 }
 
-/// Storage proof related errors.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, Debug, TypeInfo)]
-pub enum Error {
-	/// Error generated by the `AccessedNodesTrackerError`.
-	AccessedNodesTracker(StrippableError<AccessedNodesTrackerError>),
-	/// Error originating in the `storage_proof` module.
-	StorageProof(StrippableError<StorageProofError>),
-	/// Expected storage root is missing from the proof.
-	StorageRootMismatch,
-	/// Unable to reach expected storage value using provided trie nodes.
-	StorageValueUnavailable,
-	/// The storage value is `None`.
-	StorageValueEmpty,
-	/// Failed to decode storage value.
-	StorageValueDecodeFailed(StrippableError<codec::Error>),
+/// Add extra data to the storage value so that it'll be of given size.
+#[cfg(feature = "test-helpers")]
+pub fn grow_storage_value(mut value: Vec<u8>, params: &UnverifiedStorageProofParams) -> Vec<u8> {
+	if let Some(db_size) = params.db_size {
+		if db_size as usize > value.len() {
+			value.extend(sp_std::iter::repeat(42u8).take(db_size as usize - value.len()));
+		}
+	}
+	value
+}
+
+/// Insert values in the provided trie at common-prefix keys in order to inflate the resulting
+/// storage proof.
+///
+/// This function can add at most 15 common-prefix keys per prefix nibble (4 bits).
+/// Each such key adds about 33 bytes (a node) to the proof.
+#[cfg(feature = "test-helpers")]
+pub fn grow_storage_proof<L: TrieConfiguration>(
+	trie: &mut TrieDBMut<L>,
+	prefix: Vec<u8>,
+	num_extra_nodes: usize,
+) {
+	use sp_trie::TrieMut;
+
+	let mut added_nodes = 0;
+	for i in 0..prefix.len() {
+		let mut prefix = prefix[0..=i].to_vec();
+		// 1 byte has 2 nibbles (4 bits each)
+		let first_nibble = (prefix[i] & 0xf0) >> 4;
+		let second_nibble = prefix[i] & 0x0f;
+
+		// create branches at the 1st nibble
+		for branch in 1..=15 {
+			if added_nodes >= num_extra_nodes {
+				return
+			}
+
+			// create branches at the 1st nibble
+			prefix[i] = (first_nibble.wrapping_add(branch) % 16) << 4;
+			trie.insert(&prefix, &[0; 32])
+				.map_err(|_| "TrieMut::insert has failed")
+				.expect("TrieMut::insert should not fail in benchmarks");
+			added_nodes += 1;
+		}
+
+		// create branches at the 2nd nibble
+		for branch in 1..=15 {
+			if added_nodes >= num_extra_nodes {
+				return
+			}
+
+			prefix[i] = (first_nibble << 4) | (second_nibble.wrapping_add(branch) % 16);
+			trie.insert(&prefix, &[0; 32])
+				.map_err(|_| "TrieMut::insert has failed")
+				.expect("TrieMut::insert should not fail in benchmarks");
+			added_nodes += 1;
+		}
+	}
+
+	assert_eq!(added_nodes, num_extra_nodes)
+}
+
+/// Record all keys for a given root.
+#[cfg(feature = "test-helpers")]
+pub fn record_all_keys<L: TrieConfiguration>(
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
+	root: &TrieHash<L>,
+) -> Result<RawStorageProof, sp_std::boxed::Box<TrieError<L>>> {
+	let mut recorder = Recorder::<L>::new();
+	let trie = TrieDBBuilder::<L>::new(db, root).with_recorder(&mut recorder).build();
+	for x in trie.iter()? {
+		let (key, _) = x?;
+		trie.get(&key)?;
+	}
+
+	Ok(recorder.into_raw_storage_proof())
 }
 
 /// Return valid storage proof and state root.
@@ -157,7 +286,7 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 
 	// construct storage proof
 	let backend = <InMemoryBackend<sp_core::Blake2Hasher>>::from((
-		vec![
+		sp_std::vec![
 			(None, vec![(b"key1".to_vec(), Some(b"value1".to_vec()))]),
 			(None, vec![(b"key2".to_vec(), Some(b"value2".to_vec()))]),
 			(None, vec![(b"key3".to_vec(), Some(b"value3".to_vec()))]),
@@ -167,30 +296,15 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 		],
 		state_version,
 	));
-	let root = backend.storage_root(std::iter::empty(), state_version).root_hash();
+	let root = backend.storage_root(sp_std::iter::empty(), state_version).root_hash();
 	let proof =
 		prove_read(backend, &[&b"key1"[..], &b"key2"[..], &b"key4"[..], &b"key22"[..]]).unwrap();
 
 	(root, proof.into_nodes().into_iter().collect())
 }
 
-/// Record all keys for a given root.
-pub fn record_all_keys<L: TrieConfiguration>(
-	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
-	root: &TrieHash<L>,
-) -> Result<RawStorageProof, Box<TrieError<L>>> {
-	let mut recorder = Recorder::<L>::new();
-	let trie = TrieDBBuilder::<L>::new(db, root).with_recorder(&mut recorder).build();
-	for x in trie.iter()? {
-		let (key, _) = x?;
-		trie.get(&key)?;
-	}
-
-	Ok(recorder.into_raw_storage_proof())
-}
-
 #[cfg(test)]
-pub mod tests {
+pub mod tests_for_storage_proof_checker {
 	use super::*;
 	use codec::Encode;
 
@@ -204,18 +318,21 @@ pub mod tests {
 		assert_eq!(checker.read_value(b"key1"), Ok(Some(b"value1".to_vec())));
 		assert_eq!(checker.read_value(b"key2"), Ok(Some(b"value2".to_vec())));
 		assert_eq!(checker.read_value(b"key4"), Ok(Some((42u64, 42u32, 42u16, 42u8).encode())));
-		assert_eq!(checker.read_value(b"key11111"), Err(Error::StorageValueUnavailable));
+		assert_eq!(
+			checker.read_value(b"key11111"),
+			Err(StorageProofError::StorageValueUnavailable)
+		);
 		assert_eq!(checker.read_value(b"key22"), Ok(None));
 		assert_eq!(checker.read_and_decode_value(b"key4"), Ok(Some((42u64, 42u32, 42u16, 42u8))),);
 		assert!(matches!(
 			checker.read_and_decode_value::<[u8; 64]>(b"key4"),
-			Err(Error::StorageValueDecodeFailed(_)),
+			Err(StorageProofError::DecodeError),
 		));
 
 		// checking proof against invalid commitment fails
 		assert_eq!(
 			<StorageProofChecker<sp_core::Blake2Hasher>>::new(sp_core::H256::random(), proof).err(),
-			Some(Error::StorageRootMismatch)
+			Some(StorageProofError::StorageRootMismatch)
 		);
 	}
 
@@ -232,9 +349,6 @@ pub mod tests {
 		assert_eq!(checker.ensure_no_unused_nodes(), Ok(()));
 
 		let checker = StorageProofChecker::<sp_core::Blake2Hasher>::new(root, proof).unwrap();
-		assert_eq!(
-			checker.ensure_no_unused_nodes(),
-			Err(Error::AccessedNodesTracker(AccessedNodesTrackerError::UnusedNodes.into()))
-		);
+		assert_eq!(checker.ensure_no_unused_nodes(), Err(StorageProofError::UnusedKey));
 	}
 }

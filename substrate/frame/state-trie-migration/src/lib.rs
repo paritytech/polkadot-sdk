@@ -109,7 +109,6 @@ pub mod pallet {
 		MaxEncodedLen,
 	)]
 	#[scale_info(skip_type_params(MaxKeyLen))]
-	#[codec(mel_bound())]
 	pub enum Progress<MaxKeyLen: Get<u32>> {
 		/// Yet to begin.
 		ToStart,
@@ -126,7 +125,6 @@ pub mod pallet {
 	///
 	/// It tracks the last top and child keys read.
 	#[derive(Clone, Encode, Decode, scale_info::TypeInfo, PartialEq, Eq, MaxEncodedLen)]
-	#[codec(mel_bound(T: Config))]
 	#[scale_info(skip_type_params(T))]
 	pub struct MigrationTask<T: Config> {
 		/// The current top trie migration progress.

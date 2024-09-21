@@ -23,6 +23,7 @@ use bp_messages::{
 	LaneId, MessageNonce,
 };
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
+use bp_runtime::Chain;
 use frame_support::{sp_runtime::SaturatedConversion, traits::Get};
 use sp_arithmetic::traits::{Saturating, Zero};
 use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
@@ -57,7 +58,7 @@ where
 			relayers_rewards,
 			RewardsAccountParams::new(
 				lane_id,
-				T::BridgedChainId::get(),
+				T::BridgedChain::ID,
 				RewardsAccountOwner::BridgedChain,
 			),
 			DeliveryReward::get(),

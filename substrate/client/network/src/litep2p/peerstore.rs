@@ -85,6 +85,11 @@ impl PeerInfo {
 		self.reputation < BANNED_THRESHOLD
 	}
 
+	fn add_reputation(&mut self, increment: i32) {
+		self.reputation = self.reputation.saturating_add(increment);
+		self.bump_last_updated();
+	}
+
 	fn decay_reputation(&mut self, seconds_passed: u64) {
 		// Note that decaying the reputation value happens "on its own",
 		// so we don't do `bump_last_updated()`.
@@ -102,6 +107,10 @@ impl PeerInfo {
 				break
 			}
 		}
+	}
+
+	fn bump_last_updated(&mut self) {
+		self.last_updated = Instant::now();
 	}
 }
 
@@ -169,7 +178,7 @@ impl PeerStoreProvider for PeerstoreHandle {
 
 		match lock.peers.get_mut(&peer) {
 			Some(info) => {
-				info.reputation = info.reputation.saturating_add(reputation_change.value);
+				info.add_reputation(reputation_change.value);
 			},
 			None => {
 				lock.peers.insert(

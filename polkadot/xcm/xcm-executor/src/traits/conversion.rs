@@ -88,19 +88,45 @@ pub trait ConvertOrigin<Origin> {
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl<O> ConvertOrigin<O> for Tuple {
 	fn convert_origin(origin: impl Into<Location>, kind: OriginKind) -> Result<O, Location> {
+		let origin = origin.into();
+
+		tracing::trace!(
+			target: "xcm::convert_origin",
+			?origin,
+			?kind,
+			"Converting origin",
+		);
+
 		for_tuples!( #(
+			let convert_origin = core::any::type_name::<Tuple>();
+
 			let origin = match Tuple::convert_origin(origin, kind) {
-				Err(o) => o,
-				r => return r
+				Err(o) => {
+					tracing::trace!(
+						target: "xcm::convert_origin",
+						%convert_origin,
+						"Convert origin step failed",
+					);
+
+					o
+				},
+				Ok(o) => {
+					tracing::trace!(
+						target: "xcm::convert_origin",
+						%convert_origin,
+						"Convert origin step succeeded",
+					);
+
+					return Ok(o)
+				}
 			};
 		)* );
-		let origin = origin.into();
-		log::trace!(
+
+		tracing::trace!(
 			target: "xcm::convert_origin",
-			"could not convert: origin: {:?}, kind: {:?}",
-			origin,
-			kind,
+			"Converting origin failed",
 		);
+
 		Err(origin)
 	}
 }
