@@ -950,7 +950,7 @@ fn test_prospective_parachains_msg() -> ProspectiveParachainsMessage {
 // Checks that `stop`, `broadcast_signal` and `broadcast_message` are implemented correctly.
 #[test]
 fn overseer_all_subsystems_receive_signals_and_messages() {
-	const NUM_SUBSYSTEMS: usize = 23;
+	const NUM_SUBSYSTEMS: usize = 24;
 	// -4 for BitfieldSigning, GossipSupport, AvailabilityDistribution and PvfCheckerSubsystem.
 	const NUM_SUBSYSTEMS_MESSAGED: usize = NUM_SUBSYSTEMS - 4;
 
@@ -1027,6 +1027,11 @@ fn overseer_all_subsystems_receive_signals_and_messages() {
 		handle.send_msg_anon(AllMessages::ChainApi(test_chain_api_msg())).await;
 		handle
 			.send_msg_anon(AllMessages::ApprovalDistribution(test_approval_distribution_msg()))
+			.await;
+		handle
+			.send_msg_anon(AllMessages::ApprovalVotingParallel(
+				test_approval_distribution_msg().into(),
+			))
 			.await;
 		handle
 			.send_msg_anon(AllMessages::ApprovalVoting(test_approval_voting_msg()))
