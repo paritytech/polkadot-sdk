@@ -55,10 +55,11 @@ note: associated function defined here
 27 |         fn test(data: u64);
    |            ^^^^
 
-warning: unused variable: `data`
+error: unused variable: `data`
   --> tests/ui/impl_incorrect_method_signature.rs:33:11
    |
 33 |         fn test(data: String) {}
    |                 ^^^^ help: if this is intentional, prefix it with an underscore: `_data`
    |
-   = note: `#[warn(unused_variables)]` on by default
+   = note: `-D unused-variables` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_variables)]`
