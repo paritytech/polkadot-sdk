@@ -18,6 +18,7 @@
 use std::env;
 
 #[rustversion::attr(not(stable), ignore)]
+#[cfg(not(feature = "disable-ui-tests"))]
 #[test]
 fn ui() {
 	// Only run the ui tests when `RUN_UI_TESTS` is set.
@@ -27,6 +28,9 @@ fn ui() {
 
 	// As trybuild is using `cargo check`, we don't need the real WASM binaries.
 	env::set_var("SKIP_WASM_BUILD", "1");
+
+	// Warnings are part of our UI.
+	std::env::set_var("RUSTFLAGS", "--deny warnings");
 
 	let t = trybuild::TestCases::new();
 	t.compile_fail("tests/ui/*.rs");
