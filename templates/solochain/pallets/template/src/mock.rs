@@ -20,7 +20,6 @@ mod runtime {
 		RuntimeLockId,
 		RuntimeTask
 	)]
-	// pub struct Runtime;
 	pub struct Test;
 
 	// Use the concrete pallet type
