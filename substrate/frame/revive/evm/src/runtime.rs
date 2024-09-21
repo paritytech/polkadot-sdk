@@ -158,7 +158,7 @@ where
 				let expected_account_id = lookup.lookup(addr)?;
 
 				if account_id != expected_account_id {
-					log::debug!(target: LOG_TARGET, "Account ID should be: {expected_account_id:?}");
+					log::debug!(target: LOG_TARGET, "Account ID should be: {expected_account_id:?} got {account_id:?}");
 					return Err(InvalidTransaction::BadProof.into());
 				}
 
