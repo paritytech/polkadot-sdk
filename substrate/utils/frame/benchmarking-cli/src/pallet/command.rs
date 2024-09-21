@@ -642,7 +642,6 @@ impl PalletCmd {
 					presets,
 					e
 				);
-				e
 			})?;
 
 		storage.top.insert(CODE.into(), code.into());
