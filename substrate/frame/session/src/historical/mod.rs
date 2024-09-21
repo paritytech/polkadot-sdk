@@ -30,14 +30,15 @@ pub mod offchain;
 pub mod onchain;
 mod shared;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use core::fmt::Debug;
 use sp_runtime::{
 	traits::{Convert, OpaqueKeys},
 	KeyTypeId,
 };
 use sp_session::{MembershipProof, ValidatorCount};
 use sp_staking::SessionIndex;
-use sp_std::{fmt::Debug, prelude::*};
 use sp_trie::{
 	trie_types::{TrieDBBuilderV0, TrieDBMutBuilderV0},
 	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieRecorder,
@@ -103,7 +104,7 @@ impl<T: Config> Pallet<T> {
 				None => return, // nothing to prune.
 			};
 
-			let up_to = sp_std::cmp::min(up_to, end);
+			let up_to = core::cmp::min(up_to, end);
 
 			if up_to < start {
 				return // out of bounds. harmless.
@@ -168,7 +169,7 @@ pub trait SessionManager<ValidatorId, FullIdentification>:
 
 /// An `SessionManager` implementation that wraps an inner `I` and also
 /// sets the historical trie root of the ending session.
-pub struct NoteHistoricalRoot<T, I>(sp_std::marker::PhantomData<(T, I)>);
+pub struct NoteHistoricalRoot<T, I>(core::marker::PhantomData<(T, I)>);
 
 impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHistoricalRoot<T, I> {
 	fn do_new_session(new_index: SessionIndex, is_genesis: bool) -> Option<Vec<T::ValidatorId>> {
@@ -370,6 +371,7 @@ pub(crate) mod tests {
 	use crate::mock::{
 		force_new_session, set_next_validators, NextValidators, Session, System, Test,
 	};
+	use alloc::vec;
 
 	use sp_runtime::{key_types::DUMMY, testing::UintAuthorityId, BuildStorage};
 	use sp_state_machine::BasicExternalities;

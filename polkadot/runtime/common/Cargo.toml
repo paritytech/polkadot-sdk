@@ -22,7 +22,6 @@ static_assertions = { workspace = true, default-features = true }
 
 sp-api = { workspace = true }
 sp-inherents = { workspace = true }
-sp-std = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
@@ -111,7 +110,6 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

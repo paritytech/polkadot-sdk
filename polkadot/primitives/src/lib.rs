@@ -31,6 +31,8 @@ pub mod vstaging;
 // unstable functions.
 pub mod runtime_api;
 
+extern crate alloc;
+
 // Current primitives not requiring versioning are exported here.
 // Primitives requiring versioning must not be exported and must be referred by an exact version.
 pub use v7::{

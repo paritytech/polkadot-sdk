@@ -17,14 +17,13 @@
 
 //! An MMR storage implementation.
 
+use alloc::{vec, vec::Vec};
 use codec::Encode;
+use core::iter::Peekable;
 use log::{debug, trace};
 use sp_core::offchain::StorageKind;
 use sp_io::offchain_index;
 use sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils};
-use sp_std::iter::Peekable;
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::*;
 
 use crate::{
 	mmr::{Node, NodeOf},
@@ -52,7 +51,7 @@ pub struct OffchainStorage;
 ///
 /// There are two different implementations depending on the use case.
 /// See docs for [RuntimeStorage] and [OffchainStorage].
-pub struct Storage<StorageType, T, I, L>(sp_std::marker::PhantomData<(StorageType, T, I, L)>);
+pub struct Storage<StorageType, T, I, L>(core::marker::PhantomData<(StorageType, T, I, L)>);
 
 impl<StorageType, T, I, L> Default for Storage<StorageType, T, I, L> {
 	fn default() -> Self {

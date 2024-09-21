@@ -22,6 +22,7 @@ use crate::{
 	test_data,
 };
 
+use alloc::{boxed::Box, vec};
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{LaneId, UnrewardedRelayersState};
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
@@ -61,7 +62,7 @@ pub trait WithRemoteGrandpaChainHelper {
 
 /// Adapter struct that implements [`WithRemoteGrandpaChainHelper`].
 pub struct WithRemoteGrandpaChainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, MPI>(
-	sp_std::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, MPI)>,
+	core::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, MPI)>,
 );
 
 impl<Runtime, AllPalletsWithoutSystem, GPI, MPI> WithRemoteGrandpaChainHelper

@@ -23,11 +23,11 @@ use crate::{
 	BalanceOf, Config, DebugBufferVec, Determinism, ExecReturnValue, GasMeter, Origin, Schedule,
 	TypeInfo, WasmBlob, Weight,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
 use frame_benchmarking::benchmarking;
 use sp_core::Get;
-use sp_std::prelude::*;
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 

@@ -21,7 +21,7 @@ use frame_support::pallet_prelude::Get;
 /// both `OutboundXcmpStatus` and `InboundXcmpStatus` for defined `ParaId` if any of those is
 /// suspended.
 pub struct InAndOutXcmpChannelStatusProvider<SiblingBridgeHubParaId, Runtime>(
-	sp_std::marker::PhantomData<(SiblingBridgeHubParaId, Runtime)>,
+	core::marker::PhantomData<(SiblingBridgeHubParaId, Runtime)>,
 );
 impl<SiblingBridgeHubParaId: Get<ParaId>, Runtime: crate::Config>
 	bp_xcm_bridge_hub_router::XcmChannelStatusProvider
@@ -45,7 +45,7 @@ impl<SiblingBridgeHubParaId: Get<ParaId>, Runtime: crate::Config>
 /// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
 /// only `OutboundXcmpStatus` for defined `SiblingParaId` if is suspended.
 pub struct OutXcmpChannelStatusProvider<SiblingBridgeHubParaId, Runtime>(
-	sp_std::marker::PhantomData<(SiblingBridgeHubParaId, Runtime)>,
+	core::marker::PhantomData<(SiblingBridgeHubParaId, Runtime)>,
 );
 impl<SiblingBridgeHubParaId: Get<ParaId>, Runtime: crate::Config>
 	bp_xcm_bridge_hub_router::XcmChannelStatusProvider

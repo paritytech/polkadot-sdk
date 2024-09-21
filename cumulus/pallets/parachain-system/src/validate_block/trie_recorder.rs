@@ -22,11 +22,11 @@
 
 use codec::Encode;
 
-use sp_std::{
-	cell::{RefCell, RefMut},
+use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	rc::Rc,
 };
+use core::cell::{RefCell, RefMut};
 use sp_trie::{DBLocation, NodeCodec, ProofSizeProvider, StorageProof};
 use trie_db::{node_db::Hasher, RecordedForKey, TrieAccess};
 

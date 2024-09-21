@@ -23,7 +23,6 @@ frame-system = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-arithmetic = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 pallet-balances = { optional = true, workspace = true }
 pallet-utility = { optional = true, workspace = true }
 pallet-proxy = { optional = true, workspace = true }
@@ -51,7 +50,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

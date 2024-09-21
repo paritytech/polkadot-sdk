@@ -54,7 +54,7 @@ pub fn derive_impl(input: DeriveInput) -> Result<TokenStream> {
 			impl TryFrom<u8> for #ident {
 				type Error = ();
 
-				fn try_from(inner: u8) -> #crate_::sp_std::result::Result<Self, ()> {
+				fn try_from(inner: u8) -> core::result::Result<Self, ()> {
 					match inner {
 						#( #try_from_variants, )*
 						_ => Err(()),

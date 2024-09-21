@@ -32,7 +32,6 @@ sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-offchain = { workspace = true }
 sp-arithmetic = { workspace = true }
-sp-std = { workspace = true }
 sp-io = { workspace = true }
 sp-mmr-primitives = { workspace = true }
 sp-runtime = { workspace = true }
@@ -209,7 +208,6 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-storage/std",
 	"sp-tracing/std",
 	"sp-transaction-pool/std",

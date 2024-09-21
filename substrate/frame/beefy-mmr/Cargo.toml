@@ -27,7 +27,6 @@ sp-consensus-beefy = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-api = { workspace = true }
 sp-state-machine = { workspace = true }
 
@@ -56,7 +55,6 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

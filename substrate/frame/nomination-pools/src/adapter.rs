@@ -83,7 +83,7 @@ impl<T> Member<T> {
 /// [`DelegateStake`] for more detail.
 pub trait StakeStrategy {
 	type Balance: frame_support::traits::tokens::Balance;
-	type AccountId: Clone + sp_std::fmt::Debug;
+	type AccountId: Clone + core::fmt::Debug;
 	type CoreStaking: StakingInterface<Balance = Self::Balance, AccountId = Self::AccountId>;
 
 	/// The type of staking strategy of the current adapter.

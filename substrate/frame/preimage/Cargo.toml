@@ -20,7 +20,6 @@ frame-system = { workspace = true }
 sp-core = { optional = true, workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
@@ -48,7 +47,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

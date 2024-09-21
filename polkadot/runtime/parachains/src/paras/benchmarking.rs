@@ -16,6 +16,7 @@
 
 use super::*;
 use crate::configuration::HostConfiguration;
+use alloc::vec;
 use frame_benchmarking::benchmarks;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use polkadot_primitives::{

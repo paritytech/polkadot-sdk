@@ -16,9 +16,10 @@
 
 //! Various implementations for `SendXcm`.
 
+use alloc::vec::Vec;
 use codec::Encode;
+use core::{marker::PhantomData, result::Result};
 use frame_system::unique;
-use sp_std::{marker::PhantomData, result::Result, vec::Vec};
 use xcm::prelude::*;
 use xcm_executor::{traits::FeeReason, FeesMode};
 
@@ -173,7 +174,7 @@ impl InspectMessageQueues for Tuple {
 /// `Inner::Ticket`. Therefore, this router aims to validate at least the passed `message`.
 ///
 /// NOTE: For use in mock runtimes which don't have the DMP/UMP/HRMP XCM validations.
-pub struct EnsureDecodableXcm<Inner>(sp_std::marker::PhantomData<Inner>);
+pub struct EnsureDecodableXcm<Inner>(core::marker::PhantomData<Inner>);
 impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 	type Ticket = Inner::Ticket;
 

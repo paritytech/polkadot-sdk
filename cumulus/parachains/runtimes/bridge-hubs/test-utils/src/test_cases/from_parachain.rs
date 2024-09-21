@@ -22,6 +22,7 @@ use crate::{
 	test_data,
 };
 
+use alloc::{boxed::Box, vec};
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{LaneId, UnrewardedRelayersState};
 use bp_polkadot_core::parachains::ParaHash;
@@ -66,7 +67,7 @@ pub trait WithRemoteParachainHelper {
 
 /// Adapter struct that implements `WithRemoteParachainHelper`.
 pub struct WithRemoteParachainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI>(
-	sp_std::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI)>,
+	core::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI)>,
 );
 
 impl<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI> WithRemoteParachainHelper

@@ -169,7 +169,7 @@ mod nested {
 		#[derive(frame_support::DefaultNoBound)]
 		pub struct GenesisConfig<T: Config> {
 			#[serde(skip)]
-			pub _config: sp_std::marker::PhantomData<T>,
+			pub _config: core::marker::PhantomData<T>,
 		}
 
 		#[pallet::genesis_build]
@@ -251,7 +251,7 @@ pub mod module3 {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -871,7 +871,7 @@ fn test_metadata() {
 		PalletMetadata {
 			name: "Module3",
 			storage: Some(PalletStorageMetadata {
-				prefix: "Module3", 
+				prefix: "Module3",
 				entries: vec![
 					StorageEntryMetadata {
 						name: "Storage",

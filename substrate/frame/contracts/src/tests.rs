@@ -458,7 +458,7 @@ parameter_types! {
 	pub static InstantiateAccount: Option<<Test as frame_system::Config>::AccountId> = None;
 }
 
-pub struct EnsureAccount<T, A>(sp_std::marker::PhantomData<(T, A)>);
+pub struct EnsureAccount<T, A>(core::marker::PhantomData<(T, A)>);
 impl<T: Config, A: sp_core::Get<Option<crate::AccountIdOf<T>>>>
 	EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureAccount<T, A>
 where

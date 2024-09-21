@@ -56,6 +56,9 @@
 //! NOTE This pallet is experimental and not proven to work in production.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log;
@@ -64,7 +67,6 @@ use sp_runtime::{
 	traits::{self, One, Saturating},
 	SaturatedConversion,
 };
-use sp_std::prelude::*;
 
 pub use pallet::*;
 pub use sp_mmr_primitives::{
@@ -89,7 +91,7 @@ mod tests;
 /// is not available (since the block is not finished yet),
 /// we use the `parent_hash` here along with parent block number.
 pub struct ParentNumberAndHash<T: frame_system::Config> {
-	_phantom: sp_std::marker::PhantomData<T>,
+	_phantom: core::marker::PhantomData<T>,
 }
 
 impl<T: frame_system::Config> LeafDataProvider for ParentNumberAndHash<T> {
@@ -110,7 +112,7 @@ pub trait BlockHashProvider<BlockNumber, BlockHash> {
 
 /// Default implementation of BlockHashProvider using frame_system.
 pub struct DefaultBlockHashProvider<T: frame_system::Config> {
-	_phantom: sp_std::marker::PhantomData<T>,
+	_phantom: core::marker::PhantomData<T>,
 }
 
 impl<T: frame_system::Config> BlockHashProvider<BlockNumberFor<T>, T::Hash>
@@ -302,7 +304,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn node_temp_offchain_key(
 		pos: NodeIndex,
 		parent_hash: <T as frame_system::Config>::Hash,
-	) -> sp_std::prelude::Vec<u8> {
+	) -> Vec<u8> {
 		NodesUtils::node_temp_offchain_key::<HeaderFor<T>>(&T::INDEXING_PREFIX, pos, parent_hash)
 	}
 
@@ -311,7 +313,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Used for nodes added by now finalized blocks.
 	/// Never read keys using `node_canon_offchain_key` unless you sure that
 	/// there's no `node_offchain_key` key in the storage.
-	fn node_canon_offchain_key(pos: NodeIndex) -> sp_std::prelude::Vec<u8> {
+	fn node_canon_offchain_key(pos: NodeIndex) -> Vec<u8> {
 		NodesUtils::node_canon_offchain_key(&T::INDEXING_PREFIX, pos)
 	}
 

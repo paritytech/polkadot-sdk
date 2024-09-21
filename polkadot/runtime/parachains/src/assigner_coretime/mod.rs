@@ -34,13 +34,12 @@ use crate::{
 	ParaId,
 };
 
+use alloc::{vec, vec::Vec};
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
 use polkadot_primitives::CoreIndex;
 use sp_runtime::traits::{One, Saturating};
-
-use sp_std::prelude::*;
 
 pub use pallet::*;
 

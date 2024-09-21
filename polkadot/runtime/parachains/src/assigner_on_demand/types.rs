@@ -18,16 +18,13 @@
 
 use super::{alloc, pallet::Config};
 use alloc::collections::BinaryHeap;
+use core::cmp::{Ord, Ordering, PartialOrd};
 use frame_support::{
 	pallet_prelude::{Decode, Encode, RuntimeDebug, TypeInfo},
 	traits::Currency,
 };
 use polkadot_primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
 use sp_runtime::FixedU128;
-use sp_std::{
-	cmp::{Ord, Ordering, PartialOrd},
-	prelude::*,
-};
 
 /// Shorthand for the Balance type the runtime is using.
 pub type BalanceOf<T> =

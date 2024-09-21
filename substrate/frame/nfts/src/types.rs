@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::macros::*;
+use alloc::{vec, vec::Vec};
 use codec::EncodeLike;
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{

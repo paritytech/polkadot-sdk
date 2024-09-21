@@ -88,7 +88,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 				name: #ident_str,
 				ty: #frame_support::__private::scale_info::meta_type::<#const_type>(),
 				value: { #default_byte_impl },
-				docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
+				docs: #frame_support::__private::vec![ #( #doc ),* ],
 			}
 		})
 	});
@@ -98,9 +98,9 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 
 			#[doc(hidden)]
 			pub fn pallet_constants_metadata()
-				-> #frame_support::__private::sp_std::vec::Vec<#frame_support::__private::metadata_ir::PalletConstantMetadataIR>
+				-> #frame_support::__private::Vec<#frame_support::__private::metadata_ir::PalletConstantMetadataIR>
 			{
-				#frame_support::__private::sp_std::vec![ #( #consts ),* ]
+				#frame_support::__private::vec![ #( #consts ),* ]
 			}
 		}
 	)

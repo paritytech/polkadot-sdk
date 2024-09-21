@@ -150,7 +150,11 @@ mod tests;
 mod types;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Codec, MaxEncodedLen};
+use core::{cmp, fmt::Debug, mem, result};
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
@@ -176,7 +180,6 @@ use sp_runtime::{
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
-use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
 pub use types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
@@ -525,7 +528,7 @@ pub mod pallet {
 				.iter()
 				.map(|(x, _)| x)
 				.cloned()
-				.collect::<sp_std::collections::btree_set::BTreeSet<_>>();
+				.collect::<alloc::collections::btree_set::BTreeSet<_>>();
 
 			assert!(
 				endowed_accounts.len() == self.balances.len(),
@@ -856,13 +859,13 @@ pub mod pallet {
 		}
 
 		/// Get the free balance of an account.
-		pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn free_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			Self::account(who.borrow()).free
 		}
 
 		/// Get the balance of an account that can be used for transfers, reservations, or any other
 		/// non-locking, non-transaction-fee activity. Will be at most `free_balance`.
-		pub fn usable_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn usable_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Expendable, Polite)
 		}
 
@@ -870,14 +873,12 @@ pub mod pallet {
 		/// or any other kind of fees, though). Will be at most `free_balance`.
 		///
 		/// This requires that the account stays alive.
-		pub fn usable_balance_for_fees(
-			who: impl sp_std::borrow::Borrow<T::AccountId>,
-		) -> T::Balance {
+		pub fn usable_balance_for_fees(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Protect, Polite)
 		}
 
 		/// Get the reserved balance of an account.
-		pub fn reserved_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn reserved_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			Self::account(who.borrow()).reserved
 		}
 

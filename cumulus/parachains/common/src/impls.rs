@@ -16,6 +16,8 @@
 //! Auxiliary struct/enums for parachain runtimes.
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
+use alloc::boxed::Box;
+use core::marker::PhantomData;
 use frame_support::traits::{
 	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Defensive,
 	Get, Imbalance, OnUnbalanced, OriginTrait,
@@ -23,7 +25,6 @@ use frame_support::traits::{
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_collator_selection::StakingPotAccountId;
 use sp_runtime::traits::Zero;
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::latest::{
 	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
 	Parent, WeightLimit,

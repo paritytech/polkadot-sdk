@@ -61,7 +61,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
-use sp_std::prelude::*;
 use types::{
 	BalanceOf, CoreAffinityCount, EnqueuedOrder, QueuePushDirection, QueueStatusType,
 	SpotTrafficCalculationErr,

@@ -17,6 +17,7 @@
 //! Migrates the storage to version 5.
 
 use crate::*;
+use alloc::vec::Vec;
 use cumulus_primitives_core::ListChannelInfos;
 use frame_support::{pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade};
 

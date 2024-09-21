@@ -34,6 +34,7 @@ use crate::{
 	wasm::BenchEnv,
 	Pallet as Contracts, *,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -46,7 +47,6 @@ use frame_system::RawOrigin;
 use pallet_balances;
 use pallet_contracts_uapi::{CallFlags, ReturnErrorCode};
 use sp_runtime::traits::{Bounded, Hash};
-use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{Instruction, Local, ValueType};
 
 /// How many runs we do per API benchmark.
@@ -186,7 +186,7 @@ fn caller_funding<T: Config>() -> BalanceOf<T> {
 
 #[benchmarks(
 	where
-		<BalanceOf<T> as codec::HasCompact>::Type: Clone + Eq + PartialEq + sp_std::fmt::Debug + scale_info::TypeInfo + codec::Encode,
+		<BalanceOf<T> as codec::HasCompact>::Type: Clone + Eq + PartialEq + core::fmt::Debug + scale_info::TypeInfo + codec::Encode,
 		T: Config + pallet_balances::Config,
 		BalanceOf<T>: From<<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,

@@ -25,6 +25,7 @@ use crate::{
 	shared::Pallet as ParasShared,
 };
 
+use alloc::vec;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;

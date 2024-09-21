@@ -97,6 +97,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{fmt::Debug, marker::PhantomData};
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
 use serde::Serialize;
@@ -118,7 +122,6 @@ use sp_runtime::{
 };
 #[cfg(any(feature = "std", test))]
 use sp_std::map;
-use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
@@ -269,7 +272,7 @@ pub mod pallet {
 		///
 		/// NOTE: Avoids overriding `BlockHashCount` when using `mocking::{MockBlock, MockBlockU32,
 		/// MockBlockU128}`.
-		pub struct TestBlockHashCount<C: Get<u32>>(sp_std::marker::PhantomData<C>);
+		pub struct TestBlockHashCount<C: Get<u32>>(core::marker::PhantomData<C>);
 		impl<I: From<u32>, C: Get<u32>> Get<I> for TestBlockHashCount<C> {
 			fn get() -> I {
 				C::get().into()
@@ -511,7 +514,7 @@ pub mod pallet {
 			+ Default
 			+ Copy
 			+ CheckEqual
-			+ sp_std::hash::Hash
+			+ core::hash::Hash
 			+ AsRef<[u8]>
 			+ AsMut<[u8]>
 			+ MaxEncodedLen;
@@ -1011,7 +1014,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -1153,7 +1156,7 @@ impl From<sp_version::RuntimeVersion> for LastRuntimeUpgradeInfo {
 }
 
 /// Ensure the origin is Root.
-pub struct EnsureRoot<AccountId>(sp_std::marker::PhantomData<AccountId>);
+pub struct EnsureRoot<AccountId>(core::marker::PhantomData<AccountId>);
 impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
 	EnsureOrigin<O> for EnsureRoot<AccountId>
 {
@@ -1179,7 +1182,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 
 /// Ensure the origin is Root and return the provided `Success` value.
 pub struct EnsureRootWithSuccess<AccountId, Success>(
-	sp_std::marker::PhantomData<(AccountId, Success)>,
+	core::marker::PhantomData<(AccountId, Success)>,
 );
 impl<
 		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
@@ -1209,7 +1212,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 
 /// Ensure the origin is provided `Ensure` origin and return the provided `Success` value.
 pub struct EnsureWithSuccess<Ensure, AccountId, Success>(
-	sp_std::marker::PhantomData<(Ensure, AccountId, Success)>,
+	core::marker::PhantomData<(Ensure, AccountId, Success)>,
 );
 
 impl<
@@ -1232,7 +1235,7 @@ impl<
 }
 
 /// Ensure the origin is any `Signed` origin.
-pub struct EnsureSigned<AccountId>(sp_std::marker::PhantomData<AccountId>);
+pub struct EnsureSigned<AccountId>(core::marker::PhantomData<AccountId>);
 impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId: Decode>
 	EnsureOrigin<O> for EnsureSigned<AccountId>
 {
@@ -1259,7 +1262,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 }
 
 /// Ensure the origin is `Signed` origin from the given `AccountId`.
-pub struct EnsureSignedBy<Who, AccountId>(sp_std::marker::PhantomData<(Who, AccountId)>);
+pub struct EnsureSignedBy<Who, AccountId>(core::marker::PhantomData<(Who, AccountId)>);
 impl<
 		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
 		Who: SortedMembers<AccountId>,
@@ -1291,7 +1294,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 }
 
 /// Ensure the origin is `None`. i.e. unsigned transaction.
-pub struct EnsureNone<AccountId>(sp_std::marker::PhantomData<AccountId>);
+pub struct EnsureNone<AccountId>(core::marker::PhantomData<AccountId>);
 impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
 	EnsureOrigin<O> for EnsureNone<AccountId>
 {
@@ -1316,7 +1319,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 }
 
 /// Always fail.
-pub struct EnsureNever<Success>(sp_std::marker::PhantomData<Success>);
+pub struct EnsureNever<Success>(core::marker::PhantomData<Success>);
 impl<O, Success> EnsureOrigin<O> for EnsureNever<Success> {
 	type Success = Success;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
@@ -1906,7 +1909,7 @@ impl<T: Config> Pallet<T> {
 	/// Should only be called if you know what you are doing and outside of the runtime block
 	/// execution else it can have a large impact on the PoV size of a block.
 	pub fn read_events_no_consensus(
-	) -> impl sp_std::iter::Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
+	) -> impl Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
 		Events::<T>::stream_iter()
 	}
 

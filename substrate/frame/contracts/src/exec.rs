@@ -24,6 +24,8 @@ use crate::{
 	DebugBufferVec, Determinism, Error, Event, Nonce, Origin, Pallet as Contracts, Schedule,
 	LOG_TARGET,
 };
+use alloc::vec::Vec;
+use core::{fmt::Debug, marker::PhantomData, mem};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -49,7 +51,6 @@ use sp_runtime::{
 	traits::{Convert, Dispatchable, Zero},
 	DispatchError,
 };
-use sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::*, vec::Vec};
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
@@ -1185,12 +1186,12 @@ where
 	///
 	/// The iterator starts with the top frame and ends with the root frame.
 	fn frames(&self) -> impl Iterator<Item = &Frame<T>> {
-		sp_std::iter::once(&self.first_frame).chain(&self.frames).rev()
+		core::iter::once(&self.first_frame).chain(&self.frames).rev()
 	}
 
 	/// Same as `frames` but with a mutable reference as iterator item.
 	fn frames_mut(&mut self) -> impl Iterator<Item = &mut Frame<T>> {
-		sp_std::iter::once(&mut self.first_frame).chain(&mut self.frames).rev()
+		core::iter::once(&mut self.first_frame).chain(&mut self.frames).rev()
 	}
 
 	/// Returns whether the current contract is on the stack multiple times.
