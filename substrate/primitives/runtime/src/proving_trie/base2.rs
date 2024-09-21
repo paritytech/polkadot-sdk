@@ -23,6 +23,7 @@
 use super::{ProvingTrie, TrieError};
 use crate::{Decode, DispatchError, Encode};
 use binary_merkle_tree::{merkle_proof, merkle_root, MerkleProof};
+use codec::MaxEncodedLen;
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// A helper structure for building a basic base-2 merkle trie and creating compact proofs for that
@@ -40,7 +41,7 @@ where
 impl<Hashing, Key, Value> ProvingTrie<Hashing, Key, Value> for BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
-	Hashing::Out: Encode + Decode,
+	Hashing::Out: Encode + Decode + MaxEncodedLen,
 	Key: Encode + Decode + Ord,
 	Value: Encode + Decode + Clone,
 {
@@ -98,6 +99,16 @@ where
 		value: &Value,
 	) -> Result<(), DispatchError> {
 		verify_proof::<Hashing, Key, Value>(root, proof, key, value)
+	}
+
+	/// A base 2 trie is expected to include the data for 1 hash per layer.
+	fn proof_size_to_hashes(proof_size: &u32) -> u32 {
+		let hash_len = Hashing::Out::max_encoded_len() as u32;
+		let layer_len = 1 * hash_len;
+		// The implementation of this trie also includes the `key` and `value` encoded within the
+		// proof, but since we cannot know the "minimum" size of those items, we count it toward
+		// the number of hashes for a worst case scenario.
+		(proof_size + layer_len - 1) / layer_len
 	}
 }
 

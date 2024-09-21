@@ -137,6 +137,15 @@ where
 		key: &Key,
 		value: &Value,
 	) -> Result<(), DispatchError>;
+	/// This function returns the number of hashes we expect to calculate based on the
+	/// size of the proof. This is used for benchmarking, so for worst case scenario, we should
+	/// round up.
+	///
+	/// The major complexity of doing a `verify_proof` is computing the hashes needed
+	/// to calculate the merkle root. For tries, it should be easy to predict the depth
+	/// of the trie (which is equivalent to the hashes), by looking at the size of the proof.
+	/// A rough estimate should be: `proof_size` / (`hash_size` * `num_hashes_per_layer`).
+	fn proof_size_to_hashes(proof_size: &u32) -> u32;
 }
 
 #[cfg(test)]
@@ -168,5 +177,51 @@ mod tests {
 		assert_eq!(balance_trie.query(&6969), None);
 		let proof = balance_trie.create_proof(&69u32).unwrap();
 		assert_eq!(BalanceTrie16::verify_proof(&root, &proof, &69u32, &69u128), Ok(()));
+	}
+
+	#[test]
+	fn proof_size_to_hashes() {
+		use crate::{testing::H256, traits::BlakeTwo256};
+		use codec::MaxEncodedLen;
+
+		// We can be off by up to 2 hashes... should be trivial.
+		let tolerance = 2;
+
+		let abs_dif = |x, y| {
+			if x > y {
+				x - y
+			} else {
+				y - x
+			}
+		};
+
+		let mut i: u32 = 1;
+		while i < 10_000_000 {
+			let trie = BalanceTrie2::generate_for((0..i).map(|i| (i, u128::from(i)))).unwrap();
+			let proof = trie.create_proof(&(i / 2)).unwrap();
+			let hashes = BalanceTrie2::proof_size_to_hashes(&(proof.len() as u32));
+			let log2 = (i as f64).log2().ceil() as u32;
+
+			assert!(abs_dif(hashes, log2) <= tolerance);
+			i = i * 10;
+		}
+
+		// Compute log base 16 and round up
+		let log16 = |x: u32| -> u32 {
+			let x_f64 = x as f64;
+			let log16_x = (x_f64.ln() / 16_f64.ln()).ceil();
+			log16_x as u32
+		};
+
+		let mut i: u32 = 1;
+		while i < 10_000_000 {
+			let trie = BalanceTrie16::generate_for((0..i).map(|i| (i, u128::from(i)))).unwrap();
+			let proof = trie.create_proof(&(i / 2)).unwrap();
+			let hashes = BalanceTrie16::proof_size_to_hashes(&(proof.len() as u32));
+			let log16 = log16(i);
+
+			assert!(abs_dif(hashes, log16) <= tolerance);
+			i = i * 10;
+		}
 	}
 }

@@ -26,6 +26,7 @@
 
 use super::{ProvingTrie, TrieError};
 use crate::{Decode, DispatchError, Encode};
+use codec::MaxEncodedLen;
 use sp_std::vec::Vec;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
@@ -72,6 +73,7 @@ where
 impl<Hashing, Key, Value> ProvingTrie<Hashing, Key, Value> for BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
+	Hashing::Out: MaxEncodedLen,
 	Key: Encode,
 	Value: Encode + Decode,
 {
@@ -132,6 +134,13 @@ where
 		value: &Value,
 	) -> Result<(), DispatchError> {
 		verify_proof::<Hashing, Key, Value>(root, proof, key, value)
+	}
+
+	/// A base 16 trie is expected to include the data for 15 hashes per layer.
+	fn proof_size_to_hashes(proof_size: &u32) -> u32 {
+		let hash_len = Hashing::Out::max_encoded_len() as u32;
+		let layer_len = 15 * hash_len;
+		(proof_size + layer_len - 1) / layer_len
 	}
 }
 
