@@ -107,7 +107,7 @@ impl VerifyExistenceProof for () {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::{proving_trie::BasicProvingTrie, traits::BlakeTwo256};
+	use sp_runtime::{proving_trie::base16::BasicProvingTrie, traits::BlakeTwo256};
 
 	#[test]
 	fn verify_binary_merkle_tree_prover_works() {

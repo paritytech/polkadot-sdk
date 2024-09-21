@@ -127,15 +127,15 @@ where
 	fn root(&self) -> &Hashing::Out;
 	/// Query a value contained within the current trie. Returns `None` if the
 	/// the value does not exist in the trie.
-	fn query(&self, key: Key) -> Option<Value>;
+	fn query(&self, key: &Key) -> Option<Value>;
 	/// Create a proof that can be used to verify a key and its value are in the trie.
-	fn create_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError>;
+	fn create_proof(&self, key: &Key) -> Result<Vec<u8>, DispatchError>;
 	/// Verify the existence of `key` and `value` in a given trie root and proof.
 	fn verify_proof(
-		root: Hashing::Out,
+		root: &Hashing::Out,
 		proof: &[u8],
-		key: Key,
-		value: Value,
+		key: &Key,
+		value: &Value,
 	) -> Result<(), DispatchError>;
 }
 
@@ -154,19 +154,19 @@ mod tests {
 	fn basic_api_usage_base_2() {
 		let balance_trie = BalanceTrie2::generate_for((0..100u32).map(|i| (i, i.into()))).unwrap();
 		let root = *balance_trie.root();
-		assert_eq!(balance_trie.query(69), Some(69));
-		assert_eq!(balance_trie.query(6969), None);
-		let proof = balance_trie.create_proof(69u32).unwrap();
-		assert_eq!(BalanceTrie2::verify_proof(root, &proof, 69u32, 69u128), Ok(()));
+		assert_eq!(balance_trie.query(&69), Some(69));
+		assert_eq!(balance_trie.query(&6969), None);
+		let proof = balance_trie.create_proof(&69u32).unwrap();
+		assert_eq!(BalanceTrie2::verify_proof(&root, &proof, &69u32, &69u128), Ok(()));
 	}
 
 	#[test]
 	fn basic_api_usage_base_16() {
 		let balance_trie = BalanceTrie16::generate_for((0..100u32).map(|i| (i, i.into()))).unwrap();
 		let root = *balance_trie.root();
-		assert_eq!(balance_trie.query(69), Some(69));
-		assert_eq!(balance_trie.query(6969), None);
-		let proof = balance_trie.create_proof(69u32).unwrap();
-		assert_eq!(BalanceTrie16::verify_proof(root, &proof, 69u32, 69u128), Ok(()));
+		assert_eq!(balance_trie.query(&69), Some(69));
+		assert_eq!(balance_trie.query(&6969), None);
+		let proof = balance_trie.create_proof(&69u32).unwrap();
+		assert_eq!(BalanceTrie16::verify_proof(&root, &proof, &69u32, &69u128), Ok(()));
 	}
 }

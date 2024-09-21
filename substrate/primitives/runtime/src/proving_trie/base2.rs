@@ -64,21 +64,21 @@ where
 
 	/// Query a value contained within the current trie. Returns `None` if the
 	/// nodes within the current `db` are insufficient to query the item.
-	fn query(&self, key: Key) -> Option<Value> {
+	fn query(&self, key: &Key) -> Option<Value> {
 		self.db.get(&key).cloned()
 	}
 
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
 	/// Returns `None` if the nodes within the current `db` are insufficient to create a
 	/// proof.
-	fn create_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError> {
+	fn create_proof(&self, key: &Key) -> Result<Vec<u8>, DispatchError> {
 		let mut encoded = Vec::with_capacity(self.db.len());
 		let mut found_index = None;
 
 		// Find the index of our key, and encode the (key, value) pair.
 		for (i, (k, v)) in self.db.iter().enumerate() {
 			// If we found the key we are looking for, save it.
-			if *k == key {
+			if k == key {
 				found_index = Some(i);
 			}
 
@@ -92,10 +92,10 @@ where
 
 	/// Verify the existence of `key` and `value` in a given trie root and proof.
 	fn verify_proof(
-		root: Hashing::Out,
+		root: &Hashing::Out,
 		proof: &[u8],
-		key: Key,
-		value: Value,
+		key: &Key,
+		value: &Value,
 	) -> Result<(), DispatchError> {
 		verify_proof::<Hashing, Key, Value>(root, proof, key, value)
 	}
@@ -103,10 +103,10 @@ where
 
 /// Verify the existence of `key` and `value` in a given trie root and proof.
 pub fn verify_proof<Hashing, Key, Value>(
-	root: Hashing::Out,
+	root: &Hashing::Out,
 	proof: &[u8],
-	key: Key,
-	value: Value,
+	key: &Key,
+	value: &Value,
 ) -> Result<(), DispatchError>
 where
 	Hashing: sp_core::Hasher,
@@ -116,11 +116,11 @@ where
 {
 	let decoded_proof: MerkleProof<Hashing::Out, Vec<u8>> =
 		Decode::decode(&mut &proof[..]).map_err(|_| TrieError::IncompleteProof)?;
-	if root != decoded_proof.root {
+	if *root != decoded_proof.root {
 		return Err(TrieError::RootMismatch.into());
 	}
 
-	if (&key, &value).encode() != decoded_proof.leaf {
+	if (key, value).encode() != decoded_proof.leaf {
 		return Err(TrieError::ValueMismatch.into());
 	}
 
@@ -168,9 +168,9 @@ mod tests {
 		assert!(root != empty_root());
 
 		// Assert valid keys are queryable.
-		assert_eq!(balance_trie.query(6u32), Some(6u128));
-		assert_eq!(balance_trie.query(9u32), Some(9u128));
-		assert_eq!(balance_trie.query(69u32), Some(69u128));
+		assert_eq!(balance_trie.query(&6u32), Some(6u128));
+		assert_eq!(balance_trie.query(&9u32), Some(9u128));
+		assert_eq!(balance_trie.query(&69u32), Some(69u128));
 
 		balance_trie
 	}
@@ -187,33 +187,24 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid key.
-		let proof = balance_trie.create_proof(6u32).unwrap();
+		let proof = balance_trie.create_proof(&6u32).unwrap();
 
 		// Assert key is provable, all other keys are invalid.
 		for i in 0..200u32 {
 			if i == 6 {
 				assert_eq!(
-					verify_proof::<BlakeTwo256, _, _>(root, &proof, i, u128::from(i)),
+					verify_proof::<BlakeTwo256, _, _>(&root, &proof, &i, &u128::from(i)),
 					Ok(())
 				);
 				// Wrong value is invalid.
 				assert_eq!(
-					verify_proof::<BlakeTwo256, _, _>(
-						root,
-						&proof,
-						i,
-						u128::from(i + 1)
-					),
+					verify_proof::<BlakeTwo256, _, _>(&root, &proof, &i, &u128::from(i + 1)),
 					Err(TrieError::ValueMismatch.into())
 				);
 			} else {
-				assert!(verify_proof::<BlakeTwo256, _, _>(
-					root,
-					&proof,
-					i,
-					u128::from(i)
-				)
-				.is_err());
+				assert!(
+					verify_proof::<BlakeTwo256, _, _>(&root, &proof, &i, &u128::from(i)).is_err()
+				);
 			}
 		}
 	}
@@ -224,23 +215,20 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid key.
-		let proof = balance_trie.create_proof(6u32).unwrap();
+		let proof = balance_trie.create_proof(&6u32).unwrap();
 
 		// Correct data verifies successfully
-		assert_eq!(
-			verify_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, 6u128),
-			Ok(())
-		);
+		assert_eq!(verify_proof::<BlakeTwo256, _, _>(&root, &proof, &6u32, &6u128), Ok(()));
 
 		// Fail to verify proof with wrong root
 		assert_eq!(
-			verify_proof::<BlakeTwo256, _, _>(Default::default(), &proof, 6u32, 6u128),
+			verify_proof::<BlakeTwo256, _, _>(&Default::default(), &proof, &6u32, &6u128),
 			Err(TrieError::RootMismatch.into())
 		);
 
 		// Fail to verify proof with wrong data
 		assert_eq!(
-			verify_proof::<BlakeTwo256, _, _>(root, &[], 6u32, 6u128),
+			verify_proof::<BlakeTwo256, _, _>(&root, &[], &6u32, &6u128),
 			Err(TrieError::IncompleteProof.into())
 		);
 	}
