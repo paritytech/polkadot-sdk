@@ -26,7 +26,6 @@ mod runtime {
 	#[runtime::pallet_index(0)]
 	pub type System = frame_system::Pallet<Test>;
 
-	// // Use path to the pallet
 	#[runtime::pallet_index(1)]
 	pub type Template = pallet_template::Pallet<Test>;
 }
