@@ -446,12 +446,10 @@ async fn handle_get_approval_signatures<Context>(
 	let mut signatures_channels = Vec::new();
 	for worker in to_approval_distribution_workers.iter_mut() {
 		let (tx, rx) = oneshot::channel();
-		worker
-			.send_message(ApprovalDistributionMessage::GetApprovalSignatures(
-				requested_candidates.clone(),
-				tx,
-			))
-			.await;
+		worker.send_unbounded_message(ApprovalDistributionMessage::GetApprovalSignatures(
+			requested_candidates.clone(),
+			tx,
+		));
 		signatures_channels.push(rx);
 	}
 
