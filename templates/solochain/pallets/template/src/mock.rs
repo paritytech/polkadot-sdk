@@ -22,7 +22,6 @@ mod runtime {
 	)]
 	pub struct Test;
 
-	// Use the concrete pallet type
 	#[runtime::pallet_index(0)]
 	pub type System = frame_system::Pallet<Test>;
 
