@@ -633,13 +633,14 @@ impl PalletCmd {
 		let preset = Some(&self.genesis_builder_preset);
 
 		let mut storage =
-			genesis_config_caller.get_storage_for_named_preset(preset).map_err(|e| {
+			genesis_config_caller.get_storage_for_named_preset(preset).inspect_err(|e| {
 				let presets = genesis_config_caller.preset_names().unwrap_or_default();
 				log::error!(
 					"Please pick one of the available presets with \
-			`--genesis-builder-preset=<PRESET>`. Available presets ({}): {:?}.",
+			`--genesis-builder-preset=<PRESET>`. Available presets ({}): {:?}. Error: {:?}",
 					presets.len(),
-					presets
+					presets,
+					e
 				);
 				e
 			})?;
