@@ -51,9 +51,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn extract_validation_context() {
-		if !cfg!(test) {
-			pallet_mmr::UseLocalStorage::<T>::set(true);
-		}
+		#[cfg(test)]
+		pallet_mmr::UseLocalStorage::<T>::set(true);
 
 		init_block::<T>(1);
 		let header = System::<T>::finalize();
@@ -71,9 +70,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn read_peak() {
-		if !cfg!(test) {
-			pallet_mmr::UseLocalStorage::<T>::set(true);
-		}
+		#[cfg(test)]
+		pallet_mmr::UseLocalStorage::<T>::set(true);
 
 		init_block::<T>(1);
 
@@ -91,9 +89,8 @@ mod benchmarks {
 	/// the verification. We need to account for the peaks separately.
 	#[benchmark]
 	fn n_items_proof_is_non_canonical(n: Linear<2, 512>) {
-		if !cfg!(test) {
-			pallet_mmr::UseLocalStorage::<T>::set(true);
-		}
+		#[cfg(test)]
+		pallet_mmr::UseLocalStorage::<T>::set(true);
 
 		for block_num in 1..=n {
 			init_block::<T>(block_num);
