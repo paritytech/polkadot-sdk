@@ -399,6 +399,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn storage_root_is_the_same_every_time(i: Linear<0, 10>) {
+		#[cfg(feature = "std")]
 		let root = sp_io::storage::root(sp_runtime::StateVersion::V1);
 
 		#[cfg(feature = "std")]
