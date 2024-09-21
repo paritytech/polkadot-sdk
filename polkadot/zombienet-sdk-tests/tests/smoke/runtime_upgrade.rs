@@ -45,9 +45,10 @@ async fn runtime_upgrade_test() -> Result<(), anyhow::Error> {
 	let best_block = latest_release.reports(BEST_BLOCK_METRIC).await?;
 
 	// upgrade runtime
-	let wasm = env::var("ZOMBIE_WASM_INCREMENTED_PATH").unwrap_or(
-		String::from("target/testnet/wbuild/rococo-runtime/wasm_binary_spec_version_incremented.rs.compact.wasm"),
-	);
+	let wasm = env::var("ZOMBIE_WASM_INCREMENTED_PATH").unwrap_or_else(|_| {
+        let root_workspace_dir = env!("CARGO_WORKSPACE_ROOT_DIR");
+        format!("{root_workspace_dir}/target/testnet/wbuild/rococo-runtime/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm")
+    });
 
 	network
 		.relaychain()
@@ -55,11 +56,17 @@ async fn runtime_upgrade_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	// wait 10 more blocks
-	latest_release.wait_metric(BEST_BLOCK_METRIC, |x| x > best_block + 10_f64).await?;
+	latest_release
+		.wait_metric(BEST_BLOCK_METRIC, |x| x > best_block + 10_f64)
+		.await?;
 
 	let incremented_runtime = client.backend().current_runtime_version().await?;
 
-	assert_eq!(incremented_runtime.spec_version, current_runtime.spec_version + 1000, "version should be incremented");
+	assert_eq!(
+		incremented_runtime.spec_version,
+		current_runtime.spec_version + 1000,
+		"version should be incremented"
+	);
 
-    Ok(())
+	Ok(())
 }
