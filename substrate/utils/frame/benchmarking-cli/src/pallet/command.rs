@@ -27,7 +27,7 @@ use frame_benchmarking::{
 };
 use frame_support::traits::StorageInfo;
 use linked_hash_map::LinkedHashMap;
-use sc_chain_spec::{json_patch::merge as json_merge, GenesisConfigBuilderRuntimeCaller};
+use sc_chain_spec::GenesisConfigBuilderRuntimeCaller;
 use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
@@ -36,19 +36,17 @@ use sp_core::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
-	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
+	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt},
 	Hasher,
 };
 use sp_externalities::Extensions;
-use sp_genesis_builder::{PresetId, Result as GenesisBuildResult};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-use sp_runtime::{traits::Hash, RuntimeString};
-use sp_state_machine::{OverlayedChanges, StateMachine};
+use sp_runtime::traits::Hash;
+use sp_state_machine::StateMachine;
 use sp_storage::{well_known_keys::CODE, Storage};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
 use sp_wasm_interface::HostFunctions;
 use std::{
-	borrow::Cow,
 	collections::{BTreeMap, BTreeSet, HashMap},
 	fmt::Debug,
 	fs,
@@ -695,7 +693,7 @@ impl PalletCmd {
 		log::info!("Loading WASM from state");
 		let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
 
-		Ok(FetchedCode::FromGenesis { state })
+		Ok(FetchedCode { state })
 	}
 
 	/// Allocation strategy for pallet benchmarking.
