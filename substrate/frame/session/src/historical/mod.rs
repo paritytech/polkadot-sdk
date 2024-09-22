@@ -392,7 +392,7 @@ pub(crate) mod tests {
 				frame_system::Pallet::<Test>::inc_providers(k);
 			}
 		});
-		pallet_session::GenesisConfig::<Test> { keys }
+		pallet_session::GenesisConfig::<Test> { keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 		sp_io::TestExternalities::new(t)

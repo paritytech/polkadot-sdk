@@ -25,7 +25,6 @@ use bp_messages::{
 	target_chain::FromBridgedChainMessagesProof, LaneId,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
-use bp_runtime::Chain;
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
@@ -54,7 +53,6 @@ parameter_types! {
 	pub const RococoBridgeParachainPalletName: &'static str = "Paras";
 	pub const MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 
-	pub const BridgeHubRococoChainId: bp_runtime::ChainId = bp_bridge_hub_rococo::BridgeHubRococo::ID;
 	pub BridgeWestendToRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8)].into();
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
 	pub RococoGlobalConsensusNetworkLocation: Location = Location::new(

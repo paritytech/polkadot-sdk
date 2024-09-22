@@ -1243,22 +1243,27 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 	candidates: &mut BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 ) {
-	let mut para_latest_head_data: BTreeMap<ParaId, HeadData> = BTreeMap::new();
+	let mut para_latest_context: BTreeMap<ParaId, (HeadData, BlockNumberFor<T>)> = BTreeMap::new();
 	for para_id in candidates.keys() {
-		let latest_head_data = match inclusion::Pallet::<T>::para_latest_head_data(&para_id) {
-			None => {
-				defensive!("Latest included head data for paraid {:?} is None", para_id);
-				continue
-			},
-			Some(latest_head_data) => latest_head_data,
+		let Some(latest_head_data) = inclusion::Pallet::<T>::para_latest_head_data(&para_id) else {
+			defensive!("Latest included head data for paraid {:?} is None", para_id);
+			continue
 		};
-		para_latest_head_data.insert(*para_id, latest_head_data);
+		let Some(latest_relay_parent) = inclusion::Pallet::<T>::para_most_recent_context(&para_id)
+		else {
+			defensive!("Latest relay parent for paraid {:?} is None", para_id);
+			continue
+		};
+		para_latest_context.insert(*para_id, (latest_head_data, latest_relay_parent));
 	}
 
 	let mut para_visited_candidates: BTreeMap<ParaId, BTreeSet<CandidateHash>> = BTreeMap::new();
 
 	retain_candidates::<T, _, _>(candidates, |para_id, candidate| {
-		let Some(latest_head_data) = para_latest_head_data.get(&para_id) else { return false };
+		let Some((latest_head_data, latest_relay_parent)) = para_latest_context.get(&para_id)
+		else {
+			return false
+		};
 		let candidate_hash = candidate.candidate().hash();
 
 		let visited_candidates =
@@ -1277,15 +1282,23 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 			visited_candidates.insert(candidate_hash);
 		}
 
-		let prev_context = paras::MostRecentContext::<T>::get(para_id);
-		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
+		let check_ctx = CandidateCheckContext::<T>::new(Some(*latest_relay_parent));
 
-		let res = match check_ctx.verify_backed_candidate(
+		match check_ctx.verify_backed_candidate(
 			&allowed_relay_parents,
 			candidate.candidate(),
 			latest_head_data.clone(),
 		) {
-			Ok(_) => true,
+			Ok(relay_parent_block_number) => {
+				para_latest_context.insert(
+					para_id,
+					(
+						candidate.candidate().commitments.head_data.clone(),
+						relay_parent_block_number,
+					),
+				);
+				true
+			},
 			Err(err) => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -1296,14 +1309,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 				);
 				false
 			},
-		};
-
-		if res {
-			para_latest_head_data
-				.insert(para_id, candidate.candidate().commitments.head_data.clone());
 		}
-
-		res
 	});
 }
 

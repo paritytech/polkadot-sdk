@@ -18,11 +18,10 @@
 mod command;
 
 use clap::Parser;
-use env_logger::Env;
 use sc_cli::Result;
 
 fn main() -> Result<()> {
-	env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+	sp_tracing::try_init_simple();
 	log::warn!("The FRAME omni-bencher is not yet battle tested - double check the results.",);
 
 	command::Command::parse().run()

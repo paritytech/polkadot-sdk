@@ -23,7 +23,6 @@ use prometheus_endpoint::Registry;
 use sc_chain_spec::ChainSpec;
 pub use sc_client_db::{BlocksPruning, Database, DatabaseSource, PruningMode};
 pub use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
-pub use sc_informant::OutputFormat;
 pub use sc_network::{
 	config::{
 		MultiaddrWithPeerId, NetworkConfiguration, NodeKeyConfig, NonDefaultSetConfig, ProtocolId,
@@ -146,8 +145,6 @@ pub struct Configuration {
 	pub data_path: PathBuf,
 	/// Base path of the configuration. This is shared between chains.
 	pub base_path: BasePath,
-	/// Configuration of the output format that the informant uses.
-	pub informant_output_format: OutputFormat,
 	/// Maximum number of different runtime versions that can be cached.
 	pub runtime_cache_size: u8,
 }

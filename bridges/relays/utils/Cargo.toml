@@ -11,13 +11,13 @@ publish = false
 workspace = true
 
 [dependencies]
-ansi_term = { workspace = true }
 anyhow = { workspace = true }
 async-std = { workspace = true }
 async-trait = { workspace = true }
 backoff = { workspace = true }
+console = { workspace = true }
 isahc = { workspace = true }
-env_logger = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
 futures = { workspace = true }
 jsonpath_lib = { workspace = true }
 log = { workspace = true }

@@ -51,7 +51,8 @@ sp-block-builder = { workspace = true, default-features = true }
 
 # frame and pallets
 frame-system = { workspace = true, default-features = true }
-pallet-transaction-payment = { workspace = true }
+frame-metadata-hash-extension = { workspace = true, default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc = { workspace = true, default-features = true }
 substrate-frame-rpc-system = { workspace = true, default-features = true }
 
@@ -65,7 +66,10 @@ solochain-template-runtime = { workspace = true }
 substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
-default = []
+default = ["std"]
+std = [
+	"solochain-template-runtime/std",
+]
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",

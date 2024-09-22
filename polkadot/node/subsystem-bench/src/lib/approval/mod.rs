@@ -28,6 +28,8 @@ use crate::{
 	dummy_builder,
 	environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
 	mock::{
+		availability_recovery::MockAvailabilityRecovery,
+		candidate_validation::MockCandidateValidation,
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
@@ -59,13 +61,14 @@ use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, Appro
 use polkadot_node_subsystem_util::metrics::Metrics;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot,
+	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot, ValidatorId,
 	ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
+use sp_application_crypto::AppCrypto;
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
 use sp_keystore::Keystore;
@@ -792,6 +795,12 @@ fn build_overseer(
 			Some(state.test_authorities.key_seeds.get(NODE_UNDER_TEST as usize).unwrap().as_str()),
 		)
 		.unwrap();
+	keystore
+		.sr25519_generate_new(
+			ValidatorId::ID,
+			Some(state.test_authorities.key_seeds.get(NODE_UNDER_TEST as usize).unwrap().as_str()),
+		)
+		.unwrap();
 
 	let system_clock =
 		PastSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());
@@ -831,7 +840,9 @@ fn build_overseer(
 		.replace_chain_selection(|_| mock_chain_selection)
 		.replace_runtime_api(|_| mock_runtime_api)
 		.replace_network_bridge_tx(|_| mock_tx_bridge)
-		.replace_network_bridge_rx(|_| mock_rx_bridge);
+		.replace_network_bridge_rx(|_| mock_rx_bridge)
+		.replace_availability_recovery(|_| MockAvailabilityRecovery::new())
+		.replace_candidate_validation(|_| MockCandidateValidation::new());
 
 	let (overseer, raw_handle) =
 		dummy.build_with_connector(overseer_connector).expect("Should not fail");

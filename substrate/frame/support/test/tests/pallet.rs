@@ -114,8 +114,8 @@ impl SomeAssociation2 for u64 {
 #[frame_support::pallet]
 /// Pallet documentation
 // Comments should not be included in the pallet documentation
-#[pallet_doc("../../README.md")]
-#[doc = include_str!("../../README.md")]
+#[pallet_doc("../example-pallet-doc.md")]
+#[doc = include_str!("../example-readme.md")]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
@@ -1408,8 +1408,9 @@ fn metadata() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected_pallet_doc = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected_pallet_doc = vec![" Pallet documentation", readme, pallet_doc];
 
 	let pallets = vec![
 		PalletMetadata {
@@ -1911,8 +1912,9 @@ fn metadata_ir_pallet_runtime_docs() {
 		.find(|pallet| pallet.name == "Example")
 		.expect("Pallet should be present");
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected = vec![" Pallet documentation", readme, pallet_doc];
 	assert_eq!(pallet.docs, expected);
 }
 
@@ -1941,8 +1943,9 @@ fn extrinsic_metadata_ir_types() {
 #[test]
 fn test_pallet_runtime_docs() {
 	let docs = crate::pallet::Pallet::<Runtime>::pallet_documentation_metadata();
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected = vec![" Pallet documentation", readme, pallet_doc];
 	assert_eq!(docs, expected);
 }
 

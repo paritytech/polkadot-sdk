@@ -145,7 +145,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("coretime-westend"),
 	impl_name: create_runtime_str!("coretime-westend"),
 	authoring_version: 1,
-	spec_version: 1_014_000,
+	spec_version: 1_015_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -823,7 +823,7 @@ impl_runtime_apis! {
 					let begin = 0;
 					let end = 42;
 
-					let region_id = pallet_broker::Pallet::<Runtime>::issue(core, begin, end, None, None);
+					let region_id = pallet_broker::Pallet::<Runtime>::issue(core, begin, pallet_broker::CoreMask::complete(), end, None, None);
 					Some((
 						Asset {
 							fun: NonFungible(Index(region_id.into())),

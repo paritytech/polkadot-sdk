@@ -32,13 +32,20 @@ use frame_support::{
 use frame_system::{Pallet as System, RawOrigin};
 use sp_arithmetic::{traits::Zero, Perbill};
 use sp_core::Get;
-use sp_runtime::{traits::BlockNumberProvider, Saturating};
+use sp_runtime::{
+	traits::{BlockNumberProvider, MaybeConvert},
+	SaturatedConversion, Saturating,
+};
 
 const SEED: u32 = 0;
 const MAX_CORE_COUNT: u16 = 1_000;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+}
+
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
 }
 
 fn new_config_record<T: Config>() -> ConfigRecordOf<T> {
@@ -776,7 +783,7 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn rotate_sale(n: Linear<0, { MAX_CORE_COUNT.into() }>) {
+	fn rotate_sale(n: Linear<0, { MAX_CORE_COUNT.into() }>) -> Result<(), BenchmarkError> {
 		let core_count = n.try_into().unwrap();
 		let config = new_config_record::<T>();
 
@@ -810,6 +817,27 @@ mod benches {
 		// Assume Leases to be filled for worst case
 		setup_leases::<T>(T::MaxLeasedCores::get(), 1, 10);
 
+		// Assume max auto renewals for worst case.
+		(0..T::MaxAutoRenewals::get()).try_for_each(|indx| -> Result<(), BenchmarkError> {
+			let task = 1000 + indx;
+			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
+				.expect("Failed to get sovereign account");
+			T::Currency::set_balance(
+				&caller.clone(),
+				T::Currency::minimum_balance().saturating_add(100u32.into()),
+			);
+
+			let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_assign(region, None, task, Final)
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_enable_auto_renew(caller, region.core, task, None)?;
+
+			Ok(())
+		})?;
+
 		#[block]
 		{
 			Broker::<T>::rotate_sale(sale.clone(), &config, &status);
@@ -833,6 +861,30 @@ mod benches {
 			}
 			.into(),
 		);
+
+		// Make sure all cores got renewed:
+		(0..T::MaxAutoRenewals::get()).for_each(|indx| {
+			let task = 1000 + indx;
+			let who = T::SovereignAccountOf::maybe_convert(task)
+				.expect("Failed to get sovereign account");
+			assert_has_event::<T>(
+				Event::Renewed {
+					who,
+					old_core: 10 + indx as u16, // first ten cores are allocated to leases.
+					core: 10 + indx as u16,
+					price: 10u32.saturated_into(),
+					begin: 7,
+					duration: 3,
+					workload: Schedule::truncate_from(vec![ScheduleItem {
+						assignment: Task(task),
+						mask: CoreMask::complete(),
+					}]),
+				}
+				.into(),
+			);
+		});
+
+		Ok(())
 	}
 
 	#[benchmark]
@@ -956,6 +1008,101 @@ mod benches {
 
 		#[extrinsic_call]
 		_(admin_origin as T::RuntimeOrigin, 1, 2);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn enable_auto_renew() -> Result<(), BenchmarkError> {
+		let _core = setup_and_start_sale::<T>()?;
+
+		advance_to::<T>(2);
+
+		// We assume max auto renewals for worst case.
+		(0..T::MaxAutoRenewals::get() - 1).try_for_each(|indx| -> Result<(), BenchmarkError> {
+			let task = 1000 + indx;
+			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
+				.expect("Failed to get sovereign account");
+			T::Currency::set_balance(
+				&caller.clone(),
+				T::Currency::minimum_balance().saturating_add(100u32.into()),
+			);
+
+			let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_assign(region, None, task, Final)
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(7))?;
+
+			Ok(())
+		})?;
+
+		let caller: T::AccountId =
+			T::SovereignAccountOf::maybe_convert(2001).expect("Failed to get sovereign account");
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance().saturating_add(100u32.into()),
+		);
+
+		// The region for which we benchmark enable auto renew.
+		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+			.map_err(|_| BenchmarkError::Weightless)?;
+		Broker::<T>::do_assign(region, None, 2001, Final)
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		// The most 'intensive' path is when we renew the core upon enabling auto-renewal.
+		// Therefore, we advance to next bulk sale:
+		advance_to::<T>(6);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), region.core, 2001, None);
+
+		assert_last_event::<T>(Event::AutoRenewalEnabled { core: region.core, task: 2001 }.into());
+		// Make sure we indeed renewed:
+		assert!(PotentialRenewals::<T>::get(PotentialRenewalId {
+			core: region.core,
+			when: 10 // region end after renewal
+		})
+		.is_some());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn disable_auto_renew() -> Result<(), BenchmarkError> {
+		let _core = setup_and_start_sale::<T>()?;
+
+		advance_to::<T>(2);
+
+		// We assume max auto renewals for worst case.
+		(0..T::MaxAutoRenewals::get() - 1).try_for_each(|indx| -> Result<(), BenchmarkError> {
+			let task = 1000 + indx;
+			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
+				.expect("Failed to get sovereign account");
+			T::Currency::set_balance(
+				&caller.clone(),
+				T::Currency::minimum_balance().saturating_add(100u32.into()),
+			);
+
+			let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_assign(region, None, task, Final)
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(7))?;
+
+			Ok(())
+		})?;
+
+		let caller: T::AccountId =
+			T::SovereignAccountOf::maybe_convert(1000).expect("Failed to get sovereign account");
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), _core, 1000);
+
+		assert_last_event::<T>(Event::AutoRenewalDisabled { core: _core, task: 1000 }.into());
 
 		Ok(())
 	}

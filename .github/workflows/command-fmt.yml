@@ -23,6 +23,9 @@ jobs:
     timeout-minutes: 20
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Download repo
         uses: actions/checkout@v4
@@ -34,6 +37,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - name: Run FMT
         run: |
+          cargo --version
+          rustc --version
+          cargo +nightly --version
+          rustc +nightly --version
+          
+          cargo +nightly fmt
+          
           # format toml.
           # since paritytech/ci-unified:bullseye-1.73.0-2023-11-01-v20231204 includes taplo-cli
           taplo format --config .config/taplo.toml

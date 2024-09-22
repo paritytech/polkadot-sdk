@@ -2195,7 +2195,7 @@ mod tests {
 			assert_eq!(locked_stake_of(&2), 0);
 
 			assert_eq!(balances(&2), (20, 0));
-			assert_eq!(Balances::locks(&2).len(), 0);
+			assert_eq!(pallet_balances::Locks::<Test>::get(&2).len(), 0);
 		});
 	}
 

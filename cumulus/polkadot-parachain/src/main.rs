@@ -50,6 +50,7 @@ mod fake_runtime_api;
 mod rpc;
 mod service;
 
-fn main() -> sc_cli::Result<()> {
-	command::run()
+fn main() -> color_eyre::eyre::Result<()> {
+	color_eyre::install()?;
+	Ok(command::run()?)
 }

@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Substrate node rpc methods."
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -32,7 +32,6 @@ sc-consensus-grandpa-rpc = { workspace = true, default-features = true }
 sc-mixnet = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
-sc-rpc-spec-v2 = { workspace = true, default-features = true }
 sc-sync-state-rpc = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }

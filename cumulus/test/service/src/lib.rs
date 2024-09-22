@@ -353,7 +353,11 @@ where
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
 	let import_queue_service = params.import_queue.service();
-	let net_config = FullNetworkConfiguration::<Block, Hash, Net>::new(&parachain_config.network);
+	let prometheus_registry = parachain_config.prometheus_registry().cloned();
+	let net_config = FullNetworkConfiguration::<Block, Hash, Net>::new(
+		&parachain_config.network,
+		prometheus_registry.clone(),
+	);
 
 	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 		build_network(BuildNetworkParams {
@@ -371,8 +375,6 @@ where
 			                                                             * blocks at all. */
 		})
 		.await?;
-
-	let prometheus_registry = parachain_config.prometheus_registry().cloned();
 
 	let keystore = params.keystore_container.keystore();
 	let rpc_builder = {
@@ -892,7 +894,6 @@ pub fn node_config(
 		announce_block: true,
 		data_path: root,
 		base_path,
-		informant_output_format: Default::default(),
 		wasm_runtime_overrides: None,
 		runtime_cache_size: 2,
 	})

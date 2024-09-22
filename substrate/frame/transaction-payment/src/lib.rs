@@ -207,7 +207,7 @@ where
 		// the computed ratio is only among the normal class.
 		let normal_max_weight =
 			weights.get(DispatchClass::Normal).max_total.unwrap_or(weights.max_block);
-		let current_block_weight = <frame_system::Pallet<T>>::block_weight();
+		let current_block_weight = frame_system::Pallet::<T>::block_weight();
 		let normal_block_weight =
 			current_block_weight.get(DispatchClass::Normal).min(normal_max_weight);
 
@@ -291,7 +291,7 @@ where
 
 /// Storage releases of the pallet.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-enum Releases {
+pub enum Releases {
 	/// Original version of the pallet.
 	V1Ancient,
 	/// One that bumps the usage to FixedU128 from FixedI128.
@@ -394,12 +394,11 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_fee_multiplier)]
 	pub type NextFeeMultiplier<T: Config> =
 		StorageValue<_, Multiplier, ValueQuery, NextFeeMultiplierOnEmpty>;
 
 	#[pallet::storage]
-	pub(super) type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
+	pub type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -433,7 +432,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_: frame_system::pallet_prelude::BlockNumberFor<T>) {
-			<NextFeeMultiplier<T>>::mutate(|fm| {
+			NextFeeMultiplier::<T>::mutate(|fm| {
 				*fm = T::FeeMultiplierUpdate::convert(*fm);
 			});
 		}
@@ -471,7 +470,7 @@ pub mod pallet {
 			let min_value = T::FeeMultiplierUpdate::min();
 			let target = target + addition;
 
-			<frame_system::Pallet<T>>::set_block_consumed_resources(target, 0);
+			frame_system::Pallet::<T>::set_block_consumed_resources(target, 0);
 			let next = T::FeeMultiplierUpdate::convert(min_value);
 			assert!(
 				next > min_value,
@@ -484,6 +483,11 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Public function to access the next fee multiplier.
+	pub fn next_fee_multiplier() -> Multiplier {
+		NextFeeMultiplier::<T>::get()
+	}
+
 	/// Query the data that we know about the fee of a given `call`.
 	///
 	/// This pallet is not and cannot be aware of the internals of a signed extension, for example
@@ -633,7 +637,7 @@ impl<T: Config> Pallet<T> {
 		if pays_fee == Pays::Yes {
 			// the adjustable part of the fee.
 			let unadjusted_weight_fee = Self::weight_to_fee(weight);
-			let multiplier = Self::next_fee_multiplier();
+			let multiplier = NextFeeMultiplier::<T>::get();
 			// final adjusted weight fee.
 			let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
 
@@ -663,6 +667,11 @@ impl<T: Config> Pallet<T> {
 		let capped_weight = weight.min(T::BlockWeights::get().max_block);
 		T::WeightToFee::weight_to_fee(&capped_weight)
 	}
+
+	/// Deposit the [`Event::TransactionFeePaid`] event.
+	pub fn deposit_fee_paid_event(who: T::AccountId, actual_fee: BalanceOf<T>, tip: BalanceOf<T>) {
+		Self::deposit_event(Event::TransactionFeePaid { who, actual_fee, tip });
+	}
 }
 
 impl<T> Convert<Weight, BalanceOf<T>> for Pallet<T>
@@ -675,7 +684,7 @@ where
 	/// share that the weight contributes to the overall fee of a transaction. It is mainly
 	/// for informational purposes and not used in the actual fee calculation.
 	fn convert(weight: Weight) -> BalanceOf<T> {
-		<NextFeeMultiplier<T>>::get().saturating_mul_int(Self::weight_to_fee(weight))
+		NextFeeMultiplier::<T>::get().saturating_mul_int(Self::weight_to_fee(weight))
 	}
 }
 

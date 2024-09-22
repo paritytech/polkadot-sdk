@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME Merkle Mountain Range pallet."
 
@@ -28,7 +28,7 @@ sp-runtime = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-env_logger = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
 itertools = { workspace = true }
 
 [features]

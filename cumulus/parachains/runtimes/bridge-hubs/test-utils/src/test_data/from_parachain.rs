@@ -195,10 +195,9 @@ pub fn make_complex_relayer_delivery_proofs<
 	BridgedRelayChain,
 	BridgedParachain,
 	ThisChainWithMessages,
-	InnerXcmRuntimeCall,
 >(
 	lane_id: LaneId,
-	xcm_message: Xcm<InnerXcmRuntimeCall>,
+	xcm_message: Xcm<()>,
 	message_nonce: MessageNonce,
 	message_destination: Junctions,
 	para_header_number: u32,
@@ -267,7 +266,6 @@ pub fn make_complex_relayer_confirmation_proofs<
 	BridgedRelayChain,
 	BridgedParachain,
 	ThisChainWithMessages,
-	InnerXcmRuntimeCall,
 >(
 	lane_id: LaneId,
 	para_header_number: u32,

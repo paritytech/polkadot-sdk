@@ -38,6 +38,8 @@ xcm-executor = { workspace = true }
 bp-header-chain = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+bp-runtime = { features = ["test-helpers"], workspace = true }
+pallet-xcm-bridge-hub-router = { workspace = true }
 
 [features]
 default = ["std"]
@@ -51,6 +53,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-bridge-messages/std",
+	"pallet-xcm-bridge-hub-router/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-runtime/std",
@@ -65,6 +68,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -74,5 +78,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-bridge-messages/try-runtime",
+	"pallet-xcm-bridge-hub-router/try-runtime",
 	"sp-runtime/try-runtime",
 ]

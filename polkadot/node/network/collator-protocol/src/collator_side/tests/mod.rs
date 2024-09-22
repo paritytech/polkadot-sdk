@@ -239,11 +239,7 @@ fn test_harness<T: Future<Output = TestHarness>>(
 	reputation: ReputationAggregator,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some("polkadot_collator_protocol"), log::LevelFilter::Trace)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	let _ = sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 

@@ -252,10 +252,35 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
+		fn submit_report_fork_voting_unsigned_extrinsic(
+			_: sp_consensus_beefy::ForkVotingProof<
+				<Block as BlockT>::Header,
+				BeefyId,
+				sp_runtime::OpaqueValue
+			>,
+			_: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			unimplemented!()
+		}
+
+		fn submit_report_future_block_voting_unsigned_extrinsic(
+			_: sp_consensus_beefy::FutureBlockVotingProof<BlockNumber, BeefyId>,
+			_: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			unimplemented!()
+		}
+
 		fn generate_key_ownership_proof(
 			_: sp_consensus_beefy::ValidatorSetId,
 			_: BeefyId,
 		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
+			unimplemented!()
+		}
+
+		fn generate_ancestry_proof(
+			_: BlockNumber,
+			_: Option<BlockNumber>,
+		) -> Option<sp_runtime::OpaqueValue> {
 			unimplemented!()
 		}
 	}

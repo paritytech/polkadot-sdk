@@ -1545,16 +1545,52 @@ fn candidate_checks() {
 				None,
 			);
 
-			assert_noop!(
-				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
-					&vec![(thread_a_assignment.0, vec![(backed, thread_a_assignment.1)])]
-						.into_iter()
-						.collect(),
-					&group_validators,
-					false
-				),
-				Error::<Test>::NotCollatorSigned
+			let ProcessedCandidates {
+				core_indices: occupied_cores,
+				candidate_receipt_with_backing_validator_indices,
+			} = ParaInclusion::process_candidates(
+				&allowed_relay_parents,
+				&vec![(thread_a_assignment.0, vec![(backed.clone(), thread_a_assignment.1)])]
+					.into_iter()
+					.collect(),
+				&group_validators,
+				false,
+			)
+			.expect("candidate is accepted with bad collator signature");
+
+			assert_eq!(occupied_cores, vec![(CoreIndex::from(2), thread_a)]);
+
+			let mut expected = std::collections::HashMap::<
+				CandidateHash,
+				(CandidateReceipt, Vec<(ValidatorIndex, ValidityAttestation)>),
+			>::new();
+			let backed_candidate = backed;
+			let candidate_receipt_with_backers = expected
+				.entry(backed_candidate.hash())
+				.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
+			let (validator_indices, _maybe_core_index) =
+				backed_candidate.validator_indices_and_core_index(true);
+			assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
+			candidate_receipt_with_backers.1.extend(
+				validator_indices
+					.iter()
+					.enumerate()
+					.filter(|(_, signed)| **signed)
+					.zip(backed_candidate.validity_votes().iter().cloned())
+					.filter_map(|((validator_index_within_group, _), attestation)| {
+						let grp_idx = GroupIndex(2);
+						group_validators(grp_idx).map(|validator_indices| {
+							(validator_indices[validator_index_within_group], attestation)
+						})
+					}),
+			);
+
+			assert_eq!(
+				expected,
+				candidate_receipt_with_backing_validator_indices
+					.into_iter()
+					.map(|c| (c.0.hash(), c))
+					.collect()
 			);
 		}
 

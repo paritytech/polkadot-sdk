@@ -24,7 +24,10 @@ use parking_lot::RwLock;
 use sp_consensus_beefy::AuthorityIdBound;
 use std::sync::Arc;
 
-use sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+use sc_rpc::{
+	utils::{BoundedVecDeque, PendingSubscription},
+	SubscriptionTaskExecutor,
+};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::traits::Block as BlockT;
 
@@ -145,7 +148,10 @@ where
 			.subscribe(100_000)
 			.map(|vfp| notification::EncodedVersionedFinalityProof::new::<Block, AuthorityId>(vfp));
 
-		sc_rpc::utils::spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		sc_rpc::utils::spawn_subscription_task(
+			&self.executor,
+			PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
+		);
 	}
 
 	async fn latest_finalized(&self) -> Result<Block::Hash, Error> {

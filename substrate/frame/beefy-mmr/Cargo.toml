@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 description = "BEEFY + MMR runtime utilities"
 repository.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 
 [lints]
 workspace = true
@@ -63,4 +63,11 @@ try-runtime = [
 	"pallet-mmr/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-mmr/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]

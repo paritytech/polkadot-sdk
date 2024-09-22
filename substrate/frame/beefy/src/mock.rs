@@ -111,6 +111,13 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 	type Proof = MockAncestryProof;
 	type ValidationContext = MockAncestryProofContext;
 
+	fn generate_proof(
+		_prev_block_number: Header::Number,
+		_best_known_block_number: Option<Header::Number>,
+	) -> Option<Self::Proof> {
+		unimplemented!()
+	}
+
 	fn extract_validation_context(_header: Header) -> Option<Self::ValidationContext> {
 		AncestryProofContext::get()
 	}
@@ -262,7 +269,7 @@ impl ExtBuilder {
 			}
 		});
 
-		pallet_session::GenesisConfig::<Test> { keys: session_keys }
+		pallet_session::GenesisConfig::<Test> { keys: session_keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 

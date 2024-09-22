@@ -52,7 +52,7 @@ assert_matches = { workspace = true }
 kvdb-memorydb = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 log = { workspace = true, default-features = true }
-env_logger = { workspace = true }
+sp-tracing = { workspace = true }
 
 polkadot-subsystem-bench = { workspace = true }
 

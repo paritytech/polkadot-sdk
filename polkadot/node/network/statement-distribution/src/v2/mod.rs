@@ -2237,7 +2237,9 @@ async fn fragment_chain_update_inner<Context>(
 	// 2. find out which are in the frontier
 	gum::debug!(
 		target: LOG_TARGET,
-		"Calling getHypotheticalMembership from statement distribution"
+		active_leaf_hash = ?active_leaf_hash,
+		"Calling getHypotheticalMembership from statement distribution for candidates: {:?}",
+		&hypotheticals.iter().map(|hypo| hypo.candidate_hash()).collect::<Vec<_>>()
 	);
 	let candidate_memberships = {
 		let (tx, rx) = oneshot::channel();

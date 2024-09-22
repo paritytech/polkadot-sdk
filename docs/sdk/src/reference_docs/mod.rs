@@ -7,14 +7,15 @@
 //!
 //! ## What is a "reference document"?
 //!
-//! First, see [why we use rust-docs for everything](crate#why-rust-docs) and our documentation
-//! [principles](crate#principles). We acknowledge that as much of the crucial information should be
-//! embedded in the low level rust-docs. Then, high level scenarios should be covered in
-//! [`crate::guides`]. Finally, we acknowledge that there is a category of information that is:
+//! First, see [why we use rust-docs for everything](crate::meta_contributing#why-rust-docs) and our
+//! documentation [principles](crate::meta_contributing#principles). We acknowledge that as much of
+//! the crucial information should be embedded in the low level rust-docs. Then, high level
+//! scenarios should be covered in [`crate::guides`]. Finally, we acknowledge that there is a
+//! category of information that is:
 //!
-//! 1. crucial to know.
-//! 2. is too high level to be in the rust-doc of any one `type`, `trait` or `fn`.
-//! 3. is too low level to be encompassed in a [`crate::guides`].
+//! 1. Crucial to know.
+//! 2. Is too high level to be in the rust-doc of any one `type`, `trait` or `fn`.
+//! 3. Is too low level to be encompassed in a [`crate::guides`].
 //!
 //! We call this class of documents "reference documents". Our goal should be to minimize the number
 //! of "reference" docs, as they incur maintenance burden.
@@ -52,8 +53,8 @@ pub mod frame_storage_derives;
 /// Learn about how to write safe and defensive code in your FRAME runtime.
 pub mod defensive_programming;
 
-/// Learn about composite enums and other runtime level types, such as "RuntimeEvent" and
-/// "RuntimeCall".
+/// Learn about composite enums and other runtime level types, such as `RuntimeEvent` and
+/// `RuntimeCall`.
 pub mod frame_runtime_types;
 
 /// Learn about how to make a pallet/runtime that is fee-less and instead uses another mechanism to

@@ -199,6 +199,16 @@ pub enum RuntimeCosts {
 	GetStorage(u32),
 	/// Weight of calling `seal_take_storage` for the given size.
 	TakeStorage(u32),
+	/// Weight of calling `seal_set_transient_storage` for the given storage item sizes.
+	SetTransientStorage { old_bytes: u32, new_bytes: u32 },
+	/// Weight of calling `seal_clear_transient_storage` per cleared byte.
+	ClearTransientStorage(u32),
+	/// Weight of calling `seal_contains_transient_storage` per byte of the checked item.
+	ContainsTransientStorage(u32),
+	/// Weight of calling `seal_get_transient_storage` with the specified size in storage.
+	GetTransientStorage(u32),
+	/// Weight of calling `seal_take_transient_storage` for the given size.
+	TakeTransientStorage(u32),
 	/// Weight of calling `seal_transfer`.
 	Transfer,
 	/// Base weight of calling `seal_call`.
@@ -245,6 +255,37 @@ pub enum RuntimeCosts {
 	UnlockDelegateDependency,
 }
 
+/// For functions that modify storage, benchmarks are performed with one item in the
+/// storage. To account for the worst-case scenario, the weight of the overhead of
+/// writing to or reading from full storage is included. For transient storage writes,
+/// the rollback weight is added to reflect the worst-case scenario for this operation.
+macro_rules! cost_storage {
+    (write_transient, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::rollback_transient_storage())
+            .saturating_add(T::WeightInfo::set_transient_storage_full()
+            .saturating_sub(T::WeightInfo::set_transient_storage_empty()))
+    };
+
+    (read_transient, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::get_transient_storage_full()
+            .saturating_sub(T::WeightInfo::get_transient_storage_empty()))
+    };
+
+    (write, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::set_storage_full()
+            .saturating_sub(T::WeightInfo::set_storage_empty()))
+    };
+
+    (read, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::get_storage_full()
+            .saturating_sub(T::WeightInfo::get_storage_empty()))
+    };
+}
+
 macro_rules! cost_args {
 	// cost_args!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_sub(T::WeightInfo::name(0, 0, 0))
 	($name:ident, $( $arg: expr ),+) => {
@@ -288,14 +329,30 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			Random => T::WeightInfo::seal_random(),
-			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
+			// Given a 2-second block time and hardcoding a `ref_time` of 60,000 picoseconds per
+			// byte  (event_ref_time), the max allocation size is 32MB per block.
+			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
+				.saturating_add(Weight::from_parts(
+					T::Schedule::get().limits.event_ref_time.saturating_mul(len.into()),
+					0,
+				)),
 			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
 			SetStorage { new_bytes, old_bytes } =>
-				T::WeightInfo::seal_set_storage(new_bytes, old_bytes),
-			ClearStorage(len) => T::WeightInfo::seal_clear_storage(len),
-			ContainsStorage(len) => T::WeightInfo::seal_contains_storage(len),
-			GetStorage(len) => T::WeightInfo::seal_get_storage(len),
-			TakeStorage(len) => T::WeightInfo::seal_take_storage(len),
+				cost_storage!(write, seal_set_storage, new_bytes, old_bytes),
+			ClearStorage(len) => cost_storage!(write, seal_clear_storage, len),
+			ContainsStorage(len) => cost_storage!(read, seal_contains_storage, len),
+			GetStorage(len) => cost_storage!(read, seal_get_storage, len),
+			TakeStorage(len) => cost_storage!(write, seal_take_storage, len),
+			SetTransientStorage { new_bytes, old_bytes } =>
+				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
+			ClearTransientStorage(len) =>
+				cost_storage!(write_transient, seal_clear_transient_storage, len),
+			ContainsTransientStorage(len) =>
+				cost_storage!(read_transient, seal_contains_transient_storage, len),
+			GetTransientStorage(len) =>
+				cost_storage!(read_transient, seal_get_transient_storage, len),
+			TakeTransientStorage(len) =>
+				cost_storage!(write_transient, seal_take_transient_storage, len),
 			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
@@ -792,8 +849,127 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		let key = self.decode_key(memory, key_type, key_ptr)?;
 		let outcome = self.ext.get_storage_size(&key);
 
-		self.adjust_gas(charged, RuntimeCosts::ClearStorage(outcome.unwrap_or(0)));
+		self.adjust_gas(charged, RuntimeCosts::ContainsStorage(outcome.unwrap_or(0)));
 		Ok(outcome.unwrap_or(SENTINEL))
+	}
+
+	fn set_transient_storage(
+		&mut self,
+		memory: &[u8],
+		key_type: KeyType,
+		key_ptr: u32,
+		value_ptr: u32,
+		value_len: u32,
+	) -> Result<u32, TrapReason> {
+		let max_size = self.ext.max_value_size();
+		let charged = self.charge_gas(RuntimeCosts::SetTransientStorage {
+			new_bytes: value_len,
+			old_bytes: max_size,
+		})?;
+		if value_len > max_size {
+			return Err(Error::<E::T>::ValueTooLarge.into())
+		}
+		let key = self.decode_key(memory, key_type, key_ptr)?;
+		let value = Some(self.read_sandbox_memory(memory, value_ptr, value_len)?);
+		let write_outcome = self.ext.set_transient_storage(&key, value, false)?;
+		self.adjust_gas(
+			charged,
+			RuntimeCosts::SetTransientStorage {
+				new_bytes: value_len,
+				old_bytes: write_outcome.old_len(),
+			},
+		);
+		Ok(write_outcome.old_len_with_sentinel())
+	}
+
+	fn clear_transient_storage(
+		&mut self,
+		memory: &[u8],
+		key_type: KeyType,
+		key_ptr: u32,
+	) -> Result<u32, TrapReason> {
+		let charged =
+			self.charge_gas(RuntimeCosts::ClearTransientStorage(self.ext.max_value_size()))?;
+		let key = self.decode_key(memory, key_type, key_ptr)?;
+		let outcome = self.ext.set_transient_storage(&key, None, false)?;
+
+		self.adjust_gas(charged, RuntimeCosts::ClearTransientStorage(outcome.old_len()));
+		Ok(outcome.old_len_with_sentinel())
+	}
+
+	fn get_transient_storage(
+		&mut self,
+		memory: &mut [u8],
+		key_type: KeyType,
+		key_ptr: u32,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let charged =
+			self.charge_gas(RuntimeCosts::GetTransientStorage(self.ext.max_value_size()))?;
+		let key = self.decode_key(memory, key_type, key_ptr)?;
+		let outcome = self.ext.get_transient_storage(&key);
+
+		if let Some(value) = outcome {
+			self.adjust_gas(charged, RuntimeCosts::GetTransientStorage(value.len() as u32));
+			self.write_sandbox_output(
+				memory,
+				out_ptr,
+				out_len_ptr,
+				&value,
+				false,
+				already_charged,
+			)?;
+			Ok(ReturnErrorCode::Success)
+		} else {
+			self.adjust_gas(charged, RuntimeCosts::GetTransientStorage(0));
+			Ok(ReturnErrorCode::KeyNotFound)
+		}
+	}
+
+	fn contains_transient_storage(
+		&mut self,
+		memory: &[u8],
+		key_type: KeyType,
+		key_ptr: u32,
+	) -> Result<u32, TrapReason> {
+		let charged =
+			self.charge_gas(RuntimeCosts::ContainsTransientStorage(self.ext.max_value_size()))?;
+		let key = self.decode_key(memory, key_type, key_ptr)?;
+		let outcome = self.ext.get_transient_storage_size(&key);
+
+		self.adjust_gas(charged, RuntimeCosts::ContainsTransientStorage(outcome.unwrap_or(0)));
+		Ok(outcome.unwrap_or(SENTINEL))
+	}
+
+	fn take_transient_storage(
+		&mut self,
+		memory: &mut [u8],
+		key_type: KeyType,
+		key_ptr: u32,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let charged =
+			self.charge_gas(RuntimeCosts::TakeTransientStorage(self.ext.max_value_size()))?;
+		let key = self.decode_key(memory, key_type, key_ptr)?;
+		if let crate::storage::WriteOutcome::Taken(value) =
+			self.ext.set_transient_storage(&key, None, true)?
+		{
+			self.adjust_gas(charged, RuntimeCosts::TakeTransientStorage(value.len() as u32));
+			self.write_sandbox_output(
+				memory,
+				out_ptr,
+				out_len_ptr,
+				&value,
+				false,
+				already_charged,
+			)?;
+			Ok(ReturnErrorCode::Success)
+		} else {
+			self.adjust_gas(charged, RuntimeCosts::TakeTransientStorage(0));
+			Ok(ReturnErrorCode::KeyNotFound)
+		}
 	}
 
 	fn call(
@@ -1097,6 +1273,67 @@ pub mod env {
 			ctx.adjust_gas(charged, RuntimeCosts::TakeStorage(0));
 			Ok(ReturnErrorCode::KeyNotFound)
 		}
+	}
+
+	/// Set the value at the given key in the contract transient storage.
+	#[unstable]
+	fn set_transient_storage(
+		ctx: _,
+		memory: _,
+		key_ptr: u32,
+		key_len: u32,
+		value_ptr: u32,
+		value_len: u32,
+	) -> Result<u32, TrapReason> {
+		ctx.set_transient_storage(memory, KeyType::Var(key_len), key_ptr, value_ptr, value_len)
+	}
+
+	/// Clear the value at the given key in the contract storage.
+	#[unstable]
+	fn clear_transient_storage(
+		ctx: _,
+		memory: _,
+		key_ptr: u32,
+		key_len: u32,
+	) -> Result<u32, TrapReason> {
+		ctx.clear_transient_storage(memory, KeyType::Var(key_len), key_ptr)
+	}
+
+	/// Retrieve the value under the given key from transient storage.
+	#[unstable]
+	fn get_transient_storage(
+		ctx: _,
+		memory: _,
+		key_ptr: u32,
+		key_len: u32,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		ctx.get_transient_storage(memory, KeyType::Var(key_len), key_ptr, out_ptr, out_len_ptr)
+	}
+
+	/// Checks whether there is a value stored under the given key in transient storage.
+	#[unstable]
+	fn contains_transient_storage(
+		ctx: _,
+		memory: _,
+		key_ptr: u32,
+		key_len: u32,
+	) -> Result<u32, TrapReason> {
+		ctx.contains_transient_storage(memory, KeyType::Var(key_len), key_ptr)
+	}
+
+	/// Retrieve and remove the value under the given key from transient storage.
+	#[unstable]
+	fn take_transient_storage(
+		ctx: _,
+		memory: _,
+		key_ptr: u32,
+		key_len: u32,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		ctx.take_transient_storage(memory, KeyType::Var(key_len), key_ptr, out_ptr, out_len_ptr)
 	}
 
 	/// Transfer some value to another account.

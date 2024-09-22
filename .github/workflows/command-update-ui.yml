@@ -26,6 +26,9 @@ jobs:
     timeout-minutes: 90
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Download repo
         uses: actions/checkout@v4

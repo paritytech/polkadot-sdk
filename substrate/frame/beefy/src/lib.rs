@@ -538,8 +538,8 @@ impl<T: Config> Pallet<T> {
 		ValidatorSet::<T::BeefyId>::new(validators, id)
 	}
 
-	/// Submits an extrinsic to report an equivocation. This method will create
-	/// an unsigned extrinsic with a call to `report_equivocation_unsigned` and
+	/// Submits an extrinsic to report a double voting equivocation. This method will create
+	/// an unsigned extrinsic with a call to `report_double_voting_unsigned` and
 	/// will push the transaction to the pool. Only useful in an offchain context.
 	pub fn submit_unsigned_double_voting_report(
 		equivocation_proof: DoubleVotingProof<
@@ -553,6 +553,37 @@ impl<T: Config> Pallet<T> {
 			equivocation_proof,
 			key_owner_proof,
 		))
+		.ok()
+	}
+
+	/// Submits an extrinsic to report a fork voting equivocation. This method will create
+	/// an unsigned extrinsic with a call to `report_fork_voting_unsigned` and
+	/// will push the transaction to the pool. Only useful in an offchain context.
+	pub fn submit_unsigned_fork_voting_report(
+		equivocation_proof: ForkVotingProof<
+			HeaderFor<T>,
+			T::BeefyId,
+			<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
+		>,
+		key_owner_proof: T::KeyOwnerProof,
+	) -> Option<()> {
+		T::EquivocationReportSystem::publish_evidence(EquivocationEvidenceFor::ForkVotingProof(
+			equivocation_proof,
+			key_owner_proof,
+		))
+		.ok()
+	}
+
+	/// Submits an extrinsic to report a future block voting equivocation. This method will create
+	/// an unsigned extrinsic with a call to `report_future_block_voting_unsigned` and
+	/// will push the transaction to the pool. Only useful in an offchain context.
+	pub fn submit_unsigned_future_block_voting_report(
+		equivocation_proof: FutureBlockVotingProof<BlockNumberFor<T>, T::BeefyId>,
+		key_owner_proof: T::KeyOwnerProof,
+	) -> Option<()> {
+		T::EquivocationReportSystem::publish_evidence(
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, key_owner_proof),
+		)
 		.ok()
 	}
 

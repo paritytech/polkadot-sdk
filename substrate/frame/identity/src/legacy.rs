@@ -173,7 +173,7 @@ impl<FieldLimit: Get<u32>> Default for IdentityInfo<FieldLimit> {
 
 impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
 	pub(crate) fn fields(&self) -> BitFlags<IdentityField> {
-		let mut res = <BitFlags<IdentityField>>::empty();
+		let mut res = BitFlags::<IdentityField>::empty();
 		if !self.display.is_none() {
 			res.insert(IdentityField::Display);
 		}

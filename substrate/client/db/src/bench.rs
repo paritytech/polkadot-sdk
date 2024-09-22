@@ -161,6 +161,11 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 		Ok(state)
 	}
 
+	/// Get the proof recorder for this state
+	pub fn recorder(&self) -> Option<sp_trie::recorder::Recorder<Hasher, DBLocation>> {
+		self.proof_recorder.clone()
+	}
+
 	fn reopen(&self) -> Result<(), String> {
 		*self.state.borrow_mut() = None;
 		let db = Box::new(self.genesis.clone());

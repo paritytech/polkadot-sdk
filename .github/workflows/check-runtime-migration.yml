@@ -7,6 +7,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+  workflow_dispatch:
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -27,7 +29,9 @@ jobs:
   # rococo and westend are disabled for now (no access to parity-chains.parity.io)
   check-runtime-migration:
     runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 40
+    # We need to set this to rather long to allow the snapshot to be created, but the average time
+    # should be much lower.
+    timeout-minutes: 60
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -94,22 +98,45 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: script
-        run: |
-          echo "Running ${{ matrix.network }} runtime migration check"
-          export RUST_LOG=remote-ext=debug,runtime=debug
 
-          echo "---------- Downloading try-runtime CLI ----------"
-          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.5.4/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+      - name: Download CLI
+        run: |
+          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.7.0/try-runtime-x86_64-unknown-linux-musl -o try-runtime
           chmod +x ./try-runtime
           echo "Using try-runtime-cli version:"
           ./try-runtime --version
 
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "today=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Download Snapshot
+        uses: actions/cache@v4
+        with:
+          path: snapshot.raw
+          key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
+          save-always: true
+
+      - name: Create Snapshot If Stale
+        if: ${{ hashFiles('snapshot.raw') == '' }}
+        run: |
+          echo "Creating new snapshot for today (${{ steps.get-date.outputs.today }})"
+          ./try-runtime create-snapshot --uri ${{ matrix.uri }} snapshot.raw
+
+      - name: Build Runtime
+        run: |
           echo "---------- Building ${{ matrix.package }} runtime ----------"
-          time forklift cargo build --release --locked -p ${{ matrix.package }} --features try-runtime
+          time forklift cargo build --release --locked -p ${{ matrix.package }} --features try-runtime -q
+
+      - name: Run Check
+        run: |
+          echo "Running ${{ matrix.network }} runtime migration check"
+          export RUST_LOG=remote-ext=debug,runtime=debug
 
           echo "---------- Executing on-runtime-upgrade for ${{ matrix.network }} ----------"
           time ./try-runtime ${{ matrix.command_extra_args }} \
               --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
-              on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} live --uri ${{ matrix.uri }}
+              on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
           sleep 5

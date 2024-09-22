@@ -389,6 +389,7 @@ fn asset_hub_rococo_genesis(
 					)
 				})
 				.collect(),
+			..Default::default()
 		},
 		"polkadotXcm": asset_hub_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
