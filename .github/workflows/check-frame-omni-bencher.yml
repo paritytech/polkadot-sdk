@@ -18,8 +18,6 @@ env:
 jobs:
 
   preflight:
-    # TODO: remove once migration is complete or this workflow is fully stable
-    if: contains(github.event.label.name, 'GHA-migration')
     uses: ./.github/workflows/reusable-preflight.yml
 
   quick-benchmarks-omni:
