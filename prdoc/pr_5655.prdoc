@@ -10,6 +10,6 @@ doc:
     - Improve error messages.
 crates:
 - name: frame-benchmarking-cli
-  bump: minor
+  bump: major
 - name: frame-benchmarking-pallet-pov
-  bump: minor
+  bump: patch
