@@ -29,7 +29,7 @@ use crate::{
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
-use codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
+use codec::{Compact, Decode, Encode, EncodeLike, Error, Input, CountedInput};
 use core::fmt;
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;
@@ -281,7 +281,8 @@ where
 		// with SCALE's generic `Vec<u8>` type. Basically this just means accepting that there
 		// will be a prefix of vector length.
 		let expected_length: Compact<u32> = Decode::decode(input)?;
-		let before_length = input.remaining_len()?;
+
+		let mut counted_input = CountedInput::new(input);
 
 		let version = input.read_byte()?;
 
@@ -294,14 +295,8 @@ where
 		let signature = is_signed.then(|| Decode::decode(input)).transpose()?;
 		let function = Decode::decode(input)?;
 
-		if let Some((before_length, after_length)) =
-			input.remaining_len()?.and_then(|a| before_length.map(|b| (b, a)))
-		{
-			let length = before_length.saturating_sub(after_length);
-
-			if length != expected_length.0 as usize {
-				return Err("Invalid length prefix".into())
-			}
+		if counted_input.count() != expected_length.0 as u64 {
+			return Err("Invalid length prefix".into());
 		}
 
 		Ok(Self { signature, function })
