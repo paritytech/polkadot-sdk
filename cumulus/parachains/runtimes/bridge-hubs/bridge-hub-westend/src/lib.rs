@@ -843,7 +843,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_bridge_hub_rococo::FromBridgeHubRococoInboundLaneApi<Block, LaneIdOf<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>> for Runtime {
+	impl bp_bridge_hub_rococo::FromBridgeHubRococoInboundLaneApi<Block> for Runtime {
 		fn message_details(
 			lane: LaneIdOf<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>,
 			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
@@ -855,7 +855,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_bridge_hub_rococo::ToBridgeHubRococoOutboundLaneApi<Block, LaneIdOf<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>> for Runtime {
+	impl bp_bridge_hub_rococo::ToBridgeHubRococoOutboundLaneApi<Block> for Runtime {
 		fn message_details(
 			lane: LaneIdOf<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>,
 			begin: bp_messages::MessageNonce,

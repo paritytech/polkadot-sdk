@@ -381,7 +381,7 @@ pub mod __private {
 /// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 #[macro_export]
 macro_rules! decl_bridge_messages_runtime_apis {
-	($chain: ident, $lane_id_type:ident) => {
+	($chain: ident, $lane_id_type:ty) => {
 		bp_runtime::paste::item! {
 			mod [<$chain _messages_api>] {
 				use super::*;
@@ -399,7 +399,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 					///
 					/// This API is implemented by runtimes that are receiving messages from this chain, not by this
 					/// chain's runtime itself.
-					pub trait [<To $chain:camel OutboundLaneApi>]<$lane_id_type> where $lane_id_type: $crate::__private::codec::Encode {
+					pub trait [<To $chain:camel OutboundLaneApi>] {
 						/// Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
 						/// messages in given inclusive range.
 						///
@@ -419,7 +419,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 					///
 					/// Entries of the resulting vector are matching entries of the `messages` vector. Entries of the
 					/// `messages` vector may (and need to) be read using `To<ThisChain>OutboundLaneApi::message_details`.
-					pub trait [<From $chain:camel InboundLaneApi>]<$lane_id_type> where $lane_id_type: $crate::__private::codec::Encode {
+					pub trait [<From $chain:camel InboundLaneApi>] {
 						/// Return details of given inbound messages.
 						fn message_details(
 							lane: $lane_id_type,

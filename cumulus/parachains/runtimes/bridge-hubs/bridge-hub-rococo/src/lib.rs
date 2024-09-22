@@ -906,7 +906,7 @@ impl_runtime_apis! {
 	}
 
 	// This is exposed by BridgeHubRococo
-	impl bp_bridge_hub_westend::FromBridgeHubWestendInboundLaneApi<Block, LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>> for Runtime {
+	impl bp_bridge_hub_westend::FromBridgeHubWestendInboundLaneApi<Block> for Runtime {
 		fn message_details(
 			lane: LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>,
 			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
@@ -919,7 +919,7 @@ impl_runtime_apis! {
 	}
 
 	// This is exposed by BridgeHubRococo
-	impl bp_bridge_hub_westend::ToBridgeHubWestendOutboundLaneApi<Block, LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>> for Runtime {
+	impl bp_bridge_hub_westend::ToBridgeHubWestendOutboundLaneApi<Block> for Runtime {
 		fn message_details(
 			lane: LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>,
 			begin: bp_messages::MessageNonce,
@@ -949,7 +949,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_polkadot_bulletin::FromPolkadotBulletinInboundLaneApi<Block, LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>> for Runtime {
+	impl bp_polkadot_bulletin::FromPolkadotBulletinInboundLaneApi<Block> for Runtime {
 		fn message_details(
 			lane: LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>,
 			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
@@ -961,7 +961,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_polkadot_bulletin::ToPolkadotBulletinOutboundLaneApi<Block, LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>> for Runtime {
+	impl bp_polkadot_bulletin::ToPolkadotBulletinOutboundLaneApi<Block> for Runtime {
 		fn message_details(
 			lane: LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>,
 			begin: bp_messages::MessageNonce,
