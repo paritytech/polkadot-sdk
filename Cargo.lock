@@ -2188,12 +2188,14 @@ dependencies = [
 name = "bridge-hub-rococo-emulated-chain"
 version = "0.0.0"
 dependencies = [
+ "bp-messages",
  "bridge-hub-common",
  "bridge-hub-rococo-runtime",
  "emulated-integration-tests-common",
  "frame-support",
  "parachains-common",
  "sp-core 28.0.0",
+ "staging-xcm",
  "testnet-parachains-constants",
 ]
 
@@ -2376,12 +2378,14 @@ dependencies = [
 name = "bridge-hub-westend-emulated-chain"
 version = "0.0.0"
 dependencies = [
+ "bp-messages",
  "bridge-hub-common",
  "bridge-hub-westend-runtime",
  "emulated-integration-tests-common",
  "frame-support",
  "parachains-common",
  "sp-core 28.0.0",
+ "staging-xcm",
  "testnet-parachains-constants",
 ]
 

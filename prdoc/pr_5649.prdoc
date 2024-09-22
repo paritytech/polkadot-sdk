@@ -44,6 +44,6 @@ crates:
 - name: bridge-hub-westend-runtime
   bump: patch
 - name: polkadot-parachain-bin
-  bump: patch
+  bump: none
 - name: bridge-hub-test-utils
-  bump: patch
+  bump: major
