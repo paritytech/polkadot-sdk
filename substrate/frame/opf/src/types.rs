@@ -75,6 +75,21 @@ impl<T: Config> VoteInfo<T> {
 			.saturating_add(T::VoteLockingPeriod::get().saturating_mul(conviction_coeff.into()));
 		self.funds_unlock_block = funds_unlock_block;
 	}
+
+}
+
+impl <T: Config> Default for VoteInfo<T>{	
+	// Dummy vote infos used to handle errors
+	fn default() -> Self {
+		// get round number
+		let round = VotingRounds::<T>::get(0).expect("Round 0 exists");
+		let amount = Zero::zero();
+		let is_fund = false;
+		let conviction = Conviction::None;
+		let funds_unlock_block = round.round_ending_block;
+		VoteInfo {amount, round, is_fund, conviction, funds_unlock_block}
+
+	}
 }
 
 /// Voting rounds are periodically created inside a hook on_initialize (use poll in the future)
