@@ -45,14 +45,13 @@ testnet-parachains-constants = { features = [
 ], workspace = true }
 
 # Substrate
-sp-runtime = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-service = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 
 # Cumulus
@@ -70,9 +69,7 @@ runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-lib/runtime-benchmarks",
-	"polkadot-service/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 
 	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
@@ -90,8 +87,6 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"polkadot-parachain-lib/try-runtime",
-	"polkadot-service/try-runtime",
-	"sp-runtime/try-runtime",
 
 	"asset-hub-rococo-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",

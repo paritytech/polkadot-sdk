@@ -13,33 +13,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Asset Hub Rococo Runtime genesis config presets
+//! # Bridge Hub Rococo Runtime genesis config presets
 
 use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
-use hex_literal::hex;
 use parachains_common::{genesis_config_helpers::*, AccountId, AuraId};
-use sp_core::{crypto::UncheckedInto, sr25519};
+use sp_core::sr25519;
 use sp_genesis_builder::PresetId;
-use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION};
+use testnet_parachains_constants::rococo::xcm_version::SAFE_XCM_VERSION;
 
-const ASSET_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
+const BRIDGE_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
 
-fn asset_hub_rococo_genesis(
+fn bridge_hub_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
-	endowment: Balance,
 	id: ParaId,
+	bridges_pallet_owner: Option<AccountId>,
+	asset_hub_para_id: ParaId,
+	opened_bridges: Vec<(Location, InteriorLocation, Option<bp_messages::LegacyLaneId>)>,
 ) -> serde_json::Value {
 	let config = RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
+			balances: endowed_accounts
+				.iter()
+				.cloned()
+				.map(|k| (k, 1u128 << 60))
+				.collect::<Vec<_>>(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: ASSET_HUB_ROCOCO_ED * 16,
+			candidacy_bond: BRIDGE_HUB_ROCOCO_ED * 16,
 			..Default::default()
 		},
 		session: SessionConfig {
@@ -59,54 +64,33 @@ fn asset_hub_rococo_genesis(
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		},
+		bridge_westend_grandpa: BridgeWestendGrandpaConfig {
+			owner: bridges_pallet_owner.clone(),
+			..Default::default()
+		},
+		bridge_westend_messages: BridgeWestendMessagesConfig {
+			owner: bridges_pallet_owner.clone(),
+			..Default::default()
+		},
+		xcm_over_bridge_hub_westend: XcmOverBridgeHubWestendConfig {
+			opened_bridges,
+			..Default::default()
+		},
+		ethereum_system: EthereumSystemConfig {
+			para_id: id,
+			asset_hub_para_id,
+			..Default::default()
+		},
 		..Default::default()
 	};
 
 	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 
-/// Encapsulates names of predefined presets.
-mod preset_names {
-	pub const PRESET_GENESIS: &str = "genesis";
-}
-
 /// Provides the JSON representation of predefined genesis config for given `id`.
-pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-	use preset_names::*;
+pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
 	let patch = match id.try_into() {
-		Ok(PRESET_GENESIS) => asset_hub_rococo_genesis(
-			// initial collators.
-			vec![
-				// E8XC6rTJRsioKCp6KMy6zd24ykj4gWsusZ3AkSeyavpVBAG
-				(
-					hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608").into(),
-					hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608")
-						.unchecked_into(),
-				),
-				// G28iWEybndgGRbhfx83t7Q42YhMPByHpyqWDUgeyoGF94ri
-				(
-					hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944").into(),
-					hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944")
-						.unchecked_into(),
-				),
-				// G839e2eMiq7UXbConsY6DS1XDAYG2XnQxAmLuRLGGQ3Px9c
-				(
-					hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948").into(),
-					hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948")
-						.unchecked_into(),
-				),
-				// GLao4ukFUW6qhexuZowdFrKa2NLCfnEjZMftSXXfvGv1vvt
-				(
-					hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f").into(),
-					hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f")
-						.unchecked_into(),
-				),
-			],
-			Vec::new(),
-			ASSET_HUB_ROCOCO_ED * 524_288,
-			1000.into(),
-		),
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => asset_hub_rococo_genesis(
+		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => bridge_hub_rococo_genesis(
 			// initial collators.
 			vec![
 				(
@@ -132,27 +116,48 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 			],
-			ROC * 1_000_000,
-			1000.into(),
-		),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => asset_hub_rococo_genesis(
-			// initial collators.
+			1013.into(),
+			Some(get_account_id_from_seed::<sr25519::Public>("Bob")),
+			rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
 			vec![(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed::<AuraId>("Alice"),
+				Location::new(1, [Parachain(1000)]),
+				Junctions::from([Westend.into(), Parachain(1000)]),
+				Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
 			)],
+		),
+		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => bridge_hub_rococo_genesis(
+			// initial collators.
+			vec![
+				(
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+				),
+				(
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				),
+			],
 			vec![
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie"),
+				get_account_id_from_seed::<sr25519::Public>("Dave"),
+				get_account_id_from_seed::<sr25519::Public>("Eve"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
 				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 			],
-			ROC * 1_000_000,
-			1000.into(),
+			1013.into(),
+			Some(get_account_id_from_seed::<sr25519::Public>("Bob")),
+			rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
+			vec![],
 		),
 		_ => return None,
 	};
-
 	Some(
 		serde_json::to_string(&patch)
 			.expect("serialization to json is expected to work. qed.")
@@ -162,9 +167,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 
 /// List of supported presets.
 pub fn preset_names() -> Vec<PresetId> {
-	use preset_names::*;
 	vec![
-		PresetId::from(PRESET_GENESIS),
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
 	]
